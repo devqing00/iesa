@@ -1,0 +1,38 @@
+{
+  "student_name": "Qing",
+  "semester": "Fall 2025",
+  "courses": [
+    {
+      "code": "CS101",
+      "name": "Intro to Computer Science",
+      "professor": "Dr. Smith",
+      "schedule": [
+        { "day": "Monday", "time": "10:00 AM - 11:30 AM", "location": "Room 301" },
+        { "day": "Wednesday", "time": "10:00 AM - 11:30 AM", "location": "Room 301" }
+      ]
+    },
+    {
+      "code": "MTH201",
+      "name": "Calculus II",
+      "professor": "Dr. Johnson",
+ "schedule": [
+        { "day": "Tuesday", "time": "09:00 AM - 10:30 AM", "location": "Hall B" },
+        { "day": "Thursday", "time": "09:00 AM - 10:30 AM", "location": "Hall B" }
+      ]
+    },
+    {
+      "code": "PHY101",
+      "name": "Physics I",
+      "professor": "Dr. Brown",
+      "schedule": [
+        { "day": "Monday", "time": "01:00 PM - 02:30 PM", "location": "Lab 4" },
+        { "day": "Wednesday", "time": "01:00 PM - 02:30 PM", "location": "Lab 4" },
+        { "day": "Friday", "time": "10:00 AM - 11:00 AM", "location": "Lecture Hall A" }
+      ]
+    }
+  ],
+  "exams": [
+    { "course": "CS101", "date": "2025-10-15", "time": "10:00 AM", "location": "Main Hall" },
+    { "course": "MTH201", "date": "2025-10-18", "time": "09:00 AM", "location": "Room 202" }
+  ]
+}

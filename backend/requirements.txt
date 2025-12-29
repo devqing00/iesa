@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+firebase-admin
+motor
+python-dotenv
+pydantic
+pydantic-settings
+groq
