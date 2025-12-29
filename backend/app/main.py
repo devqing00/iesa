@@ -17,6 +17,11 @@ app.add_middleware(
 async def root():
     return {"message": "Welcome to IESA Backend"}
 
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
 # Register schedule-bot router
 app.include_router(schedule_bot.router)
 
