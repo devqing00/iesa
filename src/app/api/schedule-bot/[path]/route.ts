@@ -23,7 +23,12 @@ async function proxyRequest(req: Request, {params}: {params: string}) {
       const body = await req.arrayBuffer();
       init.body = body;
     } catch (e) {
-      // ignore
+      const error = e;
+      console.error('Error reading request body:', error);
+      return new NextResponse(JSON.stringify({ error: 'Error reading request body', detail: error }, null, 2), {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+      });
     }
   }
 
@@ -32,7 +37,7 @@ async function proxyRequest(req: Request, {params}: {params: string}) {
   const timeoutMs = 15000;
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   // attach signal
-  (init as any).signal = controller.signal;
+  (init).signal = controller.signal;
 
   try {
     const res = await fetch(target, init);
@@ -43,9 +48,14 @@ async function proxyRequest(req: Request, {params}: {params: string}) {
       status: res.status,
       headers: { 'content-type': contentType },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     clearTimeout(timeoutId);
-    const msg = err?.name === 'AbortError' ? `Backend request timed out after ${timeoutMs}ms` : String(err?.message || err);
+    let msg: string;
+    if (err instanceof Error) {
+      msg = err.name === 'AbortError' ? `Backend request timed out after ${timeoutMs}ms` : err.message;
+    } else {
+      msg = String(err);
+    }
     const info = {
       error: 'Unable to reach backend',
       detail: msg,

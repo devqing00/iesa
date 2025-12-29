@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const response = await fetch('http://localhost:8000/schedule-bot/chat', {
+    const backend = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+    const url = `${backend.replace(/\/+$/,'')}/schedule-bot/chat`;
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -11,11 +13,19 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body),
     });
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch from backend');
+    const text = await response.text();
+    let data: any = text;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      // response was not JSON
     }
 
-    const data = await response.json();
+    if (!response.ok) {
+      console.error('Backend error', response.status, data);
+      return NextResponse.json({ error: 'Backend error', details: data }, { status: response.status });
+    }
+
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error proxying to backend:', error);
