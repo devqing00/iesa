@@ -17,3 +17,4 @@ cloudinary
 reportlab
 pillow
 qrcode[pil]
+httpx

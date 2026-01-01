@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 import os
 from pymongo import MongoClient
 from app.core.security import verify_token
-from app.routers import sessions, users, payments, events, announcements, grades, enrollments, roles, students, iesa_ai, resources, timetable, paystack, id_card
+from app.routers import sessions, users, payments, events, announcements, grades, enrollments, roles, students, iesa_ai, resources, timetable, paystack, id_card, telegram_webhook
 from app.db import connect_to_mongo, close_mongo_connection
 
 # Synchronous MongoDB client for compatibility with some routers
@@ -81,6 +81,7 @@ app.include_router(resources.router)  # Resource Library
 app.include_router(timetable.router)  # Timetable System
 app.include_router(paystack.router)  # Paystack Payment Integration
 app.include_router(id_card.router)  # Digital ID Cards
+app.include_router(telegram_webhook.router)  # Telegram Bot Webhook
 
 # Legacy routes (backward compatibility) - removed to avoid conflicts
 app.include_router(announcements.router, tags=["Legacy"])
