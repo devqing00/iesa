@@ -9,7 +9,7 @@ export default function AdminDashboard() {
     totalUsers: 0,
     totalStudents: 0,
     totalAdmins: 0,
-    activeSession: null,
+    activeSession: null as string | null,
     totalEnrollments: 0,
     totalPayments: 0,
     totalEvents: 0,
