@@ -6,7 +6,7 @@ This is the core of the time-travel feature.
 """
 
 from pydantic import BaseModel, Field
-from typing import Literal
+from typing import Literal, Optional
 from datetime import datetime
 from bson import ObjectId
 
