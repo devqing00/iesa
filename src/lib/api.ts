@@ -19,9 +19,9 @@ export async function apiRequest(
 ): Promise<Response> {
   const url = `${API_BASE_URL}${endpoint}`;
   
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...(options.headers as Record<string, string>),
   };
   
   if (token) {

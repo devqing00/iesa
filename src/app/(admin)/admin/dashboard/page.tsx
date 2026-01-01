@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
 
 export default function AdminDashboard() {
-  const { user } = useAuth();
+  const { userProfile } = useAuth();
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalStudents: 0,
@@ -55,7 +55,7 @@ export default function AdminDashboard() {
       {/* Welcome Header */}
       <div className="mb-8">
         <h1 className="text-3xl md:text-4xl font-heading font-bold text-[var(--foreground)] mb-2">
-          Welcome back, {user?.firstName}!
+          Welcome back, {userProfile?.firstName}!
         </h1>
         <p className="text-[var(--foreground)]/60">
           Here's what's happening with IESA today.

@@ -34,7 +34,7 @@ const RESOURCE_TYPES = [
   { value: "video", label: "Videos", icon: Video },
 ];
 
-const LEVELS = [
+const LEVELS: Array<{ value: "all" | number; label: string }> = [
   { value: "all", label: "All Levels" },
   { value: 100, label: "100 Level" },
   { value: 200, label: "200 Level" },

@@ -227,7 +227,7 @@ export default function EventsPage() {
             {filteredEvents.map((event) => {
               const isRegistered = registeredEvents.has(event.id);
               const isProcessing = registering === event.id;
-              const isFull = event.maxAttendees && event.attendeeCount >= event.maxAttendees;
+              const isFull = Boolean(event.maxAttendees && event.attendeeCount >= event.maxAttendees);
 
               return (
                 <article 
