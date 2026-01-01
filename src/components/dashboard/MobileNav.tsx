@@ -7,13 +7,14 @@ import { useState } from "react";
 export default function MobileNav() {
   const pathname = usePathname();
 
+  // Primary navigation - visible on mobile nav bar (only 4 items to prevent overflow)
   const links = [
     {
       name: "Home",
       href: "/dashboard",
       icon: (
         <svg
-          className="w-6 h-6"
+          className="w-5 h-5"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -28,30 +29,11 @@ export default function MobileNav() {
       ),
     },
     {
-      name: "Events",
-      href: "/dashboard/events",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-          />
-        </svg>
-      ),
-    },
-    {
       name: "Library",
       href: "/dashboard/library",
       icon: (
         <svg
-          className="w-6 h-6"
+          className="w-5 h-5"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -66,20 +48,11 @@ export default function MobileNav() {
       ),
     },
     {
-      name: "Growth",
-      href: "/dashboard/growth",
-      icon: (
-        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2v6m0 0c3 0 5 2 5 5v4a1 1 0 01-1 1h-8a1 1 0 01-1-1v-4c0-3 2-5 5-5z" />
-        </svg>
-      ),
-    },
-    {
-      name: "Pay",
-      href: "/dashboard/payments",
+      name: "ID Card",
+      href: "/dashboard/id-card",
       icon: (
         <svg
-          className="w-6 h-6"
+          className="w-5 h-5"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -88,7 +61,7 @@ export default function MobileNav() {
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={2}
-            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+            d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"
           />
         </svg>
       ),
@@ -98,7 +71,7 @@ export default function MobileNav() {
       href: "/dashboard/profile",
       icon: (
         <svg
-          className="w-6 h-6"
+          className="w-5 h-5"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -114,7 +87,7 @@ export default function MobileNav() {
     },
   ];
 
-  // Extra menu for more links
+  // Secondary navigation - moved to "More" dropdown to prevent overflow
   const moreLinks = [
     {
       name: "Announcements",
@@ -122,7 +95,7 @@ export default function MobileNav() {
       icon: (
         <span className="relative">
           <svg
-            className="w-6 h-6"
+            className="w-5 h-5"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -139,11 +112,77 @@ export default function MobileNav() {
       ),
     },
     {
+      name: "Events",
+      href: "/dashboard/events",
+      icon: (
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
+        </svg>
+      ),
+    },
+    {
+      name: "Growth",
+      href: "/dashboard/growth",
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        </svg>
+      ),
+    },
+    {
+      name: "Timetable",
+      href: "/dashboard/timetable",
+      icon: (
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+      ),
+    },
+    {
+      name: "Payments",
+      href: "/dashboard/payments",
+      icon: (
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+          />
+        </svg>
+      ),
+    },
+    {
       name: "IESA Team",
       href: "/dashboard/team/central",
       icon: (
         <svg
-          className="w-6 h-6"
+          className="w-5 h-5"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -163,15 +202,15 @@ export default function MobileNav() {
   const [showMore, setShowMore] = useState(false);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-xl border-t border-foreground/5 md:hidden z-50 pb-safe">
-      <div className="flex justify-around items-center p-2">
+    <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-xl border-t border-foreground/10 md:hidden z-50">
+      <div className="flex justify-around items-center px-1 py-2 max-w-screen-sm mx-auto">
         {links.map((link) => {
           const isActive = pathname === link.href;
           return (
             <Link
               key={link.name}
               href={link.href}
-              className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${
+              className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-all min-w-0 flex-1 ${
                 isActive
                   ? "text-primary"
                   : "text-foreground/40 hover:text-foreground/60"
@@ -184,43 +223,58 @@ export default function MobileNav() {
               >
                 {link.icon}
               </div>
-              <span className="text-[10px] font-bold">{link.name}</span>
+              <span className="text-[9px] font-bold truncate w-full text-center">{link.name}</span>
             </Link>
           );
         })}
         {/* More menu */}
-        <div className="relative">
+        <div className="relative flex-1 min-w-0">
           <button
-            className="flex flex-col items-center gap-1 p-2 rounded-xl transition-all text-foreground/40 hover:text-foreground/60"
+            className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-all w-full ${
+              showMore ? "text-primary" : "text-foreground/40 hover:text-foreground/60"
+            }`}
             onClick={() => setShowMore((v) => !v)}
-            aria-label="More"
+            aria-label="More options"
           >
             <svg
-              className="w-6 h-6"
+              className="w-5 h-5"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
-              <circle cx="5" cy="12" r="2" />
-              <circle cx="12" cy="12" r="2" />
-              <circle cx="19" cy="12" r="2" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
             </svg>
-            <span className="text-[10px] font-bold">More</span>
+            <span className="text-[9px] font-bold">More</span>
           </button>
           {showMore && (
-            <div className="absolute bottom-12 right-0 bg-background border border-foreground/10 rounded-xl shadow-lg min-w-[140px] z-50">
-              {moreLinks.map((link) => (
-                <Link
-                  key={link.name}
-                  href={link.href}
-                  className="flex items-center gap-2 px-4 py-3 text-sm text-foreground hover:bg-foreground/5 rounded-xl"
-                  onClick={() => setShowMore(false)}
-                >
-                  {link.icon}
-                  {link.name}
-                </Link>
-              ))}
-            </div>
+            <>
+              <div 
+                className="fixed inset-0" 
+                style={{ zIndex: 9998 }}
+                onClick={() => setShowMore(false)}
+                aria-hidden="true"
+              />
+              <div className="absolute bottom-14 right-0 bg-background border border-foreground/10 rounded-xl shadow-2xl min-w-[160px] overflow-hidden" style={{ zIndex: 9999 }}>
+                {moreLinks.map((link) => {
+                  const isActive = pathname === link.href;
+                  return (
+                    <Link
+                      key={link.name}
+                      href={link.href}
+                      className={`flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+                        isActive 
+                          ? "bg-primary/10 text-primary font-semibold" 
+                          : "text-foreground hover:bg-foreground/5"
+                      }`}
+                      onClick={() => setShowMore(false)}
+                    >
+                      {link.icon}
+                      <span>{link.name}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       </div>

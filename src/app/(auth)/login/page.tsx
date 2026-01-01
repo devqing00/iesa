@@ -98,6 +98,18 @@ export default function LoginPage() {
           <p className="text-center text-xs text-foreground/40">
             By signing in, you agree to the IESA terms of service.
           </p>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-foreground/60">
+              New student?{" "}
+              <a
+                href="/register"
+                className="font-semibold text-primary hover:text-primary/80 transition-colors"
+              >
+                Create an account
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </div>

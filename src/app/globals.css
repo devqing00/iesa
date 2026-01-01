@@ -82,3 +82,135 @@ body {
   animation: marquee-down 60s linear infinite;
 }
 
+/* React Big Calendar Customization */
+.timetable-calendar .rbc-calendar {
+  font-family: var(--font-sans);
+  color: var(--foreground);
+}
+
+.timetable-calendar .rbc-header {
+  padding: 12px 4px;
+  font-weight: 600;
+  font-family: var(--font-heading);
+  color: var(--foreground);
+  border-bottom: 2px solid var(--glass-border);
+  background: var(--glass-bg);
+}
+
+.timetable-calendar .rbc-today {
+  background-color: rgba(76, 168, 104, 0.1);
+}
+
+.timetable-calendar .rbc-time-view,
+.timetable-calendar .rbc-month-view {
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.timetable-calendar .rbc-time-header {
+  background: var(--background);
+}
+
+.timetable-calendar .rbc-time-content {
+  border-top: 2px solid var(--glass-border);
+}
+
+.timetable-calendar .rbc-timeslot-group {
+  border-bottom: 1px solid var(--glass-border);
+  min-height: 60px;
+}
+
+.timetable-calendar .rbc-current-time-indicator {
+  background-color: var(--primary);
+  height: 2px;
+}
+
+.timetable-calendar .rbc-day-slot .rbc-time-slot {
+  border-top: 1px solid var(--glass-border);
+}
+
+.timetable-calendar .rbc-time-slot {
+  color: var(--foreground);
+  opacity: 0.7;
+  font-size: 0.875rem;
+}
+
+.timetable-calendar .rbc-event {
+  padding: 4px 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.timetable-calendar .rbc-event:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
+}
+
+.timetable-calendar .rbc-event-label {
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
+.timetable-calendar .rbc-toolbar {
+  padding: 16px;
+  margin-bottom: 16px;
+  background: var(--glass-bg);
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.timetable-calendar .rbc-toolbar button {
+  padding: 8px 16px;
+  border: 1px solid var(--glass-border);
+  background: var(--background);
+  color: var(--foreground);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-sans);
+  font-weight: 500;
+}
+
+.timetable-calendar .rbc-toolbar button:hover {
+  background: var(--glass-bg);
+  transform: translateY(-1px);
+}
+
+.timetable-calendar .rbc-toolbar button.rbc-active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.timetable-calendar .rbc-toolbar-label {
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-family: var(--font-heading);
+  color: var(--foreground);
+}
+
+/* Dark mode adjustments */
+.dark .timetable-calendar .rbc-off-range-bg {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.dark .timetable-calendar .rbc-today {
+  background-color: rgba(76, 168, 104, 0.15);
+}
+
+/* Hide scrollbar utility class */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

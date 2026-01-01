@@ -133,10 +133,39 @@ export default function Home() {
           </h1>
 
           <div className="mx-auto">
-            <p className="max-w-90 lg:max-w-100 text-md md:text-xl text-center font-medium text-foreground/70 tracking-wide">
+            <p className="max-w-90 lg:max-w-100 text-md md:text-xl text-center font-medium text-foreground/70 tracking-wide mb-12">
               Sustainable Industrial & Production Engineering — Designing
               efficient, low-impact systems
             </p>
+
+            {/* CTA Buttons for Guests */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
+              <a
+                href="/register"
+                className="group relative px-8 py-4 rounded-xl bg-primary text-white font-bold text-lg hover:bg-primary/90 transition-all shadow-lg hover:shadow-primary/30 hover:scale-105 flex items-center gap-2"
+              >
+                Get Started
+                <svg className="h-5 w-5 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </a>
+              <a
+                href="/login"
+                className="px-8 py-4 rounded-xl bg-white/50 dark:bg-black/20 backdrop-blur-md border border-white/30 dark:border-white/10 text-foreground font-bold text-lg hover:bg-white/70 dark:hover:bg-black/30 transition-all shadow-lg hover:scale-105"
+              >
+                Sign In
+              </a>
+            </div>
+
+            {/* Info Banner for New Students */}
+            <div className="mt-8 inline-flex items-center gap-3 px-6 py-3 rounded-full bg-blue-500/10 border border-blue-500/20 backdrop-blur-sm">
+              <svg className="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-sm font-medium text-foreground/80">
+                Use your UI student email (@stu.ui.edu.ng) to register
+              </span>
+            </div>
           </div>
         </div>
 
