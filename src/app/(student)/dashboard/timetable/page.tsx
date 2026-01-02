@@ -86,7 +86,7 @@ export default function TimetablePage() {
 
       // Fetch classes for user's level
       const classesRes = await fetch(
-        `http://localhost:8000/api/v1/timetable/classes?level=${userLevel}`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/timetable/classes?level=${userLevel}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -103,7 +103,7 @@ export default function TimetablePage() {
       const weekStartStr = format(weekStart, "yyyy-MM-dd");
 
       const cancellationsRes = await fetch(
-        `http://localhost:8000/api/v1/timetable/week?level=${userLevel}&week_start=${weekStartStr}`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/timetable/week?level=${userLevel}&week_start=${weekStartStr}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -203,7 +203,7 @@ export default function TimetablePage() {
     try {
       const token = await user?.getIdToken();
       const res = await fetch(
-        `http://localhost:8000/api/v1/timetable/classes/${selectedClass._id}/cancel`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/timetable/classes/${selectedClass._id}/cancel`,
         {
           method: "POST",
           headers: {

@@ -15,7 +15,7 @@ export default function IDCardPage() {
       setLoading(true);
       const token = await user.getIdToken();
 
-      const response = await fetch("http://localhost:8000/api/v1/student-document", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/student-document`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -64,7 +64,7 @@ export default function IDCardPage() {
       const token = await user.getIdToken();
 
       const response = await fetch(
-        "http://localhost:8000/api/v1/student-document/view",
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/student-document/view`,
         {
           method: "GET",
           headers: {

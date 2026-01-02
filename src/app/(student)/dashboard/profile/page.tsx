@@ -52,7 +52,7 @@ export default function ProfilePage() {
       try {
         setFetchLoading(true);
         const token = await user.getIdToken();
-        const response = await fetch("http://localhost:8000/api/users/me", {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/users/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -93,7 +93,7 @@ export default function ProfilePage() {
 
     try {
       const token = await user.getIdToken();
-      const response = await fetch("http://localhost:8000/api/users/me", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/users/me`, {
         method: "PATCH",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -161,7 +161,7 @@ export default function ProfilePage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('http://localhost:8000/api/users/me/profile-picture', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/users/me/profile-picture`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

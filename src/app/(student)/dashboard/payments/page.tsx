@@ -67,7 +67,7 @@ export default function PaymentsPage() {
       const sessionId = "6777e69ea13e60af6e73e8a6"; // Replace with actual session management
       
       const res = await fetch(
-        `http://localhost:8000/api/payments?session_id=${sessionId}`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/payments?session_id=${sessionId}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -88,7 +88,7 @@ export default function PaymentsPage() {
   const fetchTransactions = async () => {
     try {
       const token = await user?.getIdToken();
-      const res = await fetch("http://localhost:8000/api/v1/paystack/transactions", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/paystack/transactions`   , {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -110,7 +110,7 @@ export default function PaymentsPage() {
       const token = await user?.getIdToken();
 
       // Initialize payment with backend
-      const res = await fetch("http://localhost:8000/api/v1/paystack/initialize", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/paystack/initialize`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -164,7 +164,7 @@ export default function PaymentsPage() {
       const token = await user?.getIdToken();
 
       const res = await fetch(
-        `http://localhost:8000/api/v1/paystack/verify/${reference}`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/paystack/verify/${reference}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -217,7 +217,7 @@ export default function PaymentsPage() {
     try {
       const token = await user?.getIdToken();
       const res = await fetch(
-        `http://localhost:8000/api/v1/paystack/receipt/${reference}`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/paystack/receipt/${reference}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
