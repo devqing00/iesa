@@ -42,3 +42,33 @@ next-env.d.ts
 
 # secrets
 backend/serviceAccountKey.json
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+venv/
+ENV/
+.env
+
+# Pyenv
+.python-version
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing & Coverage
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# Databases (if using local SQLite)
+*.db
+*.sqlite3
