@@ -13,7 +13,7 @@ Security features:
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel, EmailStr, validator
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 import re
 import os
@@ -243,75 +243,142 @@ async def complete_student_registration(
     
     updated_user["_id"] = str(updated_user["_id"])
     
-    # Initialize enrollment in current active session
-    sessions = db.sessions
-    enrollments = db.enrollments
-    
-    # Get current active session
-    active_session = await sessions.find_one({"isActive": True})
-    
-    if active_session:
-        # Check if enrollment already exists
-        existing_enrollment = await enrollments.find_one({
-            "userId": updated_user["_id"],
-            "sessionId": str(active_session["_id"])
-        })
-        
-        if not existing_enrollment:
-            # Create enrollment record
-            enrollment_data = {
-                "userId": updated_user["_id"],
-                "sessionId": str(active_session["_id"]),
-                "level": int(data.level.replace("L", "")),
-                "isActive": True,
-                "enrolledAt": datetime.now(timezone.utc),
-                "createdAt": datetime.now(timezone.utc),
-                "updatedAt": datetime.now(timezone.utc)
-            }
-            await enrollments.insert_one(enrollment_data)
-        
-        # Initialize payment record for current session
-        payments = db.payments
-        existing_payment = await payments.find_one({
-            "userId": updated_user["_id"],
-            "sessionId": str(active_session["_id"])
-        })
-        
-        if not existing_payment:
-            payment_data = {
-                "userId": updated_user["_id"],
-                "sessionId": str(active_session["_id"]),
-                "amount": 0.0,
-                "isPaid": False,
-                "paymentMethod": None,
-                "paymentDate": None,
-                "createdAt": datetime.now(timezone.utc),
-                "updatedAt": datetime.now(timezone.utc)
-            }
-            await payments.insert_one(payment_data)
-        
-        # Initialize default student role
-        roles = db.roles
-        existing_role = await roles.find_one({
-            "userId": updated_user["_id"]
-        })
-        
-        if not existing_role:
-            role_data = {
-                "userId": updated_user["_id"],
-                "position": "student",
-                "level": int(data.level.replace("L", "")),
-                "permissions": [],
-                "isActive": True,
-                "createdAt": datetime.now(timezone.utc),
-                "updatedAt": datetime.now(timezone.utc)
-            }
-            await roles.insert_one(role_data)
+    # Initialize student data in current active session
+    await initialize_student_data(db, updated_user, data.level)
     
     return {
         "message": "Registration completed successfully",
         "user": updated_user
     }
+
+
+async def initialize_student_data(db, user: dict, level: str):
+    """
+    Initialize all necessary data for a new student registration.
+    This ensures students never see null values or empty dashboards.
+    
+    Creates:
+    - Enrollment record
+    - Payment records (with defaults)
+    - Basic role
+    - Empty grade records (placeholders)
+    """
+    sessions = db.sessions
+    enrollments = db.enrollments
+    payments = db.payments
+    roles = db.roles
+    grades = db.grades
+    
+    # Get current active session
+    active_session = await sessions.find_one({"isActive": True})
+    
+    if not active_session:
+        # If no active session exists, skip initialization
+        return
+    
+    session_id = str(active_session["_id"])
+    user_id = user["_id"]
+    level_num = int(level.replace("L", ""))
+    
+    # 1. Create enrollment record
+    existing_enrollment = await enrollments.find_one({
+        "userId": user_id,
+        "sessionId": session_id
+    })
+    
+    if not existing_enrollment:
+        enrollment_data = {
+            "userId": user_id,
+            "sessionId": session_id,
+            "level": level_num,
+            "isActive": True,
+            "semester": active_session.get("currentSemester", 1),
+            "enrolledAt": datetime.now(timezone.utc),
+            "createdAt": datetime.now(timezone.utc),
+            "updatedAt": datetime.now(timezone.utc)
+        }
+        await enrollments.insert_one(enrollment_data)
+    
+    # 2. Initialize payment records (show as unpaid with placeholder amounts)
+    # Create common departmental payments
+    common_payments = [
+        {
+            "title": "Departmental Dues",
+            "description": "Annual departmental dues for IESA activities",
+            "amount": 5000.0,
+            "category": "dues",
+            "deadline": datetime.now(timezone.utc) + timedelta(days=30),
+        },
+        {
+            "title": "Handbook & Materials",
+            "description": "Student handbook and course materials",
+            "amount": 2000.0,
+            "category": "materials",
+            "deadline": datetime.now(timezone.utc) + timedelta(days=45),
+        }
+    ]
+    
+    for payment_template in common_payments:
+        existing_payment = await payments.find_one({
+            "userId": user_id,
+            "sessionId": session_id,
+            "title": payment_template["title"]
+        })
+        
+        if not existing_payment:
+            payment_data = {
+                "userId": user_id,
+                "sessionId": session_id,
+                **payment_template,
+                "isPaid": False,
+                "hasPaid": False,
+                "paymentMethod": None,
+                "paymentDate": None,
+                "transactionId": None,
+                "createdAt": datetime.now(timezone.utc),
+                "updatedAt": datetime.now(timezone.utc),
+                "createdBy": user_id
+            }
+            await payments.insert_one(payment_data)
+    
+    # 3. Initialize default student role
+    existing_role = await roles.find_one({
+        "userId": user_id,
+        "sessionId": session_id
+    })
+    
+    if not existing_role:
+        role_data = {
+            "userId": user_id,
+            "sessionId": session_id,
+            "position": "student",
+            "permissions": [],
+            "isActive": True,
+            "createdAt": datetime.now(timezone.utc),
+            "updatedAt": datetime.now(timezone.utc)
+        }
+        await roles.insert_one(role_data)
+    
+    # 4. Initialize placeholder grade records (empty, to be filled by admin)
+    # This prevents "no grades found" errors
+    existing_grade = await grades.find_one({
+        "studentId": user_id,
+        "sessionId": session_id
+    })
+    
+    if not existing_grade:
+        grade_data = {
+            "studentId": user_id,
+            "sessionId": session_id,
+            "semester": active_session.get("currentSemester", 1),
+            "courses": [],  # Empty, will be populated by admin
+            "cgpa": None,
+            "gpa": None,
+            "remarks": "Grades pending - Contact departmental office",
+            "createdAt": datetime.now(timezone.utc),
+            "updatedAt": datetime.now(timezone.utc)
+        }
+        await grades.insert_one(grade_data)
 
 
 @router.get("/check-matric/{matric_number}")

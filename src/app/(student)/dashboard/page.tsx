@@ -3,184 +3,465 @@
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { Sparkles, Calendar, BookOpen, CreditCard, MessageSquare, TrendingUp, Users } from "lucide-react";
+import { useMemo } from "react";
+
+// Helper function to generate dynamic, time-based greetings
+const getTimeBasedGreeting = (userName: string) => {
+  const hour = new Date().getHours();
+  const day = new Date().getDay();
+  const isWeekend = day === 0 || day === 6;
+
+  if (hour >= 5 && hour < 12) {
+    return {
+      greeting: `Good morning, ${userName}`,
+      message:
+        "Ready to make today count? Let's start strong and achieve great things.",
+      period: "Morning",
+    };
+  } else if (hour >= 12 && hour < 17) {
+    return {
+      greeting: `Good afternoon, ${userName}`,
+      message: isWeekend
+        ? "Hope you're having a relaxing weekend! Take time to recharge and explore."
+        : "You're doing great! Keep up the momentum and stay focused on your goals.",
+      period: "Afternoon",
+    };
+  } else if (hour >= 17 && hour < 21) {
+    return {
+      greeting: `Good evening, ${userName}`,
+      message:
+        "Winding down? Don't forget to review today's achievements and plan for tomorrow.",
+      period: "Evening",
+    };
+  } else {
+    return {
+      greeting: `Burning the midnight oil, ${userName}?`,
+      message:
+        "Remember to take breaks and get enough rest. Your wellbeing matters!",
+      period: "Night",
+    };
+  }
+};
 
 export default function DashboardPage() {
   const { user } = useAuth();
 
+  const greeting = useMemo(() => {
+    const firstName = user?.displayName?.split(" ")[0] || "Engineer";
+    return getTimeBasedGreeting(firstName);
+  }, [user]);
+
+  const stats = [
+    { label: "Upcoming Events", value: "3", number: "01" },
+    { label: "Library Resources", value: "24", number: "02" },
+    { label: "Payment Status", value: "Paid", number: "03" },
+  ];
+
+  const announcements = [
+    { title: "General Meeting This Friday", time: "2 hours ago", unread: true },
+    {
+      title: "T-Shirt Collection Starts Monday",
+      time: "5 hours ago",
+      unread: true,
+    },
+    {
+      title: "Career Fair Registration Open",
+      time: "1 day ago",
+      unread: false,
+    },
+  ];
+
+  const quickActions = [
+    {
+      label: "Calculate CGPA",
+      href: "/dashboard/growth/cgpa",
+      icon: (
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
+          />
+        </svg>
+      ),
+    },
+    {
+      label: "View Events",
+      href: "/dashboard/events",
+      icon: (
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+          />
+        </svg>
+      ),
+    },
+    {
+      label: "Library",
+      href: "/dashboard/library",
+      icon: (
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"
+          />
+        </svg>
+      ),
+    },
+    {
+      label: "Payments",
+      href: "/dashboard/payments",
+      icon: (
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"
+          />
+        </svg>
+      ),
+    },
+    {
+      label: "IESA Team",
+      href: "/dashboard/team/central",
+      icon: (
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"
+          />
+        </svg>
+      ),
+    },
+    {
+      label: "My Profile",
+      href: "/dashboard/profile",
+      icon: (
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+          />
+        </svg>
+      ),
+    },
+  ];
+
+  const aiSuggestions = [
+    "Show my timetable",
+    "Payment help",
+    "Study tips",
+    "Events this week",
+  ];
+
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
+    <div className="min-h-screen bg-bg-primary">
       <DashboardHeader title="Overview" />
-      
-      <div className="p-4 md:p-8 space-y-6 md:space-y-8">
-        {/* Hero Section with IESA AI */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-primary/70 p-8 md:p-12 text-white shadow-2xl">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl" />
-          
-          <div className="relative z-10 max-w-3xl">
+
+      <div className="p-4 md:p-8 space-y-8 pb-24 md:pb-8">
+        {/* Hero Section */}
+        <section className="bg-charcoal dark:bg-cream py-12 px-6 md:px-12 relative">
+          <div className="absolute inset-0 bg-dot-grid opacity-20 pointer-events-none" />
+
+          <div className="relative max-w-4xl">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <Sparkles className="w-7 h-7" />
-              </div>
-              <div>
-                <h1 className="text-3xl md:text-4xl font-heading font-bold">
-                  Welcome back, {user?.displayName?.split(' ')[0] || 'Engineer'}! 👋
-                </h1>
-              </div>
+              <span className="text-label-sm text-cream/60 dark:text-charcoal/60 flex items-center gap-2">
+                <span>✦</span> {greeting.period}
+              </span>
             </div>
-            
-            <p className="text-lg md:text-xl text-white/90 mb-6 leading-relaxed">
-              Meet <span className="font-bold">IESA AI</span> — your personal campus assistant. Ask me anything about schedules, payments, events, study tips, or IESA processes. I'm here to help you succeed! 🎓
+
+            <h1 className="font-display text-display-md text-cream dark:text-charcoal mb-4">
+              {greeting.greeting}
+            </h1>
+
+            <p className="text-cream/70 dark:text-charcoal/70 text-body max-w-2xl mb-8">
+              {greeting.message}
             </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4">
+
+            <div className="flex flex-col sm:flex-row gap-3">
               <Link
                 href="/dashboard/iesa-ai"
-                className="group flex items-center gap-3 px-6 py-3 bg-white text-primary rounded-xl font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-cream dark:bg-charcoal text-charcoal dark:text-cream text-label transition-colors hover:bg-cream-dark dark:hover:bg-charcoal-light"
               >
-                <MessageSquare className="w-5 h-5" />
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"
+                  />
+                </svg>
                 Chat with IESA AI
-                <Sparkles className="w-4 h-4 group-hover:rotate-12 transition-transform" />
               </Link>
-              
-              <button className="flex items-center gap-3 px-6 py-3 bg-white/10 backdrop-blur-sm text-white rounded-xl font-medium hover:bg-white/20 transition-all border border-white/20">
-                <TrendingUp className="w-5 h-5" />
+
+              <Link
+                href="/dashboard/growth"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-cream/30 dark:border-charcoal/30 text-cream dark:text-charcoal text-label transition-colors hover:bg-cream/10 dark:hover:bg-charcoal/10"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"
+                  />
+                </svg>
                 View My Progress
-              </button>
+              </Link>
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-          {[
-            { label: "Upcoming Events", value: "3", icon: Calendar, color: "from-blue-500 to-cyan-500" },
-            { label: "Library Resources", value: "24", icon: BookOpen, color: "from-purple-500 to-pink-500" },
-            { label: "Payment Status", value: "Paid", icon: CreditCard, color: "from-green-500 to-emerald-500" },
-          ].map((stat, i) => (
-            <div key={i} className="group relative overflow-hidden bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] p-6 rounded-2xl hover:border-primary/30 hover:shadow-lg transition-all">
-              <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${stat.color} opacity-10 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-500`} />
-              
-              <div className="relative flex justify-between items-start mb-4">
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-lg`}>
-                  <stat.icon className="w-6 h-6 text-white" />
-                </div>
-                <span className="text-xs font-mono text-foreground/40 bg-foreground/5 px-2 py-1 rounded">LIVE</span>
-              </div>
-              
-              <div className="relative">
-                <div className="text-3xl font-bold font-heading text-foreground mb-1">{stat.value}</div>
-                <div className="text-sm text-foreground/60">{stat.label}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-          {/* Recent Announcements */}
-          <div className="bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-2xl p-6 hover:border-primary/30 transition-all">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold font-heading flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
-                  <span className="text-white text-sm">📢</span>
-                </div>
-                Recent Announcements
-              </h3>
-              <Link href="/dashboard/announcements" className="text-sm text-primary hover:underline">
-                View all
-              </Link>
-            </div>
-            
-            <div className="space-y-3">
-              {[
-                { title: "General Meeting This Friday", time: "2 hours ago", unread: true },
-                { title: "T-Shirt Collection Starts Monday", time: "5 hours ago", unread: true },
-                { title: "Career Fair Registration Open", time: "1 day ago", unread: false },
-              ].map((item, i) => (
-                <div key={i} className={`flex gap-4 items-start p-4 rounded-xl transition-all cursor-pointer ${item.unread ? 'bg-primary/5 hover:bg-primary/10 border border-primary/20' : 'hover:bg-foreground/5 border border-transparent'}`}>
-                  <div className={`w-2 h-2 mt-2 rounded-full shrink-0 ${item.unread ? 'bg-primary' : 'bg-foreground/20'}`} />
-                  <div className="flex-1">
-                    <h4 className="font-bold text-sm text-foreground">{item.title}</h4>
-                    <p className="text-xs text-foreground/60 mt-1">{item.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+        <section className="border-t border-border pt-8">
+          <div className="flex items-center justify-between mb-6">
+            <span className="text-label-sm text-text-muted flex items-center gap-2">
+              <span>◆</span> Quick Stats
+            </span>
+            <span className="page-number">Page 01</span>
           </div>
 
-          {/* Quick Actions */}
-          <div className="bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-2xl p-6">
-            <h3 className="text-xl font-bold font-heading mb-6 flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {stats.map((stat) => (
+              <div
+                key={stat.number}
+                className="border border-border p-6 space-y-4 hover:border-border-dark transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-label-sm text-text-muted">
+                    {stat.number}
+                  </span>
+                  <span className="text-label-sm text-text-muted">◆</span>
+                </div>
+                <div>
+                  <div className="font-display text-3xl text-text-primary mb-1">
+                    {stat.value}
+                  </div>
+                  <div className="text-body text-sm text-text-secondary">
+                    {stat.label}
+                  </div>
+                </div>
               </div>
-              Quick Actions
-            </h3>
-            
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: "Calculate CGPA", icon: "🎯", href: "/dashboard/growth/cgpa", color: "from-blue-500 to-cyan-500" },
-                { label: "View Events", icon: "🎉", href: "/dashboard/events", color: "from-pink-500 to-rose-500" },
-                { label: "Library", icon: "📚", href: "/dashboard/library", color: "from-amber-500 to-orange-500" },
-                { label: "Payments", icon: "💳", href: "/dashboard/payments", color: "from-green-500 to-emerald-500" },
-                { label: "IESA Team", icon: "👥", href: "/dashboard/team/central", color: "from-purple-500 to-violet-500" },
-                { label: "My Profile", icon: "👤", href: "/dashboard/profile", color: "from-indigo-500 to-blue-500" },
-              ].map((action, i) => (
+            ))}
+          </div>
+        </section>
+
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Recent Announcements */}
+          <section className="lg:col-span-7 border-t border-border pt-8">
+            <div className="flex items-center justify-between mb-6">
+              <span className="text-label-sm text-text-muted flex items-center gap-2">
+                <span>✦</span> Recent Announcements
+              </span>
+              <Link
+                href="/dashboard/announcements"
+                className="text-label-sm text-text-secondary hover:text-text-primary transition-colors flex items-center gap-1"
+              >
+                View all
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8.25 4.5l7.5 7.5-7.5 7.5"
+                  />
+                </svg>
+              </Link>
+            </div>
+
+            <div className="space-y-2">
+              {announcements.map((item, i) => (
                 <Link
                   key={i}
-                  href={action.href}
-                  className="group relative overflow-hidden p-5 rounded-xl border border-foreground/10 hover:border-primary/50 bg-gradient-to-br from-foreground/5 to-transparent hover:from-primary/5 hover:to-primary/10 transition-all text-left"
+                  href="/dashboard/announcements"
+                  className={`block p-4 border transition-colors ${
+                    item.unread
+                      ? "border-border-dark bg-bg-secondary"
+                      : "border-border hover:border-border-dark"
+                  }`}
                 >
-                  <div className={`absolute inset-0 bg-gradient-to-br ${action.color} opacity-0 group-hover:opacity-10 transition-opacity`} />
-                  <span className="relative block text-3xl mb-3 group-hover:scale-110 transition-transform">{action.icon}</span>
-                  <span className="relative block font-bold text-sm text-foreground">{action.label}</span>
+                  <div className="flex items-start gap-3">
+                    <span
+                      className={`w-1.5 h-1.5 mt-2 shrink-0 ${
+                        item.unread ? "bg-text-primary" : "bg-text-muted"
+                      }`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-body font-medium text-text-primary truncate">
+                        {item.title}
+                      </h4>
+                      <p className="text-label-sm text-text-muted mt-1">
+                        {item.time}
+                      </p>
+                    </div>
+                    {item.unread && (
+                      <span className="text-label-sm bg-charcoal dark:bg-cream text-cream dark:text-charcoal px-2 py-0.5">
+                        New
+                      </span>
+                    )}
+                  </div>
                 </Link>
               ))}
             </div>
-          </div>
+          </section>
+
+          {/* Quick Actions */}
+          <section className="lg:col-span-5 border-t border-border pt-8">
+            <div className="flex items-center justify-between mb-6">
+              <span className="text-label-sm text-text-muted flex items-center gap-2">
+                <span>◆</span> Quick Actions
+              </span>
+              <span className="page-number">Page 02</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {quickActions.map((action) => (
+                <Link
+                  key={action.label}
+                  href={action.href}
+                  className="p-4 border border-border hover:border-border-dark hover:bg-bg-secondary transition-colors group"
+                >
+                  <div className="text-text-secondary group-hover:text-text-primary transition-colors mb-3">
+                    {action.icon}
+                  </div>
+                  <span className="text-body text-sm text-text-primary">
+                    {action.label}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
         </div>
 
-        {/* AI Assistant Teaser */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-orange-500/10 border border-primary/20 p-8">
-          <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="flex-shrink-0">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-xl">
-                <Sparkles className="w-10 h-10 text-white" />
-              </div>
-            </div>
-            
-            <div className="flex-1 text-center md:text-left">
-              <h3 className="text-2xl font-bold font-heading mb-2 text-foreground">
-                Need help with anything?
-              </h3>
-              <p className="text-foreground/70 mb-4">
-                IESA AI knows your schedule, payment status, upcoming events, and can answer any questions about the department. Try asking "What's my next class?" or "How do I pay my dues?"
-              </p>
-              <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-                {["Show my timetable", "Payment help", "Study tips", "Events this week"].map((q, i) => (
-                  <Link
-                    key={i}
-                    href={`/dashboard/iesa-ai?q=${encodeURIComponent(q)}`}
-                    className="px-4 py-2 rounded-lg bg-white/50 dark:bg-foreground/10 hover:bg-white dark:hover:bg-foreground/20 text-sm font-medium transition-all border border-foreground/10"
-                  >
-                    {q}
-                  </Link>
-                ))}
-              </div>
-            </div>
-            
-            <Link
-              href="/dashboard/iesa-ai"
-              className="flex-shrink-0 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
-            >
-              Start Chatting →
-            </Link>
+        {/* AI Assistant Section */}
+        <section className="border-t border-border pt-8">
+          <div className="flex items-center justify-between mb-6">
+            <span className="text-label-sm text-text-muted flex items-center gap-2">
+              <span>✦</span> IESA AI Assistant
+            </span>
+            <span className="page-number">Page 03</span>
           </div>
-        </div>
+
+          <div className="border border-border p-6 md:p-8">
+            <div className="flex flex-col md:flex-row items-start gap-6">
+              <div className="w-16 h-16 bg-charcoal dark:bg-cream flex items-center justify-center shrink-0">
+                <svg
+                  className="w-8 h-8 text-cream dark:text-charcoal"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
+                  />
+                </svg>
+              </div>
+
+              <div className="flex-1">
+                <h3 className="font-display text-xl text-text-primary mb-2">
+                  Need help with anything?
+                </h3>
+                <p className="text-body text-sm text-text-secondary mb-4">
+                  IESA AI knows your schedule, payment status, upcoming events,
+                  and can answer any questions about the department.
+                </p>
+
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {aiSuggestions.map((q) => (
+                    <Link
+                      key={q}
+                      href={`/dashboard/iesa-ai?q=${encodeURIComponent(q)}`}
+                      className="px-3 py-1.5 border border-border text-label-sm text-text-secondary hover:border-border-dark hover:text-text-primary transition-colors"
+                    >
+                      {q}
+                    </Link>
+                  ))}
+                </div>
+
+                <Link
+                  href="/dashboard/iesa-ai"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-charcoal dark:bg-cream text-cream dark:text-charcoal text-label transition-colors hover:bg-charcoal-light dark:hover:bg-cream-dark"
+                >
+                  Start Chatting
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M8.25 4.5l7.5 7.5-7.5 7.5"
+                    />
+                  </svg>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );
 }
-

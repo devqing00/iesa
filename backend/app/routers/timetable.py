@@ -84,7 +84,7 @@ def check_permission(user: dict, permission: str) -> bool:
 async def get_current_session(db: AsyncIOMotorDatabase):
     """Get the current active session"""
     sessions = db["sessions"]
-    session = await sessions.find_one({"isCurrent": True})
+    session = await sessions.find_one({"isActive": True})
     if not session:
         raise HTTPException(status_code=404, detail="No active session found")
     return session

@@ -1,323 +1,694 @@
 "use client";
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
-import { useState, useEffect } from "react";
-import { Plus, Trash2, Check, X, Calendar, Clock, Tag, Filter } from "lucide-react";
+import Link from "next/link";
+import { useState, useEffect, useMemo } from "react";
 
 interface Task {
   id: string;
   title: string;
   description?: string;
-  category: string;
-  priority: "low" | "medium" | "high";
+  category:
+    | "study"
+    | "assignment"
+    | "project"
+    | "exam"
+    | "meeting"
+    | "personal";
+  priority: "high" | "medium" | "low";
   dueDate?: string;
   completed: boolean;
   createdAt: string;
+  completedAt?: string;
 }
 
-const CATEGORIES = ["All", "Assignment", "Study", "Project", "Exam", "Personal", "Other"];
-const PRIORITIES = ["low", "medium", "high"] as const;
+const CATEGORY_CONFIG = {
+  study: { label: "Study", icon: "📖", color: "text-blue-600" },
+  assignment: { label: "Assignment", icon: "📝", color: "text-purple-600" },
+  project: { label: "Project", icon: "🔧", color: "text-emerald-600" },
+  exam: { label: "Exam", icon: "📋", color: "text-red-600" },
+  meeting: { label: "Meeting", icon: "👥", color: "text-amber-600" },
+  personal: { label: "Personal", icon: "⭐", color: "text-pink-600" },
+};
+
+const PRIORITY_CONFIG = {
+  high: { label: "High", color: "text-red-600" },
+  medium: { label: "Medium", color: "text-amber-600" },
+  low: { label: "Low", color: "text-green-600" },
+};
+
+const STORAGE_KEY = "iesa-planner-tasks";
 
 export default function PlannerPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [filter, setFilter] = useState("All");
-  const [newTask, setNewTask] = useState({
-    title: "",
-    description: "",
-    category: "Assignment",
-    priority: "medium" as const,
-    dueDate: "",
-  });
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [filter, setFilter] = useState<"all" | "active" | "completed">(
+    "active"
+  );
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"date" | "priority" | "created">("date");
+  const [now, setNow] = useState(() => Date.now());
 
-  // Load tasks from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('iesa-planner-tasks');
-    if (saved) {
-      try {
-        setTasks(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to parse saved tasks:', e);
-      }
-    }
+    const interval = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Save tasks to localStorage whenever they change
   useEffect(() => {
-    if (tasks.length > 0) {
-      localStorage.setItem('iesa-planner-tasks', JSON.stringify(tasks));
-    }
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) setTasks(JSON.parse(saved));
+  }, []);
+
+  useEffect(() => {
+    if (tasks.length > 0)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
   }, [tasks]);
 
-  const addTask = () => {
-    if (!newTask.title.trim()) return;
+  const stats = useMemo(() => {
+    const total = tasks.length;
+    const completed = tasks.filter((t) => t.completed).length;
+    const active = total - completed;
+    const today = new Date().toDateString();
+    const dueToday = tasks.filter(
+      (t) =>
+        !t.completed &&
+        t.dueDate &&
+        new Date(t.dueDate).toDateString() === today
+    ).length;
+    const overdue = tasks.filter(
+      (t) =>
+        !t.completed &&
+        t.dueDate &&
+        new Date(t.dueDate).getTime() < now &&
+        new Date(t.dueDate).toDateString() !== today
+    ).length;
+    return { total, completed, active, dueToday, overdue };
+  }, [tasks, now]);
 
-    const task: Task = {
-      id: Date.now().toString(),
-      title: newTask.title,
-      description: newTask.description,
-      category: newTask.category,
-      priority: newTask.priority,
-      dueDate: newTask.dueDate || undefined,
-      completed: false,
-      createdAt: new Date().toISOString(),
-    };
+  const filteredTasks = useMemo(() => {
+    return tasks
+      .filter((t) => {
+        if (filter === "active") return !t.completed;
+        if (filter === "completed") return t.completed;
+        return true;
+      })
+      .filter((t) => categoryFilter === "all" || t.category === categoryFilter)
+      .sort((a, b) => {
+        if (a.completed && !b.completed) return 1;
+        if (!a.completed && b.completed) return -1;
+        if (sortBy === "date") {
+          if (!a.dueDate) return 1;
+          if (!b.dueDate) return -1;
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        }
+        if (sortBy === "priority") {
+          const order = { high: 0, medium: 1, low: 2 };
+          return order[a.priority] - order[b.priority];
+        }
+        return (
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      });
+  }, [tasks, filter, categoryFilter, sortBy]);
 
-    setTasks([task, ...tasks]);
-    setNewTask({
-      title: "",
-      description: "",
-      category: "Assignment",
-      priority: "medium",
-      dueDate: "",
-    });
-    setShowAddForm(false);
-  };
-
-  const toggleTask = (id: string) => {
-    setTasks(tasks.map(t => 
-      t.id === id ? { ...t, completed: !t.completed } : t
-    ));
+  const toggleComplete = (id: string) => {
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              completed: !t.completed,
+              completedAt: !t.completed ? new Date().toISOString() : undefined,
+            }
+          : t
+      )
+    );
   };
 
   const deleteTask = (id: string) => {
-    setTasks(tasks.filter(t => t.id !== id));
+    setTasks((prev) => {
+      const updated = prev.filter((t) => t.id !== id);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
   };
 
-  const filtered = tasks.filter(t => {
-    if (filter === "All") return true;
-    return t.category === filter;
-  });
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return "text-red-600 bg-red-50 dark:bg-red-950/30 border-red-200";
-      case "medium":
-        return "text-orange-600 bg-orange-50 dark:bg-orange-950/30 border-orange-200";
-      case "low":
-        return "text-green-600 bg-green-50 dark:bg-green-950/30 border-green-200";
-      default:
-        return "text-gray-600 bg-gray-50 dark:bg-gray-950/30 border-gray-200";
+  const saveTask = (taskData: Partial<Task>) => {
+    if (editingTask) {
+      setTasks((prev) =>
+        prev.map((t) => (t.id === editingTask.id ? { ...t, ...taskData } : t))
+      );
+    } else {
+      const newTask: Task = {
+        id: Date.now().toString(),
+        title: taskData.title || "",
+        description: taskData.description,
+        category: taskData.category || "personal",
+        priority: taskData.priority || "medium",
+        dueDate: taskData.dueDate,
+        completed: false,
+        createdAt: new Date().toISOString(),
+      };
+      setTasks((prev) => [...prev, newTask]);
     }
+    setShowAddModal(false);
+    setEditingTask(null);
   };
 
-  const stats = {
-    total: tasks.length,
-    completed: tasks.filter(t => t.completed).length,
-    pending: tasks.filter(t => !t.completed).length,
-    overdue: tasks.filter(t => 
-      !t.completed && t.dueDate && new Date(t.dueDate) < new Date()
-    ).length,
+  const isDueToday = (dueDate?: string) => {
+    if (!dueDate) return false;
+    return new Date(dueDate).toDateString() === new Date().toDateString();
+  };
+
+  const isOverdue = (dueDate?: string, completed?: boolean) => {
+    if (!dueDate || completed) return false;
+    const due = new Date(dueDate);
+    return (
+      due.getTime() < now && due.toDateString() !== new Date().toDateString()
+    );
+  };
+
+  const formatDueDate = (dueDate: string) => {
+    const date = new Date(dueDate);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    if (date.toDateString() === today.toDateString()) return "Today";
+    if (date.toDateString() === tomorrow.toDateString()) return "Tomorrow";
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
+    <div className="min-h-screen bg-bg-primary">
       <DashboardHeader title="Personal Planner" />
-      <div className="p-4 md:p-8 max-w-6xl mx-auto w-full">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-xl p-4">
-            <p className="text-xs text-foreground/60 uppercase tracking-wider mb-1">Total Tasks</p>
-            <p className="text-3xl font-bold text-foreground">{stats.total}</p>
+
+      <div className="px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8 max-w-5xl mx-auto">
+        {/* Back Link */}
+        <Link
+          href="/dashboard/growth"
+          className="inline-flex items-center gap-2 text-label-sm text-text-muted hover:text-text-primary transition-colors mb-6 group"
+        >
+          <svg
+            className="w-4 h-4 group-hover:-translate-x-1 transition-transform"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
+            />
+          </svg>
+          Back to Growth Hub
+        </Link>
+
+        {/* Page Header */}
+        <div className="mb-8 pb-8 border-b border-border">
+          <span className="text-label-sm text-text-muted flex items-center gap-2 mb-2">
+            <span>✦</span> Plan & Execute
+          </span>
+          <h1 className="font-display text-display-sm mb-2">
+            Personal Planner
+          </h1>
+          <p className="text-text-secondary text-body text-sm">
+            Organize your tasks and stay on top of your schedule.
+          </p>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="page-frame p-4">
+            <span className="text-label-sm text-text-muted">Active</span>
+            <p className="font-display text-2xl">{stats.active}</p>
           </div>
-          <div className="bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-xl p-4">
-            <p className="text-xs text-foreground/60 uppercase tracking-wider mb-1">Completed</p>
-            <p className="text-3xl font-bold text-green-600">{stats.completed}</p>
+          <div className="page-frame p-4">
+            <span className="text-label-sm text-text-muted">Due Today</span>
+            <p className="font-display text-2xl">{stats.dueToday}</p>
           </div>
-          <div className="bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-xl p-4">
-            <p className="text-xs text-foreground/60 uppercase tracking-wider mb-1">Pending</p>
-            <p className="text-3xl font-bold text-blue-600">{stats.pending}</p>
+          <div className="page-frame p-4">
+            <span className="text-label-sm text-text-muted">Overdue</span>
+            <p
+              className={`font-display text-2xl ${
+                stats.overdue > 0 ? "text-red-600" : ""
+              }`}
+            >
+              {stats.overdue}
+            </p>
           </div>
-          <div className="bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-xl p-4">
-            <p className="text-xs text-foreground/60 uppercase tracking-wider mb-1">Overdue</p>
-            <p className="text-3xl font-bold text-red-600">{stats.overdue}</p>
+          <div className="page-frame p-4">
+            <span className="text-label-sm text-text-muted">Completed</span>
+            <p className="font-display text-2xl">{stats.completed}</p>
           </div>
         </div>
 
-        {/* Filters and Add Button */}
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <div className="flex-1 flex gap-2 flex-wrap">
-            {CATEGORIES.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setFilter(cat)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  filter === cat
-                    ? "bg-primary text-white shadow-lg"
-                    : "bg-foreground/5 text-foreground/60 hover:bg-foreground/10"
-                }`}
-              >
-                <Filter className="w-3 h-3 inline-block mr-1" />
-                {cat}
-              </button>
-            ))}
+        {/* Filters & Add Button */}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex border border-border">
+              {(["all", "active", "completed"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`px-3 py-2 text-label-sm transition-all ${
+                    filter === f
+                      ? "bg-charcoal dark:bg-cream text-cream dark:text-charcoal"
+                      : "text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                </button>
+              ))}
+            </div>
+
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="px-3 py-2 text-label-sm bg-bg-card border border-border text-text-primary focus:outline-none"
+            >
+              <option value="all">All Categories</option>
+              {Object.entries(CATEGORY_CONFIG).map(([key, val]) => (
+                <option key={key} value={key}>
+                  {val.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="px-3 py-2 text-label-sm bg-bg-card border border-border text-text-primary focus:outline-none"
+            >
+              <option value="date">Sort by Date</option>
+              <option value="priority">Sort by Priority</option>
+              <option value="created">Sort by Created</option>
+            </select>
           </div>
+
           <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="px-6 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 transition-all shadow-lg hover:shadow-xl flex items-center gap-2 justify-center"
+            onClick={() => {
+              setEditingTask(null);
+              setShowAddModal(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-charcoal dark:bg-cream text-cream dark:text-charcoal text-label hover:opacity-90 transition-opacity"
           >
-            <Plus className="w-4 h-4" />
+            <svg
+              className="w-4 h-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 4.5v15m7.5-7.5h-15"
+              />
+            </svg>
             Add Task
           </button>
         </div>
 
-        {/* Add Task Form */}
-        {showAddForm && (
-          <div className="bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-xl p-6 mb-6 animate-in fade-in slide-in-from-top-2 duration-200">
-            <h3 className="text-lg font-bold text-foreground mb-4">New Task</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-foreground/70 block mb-2">Title *</label>
-                <input
-                  type="text"
-                  value={newTask.title}
-                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                  placeholder="e.g., Complete Math Assignment"
-                  className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/10 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground/70 block mb-2">Description</label>
-                <textarea
-                  value={newTask.description}
-                  onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                  placeholder="Optional details about the task..."
-                  rows={3}
-                  className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/10 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-foreground/70 block mb-2">Category</label>
-                  <select
-                    value={newTask.category}
-                    onChange={(e) => setNewTask({ ...newTask, category: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/10 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    {CATEGORIES.filter(c => c !== "All").map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-foreground/70 block mb-2">Priority</label>
-                  <select
-                    value={newTask.priority}
-                    onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as any })}
-                    className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/10 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-foreground/70 block mb-2">Due Date</label>
-                  <input
-                    type="date"
-                    value={newTask.dueDate}
-                    onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg bg-background border border-foreground/10 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={() => setShowAddForm(false)}
-                  className="px-4 py-2 rounded-lg bg-foreground/5 text-foreground hover:bg-foreground/10 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={addTask}
-                  disabled={!newTask.title.trim()}
-                  className="px-6 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Add Task
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Tasks List */}
-        {filtered.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-foreground/5 flex items-center justify-center">
-              <Check className="w-8 h-8 text-foreground/20" />
+        <div className="space-y-3">
+          {filteredTasks.length === 0 ? (
+            <div className="page-frame p-12 text-center">
+              <p className="font-display text-lg mb-2">
+                {filter === "completed"
+                  ? "No completed tasks"
+                  : "No tasks to show"}
+              </p>
+              <p className="text-text-muted text-label-sm mb-4">
+                {filter === "completed"
+                  ? "Complete some tasks to see them here."
+                  : "Create your first task to get started."}
+              </p>
+              {filter !== "completed" && (
+                <button
+                  onClick={() => {
+                    setEditingTask(null);
+                    setShowAddModal(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-charcoal dark:bg-cream text-cream dark:text-charcoal text-label-sm"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 4.5v15m7.5-7.5h-15"
+                    />
+                  </svg>
+                  Create First Task
+                </button>
+              )}
             </div>
-            <p className="text-foreground/60">
-              {filter === "All" ? "No tasks yet. Add one to get started!" : `No ${filter} tasks found.`}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filtered.map(task => {
-              const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && !task.completed;
+          ) : (
+            filteredTasks.map((task) => {
+              const categoryConfig = CATEGORY_CONFIG[task.category];
+              const priorityConfig = PRIORITY_CONFIG[task.priority];
+              const dueToday = isDueToday(task.dueDate);
+              const overdue = isOverdue(task.dueDate, task.completed);
 
               return (
                 <div
                   key={task.id}
-                  className={`bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-xl p-4 transition-all ${
+                  className={`page-frame p-4 transition-all ${
                     task.completed ? "opacity-60" : ""
-                  } ${isOverdue ? "border-red-500/50" : ""}`}
+                  } ${overdue ? "border-red-600" : ""}`}
                 >
-                  <div className="flex items-start gap-4">
+                  <div className="flex items-start gap-3">
                     <button
-                      onClick={() => toggleTask(task.id)}
-                      className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                      onClick={() => toggleComplete(task.id)}
+                      className={`mt-0.5 transition-colors ${
                         task.completed
-                          ? "bg-primary border-primary text-white"
-                          : "border-foreground/30 hover:border-primary"
+                          ? "text-emerald-600"
+                          : "text-text-muted hover:text-text-primary"
                       }`}
                     >
-                      {task.completed && <Check className="w-4 h-4" />}
+                      {task.completed ? (
+                        <svg
+                          className="w-5 h-5"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      ) : (
+                        <svg
+                          className="w-5 h-5"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={1.5}
+                        >
+                          <circle cx="12" cy="12" r="9" />
+                        </svg>
+                      )}
                     </button>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-3 mb-2">
-                        <h4 className={`font-semibold text-foreground ${task.completed ? "line-through" : ""}`}>
-                          {task.title}
-                        </h4>
-                        <button
-                          onClick={() => deleteTask(task.id)}
-                          className="text-red-500 hover:text-red-700 transition-colors"
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span
+                          className={`px-2 py-0.5 text-label-sm ${categoryConfig.color} bg-bg-secondary`}
                         >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      {task.description && (
-                        <p className="text-sm text-foreground/60 mb-2">{task.description}</p>
-                      )}
-
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <span className={`text-xs px-2 py-1 rounded-full border ${getPriorityColor(task.priority)}`}>
-                          {task.priority}
+                          {categoryConfig.label}
                         </span>
-                        <span className="text-xs px-2 py-1 rounded-full bg-foreground/5 text-foreground/60 border border-foreground/10">
-                          <Tag className="w-3 h-3 inline-block mr-1" />
-                          {task.category}
+                        <span
+                          className={`px-2 py-0.5 text-label-sm ${priorityConfig.color} bg-bg-secondary`}
+                        >
+                          {priorityConfig.label}
                         </span>
-                        {task.dueDate && (
-                          <span className={`text-xs px-2 py-1 rounded-full border ${
-                            isOverdue 
-                              ? "bg-red-50 dark:bg-red-950/30 text-red-600 border-red-200"
-                              : "bg-foreground/5 text-foreground/60 border-foreground/10"
-                          }`}>
-                            <Calendar className="w-3 h-3 inline-block mr-1" />
-                            {new Date(task.dueDate).toLocaleDateString()}
+                        {task.completed && (
+                          <span className="px-2 py-0.5 text-label-sm text-emerald-600 bg-bg-secondary">
+                            Done
+                          </span>
+                        )}
+                        {overdue && (
+                          <span className="px-2 py-0.5 text-label-sm text-red-600 bg-bg-secondary">
+                            Overdue
+                          </span>
+                        )}
+                        {dueToday && !task.completed && (
+                          <span className="px-2 py-0.5 text-label-sm text-amber-600 bg-bg-secondary">
+                            Due Today
                           </span>
                         )}
                       </div>
+
+                      <h3
+                        className={`font-display text-base ${
+                          task.completed ? "line-through text-text-muted" : ""
+                        }`}
+                      >
+                        {task.title}
+                      </h3>
+                      {task.description && (
+                        <p className="text-text-secondary text-body text-sm mt-1 line-clamp-1">
+                          {task.description}
+                        </p>
+                      )}
+
+                      {task.dueDate && (
+                        <p
+                          className={`mt-2 text-label-sm flex items-center gap-1 ${
+                            overdue
+                              ? "text-red-600"
+                              : dueToday
+                              ? "text-amber-600"
+                              : "text-text-muted"
+                          }`}
+                        >
+                          <svg
+                            className="w-3.5 h-3.5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={1.5}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+                            />
+                          </svg>
+                          {formatDueDate(task.dueDate)}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingTask(task);
+                          setShowAddModal(true);
+                        }}
+                        className="p-2 text-text-muted hover:text-text-primary transition-colors"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={1.5}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => deleteTask(task.id)}
+                        className="p-2 text-text-muted hover:text-red-600 transition-colors"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={1.5}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+                          />
+                        </svg>
+                      </button>
                     </div>
                   </div>
                 </div>
               );
-            })}
-          </div>
+            })
+          )}
+        </div>
+
+        {/* Add/Edit Modal */}
+        {showAddModal && (
+          <TaskModal
+            task={editingTask}
+            onSave={saveTask}
+            onClose={() => {
+              setShowAddModal(false);
+              setEditingTask(null);
+            }}
+          />
         )}
+      </div>
+    </div>
+  );
+}
+
+function TaskModal({
+  task,
+  onSave,
+  onClose,
+}: {
+  task: Task | null;
+  onSave: (data: Partial<Task>) => void;
+  onClose: () => void;
+}) {
+  const [title, setTitle] = useState(task?.title || "");
+  const [description, setDescription] = useState(task?.description || "");
+  const [category, setCategory] = useState<Task["category"]>(
+    task?.category || "personal"
+  );
+  const [priority, setPriority] = useState<Task["priority"]>(
+    task?.priority || "medium"
+  );
+  const [dueDate, setDueDate] = useState(task?.dueDate || "");
+
+  const handleSubmit = () => {
+    if (!title.trim()) return;
+    onSave({
+      title,
+      description: description || undefined,
+      category,
+      priority,
+      dueDate: dueDate || undefined,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-charcoal/80 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-bg-primary border border-border w-full max-w-lg">
+        <div className="p-6 border-b border-border flex items-center justify-between">
+          <div>
+            <span className="text-label-sm text-text-muted flex items-center gap-2 mb-1">
+              <span>✦</span> {task ? "Edit" : "New"} Task
+            </span>
+            <h2 className="font-display text-xl">
+              {task ? "Edit Task" : "Create Task"}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 text-text-muted hover:text-text-primary transition-colors"
+          >
+            <svg
+              className="w-5 h-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-label-sm text-text-secondary mb-2">
+              Title
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="What needs to be done?"
+              className="w-full px-4 py-3 bg-bg-card border border-border text-text-primary text-body focus:outline-none focus:border-border-dark transition-colors"
+            />
+          </div>
+
+          <div>
+            <label className="block text-label-sm text-text-secondary mb-2">
+              Description (optional)
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Add more details..."
+              rows={3}
+              className="w-full px-4 py-3 bg-bg-card border border-border text-text-primary text-body focus:outline-none focus:border-border-dark transition-colors resize-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-label-sm text-text-secondary mb-2">
+                Category
+              </label>
+              <select
+                value={category}
+                onChange={(e) =>
+                  setCategory(e.target.value as Task["category"])
+                }
+                className="w-full px-4 py-3 bg-bg-card border border-border text-text-primary text-body focus:outline-none focus:border-border-dark transition-colors"
+              >
+                {Object.entries(CATEGORY_CONFIG).map(([key, val]) => (
+                  <option key={key} value={key}>
+                    {val.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-label-sm text-text-secondary mb-2">
+                Priority
+              </label>
+              <select
+                value={priority}
+                onChange={(e) =>
+                  setPriority(e.target.value as Task["priority"])
+                }
+                className="w-full px-4 py-3 bg-bg-card border border-border text-text-primary text-body focus:outline-none focus:border-border-dark transition-colors"
+              >
+                {Object.entries(PRIORITY_CONFIG).map(([key, val]) => (
+                  <option key={key} value={key}>
+                    {val.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-label-sm text-text-secondary mb-2">
+              Due Date (optional)
+            </label>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full px-4 py-3 bg-bg-card border border-border text-text-primary text-body focus:outline-none focus:border-border-dark transition-colors"
+            />
+          </div>
+        </div>
+
+        <div className="p-6 border-t border-border flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-3 border border-border text-text-secondary text-label hover:bg-bg-secondary transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!title.trim()}
+            className="flex-1 px-4 py-3 bg-charcoal dark:bg-cream text-cream dark:text-charcoal text-label hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {task ? "Save Changes" : "Create Task"}
+          </button>
+        </div>
       </div>
     </div>
   );

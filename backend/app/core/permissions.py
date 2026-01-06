@@ -58,11 +58,23 @@ PERMISSIONS = {
     "enrollment:create": "Enroll students in sessions",
     "enrollment:edit": "Edit enrollments",
     "enrollment:delete": "Delete enrollments",
+    
+    # Audit log permissions
+    "audit:view": "View audit logs (admin only)",
+    "audit:export": "Export audit logs",
+    
+    # Additional permissions
+    "user:edit_role": "Change user roles (student/exco/admin)",
+    "user:edit_academic": "Edit academic info (admission year, level)",
 }
 
 
 # Default permissions by position
 DEFAULT_PERMISSIONS = {
+    "admin": [
+        # Admins have all permissions
+        *PERMISSIONS.keys()
+    ],
     "president": [
         "announcement:create", "announcement:edit", "announcement:delete", "announcement:view",
         "event:create", "event:edit", "event:delete", "event:manage",

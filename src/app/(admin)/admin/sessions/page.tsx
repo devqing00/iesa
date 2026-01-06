@@ -2,7 +2,7 @@
 
 /**
  * Admin Dashboard - Session Management
- * 
+ *
  * Create, view, and manage academic sessions.
  * Only admins and excos can access this page.
  */
@@ -13,6 +13,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useSession } from "@/context/SessionContext";
 import { Calendar, Plus, CheckCircle } from "lucide-react";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
+import { getApiUrl } from "@/lib/api";
 
 interface Session {
   id: string;
@@ -43,9 +44,9 @@ function AdminSessionsPage() {
 
     try {
       const token = await user.getIdToken();
-      const response = await fetch('/api/sessions', {
+      const response = await fetch(getApiUrl("/api/v1/sessions"), {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -54,7 +55,7 @@ function AdminSessionsPage() {
         setSessions(data);
       }
     } catch (error) {
-      console.error('Error fetching sessions:', error);
+      console.error("Error fetching sessions:", error);
     } finally {
       setLoading(false);
     }
@@ -70,11 +71,11 @@ function AdminSessionsPage() {
 
     try {
       const token = await user.getIdToken();
-      const response = await fetch('/api/sessions', {
-        method: 'POST',
+      const response = await fetch(getApiUrl("/api/v1/sessions"), {
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
       });
@@ -92,7 +93,7 @@ function AdminSessionsPage() {
         await refreshSessions();
       }
     } catch (error) {
-      console.error('Error creating session:', error);
+      console.error("Error creating session:", error);
     }
   };
 
@@ -101,11 +102,11 @@ function AdminSessionsPage() {
 
     try {
       const token = await user.getIdToken();
-      const response = await fetch(`/api/sessions/${sessionId}`, {
-        method: 'PATCH',
+      const response = await fetch(`/api/v1/sessions/${sessionId}`, {
+        method: "PATCH",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ isActive: true }),
       });
@@ -115,10 +116,9 @@ function AdminSessionsPage() {
         await refreshSessions();
       }
     } catch (error) {
-      console.error('Error toggling session:', error);
+      console.error("Error toggling session:", error);
     }
   };
-
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -128,8 +128,12 @@ function AdminSessionsPage() {
         {/* Header with Create Button */}
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Academic Sessions</h2>
-            <p className="text-foreground/50 text-sm">Manage academic years and semesters</p>
+            <h2 className="text-2xl font-bold text-foreground">
+              Academic Sessions
+            </h2>
+            <p className="text-foreground/50 text-sm">
+              Manage academic years and semesters
+            </p>
           </div>
           <PermissionGate permission="session:create">
             <button
@@ -154,13 +158,15 @@ function AdminSessionsPage() {
                 key={session.id}
                 className={`rounded-xl p-6 border-2 transition-all ${
                   session.isActive
-                    ? 'bg-primary/10 border-primary'
-                    : 'bg-background/60 border-foreground/5 hover:border-foreground/20'
+                    ? "bg-primary/10 border-primary"
+                    : "bg-background/60 border-foreground/5 hover:border-foreground/20"
                 }`}
               >
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h3 className="text-xl font-bold text-foreground mb-1">{session.name}</h3>
+                    <h3 className="text-xl font-bold text-foreground mb-1">
+                      {session.name}
+                    </h3>
                     <p className="text-sm text-foreground/50">
                       Semester {session.currentSemester}
                     </p>
@@ -177,7 +183,7 @@ function AdminSessionsPage() {
                   <div className="flex items-center gap-2 text-sm text-foreground/60">
                     <Calendar className="h-4 w-4" />
                     <span>
-                      {new Date(session.startDate).toLocaleDateString()} -{' '}
+                      {new Date(session.startDate).toLocaleDateString()} -{" "}
                       {new Date(session.endDate).toLocaleDateString()}
                     </span>
                   </div>
@@ -200,11 +206,16 @@ function AdminSessionsPage() {
         {showCreateModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-background rounded-xl p-6 max-w-md w-full border border-foreground/10">
-              <h3 className="text-xl font-bold text-foreground mb-4">Create New Session</h3>
+              <h3 className="text-xl font-bold text-foreground mb-4">
+                Create New Session
+              </h3>
 
               <form onSubmit={handleCreateSession} className="space-y-4">
                 <div>
-                  <label htmlFor="sessionName" className="block text-sm font-bold text-foreground/70 mb-2">
+                  <label
+                    htmlFor="sessionName"
+                    className="block text-sm font-bold text-foreground/70 mb-2"
+                  >
                     Session Name (e.g., 2024/2025)
                   </label>
                   <input
@@ -213,7 +224,9 @@ function AdminSessionsPage() {
                     required
                     pattern="\d{4}/\d{4}"
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
                     placeholder="2024/2025"
                     title="Session name in format YYYY/YYYY"
                     className="w-full px-4 py-2 rounded-lg border border-foreground/10 bg-background/50 focus:border-primary focus:outline-none"
@@ -222,7 +235,10 @@ function AdminSessionsPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor="startDate" className="block text-sm font-bold text-foreground/70 mb-2">
+                    <label
+                      htmlFor="startDate"
+                      className="block text-sm font-bold text-foreground/70 mb-2"
+                    >
                       Start Date
                     </label>
                     <input
@@ -230,14 +246,19 @@ function AdminSessionsPage() {
                       type="date"
                       required
                       value={formData.startDate}
-                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, startDate: e.target.value })
+                      }
                       title="Start date of the session"
                       className="w-full px-4 py-2 rounded-lg border border-foreground/10 bg-background/50 focus:border-primary focus:outline-none"
                     />
                   </div>
 
                   <div>
-                    <label htmlFor="endDate" className="block text-sm font-bold text-foreground/70 mb-2">
+                    <label
+                      htmlFor="endDate"
+                      className="block text-sm font-bold text-foreground/70 mb-2"
+                    >
                       End Date
                     </label>
                     <input
@@ -245,7 +266,9 @@ function AdminSessionsPage() {
                       type="date"
                       required
                       value={formData.endDate}
-                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, endDate: e.target.value })
+                      }
                       title="End date of the session"
                       className="w-full px-4 py-2 rounded-lg border border-foreground/10 bg-background/50 focus:border-primary focus:outline-none"
                     />
@@ -253,13 +276,21 @@ function AdminSessionsPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="currentSemester" className="block text-sm font-bold text-foreground/70 mb-2">
+                  <label
+                    htmlFor="currentSemester"
+                    className="block text-sm font-bold text-foreground/70 mb-2"
+                  >
                     Current Semester
                   </label>
                   <select
                     id="currentSemester"
                     value={formData.currentSemester}
-                    onChange={(e) => setFormData({ ...formData, currentSemester: parseInt(e.target.value) as 1 | 2 })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        currentSemester: parseInt(e.target.value) as 1 | 2,
+                      })
+                    }
                     title="Current semester for the session"
                     className="w-full px-4 py-2 rounded-lg border border-foreground/10 bg-background/50 focus:border-primary focus:outline-none"
                   >
@@ -273,11 +304,16 @@ function AdminSessionsPage() {
                     type="checkbox"
                     id="isActive"
                     checked={formData.isActive}
-                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, isActive: e.target.checked })
+                    }
                     className="rounded"
                     title="Set session as active"
                   />
-                  <label htmlFor="isActive" className="text-sm text-foreground/70">
+                  <label
+                    htmlFor="isActive"
+                    className="text-sm text-foreground/70"
+                  >
                     Set as active session (will deactivate others)
                   </label>
                 </div>
@@ -307,5 +343,5 @@ function AdminSessionsPage() {
 }
 
 export default withAuth(AdminSessionsPage, {
-  anyPermission: ["session:create", "session:edit"]
+  anyPermission: ["session:create", "session:edit"],
 });

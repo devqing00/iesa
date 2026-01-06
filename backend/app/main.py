@@ -1,11 +1,17 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import os
 from pymongo import MongoClient
 from app.core.security import verify_token
-from app.routers import sessions, users, payments, events, announcements, grades, enrollments, roles, students, iesa_ai, resources, timetable, paystack, id_card, telegram_webhook
+from app.core.rate_limiting import setup_rate_limiting
+from app.core.error_handling import setup_exception_handlers, setup_logging
+from app.core.monitoring import init_sentry
+from app.routers import sessions, users, payments, events, announcements, grades, enrollments, roles, students, iesa_ai, resources, timetable, paystack, id_card, telegram_webhook, audit_logs
 from app.db import connect_to_mongo, close_mongo_connection
+
+# Setup logging first
+setup_logging()
 
 # Synchronous MongoDB client for compatibility with some routers
 MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
@@ -57,6 +63,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Setup rate limiting
+limiter = setup_rate_limiting(app)
+
+# Setup centralized error handling
+setup_exception_handlers(app)
+
+# Setup performance monitoring (Sentry)
+init_sentry(app)
+
 @app.get("/")
 async def root():
     return {"message": "Welcome to IESA Backend"}
@@ -82,10 +97,7 @@ app.include_router(timetable.router)  # Timetable System
 app.include_router(paystack.router)  # Paystack Payment Integration
 app.include_router(id_card.router)  # Digital ID Cards
 app.include_router(telegram_webhook.router)  # Telegram Bot Webhook
-
-# Legacy routes (backward compatibility) - removed to avoid conflicts
-app.include_router(announcements.router, tags=["Legacy"])
-app.include_router(grades.router, tags=["Legacy"])
+app.include_router(audit_logs.router)  # Audit Logs (Admin Only)
 
 @app.get("/api/protected")
 async def protected_route(user_data: dict = Depends(verify_token)):

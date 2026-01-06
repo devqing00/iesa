@@ -59,6 +59,23 @@ def get_database() -> AsyncIOMotorDatabase:
     return database
 
 
+def get_database_client() -> AsyncIOMotorClient:
+    """
+    Get the MongoDB client instance.
+    Required for transactions and advanced operations.
+    
+    Example:
+        from app.db import get_database_client
+        from app.core.transactions import run_in_transaction
+        
+        client = get_database_client()
+        result = await run_in_transaction(client, my_callback)
+    """
+    if client is None:
+        raise Exception("Database client not initialized. Call connect_to_mongo() first.")
+    return client
+
+
 # Collection References
 # Access these directly in routers: from app.db import users_collection
 
@@ -82,4 +99,12 @@ roles_collection = lambda: get_collection("roles")
 
 # Additional Collections
 transactions_collection = lambda: get_collection("transactions")
-library_collection = lambda: get_collection("library")
+
+# Sync Client for legacy/sync wrappers
+from pymongo import MongoClient
+
+def get_sync_db():
+    """Get a synchronous database connection."""
+    sync_client = MongoClient(MONGODB_URL)
+    return sync_client[DATABASE_NAME]
+

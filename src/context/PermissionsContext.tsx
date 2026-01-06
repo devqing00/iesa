@@ -1,7 +1,15 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useCallback,
+} from "react";
 import { useAuth } from "./AuthContext";
+import { getApiUrl } from "@/lib/api";
 
 interface PermissionsContextType {
   permissions: string[];
@@ -37,9 +45,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
 
     try {
       const token = await user.getIdToken();
-      
+
       // Fetch user's permissions from backend
-      const response = await fetch("/api/v1/users/me/permissions", {
+      const response = await fetch(getApiUrl("/api/users/me/permissions"), {
         headers: {
           Authorization: `Bearer ${token}`,
         },

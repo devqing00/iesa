@@ -42,6 +42,10 @@ next-env.d.ts
 
 # secrets
 backend/serviceAccountKey.json
+service_base64.txt
+
+# scripts
+*.sh
 
 # Python Cache
 __pycache__/
@@ -72,3 +76,6 @@ htmlcov/
 # Databases (if using local SQLite)
 *.db
 *.sqlite3
+# Generated Documentation
+*.md
+!/README.md

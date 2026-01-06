@@ -5,10 +5,12 @@ CRITICAL: All payments are session-scoped.
 The session_id filter is automatically applied based on user's current session.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status, Query
+from fastapi import APIRouter, HTTPException, Depends, status, Query, Request
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.models.payment import (
     Payment, PaymentCreate, PaymentUpdate, PaymentWithStatus,
@@ -18,11 +20,14 @@ from app.db import get_database
 from app.core.security import get_current_user
 from app.core.permissions import require_permission
 
-router = APIRouter(prefix="/api/payments", tags=["Payments"])
+router = APIRouter(prefix="/api/v1/payments", tags=["Payments"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post("/", response_model=Payment, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
 async def create_payment(
+    request: Request,
     payment_data: PaymentCreate,
     user: dict = Depends(require_permission("payment:create"))
 ):
@@ -30,6 +35,7 @@ async def create_payment(
     Create a new payment/due.
     Requires payment:create permission.
     
+    Rate limited to prevent spam payment creation.
     The payment MUST include a session_id.
     """
     db = get_database()
@@ -59,7 +65,7 @@ async def create_payment(
 
 @router.get("/", response_model=List[PaymentWithStatus])
 async def list_payments(
-    session_id: str = Query(..., description="Filter by session ID (REQUIRED for session-aware filtering)"),
+    session_id: Optional[str] = Query(None, description="Filter by session ID. Defaults to active session."),
     user: dict = Depends(get_current_user)
 ):
     """
@@ -73,9 +79,19 @@ async def list_payments(
     db = get_database()
     payments = db["payments"]
     transactions = db["transactions"]
+    sessions = db["sessions"]
+    
+    # Resolve session_id
+    if not session_id:
+        active_session = await sessions.find_one({"isActive": True})
+        if not active_session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No active session found"
+            )
+        session_id = str(active_session["_id"])
     
     # Verify session exists
-    sessions = db["sessions"]
     session = await sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
         raise HTTPException(
@@ -105,8 +121,11 @@ async def list_payments(
             if transaction:
                 transaction_id = str(transaction["_id"])
         
+        # Prepare data for PaymentWithStatus, excluding keys that might conflict
+        payment_data = {k: v for k, v in payment.items() if k not in ["hasPaid", "transactionId"]}
+        
         payment_with_status = PaymentWithStatus(
-            **payment,
+            **payment_data,
             hasPaid=has_paid,
             transactionId=transaction_id
         )

@@ -25,7 +25,7 @@ class EventBase(BaseModel):
     registrationDeadline: Optional[datetime] = None
     imageUrl: Optional[str] = None
     requiresPayment: bool = Field(default=False)
-    paymentAmount: Optional[float] = Field(None, gt=0)
+    paymentAmount: Optional[float] = Field(None, ge=0)
 
 
 class EventCreate(EventBase):
@@ -48,7 +48,7 @@ class EventUpdate(BaseModel):
 class Event(EventBase):
     """Event response model"""
     id: str = Field(alias="_id")
-    createdBy: str
+    createdBy: Optional[str] = Field(None)
     registrations: List[str] = Field(default_factory=list, description="List of User IDs registered")
     attendees: List[str] = Field(default_factory=list, description="List of User IDs who attended")
     createdAt: datetime

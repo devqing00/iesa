@@ -11,9 +11,10 @@ from datetime import datetime
 from bson import ObjectId
 
 from app.models.session import Session, SessionCreate, SessionUpdate, SessionSummary
-from app.db import get_database
+from app.db import get_database, get_database_client
 from app.core.security import verify_token
 from app.core.permissions import require_permission
+from app.core.transactions import activate_session_atomically, delete_session_with_data
 
 router = APIRouter(prefix="/api/sessions", tags=["Sessions"])
 
@@ -40,17 +41,25 @@ async def create_session(
             detail=f"Session {session_data.name} already exists"
         )
     
-    # If this session is marked active, deactivate all others
-    if session_data.isActive:
-        await sessions.update_many({}, {"$set": {"isActive": False}})
-    
-    # Create session document
+    # Create session document first (inactive)
     session_dict = session_data.model_dump()
     session_dict["createdAt"] = datetime.utcnow()
     session_dict["updatedAt"] = datetime.utcnow()
     
+    # Always create as inactive first to prevent race conditions
+    original_active_state = session_dict.get("isActive", False)
+    session_dict["isActive"] = False
+    
     result = await sessions.insert_one(session_dict)
     created_session = await sessions.find_one({"_id": result.inserted_id})
+    
+    # If this session should be active, use atomic transaction
+    if original_active_state:
+        client = get_database_client()
+        await activate_session_atomically(client, str(result.inserted_id))
+        
+        # Fetch updated session
+        created_session = await sessions.find_one({"_id": result.inserted_id})
     
     # Convert ObjectId to string
     created_session["_id"] = str(created_session["_id"])
@@ -175,13 +184,18 @@ async def update_session(
             detail=f"Session {session_id} not found"
         )
     
-    # If activating this session, deactivate others
+    # If activating this session, deactivate others atomically
+    # Note: For true atomicity, run create_indexes.py to add unique constraint
     update_data = session_update.model_dump(exclude_unset=True)
     if update_data.get("isActive") is True:
+        # First deactivate all sessions
         await sessions.update_many(
-            {"_id": {"$ne": ObjectId(session_id)}},
+            {},
             {"$set": {"isActive": False}}
         )
+        
+        # Then activate only this one
+        update_data["isActive"] = True
     
     # Update session
     update_data["updatedAt"] = datetime.utcnow()
@@ -233,16 +247,8 @@ async def delete_session(
             detail="Cannot delete the active session. Please activate another session first."
         )
     
-    # Delete the session
-    await sessions.delete_one({"_id": ObjectId(session_id)})
-    
-    # TODO: Also delete all session-scoped data
-    # This should be done in a transaction for data integrity
-    await db["payments"].delete_many({"sessionId": session_id})
-    await db["events"].delete_many({"sessionId": session_id})
-    await db["announcements"].delete_many({"sessionId": session_id})
-    await db["grades"].delete_many({"sessionId": session_id})
-    await db["roles"].delete_many({"sessionId": session_id})
-    await db["enrollments"].delete_many({"sessionId": session_id})
+    # Delete the session and all its data atomically using transaction
+    client = get_database_client()
+    await delete_session_with_data(client, session_id)
     
     return None

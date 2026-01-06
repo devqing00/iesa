@@ -51,15 +51,19 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    """Model for updating user profile (static data only)"""
+    """Model for updating user profile (students can only edit personal info).
+    
+    SECURITY: role, admissionYear, currentLevel are intentionally excluded
+    to prevent privilege escalation. Admins must use dedicated endpoints
+    (/api/users/{user_id}/role and /api/users/{user_id}/academic-info).
+    """
     firstName: Optional[str] = Field(None, min_length=1, max_length=100)
     lastName: Optional[str] = Field(None, min_length=1, max_length=100)
     matricNumber: Optional[str] = Field(None, pattern=r"^\d{2}/\d{2}[A-Z]{2}\d{3}$")
     phone: Optional[str] = Field(None, pattern=r"^\+?[0-9]{10,15}$")
     bio: Optional[str] = Field(None, max_length=500)
-    profilePictureUrl: Optional[str] = None
+    # profilePictureUrl intentionally excluded - use /me/profile-picture endpoint
     skills: Optional[list[str]] = Field(None, max_length=20)
-    # Note: role, admissionYear, currentLevel require admin privileges to change
 
 
 class User(UserBase):

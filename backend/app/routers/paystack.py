@@ -19,10 +19,14 @@ import hmac
 import hashlib
 import requests
 from bson import ObjectId
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from ..core.security import get_current_user
 from ..utils.receipt_generator import generate_payment_receipt
+from ..core.email import send_payment_receipt
 
 router = APIRouter(prefix="/api/v1/paystack", tags=["Paystack"])
+limiter = Limiter(key_func=get_remote_address)
 
 # Paystack configuration
 PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY", "")
@@ -89,19 +93,24 @@ def verify_paystack_signature(payload: bytes, signature: str) -> bool:
 
 # Endpoints
 @router.post("/initialize", response_model=PaymentResponse)
+@limiter.limit("10/minute")
 async def initialize_payment(
-    request: PaymentInitializeRequest,
+    request: Request,
+    payment_request: PaymentInitializeRequest,
     current_user: dict = Depends(get_current_user)
 ):
     """
     Initialize a Paystack payment transaction.
     Returns authorization URL for payment.
+    
+    Rate limited to prevent payment spam.
     """
     try:
-        from ..main import db
+        from app.db import get_sync_db
+        db = get_sync_db()
         
         # Verify payment exists
-        payment = db.payments.find_one({"_id": ObjectId(request.paymentId)})
+        payment = db.payments.find_one({"_id": ObjectId(payment_request.paymentId)})
         if not payment:
             raise HTTPException(status_code=404, detail="Payment not found")
         
@@ -113,7 +122,7 @@ async def initialize_payment(
         reference = generate_payment_reference(current_user["uid"])
         
         # Convert to kobo (Paystack uses kobo)
-        amount_kobo = int(request.amount * 100)
+        amount_kobo = int(payment_request.amount * 100)
         
         # Prepare Paystack request
         paystack_data = {
@@ -125,7 +134,7 @@ async def initialize_payment(
                 "studentId": current_user["uid"],
                 "studentName": current_user.get("displayName", current_user.get("email", "Unknown")),
                 "studentEmail": current_user.get("email", "student@example.com"),
-                "paymentId": request.paymentId,
+                "paymentId": payment_request.paymentId,
                 "paymentTitle": payment.get("title", "IESA Payment"),
                 "custom_fields": [
                     {
@@ -217,7 +226,8 @@ async def verify_payment(
     Checks Paystack for transaction status and updates local record.
     """
     try:
-        from ..main import db
+        from app.db import get_sync_db
+        db = get_sync_db()
         
         # Check local database first
         transaction = db.paystackTransactions.find_one({"reference": reference})
@@ -362,7 +372,8 @@ async def paystack_webhook(
                 return {"status": "ignored", "reason": "No reference found"}
             
             # Update transaction in database
-            from ..main import db
+            from app.db import get_sync_db
+            db = get_sync_db()
             transaction = db.paystackTransactions.find_one({"reference": reference})
             
             if not transaction:
@@ -414,7 +425,20 @@ async def paystack_webhook(
                 "createdAt": datetime.utcnow()
             })
             
-            # TODO: Send receipt email
+            # Send receipt email asynchronously
+            try:
+                payment = db.payments.find_one({"_id": ObjectId(payment_id)})
+                await send_payment_receipt(
+                    to=transaction.get("studentEmail", "student@example.com"),
+                    student_name=transaction.get("studentName", "Student"),
+                    payment_title=payment.get("title", "IESA Payment") if payment else "IESA Payment",
+                    amount=transaction["amount"],
+                    reference=reference,
+                    date=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                )
+            except Exception as email_error:
+                # Log error but don't fail the payment
+                print(f"Failed to send receipt email: {str(email_error)}")
             
             return {"status": "success", "message": "Payment verified"}
         
@@ -435,11 +459,17 @@ async def get_transactions(
     Returns list of all Paystack transactions.
     """
     try:
-        from ..main import db
+        from app.db import get_sync_db
+        db = get_sync_db()
+        
+        # Get Firebase UID from user
+        firebase_uid = current_user.get("firebaseUid") or current_user.get("firebaseData", {}).get("uid")
+        if not firebase_uid:
+            raise HTTPException(status_code=400, detail="Firebase UID not found")
         
         # Fetch transactions
         transactions = list(
-            db.paystackTransactions.find({"studentId": current_user["uid"]})
+            db.paystackTransactions.find({"studentId": firebase_uid})
             .sort("createdAt", -1)
             .limit(limit)
         )
@@ -467,7 +497,8 @@ async def download_receipt(
     Only available for verified transactions.
     """
     try:
-        from ..main import db
+        from app.db import get_sync_db
+        db = get_sync_db()
         
         # Fetch transaction
         transaction = db.paystackTransactions.find_one({"reference": reference})

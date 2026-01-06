@@ -37,7 +37,8 @@ async def get_student_document(
         StreamingResponse: PDF file of the student document
     """
     try:
-        from ..main import db
+        from app.db import get_sync_db
+        db = get_sync_db()
         
         # Get student data from Firebase user
         student_id = current_user.get("uid")
@@ -136,7 +137,8 @@ async def view_student_document(
         StreamingResponse: PDF file displayed inline
     """
     try:
-        from ..main import db
+        from app.db import get_sync_db
+        db = get_sync_db()
         
         # Get student data from Firebase user
         student_id = current_user.get("uid")

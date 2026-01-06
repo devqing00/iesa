@@ -16,8 +16,9 @@ from app.models.event import (
 from app.db import get_database
 from app.core.security import get_current_user
 from app.core.permissions import require_permission
+from app.core.sanitization import sanitize_html, validate_no_scripts
 
-router = APIRouter(prefix="/api/events", tags=["Events"])
+router = APIRouter(prefix="/api/v1/events", tags=["Events"])
 
 
 @router.post("/", response_model=Event, status_code=status.HTTP_201_CREATED)
@@ -33,6 +34,18 @@ async def create_event(
     """
     db = get_database()
     events = db["events"]
+    
+    # Sanitize input to prevent XSS
+    if not validate_no_scripts(event_data.title):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid characters detected in title"
+        )
+    if not validate_no_scripts(event_data.description):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid characters detected in description"
+        )
     
     # Verify session exists
     sessions = db["sessions"]
@@ -59,7 +72,7 @@ async def create_event(
 
 @router.get("/", response_model=List[EventWithStatus])
 async def list_events(
-    session_id: str = Query(..., description="Filter by session ID (REQUIRED)"),
+    session_id: Optional[str] = Query(None, description="Filter by session ID. Defaults to active session."),
     category: Optional[str] = None,
     user: dict = Depends(get_current_user)
 ):
@@ -71,9 +84,19 @@ async def list_events(
     """
     db = get_database()
     events = db["events"]
+    sessions = db["sessions"]
+    
+    # Resolve session_id
+    if not session_id:
+        active_session = await sessions.find_one({"isActive": True})
+        if not active_session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No active session found"
+            )
+        session_id = str(active_session["_id"])
     
     # Verify session exists
-    sessions = db["sessions"]
     session = await sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
         raise HTTPException(
@@ -345,3 +368,22 @@ async def delete_event(
         )
     
     return None
+
+
+@router.get("/registrations/me", response_model=List[str])
+async def get_my_registrations(
+    user: dict = Depends(get_current_user)
+):
+    """
+    Get list of event IDs the current user is registered for.
+    Returns array of event ID strings.
+    """
+    db = get_database()
+    events = db["events"]
+    
+    # Find all events where user is in registrations array
+    cursor = events.find({"registrations": user["_id"]})
+    registered_events = await cursor.to_list(length=None)
+    
+    # Return array of event IDs as strings
+    return [str(event["_id"]) for event in registered_events]

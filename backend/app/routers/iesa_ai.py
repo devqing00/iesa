@@ -42,6 +42,7 @@ except ImportError:
 class ChatMessage(BaseModel):
     message: str
     conversationHistory: Optional[List[dict]] = []
+    language: Optional[str] = "en"  # "en", "pcm" (Pidgin), "yo" (Yoruba)
 
 
 class ChatResponse(BaseModel):
@@ -223,10 +224,43 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
     return context
 
 
-def build_system_prompt(user_context: dict) -> str:
+def build_system_prompt(user_context: dict, language: str = "en") -> str:
     """
     Build a comprehensive system prompt for IESA AI.
+    
+    Args:
+        user_context: User's personalized context
+        language: Response language - "en" (English), "pcm" (Pidgin), "yo" (Yoruba)
     """
+    
+    # Language-specific instructions
+    language_instructions = {
+        "en": """## Language Instructions
+- Respond in clear, friendly Nigerian English
+- Use proper grammar but keep it conversational
+- Include appropriate emojis when relevant""",
+        
+        "pcm": """## Language Instructions
+- Respond in Nigerian Pidgin English
+- Use authentic Pidgin expressions like "How far?", "E go sweet you", "No wahala", "Wetin dey happen?", "Na so", "Sharp sharp", etc.
+- Keep the tone friendly and relatable like you dey gist with your paddy
+- Mix in some English when necessary for technical terms
+- Example: "Bros/Sisi, your payment don enter! 🎉 You fit download your receipt for the Payment page. Na so we see am!"
+- Another example: "Wetin dey your mind? Na exam stress? Take am easy, use the past questions wey dey library, join study group with your guys. You go hammer! 💪"
+- Use Nigerian exclamations like "Chai!", "Ehen!", "Omo!", "E be like say"
+- Be warm and encouraging in Pidgin style""",
+        
+        "yo": """## Language Instructions
+- Respond in Yoruba language mixed with some English (code-switching is natural)
+- Use authentic Yoruba expressions and greetings like "E kaaro", "E kaasan", "E pele", "Bawo ni?", "O dara", "Mo ti gbọ", etc.
+- For technical terms, use English as Yoruba speakers normally would
+- Example: "E kaaro! Mo ti ri payment rẹ 🎉 O le download receipt rẹ lati Payment page. A ti ri i!"
+- Another example: "Bawo ni? Ṣe exam stress ni? Ma worry, lo use past questions ti o wa ni library, join study group pẹlu awọn ọrẹ rẹ. O ma pass! 💪"
+- Be respectful and use appropriate honorifics
+- Include Yoruba phrases of encouragement"""
+    }
+    
+    lang_instruction = language_instructions.get(language, language_instructions["en"])
     
     prompt = f"""You are IESA AI, a friendly and knowledgeable assistant for the Industrial Engineering Students' Association (IESA) at the University of Ibadan.
 
@@ -235,7 +269,9 @@ def build_system_prompt(user_context: dict) -> str:
 - Provide study tips and academic guidance
 - Explain IESA processes and procedures
 - Be encouraging, supportive, and professional
-- Use Nigerian English and understand UI student culture
+- Understand UI student culture and local context
+
+{lang_instruction}
 
 ## Knowledge Base
 {IESA_KNOWLEDGE}
@@ -308,8 +344,8 @@ async def chat_with_iesa_ai(
         # Get user context for personalization
         user_context = await get_user_context(str(user["_id"]), db)
         
-        # Build system prompt with context
-        system_prompt = build_system_prompt(user_context)
+        # Build system prompt with context and language preference
+        system_prompt = build_system_prompt(user_context, chat_data.language or "en")
         
         # Build conversation history
         messages = [{"role": "system", "content": system_prompt}]

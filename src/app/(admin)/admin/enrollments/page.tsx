@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
+import { getApiUrl } from "@/lib/api";
 
 interface Student {
   id: string;
@@ -47,7 +48,7 @@ function EnrollmentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
-  
+
   // Filters
   const [filterSession, setFilterSession] = useState<string>("all");
   const [filterLevel, setFilterLevel] = useState<string>("all");
@@ -56,7 +57,7 @@ function EnrollmentsPage() {
   const [formData, setFormData] = useState({
     studentId: "",
     sessionId: "",
-    level: "100L"
+    level: "100L",
   });
 
   // Fetch data
@@ -73,15 +74,15 @@ function EnrollmentsPage() {
 
       // Fetch enrollments, students, and sessions in parallel
       const [enrollmentsRes, studentsRes, sessionsRes] = await Promise.all([
-        fetch("/api/enrollments", {
-          headers: { Authorization: `Bearer ${token}` }
+        fetch(getApiUrl("/api/v1/enrollments"), {
+          headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch("/api/users", {
-          headers: { Authorization: `Bearer ${token}` }
+        fetch(getApiUrl("/api/v1/users"), {
+          headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch("/api/sessions", {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+        fetch(getApiUrl("/api/v1/sessions"), {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
 
       if (!enrollmentsRes.ok || !studentsRes.ok || !sessionsRes.ok) {
@@ -91,7 +92,7 @@ function EnrollmentsPage() {
       const [enrollmentsData, studentsData, sessionsData] = await Promise.all([
         enrollmentsRes.json(),
         studentsRes.json(),
-        sessionsRes.json()
+        sessionsRes.json(),
       ]);
 
       setEnrollments(enrollmentsData);
@@ -102,11 +103,11 @@ function EnrollmentsPage() {
         .map(({ role, ...rest }) => rest as Student);
       setStudents(studentUsers);
       setSessions(sessionsData);
-      
+
       // Set default session to active session
       const activeSession = sessionsData.find((s: Session) => s.isActive);
       if (activeSession && !formData.sessionId) {
-        setFormData(prev => ({ ...prev, sessionId: activeSession.id }));
+        setFormData((prev) => ({ ...prev, sessionId: activeSession.id }));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch data");
@@ -123,13 +124,13 @@ function EnrollmentsPage() {
       const token = await user?.getIdToken();
       if (!token) return;
 
-      const response = await fetch("/api/enrollments", {
+      const response = await fetch(getApiUrl("/api/v1/enrollments"), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -138,13 +139,19 @@ function EnrollmentsPage() {
       }
 
       // Reset form and close modal
-      setFormData({ studentId: "", sessionId: formData.sessionId, level: "100L" });
+      setFormData({
+        studentId: "",
+        sessionId: formData.sessionId,
+        level: "100L",
+      });
       setShowModal(false);
-      
+
       // Refresh data
       await fetchData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create enrollment");
+      setError(
+        err instanceof Error ? err.message : "Failed to create enrollment"
+      );
     }
   };
 
@@ -155,9 +162,9 @@ function EnrollmentsPage() {
       const token = await user?.getIdToken();
       if (!token) return;
 
-      const response = await fetch(`/api/enrollments/${enrollmentId}`, {
+      const response = await fetch(`/api/v1/enrollments/${enrollmentId}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
@@ -166,13 +173,16 @@ function EnrollmentsPage() {
 
       await fetchData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete enrollment");
+      setError(
+        err instanceof Error ? err.message : "Failed to delete enrollment"
+      );
     }
   };
 
   // Filter enrollments
-  const filteredEnrollments = enrollments.filter(enrollment => {
-    if (filterSession !== "all" && enrollment.sessionId !== filterSession) return false;
+  const filteredEnrollments = enrollments.filter((enrollment) => {
+    if (filterSession !== "all" && enrollment.sessionId !== filterSession)
+      return false;
     if (filterLevel !== "all" && enrollment.level !== filterLevel) return false;
     return true;
   });
@@ -203,8 +213,18 @@ function EnrollmentsPage() {
             onClick={() => setShowModal(true)}
             className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:opacity-90 transition-opacity"
           >
-            <svg className="h-5 w-5 inline mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            <svg
+              className="h-5 w-5 inline mr-2"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 4v16m8-8H4"
+              />
             </svg>
             Enroll Student
           </button>
@@ -221,7 +241,10 @@ function EnrollmentsPage() {
       {/* Filters */}
       <div className="flex gap-4 bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-xl p-4">
         <div className="flex-1">
-          <label htmlFor="filter-session" className="block text-sm font-medium text-[var(--foreground)]/70 mb-2">
+          <label
+            htmlFor="filter-session"
+            className="block text-sm font-medium text-[var(--foreground)]/70 mb-2"
+          >
             Filter by Session
           </label>
           <select
@@ -231,7 +254,7 @@ function EnrollmentsPage() {
             className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--glass-border)] rounded-lg text-[var(--foreground)]"
           >
             <option value="all">All Sessions</option>
-            {sessions.map(session => (
+            {sessions.map((session) => (
               <option key={session.id} value={session.id}>
                 {session.name} {session.isActive && "(Active)"}
               </option>
@@ -240,7 +263,10 @@ function EnrollmentsPage() {
         </div>
 
         <div className="flex-1">
-          <label htmlFor="filter-level" className="block text-sm font-medium text-[var(--foreground)]/70 mb-2">
+          <label
+            htmlFor="filter-level"
+            className="block text-sm font-medium text-[var(--foreground)]/70 mb-2"
+          >
             Filter by Level
           </label>
           <select
@@ -250,8 +276,10 @@ function EnrollmentsPage() {
             className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--glass-border)] rounded-lg text-[var(--foreground)]"
           >
             <option value="all">All Levels</option>
-            {LEVELS.map(level => (
-              <option key={level} value={level}>{level}</option>
+            {LEVELS.map((level) => (
+              <option key={level} value={level}>
+                {level}
+              </option>
             ))}
           </select>
         </div>
@@ -260,16 +288,28 @@ function EnrollmentsPage() {
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-xl p-6">
-          <div className="text-2xl font-bold text-[var(--primary)]">{enrollments.length}</div>
-          <div className="text-sm text-[var(--foreground)]/60">Total Enrollments</div>
+          <div className="text-2xl font-bold text-[var(--primary)]">
+            {enrollments.length}
+          </div>
+          <div className="text-sm text-[var(--foreground)]/60">
+            Total Enrollments
+          </div>
         </div>
         <div className="bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-xl p-6">
-          <div className="text-2xl font-bold text-[var(--primary)]">{students.length}</div>
-          <div className="text-sm text-[var(--foreground)]/60">Total Students</div>
+          <div className="text-2xl font-bold text-[var(--primary)]">
+            {students.length}
+          </div>
+          <div className="text-sm text-[var(--foreground)]/60">
+            Total Students
+          </div>
         </div>
         <div className="bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-xl p-6">
-          <div className="text-2xl font-bold text-[var(--primary)]">{filteredEnrollments.length}</div>
-          <div className="text-sm text-[var(--foreground)]/60">Filtered Results</div>
+          <div className="text-2xl font-bold text-[var(--primary)]">
+            {filteredEnrollments.length}
+          </div>
+          <div className="text-sm text-[var(--foreground)]/60">
+            Filtered Results
+          </div>
         </div>
       </div>
 
@@ -302,16 +342,23 @@ function EnrollmentsPage() {
             <tbody className="divide-y divide-[var(--glass-border)]">
               {filteredEnrollments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-[var(--foreground)]/60">
+                  <td
+                    colSpan={6}
+                    className="px-6 py-12 text-center text-[var(--foreground)]/60"
+                  >
                     No enrollments found
                   </td>
                 </tr>
               ) : (
-                filteredEnrollments.map(enrollment => (
-                  <tr key={enrollment.id} className="hover:bg-[var(--primary)]/5">
+                filteredEnrollments.map((enrollment) => (
+                  <tr
+                    key={enrollment.id}
+                    className="hover:bg-[var(--primary)]/5"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-[var(--foreground)]">
-                        {enrollment.student?.firstName} {enrollment.student?.lastName}
+                        {enrollment.student?.firstName}{" "}
+                        {enrollment.student?.lastName}
                       </div>
                       <div className="text-sm text-[var(--foreground)]/60">
                         {enrollment.student?.email}
@@ -344,11 +391,24 @@ function EnrollmentsPage() {
                       <button
                         onClick={() => handleDeleteEnrollment(enrollment.id)}
                         className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                        aria-label={`Delete enrollment for ${enrollment.student?.firstName || ""} ${enrollment.student?.lastName || ""}`}
+                        aria-label={`Delete enrollment for ${
+                          enrollment.student?.firstName || ""
+                        } ${enrollment.student?.lastName || ""}`}
                         title="Delete enrollment"
                       >
-                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        <svg
+                          className="h-5 w-5"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          aria-hidden="true"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
                         </svg>
                         <span className="sr-only">Delete enrollment</span>
                       </button>
@@ -370,38 +430,49 @@ function EnrollmentsPage() {
             </h2>
             <form onSubmit={handleCreateEnrollment} className="space-y-4">
               <div>
-                <label htmlFor="student-select" className="block text-sm font-medium text-[var(--foreground)]/70 mb-2">
+                <label
+                  htmlFor="student-select"
+                  className="block text-sm font-medium text-[var(--foreground)]/70 mb-2"
+                >
                   Student
                 </label>
                 <select
                   id="student-select"
                   value={formData.studentId}
-                  onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, studentId: e.target.value })
+                  }
                   className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--glass-border)] rounded-lg text-[var(--foreground)]"
                   required
                 >
                   <option value="">Select a student</option>
-                  {students.map(student => (
+                  {students.map((student) => (
                     <option key={student.id} value={student.id}>
-                      {student.firstName} {student.lastName} ({student.matricNumber || student.email})
+                      {student.firstName} {student.lastName} (
+                      {student.matricNumber || student.email})
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label htmlFor="session-select" className="block text-sm font-medium text-[var(--foreground)]/70 mb-2">
+                <label
+                  htmlFor="session-select"
+                  className="block text-sm font-medium text-[var(--foreground)]/70 mb-2"
+                >
                   Session
                 </label>
                 <select
                   id="session-select"
                   value={formData.sessionId}
-                  onChange={(e) => setFormData({ ...formData, sessionId: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, sessionId: e.target.value })
+                  }
                   className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--glass-border)] rounded-lg text-[var(--foreground)]"
                   required
                 >
                   <option value="">Select a session</option>
-                  {sessions.map(session => (
+                  {sessions.map((session) => (
                     <option key={session.id} value={session.id}>
                       {session.name} {session.isActive && "(Active)"}
                     </option>
@@ -410,18 +481,25 @@ function EnrollmentsPage() {
               </div>
 
               <div>
-                <label htmlFor="level-select" className="block text-sm font-medium text-[var(--foreground)]/70 mb-2">
+                <label
+                  htmlFor="level-select"
+                  className="block text-sm font-medium text-[var(--foreground)]/70 mb-2"
+                >
                   Level
                 </label>
                 <select
                   id="level-select"
                   value={formData.level}
-                  onChange={(e) => setFormData({ ...formData, level: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, level: e.target.value })
+                  }
                   className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--glass-border)] rounded-lg text-[var(--foreground)]"
                   required
                 >
-                  {LEVELS.map(level => (
-                    <option key={level} value={level}>{level}</option>
+                  {LEVELS.map((level) => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -450,5 +528,5 @@ function EnrollmentsPage() {
 }
 
 export default withAuth(EnrollmentsPage, {
-  anyPermission: ["enrollment:create", "enrollment:view", "enrollment:edit"]
+  anyPermission: ["enrollment:create", "enrollment:view", "enrollment:edit"],
 });

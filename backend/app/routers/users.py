@@ -9,23 +9,30 @@ from fastapi import APIRouter, HTTPException, Depends, status, Request, File, Up
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.models.user import User, UserCreate, UserUpdate, UserInDB
 from app.db import get_database
 from app.core.security import verify_token, get_current_user
 from app.core.permissions import require_permission
+from app.core.audit import audit_user_role_change
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post("/", response_model=User, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
 async def create_or_update_user_profile(
+    request: Request,
     user_data: UserCreate,
     token_data: dict = Depends(verify_token)
 ):
     """
     Create or update user profile after Firebase authentication.
     
+    Rate limited to prevent spam account creation.
     This endpoint is called by the frontend immediately after
     Firebase authentication succeeds to sync user data to MongoDB.
     """
@@ -39,13 +46,14 @@ async def create_or_update_user_profile(
             detail="Firebase UID mismatch"
         )
     
-    # Check if user already exists
+    # Check if user already exists by Firebase UID
     existing_user = await users.find_one({"firebaseUid": user_data.firebaseUid})
     
     if existing_user:
         # Update existing user
         update_data = user_data.model_dump(exclude={"firebaseUid"})
         update_data["updatedAt"] = datetime.utcnow()
+        update_data["lastLogin"] = datetime.utcnow()
         
         await users.update_one(
             {"firebaseUid": user_data.firebaseUid},
@@ -62,29 +70,54 @@ async def create_or_update_user_profile(
         
         return User(**updated_user)
     
-    else:
-        # Create new user
-        user_dict = user_data.model_dump()
-        user_dict["createdAt"] = datetime.utcnow()
-        user_dict["updatedAt"] = datetime.utcnow()
-        user_dict["lastLogin"] = datetime.utcnow()
-        user_dict["isActive"] = True
-        user_dict["hasCompletedOnboarding"] = False  # New field
+    # Check if user exists by email (from dummy data)
+    email_user = await users.find_one({"email": user_data.email})
+    
+    if email_user:
+        # Link existing MongoDB user to Firebase UID
+        update_data = {
+            "firebaseUid": user_data.firebaseUid,
+            "updatedAt": datetime.utcnow(),
+            "lastLogin": datetime.utcnow()
+        }
         
-        result = await users.insert_one(user_dict)
-        created_user = await users.find_one({"_id": result.inserted_id})
-        if not created_user:
+        await users.update_one(
+            {"email": user_data.email},
+            {"$set": update_data}
+        )
+        
+        linked_user = await users.find_one({"email": user_data.email})
+        if not linked_user:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to retrieve created user"
+                detail="Failed to link existing user"
             )
-        created_user["_id"] = str(created_user["_id"])
+        linked_user["_id"] = str(linked_user["_id"])
         
-        # Auto-enroll in active session if student
-        if user_data.role == "student":
-            await auto_enroll_in_active_session(str(created_user["_id"]), db)
-        
-        return User(**created_user)
+        return User(**linked_user)
+    
+    # Create new user
+    user_dict = user_data.model_dump()
+    user_dict["createdAt"] = datetime.utcnow()
+    user_dict["updatedAt"] = datetime.utcnow()
+    user_dict["lastLogin"] = datetime.utcnow()
+    user_dict["isActive"] = True
+    user_dict["hasCompletedOnboarding"] = False
+    
+    result = await users.insert_one(user_dict)
+    created_user = await users.find_one({"_id": result.inserted_id})
+    if not created_user:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve created user"
+        )
+    created_user["_id"] = str(created_user["_id"])
+    
+    # Auto-enroll in active session if student
+    if user_data.role == "student":
+        await auto_enroll_in_active_session(str(created_user["_id"]), db)
+    
+    return User(**created_user)
 
 
 async def auto_enroll_in_active_session(user_id: str, db):
@@ -200,13 +233,17 @@ async def update_my_profile(
 
 
 @router.post("/me/profile-picture", response_model=User)
+@limiter.limit("5/minute")
 async def upload_profile_picture(
+    request: Request,
     file: UploadFile = File(...),
     user: dict = Depends(get_current_user)
 ):
     """
     Upload or update the current user's profile picture.
     Image is uploaded to Cloudinary and URL is saved in MongoDB.
+    
+    Rate limited to prevent abuse of image storage.
     """
     # Validate file type
     if not file.content_type or not file.content_type.startswith('image/'):
@@ -332,11 +369,14 @@ async def get_user(
 async def update_user_role(
     user_id: str,
     new_role: str,
+    request: Request,
     admin_user: dict = Depends(require_permission("user:edit_role"))
 ):
     """
     Update a user's role (student/exco/admin).
     Requires user:edit_role permission.
+    
+    This action is audited for security compliance.
     """
     db = get_database()
     users = db["users"]
@@ -352,6 +392,16 @@ async def update_user_role(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid user ID format"
         )
+    
+    # Get current user data for audit trail
+    target_user = await users.find_one({"_id": ObjectId(user_id)})
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User {user_id} not found"
+        )
+    
+    old_role = target_user.get("role", "student")
     
     # Update role
     update_data = {
@@ -369,6 +419,16 @@ async def update_user_role(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User {user_id} not found"
         )
+    
+    # Audit log the role change
+    await audit_user_role_change(
+        actor_id=admin_user["_id"],
+        actor_email=admin_user.get("email", "unknown"),
+        target_user_id=user_id,
+        old_role=old_role,
+        new_role=new_role,
+        ip_address=request.client.host if request.client else None
+    )
     
     updated_user = await users.find_one({"_id": ObjectId(user_id)})
     if not updated_user:

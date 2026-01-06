@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { BookOpen, Download, Upload, FileText, Video, FileImage, Search, Eye, X } from "lucide-react";
+import { getApiUrl } from "@/lib/api";
+import DashboardHeader from "@/components/dashboard/DashboardHeader";
 
 interface Resource {
   _id: string;
@@ -26,12 +27,12 @@ interface Resource {
 }
 
 const RESOURCE_TYPES = [
-  { value: "all", label: "All Types", icon: BookOpen },
-  { value: "slide", label: "Slides", icon: FileImage },
-  { value: "pastQuestion", label: "Past Questions", icon: FileText },
-  { value: "note", label: "Notes", icon: FileText },
-  { value: "textbook", label: "Textbooks", icon: BookOpen },
-  { value: "video", label: "Videos", icon: Video },
+  { value: "all", label: "All Types" },
+  { value: "slide", label: "Slides" },
+  { value: "pastQuestion", label: "Past Questions" },
+  { value: "note", label: "Notes" },
+  { value: "textbook", label: "Textbooks" },
+  { value: "video", label: "Videos" },
 ];
 
 const LEVELS: Array<{ value: "all" | number; label: string }> = [
@@ -54,7 +55,6 @@ export default function LibraryPage() {
   const [uploading, setUploading] = useState(false);
   const [hasUploadPermission, setHasUploadPermission] = useState(false);
 
-  // Add resource form state
   const [uploadForm, setUploadForm] = useState({
     title: "",
     description: "",
@@ -66,22 +66,25 @@ export default function LibraryPage() {
   });
 
   useEffect(() => {
-    fetchResources();
-    checkPermissions();
-  }, [typeFilter, levelFilter]);
+    if (user) {
+      fetchResources();
+      checkPermissions();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, typeFilter, levelFilter]);
 
   const checkPermissions = async () => {
     if (!user) return;
     try {
       const token = await user.getIdToken();
-      const response = await fetch("/api/v1/users/me", {
+      const response = await fetch(getApiUrl("/api/users/me"), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (response.ok) {
         const userData = await response.json();
         setHasUploadPermission(
           userData.permissions?.includes("resource:upload") ||
-          userData.permissions?.includes("admin:all")
+            userData.permissions?.includes("admin:all")
         );
       }
     } catch (error) {
@@ -102,7 +105,7 @@ export default function LibraryPage() {
       params.append("approved", "true");
       params.append("pageSize", "50");
 
-      const response = await fetch(`/api/v1/resources?${params}`, {
+      const response = await fetch(getApiUrl(`/api/v1/resources?${params}`), {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -125,7 +128,7 @@ export default function LibraryPage() {
       setUploading(true);
       const token = await user.getIdToken();
 
-      const response = await fetch("/api/v1/resources/add", {
+      const response = await fetch(getApiUrl("/api/v1/resources/add"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -159,17 +162,16 @@ export default function LibraryPage() {
     }
   };
 
-  const handleViewResource = async (resourceId: string, url: string, type: string) => {
+  const handleViewResource = async (resourceId: string, url: string) => {
     if (!user) return;
 
     try {
       const token = await user.getIdToken();
-      await fetch(`/api/v1/resources/${resourceId}/download`, {
+      await fetch(getApiUrl(`/api/v1/resources/${resourceId}/download`), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // Open resource in new tab
       window.open(url, "_blank");
     } catch (error) {
       console.error("Error tracking view:", error);
@@ -182,257 +184,405 @@ export default function LibraryPage() {
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
-  const getTypeIcon = (type: string) => {
-    const typeObj = RESOURCE_TYPES.find((t) => t.value === type);
-    return typeObj?.icon || FileText;
-  };
-
   const filteredResources = resources.filter((resource) => {
     const matchesSearch =
       resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       resource.courseCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      resource.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+      resource.tags.some((tag) =>
+        tag.toLowerCase().includes(searchQuery.toLowerCase())
+      );
     return matchesSearch;
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-4 md:p-8">
-      {/* Header */}
-      <div className="max-w-7xl mx-auto mb-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-heading font-bold text-foreground mb-2">
-              Resource Library
-            </h1>
-            <p className="text-foreground/60">
-              Access study materials, past questions, and lecture notes
-            </p>
-          </div>
+    <div className="min-h-screen bg-bg-primary">
+      <DashboardHeader title="Resource Library" />
 
-          {hasUploadPermission && (
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl hover:from-primary/90 hover:to-primary/70 transition-all shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
-            >
-              <Upload className="w-4 h-4" />
-              <span className="hidden sm:inline">Add Resource</span>
-            </button>
-          )}
-        </div>
+      <div className="px-4 md:px-8 py-6 pb-24 md:pb-8">
+        {/* Header Section */}
+        <section className="border-t border-border pt-8 mb-8 max-w-7xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-charcoal dark:bg-cream flex items-center justify-center">
+                <svg
+                  className="w-6 h-6 text-cream dark:text-charcoal"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h2 className="font-display text-xl text-text-primary">
+                  Study Materials
+                </h2>
+                <p className="text-label-sm text-text-muted">
+                  Access study materials, past questions, and lecture notes
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              {hasUploadPermission && (
+                <button
+                  onClick={() => setShowUploadModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-charcoal dark:bg-cream text-cream dark:text-charcoal text-label-sm hover:bg-charcoal-light dark:hover:bg-cream-dark transition-colors"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                    />
+                  </svg>
+                  Add Resource
+                </button>
+              )}
+              <span className="page-number">Page 01</span>
+            </div>
+          </div>
+        </section>
 
         {/* Filters */}
-        <div className="bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-2xl p-6 space-y-4">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/40" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by title, course code, or tags..."
-              className="w-full pl-12 pr-4 py-3 rounded-xl bg-background/60 border border-foreground/10 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none transition-all text-foreground placeholder-foreground/50"
-            />
-          </div>
+        <section className="max-w-7xl mx-auto mb-8">
+          <div className="border border-border p-6 space-y-4">
+            {/* Search */}
+            <div className="relative">
+              <svg
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search resources..."
+                className="w-full pl-12 pr-4 py-3 bg-bg-primary border border-border text-body text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-dark transition-colors"
+              />
+            </div>
 
-          {/* Type Filter */}
-          <div className="flex flex-wrap gap-2">
-            {RESOURCE_TYPES.map((type) => {
-              const Icon = type.icon;
-              return (
+            {/* Filter Label */}
+            <div className="flex items-center gap-2 text-label-sm text-text-muted pt-2">
+              <span>◆</span>
+              <span>Filter by Type & Level</span>
+            </div>
+
+            {/* Type Filter */}
+            <div className="flex flex-wrap gap-2">
+              {RESOURCE_TYPES.map((type) => (
                 <button
                   key={type.value}
                   onClick={() => setTypeFilter(type.value)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                  className={`px-4 py-2 text-label-sm transition-colors ${
                     typeFilter === type.value
-                      ? "bg-primary text-white shadow-md"
-                      : "bg-background/60 text-foreground/70 hover:bg-foreground/5"
+                      ? "bg-charcoal dark:bg-cream text-cream dark:text-charcoal"
+                      : "border border-border text-text-secondary hover:border-border-dark hover:text-text-primary"
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
                   {type.label}
                 </button>
-              );
-            })}
-          </div>
+              ))}
+            </div>
 
-          {/* Level Filter */}
-          <div className="flex flex-wrap gap-2">
-            {LEVELS.map((level) => (
-              <button
-                key={level.value}
-                onClick={() => setLevelFilter(level.value)}
-                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                  levelFilter === level.value
-                    ? "bg-primary/10 text-primary border border-primary/30"
-                    : "bg-background/60 text-foreground/70 hover:bg-foreground/5 border border-transparent"
-                }`}
-              >
-                {level.label}
-              </button>
-            ))}
+            {/* Level Filter */}
+            <div className="flex flex-wrap gap-2">
+              {LEVELS.map((level) => (
+                <button
+                  key={level.value}
+                  onClick={() => setLevelFilter(level.value)}
+                  className={`px-4 py-2 text-label-sm transition-colors ${
+                    levelFilter === level.value
+                      ? "bg-charcoal dark:bg-cream text-cream dark:text-charcoal"
+                      : "border border-border text-text-secondary hover:border-border-dark hover:text-text-primary"
+                  }`}
+                >
+                  {level.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Resources Grid */}
-      <div className="max-w-7xl mx-auto">
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div
-                key={i}
-                className="bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-2xl p-6 animate-pulse"
-              >
-                <div className="h-6 bg-foreground/10 rounded mb-3" />
-                <div className="h-4 bg-foreground/10 rounded mb-2 w-3/4" />
-                <div className="h-4 bg-foreground/10 rounded w-1/2" />
+        {/* Resources Grid */}
+        <section className="max-w-7xl mx-auto">
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="border border-border p-6 animate-pulse">
+                  <div className="h-6 bg-bg-secondary mb-3" />
+                  <div className="h-4 bg-bg-secondary mb-2 w-3/4" />
+                  <div className="h-4 bg-bg-secondary w-1/2" />
+                </div>
+              ))}
+            </div>
+          ) : filteredResources.length === 0 ? (
+            <div className="text-center py-20">
+              <div className="w-16 h-16 mx-auto mb-4 border border-border flex items-center justify-center">
+                <svg
+                  className="w-8 h-8 text-text-muted"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"
+                  />
+                </svg>
               </div>
-            ))}
-          </div>
-        ) : filteredResources.length === 0 ? (
-          <div className="text-center py-16">
-            <BookOpen className="w-16 h-16 text-foreground/20 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-foreground/60 mb-2">No resources found</h3>
-            <p className="text-foreground/40">Try adjusting your filters or search query</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredResources.map((resource) => {
-              const TypeIcon = getTypeIcon(resource.type);
-              return (
-                <div
+              <h3 className="font-display text-lg text-text-secondary mb-2">
+                No resources found
+              </h3>
+              <p className="text-body text-sm text-text-muted">
+                Try adjusting your filters or search query
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredResources.map((resource, index) => (
+                <article
                   key={resource._id}
-                  className="group bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] hover:border-primary/30 rounded-2xl p-6 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5"
+                  className="border border-border hover:border-border-dark transition-colors group"
                 >
                   {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-md">
-                      <TypeIcon className="w-6 h-6 text-white" />
+                  <div className="p-4 border-b border-border flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-label-sm text-text-muted">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <span className="px-2 py-0.5 bg-charcoal dark:bg-cream text-cream dark:text-charcoal text-label-sm">
+                        {resource.type}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-foreground/50">
-                      <div className="flex items-center gap-1">
-                        <Eye className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-3 text-label-sm text-text-muted">
+                      <span className="flex items-center gap-1">
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={1.5}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
+                        </svg>
                         {resource.viewCount}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Download className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={1.5}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                          />
+                        </svg>
                         {resource.downloadCount}
-                      </div>
+                      </span>
                     </div>
                   </div>
 
                   {/* Content */}
-                  <h3 className="font-heading font-bold text-lg text-foreground mb-2 line-clamp-2 group-hover:text-primary transition-colors">
-                    {resource.title}
-                  </h3>
-                  <p className="text-sm text-foreground/60 mb-4 line-clamp-2">
-                    {resource.description}
-                  </p>
+                  <div className="p-4 space-y-3">
+                    <h3 className="font-display text-base text-text-primary group-hover:text-text-secondary transition-colors line-clamp-2">
+                      {resource.title}
+                    </h3>
+                    <p className="text-body text-sm text-text-secondary line-clamp-2">
+                      {resource.description}
+                    </p>
 
-                  {/* Metadata */}
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    <span className="px-2.5 py-1 bg-primary/10 text-primary text-xs font-medium rounded-lg border border-primary/20">
-                      {resource.courseCode}
-                    </span>
-                    <span className="px-2.5 py-1 bg-foreground/5 text-foreground/70 text-xs font-medium rounded-lg">
-                      {resource.level}L
-                    </span>
-                    {resource.fileSize && (
-                      <span className="px-2.5 py-1 bg-foreground/5 text-foreground/70 text-xs font-medium rounded-lg">
-                        {formatFileSize(resource.fileSize)}
+                    {/* Metadata */}
+                    <div className="flex flex-wrap gap-2">
+                      <span className="px-2 py-0.5 border border-border text-label-sm text-text-secondary">
+                        {resource.courseCode}
                       </span>
+                      <span className="px-2 py-0.5 border border-border text-label-sm text-text-secondary">
+                        {resource.level}L
+                      </span>
+                      {resource.fileSize && (
+                        <span className="px-2 py-0.5 border border-border text-label-sm text-text-muted">
+                          {formatFileSize(resource.fileSize)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Tags */}
+                    {resource.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {resource.tags.slice(0, 3).map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="text-label-sm text-text-muted"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </div>
 
-                  {/* Tags */}
-                  {resource.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-4">
-                      {resource.tags.slice(0, 3).map((tag, idx) => (
-                        <span
-                          key={idx}
-                          className="px-2 py-0.5 bg-foreground/5 text-foreground/50 text-xs rounded"
-                        >
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
                   {/* Footer */}
-                  <div className="flex items-center justify-between pt-4 border-t border-foreground/5">
-                    <span className="text-xs text-foreground/40">By {resource.uploaderName}</span>
+                  <div className="p-4 border-t border-border flex items-center justify-between">
+                    <span className="text-label-sm text-text-muted truncate max-w-[150px]">
+                      By {resource.uploaderName}
+                    </span>
                     <button
                       onClick={() =>
-                        handleViewResource(resource._id, resource.url, resource.type)
+                        handleViewResource(resource._id, resource.url)
                       }
-                      className="flex items-center gap-2 px-4 py-2 bg-primary/10 hover:bg-primary hover:text-white text-primary rounded-lg font-medium text-sm transition-all hover:scale-105 active:scale-95"
+                      className="flex items-center gap-2 px-4 py-2 border border-border text-label-sm text-text-secondary hover:border-border-dark hover:text-text-primary transition-colors"
                     >
                       {resource.type === "video" ? (
                         <>
-                          <Eye className="w-4 h-4" />
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={1.5}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"
+                            />
+                          </svg>
                           Watch
                         </>
                       ) : (
                         <>
-                          <Download className="w-4 h-4" />
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={1.5}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                            />
+                          </svg>
                           View
                         </>
                       )}
                     </button>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
 
       {/* Upload Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-background rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-background border-b border-foreground/10 p-6 flex items-center justify-between">
-              <h2 className="text-2xl font-heading font-bold text-foreground">Add Resource</h2>
+        <div className="fixed inset-0 bg-charcoal/90 dark:bg-cream/90 z-50 flex items-center justify-center p-4">
+          <div className="bg-bg-primary border border-border max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-bg-primary border-b border-border p-6 flex items-center justify-between">
+              <h2 className="font-display text-lg text-text-primary flex items-center gap-2">
+                <span>✦</span> Add Resource
+              </h2>
               <button
                 onClick={() => setShowUploadModal(false)}
-                className="p-2 hover:bg-foreground/5 rounded-lg transition-colors"
+                className="p-2 hover:bg-bg-secondary transition-colors"
               >
-                <X className="w-5 h-5" />
+                <svg
+                  className="w-5 h-5 text-text-secondary"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
               </button>
             </div>
 
             <form onSubmit={handleAddResource} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground/70 mb-2">Title</label>
+              <div className="space-y-2">
+                <label className="text-label-sm text-text-muted">Title</label>
                 <input
                   type="text"
                   required
                   value={uploadForm.title}
-                  onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-background/60 border border-foreground/10 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  onChange={(e) =>
+                    setUploadForm({ ...uploadForm, title: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-bg-primary border border-border text-body text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-dark transition-colors"
                   placeholder="e.g., Thermodynamics Lecture Notes"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-foreground/70 mb-2">Description</label>
+              <div className="space-y-2">
+                <label className="text-label-sm text-text-muted">
+                  Description
+                </label>
                 <textarea
                   required
                   value={uploadForm.description}
-                  onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
+                  onChange={(e) =>
+                    setUploadForm({
+                      ...uploadForm,
+                      description: e.target.value,
+                    })
+                  }
                   rows={3}
-                  className="w-full px-4 py-2.5 rounded-xl bg-background/60 border border-foreground/10 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none transition-all resize-none"
+                  className="w-full px-4 py-3 bg-bg-primary border border-border text-body text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-dark transition-colors resize-none"
                   placeholder="Brief description of the resource..."
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground/70 mb-2">Type</label>
+                <div className="space-y-2">
+                  <label className="text-label-sm text-text-muted">Type</label>
                   <select
                     value={uploadForm.type}
-                    onChange={(e) => setUploadForm({ ...uploadForm, type: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-background/60 border border-foreground/10 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    onChange={(e) =>
+                      setUploadForm({ ...uploadForm, type: e.target.value })
+                    }
+                    className="w-full px-4 py-3 bg-bg-primary border border-border text-body text-sm text-text-primary focus:outline-none focus:border-border-dark transition-colors"
+                    title="Resource type"
                   >
                     <option value="note">Note</option>
                     <option value="slide">Slide</option>
@@ -442,12 +592,18 @@ export default function LibraryPage() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-foreground/70 mb-2">Level</label>
+                <div className="space-y-2">
+                  <label className="text-label-sm text-text-muted">Level</label>
                   <select
                     value={uploadForm.level}
-                    onChange={(e) => setUploadForm({ ...uploadForm, level: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-background/60 border border-foreground/10 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    onChange={(e) =>
+                      setUploadForm({
+                        ...uploadForm,
+                        level: parseInt(e.target.value),
+                      })
+                    }
+                    className="w-full px-4 py-3 bg-bg-primary border border-border text-body text-sm text-text-primary focus:outline-none focus:border-border-dark transition-colors"
+                    title="Academic level"
                   >
                     <option value={100}>100 Level</option>
                     <option value={200}>200 Level</option>
@@ -458,51 +614,62 @@ export default function LibraryPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-foreground/70 mb-2">Course Code</label>
+              <div className="space-y-2">
+                <label className="text-label-sm text-text-muted">
+                  Course Code
+                </label>
                 <input
                   type="text"
                   required
                   value={uploadForm.courseCode}
-                  onChange={(e) => setUploadForm({ ...uploadForm, courseCode: e.target.value.toUpperCase() })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-background/60 border border-foreground/10 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  onChange={(e) =>
+                    setUploadForm({
+                      ...uploadForm,
+                      courseCode: e.target.value.toUpperCase(),
+                    })
+                  }
+                  className="w-full px-4 py-3 bg-bg-primary border border-border text-body text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-dark transition-colors"
                   placeholder="e.g., MEE 301"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-foreground/70 mb-2">
+              <div className="space-y-2">
+                <label className="text-label-sm text-text-muted">
                   Tags (comma-separated)
                 </label>
                 <input
                   type="text"
                   value={uploadForm.tags}
-                  onChange={(e) => setUploadForm({ ...uploadForm, tags: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-background/60 border border-foreground/10 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  onChange={(e) =>
+                    setUploadForm({ ...uploadForm, tags: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-bg-primary border border-border text-body text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-dark transition-colors"
                   placeholder="e.g., thermodynamics, heat transfer, exam prep"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-foreground/70 mb-2">
+              <div className="space-y-2">
+                <label className="text-label-sm text-text-muted">
                   URL (Google Drive or YouTube)
                 </label>
                 <input
                   type="url"
                   required
                   value={uploadForm.url}
-                  onChange={(e) => setUploadForm({ ...uploadForm, url: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-background/60 border border-foreground/10 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  onChange={(e) =>
+                    setUploadForm({ ...uploadForm, url: e.target.value })
+                  }
+                  className="w-full px-4 py-3 bg-bg-primary border border-border text-body text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-dark transition-colors"
                   placeholder={
                     uploadForm.type === "video"
                       ? "https://www.youtube.com/watch?v=..."
                       : "https://drive.google.com/file/d/..."
                   }
                 />
-                <p className="text-xs text-foreground/50 mt-1.5">
+                <p className="text-label-sm text-text-muted">
                   {uploadForm.type === "video"
-                    ? "📺 Paste a YouTube video link"
-                    : "📁 Paste a Google Drive shareable link (right-click file → Share → Copy link)"}
+                    ? "Paste a YouTube video link"
+                    : "Paste a Google Drive shareable link"}
                 </p>
               </div>
 
@@ -510,14 +677,14 @@ export default function LibraryPage() {
                 <button
                   type="button"
                   onClick={() => setShowUploadModal(false)}
-                  className="flex-1 px-4 py-2.5 bg-foreground/5 hover:bg-foreground/10 text-foreground rounded-xl font-medium transition-all"
+                  className="flex-1 px-4 py-3 text-label-sm border border-border text-text-secondary hover:border-border-dark hover:text-text-primary transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={uploading}
-                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-primary to-primary/80 text-white rounded-xl font-medium hover:from-primary/90 hover:to-primary/70 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
+                  className="flex-1 px-4 py-3 text-label-sm bg-charcoal dark:bg-cream text-cream dark:text-charcoal hover:bg-charcoal-light dark:hover:bg-cream-dark transition-colors disabled:opacity-50"
                 >
                   {uploading ? "Adding..." : "Add Resource"}
                 </button>

@@ -1,15 +1,16 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { 
-  onAuthStateChanged, 
-  User, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  signOut as firebaseSignOut 
+import {
+  onAuthStateChanged,
+  User,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut as firebaseSignOut,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
+import { getApiUrl } from "@/lib/api";
 
 // Extended User Profile from MongoDB
 export interface UserProfile {
@@ -61,9 +62,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const fetchUserProfile = async (firebaseUser: User) => {
     try {
       const token = await firebaseUser.getIdToken();
-      const response = await fetch('/api/users/me', {
+      const response = await fetch(getApiUrl("/api/users/me"), {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -75,7 +76,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         await createUserProfile(firebaseUser);
       }
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      console.error("Error fetching user profile:", error);
     }
   };
 
@@ -85,26 +86,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const createUserProfile = async (firebaseUser: User) => {
     try {
       const token = await firebaseUser.getIdToken();
-      
-      // Extract name parts
-      const displayName = firebaseUser.displayName || '';
-      const nameParts = displayName.split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
 
-      const response = await fetch('/api/users', {
-        method: 'POST',
+      // Extract name parts with fallbacks to satisfy backend validation
+      const displayName = firebaseUser.displayName || "";
+      const nameParts = displayName.trim().split(/\s+/);
+
+      // Ensure we have at least 1 char for first and last name as per backend requirements
+      const firstName = (nameParts[0] || "New").trim();
+      const lastName = (
+        nameParts.length > 1 ? nameParts.slice(1).join(" ") : "User"
+      ).trim();
+
+      const response = await fetch(getApiUrl("/api/users"), {
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           firebaseUid: firebaseUser.uid,
           email: firebaseUser.email,
-          firstName: firstName || 'User',
-          lastName: lastName || '',
-          department: 'Industrial Engineering',
-          role: 'student',
+          firstName: firstName || "User",
+          lastName: lastName || "",
+          department: "Industrial Engineering",
+          role: "student",
           profilePictureUrl: firebaseUser.photoURL,
         }),
       });
@@ -114,7 +119,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUserProfile(profile);
       }
     } catch (error) {
-      console.error('Error creating user profile:', error);
+      console.error("Error creating user profile:", error);
     }
   };
 
@@ -130,18 +135,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
-      
+
       if (firebaseUser) {
         // Fetch MongoDB profile after Firebase auth
         await fetchUserProfile(firebaseUser);
       } else {
         setUserProfile(null);
       }
-      
+
       setLoading(false);
     });
 
     return () => unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const signInWithGoogle = async () => {
@@ -188,16 +194,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      userProfile, 
-      loading, 
-      signInWithGoogle, 
-      signInWithEmail, 
-      signUpWithEmail, 
-      signOut,
-      refreshProfile 
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        userProfile,
+        loading,
+        signInWithGoogle,
+        signInWithEmail,
+        signUpWithEmail,
+        signOut,
+        refreshProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

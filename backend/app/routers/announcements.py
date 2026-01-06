@@ -16,8 +16,9 @@ from app.models.announcement import (
 from app.db import get_database
 from app.core.security import get_current_user
 from app.core.permissions import require_permission
+from app.core.sanitization import sanitize_html, validate_no_scripts
 
-router = APIRouter(prefix="/api/announcements", tags=["Announcements"])
+router = APIRouter(prefix="/api/v1/announcements", tags=["Announcements"])
 
 
 @router.post("/", response_model=Announcement, status_code=status.HTTP_201_CREATED)
@@ -34,6 +35,18 @@ async def create_announcement(
     db = get_database()
     announcements = db["announcements"]
     users = db["users"]
+    
+    # Sanitize input to prevent XSS
+    if not validate_no_scripts(announcement_data.title):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid characters detected in title"
+        )
+    if not validate_no_scripts(announcement_data.content):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid characters detected in content"
+        )
     
     # Verify session exists
     sessions = db["sessions"]
@@ -64,7 +77,7 @@ async def create_announcement(
 
 @router.get("/", response_model=List[AnnouncementWithStatus])
 async def list_announcements(
-    session_id: str = Query(..., description="Filter by session ID (REQUIRED)"),
+    session_id: Optional[str] = Query(None, description="Filter by session ID. Defaults to active session."),
     priority: Optional[str] = None,
     user: dict = Depends(get_current_user)
 ):
@@ -81,9 +94,19 @@ async def list_announcements(
     db = get_database()
     announcements = db["announcements"]
     enrollments = db["enrollments"]
+    sessions = db["sessions"]
+    
+    # Resolve session_id
+    if not session_id:
+        active_session = await sessions.find_one({"isActive": True})
+        if not active_session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No active session found"
+            )
+        session_id = str(active_session["_id"])
     
     # Verify session exists
-    sessions = db["sessions"]
     session = await sessions.find_one({"_id": ObjectId(session_id)})
     if not session:
         raise HTTPException(
@@ -297,3 +320,22 @@ async def delete_announcement(
         )
     
     return None
+
+
+@router.get("/reads/me", response_model=List[str])
+async def get_my_read_announcements(
+    user: dict = Depends(get_current_user)
+):
+    """
+    Get list of announcement IDs the current user has read.
+    Returns array of announcement ID strings.
+    """
+    db = get_database()
+    announcements = db["announcements"]
+    
+    # Find all announcements where user is in readBy array
+    cursor = announcements.find({"readBy": user["_id"]})
+    read_announcements = await cursor.to_list(length=None)
+    
+    # Return array of announcement IDs as strings
+    return [str(announcement["_id"]) for announcement in read_announcements]

@@ -91,3 +91,8 @@ uvloop==0.22.1
 watchfiles==1.1.1
 websockets==15.0.1
 wrapt==2.0.1
+
+# Advanced Features (Phase 2)
+redis==5.2.1  # For distributed rate limiting
+resend==2.7.0  # Email notifications (alternative to SendGrid)
+# sendgrid==6.11.0  # Uncomment if using SendGrid instead

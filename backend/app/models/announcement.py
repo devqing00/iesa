@@ -23,6 +23,12 @@ class AnnouncementBase(BaseModel):
     isPinned: bool = Field(default=False, description="Pinned announcements appear at top")
     expiresAt: Optional[datetime] = Field(None, description="Auto-hide after this date")
 
+    def __init__(self, **data):
+        # Convert integer levels to strings if present in input data
+        if "targetLevels" in data and data["targetLevels"]:
+             data["targetLevels"] = [str(level) for level in data["targetLevels"]]
+        super().__init__(**data)
+
 
 class AnnouncementCreate(AnnouncementBase):
     """Model for creating a new announcement"""

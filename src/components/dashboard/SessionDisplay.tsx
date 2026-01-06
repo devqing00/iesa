@@ -2,13 +2,14 @@
 
 /**
  * SessionDisplay Component
- * 
+ *
  * Displays the current active academic session from MongoDB
  */
 
-import React, { useState, useEffect } from 'react';
-import { Calendar } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+import React, { useState, useEffect } from "react";
+import { Calendar } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { getApiUrl } from "@/lib/api";
 
 export const SessionDisplay: React.FC = () => {
   const { user } = useAuth();
@@ -21,7 +22,7 @@ export const SessionDisplay: React.FC = () => {
       const now = new Date();
       const currentYear = now.getFullYear();
       const currentMonth = now.getMonth(); // 0-11, where 0 = Jan
-      
+
       // Academic year runs Sept-Aug (month 8-7)
       // If before September (month < 8), we're in the second half (e.g., Jan 2026 is 2025/2026)
       // If Sept or after (month >= 8), we're in the first half (e.g., Sept 2025 is 2025/2026)
@@ -45,11 +46,14 @@ export const SessionDisplay: React.FC = () => {
 
       try {
         const token = await user.getIdToken();
-        const response = await fetch('/api/sessions?active_only=true&limit=1', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await fetch(
+          getApiUrl("/api/sessions?active_only=true&limit=1"),
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
 
         if (response.ok) {
           const sessions = await response.json();
@@ -63,13 +67,13 @@ export const SessionDisplay: React.FC = () => {
             setIsActive(false);
           }
         } else {
-          console.warn('Sessions API error:', response.status);
+          console.warn("Sessions API error:", response.status);
           // Fallback on error
           setSessionName(getAcademicYear());
           setIsActive(false);
         }
       } catch (error) {
-        console.error('Error fetching active session:', error);
+        console.error("Error fetching active session:", error);
         // Fallback on error
         setSessionName(getAcademicYear());
         setIsActive(false);
@@ -88,9 +92,7 @@ export const SessionDisplay: React.FC = () => {
   return (
     <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-foreground/5 backdrop-blur-sm border border-foreground/10">
       <Calendar className="h-4 w-4 text-primary" />
-      <span className="text-sm font-medium text-foreground">
-        {sessionName}
-      </span>
+      <span className="text-sm font-medium text-foreground">{sessionName}</span>
       {isActive && (
         <span className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary font-medium">
           Active
