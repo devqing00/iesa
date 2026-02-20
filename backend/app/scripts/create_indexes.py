@@ -33,8 +33,8 @@ async def create_indexes():
         users = db["users"]
         
         # Unique indexes
-        await users.create_index([("firebaseUid", ASCENDING)], unique=True, name="idx_firebaseUid")
-        await users.create_index([("email", ASCENDING)], unique=True, sparse=True, name="idx_email")
+        await users.create_index([("firebaseUid", ASCENDING)], unique=False, sparse=True, name="idx_firebaseUid_legacy")
+        await users.create_index([("email", ASCENDING)], unique=True, name="idx_email")
         await users.create_index([("matricNumber", ASCENDING)], unique=True, sparse=True, name="idx_matricNumber")
         
         # Query indexes

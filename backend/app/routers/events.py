@@ -5,10 +5,13 @@ CRITICAL: All events are session-scoped.
 Events from different academic sessions are completely separate.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status, Query
+from fastapi import APIRouter, HTTPException, Depends, status, Query, UploadFile, File
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
+import cloudinary
+import cloudinary.uploader
+import app.utils.cloudinary_config  # noqa: F401 — side-effect: configures Cloudinary credentials
 
 from app.models.event import (
     Event, EventCreate, EventUpdate, EventWithStatus, EventRegistration
@@ -17,6 +20,7 @@ from app.db import get_database
 from app.core.security import get_current_user
 from app.core.permissions import require_permission
 from app.core.sanitization import sanitize_html, validate_no_scripts
+from app.core.audit import AuditLogger
 
 router = APIRouter(prefix="/api/v1/events", tags=["Events"])
 
@@ -67,6 +71,15 @@ async def create_event(
     created_event = await events.find_one({"_id": result.inserted_id})
     created_event["_id"] = str(created_event["_id"])
     
+    await AuditLogger.log(
+        action=AuditLogger.EVENT_CREATED,
+        actor_id=user["_id"],
+        actor_email=user.get("email", ""),
+        resource_type="event",
+        resource_id=str(result.inserted_id),
+        session_id=event_data.sessionId,
+        details={"title": event_data.title, "date": str(event_data.date)}
+    )
     return Event(**created_event)
 
 
@@ -134,6 +147,50 @@ async def list_events(
         result.append(event_with_status)
     
     return result
+
+
+@router.post("/upload-image")
+async def upload_event_image(
+    file: UploadFile = File(...),
+    user: dict = Depends(require_permission("event:create"))
+):
+    """
+    Upload an event image to Cloudinary.
+    Requires event:create permission.
+    Returns the secure URL of the uploaded image.
+    """
+    # Validate content type
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be an image (PNG, JPG, WebP, etc.)"
+        )
+
+    # Read file bytes
+    file_bytes = await file.read()
+    if len(file_bytes) > 10 * 1024 * 1024:  # 10 MB limit
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Image must be smaller than 10 MB"
+        )
+
+    try:
+        result = cloudinary.uploader.upload(
+            file_bytes,
+            folder="iesa/events",
+            resource_type="image",
+            transformation=[
+                {"width": 1200, "height": 630, "crop": "fill", "gravity": "center"},
+                {"quality": "auto:good"},
+                {"fetch_format": "auto"}
+            ]
+        )
+        return {"url": result["secure_url"]}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Image upload failed: {str(e)}"
+        )
 
 
 @router.get("/{event_id}", response_model=EventWithStatus)
@@ -338,6 +395,14 @@ async def update_event(
     updated_event = await events.find_one({"_id": ObjectId(event_id)})
     updated_event["_id"] = str(updated_event["_id"])
     
+    await AuditLogger.log(
+        action=AuditLogger.EVENT_UPDATED,
+        actor_id=user["_id"],
+        actor_email=user.get("email", ""),
+        resource_type="event",
+        resource_id=event_id,
+        details={"updated_fields": list(update_data.keys())}
+    )
     return Event(**updated_event)
 
 
@@ -367,6 +432,13 @@ async def delete_event(
             detail=f"Event {event_id} not found"
         )
     
+    await AuditLogger.log(
+        action=AuditLogger.EVENT_DELETED,
+        actor_id=user["_id"],
+        actor_email=user.get("email", ""),
+        resource_type="event",
+        resource_id=event_id,
+    )
     return None
 
 

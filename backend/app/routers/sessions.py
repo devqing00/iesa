@@ -15,8 +15,9 @@ from app.db import get_database, get_database_client
 from app.core.security import verify_token
 from app.core.permissions import require_permission
 from app.core.transactions import activate_session_atomically, delete_session_with_data
+from app.core.audit import AuditLogger
 
-router = APIRouter(prefix="/api/sessions", tags=["Sessions"])
+router = APIRouter(prefix="/api/v1/sessions", tags=["Sessions"])
 
 
 @router.post("/", response_model=Session, status_code=status.HTTP_201_CREATED)
@@ -64,6 +65,14 @@ async def create_session(
     # Convert ObjectId to string
     created_session["_id"] = str(created_session["_id"])
     
+    await AuditLogger.log(
+        action=AuditLogger.SESSION_CREATED,
+        actor_id=user_data.get("_id", ""),
+        actor_email=user_data.get("email", ""),
+        resource_type="session",
+        resource_id=str(result.inserted_id),
+        details={"name": session_data.name}
+    )
     return Session(**created_session)
 
 
@@ -208,6 +217,15 @@ async def update_session(
     updated_session = await sessions.find_one({"_id": ObjectId(session_id)})
     updated_session["_id"] = str(updated_session["_id"])
     
+    action = AuditLogger.SESSION_ACTIVATED if update_data.get("isActive") else AuditLogger.SESSION_UPDATED
+    await AuditLogger.log(
+        action=action,
+        actor_id=user_data.get("_id", ""),
+        actor_email=user_data.get("email", ""),
+        resource_type="session",
+        resource_id=session_id,
+        details={"updated_fields": list(update_data.keys())}
+    )
     return Session(**updated_session)
 
 
@@ -251,4 +269,12 @@ async def delete_session(
     client = get_database_client()
     await delete_session_with_data(client, session_id)
     
+    await AuditLogger.log(
+        action=AuditLogger.SESSION_DELETED,
+        actor_id=user_data.get("_id", ""),
+        actor_email=user_data.get("email", ""),
+        resource_type="session",
+        resource_id=session_id,
+        details={"name": session.get("name", "")}
+    )
     return None

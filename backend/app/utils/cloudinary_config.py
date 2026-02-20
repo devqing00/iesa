@@ -24,7 +24,7 @@ def upload_profile_picture(file_data: bytes, user_id: str, file_extension: str =
     
     Args:
         file_data: The image file data as bytes
-        user_id: The user's Firebase UID
+        user_id: The user's ID
         file_extension: File extension (jpg, png, etc.)
     
     Returns:
@@ -56,7 +56,7 @@ def delete_profile_picture(user_id: str) -> bool:
     Delete a profile picture from Cloudinary
     
     Args:
-        user_id: The user's Firebase UID
+        user_id: The user's ID
     
     Returns:
         True if deletion was successful, False otherwise

@@ -7,26 +7,13 @@ This is the key to solving the "Data Decay" problem.
 """
 
 from pydantic import BaseModel, Field
-from typing import Literal, Optional
+from typing import Optional
 from datetime import datetime
 from bson import ObjectId
 
 
-PositionType = Literal[
-    "president",
-    "vice_president",
-    "general_secretary",
-    "assistant_secretary",
-    "financial_secretary",
-    "treasurer",
-    "director_socials",
-    "director_sports",
-    "director_welfare",
-    "pro",
-    "class_rep",
-    "assistant_class_rep",
-    "other"
-]
+# Free-form string to support dynamic positions (director_of_socials, class_rep_100L, etc.)
+PositionType = str
 
 
 class RoleBase(BaseModel):

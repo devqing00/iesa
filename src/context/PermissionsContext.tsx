@@ -32,11 +32,15 @@ const PermissionsContext = createContext<PermissionsContextType>({
 export const usePermissions = () => useContext(PermissionsContext);
 
 export function PermissionsProvider({ children }: { children: ReactNode }) {
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, getAccessToken } = useAuth();
   const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchPermissions = useCallback(async () => {
+    // Always gate with loading=true while fetching to prevent race conditions
+    // (e.g., withAuth seeing stale empty permissions during account switch)
+    setLoading(true);
+
     if (!user || !userProfile) {
       setPermissions([]);
       setLoading(false);
@@ -44,10 +48,11 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const token = await user.getIdToken();
+      const token = await getAccessToken();
+      if (!token) return;
 
       // Fetch user's permissions from backend
-      const response = await fetch(getApiUrl("/api/users/me/permissions"), {
+      const response = await fetch(getApiUrl("/api/v1/users/me/permissions"), {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -76,20 +81,21 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     fetchPermissions();
   }, [fetchPermissions]);
 
-  const hasPermission = (permission: string): boolean => {
+  // Stabilize permission check functions to prevent unnecessary re-renders
+  const hasPermission = useCallback((permission: string): boolean => {
     if (permissions.includes("*")) return true; // Admin wildcard
     return permissions.includes(permission);
-  };
+  }, [permissions]);
 
-  const hasAnyPermission = (perms: string[]): boolean => {
+  const hasAnyPermission = useCallback((perms: string[]): boolean => {
     if (permissions.includes("*")) return true;
     return perms.some((p) => permissions.includes(p));
-  };
+  }, [permissions]);
 
-  const hasAllPermissions = (perms: string[]): boolean => {
+  const hasAllPermissions = useCallback((perms: string[]): boolean => {
     if (permissions.includes("*")) return true;
     return perms.every((p) => permissions.includes(p));
-  };
+  }, [permissions]);
 
   return (
     <PermissionsContext.Provider

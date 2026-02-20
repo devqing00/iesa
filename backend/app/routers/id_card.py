@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from typing import Optional
 from datetime import datetime
 
-from ..core.security import verify_token
+from ..core.security import get_current_user
 from ..utils.id_card_generator import generate_student_id_card
 
 
@@ -22,7 +22,7 @@ router = APIRouter(
 
 @router.get("")
 async def get_student_document(
-    current_user: dict = Depends(verify_token)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Generate and download the current user's student document
@@ -40,22 +40,14 @@ async def get_student_document(
         from app.db import get_sync_db
         db = get_sync_db()
         
-        # Get student data from Firebase user
-        student_id = current_user.get("uid")
+        # User already fetched from MongoDB by get_current_user
+        student_id = current_user.get("_id")
+        student_doc = current_user
         
-        # Query the users collection (students are stored there)
-        student_doc = db.users.find_one({"firebaseUid": student_id})
-        
-        if not student_doc:
-            raise HTTPException(
-                status_code=404,
-                detail="Student record not found. Please complete your profile."
-            )
-        
-        # Get student information from database
+        # Get student information from user dict
         display_name = f"{student_doc.get('firstName', '')} {student_doc.get('lastName', '')}".strip() or "Student Name"
         matric_number = student_doc.get("matricNumber", "Not Set")
-        level = student_doc.get("currentLevel", "Not Set")  # Changed from 'level' to 'currentLevel'
+        level = student_doc.get("currentLevel", "Not Set")
         department = student_doc.get("department", "Industrial Engineering")
         admission_year = student_doc.get("admissionYear", "")
         
@@ -91,8 +83,7 @@ async def get_student_document(
             payment_status = "Not Paid"
         
         # TODO: Get photo URL from user profile
-        # In production, this would come from Firebase Storage or user profile
-        photo_url = None
+        photo_url = student_doc.get("profilePictureUrl")
         
         # Generate the ID card
         pdf_buffer = generate_student_id_card(
@@ -128,7 +119,7 @@ async def get_student_document(
 
 @router.get("/view")
 async def view_student_document(
-    current_user: dict = Depends(verify_token)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     View student document inline without downloading
@@ -140,22 +131,14 @@ async def view_student_document(
         from app.db import get_sync_db
         db = get_sync_db()
         
-        # Get student data from Firebase user
-        student_id = current_user.get("uid")
+        # User already fetched from MongoDB by get_current_user
+        student_id = current_user.get("_id")
+        student_doc = current_user
         
-        # Query the users collection (students are stored there)
-        student_doc = db.users.find_one({"firebaseUid": student_id})
-        
-        if not student_doc:
-            raise HTTPException(
-                status_code=404,
-                detail="Student record not found. Please complete your profile."
-            )
-        
-        # Get student information from database
+        # Get student information from user dict
         display_name = f"{student_doc.get('firstName', '')} {student_doc.get('lastName', '')}".strip() or "Student Name"
         matric_number = student_doc.get("matricNumber", "Not Set")
-        level = student_doc.get("currentLevel", "Not Set")  # Changed from 'level' to 'currentLevel'
+        level = student_doc.get("currentLevel", "Not Set")
         department = student_doc.get("department", "Industrial Engineering")
         admission_year = student_doc.get("admissionYear", "")
         

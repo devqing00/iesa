@@ -14,7 +14,7 @@ from app.models.grade import Grade, GradeCreate, CGPAResponse, Course, Semester
 from app.db import get_database
 from app.core.security import get_current_user, require_role
 
-router = APIRouter(prefix="/api/grades", tags=["Grades"])
+router = APIRouter(prefix="/api/v1/grades", tags=["Grades"])
 
 
 @router.post("/", response_model=Grade, status_code=status.HTTP_201_CREATED)

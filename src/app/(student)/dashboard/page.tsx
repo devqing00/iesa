@@ -1,466 +1,599 @@
 "use client";
 
-import DashboardHeader from "@/components/dashboard/DashboardHeader";
-import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { getApiUrl } from "@/lib/api";
+import Link from "next/link";
+import DashboardHeader from "@/components/dashboard/DashboardHeader";
 
-// Helper function to generate dynamic, time-based greetings
-const getTimeBasedGreeting = (userName: string) => {
-  const hour = new Date().getHours();
-  const day = new Date().getDay();
-  const isWeekend = day === 0 || day === 6;
+/* ─── Types ─────────────────────────────────────────────────────── */
 
-  if (hour >= 5 && hour < 12) {
-    return {
-      greeting: `Good morning, ${userName}`,
-      message:
-        "Ready to make today count? Let's start strong and achieve great things.",
-      period: "Morning",
-    };
-  } else if (hour >= 12 && hour < 17) {
-    return {
-      greeting: `Good afternoon, ${userName}`,
-      message: isWeekend
-        ? "Hope you're having a relaxing weekend! Take time to recharge and explore."
-        : "You're doing great! Keep up the momentum and stay focused on your goals.",
-      period: "Afternoon",
-    };
-  } else if (hour >= 17 && hour < 21) {
-    return {
-      greeting: `Good evening, ${userName}`,
-      message:
-        "Winding down? Don't forget to review today's achievements and plan for tomorrow.",
-      period: "Evening",
-    };
-  } else {
-    return {
-      greeting: `Burning the midnight oil, ${userName}?`,
-      message:
-        "Remember to take breaks and get enough rest. Your wellbeing matters!",
-      period: "Night",
-    };
-  }
-};
+interface Announcement {
+  _id?: string;
+  id?: string;
+  title: string;
+  content: string;
+  category: string;
+  priority: string;
+  createdAt: string;
+  authorName?: string;
+  author?: { firstName: string; lastName: string };
+}
 
-export default function DashboardPage() {
-  const { user } = useAuth();
+interface UpcomingEvent {
+  _id?: string;
+  id?: string;
+  title: string;
+  date: string;
+  location?: string;
+  category?: string;
+}
 
-  const greeting = useMemo(() => {
-    const firstName = user?.displayName?.split(" ")[0] || "Engineer";
-    return getTimeBasedGreeting(firstName);
-  }, [user]);
+interface PaymentItem {
+  _id?: string;
+  id?: string;
+  title: string;
+  amount: number;
+  deadline: string;
+  hasPaid: boolean;
+}
 
-  const stats = [
-    { label: "Upcoming Events", value: "3", number: "01" },
-    { label: "Library Resources", value: "24", number: "02" },
-    { label: "Payment Status", value: "Paid", number: "03" },
+interface ClassSession {
+  _id?: string;
+  courseCode: string;
+  courseTitle: string;
+  startTime: string;
+  endTime: string;
+  venue: string;
+  day: string;
+  classType: string;
+}
+
+/* ─── Page Component ────────────────────────────────────────────── */
+
+export default function StudentDashboardPage() {
+  const { user, userProfile, getAccessToken } = useAuth();
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [events, setEvents] = useState<UpcomingEvent[]>([]);
+  const [payments, setPayments] = useState<PaymentItem[]>([]);
+  const [classes, setClasses] = useState<ClassSession[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      const token = await getAccessToken();
+      const headers = { Authorization: `Bearer ${token}` };
+
+      const [announcementsRes, eventsRes, paymentsRes, timetableRes] =
+        await Promise.allSettled([
+          fetch(getApiUrl("/api/v1/announcements/"), { headers }),
+          fetch(getApiUrl("/api/v1/events/"), { headers }),
+          fetch(getApiUrl("/api/v1/payments/"), { headers }).catch(() => null),
+          fetch(getApiUrl("/api/v1/timetable/classes"), { headers }).catch(
+            () => null
+          ),
+        ]);
+
+      if (announcementsRes.status === "fulfilled" && announcementsRes.value?.ok) {
+        const data = await announcementsRes.value.json();
+        setAnnouncements(Array.isArray(data) ? data.slice(0, 5) : []);
+      }
+
+      if (eventsRes.status === "fulfilled" && eventsRes.value?.ok) {
+        const data = await eventsRes.value.json();
+        const upcoming = (Array.isArray(data) ? data : [])
+          .filter((e: UpcomingEvent) => new Date(e.date) >= new Date())
+          .sort(
+            (a: UpcomingEvent, b: UpcomingEvent) =>
+              new Date(a.date).getTime() - new Date(b.date).getTime()
+          )
+          .slice(0, 4);
+        setEvents(upcoming);
+      }
+
+      if (paymentsRes.status === "fulfilled" && paymentsRes.value?.ok) {
+        const data = await paymentsRes.value.json();
+        setPayments(Array.isArray(data) ? data : []);
+      }
+
+      if (timetableRes.status === "fulfilled" && timetableRes.value?.ok) {
+        const data = await timetableRes.value.json();
+        setClasses(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch dashboard data:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [getAccessToken]);
+
+  useEffect(() => {
+    if (user) fetchDashboardData();
+  }, [user, fetchDashboardData]);
+
+  const greeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  };
+
+  const pendingPayments = payments.filter((p) => !p.hasPaid);
+
+  const getTodayClasses = () => {
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const today = days[new Date().getDay()];
+    return classes
+      .filter((c) => c.day === today)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  };
+
+  const todayClasses = getTodayClasses();
+
+  /* ── Event color cycling ── */
+  const eventColors = [
+    { bg: "bg-coral", text: "text-snow", dateBg: "bg-snow", dateText: "text-coral" },
+    { bg: "bg-lavender-light", text: "text-navy", dateBg: "bg-lavender", dateText: "text-snow" },
+    { bg: "bg-teal-light", text: "text-navy", dateBg: "bg-teal", dateText: "text-snow" },
+    { bg: "bg-sunny-light", text: "text-navy", dateBg: "bg-sunny", dateText: "text-navy" },
   ];
 
-  const announcements = [
-    { title: "General Meeting This Friday", time: "2 hours ago", unread: true },
-    {
-      title: "T-Shirt Collection Starts Monday",
-      time: "5 hours ago",
-      unread: true,
-    },
-    {
-      title: "Career Fair Registration Open",
-      time: "1 day ago",
-      unread: false,
-    },
-  ];
-
-  const quickActions = [
-    {
-      label: "Calculate CGPA",
-      href: "/dashboard/growth/cgpa",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
-          />
-        </svg>
-      ),
-    },
-    {
-      label: "View Events",
-      href: "/dashboard/events",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
-          />
-        </svg>
-      ),
-    },
-    {
-      label: "Library",
-      href: "/dashboard/library",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"
-          />
-        </svg>
-      ),
-    },
-    {
-      label: "Payments",
-      href: "/dashboard/payments",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"
-          />
-        </svg>
-      ),
-    },
-    {
-      label: "IESA Team",
-      href: "/dashboard/team/central",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"
-          />
-        </svg>
-      ),
-    },
-    {
-      label: "My Profile",
-      href: "/dashboard/profile",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-          />
-        </svg>
-      ),
-    },
-  ];
-
-  const aiSuggestions = [
-    "Show my timetable",
-    "Payment help",
-    "Study tips",
-    "Events this week",
+  /* ── Class card color cycling ── */
+  const classColors = [
+    { bg: "bg-lavender", border: "border-navy", text: "text-snow", sub: "text-snow/70", timeBg: "bg-snow/20", timeTxt: "text-snow", tagBg: "bg-snow/20", tagTxt: "text-snow" },
+    { bg: "bg-snow", border: "border-navy", text: "text-navy", sub: "text-slate", timeBg: "bg-cloud", timeTxt: "text-navy", tagBg: "bg-cloud", tagTxt: "text-slate" },
+    { bg: "bg-teal-light", border: "border-navy", text: "text-navy", sub: "text-navy/60", timeBg: "bg-teal/20", timeTxt: "text-navy", tagBg: "bg-teal/20", tagTxt: "text-navy/70" },
+    { bg: "bg-snow", border: "border-navy", text: "text-navy", sub: "text-slate", timeBg: "bg-cloud", timeTxt: "text-navy", tagBg: "bg-cloud", tagTxt: "text-slate" },
+    { bg: "bg-coral-light", border: "border-navy", text: "text-navy", sub: "text-navy/60", timeBg: "bg-coral/20", timeTxt: "text-navy", tagBg: "bg-coral/20", tagTxt: "text-navy/70" },
+    { bg: "bg-snow", border: "border-navy", text: "text-navy", sub: "text-slate", timeBg: "bg-cloud", timeTxt: "text-navy", tagBg: "bg-cloud", tagTxt: "text-slate" },
   ];
 
   return (
-    <div className="min-h-screen bg-bg-primary">
-      <DashboardHeader title="Overview" />
+    <div className="min-h-screen bg-ghost">
+      <DashboardHeader title="Dashboard" />
 
-      <div className="p-4 md:p-8 space-y-8 pb-24 md:pb-8">
-        {/* Hero Section */}
-        <section className="bg-charcoal dark:bg-cream py-12 px-6 md:px-12 relative">
-          <div className="absolute inset-0 bg-dot-grid opacity-20 pointer-events-none" />
+      <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
 
-          <div className="relative max-w-4xl">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-label-sm text-cream/60 dark:text-charcoal/60 flex items-center gap-2">
-                <span>✦</span> {greeting.period}
-              </span>
+        {/* ═══════════════════════════════════════════════════════════
+            ROW 1 — Hero Bento: Greeting (8 cols) + Classes Today (4 cols)
+            ═══════════════════════════════════════════════════════════ */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-5">
+
+          {/* — Greeting Hero — */}
+          <div className="lg:col-span-8 bg-navy border-[5px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[230px] flex flex-col justify-between">
+            {/* Decorative shapes */}
+            <div className="absolute top-6 right-8 w-20 h-20 rounded-full bg-coral/15 pointer-events-none" />
+            <div className="absolute bottom-8 right-32 w-10 h-10 rounded-lg bg-lavender/10 rotate-12 pointer-events-none" />
+            <div className="absolute top-1/2 right-16 w-6 h-6 rounded-full bg-teal/15 pointer-events-none" />
+            {/* Diamond sparkle */}
+            <svg className="absolute top-5 right-24 w-5 h-5 text-lime/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+            </svg>
+            <svg className="absolute bottom-12 right-12 w-4 h-4 text-coral/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+            </svg>
+
+            <div className="relative z-10">
+              <p className="text-ghost/35 text-[10px] font-bold tracking-[0.2em] uppercase mb-3">
+                {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+              </p>
+              <h1 className="font-display font-black text-4xl md:text-5xl lg:text-[3.5rem] text-ghost leading-[0.95]">
+                {greeting()},
+                <br />
+                <span className="text-lime">{userProfile?.firstName || user?.email?.split("@")[0]}</span>
+              </h1>
             </div>
-
-            <h1 className="font-display text-display-md text-cream dark:text-charcoal mb-4">
-              {greeting.greeting}
-            </h1>
-
-            <p className="text-cream/70 dark:text-charcoal/70 text-body max-w-2xl mb-8">
-              {greeting.message}
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Link
-                href="/dashboard/iesa-ai"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-cream dark:bg-charcoal text-charcoal dark:text-cream text-label transition-colors hover:bg-cream-dark dark:hover:bg-charcoal-light"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"
-                  />
-                </svg>
-                Chat with IESA AI
-              </Link>
-
-              <Link
-                href="/dashboard/growth"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-cream/30 dark:border-charcoal/30 text-cream dark:text-charcoal text-label transition-colors hover:bg-cream/10 dark:hover:bg-charcoal/10"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"
-                  />
-                </svg>
-                View My Progress
-              </Link>
+            <div className="relative z-10 flex flex-wrap items-center gap-2 mt-6">
+              {userProfile?.level && (
+                <span className="text-[10px] font-bold text-navy bg-lime rounded-full px-3 py-1 uppercase tracking-wider">
+                  {userProfile.level} Level
+                </span>
+              )}
+              <span className="text-[10px] font-bold text-navy bg-teal rounded-full px-3 py-1 uppercase tracking-wider">
+                {todayClasses.length} class{todayClasses.length !== 1 ? "es" : ""} today
+              </span>
+              {pendingPayments.length > 0 && (
+                <span className="text-[10px] font-bold text-navy bg-coral rounded-full px-3 py-1 uppercase tracking-wider">
+                  {pendingPayments.length} pending due{pendingPayments.length !== 1 ? "s" : ""}
+                </span>
+              )}
             </div>
           </div>
-        </section>
 
-        {/* Quick Stats */}
-        <section className="border-t border-border pt-8">
-          <div className="flex items-center justify-between mb-6">
-            <span className="text-label-sm text-text-muted flex items-center gap-2">
-              <span>◆</span> Quick Stats
-            </span>
-            <span className="page-number">Page 01</span>
+          {/* — Classes Today Counter — */}
+          <div className="lg:col-span-4 bg-coral border-[5px] border-navy rounded-[2rem] p-8 relative overflow-hidden flex flex-col justify-between min-h-[230px] shadow-[8px_8px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+            {/* Decorative shapes */}
+            <div className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full bg-navy/10 pointer-events-none" />
+            <svg className="absolute top-4 right-5 w-5 h-5 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+            </svg>
+
+            <div className="relative z-10">
+              <p className="text-snow/70 text-[10px] font-bold tracking-[0.15em] uppercase mb-1">Classes Today</p>
+              <p className="font-display font-black text-8xl md:text-[6.5rem] text-snow leading-none">
+                {loading ? "--" : String(todayClasses.length).padStart(2, "0")}
+              </p>
+            </div>
+            <Link href="/dashboard/timetable" className="relative z-10 inline-flex items-center gap-2 text-snow/80 text-xs font-bold hover:text-snow transition-colors group mt-4">
+              View full timetable
+              <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" viewBox="0 0 24 24" fill="currentColor">
+                <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+              </svg>
+            </Link>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {stats.map((stat) => (
-              <div
-                key={stat.number}
-                className="border border-border p-6 space-y-4 hover:border-border-dark transition-colors"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-label-sm text-text-muted">
-                    {stat.number}
-                  </span>
-                  <span className="text-label-sm text-text-muted">◆</span>
-                </div>
-                <div>
-                  <div className="font-display text-3xl text-text-primary mb-1">
-                    {stat.value}
-                  </div>
-                  <div className="text-body text-sm text-text-secondary">
-                    {stat.label}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Recent Announcements */}
-          <section className="lg:col-span-7 border-t border-border pt-8">
-            <div className="flex items-center justify-between mb-6">
-              <span className="text-label-sm text-text-muted flex items-center gap-2">
-                <span>✦</span> Recent Announcements
-              </span>
-              <Link
-                href="/dashboard/announcements"
-                className="text-label-sm text-text-secondary hover:text-text-primary transition-colors flex items-center gap-1"
-              >
-                View all
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                  />
-                </svg>
-              </Link>
-            </div>
-
-            <div className="space-y-2">
-              {announcements.map((item, i) => (
-                <Link
-                  key={i}
-                  href="/dashboard/announcements"
-                  className={`block p-4 border transition-colors ${
-                    item.unread
-                      ? "border-border-dark bg-bg-secondary"
-                      : "border-border hover:border-border-dark"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <span
-                      className={`w-1.5 h-1.5 mt-2 shrink-0 ${
-                        item.unread ? "bg-text-primary" : "bg-text-muted"
-                      }`}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-body font-medium text-text-primary truncate">
-                        {item.title}
-                      </h4>
-                      <p className="text-label-sm text-text-muted mt-1">
-                        {item.time}
-                      </p>
-                    </div>
-                    {item.unread && (
-                      <span className="text-label-sm bg-charcoal dark:bg-cream text-cream dark:text-charcoal px-2 py-0.5">
-                        New
-                      </span>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-
-          {/* Quick Actions */}
-          <section className="lg:col-span-5 border-t border-border pt-8">
-            <div className="flex items-center justify-between mb-6">
-              <span className="text-label-sm text-text-muted flex items-center gap-2">
-                <span>◆</span> Quick Actions
-              </span>
-              <span className="page-number">Page 02</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              {quickActions.map((action) => (
-                <Link
-                  key={action.label}
-                  href={action.href}
-                  className="p-4 border border-border hover:border-border-dark hover:bg-bg-secondary transition-colors group"
-                >
-                  <div className="text-text-secondary group-hover:text-text-primary transition-colors mb-3">
-                    {action.icon}
-                  </div>
-                  <span className="text-body text-sm text-text-primary">
-                    {action.label}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </section>
         </div>
 
-        {/* AI Assistant Section */}
-        <section className="border-t border-border pt-8">
-          <div className="flex items-center justify-between mb-6">
-            <span className="text-label-sm text-text-muted flex items-center gap-2">
-              <span>✦</span> IESA AI Assistant
-            </span>
-            <span className="page-number">Page 03</span>
-          </div>
-
-          <div className="border border-border p-6 md:p-8">
-            <div className="flex flex-col md:flex-row items-start gap-6">
-              <div className="w-16 h-16 bg-charcoal dark:bg-cream flex items-center justify-center shrink-0">
-                <svg
-                  className="w-8 h-8 text-cream dark:text-charcoal"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
-                  />
+        {/* ═══════════════════════════════════════════════════════════
+            ROW 2 — Stats Bento: 4 cards, varied colors
+            ═══════════════════════════════════════════════════════════ */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+          {[
+            {
+              label: "Announcements",
+              value: loading ? "--" : announcements.length,
+              bg: "bg-sunny border-[4px] border-navy shadow-[5px_5px_0_0_#000]",
+              iconBg: "bg-navy/10",
+              iconColor: "text-navy",
+              textColor: "text-navy",
+              subColor: "text-navy/50",
+              rotate: "rotate-[-0.5deg] hover:rotate-0",
+              icon: (
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clipRule="evenodd" />
                 </svg>
+              ),
+            },
+            {
+              label: "Pending Dues",
+              value: loading ? "--" : pendingPayments.length,
+              bg: "bg-navy border-[4px] border-navy",
+              iconBg: "bg-ghost/10",
+              iconColor: "text-coral",
+              textColor: "text-snow",
+              subColor: "text-ghost/40",
+              rotate: "",
+              icon: (
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M4.5 3.75a3 3 0 0 0-3 3v.75h21v-.75a3 3 0 0 0-3-3h-15Z" />
+                  <path fillRule="evenodd" d="M22.5 9.75h-21v7.5a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3v-7.5Zm-18 3.75a.75.75 0 0 1 .75-.75h6a.75.75 0 0 1 0 1.5h-6a.75.75 0 0 1-.75-.75Zm.75 2.25a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z" clipRule="evenodd" />
+                </svg>
+              ),
+            },
+            {
+              label: "Upcoming Events",
+              value: loading ? "--" : events.length,
+              bg: "bg-lavender-light border-[4px] border-navy shadow-[5px_5px_0_0_#000]",
+              iconBg: "bg-lavender/30",
+              iconColor: "text-lavender",
+              textColor: "text-navy",
+              subColor: "text-navy/50",
+              rotate: "rotate-[0.5deg] hover:rotate-0",
+              icon: (
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
+                </svg>
+              ),
+            },
+            {
+              label: "Resources",
+              value: loading ? "--" : "24+",
+              bg: "bg-teal-light border-[4px] border-navy shadow-[5px_5px_0_0_#000]",
+              iconBg: "bg-teal/30",
+              iconColor: "text-teal",
+              textColor: "text-navy",
+              subColor: "text-navy/50",
+              rotate: "rotate-[-0.3deg] hover:rotate-0",
+              icon: (
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
+                </svg>
+              ),
+            },
+          ].map((stat, i) => (
+            <div
+              key={i}
+              className={`rounded-2xl p-5 flex flex-col justify-between min-h-[135px] transition-transform ${stat.bg} ${stat.rotate}`}
+            >
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${stat.iconBg}`}>
+                <span className={stat.iconColor}>{stat.icon}</span>
               </div>
+              <div className="mt-auto">
+                <p className={`text-[10px] font-bold tracking-[0.1em] uppercase mb-0.5 ${stat.subColor}`}>{stat.label}</p>
+                <p className={`font-display font-black text-3xl ${stat.textColor}`}>{stat.value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
 
-              <div className="flex-1">
-                <h3 className="font-display text-xl text-text-primary mb-2">
-                  Need help with anything?
-                </h3>
-                <p className="text-body text-sm text-text-secondary mb-4">
-                  IESA AI knows your schedule, payment status, upcoming events,
-                  and can answer any questions about the department.
-                </p>
+        {/* ═══════════════════════════════════════════════════════════
+            ROW 3 — Quick Access Bento: 6 shortcut tiles
+            ═══════════════════════════════════════════════════════════ */}
+        <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
+          {[
+            { name: "Timetable", href: "/dashboard/timetable", color: "bg-lavender-light", hoverBg: "hover:bg-lavender", icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" /></svg> },
+            { name: "Payments", href: "/dashboard/payments", color: "bg-coral-light", hoverBg: "hover:bg-coral", icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 3.75a3 3 0 0 0-3 3v.75h21v-.75a3 3 0 0 0-3-3h-15Z" /><path fillRule="evenodd" d="M22.5 9.75h-21v7.5a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3v-7.5Zm-18 3.75a.75.75 0 0 1 .75-.75h6a.75.75 0 0 1 0 1.5h-6a.75.75 0 0 1-.75-.75Zm.75 2.25a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z" clipRule="evenodd" /></svg> },
+            { name: "Events", href: "/dashboard/events", color: "bg-sunny-light", hoverBg: "hover:bg-sunny", icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" /></svg> },
+            { name: "Library", href: "/dashboard/library", color: "bg-teal-light", hoverBg: "hover:bg-teal", icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" /></svg> },
+            { name: "ID Card", href: "/dashboard/id-card", color: "bg-lime-light", hoverBg: "hover:bg-lime", icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M4.5 3.75a3 3 0 0 0-3 3v10.5a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3V6.75a3 3 0 0 0-3-3h-15Zm4.125 3a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5Zm-3.873 8.703a4.126 4.126 0 0 1 7.746 0 .75.75 0 0 1-.351.92 7.47 7.47 0 0 1-3.522.877 7.47 7.47 0 0 1-3.522-.877.75.75 0 0 1-.351-.92ZM15 8.25a.75.75 0 0 0 0 1.5h3.75a.75.75 0 0 0 0-1.5H15ZM14.25 12a.75.75 0 0 1 .75-.75h3.75a.75.75 0 0 1 0 1.5H15a.75.75 0 0 1-.75-.75Zm.75 2.25a.75.75 0 0 0 0 1.5h3.75a.75.75 0 0 0 0-1.5H15Z" clipRule="evenodd" /></svg> },
+            { name: "IESA AI", href: "/dashboard/iesa-ai", color: "bg-cloud", hoverBg: "hover:bg-ghost", icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5ZM18 1.5a.75.75 0 0 1 .728.568l.258 1.036c.236.94.97 1.674 1.91 1.91l1.036.258a.75.75 0 0 1 0 1.456l-1.036.258c-.94.236-1.674.97-1.91 1.91l-.258 1.036a.75.75 0 0 1-1.456 0l-.258-1.036a2.625 2.625 0 0 0-1.91-1.91l-1.036-.258a.75.75 0 0 1 0-1.456l1.036-.258a2.625 2.625 0 0 0 1.91-1.91l.258-1.036A.75.75 0 0 1 18 1.5Z" clipRule="evenodd" /></svg> },
+          ].map((link) => (
+            <Link
+              key={link.name}
+              href={link.href}
+              className={`group ${link.color} ${link.hoverBg} border-[3px] border-navy rounded-2xl p-3 md:p-4 shadow-[4px_4px_0_0_#000] hover:shadow-[2px_2px_0_0_#000] hover:-translate-y-1 transition-all text-center`}
+            >
+              <div className="w-10 h-10 rounded-xl bg-navy/10 flex items-center justify-center mx-auto mb-2 group-hover:bg-navy/15 transition-colors">
+                <span className="text-navy">{link.icon}</span>
+              </div>
+              <p className="text-xs font-bold text-navy truncate">{link.name}</p>
+            </Link>
+          ))}
+        </div>
 
-                <div className="flex flex-wrap gap-2 mb-6">
-                  {aiSuggestions.map((q) => (
-                    <Link
-                      key={q}
-                      href={`/dashboard/iesa-ai?q=${encodeURIComponent(q)}`}
-                      className="px-3 py-1.5 border border-border text-label-sm text-text-secondary hover:border-border-dark hover:text-text-primary transition-colors"
-                    >
-                      {q}
-                    </Link>
-                  ))}
+        {/* ═══════════════════════════════════════════════════════════
+            ROW 4 — Main Content Bento: Schedule (8) + Sidebar (4)
+            ═══════════════════════════════════════════════════════════ */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-5">
+
+          {/* ── LEFT: Schedule + Announcements stacked (8 cols) ── */}
+          <div className="lg:col-span-8 space-y-4">
+
+            {/* Today's Schedule Card */}
+            <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-8 rounded-full bg-lavender" />
+                  <h3 className="font-display font-black text-xl text-navy">Today&apos;s Schedule</h3>
                 </div>
-
-                <Link
-                  href="/dashboard/iesa-ai"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-charcoal dark:bg-cream text-cream dark:text-charcoal text-label transition-colors hover:bg-charcoal-light dark:hover:bg-cream-dark"
-                >
-                  Start Chatting
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                    />
+                <Link href="/dashboard/timetable" className="text-xs font-bold text-slate hover:text-navy transition-colors flex items-center gap-1">
+                  Full timetable
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z" clipRule="evenodd" />
                   </svg>
                 </Link>
               </div>
+
+              {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="h-20 bg-cloud rounded-2xl animate-pulse" />
+                  ))}
+                </div>
+              ) : todayClasses.length === 0 ? (
+                <div className="text-center py-12 bg-teal-light rounded-2xl border-[3px] border-navy/10">
+                  <div className="w-14 h-14 rounded-2xl bg-teal/20 flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-7 h-7 text-teal" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-bold text-navy">No classes scheduled today</p>
+                  <p className="text-xs text-slate mt-1">Enjoy your free time!</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {todayClasses.slice(0, 6).map((cls, i) => {
+                    const c = classColors[i % classColors.length];
+                    return (
+                      <div
+                        key={cls._id || i}
+                        className={`flex items-center gap-4 p-4 rounded-2xl border-[3px] ${c.border} ${c.bg} transition-all hover:shadow-[3px_3px_0_0_#000]`}
+                      >
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 font-display font-black text-sm ${c.timeBg} ${c.timeTxt}`}>
+                          {cls.startTime}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-bold truncate ${c.text}`}>{cls.courseCode}</p>
+                          <p className={`text-[10px] truncate ${c.sub}`}>
+                            {cls.venue} &middot; {cls.startTime}–{cls.endTime}
+                          </p>
+                        </div>
+                        <span className={`text-[10px] font-bold rounded-full px-2.5 py-1 shrink-0 ${c.tagBg} ${c.tagTxt}`}>
+                          {cls.classType}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Announcements Card */}
+            <div className="bg-sunny-light border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-8 rounded-full bg-sunny" />
+                  <h3 className="font-display font-black text-xl text-navy">Announcements</h3>
+                </div>
+                <Link href="/dashboard/announcements" className="text-xs font-bold text-navy/50 hover:text-navy transition-colors flex items-center gap-1">
+                  View all
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z" clipRule="evenodd" />
+                  </svg>
+                </Link>
+              </div>
+              {loading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-16 bg-sunny/20 rounded-2xl animate-pulse" />
+                  ))}
+                </div>
+              ) : announcements.length === 0 ? (
+                <div className="text-center py-10 bg-snow rounded-2xl border-[3px] border-navy/10">
+                  <p className="text-sm text-slate">No announcements yet</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {announcements.slice(0, 5).map((ann, idx) => (
+                    <Link
+                      key={ann.id || ann._id}
+                      href="/dashboard/announcements"
+                      className="flex items-center gap-4 p-4 rounded-2xl bg-snow hover:bg-ghost transition-colors group border-[2px] border-transparent hover:border-navy/10"
+                    >
+                      <span className="font-display font-black text-lg text-navy/20 w-8 text-center shrink-0">
+                        {String(idx + 1).padStart(2, "0")}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-navy group-hover:text-navy transition-colors truncate">
+                          {ann.title}
+                        </p>
+                        <p className="text-[10px] text-slate mt-0.5">
+                          {new Date(ann.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} &middot; {ann.category}
+                        </p>
+                      </div>
+                      {ann.priority === "urgent" && (
+                        <span className="text-[10px] font-bold text-snow bg-coral rounded-full px-2.5 py-0.5 shrink-0">URGENT</span>
+                      )}
+                      <svg className="w-4 h-4 text-slate group-hover:text-navy transition-colors shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z" clipRule="evenodd" />
+                      </svg>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-        </section>
+
+          {/* ── RIGHT: Stacked sidebar cards (4 cols) ── */}
+          <div className="lg:col-span-4 space-y-4">
+
+            {/* Pending Dues Card */}
+            <div className="bg-coral-light border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-6 rounded-full bg-coral" />
+                  <h3 className="font-display font-black text-lg text-navy">Pending Dues</h3>
+                </div>
+                <Link href="/dashboard/payments" className="text-[10px] font-bold text-navy/50 hover:text-navy transition-colors uppercase tracking-wider">
+                  Pay
+                  <svg className="w-3 h-3 inline ml-0.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z" clipRule="evenodd" />
+                  </svg>
+                </Link>
+              </div>
+              {loading ? (
+                <div className="space-y-3">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="h-20 bg-snow/50 rounded-2xl animate-pulse" />
+                  ))}
+                </div>
+              ) : pendingPayments.length === 0 ? (
+                <div className="bg-teal-light rounded-2xl p-5 text-center border-[3px] border-navy/10">
+                  <svg className="w-8 h-8 text-teal mx-auto mb-2" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-sm font-bold text-teal">All clear!</p>
+                  <p className="text-xs text-slate mt-1">No pending dues</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {pendingPayments.slice(0, 3).map((p) => (
+                    <div key={p._id || p.id} className="bg-snow rounded-2xl p-4 border-[3px] border-navy">
+                      <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em] mb-2">{p.title}</p>
+                      <div className="flex items-end justify-between">
+                        <p className="font-display font-black text-2xl text-navy">&#8358;{p.amount.toLocaleString()}</p>
+                        <span className="text-[10px] font-medium text-coral">
+                          Due {new Date(p.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {pendingPayments.length > 3 && (
+                    <Link href="/dashboard/payments" className="block text-center text-xs font-bold text-coral hover:underline py-2">
+                      +{pendingPayments.length - 3} more dues
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Upcoming Events Card */}
+            <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-6 rounded-full bg-lavender" />
+                  <h3 className="font-display font-black text-lg text-navy">Upcoming</h3>
+                </div>
+                <Link href="/dashboard/events" className="text-[10px] font-bold text-slate hover:text-navy transition-colors uppercase tracking-wider">
+                  All
+                  <svg className="w-3 h-3 inline ml-0.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z" clipRule="evenodd" />
+                  </svg>
+                </Link>
+              </div>
+              {loading ? (
+                <div className="space-y-3">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="h-14 bg-cloud rounded-2xl animate-pulse" />
+                  ))}
+                </div>
+              ) : events.length === 0 ? (
+                <p className="text-sm text-slate text-center py-6">No upcoming events</p>
+              ) : (
+                <div className="space-y-2">
+                  {events.slice(0, 4).map((evt, i) => {
+                    const ec = eventColors[i % eventColors.length];
+                    return (
+                      <div key={evt.id || evt._id} className={`flex items-center gap-3 p-3 rounded-2xl ${ec.bg} transition-colors`}>
+                        <div className={`w-11 h-11 rounded-xl ${ec.dateBg} flex flex-col items-center justify-center shrink-0`}>
+                          <span className={`text-[9px] font-bold leading-none ${ec.dateText}`}>
+                            {new Date(evt.date).toLocaleDateString("en-US", { month: "short" }).toUpperCase()}
+                          </span>
+                          <span className={`text-base font-bold leading-none ${ec.dateText}`}>
+                            {new Date(evt.date).getDate()}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-bold truncate ${ec.text}`}>{evt.title}</p>
+                          {evt.location && (
+                            <p className={`text-[10px] truncate ${ec.text} opacity-60`}>{evt.location}</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Growth CTA */}
+            <Link href="/dashboard/growth" className="block bg-teal border-[4px] border-navy rounded-3xl p-6 relative overflow-hidden group shadow-[6px_6px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+              {/* Decorative */}
+              <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full bg-navy/10 pointer-events-none" />
+              <svg className="absolute top-3 right-4 w-4 h-4 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+              </svg>
+
+              <h3 className="font-display font-black text-xl text-navy mb-1 relative z-10">Growth Tools</h3>
+              <p className="text-navy/60 text-xs font-medium relative z-10 mb-3">CGPA, planner, goals &amp; more</p>
+              <span className="inline-flex items-center gap-1.5 text-navy text-xs font-bold relative z-10 group-hover:gap-2.5 transition-all bg-snow/30 rounded-full px-3 py-1.5">
+                Explore
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                </svg>
+              </span>
+            </Link>
+
+            {/* IESA AI CTA */}
+            <Link href="/dashboard/iesa-ai" className="block bg-navy border-[4px] border-navy rounded-3xl p-6 relative overflow-hidden group">
+              <svg className="absolute top-4 right-5 w-5 h-5 text-lavender/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+              </svg>
+              <div className="w-10 h-10 rounded-xl bg-lavender/20 flex items-center justify-center mb-3">
+                <svg className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5Z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <h3 className="font-display font-black text-lg text-ghost mb-1">IESA AI</h3>
+              <p className="text-ghost/40 text-xs font-medium mb-3">Ask anything about the department</p>
+              <span className="inline-flex items-center gap-1.5 text-lavender text-xs font-bold group-hover:gap-2.5 transition-all">
+                Start chatting
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                </svg>
+              </span>
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );

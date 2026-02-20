@@ -1,10 +1,11 @@
 "use client";
 
-import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
 import { getApiUrl } from "@/lib/api";
+import Link from "next/link";
 
+/* ─── types ─── */
 interface UserProfile {
   _id: string;
   email: string;
@@ -25,7 +26,7 @@ interface UserProfile {
 }
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, getAccessToken } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
@@ -45,26 +46,19 @@ export default function ProfilePage() {
     personalEmail: "",
   });
 
+  /* ─── fetch profile ─── */
   useEffect(() => {
     const fetchProfile = async () => {
       if (!user) return;
-
       try {
         setFetchLoading(true);
-        const token = await user.getIdToken();
-        const response = await fetch(getApiUrl("/api/users/me"), {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        const token = await getAccessToken();
+        const response = await fetch(getApiUrl("/api/v1/users/me"), {
+          headers: { Authorization: `Bearer ${token}` },
         });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch profile");
-        }
-
+        if (!response.ok) throw new Error("Failed to fetch profile");
         const data = await response.json();
         setProfileData(data);
-
         setFormData({
           firstName: data.firstName || "",
           lastName: data.lastName || "",
@@ -72,51 +66,39 @@ export default function ProfilePage() {
           bio: data.bio || "",
           personalEmail: data.personalEmail || "",
         });
-      } catch (err) {
-        console.error("Error fetching profile:", err);
+      } catch {
         setError("Failed to load profile data");
       } finally {
         setFetchLoading(false);
       }
     };
-
     fetchProfile();
   }, [user]);
 
+  /* ─── save profile ─── */
   const handleSave = async () => {
     if (!user) return;
-
     setLoading(true);
     setError("");
     setSuccessMessage("");
-
     try {
-      const token = await user.getIdToken();
-      const response = await fetch(getApiUrl("/api/users/me"), {
+      const token = await getAccessToken();
+      const response = await fetch(getApiUrl("/api/v1/users/me"), {
         method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || "Failed to update profile");
       }
-
       const updatedData = await response.json();
       setProfileData(updatedData);
       setSuccessMessage("Profile updated successfully!");
       setIsEditing(false);
-
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err: unknown) {
-      console.error("Error updating profile:", err);
-      const message =
-        err instanceof Error ? err.message : "Failed to update profile";
-      setError(message);
+      setError(err instanceof Error ? err.message : "Failed to update profile");
     } finally {
       setLoading(false);
     }
@@ -136,86 +118,63 @@ export default function ProfilePage() {
     setError("");
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  /* ─── image upload ─── */
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      setError("Please select an image file");
-      return;
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      setError("Image size must be less than 2MB");
-      return;
-    }
-
+    if (!file.type.startsWith("image/")) { setError("Please select an image file"); return; }
+    if (file.size > 2 * 1024 * 1024) { setError("Image size must be less than 2MB"); return; }
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result as string);
-      setSelectedFile(file);
-      setShowImageModal(true);
-    };
+    reader.onloadend = () => { setImagePreview(reader.result as string); setSelectedFile(file); setShowImageModal(true); };
     reader.readAsDataURL(file);
   };
 
   const confirmImageUpload = async () => {
     if (!selectedFile || !user) return;
-
     setUploadingImage(true);
     setError("");
-
     try {
-      const token = await user.getIdToken();
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-
-      const response = await fetch(getApiUrl("/api/users/me/profile-picture"), {
+      const token = await getAccessToken();
+      const fd = new FormData();
+      fd.append("file", selectedFile);
+      const response = await fetch(getApiUrl("/api/v1/users/me/profile-picture"), {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
       });
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || "Failed to upload image");
       }
-
       const updatedData = await response.json();
       setProfileData(updatedData);
-      setSuccessMessage("Profile picture updated successfully!");
+      setSuccessMessage("Profile picture updated!");
       setTimeout(() => setSuccessMessage(""), 3000);
-
       setShowImageModal(false);
       setImagePreview(null);
       setSelectedFile(null);
     } catch (err: unknown) {
-      console.error("Error uploading image:", err);
-      const message =
-        err instanceof Error ? err.message : "Failed to upload image";
-      setError(message);
+      setError(err instanceof Error ? err.message : "Failed to upload image");
     } finally {
       setUploadingImage(false);
     }
   };
 
-  const cancelImageUpload = () => {
-    setShowImageModal(false);
-    setImagePreview(null);
-    setSelectedFile(null);
-  };
+  const cancelImageUpload = () => { setShowImageModal(false); setImagePreview(null); setSelectedFile(null); };
 
+  /* ─── skeleton ─── */
   if (fetchLoading) {
     return (
-      <div className="min-h-screen bg-bg-primary">
-        <DashboardHeader title="Profile" />
-        <div className="flex-1 flex items-center justify-center min-h-[60vh]">
-          <div className="text-center space-y-3">
-            <div className="w-8 h-8 border border-border-dark border-t-transparent animate-spin mx-auto" />
-            <p className="text-label-sm text-text-muted">Loading profile...</p>
+      <div className="min-h-screen bg-ghost p-4 sm:p-6 lg:p-8">
+        <div className="max-w-6xl mx-auto space-y-6">
+          <div className="grid grid-cols-12 gap-4">
+            <div className="col-span-12 md:col-span-7 h-44 bg-cloud rounded-[2rem] animate-pulse" />
+            <div className="col-span-12 md:col-span-5 grid grid-cols-2 gap-3">
+              {[...Array(4)].map((_, i) => (<div key={i} className="h-20 bg-cloud rounded-[1.5rem] animate-pulse" />))}
+            </div>
           </div>
+          <div className="h-64 bg-cloud rounded-[2rem] animate-pulse" />
+          <div className="h-80 bg-cloud rounded-[2rem] animate-pulse" />
         </div>
       </div>
     );
@@ -223,219 +182,205 @@ export default function ProfilePage() {
 
   if (!profileData) {
     return (
-      <div className="min-h-screen bg-bg-primary">
-        <DashboardHeader title="Profile" />
-        <div className="flex-1 flex items-center justify-center min-h-[60vh]">
-          <p className="text-body text-sm text-text-muted">
-            Failed to load profile
-          </p>
+      <div className="min-h-screen bg-ghost p-4 sm:p-6 lg:p-8">
+        <div className="max-w-6xl mx-auto flex items-center justify-center min-h-[60vh]">
+          <div className="bg-navy border-[4px] border-lime rounded-[2rem] p-8 shadow-[8px_8px_0_0_#000] text-center">
+            <p className="font-display font-black text-lg text-lime">Failed to load profile</p>
+            <p className="text-sm text-lime/60 mt-2">Please try refreshing the page.</p>
+          </div>
         </div>
       </div>
     );
   }
 
   const fullName = `${profileData.firstName} ${profileData.lastName}`;
-  const initials = `${profileData.firstName?.[0] || ""}${
-    profileData.lastName?.[0] || ""
-  }`.toUpperCase();
+  const initials = `${profileData.firstName?.[0] || ""}${profileData.lastName?.[0] || ""}`.toUpperCase();
+  const inputBase = "w-full px-4 py-3 font-display font-normal text-sm border-[3px] rounded-xl transition-all";
+  const inputEditing = `${inputBase} border-navy bg-ghost text-navy focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal/20`;
+  const inputDisabled = `${inputBase} border-navy/40 bg-cloud text-navy/50 cursor-not-allowed`;
 
   return (
-    <div className="min-h-screen bg-bg-primary">
-      <DashboardHeader title="Profile" />
+    <div className="min-h-screen bg-ghost p-4 sm:p-6 lg:p-8 pb-24 md:pb-8 overflow-x-hidden relative">
+      {/* ── diamond sparkles ── */}
+      {[
+        "top-12 left-[7%] w-5 h-5 text-coral/15",
+        "top-32 right-[10%] w-4 h-4 text-teal/12",
+        "top-[45%] left-[4%] w-6 h-6 text-lavender/14",
+        "top-[60%] right-[6%] w-5 h-5 text-sunny/16",
+        "bottom-24 left-[14%] w-4 h-4 text-lime/12",
+      ].map((cls, i) => (
+        <svg key={i} className={`fixed ${cls} pointer-events-none z-0`} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+        </svg>
+      ))}
 
-      {/* Messages */}
-      {successMessage && (
-        <div className="mx-4 md:mx-8 mt-4 p-4 border border-border-dark bg-bg-secondary text-body text-sm text-text-primary">
-          <span className="text-label-sm text-text-muted mr-2">✦ Success</span>
-          {successMessage}
-        </div>
-      )}
-      {error && (
-        <div className="mx-4 md:mx-8 mt-4 p-4 border border-border-dark bg-bg-secondary text-body text-sm text-text-primary">
-          <span className="text-label-sm text-text-muted mr-2">✦ Error</span>
-          {error}
-        </div>
-      )}
+      <div className="max-w-6xl mx-auto space-y-8 relative z-10">
+        {/* ── back link ── */}
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-2 text-sm font-display font-bold text-navy hover:text-coral transition-colors"
+        >
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />
+          </svg>
+          Back to Dashboard
+        </Link>
 
-      <div className="px-4 md:px-8 py-6 pb-24 md:pb-8 max-w-7xl mx-auto space-y-8">
-        {/* Profile Header */}
-        <section className="border-t border-border pt-8">
-          <div className="flex items-center justify-between mb-6">
-            <span className="text-label-sm text-text-muted flex items-center gap-2">
-              <span>✦</span> Profile Overview
-            </span>
-            <span className="page-number">Page 01</span>
+        {/* ── notifications ── */}
+        {successMessage && (
+          <div className="bg-teal-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-teal/30 flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <span className="font-display font-bold text-sm text-navy">{successMessage}</span>
           </div>
+        )}
+        {error && (
+          <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-coral/30 flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <span className="font-display font-bold text-sm text-navy">{error}</span>
+            <button onClick={() => setError("")} className="ml-auto">
+              <svg className="w-4 h-4 text-navy/40 hover:text-navy" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+              </svg>
+            </button>
+          </div>
+        )}
 
-          <div className="border border-border p-6 md:p-8">
-            <div className="flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-8">
-              {/* Avatar */}
-              <div className="flex flex-col items-center gap-4">
-                <div className="relative">
-                  <button
-                    onClick={() => {
-                      if (profileData.profilePictureUrl) {
-                        setImagePreview(profileData.profilePictureUrl);
-                        setShowImageModal(true);
-                      }
-                    }}
-                    className="group relative block"
-                    disabled={!profileData.profilePictureUrl}
-                  >
-                    {profileData.profilePictureUrl ? (
-                      <>
-                        <img
-                          src={profileData.profilePictureUrl}
-                          alt={fullName}
-                          className="w-24 h-24 md:w-32 md:h-32 object-cover grayscale hover:grayscale-0 transition-all"
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center bg-charcoal/40 dark:bg-cream/40 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <svg
-                            className="w-6 h-6 text-cream dark:text-charcoal"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={1.5}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                          </svg>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="w-24 h-24 md:w-32 md:h-32 bg-charcoal dark:bg-cream flex items-center justify-center text-cream dark:text-charcoal font-display text-3xl md:text-4xl">
-                        {initials}
-                      </div>
-                    )}
-                  </button>
-
-                  {/* Upload Button */}
-                  <label className="absolute -bottom-2 -right-2 w-10 h-10 bg-charcoal dark:bg-cream flex items-center justify-center cursor-pointer hover:bg-charcoal-light dark:hover:bg-cream-dark transition-colors">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                      disabled={uploadingImage}
-                    />
-                    {uploadingImage ? (
-                      <div className="w-4 h-4 border border-cream dark:border-charcoal border-t-transparent animate-spin" />
-                    ) : (
-                      <svg
-                        className="w-4 h-4 text-cream dark:text-charcoal"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={1.5}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"
-                        />
-                      </svg>
-                    )}
-                  </label>
-                </div>
-              </div>
-
-              {/* Profile Info */}
-              <div className="flex-1 text-center md:text-left">
-                <h2 className="font-display text-2xl md:text-3xl text-text-primary mb-2">
-                  {fullName}
-                </h2>
-                <p className="text-body text-sm text-text-secondary mb-4">
-                  {profileData.institutionalEmail || profileData.email}
-                </p>
-
-                {/* Badges */}
-                <div className="flex flex-wrap gap-2 justify-center md:justify-start mb-6">
-                  <span className="px-3 py-1 border border-border text-label-sm text-text-secondary">
-                    {profileData.currentLevel || "Student"}
-                  </span>
-                  <span className="px-3 py-1 border border-border text-label-sm text-text-secondary">
-                    {profileData.matricNumber || "No Matric"}
-                  </span>
-                  <span className="px-3 py-1 border border-border text-label-sm text-text-secondary">
-                    {profileData.department}
-                  </span>
-                </div>
-
-                {/* Stats */}
-                <div className="grid grid-cols-3 gap-4">
-                  {profileData.admissionYear && (
-                    <div className="text-center md:text-left">
-                      <p className="text-label-sm text-text-muted mb-1">
-                        Admission
-                      </p>
-                      <p className="font-display text-lg text-text-primary">
-                        {profileData.admissionYear}
-                      </p>
+        {/* ════════════════════════════════════════
+            BENTO HERO — coral theme
+        ════════════════════════════════════════ */}
+        <div className="grid grid-cols-12 gap-4">
+          {/* left: title + avatar card */}
+          <div className="col-span-12 md:col-span-7 bg-coral border-[6px] border-navy rounded-[2rem] p-8 shadow-[10px_10px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
+            <div className="flex items-start gap-5">
+              {/* avatar */}
+              <div className="relative flex-shrink-0">
+                <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl border-[4px] border-navy overflow-hidden bg-navy">
+                  {profileData.profilePictureUrl ? (
+                    <img src={profileData.profilePictureUrl} alt={fullName} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="font-display font-black text-2xl md:text-3xl text-lime">{initials}</span>
                     </div>
                   )}
-                  <div className="text-center md:text-left">
-                    <p className="text-label-sm text-text-muted mb-1">
-                      Member Since
-                    </p>
-                    <p className="font-display text-lg text-text-primary">
-                      {new Date(profileData.createdAt).toLocaleDateString(
-                        "en-US",
-                        { month: "short", year: "numeric" }
-                      )}
-                    </p>
-                  </div>
-                  <div className="text-center md:text-left">
-                    <p className="text-label-sm text-text-muted mb-1">Status</p>
-                    <p className="font-display text-lg text-text-primary">
-                      {profileData.hasCompletedOnboarding
-                        ? "Active"
-                        : "Pending"}
-                    </p>
-                  </div>
+                </div>
+                {/* upload button */}
+                <label className="absolute -bottom-2 -right-2 w-9 h-9 rounded-xl bg-lime border-[3px] border-navy flex items-center justify-center cursor-pointer hover:bg-lime-light transition-colors shadow-[2px_2px_0_0_#000]">
+                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={uploadingImage} />
+                  {uploadingImage ? (
+                    <div className="w-4 h-4 border-2 border-navy border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M1 8a7 7 0 1012.042 4.856l1.536 1.538a.75.75 0 001.06-1.06l-1.536-1.538A7 7 0 001 8zm4.75-1.5a.75.75 0 000 1.5h1.5v1.5a.75.75 0 001.5 0v-1.5h1.5a.75.75 0 000-1.5h-1.5v-1.5a.75.75 0 00-1.5 0v1.5h-1.5z" />
+                    </svg>
+                  )}
+                </label>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 mb-1">
+                  Your Profile
+                </div>
+                <h1 className="font-display font-black text-2xl sm:text-3xl text-navy leading-tight truncate">
+                  {fullName}
+                </h1>
+                <p className="text-sm text-navy/70 font-medium mt-1 truncate">
+                  {profileData.institutionalEmail || profileData.email}
+                </p>
+                {/* badges */}
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-navy/15 font-display font-bold text-[10px] text-navy uppercase tracking-[0.08em]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal" />
+                    {profileData.currentLevel || "Student"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-navy/15 font-display font-bold text-[10px] text-navy uppercase tracking-[0.08em]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-lavender" />
+                    {profileData.matricNumber || "N/A"}
+                  </span>
                 </div>
               </div>
             </div>
+            <div className="absolute -bottom-6 -right-6 w-28 h-28 rounded-full bg-navy/8" />
           </div>
-        </section>
 
-        {/* Personal Information & Account Status */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Personal Information */}
-          <section className="lg:col-span-2 border-t border-border pt-8">
-            <div className="flex items-center justify-between mb-6">
-              <span className="text-label-sm text-text-muted flex items-center gap-2">
-                <span>◆</span> Personal Information
-              </span>
+          {/* right: 2×2 stats */}
+          <div className="col-span-12 md:col-span-5 grid grid-cols-2 gap-3">
+            <div className="bg-teal-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+              <div className="w-8 h-8 rounded-xl bg-teal/30 flex items-center justify-center mb-2">
+                <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" />
+                </svg>
+              </div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Status</div>
+              <div className="font-display font-black text-lg text-navy">
+                {profileData.hasCompletedOnboarding ? "Active" : "Pending"}
+              </div>
+            </div>
+
+            <div className="bg-lavender-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[-0.6deg] hover:rotate-0 transition-transform">
+              <div className="w-8 h-8 rounded-xl bg-lavender/30 flex items-center justify-center mb-2">
+                <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Member Since</div>
+              <div className="font-display font-black text-base text-navy">
+                {new Date(profileData.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+              </div>
+            </div>
+
+            <div className="bg-sunny-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[0.7deg] hover:rotate-0 transition-transform">
+              <div className="w-8 h-8 rounded-xl bg-sunny/30 flex items-center justify-center mb-2">
+                <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M1 2.75A.75.75 0 011.75 2h16.5a.75.75 0 010 1.5H18v8.75A2.75 2.75 0 0115.25 15h-1.072l.798 3.06a.75.75 0 01-1.452.38L13.41 18H6.59l-.114.44a.75.75 0 01-1.452-.38L5.822 15H4.75A2.75 2.75 0 012 12.25V3.5h-.25A.75.75 0 011 2.75zM7.373 15l-.391 1.5h6.037l-.392-1.5H7.373zm.879-6.206a.75.75 0 00-.146 1.49A13.94 13.94 0 0010 10.5c.65 0 1.286-.056 1.894-.216a.75.75 0 10-.382-1.45A12.41 12.41 0 0110 9c-.59 0-1.18-.043-1.748-.206z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Department</div>
+              <div className="font-display font-black text-[11px] text-navy leading-tight">
+                {profileData.department?.split(" ").slice(0, 3).join(" ") || "N/A"}
+              </div>
+            </div>
+
+            <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+              <div className="w-8 h-8 rounded-xl bg-coral/30 flex items-center justify-center mb-2">
+                <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M4.214 3.227a.75.75 0 00-1.156-.955 8.97 8.97 0 00-1.856 3.825.75.75 0 001.466.316 7.47 7.47 0 011.546-3.186zM16.942 2.272a.75.75 0 00-1.157.955 7.47 7.47 0 011.547 3.186.75.75 0 001.466-.316 8.97 8.97 0 00-1.856-3.825z" />
+                  <path fillRule="evenodd" d="M10 2a6 6 0 00-5.547 8.247l-.634 4.217a1 1 0 001.136 1.136l3.153-.474A6 6 0 1010 2zM6.5 8a3.5 3.5 0 117 0 3.5 3.5 0 01-7 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Admission</div>
+              <div className="font-display font-black text-lg text-navy">
+                {profileData.admissionYear || "N/A"}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ════════════════════════════════════════
+            PERSONAL INFORMATION
+        ════════════════════════════════════════ */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            {/* section header */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-coral-light text-navy font-display font-bold text-[10px] uppercase tracking-[0.08em]">
+                <span className="w-1.5 h-1.5 rounded-full bg-coral" />
+                Personal Information
+              </div>
               {!isEditing ? (
                 <button
                   onClick={() => setIsEditing(true)}
-                  className="flex items-center gap-2 px-4 py-2 text-label-sm text-text-secondary hover:text-text-primary border border-border hover:border-border-dark transition-colors"
+                  className="bg-snow border-[3px] border-navy rounded-xl px-4 py-2 font-display font-bold text-[10px] text-navy uppercase tracking-[0.08em] hover:shadow-[4px_4px_0_0_#000] transition-all inline-flex items-center gap-2"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
-                    />
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
                   </svg>
                   Edit
                 </button>
@@ -444,327 +389,239 @@ export default function ProfilePage() {
                   <button
                     onClick={handleCancel}
                     disabled={loading}
-                    className="px-4 py-2 text-label-sm text-text-secondary hover:text-text-primary border border-border hover:border-border-dark transition-colors"
+                    className="bg-snow border-[3px] border-navy rounded-xl px-4 py-2 font-display font-bold text-[10px] text-navy/60 uppercase tracking-[0.08em] hover:text-navy transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSave}
                     disabled={loading}
-                    className="px-4 py-2 text-label-sm bg-charcoal dark:bg-cream text-cream dark:text-charcoal hover:bg-charcoal-light dark:hover:bg-cream-dark transition-colors disabled:opacity-50 flex items-center gap-2"
+                    className="bg-lime border-[4px] border-navy shadow-[4px_4px_0_0_#0F0F2D] px-5 py-2 rounded-xl font-display font-black text-[10px] text-navy uppercase tracking-[0.08em] hover:shadow-[6px_6px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-50 inline-flex items-center gap-2"
                   >
                     {loading ? (
-                      <>
-                        <div className="w-4 h-4 border border-current border-t-transparent animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      "Save Changes"
-                    )}
+                      <><div className="w-3 h-3 border-2 border-navy border-t-transparent rounded-full animate-spin" />Saving...</>
+                    ) : "Save Changes"}
                   </button>
                 </div>
               )}
             </div>
 
-            <div className="border border-border p-6 md:p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* form card */}
+            <div className="bg-snow border-[4px] border-navy rounded-[2rem] p-6 md:p-8 shadow-[8px_8px_0_0_#000]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* First Name */}
-                <div className="space-y-2">
-                  <label className="text-label-sm text-text-muted">
-                    First Name
+                <div className="space-y-1.5">
+                  <label htmlFor="p-fn" className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal" />First Name
                   </label>
-                  <input
-                    type="text"
-                    value={
-                      isEditing ? formData.firstName : profileData.firstName
-                    }
-                    onChange={(e) =>
-                      setFormData({ ...formData, firstName: e.target.value })
-                    }
-                    disabled={!isEditing}
-                    className={`w-full px-4 py-3 text-body text-sm border transition-colors ${
-                      isEditing
-                        ? "border-border-dark bg-bg-primary text-text-primary focus:outline-none"
-                        : "border-border bg-bg-secondary text-text-secondary cursor-not-allowed"
-                    }`}
-                  />
+                  <input id="p-fn" type="text" value={isEditing ? formData.firstName : profileData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} disabled={!isEditing} className={isEditing ? inputEditing : inputDisabled} />
                 </div>
 
                 {/* Last Name */}
-                <div className="space-y-2">
-                  <label className="text-label-sm text-text-muted">
-                    Last Name
+                <div className="space-y-1.5">
+                  <label htmlFor="p-ln" className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-lavender" />Last Name
                   </label>
-                  <input
-                    type="text"
-                    value={isEditing ? formData.lastName : profileData.lastName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, lastName: e.target.value })
-                    }
-                    disabled={!isEditing}
-                    className={`w-full px-4 py-3 text-body text-sm border transition-colors ${
-                      isEditing
-                        ? "border-border-dark bg-bg-primary text-text-primary focus:outline-none"
-                        : "border-border bg-bg-secondary text-text-secondary cursor-not-allowed"
-                    }`}
-                  />
+                  <input id="p-ln" type="text" value={isEditing ? formData.lastName : profileData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} disabled={!isEditing} className={isEditing ? inputEditing : inputDisabled} />
                 </div>
 
                 {/* Institutional Email */}
-                <div className="space-y-2">
-                  <label className="text-label-sm text-text-muted">
-                    Institutional Email
+                <div className="space-y-1.5">
+                  <label htmlFor="p-ie" className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-coral" />Institutional Email
                   </label>
-                  <input
-                    type="email"
-                    value={profileData.institutionalEmail || profileData.email}
-                    disabled
-                    className="w-full px-4 py-3 text-body text-sm border border-border bg-bg-secondary text-text-muted cursor-not-allowed"
-                  />
+                  <input id="p-ie" type="email" value={profileData.institutionalEmail || profileData.email} disabled className={inputDisabled} />
                 </div>
 
                 {/* Personal Email */}
-                <div className="space-y-2">
-                  <label className="text-label-sm text-text-muted">
-                    Personal Email
+                <div className="space-y-1.5">
+                  <label htmlFor="p-pe" className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sunny" />Personal Email
                   </label>
-                  <input
-                    type="email"
-                    value={
-                      isEditing
-                        ? formData.personalEmail
-                        : profileData.personalEmail || ""
-                    }
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        personalEmail: e.target.value,
-                      })
-                    }
-                    disabled={!isEditing}
-                    placeholder="your.email@example.com"
-                    className={`w-full px-4 py-3 text-body text-sm border transition-colors placeholder:text-text-muted ${
-                      isEditing
-                        ? "border-border-dark bg-bg-primary text-text-primary focus:outline-none"
-                        : "border-border bg-bg-secondary text-text-secondary cursor-not-allowed"
-                    }`}
-                  />
+                  <input id="p-pe" type="email" value={isEditing ? formData.personalEmail : profileData.personalEmail || ""} onChange={(e) => setFormData({ ...formData, personalEmail: e.target.value })} disabled={!isEditing} placeholder="your.email@example.com" className={isEditing ? inputEditing : inputDisabled} />
                 </div>
 
-                {/* Matric Number */}
-                <div className="space-y-2">
-                  <label className="text-label-sm text-text-muted">
-                    Matric Number
+                {/* Matric */}
+                <div className="space-y-1.5">
+                  <label htmlFor="p-mat" className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal" />Matric Number
                   </label>
-                  <input
-                    type="text"
-                    value={profileData.matricNumber || "Not Set"}
-                    disabled
-                    className="w-full px-4 py-3 text-body text-sm border border-border bg-bg-secondary text-text-muted cursor-not-allowed"
-                  />
+                  <input id="p-mat" type="text" value={profileData.matricNumber || "Not Set"} disabled className={inputDisabled} />
                 </div>
 
                 {/* Level */}
-                <div className="space-y-2">
-                  <label className="text-label-sm text-text-muted">
-                    Current Level
+                <div className="space-y-1.5">
+                  <label htmlFor="p-lvl" className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-lavender" />Current Level
                   </label>
-                  <input
-                    type="text"
-                    value={profileData.currentLevel || "Not Set"}
-                    disabled
-                    className="w-full px-4 py-3 text-body text-sm border border-border bg-bg-secondary text-text-muted cursor-not-allowed"
-                  />
+                  <input id="p-lvl" type="text" value={profileData.currentLevel || "Not Set"} disabled className={inputDisabled} />
                 </div>
 
                 {/* Phone */}
-                <div className="space-y-2">
-                  <label className="text-label-sm text-text-muted">
-                    Phone Number
+                <div className="space-y-1.5">
+                  <label htmlFor="p-ph" className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-coral" />Phone Number
                   </label>
-                  <input
-                    type="tel"
-                    value={isEditing ? formData.phone : profileData.phone || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                    disabled={!isEditing}
-                    placeholder="+234..."
-                    className={`w-full px-4 py-3 text-body text-sm border transition-colors placeholder:text-text-muted ${
-                      isEditing
-                        ? "border-border-dark bg-bg-primary text-text-primary focus:outline-none"
-                        : "border-border bg-bg-secondary text-text-secondary cursor-not-allowed"
-                    }`}
-                  />
+                  <input id="p-ph" type="tel" value={isEditing ? formData.phone : profileData.phone || ""} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} disabled={!isEditing} placeholder="+234..." className={isEditing ? inputEditing : inputDisabled} />
                 </div>
 
                 {/* Department */}
-                <div className="space-y-2">
-                  <label className="text-label-sm text-text-muted">
-                    Department
+                <div className="space-y-1.5">
+                  <label htmlFor="p-dept" className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sunny" />Department
                   </label>
-                  <input
-                    type="text"
-                    value={profileData.department}
-                    disabled
-                    className="w-full px-4 py-3 text-body text-sm border border-border bg-bg-secondary text-text-muted cursor-not-allowed"
-                  />
+                  <input id="p-dept" type="text" value={profileData.department} disabled className={inputDisabled} />
                 </div>
 
                 {/* Bio */}
-                <div className="md:col-span-2 space-y-2">
-                  <label className="text-label-sm text-text-muted">Bio</label>
+                <div className="md:col-span-2 space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal" />Bio
+                  </label>
                   <textarea
                     value={isEditing ? formData.bio : profileData.bio || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, bio: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                     disabled={!isEditing}
                     placeholder="Tell us about yourself..."
                     rows={4}
                     maxLength={500}
-                    className={`w-full px-4 py-3 text-body text-sm border transition-colors resize-none placeholder:text-text-muted ${
-                      isEditing
-                        ? "border-border-dark bg-bg-primary text-text-primary focus:outline-none"
-                        : "border-border bg-bg-secondary text-text-secondary cursor-not-allowed"
-                    }`}
+                    className={`resize-none ${isEditing ? inputEditing : inputDisabled}`}
                   />
                   {isEditing && (
-                    <p className="text-label-sm text-text-muted text-right">
-                      {formData.bio.length}/500
-                    </p>
+                    <p className="text-[10px] font-bold text-slate text-right">{formData.bio.length}/500</p>
                   )}
                 </div>
               </div>
             </div>
-          </section>
+          </div>
 
-          {/* Account Status */}
-          <section className="lg:col-span-1 border-t border-border pt-8">
-            <div className="flex items-center justify-between mb-6">
-              <span className="text-label-sm text-text-muted flex items-center gap-2">
-                <span>✦</span> Account Status
-              </span>
-              <span className="page-number">Page 02</span>
+          {/* ════════════════════════════════════════
+              ACCOUNT STATUS SIDEBAR
+          ════════════════════════════════════════ */}
+          <div className="lg:col-span-1 space-y-4">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-light text-navy font-display font-bold text-[10px] uppercase tracking-[0.08em]">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal" />
+              Account Status
             </div>
 
-            <div className="border border-border p-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-bg-secondary border border-border">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`w-2 h-2 ${
-                        profileData.hasCompletedOnboarding
-                          ? "bg-charcoal dark:bg-cream"
-                          : "bg-text-muted"
-                      }`}
-                    />
-                    <span className="text-body text-sm text-text-primary">
-                      Profile
-                    </span>
-                  </div>
-                  <span className="text-label-sm text-text-secondary">
-                    {profileData.hasCompletedOnboarding
-                      ? "Complete"
-                      : "Incomplete"}
-                  </span>
+            <div className="bg-snow border-[4px] border-navy rounded-[2rem] p-6 shadow-[8px_8px_0_0_#000] space-y-3">
+              {/* profile status */}
+              <div className="flex items-center justify-between p-3 bg-teal-light border-[3px] border-navy rounded-xl">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" />
+                  </svg>
+                  <span className="font-display font-bold text-xs text-navy">Profile</span>
                 </div>
+                <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg font-display font-bold text-[10px] uppercase tracking-[0.08em] ${profileData.hasCompletedOnboarding ? "bg-teal/20 text-teal" : "bg-coral/20 text-coral"}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${profileData.hasCompletedOnboarding ? "bg-teal" : "bg-coral"}`} />
+                  {profileData.hasCompletedOnboarding ? "Complete" : "Incomplete"}
+                </span>
+              </div>
 
-                <div className="flex items-center justify-between p-3 bg-bg-secondary border border-border">
-                  <div className="flex items-center gap-2">
-                    <svg
-                      className="w-4 h-4 text-text-secondary"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
-                      />
-                    </svg>
-                    <span className="text-body text-sm text-text-primary">
-                      Email
-                    </span>
-                  </div>
-                  <span className="text-label-sm text-text-secondary">
-                    Verified
-                  </span>
+              {/* email status */}
+              <div className="flex items-center justify-between p-3 bg-lavender-light border-[3px] border-navy rounded-xl">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M3 4a2 2 0 00-2 2v1.161l8.441 4.221a1.25 1.25 0 001.118 0L19 7.162V6a2 2 0 00-2-2H3z" />
+                    <path d="M19 8.839l-7.77 3.885a2.75 2.75 0 01-2.46 0L1 8.839V14a2 2 0 002 2h14a2 2 0 002-2V8.839z" />
+                  </svg>
+                  <span className="font-display font-bold text-xs text-navy">Email</span>
                 </div>
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-teal/20 text-teal font-display font-bold text-[10px] uppercase tracking-[0.08em]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-teal" />
+                  Verified
+                </span>
+              </div>
+
+              {/* onboarding status */}
+              <div className="flex items-center justify-between p-3 bg-sunny-light border-[3px] border-navy rounded-xl">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                  </svg>
+                  <span className="font-display font-bold text-xs text-navy">Onboarding</span>
+                </div>
+                <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg font-display font-bold text-[10px] uppercase tracking-[0.08em] ${profileData.hasCompletedOnboarding ? "bg-teal/20 text-teal" : "bg-sunny/20 text-sunny"}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${profileData.hasCompletedOnboarding ? "bg-teal" : "bg-sunny"}`} />
+                  {profileData.hasCompletedOnboarding ? "Done" : "Pending"}
+                </span>
               </div>
             </div>
-          </section>
+
+            {/* quick links */}
+            <div className="bg-navy border-[4px] border-teal rounded-[2rem] p-6 shadow-[8px_8px_0_0_#000]">
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-lime/50 mb-3">Quick Links</div>
+              <div className="space-y-2">
+                <Link href="/dashboard/id-card" className="flex items-center gap-2 text-sm font-display font-bold text-lime hover:text-teal transition-colors">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M1 6a3 3 0 013-3h12a3 3 0 013 3v8a3 3 0 01-3 3H4a3 3 0 01-3-3V6zm4 1.5a2 2 0 114 0 2 2 0 01-4 0zm2 3a4 4 0 00-3.665 2.395.75.75 0 00.416 1A8.98 8.98 0 007 14.75a8.98 8.98 0 003.249-.604.75.75 0 00.416-1.001A4.001 4.001 0 007 10.5zm6-1a.75.75 0 01.75-.75h2a.75.75 0 010 1.5h-2a.75.75 0 01-.75-.75zm.75 2.25a.75.75 0 000 1.5h2a.75.75 0 000-1.5h-2z" clipRule="evenodd" />
+                  </svg>
+                  View ID Card
+                </Link>
+                <Link href="/dashboard/payments" className="flex items-center gap-2 text-sm font-display font-bold text-lime hover:text-teal transition-colors">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2.5 4A1.5 1.5 0 001 5.5V6h18v-.5A1.5 1.5 0 0017.5 4h-15zM19 8.5H1v6A1.5 1.5 0 002.5 16h15a1.5 1.5 0 001.5-1.5v-6z" />
+                  </svg>
+                  Payments
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Image Modal */}
+      {/* ════════════════════════════════════════
+          IMAGE MODAL
+      ════════════════════════════════════════ */}
       {showImageModal && (
-        <div className="fixed inset-0 bg-charcoal/90 dark:bg-cream/90 z-50 flex items-center justify-center p-4">
-          <div className="bg-bg-primary border border-border max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-bg-primary border-b border-border p-4 md:p-6 flex items-center justify-between">
-              <h2 className="font-display text-lg text-text-primary flex items-center gap-2">
-                <span>✦</span>
+        <div className="fixed inset-0 bg-navy/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-ghost border-[4px] border-navy rounded-[2rem] max-w-lg w-full shadow-[10px_10px_0_0_#000] overflow-hidden">
+            {/* header */}
+            <div className="bg-coral-light border-b-[4px] border-navy p-5 flex items-center justify-between">
+              <h2 className="font-display font-black text-lg text-navy">
                 {selectedFile ? "Preview New Photo" : "Profile Picture"}
               </h2>
-              <button
-                onClick={cancelImageUpload}
-                className="p-2 hover:bg-bg-secondary transition-colors"
-                disabled={uploadingImage}
-              >
-                <svg
-                  className="w-5 h-5 text-text-secondary"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
+              <button onClick={cancelImageUpload} disabled={uploadingImage} className="w-8 h-8 flex items-center justify-center bg-snow border-[3px] border-navy rounded-xl hover:bg-cloud transition-colors" aria-label="Close">
+                <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
                 </svg>
               </button>
             </div>
 
-            <div className="p-4 md:p-6">
-              <div className="mb-6">
-                <div className="relative w-full aspect-square max-w-md mx-auto border border-border overflow-hidden">
-                  <img
-                    src={imagePreview || profileData.profilePictureUrl || ""}
-                    alt="Preview"
-                    className="w-full h-full object-contain"
-                  />
-                </div>
+            <div className="p-5 space-y-4">
+              {/* preview */}
+              <div className="w-full aspect-square max-w-xs mx-auto border-[4px] border-navy rounded-2xl overflow-hidden bg-cloud">
+                <img
+                  src={imagePreview || profileData.profilePictureUrl || ""}
+                  alt="Preview"
+                  className="w-full h-full object-contain"
+                />
               </div>
 
+              {/* file info */}
               {selectedFile && (
-                <div className="mb-6 p-4 border border-border bg-bg-secondary">
-                  <p className="text-body text-sm text-text-primary truncate">
-                    {selectedFile.name}
-                  </p>
-                  <p className="text-label-sm text-text-muted mt-1">
-                    {(selectedFile.size / 1024).toFixed(1)} KB •{" "}
-                    {selectedFile.type}
+                <div className="bg-cloud border-[3px] border-navy rounded-xl p-3">
+                  <p className="font-display font-bold text-sm text-navy truncate">{selectedFile.name}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate mt-1">
+                    {(selectedFile.size / 1024).toFixed(1)} KB · {selectedFile.type}
                   </p>
                 </div>
               )}
 
-              <div className="mb-6 p-4 border border-border">
-                <p className="text-label-sm text-text-muted">
-                  <span className="text-text-secondary">◆ Tip:</span> For best
-                  results, use a square image with good lighting. Maximum file
-                  size is 2MB.
+              {/* tip */}
+              <div className="bg-sunny-light border-[3px] border-navy rounded-xl p-3">
+                <p className="text-[10px] font-bold text-navy/60">
+                  <span className="text-navy font-display font-black">Tip:</span> Use a square image with good lighting. Max 2MB.
                 </p>
               </div>
 
+              {/* actions */}
               <div className="flex gap-3">
                 <button
                   onClick={cancelImageUpload}
                   disabled={uploadingImage}
-                  className="flex-1 px-4 py-3 text-label-sm border border-border text-text-secondary hover:border-border-dark hover:text-text-primary transition-colors"
+                  className="flex-1 bg-transparent border-[3px] border-navy px-4 py-3 rounded-xl font-display font-bold text-xs text-navy uppercase tracking-[0.08em] hover:bg-navy hover:text-lime transition-all"
                 >
                   Cancel
                 </button>
@@ -772,29 +629,17 @@ export default function ProfilePage() {
                   <button
                     onClick={confirmImageUpload}
                     disabled={uploadingImage}
-                    className="flex-1 px-4 py-3 text-label-sm bg-charcoal dark:bg-cream text-cream dark:text-charcoal hover:bg-charcoal-light dark:hover:bg-cream-dark transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-1 bg-lime border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D] px-4 py-3 rounded-xl font-display font-black text-xs text-navy uppercase tracking-[0.08em] hover:shadow-[7px_7px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-50 inline-flex items-center justify-center gap-2"
                   >
                     {uploadingImage ? (
-                      <>
-                        <div className="w-4 h-4 border border-current border-t-transparent animate-spin" />
-                        Uploading...
-                      </>
+                      <><div className="w-4 h-4 border-2 border-navy border-t-transparent rounded-full animate-spin" />Uploading...</>
                     ) : (
                       <>
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={1.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
-                          />
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 101.09 1.03L9.25 4.636v8.614z" />
+                          <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
                         </svg>
-                        Upload Photo
+                        Upload
                       </>
                     )}
                   </button>

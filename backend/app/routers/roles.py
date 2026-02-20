@@ -11,12 +11,38 @@ from bson import ObjectId
 from datetime import datetime
 
 from app.core.security import get_current_user
-from app.core.permissions import require_permission
+from app.core.permissions import require_permission, PERMISSIONS, DEFAULT_PERMISSIONS
 from app.models.role import Role, RoleCreate, RoleUpdate
 from app.models.user import User
 from app.db import get_database
 
-router = APIRouter(prefix="/api/roles", tags=["roles"])
+router = APIRouter(prefix="/api/v1/roles", tags=["roles"])
+
+
+# ── Permission catalogue endpoints ───────────────────────────────
+
+@router.get("/permissions", dependencies=[Depends(get_current_user)])
+async def list_all_permissions():
+    """
+    Return every permission key → description so the admin UI can build
+    its checkbox grid without hardcoding anything on the frontend.
+    Grouped by domain (announcement, event, payment …).
+    """
+    grouped: dict = {}
+    for key, description in PERMISSIONS.items():
+        domain = key.split(":")[0]
+        grouped.setdefault(domain, []).append({"key": key, "description": description})
+    return {"permissions": PERMISSIONS, "grouped": grouped}
+
+
+@router.get("/permissions/defaults", dependencies=[Depends(get_current_user)])
+async def list_default_permissions():
+    """
+    Return the default permission set for every defined position.
+    Useful so the admin UI can visually distinguish
+    'position defaults' from 'extra granted permissions'.
+    """
+    return {"defaults": DEFAULT_PERMISSIONS}
 
 
 @router.post("/", response_model=Role, dependencies=[Depends(require_permission("role:create"))])
@@ -59,6 +85,9 @@ async def create_role(
     
     # Create role assignment
     role_data = role.model_dump()
+    role_data["assignedAt"] = datetime.utcnow()
+    role_data["assignedBy"] = current_user.get("_id") or str(current_user.get("id", ""))
+    role_data["isActive"] = True
     role_data["createdAt"] = datetime.utcnow()
     role_data["updatedAt"] = datetime.utcnow()
     
@@ -199,6 +228,68 @@ async def get_executives(
     return result
 
 
+@router.get("/committees")
+async def get_committees(
+    session_id: Optional[str] = Query(None, description="Filter by session ID. Defaults to active session."),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get committee heads for a session.
+    If no session_id provided, returns committees for active session.
+    """
+    db = get_database()
+    roles_collection = db["roles"]
+    users = db["users"]
+    sessions = db["sessions"]
+    
+    # If no session_id, get active session
+    if not session_id:
+        active_session = await sessions.find_one({"isActive": True})
+        if not active_session:
+            return []
+        session_id = str(active_session["_id"])
+    
+    # Define committee positions
+    committee_positions = [
+        "committee_academic",
+        "committee_welfare",
+        "committee_sports",
+        "committee_socials",
+    ]
+    
+    # Fetch roles for session
+    cursor = roles_collection.find({"sessionId": session_id})
+    roles_list = await cursor.to_list(length=None)
+    
+    # Organize by position
+    committees = {}
+    for role in roles_list:
+        if role["position"] in committee_positions:
+            # Get user details
+            user = await users.find_one({"_id": ObjectId(role["userId"])})
+            if user:
+                committees[role["position"]] = {
+                    "position": role["position"],
+                    "user": {
+                        "id": str(user["_id"]),
+                        "firstName": user.get("firstName", ""),
+                        "lastName": user.get("lastName", ""),
+                        "email": user.get("email", ""),
+                        "matricNumber": user.get("matricNumber", ""),
+                        "profilePhotoURL": user.get("profilePhotoURL", "")
+                    },
+                    "assignedAt": role.get("createdAt")
+                }
+    
+    # Return in order
+    result = []
+    for position in committee_positions:
+        if position in committees:
+            result.append(committees[position])
+    
+    return result
+
+
 @router.get("/{role_id}", dependencies=[Depends(require_permission("role:view"))])
 async def get_role(
     role_id: str,
@@ -325,7 +416,7 @@ async def get_my_roles(current_user: User = Depends(get_current_user)):
     sessions = db["sessions"]
     
     # Fetch user's roles
-    cursor = roles_collection.find({"userId": current_user.id}).sort("createdAt", -1)
+    cursor = roles_collection.find({"userId": current_user.get("_id", "")}).sort("createdAt", -1)
     roles_list = await cursor.to_list(length=None)
     
     # Populate session details

@@ -1,7 +1,7 @@
 """
 Complete Student Registration
 
-After Firebase authentication, students complete their profile
+After authentication, students complete their profile
 with additional details (matric number, level, phone, etc.)
 
 Security features:
@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel, EmailStr, validator
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+from bson import ObjectId
 import re
 import os
 
@@ -43,7 +44,7 @@ class CompleteRegistrationRequest(BaseModel):
     personalEmail: Optional[EmailStr] = None  # Personal email (can be verified later)
     level: str
     admissionYear: int
-    institutionalEmail: Optional[str] = None  # If different from Firebase email
+    institutionalEmail: Optional[str] = None  # If different from account email
     
     @validator("firstName", "lastName")
     def validate_name(cls, v):
@@ -124,35 +125,29 @@ async def complete_student_registration(
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """
-    Complete student registration after Firebase authentication.
+    Complete student registration after authentication.
     
     This updates the user's profile with additional student-specific details.
     
     Security checks:
-    1. Prevents duplicate registrations by matric, institutional email, or Firebase UID
+    1. Prevents duplicate registrations by matric, institutional email, or user ID
     2. Validates matric matches institutional email (last 3 digits)
     3. Ensures institutional email belongs to UI domain
     """
     
     users = db.users
     
-    # Get user by Firebase UID
-    firebase_uid = token_data["uid"]
+    # Get user by _id from JWT
+    user_id = token_data["sub"]
     email = token_data.get("email")
-    user = await users.find_one({"firebaseUid": firebase_uid})
+    user = await users.find_one({"_id": ObjectId(user_id)})
     
-    # If user doesn't exist, create a basic profile first
+    # If user doesn't exist, they should register first via /auth/register
     if not user:
-        user = {
-            "firebaseUid": firebase_uid,
-            "email": email,
-            "role": "student",
-            "department": "Industrial Engineering",
-            "hasCompletedOnboarding": False,
-            "createdAt": datetime.now(timezone.utc),
-            "updatedAt": datetime.now(timezone.utc)
-        }
-        await users.insert_one(user)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found. Please register first."
+        )
     
     # Check for duplicate registration (by matric, institutional email, or already completed)
     institutional_email = data.institutionalEmail if data.institutionalEmail else email
@@ -171,13 +166,13 @@ async def complete_student_registration(
             detail="Registration already completed. Contact admin if you need to update your details."
         )
     
-    # Check for duplicate matric number or institutional email
+    # Check for duplicate matric number or institutional email (excluding current user)
     existing = await users.find_one({
         "$or": [
             {"matricNumber": data.matricNumber},
             {"institutionalEmail": institutional_email}
         ],
-        "firebaseUid": {"$ne": firebase_uid}
+        "_id": {"$ne": ObjectId(user_id)}
     })
     
     if existing:
@@ -223,7 +218,7 @@ async def complete_student_registration(
     }
     
     result = await users.update_one(
-        {"firebaseUid": firebase_uid},
+        {"_id": ObjectId(user_id)},
         {"$set": update_data}
     )
     
@@ -234,7 +229,7 @@ async def complete_student_registration(
         )
     
     # Get updated user
-    updated_user = await users.find_one({"firebaseUid": firebase_uid})
+    updated_user = await users.find_one({"_id": ObjectId(user_id)})
     if not updated_user:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -4,6 +4,9 @@ import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
+
+/* ─── Types ─────────────────────────────────────────────────────── */
 
 interface Event {
   id: string;
@@ -25,25 +28,46 @@ interface Event {
   };
 }
 
-const CATEGORIES = [
-  "All",
-  "Academic",
-  "Social",
-  "Career",
-  "Workshop",
-  "General",
+/* ─── Constants ─────────────────────────────────────────────────── */
+
+const CATEGORIES = ["All", "Academic", "Social", "Career", "Workshop", "General"];
+
+const categoryPills: Record<string, { active: string }> = {
+  All: { active: "bg-navy text-snow border-navy" },
+  Academic: { active: "bg-lavender text-snow border-navy" },
+  Social: { active: "bg-coral text-snow border-navy" },
+  Career: { active: "bg-teal text-snow border-navy" },
+  Workshop: { active: "bg-sunny text-navy border-navy" },
+  General: { active: "bg-navy text-snow border-navy" },
+};
+
+const cardAccents = [
+  { header: "bg-coral", dateBg: "bg-snow/15", dateText: "text-snow", catBg: "bg-snow/20", catText: "text-snow", border: "border-navy" },
+  { header: "bg-lavender", dateBg: "bg-snow/15", dateText: "text-snow", catBg: "bg-snow/20", catText: "text-snow", border: "border-navy" },
+  { header: "bg-teal", dateBg: "bg-navy/15", dateText: "text-navy", catBg: "bg-navy/15", catText: "text-navy", border: "border-navy" },
+  { header: "bg-navy", dateBg: "bg-lime/20", dateText: "text-snow", catBg: "bg-snow/15", catText: "text-snow/80", border: "border-navy" },
+  { header: "bg-sunny", dateBg: "bg-navy/10", dateText: "text-navy", catBg: "bg-navy/10", catText: "text-navy", border: "border-navy" },
 ];
 
+/* ─── Helpers ───────────────────────────────────────────────────── */
+
+const formatTime = (dateString: string) =>
+  new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).format(new Date(dateString));
+
+const formatDate = (dateString: string) =>
+  new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(dateString));
+
+/* ─── Component ─────────────────────────────────────────────────── */
+
 export default function EventsPage() {
-  const { user } = useAuth();
+  const { user, getAccessToken } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
-  const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(
-    new Set()
-  );
+  const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
   const [registering, setRegistering] = useState<string | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     if (user) {
@@ -55,25 +79,14 @@ export default function EventsPage() {
 
   const fetchEvents = async () => {
     if (!user) return;
-
     try {
       setLoading(true);
-      const token = await user.getIdToken();
-      const response = await fetch(
-        getApiUrl("/api/v1/events?upcoming_only=true"),
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch events");
-      }
-
+      const token = await getAccessToken();
+      const response = await fetch(getApiUrl("/api/v1/events?upcoming_only=true"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch events");
       const data = await response.json();
-      // Ensure id exists (map _id to id if needed)
       const mappedData = data.map((item: Event & { _id?: string }) => ({
         ...item,
         id: item.id || item._id,
@@ -89,18 +102,11 @@ export default function EventsPage() {
 
   const fetchRegistrations = async () => {
     if (!user) return;
-
     try {
-      const token = await user.getIdToken();
-      const response = await fetch(
-        getApiUrl("/api/v1/events/registrations/me"),
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
+      const token = await getAccessToken();
+      const response = await fetch(getApiUrl("/api/v1/events/registrations/me"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (response.ok) {
         const eventIds = await response.json();
         setRegisteredEvents(new Set(eventIds));
@@ -112,36 +118,23 @@ export default function EventsPage() {
 
   const handleRegister = async (eventId: string) => {
     if (!user) return;
-
     try {
       setRegistering(eventId);
-      const token = await user.getIdToken();
-      const response = await fetch(
-        getApiUrl(`/api/v1/events/${eventId}/register`),
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
+      const token = await getAccessToken();
+      const response = await fetch(getApiUrl(`/api/v1/events/${eventId}/register`), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || "Failed to register");
       }
-
       setRegisteredEvents((prev) => new Set([...prev, eventId]));
-      setEvents((prev) =>
-        prev.map((e) =>
-          e.id === eventId ? { ...e, attendeeCount: e.attendeeCount + 1 } : e
-        )
-      );
+      setEvents((prev) => prev.map((e) => (e.id === eventId ? { ...e, attendeeCount: e.attendeeCount + 1 } : e)));
     } catch (err: unknown) {
       console.error("Error registering:", err);
-      const message =
-        err instanceof Error ? err.message : "Failed to register for event";
-      alert(message);
+      const message = err instanceof Error ? err.message : "Failed to register for event";
+      toast.error("Registration Failed", message);
     } finally {
       setRegistering(null);
     }
@@ -149,75 +142,39 @@ export default function EventsPage() {
 
   const handleUnregister = async (eventId: string) => {
     if (!user) return;
-
     try {
       setRegistering(eventId);
-      const token = await user.getIdToken();
-      const response = await fetch(
-        getApiUrl(`/api/v1/events/${eventId}/register`),
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to unregister");
-      }
-
+      const token = await getAccessToken();
+      const response = await fetch(getApiUrl(`/api/v1/events/${eventId}/register`), {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to unregister");
       setRegisteredEvents((prev) => {
         const newSet = new Set(prev);
         newSet.delete(eventId);
         return newSet;
       });
-      setEvents((prev) =>
-        prev.map((e) =>
-          e.id === eventId
-            ? { ...e, attendeeCount: Math.max(0, e.attendeeCount - 1) }
-            : e
-        )
-      );
+      setEvents((prev) => prev.map((e) => (e.id === eventId ? { ...e, attendeeCount: Math.max(0, e.attendeeCount - 1) } : e)));
     } catch (err) {
       console.error("Error unregistering:", err);
-      alert("Failed to unregister from event");
+      toast.error("Unregister Failed", "Failed to unregister from event");
     } finally {
       setRegistering(null);
     }
   };
 
-  const filteredEvents =
-    activeCategory === "All"
-      ? events
-      : events.filter((e) => e.category === activeCategory);
+  const filteredEvents = activeCategory === "All" ? events : events.filter((e) => e.category === activeCategory);
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    }).format(date);
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }).format(date);
-  };
-
+  /* ── Loading ── */
   if (loading) {
     return (
-      <div className="min-h-screen bg-bg-primary">
+      <div className="min-h-screen bg-ghost">
         <DashboardHeader title="Events" />
         <div className="flex-1 flex items-center justify-center min-h-[60vh]">
           <div className="text-center space-y-3">
-            <div className="w-8 h-8 border border-border-dark border-t-transparent animate-spin mx-auto" />
-            <p className="text-label-sm text-text-muted">Loading events...</p>
+            <div className="w-8 h-8 border-[3px] border-coral border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-xs font-bold text-slate uppercase tracking-wider">Loading events…</p>
           </div>
         </div>
       </div>
@@ -225,234 +182,202 @@ export default function EventsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg-primary">
+    <div className="min-h-screen bg-ghost">
       <DashboardHeader title="Events" />
 
-      <div className="p-4 md:p-8 max-w-7xl mx-auto pb-24 md:pb-8">
-        {/* Header Section */}
-        <section className="border-t border-border pt-8 mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-charcoal dark:bg-cream flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-cream dark:text-charcoal"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
-                  />
+      <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
+
+        {/* ═══════════════════════════════════════════════════════
+            HERO BENTO
+            ═══════════════════════════════════════════════════════ */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6">
+          {/* Title block */}
+          <div className="md:col-span-8 bg-coral border-[5px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[180px] flex flex-col justify-between">
+            <div className="absolute -bottom-12 -right-12 w-40 h-40 rounded-full bg-navy/8 pointer-events-none" />
+            <svg className="absolute top-6 right-10 w-5 h-5 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+            </svg>
+            <svg className="absolute bottom-10 right-24 w-4 h-4 text-snow/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+            </svg>
+
+            <div>
+              <p className="text-[10px] font-bold text-snow/60 uppercase tracking-[0.15em] mb-2">Department Calendar</p>
+              <h1 className="font-display font-black text-3xl md:text-4xl text-snow leading-[0.95]">
+                Upcoming Events
+              </h1>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-5">
+              <span className="text-[10px] font-bold text-navy bg-snow/90 rounded-full px-3 py-1 uppercase tracking-wider">
+                {events.length} event{events.length !== 1 ? "s" : ""}
+              </span>
+              <span className="text-[10px] font-bold text-navy bg-sunny rounded-full px-3 py-1 uppercase tracking-wider">
+                {registeredEvents.size} registered
+              </span>
+            </div>
+          </div>
+
+          {/* Stats cards */}
+          <div className="md:col-span-4 grid grid-cols-2 md:grid-cols-1 gap-3">
+            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] flex flex-col justify-between">
+              <div className="w-9 h-9 rounded-xl bg-lavender-light flex items-center justify-center mb-2">
+                <svg className="w-4.5 h-4.5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
                 </svg>
               </div>
-              <div>
-                <h2 className="font-display text-xl text-text-primary">
-                  Upcoming Events
-                </h2>
-                <p className="text-label-sm text-text-muted">
-                  {filteredEvents.length}{" "}
-                  {activeCategory === "All"
-                    ? "total"
-                    : activeCategory.toLowerCase()}{" "}
-                  event{filteredEvents.length !== 1 ? "s" : ""} •{" "}
-                  {registeredEvents.size} registered
-                </p>
-              </div>
+              <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Total</p>
+              <p className="font-display font-black text-3xl text-navy">{events.length}</p>
             </div>
-            <span className="page-number">Page 01</span>
+            <div className="bg-teal-light border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+              <div className="w-9 h-9 rounded-xl bg-teal/20 flex items-center justify-center mb-2">
+                <svg className="w-4.5 h-4.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Going</p>
+              <p className="font-display font-black text-3xl text-navy">{registeredEvents.size}</p>
+            </div>
           </div>
-        </section>
+        </div>
 
+        {/* ═══════════════════════════════════════════════════════
+            ERROR
+            ═══════════════════════════════════════════════════════ */}
         {error && (
-          <div className="border border-border-dark p-4 text-body text-sm text-text-primary mb-6">
-            <span className="text-label-sm text-text-muted mr-2">✦ Error</span>
-            {error}
+          <div className="bg-coral-light border-[3px] border-navy rounded-2xl p-4 mb-5 shadow-[4px_4px_0_0_#000] flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-coral flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4 text-snow" viewBox="0 0 24 24" fill="currentColor">
+                <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <p className="text-sm font-medium text-navy">{error}</p>
           </div>
         )}
 
-        {/* Category Filters */}
-        <div className="flex gap-2 overflow-x-auto border-b border-border pb-4 mb-8">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-4 py-2 text-label-sm transition-colors whitespace-nowrap ${
-                activeCategory === cat
-                  ? "bg-charcoal dark:bg-cream text-cream dark:text-charcoal"
-                  : "text-text-secondary hover:text-text-primary"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+        {/* ═══════════════════════════════════════════════════════
+            CATEGORY FILTERS
+            ═══════════════════════════════════════════════════════ */}
+        <div className="flex gap-2 overflow-x-auto pb-1 mb-6">
+          {CATEGORIES.map((cat) => {
+            const pill = categoryPills[cat] || categoryPills.General;
+            const isActive = activeCategory === cat;
+            return (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`px-5 py-2.5 font-bold text-xs uppercase tracking-wider rounded-xl border-[3px] transition-all whitespace-nowrap ${
+                  isActive
+                    ? `${pill.active} shadow-[3px_3px_0_0_#000]`
+                    : "text-slate hover:text-navy bg-snow border-navy/20 hover:border-navy"
+                }`}
+              >
+                {cat}
+              </button>
+            );
+          })}
         </div>
 
+        {/* ═══════════════════════════════════════════════════════
+            EVENT CARDS
+            ═══════════════════════════════════════════════════════ */}
         {filteredEvents.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="w-16 h-16 mx-auto mb-4 border border-border flex items-center justify-center">
-              <svg
-                className="w-8 h-8 text-text-muted"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
-                />
+          <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[6px_6px_0_0_#000]">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-sunny-light flex items-center justify-center">
+              <svg className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
+                <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
               </svg>
             </div>
-            <h3 className="font-display text-lg text-text-secondary mb-2">
-              No events found
+            <h3 className="font-display font-black text-xl text-navy mb-2">
+              {activeCategory === "All" ? "No upcoming events" : `No ${activeCategory.toLowerCase()} events`}
             </h3>
-            <p className="text-body text-sm text-text-muted">
-              {activeCategory === "All"
-                ? "Check back later for upcoming events"
-                : `No ${activeCategory.toLowerCase()} events scheduled`}
-            </p>
+            <p className="text-sm text-slate">Check back later for new events</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredEvents.map((event, index) => {
               const isRegistered = registeredEvents.has(event.id);
               const isProcessing = registering === event.id;
-              const isFull = Boolean(
-                event.maxAttendees && event.attendeeCount >= event.maxAttendees
-              );
+              const isFull = Boolean(event.maxAttendees && event.attendeeCount >= event.maxAttendees);
+              const accent = cardAccents[index % cardAccents.length];
+              const rotation = index % 3 === 1 ? "rotate-[0.5deg] hover:rotate-0" : index % 3 === 2 ? "rotate-[-0.5deg] hover:rotate-0" : "";
 
               return (
                 <article
                   key={event.id}
-                  className="border border-border hover:border-border-dark transition-colors"
+                  className={`bg-snow border-[4px] ${accent.border} rounded-3xl overflow-hidden shadow-[6px_6px_0_0_#000] hover:shadow-[4px_4px_0_0_#000] hover:translate-x-[1px] hover:translate-y-[1px] transition-all ${rotation}`}
                 >
-                  {/* Event Date Header */}
-                  <div className="bg-charcoal dark:bg-cream p-6 relative">
+                  {/* Colored Header */}
+                  <div className={`${accent.header} p-5 relative overflow-hidden`}>
+                    <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full bg-black/5 pointer-events-none" />
                     <div className="flex items-start justify-between">
                       <div>
-                        <span className="text-label-sm text-cream/60 dark:text-charcoal/60">
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                        <div className="font-display text-4xl text-cream dark:text-charcoal leading-none mt-1">
+                        <div className={`font-display font-black text-5xl leading-none ${accent.dateText}`}>
                           {new Date(event.date).getDate()}
                         </div>
-                        <div className="text-label-sm text-cream/70 dark:text-charcoal/70 mt-1">
-                          {formatDate(event.date).split(" ")[0]}{" "}
-                          {new Date(event.date).getFullYear()}
-                        </div>
+                        <p className={`text-xs font-bold uppercase tracking-wider mt-1 ${accent.dateText} opacity-70`}>
+                          {new Date(event.date).toLocaleDateString("en-US", { month: "short" })} {new Date(event.date).getFullYear()}
+                        </p>
                       </div>
-                      <div className="text-right">
-                        <span className="text-label-sm text-cream/60 dark:text-charcoal/60">
-                          ◆ {event.category}
+                      <div className="flex flex-col items-end gap-2">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 ${accent.catBg} ${accent.catText}`}>
+                          {event.category}
                         </span>
                         {isRegistered && (
-                          <span className="block text-label-sm text-cream dark:text-charcoal mt-2 border border-cream/30 dark:border-charcoal/30 px-2 py-0.5">
-                            Registered
+                          <span className="text-[10px] font-bold text-navy bg-lime rounded-full px-2.5 py-1 uppercase tracking-wider">
+                            Going
                           </span>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  {/* Content */}
-                  <div className="p-6 space-y-4">
+                  {/* Body */}
+                  <div className="p-5 space-y-4">
                     <div>
-                      <h3 className="font-display text-lg text-text-primary mb-2 line-clamp-2">
-                        {event.title}
-                      </h3>
-                      <p className="text-body text-sm text-text-secondary line-clamp-2">
-                        {event.description}
-                      </p>
+                      <h3 className="font-display font-black text-lg text-navy mb-1.5 line-clamp-2 leading-snug">{event.title}</h3>
+                      <p className="text-xs text-slate line-clamp-2 leading-relaxed">{event.description}</p>
                     </div>
 
-                    <div className="space-y-2 text-label-sm text-text-muted">
-                      <div className="flex items-center gap-2">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={1.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
+                    {/* Meta */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2.5 text-xs text-navy/60">
+                        <svg className="w-4 h-4 text-slate shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
                         </svg>
-                        <span>{formatTime(event.date)}</span>
+                        <span className="font-medium">{formatTime(event.date)} &middot; {formatDate(event.date)}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={1.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
-                          />
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
-                          />
+                      <div className="flex items-center gap-2.5 text-xs text-navy/60">
+                        <svg className="w-4 h-4 text-slate shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 2.682 2.282 16.975 16.975 0 0 0 1.145.742ZM12 13.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" />
                         </svg>
-                        <span className="truncate">{event.location}</span>
+                        <span className="font-medium truncate">{event.location}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={1.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"
-                          />
+                      <div className="flex items-center gap-2.5 text-xs text-navy/60">
+                        <svg className="w-4 h-4 text-slate shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
                         </svg>
-                        <span>
-                          {event.attendeeCount} registered
-                          {event.maxAttendees && ` / ${event.maxAttendees} max`}
+                        <span className="font-medium">
+                          {event.attendeeCount} going{event.maxAttendees ? ` / ${event.maxAttendees} max` : ""}
                         </span>
                       </div>
                     </div>
 
+                    {/* Action Button */}
                     {isRegistered ? (
                       <button
                         onClick={() => handleUnregister(event.id)}
                         disabled={isProcessing}
-                        className="w-full py-3 text-label-sm border border-border-dark text-text-primary hover:bg-bg-secondary transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        className="w-full py-3 font-bold text-xs uppercase tracking-wider border-[3px] border-navy text-navy hover:bg-cloud transition-all disabled:opacity-50 flex items-center justify-center gap-2 rounded-2xl"
                       >
                         {isProcessing ? (
                           <>
-                            <div className="w-4 h-4 border border-border-dark border-t-transparent animate-spin" />
-                            Processing...
+                            <div className="w-4 h-4 border-[2px] border-navy border-t-transparent rounded-full animate-spin" />
+                            Processing…
                           </>
                         ) : (
                           <>
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={1.5}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M6 18L18 6M6 6l12 12"
-                              />
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                              <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                             </svg>
                             Unregister
                           </>
@@ -462,34 +387,24 @@ export default function EventsPage() {
                       <button
                         onClick={() => handleRegister(event.id)}
                         disabled={isProcessing || isFull}
-                        className={`w-full py-3 text-label-sm transition-colors flex items-center justify-center gap-2 ${
+                        className={`w-full py-3 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 rounded-2xl border-[3px] ${
                           isFull
-                            ? "bg-bg-secondary text-text-muted cursor-not-allowed"
-                            : "bg-charcoal dark:bg-cream text-cream dark:text-charcoal hover:bg-charcoal-light dark:hover:bg-cream-dark disabled:opacity-50"
+                            ? "bg-cloud text-slate border-navy/20 cursor-not-allowed"
+                            : "bg-lime text-navy border-navy shadow-[3px_3px_0_0_#0F0F2D] hover:shadow-[5px_5px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] disabled:opacity-50"
                         }`}
                       >
                         {isProcessing ? (
                           <>
-                            <div className="w-4 h-4 border border-current border-t-transparent animate-spin" />
-                            Processing...
+                            <div className="w-4 h-4 border-[2px] border-navy border-t-transparent rounded-full animate-spin" />
+                            Processing…
                           </>
                         ) : isFull ? (
                           "Event Full"
                         ) : (
                           <>
                             Register Now
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={1.5}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M4.5 12.75l6 6 9-13.5"
-                              />
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                              <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                             </svg>
                           </>
                         )}

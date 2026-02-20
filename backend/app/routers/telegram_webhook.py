@@ -21,7 +21,7 @@ from ..routers.iesa_ai import IESA_KNOWLEDGE
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/telegram", tags=["Telegram Bot"])
+router = APIRouter(prefix="/api/v1/telegram", tags=["Telegram Bot"])
 
 # Telegram configuration
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")

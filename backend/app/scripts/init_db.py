@@ -15,6 +15,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
+from app.core.auth import hash_password
 
 # Load environment variables
 load_dotenv()
@@ -59,7 +60,7 @@ async def init_database():
     print("📝 Next Steps:")
     print("   1. Register your first user via the frontend")
     print("   2. Make them admin by running:")
-    print("      python -m app.scripts.make_admin <firebase_uid>")
+    print("      python -m app.scripts.make_admin <email>")
     print()
     
     client.close()
@@ -69,7 +70,6 @@ async def create_indexes(db):
     """Create database indexes for better query performance."""
     
     # Users collection indexes
-    await db.users.create_index("firebaseUid", unique=True)
     await db.users.create_index("email", unique=True)
     await db.users.create_index("matricNumber")
     await db.users.create_index("role")
@@ -174,8 +174,8 @@ async def create_admin_user(db):
     users = db.users
     
     admin_data = {
-        "firebaseUid": "TEMP_ADMIN_UID",  # Replace with real Firebase UID
         "email": "admin@iesa.edu",
+        "passwordHash": hash_password("AdminPass1!"),
         "firstName": "Admin",
         "lastName": "User",
         "matricNumber": "ADM/2024/001",

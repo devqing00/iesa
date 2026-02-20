@@ -25,7 +25,7 @@ def get_identifier(request: Request) -> str:
     Get unique identifier for rate limiting.
     
     Priority:
-    1. Firebase UID (from auth token) - most accurate
+    1. User ID (from auth token) - most accurate
     2. IP address - fallback for unauthenticated requests
     """
     # Try to get user from auth state (if already authenticated)

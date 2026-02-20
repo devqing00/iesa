@@ -12,19 +12,14 @@ import { enUS } from "date-fns/locale/en-US";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { addDays, isSameDay, parseISO } from "date-fns";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import { useToast } from "@/components/ui/Toast";
 
-// Setup the localizer for react-big-calendar
-const locales = {
-  "en-US": enUS,
-};
+/* ─── Calendar setup ────────────────────────────────────────────── */
 
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  locales,
-});
+const locales = { "en-US": enUS };
+const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
+
+/* ─── Types ─────────────────────────────────────────────────────── */
 
 interface ClassSession {
   _id: string;
@@ -64,8 +59,27 @@ interface CalendarEvent {
   };
 }
 
+/* ─── Constants ─────────────────────────────────────────────────── */
+
+const typeStyles: Record<string, { bg: string; text: string; calColor: string; dot: string }> = {
+  lecture: { bg: "bg-navy", text: "text-snow", calColor: "#0F0F2D", dot: "bg-navy" },
+  practical: { bg: "bg-coral", text: "text-snow", calColor: "#d45555", dot: "bg-coral" },
+  tutorial: { bg: "bg-teal", text: "text-navy", calColor: "#5ec4b6", dot: "bg-teal" },
+};
+
+const todayCardColors = [
+  { bg: "bg-snow", border: "border-navy", shadow: "shadow-[5px_5px_0_0_#000]", text: "text-navy", sub: "text-slate" },
+  { bg: "bg-lavender-light", border: "border-navy", shadow: "shadow-[5px_5px_0_0_#000]", text: "text-navy", sub: "text-navy/50" },
+  { bg: "bg-coral-light", border: "border-navy", shadow: "shadow-[5px_5px_0_0_#000]", text: "text-navy", sub: "text-navy/50" },
+  { bg: "bg-teal-light", border: "border-navy", shadow: "shadow-[5px_5px_0_0_#000]", text: "text-navy", sub: "text-navy/50" },
+  { bg: "bg-sunny-light", border: "border-navy", shadow: "shadow-[5px_5px_0_0_#000]", text: "text-navy", sub: "text-navy/50" },
+  { bg: "bg-snow", border: "border-navy", shadow: "shadow-[5px_5px_0_0_#000]", text: "text-navy", sub: "text-slate" },
+];
+
+/* ─── Component ─────────────────────────────────────────────────── */
+
 export default function TimetablePage() {
-  const { user } = useAuth();
+  const { user, getAccessToken } = useAuth();
   const [classes, setClasses] = useState<ClassSession[]>([]);
   const [cancellations, setCancellations] = useState<ClassCancellation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,72 +90,38 @@ export default function TimetablePage() {
   const [cancelDate, setCancelDate] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
-  const [screenSize, setScreenSize] = useState<"mobile" | "tablet" | "desktop">(
-    "desktop"
-  );
+  const [screenSize, setScreenSize] = useState<"mobile" | "tablet" | "desktop">("desktop");
   const calendarRef = useRef<HTMLDivElement>(null);
+  const toast = useToast();
 
-  // Determine user's level from profile
   const userLevel = (user as { level?: number })?.level || 300;
-  const canCancelClasses =
-    (user as { permissions?: string[] })?.permissions?.includes(
-      "timetable:cancel"
-    ) || false;
+  const canCancelClasses = (user as { permissions?: string[] })?.permissions?.includes("timetable:cancel") || false;
 
-  // Detect screen size and set appropriate default view
+  /* ── Responsive ── */
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
-      if (width < 768) {
-        setScreenSize("mobile");
-        setView("day");
-      } else if (width < 1024) {
-        setScreenSize("tablet");
-        if (view === "month" || view === "agenda") setView("week");
-      } else {
-        setScreenSize("desktop");
-      }
+      if (width < 768) { setScreenSize("mobile"); setView("day"); }
+      else if (width < 1024) { setScreenSize("tablet"); if (view === "month" || view === "agenda") setView("week"); }
+      else setScreenSize("desktop");
     };
-
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [view]);
 
+  /* ── Data fetching ── */
   const fetchTimetable = useCallback(async () => {
     try {
       setLoading(true);
-      const token = await user?.getIdToken();
-
-      const classesRes = await fetch(
-        getApiUrl(`/api/v1/timetable/classes?level=${userLevel}`),
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
+      const token = await getAccessToken();
+      const classesRes = await fetch(getApiUrl(`/api/v1/timetable/classes?level=${userLevel}`), { headers: { Authorization: `Bearer ${token}` } });
       if (!classesRes.ok) throw new Error("Failed to fetch classes");
-      const classesData = await classesRes.json();
-      setClasses(classesData);
+      setClasses(await classesRes.json());
 
       const weekStart = startOfWeek(date, { weekStartsOn: 1 });
-      const weekStartStr = format(weekStart, "yyyy-MM-dd");
-
-      const cancellationsRes = await fetch(
-        getApiUrl(
-          `/api/v1/timetable/week?level=${userLevel}&week_start=${weekStartStr}`
-        ),
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!cancellationsRes.ok)
-        throw new Error("Failed to fetch cancellations");
+      const cancellationsRes = await fetch(getApiUrl(`/api/v1/timetable/week?level=${userLevel}&week_start=${format(weekStart, "yyyy-MM-dd")}`), { headers: { Authorization: `Bearer ${token}` } });
+      if (!cancellationsRes.ok) throw new Error("Failed to fetch cancellations");
       const weekData = await cancellationsRes.json();
       setCancellations(weekData.cancellations || []);
     } catch (error) {
@@ -151,264 +131,132 @@ export default function TimetablePage() {
     }
   }, [user, userLevel, date]);
 
-  useEffect(() => {
-    fetchTimetable();
-  }, [fetchTimetable]);
+  useEffect(() => { fetchTimetable(); }, [fetchTimetable]);
 
-  // Auto-scroll to current time when calendar loads
+  /* ── Auto-scroll ── */
   useEffect(() => {
     if (!loading && calendarRef.current) {
-      const scrollToCurrentTime = () => {
-        setTimeout(() => {
-          const calendarContainer = calendarRef.current;
-          if (!calendarContainer) return;
-
-          const timeIndicator = calendarContainer.querySelector(
-            ".rbc-current-time-indicator"
-          );
-          if (timeIndicator) {
-            timeIndicator.scrollIntoView({
-              behavior: "smooth",
-              block: "center",
-            });
-            return;
-          }
-
-          const now = new Date();
-          const currentHour = now.getHours();
-
-          const timeSlots =
-            calendarContainer.querySelectorAll(".rbc-time-slot");
-          if (timeSlots.length > 0) {
-            const startHour = 7;
-            const slotsPerHour = 2;
-            const targetSlotIndex = (currentHour - startHour) * slotsPerHour;
-
-            if (targetSlotIndex >= 0 && targetSlotIndex < timeSlots.length) {
-              const targetSlot = timeSlots[targetSlotIndex] as HTMLElement;
-              targetSlot.scrollIntoView({
-                behavior: "smooth",
-                block: "center",
-              });
-            }
-          }
-        }, 300);
-      };
-
-      scrollToCurrentTime();
+      setTimeout(() => {
+        const container = calendarRef.current;
+        if (!container) return;
+        const indicator = container.querySelector(".rbc-current-time-indicator");
+        if (indicator) { indicator.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+        const slots = container.querySelectorAll(".rbc-time-slot");
+        if (slots.length > 0) {
+          const target = (new Date().getHours() - 7) * 2;
+          if (target >= 0 && target < slots.length) (slots[target] as HTMLElement).scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 300);
     }
   }, [loading, view, date]);
 
-  // Convert class sessions to calendar events
+  /* ── Calendar events ── */
   const events: CalendarEvent[] = useMemo(() => {
     const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+    const dayMap: Record<string, number> = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
     const calendarEvents: CalendarEvent[] = [];
 
-    classes.forEach((classSession) => {
-      const dayMap: { [key: string]: number } = {
-        Sunday: 0,
-        Monday: 1,
-        Tuesday: 2,
-        Wednesday: 3,
-        Thursday: 4,
-        Friday: 5,
-        Saturday: 6,
-      };
-
-      const dayNum = dayMap[classSession.day];
+    classes.forEach((cls) => {
+      const dayNum = dayMap[cls.day];
       if (dayNum === undefined) return;
-
       const classDate = addDays(weekStart, dayNum);
-
-      const [startHour, startMin] = classSession.startTime
-        .split(":")
-        .map(Number);
-      const [endHour, endMin] = classSession.endTime.split(":").map(Number);
-
-      const startDateTime = new Date(classDate);
-      startDateTime.setHours(startHour, startMin, 0, 0);
-
-      const endDateTime = new Date(classDate);
-      endDateTime.setHours(endHour, endMin, 0, 0);
-
-      const isCancelled = cancellations.some(
-        (c) =>
-          c.classSessionId === classSession._id &&
-          isSameDay(parseISO(c.date), classDate)
-      );
-
-      const cancellation = cancellations.find(
-        (c) =>
-          c.classSessionId === classSession._id &&
-          isSameDay(parseISO(c.date), classDate)
-      );
+      const [startH, startM] = cls.startTime.split(":").map(Number);
+      const [endH, endM] = cls.endTime.split(":").map(Number);
+      const startDT = new Date(classDate); startDT.setHours(startH, startM, 0, 0);
+      const endDT = new Date(classDate); endDT.setHours(endH, endM, 0, 0);
+      const cancellation = cancellations.find((c) => c.classSessionId === cls._id && isSameDay(parseISO(c.date), classDate));
 
       calendarEvents.push({
-        id: `${classSession._id}-${format(classDate, "yyyy-MM-dd")}`,
-        title: `${classSession.courseCode} - ${classSession.courseTitle}`,
-        start: startDateTime,
-        end: endDateTime,
-        resource: {
-          classSession,
-          isCancelled,
-          cancellationReason: cancellation?.reason,
-        },
+        id: `${cls._id}-${format(classDate, "yyyy-MM-dd")}`,
+        title: `${cls.courseCode} - ${cls.courseTitle}`,
+        start: startDT,
+        end: endDT,
+        resource: { classSession: cls, isCancelled: !!cancellation, cancellationReason: cancellation?.reason },
       });
     });
-
     return calendarEvents;
   }, [classes, cancellations, date]);
 
-  // Today's classes
-  const todaysClasses = useMemo(() => {
-    const today = new Date();
-    return events.filter((event) => isSameDay(event.start, today));
-  }, [events]);
-
-  // Upcoming classes (next 7 days)
+  const todaysClasses = useMemo(() => events.filter((e) => isSameDay(e.start, new Date())), [events]);
   const upcomingClasses = useMemo(() => {
-    const today = new Date();
-    const nextWeek = addDays(today, 7);
-    return events
-      .filter((event) => event.start > today && event.start <= nextWeek)
-      .sort((a, b) => a.start.getTime() - b.start.getTime())
-      .slice(0, 5);
+    const now = new Date();
+    return events.filter((e) => e.start > now && e.start <= addDays(now, 7)).sort((a, b) => a.start.getTime() - b.start.getTime()).slice(0, 5);
   }, [events]);
 
-  // Class statistics
-  const classStats = useMemo(() => {
-    const total = events.length;
-    const lectures = events.filter(
-      (e) => e.resource.classSession.classType === "lecture"
-    ).length;
-    const practicals = events.filter(
-      (e) => e.resource.classSession.classType === "practical"
-    ).length;
-    const tutorials = events.filter(
-      (e) => e.resource.classSession.classType === "tutorial"
-    ).length;
-    const cancelled = events.filter((e) => e.resource.isCancelled).length;
-    return { total, lectures, practicals, tutorials, cancelled };
-  }, [events]);
+  const classStats = useMemo(() => ({
+    total: events.length,
+    lectures: events.filter((e) => e.resource.classSession.classType === "lecture").length,
+    practicals: events.filter((e) => e.resource.classSession.classType === "practical").length,
+    tutorials: events.filter((e) => e.resource.classSession.classType === "tutorial").length,
+    cancelled: events.filter((e) => e.resource.isCancelled).length,
+  }), [events]);
 
+  /* ── Download ── */
   const downloadSchedule = () => {
-    const scheduleData = classes.map((cls) => ({
-      Course: `${cls.courseCode} - ${cls.courseTitle}`,
-      Day: cls.day,
-      Time: `${cls.startTime} - ${cls.endTime}`,
-      Venue: cls.venue,
-      Lecturer: cls.lecturer,
-      Type: cls.classType,
-    }));
-
-    const csv = [
-      Object.keys(scheduleData[0]).join(","),
-      ...scheduleData.map((row) => Object.values(row).join(",")),
-    ].join("\n");
-
+    const rows = classes.map((cls) => ({ Course: `${cls.courseCode} - ${cls.courseTitle}`, Day: cls.day, Time: `${cls.startTime} - ${cls.endTime}`, Venue: cls.venue, Lecturer: cls.lecturer, Type: cls.classType }));
+    const csv = [Object.keys(rows[0]).join(","), ...rows.map((r) => Object.values(r).join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `timetable-level-${userLevel}.csv`;
-    a.click();
+    const a = document.createElement("a"); a.href = url; a.download = `timetable-level-${userLevel}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
 
+  /* ── Cancel class ── */
   const handleCancelClass = async () => {
-    if (!selectedClass || !cancelDate || !cancelReason) {
-      alert("Please fill in all fields");
-      return;
-    }
-
+    if (!selectedClass || !cancelDate || !cancelReason) { toast.warning("Missing Fields", "Please fill in all fields"); return; }
     setCancelling(true);
     try {
-      const token = await user?.getIdToken();
-      const res = await fetch(
-        getApiUrl(`/api/v1/timetable/classes/${selectedClass._id}/cancel`),
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            date: cancelDate,
-            reason: cancelReason,
-          }),
-        }
-      );
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.detail || "Failed to cancel class");
-      }
-
-      alert("Class cancelled successfully");
-      setShowCancelModal(false);
-      setCancelDate("");
-      setCancelReason("");
-      setSelectedClass(null);
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl(`/api/v1/timetable/classes/${selectedClass._id}/cancel`), {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ date: cancelDate, reason: cancelReason }),
+      });
+      if (!res.ok) { const error = await res.json(); throw new Error(error.detail || "Failed to cancel class"); }
+      toast.success("Class Cancelled", "The class has been cancelled successfully");
+      setShowCancelModal(false); setCancelDate(""); setCancelReason(""); setSelectedClass(null);
       fetchTimetable();
     } catch (error) {
-      console.error("Error cancelling class:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to cancel class";
-      alert(errorMessage);
-    } finally {
-      setCancelling(false);
-    }
+      const msg = error instanceof Error ? error.message : "Failed to cancel class";
+      toast.error("Cancellation Failed", msg);
+    } finally { setCancelling(false); }
   };
 
-  // Custom event styling
+  /* ── Calendar styling ── */
   const eventStyleGetter = (event: CalendarEvent) => {
-    const { classType } = event.resource.classSession;
-    const { isCancelled } = event.resource;
-
-    let backgroundColor = "#18181b"; // charcoal for lectures
-    if (classType === "practical") backgroundColor = "#dc2626";
-    if (classType === "tutorial") backgroundColor = "#0d9488";
-    if (isCancelled) backgroundColor = "#71717a";
-
+    const style = typeStyles[event.resource.classSession.classType] || typeStyles.lecture;
     return {
       style: {
-        backgroundColor,
-        borderRadius: "4px",
-        opacity: isCancelled ? 0.5 : 1,
+        backgroundColor: style.calColor,
+        borderRadius: "8px",
+        opacity: event.resource.isCancelled ? 0.4 : 1,
         color: "white",
-        border: "none",
-        display: "block",
-        textDecoration: isCancelled ? "line-through" : "none",
-        fontFamily: "var(--font-body)",
+        border: "2px solid #0F0F2D",
+        textDecoration: event.resource.isCancelled ? "line-through" : "none",
         fontSize: "12px",
       },
     };
   };
 
-  // Custom event component
   const EventComponent = ({ event }: { event: CalendarEvent }) => {
     const { classSession, isCancelled } = event.resource;
     return (
       <div className="p-1">
-        <div className="font-medium text-xs">{classSession.courseCode}</div>
+        <div className="font-bold text-xs">{classSession.courseCode}</div>
         <div className="text-[10px] opacity-80">{classSession.venue}</div>
-        {isCancelled && (
-          <div className="text-[10px] font-bold">✕ CANCELLED</div>
-        )}
+        {isCancelled && <div className="text-[10px] font-bold">CANCELLED</div>}
       </div>
     );
   };
 
+  /* ── Loading ── */
   if (loading) {
     return (
-      <div className="min-h-screen bg-bg-primary">
+      <div className="min-h-screen bg-ghost">
         <DashboardHeader title="Timetable" />
-        <div className="px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8">
-          <div className="max-w-6xl mx-auto space-y-6">
-            <div className="animate-pulse space-y-4">
-              <div className="h-6 w-48 bg-bg-secondary rounded" />
-              <div className="h-96 bg-bg-secondary rounded" />
-            </div>
+        <div className="flex-1 flex items-center justify-center min-h-[60vh]">
+          <div className="text-center space-y-3">
+            <div className="w-8 h-8 border-[3px] border-sunny border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-xs font-bold text-slate uppercase tracking-wider">Loading timetable…</p>
           </div>
         </div>
       </div>
@@ -416,482 +264,305 @@ export default function TimetablePage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg-primary">
+    <div className="min-h-screen bg-ghost">
       <DashboardHeader title="Timetable" />
 
-      <div className="px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8">
-        <div className="max-w-6xl mx-auto space-y-8">
-          {/* Page Header */}
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-            <div className="space-y-3">
-              <span className="text-label-sm text-text-muted flex items-center gap-2">
-                <span>✦</span> Level {userLevel}
-              </span>
-              <h1 className="font-display text-display-sm">Class Schedule</h1>
-              <p className="text-text-secondary text-body text-sm max-w-md">
-                Your weekly timetable with lectures, practicals, and tutorials.
-              </p>
+      <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
 
-              {/* Stats */}
-              <div className="flex flex-wrap gap-4 pt-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-sm bg-charcoal dark:bg-cream" />
-                  <span className="text-label-sm text-text-secondary">
-                    {classStats.lectures} Lectures
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-sm bg-red-600" />
-                  <span className="text-label-sm text-text-secondary">
-                    {classStats.practicals} Practicals
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-sm bg-teal-600" />
-                  <span className="text-label-sm text-text-secondary">
-                    {classStats.tutorials} Tutorials
-                  </span>
-                </div>
-                {classStats.cancelled > 0 && (
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-sm bg-zinc-500" />
-                    <span className="text-label-sm text-text-muted">
-                      {classStats.cancelled} Cancelled
-                    </span>
-                  </div>
-                )}
-              </div>
+        {/* ═══════════════════════════════════════════════════════
+            HERO BENTO
+            ═══════════════════════════════════════════════════════ */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
+          {/* Title card */}
+          <div className="lg:col-span-7 bg-sunny border-[5px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[200px] flex flex-col justify-between">
+            <div className="absolute -bottom-12 -right-12 w-36 h-36 rounded-full bg-navy/8 pointer-events-none" />
+            <svg className="absolute top-6 right-10 w-5 h-5 text-navy/12 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+            </svg>
+
+            <div>
+              <p className="text-[10px] font-bold text-navy/40 uppercase tracking-[0.15em] mb-2">Level {userLevel}</p>
+              <h1 className="font-display font-black text-3xl md:text-4xl text-navy leading-[0.95]">
+                Class Schedule
+              </h1>
+              <p className="text-sm text-navy/50 mt-3 max-w-md">
+                Lectures, practicals &amp; tutorials for the week.
+              </p>
             </div>
 
-            {/* Actions */}
-            <div className="flex gap-3">
-              <button
-                onClick={downloadSchedule}
-                className="flex items-center gap-2 px-4 py-2.5 bg-charcoal dark:bg-cream text-cream dark:text-charcoal text-label hover:opacity-90 transition-opacity"
-              >
-                <svg
-                  className="w-4 h-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
-                  />
-                </svg>
-                Download CSV
-              </button>
-              {canCancelClasses && (
-                <button
-                  onClick={() => setShowCancelModal(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 border border-red-600 text-red-600 text-label hover:bg-red-600 hover:text-white transition-colors"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-                    />
-                  </svg>
-                  Cancel Class
-                </button>
-              )}
+            {/* Stats row */}
+            <div className="flex flex-wrap gap-3 mt-5">
+              {[
+                { label: `${classStats.lectures} Lectures`, dot: "bg-navy" },
+                { label: `${classStats.practicals} Practicals`, dot: "bg-coral" },
+                { label: `${classStats.tutorials} Tutorials`, dot: "bg-teal" },
+                ...(classStats.cancelled > 0 ? [{ label: `${classStats.cancelled} Cancelled`, dot: "bg-slate" }] : []),
+              ].map((s) => (
+                <span key={s.label} className="flex items-center gap-1.5 text-[10px] font-bold text-navy/60 uppercase tracking-wider">
+                  <span className={`w-2.5 h-2.5 rounded-full ${s.dot}`} /> {s.label}
+                </span>
+              ))}
             </div>
           </div>
 
-          {/* Today's Classes */}
-          {todaysClasses.length > 0 && (
-            <section className="border-t border-border pt-8">
-              <div className="flex items-center gap-3 mb-6">
-                <span className="text-label text-text-muted">◆</span>
-                <h2 className="font-display text-xl">Today&apos;s Classes</h2>
+          {/* Action cards */}
+          <div className="lg:col-span-5 grid grid-cols-2 gap-3">
+            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] flex flex-col justify-between">
+              <div className="w-9 h-9 rounded-xl bg-sunny-light flex items-center justify-center mb-3">
+                <svg className="w-4.5 h-4.5 text-sunny" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
+                </svg>
               </div>
-              <div className="grid gap-3">
-                {todaysClasses.map((event) => {
-                  const { classSession, isCancelled, cancellationReason } =
-                    event.resource;
-                  const typeColors = {
-                    lecture:
-                      "bg-charcoal dark:bg-cream text-cream dark:text-charcoal",
-                    practical: "bg-red-600 text-white",
-                    tutorial: "bg-teal-600 text-white",
-                  };
-
-                  return (
-                    <div
-                      key={event.id}
-                      className={`page-frame p-4 md:p-5 ${
-                        isCancelled ? "opacity-60" : ""
-                      }`}
-                    >
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3 flex-wrap mb-2">
-                            <h3
-                              className={`font-display text-lg ${
-                                isCancelled
-                                  ? "line-through text-text-muted"
-                                  : "text-text-primary"
-                              }`}
-                            >
-                              {classSession.courseCode}
-                            </h3>
-                            <span
-                              className={`px-2 py-0.5 text-label-sm ${
-                                typeColors[classSession.classType]
-                              }`}
-                            >
-                              {classSession.classType.toUpperCase()}
-                            </span>
-                            {isCancelled && (
-                              <span className="px-2 py-0.5 bg-red-600 text-white text-label-sm">
-                                CANCELLED
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-text-secondary text-body text-sm mb-2">
-                            {classSession.courseTitle}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-4 text-text-muted text-label-sm">
-                            <span className="flex items-center gap-1.5">
-                              <svg
-                                className="w-3.5 h-3.5"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth={1.5}
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
-                              </svg>
-                              {format(event.start, "h:mm a")} -{" "}
-                              {format(event.end, "h:mm a")}
-                            </span>
-                            <span className="flex items-center gap-1.5">
-                              <svg
-                                className="w-3.5 h-3.5"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth={1.5}
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
-                                />
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
-                                />
-                              </svg>
-                              {classSession.venue}
-                            </span>
-                            <span className="flex items-center gap-1.5">
-                              <svg
-                                className="w-3.5 h-3.5"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth={1.5}
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-                                />
-                              </svg>
-                              {classSession.lecturer}
-                            </span>
-                          </div>
-                          {isCancelled && cancellationReason && (
-                            <p className="text-red-600 text-label-sm mt-2">
-                              ✕ Reason: {cancellationReason}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* Upcoming Classes */}
-          {upcomingClasses.length > 0 && (
-            <section className="border-t border-border pt-8">
-              <div className="flex items-center gap-3 mb-6">
-                <span className="text-label text-text-muted">◆</span>
-                <h2 className="font-display text-xl">Upcoming Classes</h2>
-              </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {upcomingClasses.map((event) => {
-                  const { classSession, isCancelled } = event.resource;
-                  const daysUntil = Math.ceil(
-                    (event.start.getTime() - new Date().getTime()) /
-                      (1000 * 60 * 60 * 24)
-                  );
-
-                  return (
-                    <div
-                      key={event.id}
-                      className={`page-frame p-4 ${
-                        isCancelled ? "opacity-60" : ""
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-display text-lg">
-                          {classSession.courseCode}
-                        </span>
-                        <span className="text-label-sm text-text-muted">
-                          in {daysUntil} {daysUntil === 1 ? "day" : "days"}
-                        </span>
-                      </div>
-                      <div className="space-y-1 text-text-muted text-label-sm">
-                        <p>{format(event.start, "EEE, MMM d")}</p>
-                        <p>{format(event.start, "h:mm a")}</p>
-                        <p>{classSession.venue}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* Calendar */}
-          <section className="border-t border-border pt-8">
-            <div className="flex items-center gap-3 mb-6">
-              <span className="text-label text-text-muted">◆</span>
-              <h2 className="font-display text-xl">Weekly View</h2>
+              <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Today</p>
+              <p className="font-display font-black text-3xl text-navy">{todaysClasses.length}</p>
             </div>
-            <div className="page-frame p-4 md:p-6 overflow-hidden">
-              <div className="timetable-calendar" ref={calendarRef}>
-                <Calendar
-                  localizer={localizer}
-                  events={events}
-                  startAccessor="start"
-                  endAccessor="end"
-                  style={{
-                    height: screenSize === "mobile" ? 450 : 500,
-                    minHeight: screenSize === "mobile" ? 400 : 450,
-                  }}
-                  view={view}
-                  onView={setView}
-                  date={date}
-                  onNavigate={setDate}
-                  eventPropGetter={eventStyleGetter}
-                  components={{
-                    event: EventComponent,
-                  }}
-                  views={
-                    screenSize === "mobile"
-                      ? ["day"]
-                      : screenSize === "tablet"
-                      ? ["day", "week"]
-                      : ["day", "week", "month", "agenda"]
-                  }
-                  defaultView={screenSize === "mobile" ? "day" : "week"}
-                  step={30}
-                  timeslots={2}
-                  min={new Date(0, 0, 0, 7, 0, 0)}
-                  max={new Date(0, 0, 0, 20, 0, 0)}
-                />
-              </div>
 
-              {/* Legend */}
-              <div className="mt-6 pt-6 border-t border-border flex flex-wrap gap-6">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-charcoal dark:bg-cream rounded-sm" />
-                  <span className="text-label-sm text-text-secondary">
-                    Lecture
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-red-600 rounded-sm" />
-                  <span className="text-label-sm text-text-secondary">
-                    Practical
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-teal-600 rounded-sm" />
-                  <span className="text-label-sm text-text-secondary">
-                    Tutorial
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-zinc-500 rounded-sm opacity-50" />
-                  <span className="text-label-sm text-text-secondary">
-                    Cancelled
-                  </span>
-                </div>
+            <div className="bg-teal-light border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+              <div className="w-9 h-9 rounded-xl bg-teal/20 flex items-center justify-center mb-3">
+                <svg className="w-4.5 h-4.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
+                </svg>
               </div>
+              <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">This Week</p>
+              <p className="font-display font-black text-3xl text-navy">{classStats.total}</p>
             </div>
-          </section>
 
-          {/* Cancel Class Modal */}
-          {showCancelModal && (
-            <div className="fixed inset-0 bg-charcoal/80 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-              <div className="bg-bg-primary border border-border w-full max-w-md max-h-[90vh] overflow-y-auto">
-                <div className="p-6 border-b border-border flex items-center justify-between">
-                  <div>
-                    <span className="text-label-sm text-text-muted flex items-center gap-2 mb-1">
-                      <span>✦</span> Admin Action
-                    </span>
-                    <h2 className="font-display text-xl">Cancel a Class</h2>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setShowCancelModal(false);
-                      setSelectedClass(null);
-                      setCancelDate("");
-                      setCancelReason("");
-                    }}
-                    className="p-2 text-text-muted hover:text-text-primary transition-colors"
-                    disabled={cancelling}
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-
-                <div className="p-6 space-y-4">
-                  <div>
-                    <label
-                      htmlFor="class-select"
-                      className="block text-label-sm text-text-secondary mb-2"
-                    >
-                      Select Class
-                    </label>
-                    <select
-                      id="class-select"
-                      value={selectedClass?._id || ""}
-                      onChange={(e) => {
-                        const classId = e.target.value;
-                        const cls = classes.find((c) => c._id === classId);
-                        setSelectedClass(cls || null);
-                      }}
-                      className="w-full px-4 py-3 bg-bg-card border border-border text-text-primary text-body focus:outline-none focus:border-border-dark transition-colors"
-                    >
-                      <option value="">Choose a class...</option>
-                      {classes.map((cls) => (
-                        <option key={cls._id} value={cls._id}>
-                          {cls.courseCode} - {cls.day} {cls.startTime} (
-                          {cls.venue})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="cancel-date"
-                      className="block text-label-sm text-text-secondary mb-2"
-                    >
-                      Cancellation Date
-                    </label>
-                    <input
-                      id="cancel-date"
-                      type="date"
-                      value={cancelDate}
-                      onChange={(e) => setCancelDate(e.target.value)}
-                      className="w-full px-4 py-3 bg-bg-card border border-border text-text-primary text-body focus:outline-none focus:border-border-dark transition-colors"
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="cancel-reason"
-                      className="block text-label-sm text-text-secondary mb-2"
-                    >
-                      Reason for Cancellation
-                    </label>
-                    <textarea
-                      id="cancel-reason"
-                      value={cancelReason}
-                      onChange={(e) => setCancelReason(e.target.value)}
-                      rows={3}
-                      className="w-full px-4 py-3 bg-bg-card border border-border text-text-primary text-body focus:outline-none focus:border-border-dark transition-colors resize-none"
-                      placeholder="e.g., Lecturer unavailable, venue conflict..."
-                    />
-                  </div>
-                </div>
-
-                <div className="p-6 border-t border-border flex gap-3">
-                  <button
-                    onClick={() => {
-                      setShowCancelModal(false);
-                      setSelectedClass(null);
-                      setCancelDate("");
-                      setCancelReason("");
-                    }}
-                    className="flex-1 px-4 py-3 border border-border text-text-secondary text-label hover:bg-bg-secondary transition-colors"
-                    disabled={cancelling}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleCancelClass}
-                    disabled={cancelling}
-                    className="flex-1 px-4 py-3 bg-red-600 text-white text-label hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {cancelling ? (
-                      <>
-                        <svg
-                          className="w-4 h-4 animate-spin"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                          />
-                        </svg>
-                        Cancelling...
-                      </>
-                    ) : (
-                      "Confirm Cancellation"
-                    )}
-                  </button>
-                </div>
+            {/* Download button */}
+            <button onClick={downloadSchedule} className="col-span-2 bg-navy border-[4px] border-navy rounded-2xl p-4 flex items-center gap-3 hover:bg-navy-light transition-colors group">
+              <div className="w-9 h-9 rounded-xl bg-lime/15 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-lime" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+                </svg>
               </div>
-            </div>
-          )}
+              <div className="text-left">
+                <p className="font-display font-black text-sm text-snow group-hover:text-lime transition-colors">Download CSV</p>
+                <p className="text-[10px] text-ghost/40">Export your schedule</p>
+              </div>
+            </button>
+          </div>
         </div>
+
+        {/* ═══════════════════════════════════════════════════════
+            TODAY'S CLASSES
+            ═══════════════════════════════════════════════════════ */}
+        {todaysClasses.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-3 h-8 rounded-full bg-coral" />
+              <h2 className="font-display font-black text-xl text-navy">Today&apos;s Classes</h2>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {todaysClasses.map((event, i) => {
+                const { classSession, isCancelled, cancellationReason } = event.resource;
+                const style = typeStyles[classSession.classType] || typeStyles.lecture;
+                const card = todayCardColors[i % todayCardColors.length];
+
+                return (
+                  <div key={event.id} className={`${card.bg} border-[4px] ${card.border} rounded-3xl p-5 ${card.shadow} ${isCancelled ? "opacity-50" : ""} transition-all`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className={`font-display font-black text-lg ${isCancelled ? "line-through text-slate" : card.text}`}>
+                        {classSession.courseCode}
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 ${style.bg} ${style.text}`}>
+                          {classSession.classType}
+                        </span>
+                        {isCancelled && (
+                          <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 bg-coral text-snow">Cancelled</span>
+                        )}
+                      </div>
+                    </div>
+                    <p className={`text-xs ${card.sub} mb-3`}>{classSession.courseTitle}</p>
+                    <div className={`flex flex-wrap items-center gap-3 text-[10px] font-bold uppercase tracking-wider ${card.sub}`}>
+                      <span className="flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
+                        </svg>
+                        {format(event.start, "h:mm a")} – {format(event.end, "h:mm a")}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 2.682 2.282 16.975 16.975 0 0 0 1.145.742ZM12 13.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" />
+                        </svg>
+                        {classSession.venue}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clipRule="evenodd" />
+                        </svg>
+                        {classSession.lecturer}
+                      </span>
+                    </div>
+                    {isCancelled && cancellationReason && (
+                      <p className="text-xs font-bold text-coral mt-2">Reason: {cancellationReason}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════
+            UPCOMING CLASSES
+            ═══════════════════════════════════════════════════════ */}
+        {upcomingClasses.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-3 h-8 rounded-full bg-lavender" />
+              <h2 className="font-display font-black text-xl text-navy">Coming Up</h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+              {upcomingClasses.map((event, i) => {
+                const { classSession, isCancelled } = event.resource;
+                const daysUntil = Math.ceil((event.start.getTime() - Date.now()) / 86400000);
+                const rotation = i % 3 === 1 ? "rotate-[0.5deg] hover:rotate-0" : i % 3 === 2 ? "rotate-[-0.5deg] hover:rotate-0" : "";
+
+                return (
+                  <div key={event.id} className={`bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000] transition-all ${isCancelled ? "opacity-50" : ""} ${rotation}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-display font-black text-base text-navy">{classSession.courseCode}</span>
+                      <span className="text-[10px] font-bold text-slate uppercase tracking-wider bg-cloud rounded-full px-2 py-0.5">
+                        {daysUntil}d
+                      </span>
+                    </div>
+                    <div className="space-y-1 text-[10px] font-bold text-slate uppercase tracking-wider">
+                      <p>{format(event.start, "EEE, MMM d")}</p>
+                      <p>{format(event.start, "h:mm a")}</p>
+                      <p className="truncate">{classSession.venue}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════
+            CALENDAR
+            ═══════════════════════════════════════════════════════ */}
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-4 md:p-6 shadow-[6px_6px_0_0_#000] overflow-hidden">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-3 h-8 rounded-full bg-sunny" />
+            <h2 className="font-display font-black text-xl text-navy">Weekly View</h2>
+          </div>
+
+          <div className="timetable-calendar" ref={calendarRef}>
+            <Calendar
+              localizer={localizer}
+              events={events}
+              startAccessor="start"
+              endAccessor="end"
+              style={{ height: screenSize === "mobile" ? 450 : 500, minHeight: screenSize === "mobile" ? 400 : 450 }}
+              view={view}
+              onView={setView}
+              date={date}
+              onNavigate={setDate}
+              eventPropGetter={eventStyleGetter}
+              components={{ event: EventComponent }}
+              views={screenSize === "mobile" ? ["day"] : screenSize === "tablet" ? ["day", "week"] : ["day", "week", "month", "agenda"]}
+              defaultView={screenSize === "mobile" ? "day" : "week"}
+              step={30}
+              timeslots={2}
+              min={new Date(0, 0, 0, 7, 0, 0)}
+              max={new Date(0, 0, 0, 20, 0, 0)}
+            />
+          </div>
+
+          {/* Legend */}
+          <div className="mt-5 pt-5 border-t-[3px] border-navy/10 flex flex-wrap gap-5">
+            {[
+              { label: "Lecture", dot: "bg-navy" },
+              { label: "Practical", dot: "bg-coral" },
+              { label: "Tutorial", dot: "bg-teal" },
+              { label: "Cancelled", dot: "bg-slate opacity-50" },
+            ].map((l) => (
+              <div key={l.label} className="flex items-center gap-2">
+                <div className={`w-3.5 h-3.5 rounded-full ${l.dot}`} />
+                <span className="text-[10px] font-bold text-slate uppercase tracking-wider">{l.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════
+            CANCEL MODAL
+            ═══════════════════════════════════════════════════════ */}
+        {canCancelClasses && (
+          <button
+            onClick={() => setShowCancelModal(true)}
+            className="fixed bottom-24 md:bottom-8 right-6 bg-coral border-[4px] border-navy rounded-2xl px-5 py-3 shadow-[5px_5px_0_0_#000] hover:shadow-[3px_3px_0_0_#000] hover:translate-x-[1px] hover:translate-y-[1px] transition-all flex items-center gap-2 z-30"
+          >
+            <svg className="w-5 h-5 text-snow" viewBox="0 0 24 24" fill="currentColor">
+              <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z" clipRule="evenodd" />
+            </svg>
+            <span className="font-bold text-xs text-snow uppercase tracking-wider">Cancel Class</span>
+          </button>
+        )}
+
+        {showCancelModal && (
+          <div className="fixed inset-0 bg-navy/80 z-50 flex items-center justify-center p-4" onClick={() => { setShowCancelModal(false); setSelectedClass(null); setCancelDate(""); setCancelReason(""); }}>
+            <div className="bg-snow border-[4px] border-navy rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-[10px_10px_0_0_#000]" onClick={(e) => e.stopPropagation()}>
+              {/* Header */}
+              <div className="p-6 border-b-[3px] border-navy/10 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-coral-light flex items-center justify-center">
+                    <svg className="w-5 h-5 text-coral" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">Admin Action</p>
+                    <h2 className="font-display font-black text-lg text-navy">Cancel a Class</h2>
+                  </div>
+                </div>
+                <button onClick={() => { setShowCancelModal(false); setSelectedClass(null); setCancelDate(""); setCancelReason(""); }} className="w-10 h-10 rounded-xl hover:bg-cloud flex items-center justify-center transition-colors" disabled={cancelling} aria-label="Close">
+                  <svg className="w-5 h-5 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Form */}
+              <div className="p-6 space-y-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="class-select" className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">Select Class</label>
+                  <select id="class-select" value={selectedClass?._id || ""} onChange={(e) => setSelectedClass(classes.find((c) => c._id === e.target.value) || null)} className="w-full px-4 py-3 bg-ghost border-[3px] border-navy text-sm text-navy rounded-xl focus:outline-none focus:border-coral transition-all">
+                    <option value="">Choose a class…</option>
+                    {classes.map((cls) => (
+                      <option key={cls._id} value={cls._id}>{cls.courseCode} - {cls.day} {cls.startTime} ({cls.venue})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="cancel-date" className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">Date</label>
+                  <input id="cancel-date" type="date" value={cancelDate} onChange={(e) => setCancelDate(e.target.value)} className="w-full px-4 py-3 bg-ghost border-[3px] border-navy text-sm text-navy rounded-xl focus:outline-none focus:border-coral transition-all" />
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="cancel-reason" className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">Reason</label>
+                  <textarea id="cancel-reason" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} rows={3} className="w-full px-4 py-3 bg-ghost border-[3px] border-navy text-sm text-navy rounded-xl focus:outline-none focus:border-coral transition-all resize-none" placeholder="e.g., Lecturer unavailable…" />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="p-6 border-t-[3px] border-navy/10 flex gap-3">
+                <button onClick={() => { setShowCancelModal(false); setSelectedClass(null); setCancelDate(""); setCancelReason(""); }} disabled={cancelling} className="flex-1 px-4 py-3 rounded-2xl border-[3px] border-navy text-navy font-bold text-xs uppercase tracking-wider hover:bg-cloud transition-colors">
+                  Cancel
+                </button>
+                <button onClick={handleCancelClass} disabled={cancelling} className="flex-1 px-4 py-3 rounded-2xl bg-coral text-snow font-bold text-xs uppercase tracking-wider border-[3px] border-navy shadow-[3px_3px_0_0_#000] hover:shadow-[5px_5px_0_0_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                  {cancelling ? (
+                    <>
+                      <div className="w-4 h-4 border-[2px] border-snow border-t-transparent rounded-full animate-spin" />
+                      Cancelling…
+                    </>
+                  ) : (
+                    "Confirm Cancellation"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

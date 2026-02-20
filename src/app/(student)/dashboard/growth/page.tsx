@@ -4,6 +4,8 @@ import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 
+/* ─── Types ─────────────────────────────────────────────────────── */
+
 interface SemesterRecord {
   id: string;
   gpa: number;
@@ -23,32 +25,66 @@ interface TimerRecord {
   date: string;
 }
 
+/* ─── Tool definitions ──────────────────────────────────────────── */
+
 const TOOLS = [
   {
     id: "cgpa",
     title: "CGPA Calculator",
     desc: "Track your academic journey with precision. Calculate, visualize, and improve your GPA.",
     href: "./growth/cgpa",
+    color: { bg: "bg-lavender-light", icon: "bg-lavender", iconText: "text-navy" },
   },
   {
     id: "planner",
     title: "Personal Planner",
     desc: "Organize tasks, deadlines, and study sessions. Stay productive and achieve more.",
     href: "./growth/planner",
+    color: { bg: "bg-coral-light", icon: "bg-coral", iconText: "text-snow" },
   },
   {
     id: "timer",
     title: "Study Timer",
     desc: "Pomodoro-style focus sessions. Build productive habits and track your study streaks.",
     href: "./growth/timer",
+    color: { bg: "bg-sunny-light", icon: "bg-sunny", iconText: "text-navy" },
   },
   {
     id: "goals",
     title: "Goal Tracker",
     desc: "Set ambitious goals, break them into milestones, and celebrate your achievements.",
     href: "./growth/goals",
+    color: { bg: "bg-teal-light", icon: "bg-teal", iconText: "text-navy" },
   },
 ];
+
+const toolIcons: Record<string, React.ReactNode> = {
+  cgpa: (
+    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M11.7 2.805a.75.75 0 01.6 0A60.65 60.65 0 0122.83 8.72a.75.75 0 01-.231 1.337 49.949 49.949 0 00-9.902 3.912l-.003.002-.34.18a.75.75 0 01-.707 0A50.009 50.009 0 007.5 12.174v-.224c0-.131.067-.248.172-.311a54.614 54.614 0 014.653-2.52.75.75 0 00-.65-1.352 56.129 56.129 0 00-4.78 2.589 1.858 1.858 0 00-.859 1.228 49.803 49.803 0 00-4.634-1.527.75.75 0 01-.231-1.337A60.653 60.653 0 0111.7 2.805z" />
+      <path d="M13.06 15.473a48.45 48.45 0 017.666-3.282c.134 1.414.22 2.843.255 4.284a.75.75 0 01-.46.71 47.878 47.878 0 00-8.105 4.342.75.75 0 01-.832 0 47.877 47.877 0 00-8.104-4.342.75.75 0 01-.461-.71c.035-1.442.121-2.87.255-4.286A48.4 48.4 0 016 13.18v1.27a1.5 1.5 0 00-.14 2.508c-.09.38-.222.753-.397 1.11.452.213.901.434 1.346.661a6.729 6.729 0 00.551-1.607 1.5 1.5 0 00.14-2.67v-.645a48.549 48.549 0 013.44 1.667 2.25 2.25 0 002.12 0z" />
+      <path d="M4.462 19.462c.42-.419.753-.89 1-1.395.453.214.902.435 1.347.662a6.742 6.742 0 01-1.286 1.794.75.75 0 01-1.06-1.06z" />
+    </svg>
+  ),
+  planner: (
+    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+      <path fillRule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0118 9.375v9.375a3 3 0 003-3V6.108c0-1.505-1.125-2.811-2.664-2.94A48.972 48.972 0 0012 3c-2.227 0-4.406.141-6.336.405A3.005 3.005 0 003 6.108v8.142a3 3 0 003 3h1.5V9.375A3.375 3.375 0 0110.875 6h-3.373z" clipRule="evenodd" />
+      <path fillRule="evenodd" d="M10.875 6A2.625 2.625 0 008.25 8.625v10.5A2.625 2.625 0 0010.875 21.75h6.75A2.625 2.625 0 0020.25 19.125V8.625A2.625 2.625 0 0017.625 6h-6.75zm-1.5 3.75a.75.75 0 01.75-.75h5.25a.75.75 0 010 1.5h-5.25a.75.75 0 01-.75-.75zm.75 2.25a.75.75 0 000 1.5h5.25a.75.75 0 000-1.5h-5.25zm0 3a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3z" clipRule="evenodd" />
+    </svg>
+  ),
+  timer: (
+    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+      <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" />
+    </svg>
+  ),
+  goals: (
+    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+      <path fillRule="evenodd" d="M3 2.25a.75.75 0 01.75.75v.54l1.838-.46a9.75 9.75 0 016.725.738l.108.054a8.25 8.25 0 005.58.652l3.109-.732a.75.75 0 01.917.81 47.784 47.784 0 00.005 10.337.75.75 0 01-.574.812l-3.114.733a9.75 9.75 0 01-6.594-.77l-.108-.054a8.25 8.25 0 00-5.69-.625l-2.202.55V21a.75.75 0 01-1.5 0V3A.75.75 0 013 2.25z" clipRule="evenodd" />
+    </svg>
+  ),
+};
+
+/* ─── Component ─────────────────────────────────────────────────── */
 
 export default function GrowthPage() {
   const [stats, setStats] = useState({
@@ -64,24 +100,17 @@ export default function GrowthPage() {
   useEffect(() => {
     try {
       const cgpaHistory = localStorage.getItem("iesa-cgpa-history");
-      const cgpaRecords: SemesterRecord[] = cgpaHistory
-        ? JSON.parse(cgpaHistory)
-        : [];
+      const cgpaRecords: SemesterRecord[] = cgpaHistory ? JSON.parse(cgpaHistory) : [];
 
       const plannerTasks = localStorage.getItem("planner-tasks");
       const tasks: PlannerTask[] = plannerTasks ? JSON.parse(plannerTasks) : [];
-
       const completed = tasks.filter((t) => t.completed).length;
       const pending = tasks.filter((t) => !t.completed).length;
 
       const timerHistory = localStorage.getItem("iesa-timer-history");
-      const timerRecords: TimerRecord[] = timerHistory
-        ? JSON.parse(timerHistory)
-        : [];
+      const timerRecords: TimerRecord[] = timerHistory ? JSON.parse(timerHistory) : [];
       const today = new Date().toDateString();
-      const todayFocus = timerRecords.filter(
-        (r) => r.date === today && r.mode === "focus"
-      );
+      const todayFocus = timerRecords.filter((r) => r.date === today && r.mode === "focus");
       const focusMinutes = todayFocus.reduce((acc, r) => acc + r.duration, 0);
 
       setStats({
@@ -98,83 +127,12 @@ export default function GrowthPage() {
     }
   }, []);
 
-  const getToolIcon = (id: string) => {
-    switch (id) {
-      case "cgpa":
-        return (
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M15.75 15.75V18m-7.5-6.75h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25V13.5zm0 2.25h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25V18zm2.498-6.75h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007V13.5zm0 2.25h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007V18zm2.504-6.75h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V13.5zm0 2.25h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V18zm2.498-6.75h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V13.5zM8.25 6h7.5v2.25h-7.5V6zM12 2.25c-1.892 0-3.758.11-5.593.322C5.307 2.7 4.5 3.65 4.5 4.757V19.5a2.25 2.25 0 002.25 2.25h10.5a2.25 2.25 0 002.25-2.25V4.757c0-1.108-.806-2.057-1.907-2.185A48.507 48.507 0 0012 2.25z"
-            />
-          </svg>
-        );
-      case "planner":
-        return (
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z"
-            />
-          </svg>
-        );
-      case "timer":
-        return (
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-        );
-      case "goals":
-        return (
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5"
-            />
-          </svg>
-        );
-      default:
-        return null;
-    }
-  };
-
   const getToolStats = (id: string) => {
     switch (id) {
       case "cgpa":
         return `${stats.totalRecords} records saved`;
       case "planner":
-        return `${stats.tasksCompleted} completed · ${stats.tasksPending} pending`;
+        return `${stats.tasksCompleted} done · ${stats.tasksPending} pending`;
       case "timer":
         return `${stats.focusMinutes} min today · ${stats.focusSessions} sessions`;
       case "goals":
@@ -185,215 +143,176 @@ export default function GrowthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-bg-primary">
+    <div className="min-h-screen bg-ghost">
       <DashboardHeader title="Growth Hub" />
 
-      <div className="px-4 md:px-8 py-6 pb-24 md:pb-8 max-w-6xl mx-auto">
-        {/* Hero Section */}
-        <section className="border-t border-border pt-8 mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-charcoal dark:bg-cream flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-cream dark:text-charcoal"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"
-                  />
-                </svg>
-              </div>
-              <div>
-                <h2 className="font-display text-xl text-text-primary">
-                  Your Growth Journey
-                </h2>
-                <p className="text-label-sm text-text-muted">
-                  Track progress, build habits, and unlock your potential
-                </p>
-              </div>
+      <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
+
+        {/* ═══ BENTO HERO ═══ */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-8">
+          {/* Title card */}
+          <div className="lg:col-span-7 bg-lime border-[5px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[200px] flex flex-col justify-between">
+            <div className="absolute -bottom-14 -right-14 w-40 h-40 rounded-full bg-navy/8 pointer-events-none" />
+            <svg className="absolute top-8 right-12 w-5 h-5 text-navy/12 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+            </svg>
+            <svg className="absolute bottom-20 right-32 w-3 h-3 text-navy/8 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+            </svg>
+
+            <div>
+              <p className="text-[10px] font-bold text-navy/40 uppercase tracking-[0.15em] mb-2">Personal Development</p>
+              <h1 className="font-display font-black text-3xl md:text-4xl text-navy leading-[0.95]">
+                Growth Hub
+              </h1>
+              <p className="text-sm text-navy/50 mt-3 max-w-md">
+                Track progress, build habits, and unlock your potential with purpose-built tools.
+              </p>
             </div>
-            <span className="page-number hidden md:block">Page 01</span>
+
+            <div className="flex flex-wrap gap-3 mt-5">
+              {stats.latestGpa > 0 && (
+                <span className="flex items-center gap-1.5 text-[10px] font-bold text-navy/60 uppercase tracking-wider">
+                  <span className="w-2.5 h-2.5 rounded-full bg-navy" /> GPA: {stats.latestGpa.toFixed(2)}
+                </span>
+              )}
+              {stats.tasksCompleted > 0 && (
+                <span className="flex items-center gap-1.5 text-[10px] font-bold text-navy/60 uppercase tracking-wider">
+                  <span className="w-2.5 h-2.5 rounded-full bg-teal" /> {stats.tasksCompleted} Tasks Done
+                </span>
+              )}
+              {stats.focusMinutes > 0 && (
+                <span className="flex items-center gap-1.5 text-[10px] font-bold text-navy/60 uppercase tracking-wider">
+                  <span className="w-2.5 h-2.5 rounded-full bg-coral" /> {stats.focusMinutes} min Focus
+                </span>
+              )}
+            </div>
           </div>
 
-          {/* Quick Stats */}
-          <div className="flex flex-wrap gap-3 md:gap-4">
-            <div className="flex items-center gap-2 px-4 py-2 border border-border">
-              <svg
-                className="w-4 h-4 text-text-muted"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
-                />
-              </svg>
-              <span className="text-label-sm text-text-secondary">
-                GPA:{" "}
-                <span className="text-text-primary font-display">
-                  {stats.latestGpa > 0 ? stats.latestGpa.toFixed(2) : "--"}
-                </span>
-              </span>
-            </div>
-            <div className="flex items-center gap-2 px-4 py-2 border border-border">
-              <svg
-                className="w-4 h-4 text-green-600 dark:text-green-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <span className="text-label-sm text-text-secondary">
-                Tasks:{" "}
-                <span className="text-text-primary font-display">
-                  {stats.tasksCompleted}
-                </span>{" "}
-                done
-              </span>
-            </div>
-            {stats.streak > 0 && (
-              <div className="flex items-center gap-2 px-4 py-2 border border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-900/20">
-                <svg
-                  className="w-4 h-4 text-orange-600 dark:text-orange-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z"
-                  />
+          {/* Quick stats cards */}
+          <div className="lg:col-span-5 grid grid-cols-2 gap-3">
+            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] flex flex-col justify-between">
+              <div className="w-9 h-9 rounded-xl bg-lavender-light flex items-center justify-center mb-3">
+                <svg className="w-4.5 h-4.5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75zM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 01-1.875-1.875V8.625zM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 013 19.875v-6.75z" />
                 </svg>
-                <span className="text-label-sm text-text-secondary">
-                  <span className="text-orange-600 dark:text-orange-400 font-display">
-                    {stats.streak}
-                  </span>{" "}
-                  record streak
-                </span>
+              </div>
+              <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">GPA</p>
+              <p className="font-display font-black text-3xl text-navy">{stats.latestGpa > 0 ? stats.latestGpa.toFixed(2) : "--"}</p>
+            </div>
+
+            <div className="bg-teal-light border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+              <div className="w-9 h-9 rounded-xl bg-teal/20 flex items-center justify-center mb-3">
+                <svg className="w-4.5 h-4.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Tasks Done</p>
+              <p className="font-display font-black text-3xl text-navy">{stats.tasksCompleted}</p>
+            </div>
+
+            <div className="bg-coral-light border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+              <div className="w-9 h-9 rounded-xl bg-coral/20 flex items-center justify-center mb-3">
+                <svg className="w-4.5 h-4.5 text-coral" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M12.963 2.286a.75.75 0 00-1.071-.136 9.742 9.742 0 00-3.539 6.177A7.547 7.547 0 016.648 6.61a.75.75 0 00-1.152-.082A9 9 0 1015.68 4.534a7.46 7.46 0 01-2.717-2.248zM15.75 14.25a3.75 3.75 0 11-7.313-1.172c.628.465 1.35.81 2.133 1a5.99 5.99 0 011.925-3.545 3.75 3.75 0 013.255 3.717z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Focus Today</p>
+              <p className="font-display font-black text-3xl text-navy">{stats.focusMinutes}<span className="text-base text-slate ml-0.5">m</span></p>
+            </div>
+
+            {stats.streak > 0 ? (
+              <div className="bg-sunny-light border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] flex flex-col justify-between">
+                <div className="w-9 h-9 rounded-xl bg-sunny/20 flex items-center justify-center mb-3">
+                  <svg className="w-4.5 h-4.5 text-sunny" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+                  </svg>
+                </div>
+                <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Streak</p>
+                <p className="font-display font-black text-3xl text-navy">{stats.streak}<span className="text-base text-slate ml-0.5">d</span></p>
+              </div>
+            ) : (
+              <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] flex flex-col justify-between">
+                <div className="w-9 h-9 rounded-xl bg-cloud flex items-center justify-center mb-3">
+                  <svg className="w-4.5 h-4.5 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+                  </svg>
+                </div>
+                <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Pending</p>
+                <p className="font-display font-black text-3xl text-navy">{stats.tasksPending}</p>
               </div>
             )}
           </div>
-        </section>
+        </div>
 
-        {/* Tools Grid */}
-        <section className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-label-sm text-text-muted">✦</span>
-            <h2 className="text-label-sm text-text-muted">Growth Tools</h2>
+        {/* ═══ GROWTH TOOLS GRID ═══ */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-3 h-8 rounded-full bg-lavender" />
+            <h2 className="font-display font-black text-xl text-navy">Growth Tools</h2>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {TOOLS.map((tool, index) => (
-              <Link
-                key={tool.id}
-                href={tool.href}
-                className="group border border-border hover:border-border-dark transition-colors"
-              >
-                {/* Header */}
-                <div className="p-4 border-b border-border flex items-center justify-between">
-                  <span className="text-label-sm text-text-muted">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <svg
-                    className="w-5 h-5 text-text-muted group-hover:text-text-primary group-hover:translate-x-1 transition-all"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75"
-                    />
-                  </svg>
-                </div>
+            {TOOLS.map((tool, i) => {
+              const rotation = i % 3 === 1 ? "rotate-[0.5deg] hover:rotate-0" : i % 3 === 2 ? "rotate-[-0.5deg] hover:rotate-0" : "";
+              return (
+                <Link
+                  key={tool.id}
+                  href={tool.href}
+                  className={`group bg-snow border-[4px] border-navy rounded-3xl shadow-[6px_6px_0_0_#000] hover:shadow-[3px_3px_0_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all overflow-hidden ${rotation}`}
+                >
+                  <div className={`${tool.color.bg} px-6 py-4 border-b-[4px] border-navy flex items-center justify-between`}>
+                    <span className="font-display font-bold text-[10px] text-navy/40 uppercase tracking-[0.15em]">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <svg className="w-5 h-5 text-navy/30 group-hover:text-navy group-hover:translate-x-1 transition-all" fill="currentColor" viewBox="0 0 24 24">
+                      <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 011.06 0l7.5 7.5a.75.75 0 010 1.06l-7.5 7.5a.75.75 0 11-1.06-1.06l6.22-6.22H3a.75.75 0 010-1.5h16.19l-6.22-6.22a.75.75 0 010-1.06z" clipRule="evenodd" />
+                    </svg>
+                  </div>
 
-                {/* Content */}
-                <div className="p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="w-14 h-14 bg-charcoal dark:bg-cream flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
-                      <span className="text-cream dark:text-charcoal">
-                        {getToolIcon(tool.id)}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-display text-lg text-text-primary mb-1 group-hover:text-text-secondary transition-colors">
-                        {tool.title}
-                      </h3>
-                      <p className="text-body text-sm text-text-secondary mb-3">
-                        {tool.desc}
-                      </p>
-                      <span className="text-label-sm text-text-muted">
-                        {getToolStats(tool.id)}
-                      </span>
+                  <div className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div className={`w-14 h-14 rounded-2xl ${tool.color.icon} border-[3px] border-navy flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
+                        <span className={tool.color.iconText}>{toolIcons[tool.id]}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-display font-black text-lg text-navy mb-1">{tool.title}</h3>
+                        <p className="text-sm text-navy/50 mb-3">{tool.desc}</p>
+                        <span className="text-[10px] font-bold text-slate uppercase tracking-wider">
+                          {getToolStats(tool.id)}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
-        </section>
+        </div>
 
-        {/* Motivation Card */}
-        <section className="bg-charcoal dark:bg-cream p-6">
+        {/* ═══ MOTIVATION CARD ═══ */}
+        <div className="bg-navy border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 border border-cream/30 dark:border-charcoal/30 flex items-center justify-center shrink-0">
-              <svg
-                className="w-6 h-6 text-cream dark:text-charcoal"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"
-                />
+            <div className="w-12 h-12 rounded-2xl bg-lime/15 flex items-center justify-center shrink-0">
+              <svg className="w-6 h-6 text-lime" fill="currentColor" viewBox="0 0 24 24">
+                <path fillRule="evenodd" d="M15.22 6.268a.75.75 0 01.968-.432l5.942 2.28a.75.75 0 01.431.97l-2.28 5.941a.75.75 0 11-1.4-.537l1.63-4.251-1.086.483a11.2 11.2 0 00-5.45 5.174.75.75 0 01-1.199.19L9 12.31l-6.22 6.22a.75.75 0 11-1.06-1.06l6.75-6.75a.75.75 0 011.06 0l3.606 3.605a12.694 12.694 0 015.68-4.973l1.086-.484-4.251-1.631a.75.75 0 01-.432-.97z" clipRule="evenodd" />
               </svg>
             </div>
             <div>
-              <h3 className="font-display text-base text-cream dark:text-charcoal mb-1">
-                Keep Growing!
-              </h3>
-              <p className="text-body text-sm text-cream/70 dark:text-charcoal/70">
-                Small consistent steps lead to massive results. Your future self
-                will thank you.
+              <h3 className="font-display font-black text-base text-snow mb-1">Keep Growing!</h3>
+              <p className="text-sm text-ghost/50">
+                Small consistent steps lead to massive results. Your future self will thank you.
               </p>
             </div>
           </div>
-        </section>
+        </div>
 
-        {/* Privacy Note */}
-        <div className="mt-6 text-center text-label-sm text-text-muted flex items-center justify-center gap-1.5">
-          <svg
-            className="w-3 h-3"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        {/* Privacy */}
+        <div className="mt-6 text-center flex items-center justify-center gap-1.5">
+          <svg className="w-3 h-3 text-slate" fill="currentColor" viewBox="0 0 24 24">
+            <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" />
           </svg>
-          All data stored locally on your device
+          <span className="text-[10px] font-bold text-slate uppercase tracking-wider">All data stored locally on your device</span>
         </div>
       </div>
     </div>

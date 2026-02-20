@@ -2,38 +2,36 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import { useSidebar } from "@/context/SidebarContext";
 import { getApiUrl } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
 
-// Web Speech API types for TypeScript
+/* ═══════════════════════════════════════════
+   Web Speech API types
+═══════════════════════════════════════════ */
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList;
   resultIndex: number;
 }
-
 interface SpeechRecognitionErrorEvent extends Event {
   error: string;
   message?: string;
 }
-
 interface SpeechRecognitionResultList {
   length: number;
   item(index: number): SpeechRecognitionResult;
   [index: number]: SpeechRecognitionResult;
 }
-
 interface SpeechRecognitionResult {
   length: number;
   item(index: number): SpeechRecognitionAlternative;
   [index: number]: SpeechRecognitionAlternative;
   isFinal: boolean;
 }
-
 interface SpeechRecognitionAlternative {
   transcript: string;
   confidence: number;
 }
-
 interface SpeechRecognitionInstance extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
@@ -47,7 +45,6 @@ interface SpeechRecognitionInstance extends EventTarget {
   stop(): void;
   abort(): void;
 }
-
 declare global {
   interface Window {
     SpeechRecognition: new () => SpeechRecognitionInstance;
@@ -55,6 +52,9 @@ declare global {
   }
 }
 
+/* ═══════════════════════════════════════════
+   Data interfaces
+═══════════════════════════════════════════ */
 interface Message {
   id: number;
   text: string;
@@ -62,7 +62,6 @@ interface Message {
   time: string;
   suggestions?: string[];
 }
-
 interface UserContext {
   level?: string;
   name?: string;
@@ -72,7 +71,6 @@ interface UserContext {
   payment_amount?: number;
   upcoming_events?: Array<{ title: string; date: string }>;
 }
-
 interface ChatConversation {
   id: string;
   title: string;
@@ -81,27 +79,47 @@ interface ChatConversation {
   updatedAt: string;
 }
 
-// Simple markdown-like formatter for AI responses
-function formatAIResponse(text: string): React.ReactNode {
-  // Split by code blocks first
-  const parts = text.split(/(```[\s\S]*?```)/g);
-
+/* ═══════════════════════════════════════════
+   Markdown formatter
+═══════════════════════════════════════════ */
+function formatInline(text: string): React.ReactNode {
+  const regex = /(\*\*.*?\*\*|__.*?__|`.*?`|\*.*?\*|_.*?_)/g;
+  const parts = text.split(regex);
   return parts.map((part, i) => {
-    // Handle code blocks
+    if (part.startsWith("**") && part.endsWith("**"))
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith("__") && part.endsWith("__"))
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith("`") && part.endsWith("`"))
+      return (
+        <code key={i} className="px-1.5 py-0.5 bg-cloud text-xs rounded">
+          {part.slice(1, -1)}
+        </code>
+      );
+    if (
+      (part.startsWith("*") && part.endsWith("*")) ||
+      (part.startsWith("_") && part.endsWith("_"))
+    )
+      return <em key={i}>{part.slice(1, -1)}</em>;
+    return part;
+  });
+}
+
+function formatAIResponse(text: string): React.ReactNode {
+  const parts = text.split(/(```[\s\S]*?```)/g);
+  return parts.map((part, i) => {
     if (part.startsWith("```") && part.endsWith("```")) {
       const code = part.slice(3, -3);
       const firstNewline = code.indexOf("\n");
-      const language =
-        firstNewline > 0 ? code.slice(0, firstNewline).trim() : "";
-      const codeContent =
-        firstNewline > 0 ? code.slice(firstNewline + 1) : code;
+      const language = firstNewline > 0 ? code.slice(0, firstNewline).trim() : "";
+      const codeContent = firstNewline > 0 ? code.slice(firstNewline + 1) : code;
       return (
         <pre
           key={i}
-          className="my-2 p-3 bg-bg-secondary border border-border overflow-x-auto text-xs"
+          className="my-2 p-3 bg-cloud border-[3px] border-navy overflow-x-auto text-xs rounded-xl"
         >
           {language && (
-            <div className="text-text-muted text-[10px] mb-2 uppercase">
+            <div className="text-slate text-[10px] mb-2 uppercase font-bold tracking-wider">
               {language}
             </div>
           )}
@@ -109,51 +127,39 @@ function formatAIResponse(text: string): React.ReactNode {
         </pre>
       );
     }
-
-    // Handle inline formatting
     return (
       <span key={i}>
         {part.split("\n").map((line, lineIdx) => {
-          // Headers
-          if (line.startsWith("### ")) {
+          if (line.startsWith("### "))
             return (
-              <h4 key={lineIdx} className="font-display text-base mt-3 mb-1">
+              <h4 key={lineIdx} className="font-display font-black text-base mt-3 mb-1">
                 {line.slice(4)}
               </h4>
             );
-          }
-          if (line.startsWith("## ")) {
+          if (line.startsWith("## "))
             return (
-              <h3 key={lineIdx} className="font-display text-lg mt-3 mb-1">
+              <h3 key={lineIdx} className="font-display font-black text-lg mt-3 mb-1">
                 {line.slice(3)}
               </h3>
             );
-          }
-          if (line.startsWith("# ")) {
+          if (line.startsWith("# "))
             return (
-              <h2 key={lineIdx} className="font-display text-xl mt-3 mb-1">
+              <h2 key={lineIdx} className="font-display font-black text-xl mt-3 mb-1">
                 {line.slice(2)}
               </h2>
             );
-          }
-
-          // Lists - wrap in ul/ol
-          if (line.match(/^[-*]\s/)) {
+          if (line.match(/^[-*]\s/))
             return (
               <ul key={lineIdx} className="ml-4 list-disc">
                 <li>{formatInline(line.slice(2))}</li>
               </ul>
             );
-          }
-          if (line.match(/^\d+\.\s/)) {
+          if (line.match(/^\d+\.\s/))
             return (
               <ol key={lineIdx} className="ml-4 list-decimal">
                 <li>{formatInline(line.replace(/^\d+\.\s/, ""))}</li>
               </ol>
             );
-          }
-
-          // Regular line with inline formatting
           return (
             <span key={lineIdx}>
               {formatInline(line)}
@@ -166,217 +172,146 @@ function formatAIResponse(text: string): React.ReactNode {
   });
 }
 
-function formatInline(text: string): React.ReactNode {
-  // Bold: **text** or __text__
-  // Italic: *text* or _text_
-  // Code: `code`
-  const regex = /(\*\*.*?\*\*|__.*?__|`.*?`|\*.*?\*|_.*?_)/g;
-  const parts = text.split(regex);
-
-  return parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith("__") && part.endsWith("__")) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith("`") && part.endsWith("`")) {
-      return (
-        <code key={i} className="px-1.5 py-0.5 bg-bg-secondary text-xs">
-          {part.slice(1, -1)}
-        </code>
-      );
-    }
-    if (
-      (part.startsWith("*") && part.endsWith("*")) ||
-      (part.startsWith("_") && part.endsWith("_"))
-    ) {
-      return <em key={i}>{part.slice(1, -1)}</em>;
-    }
-    return part;
-  });
-}
-
-// Quick action shortcuts
+/* ═══════════════════════════════════════════
+   Constants
+═══════════════════════════════════════════ */
 const QUICK_ACTIONS = [
-  { label: "Check my dues", icon: "💳", query: "What's my payment status?" },
-  {
-    label: "Today's classes",
-    icon: "📅",
-    query: "What classes do I have today?",
-  },
-  { label: "Upcoming events", icon: "🎉", query: "What events are coming up?" },
-  { label: "My timetable", icon: "🕐", query: "Show my class timetable" },
+  { label: "Check my dues", color: "bg-coral", query: "What's my payment status?" },
+  { label: "Today's classes", color: "bg-teal", query: "What classes do I have today?" },
+  { label: "Upcoming events", color: "bg-sunny", query: "What events are coming up?" },
+  { label: "My timetable", color: "bg-lavender", query: "Show my class timetable" },
 ];
 
-// Language options for responses
 const LANGUAGE_OPTIONS = [
-  { code: "en", label: "English", flag: "🇬🇧" },
-  { code: "pcm", label: "Pidgin", flag: "🇳🇬" },
-  { code: "yo", label: "Yorùbá", flag: "🇳🇬" },
+  { code: "en", label: "English", flag: "EN" },
+  { code: "pcm", label: "Pidgin", flag: "NG" },
+  { code: "yo", label: "Yorùbá", flag: "NG" },
 ] as const;
 
 type LanguageCode = (typeof LANGUAGE_OPTIONS)[number]["code"];
 
+/* ═══════════════════════════════════════════
+   Page component
+═══════════════════════════════════════════ */
 export default function IESAAIPage() {
-  const { user } = useAuth();
+  const { user, getAccessToken } = useAuth();
+  const { isExpanded } = useSidebar();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [userContext, setUserContext] = useState<UserContext | null>(null);
   const [quickSuggestions, setQuickSuggestions] = useState<string[]>([]);
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
-  const [currentConversationId, setCurrentConversationId] = useState<
-    string | null
-  >(null);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [showConversations, setShowConversations] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(true);
   const [responseLanguage, setResponseLanguage] = useState<LanguageCode>("en");
-  const [languageLocked, setLanguageLocked] = useState(false); // Lock language after first message
+  const [languageLocked, setLanguageLocked] = useState(false);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [speakingMessageId, setSpeakingMessageId] = useState<number | null>(
-    null
-  );
-  const [availableVoices, setAvailableVoices] = useState<
-    SpeechSynthesisVoice[]
-  >([]);
+  const [speakingMessageId, setSpeakingMessageId] = useState<number | null>(null);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+
   const chatRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const speechSynthRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const toast = useToast();
 
+  /* ── scroll helper ── */
   const scrollToBottom = useCallback(() => {
     const el = chatRef.current;
-    if (el) {
-      setTimeout(() => {
-        el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-      }, 100);
-    }
+    if (el) setTimeout(() => el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }), 100);
   }, []);
 
-  // Initialize Speech Recognition
+  /* ── speech recognition setup ── */
   useEffect(() => {
     if (
       typeof window !== "undefined" &&
       ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)
     ) {
-      const SpeechRecognitionAPI =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognitionAPI();
-      recognitionRef.current.continuous = false; // Changed to false - more reliable
+      const API = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new API();
+      recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = "en-US";
 
       recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
-        const results = event.results;
         let finalTranscript = "";
         let interimTranscript = "";
-
-        for (let i = event.resultIndex; i < results.length; i++) {
-          const transcript = results[i][0].transcript;
-          if (results[i].isFinal) {
-            finalTranscript += transcript;
-          } else {
-            interimTranscript += transcript;
-          }
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) finalTranscript += transcript;
+          else interimTranscript += transcript;
         }
-
         setInput((prev) => {
-          if (finalTranscript) {
-            return prev + finalTranscript;
-          }
-          // Show interim results
+          if (finalTranscript) return prev + finalTranscript;
           const words = prev.trim().split(" ");
           const baseText = words.length > 0 ? words.slice(0, -1).join(" ") : "";
           return baseText + (baseText ? " " : "") + interimTranscript;
         });
       };
 
-      recognitionRef.current.onend = () => {
-        setIsListening(false);
-      };
+      recognitionRef.current.onend = () => setIsListening(false);
 
       recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
         const errorMessages: Record<string, string> = {
           "no-speech": "No speech detected. Please try again.",
           "audio-capture": "No microphone found. Please check your microphone.",
-          "not-allowed":
-            "Microphone permission denied. Please allow microphone access.",
+          "not-allowed": "Microphone permission denied. Please allow microphone access.",
           network: "Network error. Please check your connection.",
           aborted: "Speech recognition was aborted.",
           "service-not-allowed": "Speech service not allowed. Try using HTTPS.",
         };
-
-        const message =
-          errorMessages[event.error] ||
-          `Speech recognition error: ${event.error}`;
-        console.error("Speech recognition error:", event.error, event.message);
-
-        if (event.error !== "aborted" && event.error !== "no-speech") {
-          alert(message);
-        }
-
+        const message = errorMessages[event.error] || `Speech recognition error: ${event.error}`;
+        if (event.error !== "aborted" && event.error !== "no-speech")
+          toast.error("Voice Input Error", message);
         setIsListening(false);
       };
     }
   }, []);
 
+  /* ── toggle voice ── */
   const toggleVoiceInput = async () => {
     if (!recognitionRef.current) {
-      alert(
-        "Voice input is not supported in your browser. Try using Chrome or Edge."
-      );
+      toast.warning("Not Supported", "Voice input is not supported in your browser. Try Chrome or Edge.");
       return;
     }
-
     if (isListening) {
       recognitionRef.current.stop();
       setIsListening(false);
     } else {
-      // Request microphone permission first
       try {
         await navigator.mediaDevices.getUserMedia({ audio: true });
       } catch {
-        alert(
-          "Microphone access denied. Please allow microphone permissions in your browser settings."
-        );
+        toast.error("Permission Denied", "Microphone access denied.");
         return;
       }
-
-      // Clear previous input when starting new recording
       setInput("");
       try {
         recognitionRef.current.start();
         setIsListening(true);
-      } catch (error) {
-        console.error("Failed to start speech recognition:", error);
-        alert(
-          "Could not start voice input. Please refresh the page and try again."
-        );
+      } catch {
+        toast.error("Voice Input Failed", "Could not start voice input. Please refresh.");
       }
     }
   };
 
-  // Text-to-Speech for AI responses
+  /* ── text-to-speech ── */
   const speakMessage = (text: string, messageId: number) => {
     if (!("speechSynthesis" in window)) {
-      alert("Text-to-speech is not supported in your browser");
+      toast.warning("Not Supported", "Text-to-speech is not supported in your browser");
       return;
     }
-
-    // Stop any current speech
     window.speechSynthesis.cancel();
-
     if (isSpeaking && speakingMessageId === messageId) {
       setIsSpeaking(false);
       setSpeakingMessageId(null);
       return;
     }
-
-    // Clean the text (remove markdown formatting and emojis)
     const cleanText = text
       .replace(/```[\s\S]*?```/g, "code block")
       .replace(/\*\*(.*?)\*\*/g, "$1")
@@ -386,112 +321,33 @@ export default function IESAAIPage() {
       .replace(/`(.*?)`/g, "$1")
       .replace(/#+\s/g, "")
       .replace(/[-*]\s/g, "")
-      // Remove emojis - comprehensive regex for all emoji types
-      .replace(/[\u{1F600}-\u{1F64F}]/gu, "") // Emoticons
-      .replace(/[\u{1F300}-\u{1F5FF}]/gu, "") // Misc Symbols and Pictographs
-      .replace(/[\u{1F680}-\u{1F6FF}]/gu, "") // Transport and Map
-      .replace(/[\u{1F1E0}-\u{1F1FF}]/gu, "") // Flags
-      .replace(/[\u{2600}-\u{26FF}]/gu, "") // Misc symbols
-      .replace(/[\u{2700}-\u{27BF}]/gu, "") // Dingbats
-      .replace(/[\u{FE00}-\u{FE0F}]/gu, "") // Variation Selectors
-      .replace(/[\u{1F900}-\u{1F9FF}]/gu, "") // Supplemental Symbols
-      .replace(/[\u{1FA00}-\u{1FA6F}]/gu, "") // Chess Symbols
-      .replace(/[\u{1FA70}-\u{1FAFF}]/gu, "") // Symbols Extended-A
-      .replace(/[\u{231A}-\u{231B}]/gu, "") // Watch, Hourglass
-      .replace(/[\u{23E9}-\u{23F3}]/gu, "") // Various symbols
-      .replace(/[\u{23F8}-\u{23FA}]/gu, "") // Various symbols
-      .replace(/[\u{25AA}-\u{25AB}]/gu, "") // Squares
-      .replace(/[\u{25B6}]/gu, "") // Play button
-      .replace(/[\u{25C0}]/gu, "") // Reverse button
-      .replace(/[\u{25FB}-\u{25FE}]/gu, "") // Squares
-      .replace(/[\u{2614}-\u{2615}]/gu, "") // Umbrella, Hot beverage
-      .replace(/[\u{2648}-\u{2653}]/gu, "") // Zodiac
-      .replace(/[\u{267F}]/gu, "") // Wheelchair
-      .replace(/[\u{2693}]/gu, "") // Anchor
-      .replace(/[\u{26A1}]/gu, "") // High voltage
-      .replace(/[\u{26AA}-\u{26AB}]/gu, "") // Circles
-      .replace(/[\u{26BD}-\u{26BE}]/gu, "") // Soccer, Baseball
-      .replace(/[\u{26C4}-\u{26C5}]/gu, "") // Snowman, Sun
-      .replace(/[\u{26CE}]/gu, "") // Ophiuchus
-      .replace(/[\u{26D4}]/gu, "") // No entry
-      .replace(/[\u{26EA}]/gu, "") // Church
-      .replace(/[\u{26F2}-\u{26F3}]/gu, "") // Fountain, Golf
-      .replace(/[\u{26F5}]/gu, "") // Sailboat
-      .replace(/[\u{26FA}]/gu, "") // Tent
-      .replace(/[\u{26FD}]/gu, "") // Fuel pump
-      .replace(/[\u{2702}]/gu, "") // Scissors
-      .replace(/[\u{2705}]/gu, "") // Check mark
-      .replace(/[\u{2708}-\u{270D}]/gu, "") // Airplane, etc
-      .replace(/[\u{270F}]/gu, "") // Pencil
-      .replace(/[\u{2712}]/gu, "") // Black nib
-      .replace(/[\u{2714}]/gu, "") // Check mark
-      .replace(/[\u{2716}]/gu, "") // X mark
-      .replace(/[\u{271D}]/gu, "") // Latin cross
-      .replace(/[\u{2721}]/gu, "") // Star of David
-      .replace(/[\u{2728}]/gu, "") // Sparkles
-      .replace(/[\u{2733}-\u{2734}]/gu, "") // Eight spoked asterisk
-      .replace(/[\u{2744}]/gu, "") // Snowflake
-      .replace(/[\u{2747}]/gu, "") // Sparkle
-      .replace(/[\u{274C}]/gu, "") // Cross mark
-      .replace(/[\u{274E}]/gu, "") // Cross mark
-      .replace(/[\u{2753}-\u{2755}]/gu, "") // Question marks
-      .replace(/[\u{2757}]/gu, "") // Exclamation mark
-      .replace(/[\u{2763}-\u{2764}]/gu, "") // Heart exclamation, Heart
-      .replace(/[\u{2795}-\u{2797}]/gu, "") // Plus, Minus, Division
-      .replace(/[\u{27A1}]/gu, "") // Right arrow
-      .replace(/[\u{27B0}]/gu, "") // Curly loop
-      .replace(/[\u{27BF}]/gu, "") // Double curly loop
-      .replace(/[\u{2934}-\u{2935}]/gu, "") // Arrows
-      .replace(/[\u{2B05}-\u{2B07}]/gu, "") // Arrows
-      .replace(/[\u{2B1B}-\u{2B1C}]/gu, "") // Squares
-      .replace(/[\u{2B50}]/gu, "") // Star
-      .replace(/[\u{2B55}]/gu, "") // Circle
-      .replace(/[\u{3030}]/gu, "") // Wavy dash
-      .replace(/[\u{303D}]/gu, "") // Part alternation mark
-      .replace(/[\u{3297}]/gu, "") // Circled Ideograph Congratulation
-      .replace(/[\u{3299}]/gu, "") // Circled Ideograph Secret
-      .replace(/\s+/g, " ") // Collapse multiple spaces
+      .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2728}\u{2705}\u{274C}\u{2764}]/gu, "")
+      .replace(/\s+/g, " ")
       .trim();
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     speechSynthRef.current = utterance;
 
-    // Find the best voice for the selected language
     const findBestVoice = (lang: LanguageCode): SpeechSynthesisVoice | null => {
-      const voices =
-        availableVoices.length > 0
-          ? availableVoices
-          : window.speechSynthesis.getVoices();
-
-      // Priority order for voice selection
+      const voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices();
       const langPreferences: Record<LanguageCode, string[]> = {
         en: ["en-GB", "en-NG", "en-US", "en-AU", "en"],
-        pcm: ["en-NG", "en-GB", "en-US", "en"], // Pidgin - prefer Nigerian English
-        yo: ["yo-NG", "yo", "en-NG", "en-GB", "en"], // Yoruba with fallback to Nigerian English
+        pcm: ["en-NG", "en-GB", "en-US", "en"],
+        yo: ["yo-NG", "yo", "en-NG", "en-GB", "en"],
       };
-
       const prefs = langPreferences[lang];
-
-      // Try to find premium/natural voices first (they usually have "Natural", "Neural", or "Premium" in name)
       for (const pref of prefs) {
-        const premiumVoice = voices.find(
+        const v = voices.find(
           (v) =>
             v.lang.startsWith(pref) &&
-            (v.name.includes("Natural") ||
-              v.name.includes("Neural") ||
-              v.name.includes("Premium") ||
-              v.name.includes("Google"))
+            (v.name.includes("Natural") || v.name.includes("Neural") || v.name.includes("Google"))
         );
-        if (premiumVoice) return premiumVoice;
+        if (v) return v;
       }
-
-      // Fall back to any matching voice
       for (const pref of prefs) {
-        const voice = voices.find((v) => v.lang.startsWith(pref));
-        if (voice) return voice;
+        const v = voices.find((v) => v.lang.startsWith(pref));
+        if (v) return v;
       }
-
-      // Last resort: use default
       return voices[0] || null;
     };
 
@@ -500,86 +356,41 @@ export default function IESAAIPage() {
       utterance.voice = selectedVoice;
       utterance.lang = selectedVoice.lang;
     } else {
-      // Fallback language codes
-      const langMap: Record<LanguageCode, string> = {
-        en: "en-GB",
-        pcm: "en-NG",
-        yo: "yo-NG",
-      };
-      utterance.lang = langMap[responseLanguage];
+      utterance.lang = { en: "en-GB", pcm: "en-NG", yo: "yo-NG" }[responseLanguage];
     }
-
-    // Optimize speech settings for clarity
-    utterance.rate = 0.95; // Slightly slower for clarity
+    utterance.rate = 0.95;
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
-
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-      setSpeakingMessageId(messageId);
-    };
-
-    utterance.onend = () => {
-      setIsSpeaking(false);
-      setSpeakingMessageId(null);
-    };
-
-    utterance.onerror = () => {
-      setIsSpeaking(false);
-      setSpeakingMessageId(null);
-    };
-
+    utterance.onstart = () => { setIsSpeaking(true); setSpeakingMessageId(messageId); };
+    utterance.onend = () => { setIsSpeaking(false); setSpeakingMessageId(null); };
+    utterance.onerror = () => { setIsSpeaking(false); setSpeakingMessageId(null); };
     window.speechSynthesis.speak(utterance);
   };
 
-  // Load available voices
+  /* ── load voices ── */
   useEffect(() => {
     if (!("speechSynthesis" in window)) return;
-
     const loadVoices = () => {
       const voices = window.speechSynthesis.getVoices();
-      if (voices.length > 0) {
-        setAvailableVoices(voices);
-      }
+      if (voices.length > 0) setAvailableVoices(voices);
     };
-
-    // Load voices immediately if available
     loadVoices();
-
-    // Also listen for voiceschanged event (required for some browsers)
     window.speechSynthesis.addEventListener("voiceschanged", loadVoices);
-
-    return () => {
-      window.speechSynthesis.removeEventListener("voiceschanged", loadVoices);
-    };
+    return () => window.speechSynthesis.removeEventListener("voiceschanged", loadVoices);
   }, []);
 
-  // Stop speech when component unmounts
   useEffect(() => {
-    return () => {
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
-    };
+    return () => { if ("speechSynthesis" in window) window.speechSynthesis.cancel(); };
   }, []);
 
-  // Export chat as text file
+  /* ── export chat ── */
   const exportChat = () => {
     if (messages.length === 0) return;
-
     const chatContent = messages
-      .map((msg) => {
-        const sender = msg.sender === "user" ? "You" : "IESA AI";
-        return `[${msg.time}] ${sender}:\n${msg.text}\n`;
-      })
+      .map((msg) => `[${msg.time}] ${msg.sender === "user" ? "You" : "IESA AI"}:\n${msg.text}\n`)
       .join("\n---\n\n");
-
-    const header = `IESA AI Conversation Export\nDate: ${new Date().toLocaleDateString()}\nUser: ${
-      user?.displayName || "Student"
-    }\n\n${"=".repeat(50)}\n\n`;
-    const fullContent = header + chatContent;
-
-    const blob = new Blob([fullContent], { type: "text/plain" });
+    const header = `IESA AI Conversation Export\nDate: ${new Date().toLocaleDateString()}\nUser: ${user?.firstName || "Student"}\n\n${"=".repeat(50)}\n\n`;
+    const blob = new Blob([header + chatContent], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -590,34 +401,25 @@ export default function IESAAIPage() {
     URL.revokeObjectURL(url);
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
+  /* ── data effects ── */
+  useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
   useEffect(() => {
     const saved = localStorage.getItem("iesa-ai-conversations");
     if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setConversations(parsed);
-      } catch (e) {
-        console.error("Failed to parse saved conversations:", e);
-      }
+      try { setConversations(JSON.parse(saved)); } catch { /* silent */ }
     }
   }, []);
 
   useEffect(() => {
     if (messages.length > 0 && currentConversationId) {
-      const updatedConversations = conversations.map((conv) =>
+      const updated = conversations.map((conv) =>
         conv.id === currentConversationId
           ? { ...conv, messages, updatedAt: new Date().toISOString() }
           : conv
       );
-      setConversations(updatedConversations);
-      localStorage.setItem(
-        "iesa-ai-conversations",
-        JSON.stringify(updatedConversations)
-      );
+      setConversations(updated);
+      localStorage.setItem("iesa-ai-conversations", JSON.stringify(updated));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, currentConversationId]);
@@ -625,42 +427,26 @@ export default function IESAAIPage() {
   useEffect(() => {
     fetch(getApiUrl("/api/v1/iesa-ai/suggestions"))
       .then((res) => res.json())
-      .then((data) => {
-        if (data.suggestions) {
-          setQuickSuggestions(data.suggestions);
-        }
-      })
-      .catch(() => {
-        setQuickSuggestions([
-          "What events are coming up?",
-          "How do I pay my dues?",
-          "Show my timetable",
-        ]);
-      });
+      .then((data) => { if (data.suggestions) setQuickSuggestions(data.suggestions); })
+      .catch(() => setQuickSuggestions(["What events are coming up?", "How do I pay my dues?", "Show my timetable"]));
   }, []);
 
   useEffect(() => {
     if (messages.length === 0 && user) {
       const welcomeMsg: Message = {
         id: Date.now(),
-        text: `Hey ${
-          user.displayName?.split(" ")[0] || "there"
-        }! I'm IESA AI, your smart campus assistant. I already know everything about you — your level, payment status, upcoming events, and more. Just ask me anything, and I'll give you personalized answers without needing to ask for details. What would you like to know?`,
+        text: `Hey ${user.firstName || "there"}! I'm IESA AI, your smart campus assistant. I already know everything about you — your level, payment status, upcoming events, and more. Just ask me anything, and I'll give you personalized answers without needing to ask for details. What would you like to know?`,
         sender: "ai",
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         suggestions: quickSuggestions.slice(0, 4),
       };
       setMessages([welcomeMsg]);
     }
   }, [user, quickSuggestions.length, messages.length, quickSuggestions]);
 
-  const nowTime = () =>
-    new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  /* ── helpers ── */
+  const nowTime = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-  // Clear suggestions from last AI message
   const clearLastSuggestions = () => {
     setMessages((prev) =>
       prev.map((msg, idx) =>
@@ -671,21 +457,16 @@ export default function IESAAIPage() {
     );
   };
 
+  /* ── send message ── */
   const sendMessage = async (messageText?: string) => {
     const textToSend = messageText || input.trim();
     if (!textToSend || loading) return;
-
-    // Lock language after first user message
-    if (!languageLocked) {
-      setLanguageLocked(true);
-    }
-
-    // Clear suggestions when sending any message
+    if (!languageLocked) setLanguageLocked(true);
     clearLastSuggestions();
 
     if (!currentConversationId) {
       const newId = Date.now().toString();
-      const newConversation: ChatConversation = {
+      const newConv: ChatConversation = {
         id: newId,
         title: textToSend.slice(0, 50),
         messages: [],
@@ -693,79 +474,45 @@ export default function IESAAIPage() {
         updatedAt: new Date().toISOString(),
       };
       setCurrentConversationId(newId);
-      const updatedConvs = [newConversation, ...conversations];
+      const updatedConvs = [newConv, ...conversations];
       setConversations(updatedConvs);
-      localStorage.setItem(
-        "iesa-ai-conversations",
-        JSON.stringify(updatedConvs)
-      );
+      localStorage.setItem("iesa-ai-conversations", JSON.stringify(updatedConvs));
     }
 
-    const userMessage: Message = {
-      id: Date.now(),
-      text: textToSend,
-      sender: "user",
-      time: nowTime(),
-    };
-
+    const userMessage: Message = { id: Date.now(), text: textToSend, sender: "user", time: nowTime() };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setLoading(true);
-
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-    }
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
 
     try {
       const conversationHistory = messages.slice(-10).map((msg) => ({
         role: msg.sender === "user" ? "user" : "assistant",
         content: msg.text,
       }));
-
       const response = await fetch(getApiUrl("/api/v1/iesa-ai/chat"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${await user?.getIdToken()}`,
+          Authorization: `Bearer ${await getAccessToken()}`,
         },
-        body: JSON.stringify({
-          message: textToSend,
-          conversationHistory,
-          language: responseLanguage, // Send language preference to backend
-        }),
+        body: JSON.stringify({ message: textToSend, conversationHistory, language: responseLanguage }),
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to get response");
-      }
-
+      if (!response.ok) throw new Error("Failed to get response");
       const data = await response.json();
-
-      if (data.data?.user_context) {
-        setUserContext(data.data.user_context);
-      }
-
+      if (data.data?.user_context) setUserContext(data.data.user_context);
       const aiMessage: Message = {
         id: Date.now() + 1,
-        text:
-          data.reply ||
-          "I'm not sure how to respond to that. Can you rephrase?",
+        text: data.reply || "I'm not sure how to respond to that. Can you rephrase?",
         sender: "ai",
         time: nowTime(),
         suggestions: data.suggestions,
       };
-
       setMessages((prev) => [...prev, aiMessage]);
-    } catch (error) {
-      console.error("Error sending message:", error);
+    } catch {
       setMessages((prev) => [
         ...prev,
-        {
-          id: Date.now() + 1,
-          text: "Oops! I'm having trouble connecting right now. Please try again in a moment.",
-          sender: "ai",
-          time: nowTime(),
-        },
+        { id: Date.now() + 1, text: "Oops! I'm having trouble connecting right now. Please try again in a moment.", sender: "ai", time: nowTime() },
       ]);
     } finally {
       setLoading(false);
@@ -773,10 +520,7 @@ export default function IESAAIPage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
   const autoResize = () => {
@@ -786,418 +530,272 @@ export default function IESAAIPage() {
     ta.style.height = `${Math.min(ta.scrollHeight, 120)}px`;
   };
 
-  const handleSuggestionClick = (suggestion: string) => {
-    sendMessage(suggestion);
-  };
+  const handleSuggestionClick = (s: string) => sendMessage(s);
 
   const handleCopy = async (text: string, id: number) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 2000);
-    } catch (err) {
-      console.error("Failed to copy:", err);
-    }
+    try { await navigator.clipboard.writeText(text); setCopiedId(id); setTimeout(() => setCopiedId(null), 2000); } catch { /* silent */ }
   };
 
   const handleFeedback = async (messageId: number, rating: "up" | "down") => {
     const message = messages.find((m) => m.id === messageId);
     if (!message) return;
-
     try {
       await fetch(getApiUrl("/api/v1/iesa-ai/feedback"), {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${await user?.getIdToken()}`,
-        },
-        body: JSON.stringify({
-          message: messages.find((m) => m.id === messageId - 1)?.text,
-          response: message.text,
-          rating: rating === "up" ? 1 : -1,
-        }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${await getAccessToken()}` },
+        body: JSON.stringify({ message: messages.find((m) => m.id === messageId - 1)?.text, response: message.text, rating: rating === "up" ? 1 : -1 }),
       });
-    } catch (error) {
-      console.error("Error submitting feedback:", error);
-    }
+    } catch { /* silent */ }
   };
 
   const clearChat = () => {
     if (messages.length > 1 && currentConversationId) {
-      const title =
-        messages.find((m) => m.sender === "user")?.text.slice(0, 50) ||
-        "New Chat";
-      const updatedConversations = conversations.map((conv) =>
-        conv.id === currentConversationId
-          ? { ...conv, title, messages, updatedAt: new Date().toISOString() }
-          : conv
+      const title = messages.find((m) => m.sender === "user")?.text.slice(0, 50) || "New Chat";
+      const updated = conversations.map((conv) =>
+        conv.id === currentConversationId ? { ...conv, title, messages, updatedAt: new Date().toISOString() } : conv
       );
-      setConversations(updatedConversations);
-      localStorage.setItem(
-        "iesa-ai-conversations",
-        JSON.stringify(updatedConversations)
-      );
+      setConversations(updated);
+      localStorage.setItem("iesa-ai-conversations", JSON.stringify(updated));
     }
-
     const newId = Date.now().toString();
-    const newConversation: ChatConversation = {
-      id: newId,
-      title: "New Chat",
-      messages: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    const updatedConvs = [newConversation, ...conversations];
+    const newConv: ChatConversation = { id: newId, title: "New Chat", messages: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    const updatedConvs = [newConv, ...conversations];
     setConversations(updatedConvs);
     setCurrentConversationId(newId);
     localStorage.setItem("iesa-ai-conversations", JSON.stringify(updatedConvs));
-
     setMessages([]);
-    setLanguageLocked(false); // Unlock language for new chat
+    setLanguageLocked(false);
   };
 
   const loadConversation = (id: string) => {
     const conv = conversations.find((c) => c.id === id);
-    if (conv) {
-      setCurrentConversationId(id);
-      setMessages(conv.messages);
-      setShowConversations(false);
-    }
+    if (conv) { setCurrentConversationId(id); setMessages(conv.messages); setShowConversations(false); }
   };
 
   const deleteConversation = (id: string) => {
     const updated = conversations.filter((c) => c.id !== id);
     setConversations(updated);
     localStorage.setItem("iesa-ai-conversations", JSON.stringify(updated));
-    if (currentConversationId === id) {
-      clearChat();
-    }
+    if (currentConversationId === id) clearChat();
   };
 
+  /* ═══════════════════════════════════════════
+     JSX
+  ═══════════════════════════════════════════ */
   return (
-    <div className="min-h-screen flex flex-col bg-bg-primary">
-      <DashboardHeader title="IESA AI" />
+    <div className="min-h-screen flex flex-col bg-ghost overflow-x-hidden relative">
+      {/* ── diamond sparkles ── */}
+      {[
+        "top-10 left-[6%] w-5 h-5 text-lavender/14",
+        "top-32 right-[10%] w-4 h-4 text-teal/12",
+        "top-[50%] left-[3%] w-6 h-6 text-coral/10",
+        "top-[60%] right-[5%] w-5 h-5 text-sunny/14",
+        "bottom-36 left-[12%] w-4 h-4 text-lime/12",
+      ].map((cls, i) => (
+        <svg key={i} className={`fixed ${cls} pointer-events-none z-0`} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+        </svg>
+      ))}
 
-      {/* Sub-header with actions */}
-      <div className="bg-bg-primary border-b border-border sticky top-16 z-10">
-        <div className="max-w-5xl mx-auto px-4 py-3 md:px-8">
-          <div className="flex items-center justify-between">
+      {/* ════════════════════════════════════════
+          COMPACT BENTO HEADER
+      ════════════════════════════════════════ */}
+      <div className="sticky top-0 z-30 bg-ghost/95 backdrop-blur-sm border-b-[3px] border-navy">
+        <div className="max-w-5xl mx-auto px-4 md:px-8 py-3">
+          <div className="flex items-center justify-between gap-3">
+            {/* left: AI branding */}
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-charcoal dark:bg-cream flex items-center justify-center">
-                <svg
-                  className="w-5 h-5 text-cream dark:text-charcoal"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
-                  />
+              <div className="w-10 h-10 rounded-2xl bg-lavender border-[3px] border-navy shadow-[3px_3px_0_0_#000] flex items-center justify-center">
+                <svg className="w-5 h-5 text-navy" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
                 </svg>
               </div>
               <div>
-                <p className="text-label-sm text-text-muted">
-                  Your Smart Campus Assistant
+                <h1 className="font-display font-black text-lg text-navy leading-tight">IESA AI</h1>
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">
+                  Smart Campus Assistant
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            {/* right: action buttons — desktop inline, mobile dropdown */}
+            {/* desktop buttons (md+) */}
+            <div className="hidden md:flex items-center gap-2">
               {userContext && (
-                <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 border border-border">
-                  <svg
-                    className="w-3.5 h-3.5 text-text-muted"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-                    />
-                  </svg>
-                  <span className="text-label-sm text-text-secondary">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-teal-light border-[3px] border-navy rounded-xl">
+                  <span className="w-1.5 h-1.5 rounded-full bg-teal" />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-navy">
                     {userContext.level} · {userContext.matric}
                   </span>
                 </div>
               )}
-
-              <button
-                onClick={() => setShowConversations(!showConversations)}
-                className="flex items-center gap-1.5 px-3 py-1.5 border border-border text-label-sm text-text-secondary hover:border-border-dark hover:text-text-primary transition-colors"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"
-                  />
-                </svg>
-                <span className="hidden sm:inline">
-                  Chats ({conversations.length})
-                </span>
+              <button onClick={() => setShowConversations(!showConversations)} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-snow border-[3px] border-navy rounded-xl font-bold text-[10px] text-navy/60 uppercase tracking-[0.08em] hover:bg-cloud transition-colors">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M3.505 2.365A41.369 41.369 0 019 2c1.863 0 3.697.124 5.495.365 1.247.167 2.18 1.108 2.435 2.268a4.45 4.45 0 00-.577-.069 43.141 43.141 0 00-4.706 0C9.229 4.696 7.5 6.727 7.5 8.998v2.24c0 1.413.67 2.735 1.76 3.562l-2.98 2.98A.75.75 0 015 17.25v-3.443c-.501-.048-1-.106-1.495-.172C2.033 13.438 1 12.162 1 10.72V5.28c0-1.441 1.033-2.717 2.505-2.914z" /><path d="M14 6c.762 0 1.52.02 2.272.062 1.21.068 2.228 1.024 2.228 2.236v2.12c0 1.213-1.018 2.168-2.228 2.236a41.29 41.29 0 01-1.522.062l-2.97 2.97a.75.75 0 01-1.28-.53V14.5a41.075 41.075 0 01-1.005-.064c-1.21-.068-2.228-1.022-2.228-2.236V8.298c0-1.212 1.018-2.168 2.228-2.236A41.148 41.148 0 0114 6z" /></svg>
+                Chats ({conversations.length})
               </button>
-
-              <button
-                onClick={clearChat}
-                className="flex items-center gap-1.5 px-3 py-1.5 border border-border text-label-sm text-text-secondary hover:border-border-dark hover:text-text-primary transition-colors"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
-                  />
-                </svg>
-                <span className="hidden sm:inline">New</span>
+              <button onClick={clearChat} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-snow border-[3px] border-navy rounded-xl font-bold text-[10px] text-navy/60 uppercase tracking-[0.08em] hover:bg-cloud transition-colors">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 5a.75.75 0 01.75.75v3.5h3.5a.75.75 0 010 1.5h-3.5v3.5a.75.75 0 01-1.5 0v-3.5h-3.5a.75.75 0 010-1.5h3.5v-3.5A.75.75 0 0110 5z" /></svg>
+                New
               </button>
-
-              {/* Language Selector */}
               <div className="relative">
-                <button
-                  onClick={() =>
-                    !languageLocked && setShowLanguageMenu(!showLanguageMenu)
-                  }
-                  className={`flex items-center gap-1.5 px-3 py-1.5 border text-label-sm transition-colors ${
-                    languageLocked
-                      ? "border-border/50 text-text-muted cursor-not-allowed"
-                      : "border-border text-text-secondary hover:border-border-dark hover:text-text-primary"
-                  }`}
-                  title={
-                    languageLocked
-                      ? "Language locked for this chat. Start a new chat to change language."
-                      : "Response language"
-                  }
-                >
-                  <span>
-                    {
-                      LANGUAGE_OPTIONS.find((l) => l.code === responseLanguage)
-                        ?.flag
-                    }
-                  </span>
-                  <span className="hidden sm:inline">
-                    {
-                      LANGUAGE_OPTIONS.find((l) => l.code === responseLanguage)
-                        ?.label
-                    }
-                  </span>
-                  {languageLocked ? (
-                    <svg
-                      className="w-3 h-3"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
-                      />
-                    </svg>
-                  ) : (
-                    <svg
-                      className="w-3 h-3"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  )}
+                <button onClick={() => !languageLocked && setShowLanguageMenu(!showLanguageMenu)} className={`flex items-center gap-1.5 px-2.5 py-1.5 border-[3px] rounded-xl font-bold text-[10px] uppercase tracking-[0.08em] transition-colors ${languageLocked ? "border-navy/40 text-slate cursor-not-allowed bg-cloud" : "border-navy text-navy/60 bg-snow hover:bg-cloud"}`} title={languageLocked ? "Language locked. Start new chat to change." : "Response language"}>
+                  <span>{LANGUAGE_OPTIONS.find((l) => l.code === responseLanguage)?.flag}</span>
+                  <span>{LANGUAGE_OPTIONS.find((l) => l.code === responseLanguage)?.label}</span>
+                  {languageLocked ? (<svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" /></svg>) : (<svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.22 8.22a.75.75 0 011.06 0L10 11.94l3.72-3.72a.75.75 0 111.06 1.06l-4.25 4.25a.75.75 0 01-1.06 0L5.22 9.28a.75.75 0 010-1.06z" clipRule="evenodd" /></svg>)}
                 </button>
                 {showLanguageMenu && !languageLocked && (
                   <>
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setShowLanguageMenu(false)}
-                    />
-                    <div className="absolute right-0 top-full mt-1 bg-bg-card border border-border shadow-lg z-50 min-w-36">
-                      <div className="px-3 py-2 border-b border-border">
-                        <p className="text-[10px] text-text-muted">
-                          Language will be locked after your first message
-                        </p>
-                      </div>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowLanguageMenu(false)} />
+                    <div className="absolute right-0 top-full mt-2 bg-snow border-[4px] border-navy rounded-xl z-50 min-w-40 shadow-[6px_6px_0_0_#000] overflow-hidden">
+                      <div className="px-3 py-2 border-b-[3px] border-navy bg-lavender-light"><p className="text-[9px] font-bold uppercase tracking-[0.1em] text-navy/60">Locked after first message</p></div>
                       {LANGUAGE_OPTIONS.map((lang) => (
-                        <button
-                          key={lang.code}
-                          onClick={() => {
-                            setResponseLanguage(lang.code);
-                            setShowLanguageMenu(false);
-                          }}
-                          className={`w-full flex items-center gap-2 px-3 py-2 text-label-sm text-left transition-colors ${
-                            responseLanguage === lang.code
-                              ? "bg-bg-secondary text-text-primary"
-                              : "text-text-secondary hover:bg-bg-secondary hover:text-text-primary"
-                          }`}
-                        >
-                          <span>{lang.flag}</span>
-                          <span>{lang.label}</span>
-                          {responseLanguage === lang.code && (
-                            <svg
-                              className="w-3 h-3 ml-auto"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                          )}
+                        <button key={lang.code} onClick={() => { setResponseLanguage(lang.code); setShowLanguageMenu(false); }} className={`w-full flex items-center gap-2 px-3 py-2.5 font-display font-bold text-xs text-left transition-colors ${responseLanguage === lang.code ? "bg-lavender-light text-navy" : "text-navy/60 hover:bg-cloud hover:text-navy"}`}>
+                          <span>{lang.flag}</span><span>{lang.label}</span>
+                          {responseLanguage === lang.code && (<svg className="w-3.5 h-3.5 ml-auto text-lavender" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" /></svg>)}
                         </button>
                       ))}
                     </div>
                   </>
                 )}
               </div>
-
               {messages.length > 0 && (
-                <button
-                  onClick={exportChat}
-                  className="flex items-center gap-1.5 px-3 py-1.5 border border-border text-label-sm text-text-secondary hover:border-border-dark hover:text-text-primary transition-colors"
-                  title="Export conversation"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
-                    />
-                  </svg>
-                  <span className="hidden sm:inline">Export</span>
+                <button onClick={exportChat} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-snow border-[3px] border-navy rounded-xl font-bold text-[10px] text-navy/60 uppercase tracking-[0.08em] hover:bg-cloud transition-colors" title="Export conversation">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" /><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" /></svg>
+                  Export
                 </button>
               )}
+            </div>
+
+            {/* mobile menu trigger (<md) */}
+            <div className="flex md:hidden items-center gap-2">
+              {/* language flag quick-access on mobile */}
+              <span className="text-sm">{LANGUAGE_OPTIONS.find((l) => l.code === responseLanguage)?.flag}</span>
+              <div className="relative">
+                <button
+                  onClick={() => setShowMobileMenu(!showMobileMenu)}
+                  className="w-9 h-9 flex items-center justify-center bg-snow border-[3px] border-navy rounded-xl hover:bg-cloud transition-colors"
+                  aria-label="Menu"
+                >
+                  <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 3a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM10 8.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.5 15.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
+                  </svg>
+                </button>
+                {showMobileMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowMobileMenu(false)} />
+                    <div className="absolute right-0 top-full mt-2 bg-snow border-[4px] border-navy rounded-xl z-50 w-56 shadow-[6px_6px_0_0_#000] overflow-hidden">
+                      {userContext && (
+                        <div className="px-3 py-2 border-b-[3px] border-navy bg-teal-light">
+                          <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-navy">{userContext.level} · {userContext.matric}</span>
+                        </div>
+                      )}
+                      <button onClick={() => { setShowConversations(!showConversations); setShowMobileMenu(false); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-navy/70 hover:bg-cloud hover:text-navy transition-colors font-display font-bold text-xs">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M3.505 2.365A41.369 41.369 0 019 2c1.863 0 3.697.124 5.495.365 1.247.167 2.18 1.108 2.435 2.268a4.45 4.45 0 00-.577-.069 43.141 43.141 0 00-4.706 0C9.229 4.696 7.5 6.727 7.5 8.998v2.24c0 1.413.67 2.735 1.76 3.562l-2.98 2.98A.75.75 0 015 17.25v-3.443c-.501-.048-1-.106-1.495-.172C2.033 13.438 1 12.162 1 10.72V5.28c0-1.441 1.033-2.717 2.505-2.914z" /><path d="M14 6c.762 0 1.52.02 2.272.062 1.21.068 2.228 1.024 2.228 2.236v2.12c0 1.213-1.018 2.168-2.228 2.236a41.29 41.29 0 01-1.522.062l-2.97 2.97a.75.75 0 01-1.28-.53V14.5a41.075 41.075 0 01-1.005-.064c-1.21-.068-2.228-1.022-2.228-2.236V8.298c0-1.212 1.018-2.168 2.228-2.236A41.148 41.148 0 0114 6z" /></svg>
+                        Conversations ({conversations.length})
+                      </button>
+                      <button onClick={() => { clearChat(); setShowMobileMenu(false); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-navy/70 hover:bg-cloud hover:text-navy transition-colors font-display font-bold text-xs">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 5a.75.75 0 01.75.75v3.5h3.5a.75.75 0 010 1.5h-3.5v3.5a.75.75 0 01-1.5 0v-3.5h-3.5a.75.75 0 010-1.5h3.5v-3.5A.75.75 0 0110 5z" /></svg>
+                        New Chat
+                      </button>
+                      <div className="border-t-[3px] border-navy/10">
+                        <div className="px-3 py-1.5"><span className="text-[9px] font-bold uppercase tracking-[0.1em] text-navy/40">Language {languageLocked ? "(locked)" : ""}</span></div>
+                        {LANGUAGE_OPTIONS.map((lang) => (
+                          <button key={lang.code} onClick={() => { if (!languageLocked) { setResponseLanguage(lang.code); setShowMobileMenu(false); } }} className={`w-full flex items-center gap-2 px-3 py-2 font-display font-bold text-xs transition-colors ${responseLanguage === lang.code ? "bg-lavender-light text-navy" : languageLocked ? "text-navy/30 cursor-not-allowed" : "text-navy/60 hover:bg-cloud hover:text-navy"}`}>
+                            <span>{lang.flag}</span><span>{lang.label}</span>
+                            {responseLanguage === lang.code && (<svg className="w-3 h-3 ml-auto text-lavender" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" /></svg>)}
+                          </button>
+                        ))}
+                      </div>
+                      {messages.length > 0 && (
+                        <button onClick={() => { exportChat(); setShowMobileMenu(false); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-navy/70 hover:bg-cloud hover:text-navy transition-colors font-display font-bold text-xs border-t-[3px] border-navy/10">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" /><path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" /></svg>
+                          Export Chat
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Conversations Sidebar */}
+      {/* ════════════════════════════════════════
+          CONVERSATIONS SIDEBAR
+      ════════════════════════════════════════ */}
       {showConversations && (
         <>
-          <div
-            className="fixed inset-0 bg-charcoal/50 dark:bg-black/50 z-40"
-            onClick={() => setShowConversations(false)}
-          />
-          <div className="fixed top-0 right-0 h-full w-full sm:w-80 bg-bg-primary border-l border-border z-50 flex flex-col">
-            <div className="p-4 border-b border-border flex items-center justify-between">
-              <h2 className="font-display text-lg text-text-primary">
-                Conversations
-              </h2>
+          <div className="fixed inset-0 bg-navy/50 z-40" onClick={() => setShowConversations(false)} />
+          <div className="fixed top-0 right-0 h-full w-full sm:w-80 bg-ghost border-l-[4px] border-navy z-50 flex flex-col">
+            {/* sidebar header */}
+            <div className="p-4 border-b-[4px] border-navy bg-lavender-light flex items-center justify-between">
+              <h2 className="font-display font-black text-lg text-navy">Conversations</h2>
               <button
                 onClick={() => setShowConversations(false)}
-                className="p-2 hover:bg-bg-secondary transition-colors"
-                title="Close sidebar"
+                className="w-8 h-8 flex items-center justify-center bg-snow border-[3px] border-navy rounded-xl hover:bg-cloud transition-colors"
+                aria-label="Close conversations sidebar"
               >
-                <svg
-                  className="w-5 h-5 text-text-secondary"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
+                <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
                 </svg>
               </button>
             </div>
+            {/* sidebar body */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {conversations.length === 0 ? (
-                <p className="text-label-sm text-text-muted text-center py-8">
-                  No conversations yet
-                </p>
-              ) : (
-                conversations.map((conv) => (
-                  <div
-                    key={conv.id}
-                    className={`group p-3 border transition-colors cursor-pointer ${
-                      currentConversationId === conv.id
-                        ? "border-border-dark bg-bg-secondary"
-                        : "border-border hover:border-border-dark"
-                    }`}
-                    onClick={() => loadConversation(conv.id)}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-body text-sm text-text-primary truncate">
-                          {conv.title}
-                        </p>
-                        <p className="text-label-sm text-text-muted mt-1">
-                          {new Date(conv.updatedAt).toLocaleDateString()} ·{" "}
-                          {conv.messages.length} messages
-                        </p>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteConversation(conv.id);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 transition-all"
-                        title="Delete conversation"
-                      >
-                        <svg
-                          className="w-4 h-4 text-red-500"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={1.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-                          />
-                        </svg>
-                      </button>
-                    </div>
+                <div className="text-center py-12">
+                  <div className="w-12 h-12 rounded-2xl bg-cloud border-[3px] border-navy/20 flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-6 h-6 text-slate" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M3.505 2.365A41.369 41.369 0 019 2c1.863 0 3.697.124 5.495.365 1.247.167 2.18 1.108 2.435 2.268a4.45 4.45 0 00-.577-.069 43.141 43.141 0 00-4.706 0C9.229 4.696 7.5 6.727 7.5 8.998v2.24c0 1.413.67 2.735 1.76 3.562l-2.98 2.98A.75.75 0 015 17.25v-3.443c-.501-.048-1-.106-1.495-.172C2.033 13.438 1 12.162 1 10.72V5.28c0-1.441 1.033-2.717 2.505-2.914z" />
+                    </svg>
                   </div>
-                ))
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">
+                    No conversations yet
+                  </p>
+                </div>
+              ) : (
+                conversations.map((conv, idx) => {
+                  const accent = ["border-l-teal", "border-l-coral", "border-l-lavender", "border-l-sunny"][idx % 4];
+                  return (
+                    <div
+                      key={conv.id}
+                      className={`group p-3 border-[3px] border-navy border-l-[5px] ${accent} rounded-xl cursor-pointer transition-all hover:shadow-[4px_4px_0_0_#000] ${
+                        currentConversationId === conv.id ? "bg-lavender-light" : "bg-snow hover:bg-cloud"
+                      }`}
+                      onClick={() => loadConversation(conv.id)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-display font-bold text-sm text-navy truncate">{conv.title}</p>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate mt-1">
+                            {new Date(conv.updatedAt).toLocaleDateString()} · {conv.messages.length} msgs
+                          </p>
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); deleteConversation(conv.id); }}
+                          className="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center bg-coral-light border-[2px] border-coral rounded-lg transition-all"
+                          aria-label="Delete conversation"
+                        >
+                          <svg className="w-3.5 h-3.5 text-coral" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 01.7.797l-.5 6a.75.75 0 01-1.497-.124l.5-6a.75.75 0 01.797-.672zm3.54.797a.75.75 0 00-1.497-.124l-.5 6a.75.75 0 101.498.124l.5-6z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
         </>
       )}
 
-      {/* Chat Area - with padding for fixed input */}
-      <div className="flex-1 overflow-hidden relative">
+      {/* ════════════════════════════════════════
+          CHAT AREA
+      ════════════════════════════════════════ */}
+      <div className="flex-1 overflow-hidden relative z-10">
         <div className="max-w-5xl mx-auto h-full flex flex-col px-4 md:px-8">
-          {/* Messages container */}
           <div
             ref={chatRef}
             className="flex-1 overflow-y-auto space-y-6 py-6 pb-44 md:pb-36 scroll-smooth"
@@ -1205,222 +803,127 @@ export default function IESAAIPage() {
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex gap-3 ${
-                  message.sender === "user" ? "flex-row-reverse" : "flex-row"
-                }`}
+                className={`flex gap-3 ${message.sender === "user" ? "flex-row-reverse" : "flex-row"}`}
               >
                 {/* Avatar */}
-                <div className="w-8 h-8 flex items-center justify-center shrink-0 bg-charcoal dark:bg-cream">
+                <div
+                  className={`w-9 h-9 flex items-center justify-center shrink-0 ${
+                    message.sender === "user"
+                      ? "bg-navy border-[3px] border-teal rounded-xl"
+                      : "bg-lavender border-[3px] border-navy rounded-2xl shadow-[2px_2px_0_0_#000]"
+                  }`}
+                >
                   {message.sender === "user" ? (
-                    <span className="text-cream dark:text-charcoal text-sm font-display">
-                      {user?.displayName?.[0] || "U"}
+                    <span className="text-lime text-sm font-display font-black">
+                      {user?.firstName?.[0] || "U"}
                     </span>
                   ) : (
-                    <svg
-                      className="w-4 h-4 text-cream dark:text-charcoal"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
-                      />
+                    <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                     </svg>
                   )}
                 </div>
 
                 {/* Message Bubble */}
-                <div
-                  className={`flex-1 max-w-[85%] md:max-w-[75%] space-y-2 ${
-                    message.sender === "user" ? "items-end" : "items-start"
-                  }`}
-                >
+                <div className={`flex-1 max-w-[85%] md:max-w-[75%] space-y-2 ${message.sender === "user" ? "items-end" : "items-start"}`}>
                   <div
                     className={`px-4 py-3 ${
                       message.sender === "user"
-                        ? "bg-charcoal dark:bg-cream text-cream dark:text-charcoal"
-                        : "bg-bg-card border border-border text-text-primary"
+                        ? "bg-navy border-[3px] border-teal text-ghost rounded-2xl rounded-tr-lg"
+                        : "bg-snow border-[3px] border-navy text-navy rounded-2xl rounded-tl-lg shadow-[4px_4px_0_0_#000]"
                     }`}
                   >
-                    <div className="text-body text-sm leading-relaxed">
-                      {message.sender === "ai"
-                        ? formatAIResponse(message.text)
-                        : message.text}
+                    <div className="font-display font-normal text-sm leading-relaxed">
+                      {message.sender === "ai" ? formatAIResponse(message.text) : message.text}
                     </div>
 
-                    {/* Suggestions - inside AI bubble only */}
-                    {message.sender === "ai" &&
-                      message.suggestions &&
-                      message.suggestions.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-border space-y-2">
-                          <div className="flex items-center gap-1.5 text-label-sm text-text-muted">
-                            <svg
-                              className="w-3.5 h-3.5"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={1.5}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18"
-                              />
-                            </svg>
-                            <span>Quick actions:</span>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {message.suggestions.map((suggestion, idx) => (
+                    {/* Suggestions */}
+                    {message.sender === "ai" && message.suggestions && message.suggestions.length > 0 && (
+                      <div className="mt-3 pt-3 border-t-[3px] border-navy/15 space-y-2">
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate">
+                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 1a6 6 0 00-3.815 10.631C7.237 12.5 8 13.443 8 14.456v.644a.75.75 0 00.572.729 6.016 6.016 0 002.856 0A.75.75 0 0012 15.1v-.644c0-1.013.762-1.957 1.815-2.825A6 6 0 0010 1zM8.863 17.414a.75.75 0 00-.226 1.483 9.066 9.066 0 002.726 0 .75.75 0 00-.226-1.483 7.553 7.553 0 01-2.274 0z" />
+                          </svg>
+                          Quick actions
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {message.suggestions.map((suggestion, idx) => {
+                            const colors = ["bg-teal-light text-teal border-teal", "bg-coral-light text-coral border-coral", "bg-lavender-light text-lavender border-lavender", "bg-sunny-light text-sunny border-sunny"];
+                            return (
                               <button
                                 key={idx}
-                                onClick={() =>
-                                  handleSuggestionClick(suggestion)
-                                }
-                                className="px-3 py-1.5 border border-border text-label-sm text-text-secondary hover:bg-bg-secondary hover:text-text-primary transition-colors"
+                                onClick={() => handleSuggestionClick(suggestion)}
+                                className={`px-3 py-1.5 border-[2px] ${colors[idx % 4]} font-display font-bold text-[10px] uppercase tracking-[0.08em] hover:brightness-95 transition-all rounded-lg`}
                               >
                                 {suggestion}
                               </button>
-                            ))}
-                          </div>
+                            );
+                          })}
                         </div>
-                      )}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Metadata - time & actions */}
-                  <div
-                    className={`flex items-center gap-2 px-1 ${
-                      message.sender === "user"
-                        ? "justify-end"
-                        : "justify-start"
-                    }`}
-                  >
-                    <span className="text-[10px] text-text-muted">
-                      {message.time}
-                    </span>
+                  {/* Metadata */}
+                  <div className={`flex items-center gap-2 px-1 ${message.sender === "user" ? "justify-end" : "justify-start"}`}>
+                    <span className="text-[10px] text-slate">{message.time}</span>
 
-                    {/* Copy button - for both user and AI */}
+                    {/* Copy */}
                     <button
                       onClick={() => handleCopy(message.text, message.id)}
-                      className="p-1 hover:bg-bg-secondary transition-colors"
-                      title="Copy message"
+                      className="p-1 hover:bg-cloud transition-colors rounded"
+                      aria-label="Copy message"
                     >
                       {copiedId === message.id ? (
-                        <svg
-                          className="w-3 h-3 text-green-600"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={1.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M4.5 12.75l6 6 9-13.5"
-                          />
+                        <svg className="w-3 h-3 text-teal" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
                         </svg>
                       ) : (
-                        <svg
-                          className="w-3 h-3 text-text-muted hover:text-text-primary"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={1.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"
-                          />
+                        <svg className="w-3 h-3 text-slate hover:text-navy" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M7 3.5A1.5 1.5 0 018.5 2h3.879a1.5 1.5 0 011.06.44l3.122 3.12A1.5 1.5 0 0117 6.622V12.5a1.5 1.5 0 01-1.5 1.5h-1v-3.379a3 3 0 00-.879-2.121L10.5 5.379A3 3 0 008.379 4.5H7v-1z" />
+                          <path d="M4.5 6A1.5 1.5 0 003 7.5v9A1.5 1.5 0 004.5 18h7a1.5 1.5 0 001.5-1.5v-5.879a1.5 1.5 0 00-.44-1.06L9.44 6.439A1.5 1.5 0 008.378 6H4.5z" />
                         </svg>
                       )}
                     </button>
 
-                    {/* Feedback buttons - AI only */}
+                    {/* AI-only actions */}
                     {message.sender === "ai" && (
                       <div className="flex items-center gap-1">
-                        {/* Speak button */}
+                        {/* speak */}
                         <button
                           onClick={() => speakMessage(message.text, message.id)}
-                          className={`p-1 hover:bg-bg-secondary transition-colors ${
-                            isSpeaking && speakingMessageId === message.id
-                              ? "bg-bg-secondary"
-                              : ""
-                          }`}
-                          title={
-                            isSpeaking && speakingMessageId === message.id
-                              ? "Stop speaking"
-                              : "Listen to response"
-                          }
+                          className="p-1 hover:bg-cloud transition-colors rounded"
+                          aria-label={isSpeaking && speakingMessageId === message.id ? "Stop speaking" : "Listen"}
                         >
                           {isSpeaking && speakingMessageId === message.id ? (
-                            <svg
-                              className="w-3 h-3 text-red-500 animate-pulse"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={1.5}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5.25 7.5A2.25 2.25 0 017.5 5.25h9a2.25 2.25 0 012.25 2.25v9a2.25 2.25 0 01-2.25 2.25h-9a2.25 2.25 0 01-2.25-2.25v-9z"
-                              />
+                            <svg className="w-3 h-3 text-coral animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M5.25 3A2.25 2.25 0 003 5.25v9.5A2.25 2.25 0 005.25 17h9.5A2.25 2.25 0 0017 14.75v-9.5A2.25 2.25 0 0014.75 3h-9.5z" />
                             </svg>
                           ) : (
-                            <svg
-                              className="w-3 h-3 text-text-muted hover:text-text-primary"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={1.5}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"
-                              />
+                            <svg className="w-3 h-3 text-slate hover:text-navy" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M10 3.75a.75.75 0 00-1.264-.546L4.703 7H3.167a.75.75 0 00-.7.48A6.985 6.985 0 002 10c0 .887.165 1.737.468 2.52.111.29.39.48.7.48h1.535l4.033 3.796A.75.75 0 0010 16.25V3.75zM15.95 5.05a.75.75 0 00-1.06 1.061 5.5 5.5 0 010 7.778.75.75 0 001.06 1.06 7 7 0 000-9.899z" />
+                              <path d="M13.829 7.172a.75.75 0 00-1.061 1.06 2.5 2.5 0 010 3.536.75.75 0 001.06 1.06 4 4 0 000-5.656z" />
                             </svg>
                           )}
                         </button>
+                        {/* thumbs up */}
                         <button
                           onClick={() => handleFeedback(message.id, "up")}
-                          className="p-1 hover:bg-bg-secondary transition-colors"
-                          title="Helpful"
+                          className="p-1 hover:bg-cloud transition-colors rounded"
+                          aria-label="Helpful"
                         >
-                          <svg
-                            className="w-3 h-3 text-text-muted hover:text-green-600"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={1.5}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M6.633 10.5c.806 0 1.533-.446 2.031-1.08a9.041 9.041 0 012.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 00.322-1.672V3a.75.75 0 01.75-.75A2.25 2.25 0 0116.5 4.5c0 1.152-.26 2.243-.723 3.218-.266.558.107 1.282.725 1.282h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 01-2.649 7.521c-.388.482-.987.729-1.605.729H13.48c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 00-1.423-.23H5.904M14.25 9h2.25M5.904 18.75c.083.205.173.405.27.602.197.4-.078.898-.523.898h-.908c-.889 0-1.713-.518-1.972-1.368a12 12 0 01-.521-3.507c0-1.553.295-3.036.831-4.398C3.387 10.203 4.167 9.75 5 9.75h1.053c.472 0 .745.556.5.96a8.958 8.958 0 00-1.302 4.665c0 1.194.232 2.333.654 3.375z"
-                            />
+                          <svg className="w-3 h-3 text-slate hover:text-teal" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M1 8.25a1.25 1.25 0 112.5 0v7.5a1.25 1.25 0 11-2.5 0v-7.5zM7.25 3A.75.75 0 007 3.75v.763c0 .665-.24 1.308-.678 1.808l-.453.496A1.742 1.742 0 005 8.392V15.5A1.5 1.5 0 006.5 17h7.286a1.5 1.5 0 001.443-1.087l1.907-6.75A1.5 1.5 0 0015.693 7.5h-3.93a.75.75 0 01-.75-.809l.399-3.589A1.205 1.205 0 0010.226 2h-.081A1.894 1.894 0 008.25 3.895V4a.75.75 0 01-.75.75h-.25z" />
                           </svg>
                         </button>
+                        {/* thumbs down */}
                         <button
                           onClick={() => handleFeedback(message.id, "down")}
-                          className="p-1 hover:bg-bg-secondary transition-colors"
-                          title="Not helpful"
+                          className="p-1 hover:bg-cloud transition-colors rounded"
+                          aria-label="Not helpful"
                         >
-                          <svg
-                            className="w-3 h-3 text-text-muted hover:text-red-600"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={1.5}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M7.5 15h2.25m8.024-9.75c.011.05.028.1.052.148.591 1.2.924 2.55.924 3.977a8.96 8.96 0 01-.999 4.125m.023-8.25c-.076-.365.183-.75.575-.75h.908c.889 0 1.713.518 1.972 1.368.339 1.11.521 2.287.521 3.507 0 1.553-.295 3.036-.831 4.398-.306.774-1.086 1.227-1.918 1.227h-1.053c-.472 0-.745-.556-.5-.96a8.95 8.95 0 00.303-.54m.023-8.25H16.48a4.5 4.5 0 01-1.423-.23l-3.114-1.04a4.5 4.5 0 00-1.423-.23H6.504c-.618 0-1.217.247-1.605.729A11.95 11.95 0 002.25 12c0 .434.023.863.068 1.285C2.427 14.306 3.346 15 4.372 15h3.126c.618 0 .991.724.725 1.282A7.471 7.471 0 007.5 19.5a2.25 2.25 0 002.25 2.25.75.75 0 00.75-.75v-.633c0-.573.11-1.14.322-1.672.304-.76.93-1.33 1.653-1.715a9.04 9.04 0 002.86-2.4c.498-.634 1.226-1.08 2.032-1.08h.384"
-                            />
+                          <svg className="w-3 h-3 text-slate hover:text-coral" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M18.905 12.75a1.25 1.25 0 01-2.5 0v-7.5a1.25 1.25 0 112.5 0v7.5zM12.75 17a.75.75 0 00.75-.75v-.763c0-.665.24-1.308.678-1.808l.453-.496c.546-.6.872-1.367.872-2.184V4.5A1.5 1.5 0 0014 3H6.214a1.5 1.5 0 00-1.443 1.087l-1.907 6.75A1.5 1.5 0 004.307 12.5h3.93a.75.75 0 01.75.81l-.399 3.588A1.205 1.205 0 009.774 18h.081a1.894 1.894 0 001.895-1.895V16a.75.75 0 01.75-.75h.25z" />
                           </svg>
                         </button>
                       </div>
@@ -1430,66 +933,64 @@ export default function IESAAIPage() {
               </div>
             ))}
 
-            {/* Loading Indicator */}
+            {/* Loading */}
             {loading && (
               <div className="flex gap-3">
-                <div className="w-8 h-8 bg-charcoal dark:bg-cream flex items-center justify-center">
-                  <svg
-                    className="w-4 h-4 text-cream dark:text-charcoal animate-pulse"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
-                    />
+                <div className="w-9 h-9 rounded-2xl bg-lavender border-[3px] border-navy flex items-center justify-center shadow-[2px_2px_0_0_#000]">
+                  <svg className="w-4 h-4 text-navy animate-pulse" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                   </svg>
                 </div>
-                <div className="border border-border bg-bg-card px-4 py-3 space-y-2">
+                <div className="border-[3px] border-navy bg-snow px-4 py-3 rounded-2xl rounded-tl-lg shadow-[4px_4px_0_0_#000]">
                   <div className="flex items-center gap-2">
-                    <span className="text-text-muted text-sm">
-                      IESA AI is thinking
-                    </span>
+                    <span className="text-slate text-sm font-display font-medium">IESA AI is thinking</span>
                     <div className="flex items-center gap-1">
-                      <div className="w-1.5 h-1.5 rounded-full bg-text-muted animate-bounce [animation-delay:0ms]" />
-                      <div className="w-1.5 h-1.5 rounded-full bg-text-muted animate-bounce [animation-delay:150ms]" />
-                      <div className="w-1.5 h-1.5 rounded-full bg-text-muted animate-bounce [animation-delay:300ms]" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-lavender animate-bounce [animation-delay:0ms]" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-teal animate-bounce [animation-delay:150ms]" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-coral animate-bounce [animation-delay:300ms]" />
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Quick Suggestions - Empty state */}
+            {/* Empty state suggestions */}
             {messages.length === 0 && quickSuggestions.length > 0 && (
               <div className="mt-8 space-y-4">
-                <p className="text-label-sm text-text-muted text-center">
-                  Try asking me about:
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate text-center">
+                  Try asking me about
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {quickSuggestions.slice(0, 6).map((suggestion, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleSuggestionClick(suggestion)}
-                      className="p-4 border border-border hover:border-border-dark transition-colors text-left group"
-                    >
-                      <p className="text-body text-sm text-text-secondary group-hover:text-text-primary transition-colors">
-                        {suggestion}
-                      </p>
-                    </button>
-                  ))}
+                  {quickSuggestions.slice(0, 6).map((suggestion, idx) => {
+                    const accents = [
+                      "border-l-teal hover:bg-teal-light",
+                      "border-l-coral hover:bg-coral-light",
+                      "border-l-lavender hover:bg-lavender-light",
+                      "border-l-sunny hover:bg-sunny-light",
+                    ];
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => handleSuggestionClick(suggestion)}
+                        className={`p-4 bg-snow border-[3px] border-navy border-l-[5px] ${accents[idx % 4]} rounded-xl text-left transition-all hover:shadow-[4px_4px_0_0_#000]`}
+                      >
+                        <p className="font-display font-medium text-sm text-navy">{suggestion}</p>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Fixed Input Area */}
-          <div className="fixed bottom-16 md:bottom-0 left-0 right-0 md:left-64 bg-bg-primary border-t border-border z-20">
+          {/* ════════════════════════════════════════
+              FIXED INPUT AREA
+          ════════════════════════════════════════ */}
+          <div className={`fixed bottom-16 md:bottom-0 left-0 right-0 bg-ghost/95 backdrop-blur-sm border-t-[3px] border-navy z-20 transition-all duration-300 ${
+            isExpanded ? "md:left-[260px]" : "md:left-[72px]"
+          }`}>
             <div className="max-w-5xl mx-auto px-4 md:px-8 py-4 space-y-3">
-              {/* Quick Actions */}
+              {/* Quick Actions strip */}
               {showQuickActions && messages.length === 1 && (
                 <div className="flex flex-wrap gap-2">
                   {QUICK_ACTIONS.map((action, idx) => (
@@ -1500,9 +1001,9 @@ export default function IESAAIPage() {
                         setShowQuickActions(false);
                         setTimeout(() => sendMessage(action.query), 100);
                       }}
-                      className="flex items-center gap-2 px-3 py-2 bg-bg-secondary border border-border hover:border-border-dark text-label-sm text-text-secondary hover:text-text-primary transition-colors"
+                      className="flex items-center gap-2 px-3 py-2 bg-snow border-[3px] border-navy rounded-xl font-display font-bold text-[10px] text-navy uppercase tracking-[0.08em] hover:shadow-[3px_3px_0_0_#000] transition-all"
                     >
-                      <span>{action.icon}</span>
+                      <div className={`w-2 h-2 rounded-full ${action.color}`} />
                       <span>{action.label}</span>
                     </button>
                   ))}
@@ -1510,86 +1011,62 @@ export default function IESAAIPage() {
               )}
 
               <div className="flex gap-2 items-start">
-                {/* Voice Input Button */}
+                {/* Voice */}
                 <button
                   onClick={toggleVoiceInput}
                   disabled={loading}
-                  className={`p-3 border transition-all shrink-0 ${
+                  className={`p-3 border-[3px] transition-all shrink-0 rounded-xl ${
                     isListening
-                      ? "bg-red-500 border-red-500 text-white animate-pulse"
-                      : "border-border hover:border-border-dark text-text-secondary hover:text-text-primary"
+                      ? "bg-coral border-coral text-snow animate-pulse shadow-[3px_3px_0_0_#000]"
+                      : "bg-snow border-navy text-navy/60 hover:text-navy hover:bg-cloud"
                   }`}
-                  title={isListening ? "Stop listening" : "Voice input"}
+                  aria-label={isListening ? "Stop listening" : "Voice input"}
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    {isListening ? (
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M5.25 7.5A2.25 2.25 0 017.5 5.25h9a2.25 2.25 0 012.25 2.25v9a2.25 2.25 0 01-2.25 2.25h-9a2.25 2.25 0 01-2.25-2.25v-9z"
-                      />
-                    ) : (
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"
-                      />
-                    )}
-                  </svg>
+                  {isListening ? (
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M5.25 3A2.25 2.25 0 003 5.25v9.5A2.25 2.25 0 005.25 17h9.5A2.25 2.25 0 0017 14.75v-9.5A2.25 2.25 0 0014.75 3h-9.5z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M7 4a3 3 0 016 0v6a3 3 0 11-6 0V4z" />
+                      <path d="M5.5 9.643a.75.75 0 00-1.5 0V10c0 3.06 2.29 5.585 5.25 5.954V17.5h-1.5a.75.75 0 000 1.5h4.5a.75.75 0 000-1.5h-1.5v-1.546A6.001 6.001 0 0016 10v-.357a.75.75 0 00-1.5 0V10a4.5 4.5 0 01-9 0v-.357z" />
+                    </svg>
+                  )}
                 </button>
 
+                {/* Textarea */}
                 <div className="flex-1 relative">
                   <textarea
                     ref={textareaRef}
                     rows={1}
                     value={input}
-                    onChange={(e) => {
-                      setInput(e.target.value);
-                      autoResize();
-                    }}
+                    onChange={(e) => { setInput(e.target.value); autoResize(); }}
                     onKeyDown={handleKeyDown}
-                    placeholder={
-                      isListening
-                        ? "Listening..."
-                        : "Ask me anything about IESA..."
-                    }
-                    className="w-full px-4 py-3 bg-bg-card border border-border text-body text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-dark resize-none transition-colors min-h-12 max-h-30 scrollbar-none"
+                    placeholder={isListening ? "Listening..." : "Ask me anything about IESA..."}
+                    className="w-full px-4 py-3 bg-snow border-[3px] border-navy font-display font-normal text-sm text-navy placeholder:text-slate focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal/20 resize-none transition-all min-h-12 max-h-30 scrollbar-none rounded-xl"
                     disabled={loading || isListening}
                   />
                 </div>
 
+                {/* Send */}
                 <button
                   onClick={() => sendMessage()}
                   disabled={loading || !input.trim()}
-                  className="px-4 py-4 bg-charcoal dark:bg-cream text-cream dark:text-charcoal text-label-sm hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity flex items-center gap-2 shrink-0"
+                  className="px-4 py-3.5 bg-navy border-[3px] border-lavender shadow-[3px_3px_0_0_#000] font-display font-black text-xs uppercase tracking-wider text-lavender hover:shadow-[5px_5px_0_0_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 shrink-0 rounded-xl"
+                  aria-label="Send message"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"
-                    />
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M3.105 2.288a.75.75 0 00-.826.95l1.414 4.926A1.5 1.5 0 005.135 9.25h6.115a.75.75 0 010 1.5H5.135a1.5 1.5 0 00-1.442 1.086l-1.414 4.926a.75.75 0 00.826.95 28.897 28.897 0 0015.293-7.155.75.75 0 000-1.114A28.897 28.897 0 003.105 2.288z" />
                   </svg>
                   <span className="hidden sm:inline">Send</span>
                 </button>
               </div>
 
-              <p className="text-[10px] text-text-muted text-center">
+              <p className="text-[10px] text-slate text-center">
                 {isListening ? (
-                  <span className="text-red-500">
-                    ● Recording... Click mic to stop
+                  <span className="text-coral font-bold">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-coral mr-1 animate-pulse" />
+                    Recording... Click mic to stop
                   </span>
                 ) : (
                   "IESA AI can make mistakes. Verify important information."

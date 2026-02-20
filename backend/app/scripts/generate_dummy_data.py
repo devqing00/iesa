@@ -25,6 +25,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
 import os
 from dotenv import load_dotenv
+from app.core.auth import hash_password
 
 load_dotenv()
 
@@ -284,34 +285,20 @@ async def generate_dummy_data(clear_existing=False):
     print(f"   📊 Grade Records: {grades_count}")
     print()
     print("=" * 70)
-    print("⚠️  CRITICAL: REGISTER FIRST, Then Login!")
+    print("⚠️  DUMMY DATA LOGIN INFO")
     print("=" * 70)
     print()
-    print("Dummy data creates MongoDB records ONLY (not Firebase Auth accounts).")
+    print("All dummy users have the password: DummyPass1!")
     print()
-    print("🔑 CORRECT Workflow:")
+    print("🔑 Login directly with email + password:")
     print()
-    print("1️⃣  REGISTER FIRST (creates Firebase Auth account):")
-    print("    Students: http://localhost:3000/register")
-    print("    Admin: http://localhost:3000/admin/register")
-    print()
-    print("2️⃣  Use a dummy email from the list:")
     print(f"    • {admin['email']} (admin)")
     if students:
         print(f"    • {students[0]['email']} (100L student)")
         if len(students) > 4:
             print(f"    • {students[4]['email']} (200L student)")
     print()
-    print("3️⃣  Set ANY password (e.g., Test@123)")
-    print()
-    print("4️⃣  Complete registration")
-    print()
-    print("5️⃣  NOW you can login with same email/password")
-    print()
-    print("✅ System will automatically link Firebase account to dummy data!")
-    print("✅ All payments, grades, timetable will appear immediately!")
-    print()
-    print("❌ DON'T try to login before registering - Firebase will reject it!")
+    print("✅ No separate registration step needed for dummy users!")
     print()
     print("📚 Full list: Run `python -m app.scripts.list_dummy_emails`")
     print()
@@ -371,7 +358,7 @@ async def generate_students(db, session_id):
             admission_year = current_year - years_in_school + 1
             
             student_data = {
-                "firebaseUid": f"dummy_{matric_num}",
+                "passwordHash": hash_password("DummyPass1!"),
                 "email": f"{first_name.lower()}.{last_name.lower()}{matric_num[-3:]}@stu.ui.edu.ng",
                 "firstName": first_name,
                 "lastName": last_name,
@@ -422,7 +409,7 @@ async def generate_students(db, session_id):
 async def create_admin_user(db):
     """Create admin user for testing"""
     admin_data = {
-        "firebaseUid": "dummy_admin_001",
+        "passwordHash": hash_password("DummyPass1!"),
         "email": "admin@iesa.ui.edu.ng",
         "firstName": "IESA",
         "lastName": "Administrator",

@@ -68,27 +68,32 @@ export function withAuth<P extends object>(
         return;
       }
 
+      // Determine correct dashboard based on user role
+      const dashboardPath = userProfile?.role === "admin" || userProfile?.role === "exco"
+        ? "/admin/dashboard"
+        : "/dashboard";
+
       // Check role-based access (legacy)
       if (allowedRoles && userProfile && !allowedRoles.includes(userProfile.role)) {
-        router.push("/dashboard"); // Redirect to dashboard if no permission
+        router.push(dashboardPath);
         return;
       }
 
       // Check single permission
       if (requiredPermission && !hasPermission(requiredPermission)) {
-        router.push("/dashboard");
+        router.push(dashboardPath);
         return;
       }
 
       // Check ANY permission
       if (anyPermission && !hasAnyPermission(anyPermission)) {
-        router.push("/dashboard");
+        router.push(dashboardPath);
         return;
       }
 
       // Check ALL permissions
       if (requiredPermissions && !hasAllPermissions(requiredPermissions)) {
-        router.push("/dashboard");
+        router.push(dashboardPath);
         return;
       }
     }, [
@@ -105,8 +110,38 @@ export function withAuth<P extends object>(
     // Show loading state
     if (authLoading || permissionsLoading) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <div className="min-h-screen bg-ghost p-6">
+          <div className="max-w-7xl mx-auto space-y-6">
+            {/* Header skeleton */}
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <div className="h-8 w-48 bg-cloud rounded-xl animate-pulse" />
+                <div className="h-4 w-32 bg-cloud rounded animate-pulse" />
+              </div>
+              <div className="h-10 w-24 bg-cloud rounded-2xl animate-pulse" />
+            </div>
+            {/* Stat cards skeleton */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="bg-snow border-[4px] border-cloud rounded-3xl p-6 space-y-3">
+                  <div className="h-3 w-20 bg-cloud rounded animate-pulse" />
+                  <div className="h-8 w-16 bg-cloud rounded animate-pulse" />
+                </div>
+              ))}
+            </div>
+            {/* Content skeleton */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="bg-snow border-[4px] border-cloud rounded-3xl p-6 space-y-4">
+                  <div className="h-5 w-32 bg-cloud rounded animate-pulse" />
+                  <div className="space-y-2">
+                    <div className="h-4 w-full bg-cloud rounded animate-pulse" />
+                    <div className="h-4 w-2/3 bg-cloud rounded animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       );
     }

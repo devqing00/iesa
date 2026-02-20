@@ -15,8 +15,9 @@ from app.core.permissions import require_permission
 from app.models.enrollment import Enrollment, EnrollmentCreate, EnrollmentUpdate
 from app.models.user import User
 from app.db import get_database
+from app.core.audit import AuditLogger
 
-router = APIRouter(prefix="/api/enrollments", tags=["enrollments"])
+router = APIRouter(prefix="/api/v1/enrollments", tags=["enrollments"])
 
 
 @router.post("/", response_model=Enrollment, dependencies=[Depends(require_permission("enrollment:create"))])
@@ -56,6 +57,8 @@ async def create_enrollment(
     
     # Create enrollment
     enrollment_data = enrollment.model_dump()
+    enrollment_data["enrollmentDate"] = datetime.utcnow()
+    enrollment_data["isActive"] = True
     enrollment_data["createdAt"] = datetime.utcnow()
     enrollment_data["updatedAt"] = datetime.utcnow()
     
@@ -65,6 +68,15 @@ async def create_enrollment(
     # Convert ObjectId to string
     created_enrollment["id"] = str(created_enrollment.pop("_id"))
     
+    await AuditLogger.log(
+        action=AuditLogger.ENROLLMENT_CREATED,
+        actor_id=str(current_user.get("_id", "") if isinstance(current_user, dict) else getattr(current_user, "_id", "")),
+        actor_email=str(current_user.get("email", "") if isinstance(current_user, dict) else getattr(current_user, "email", "")),
+        resource_type="enrollment",
+        resource_id=str(result.inserted_id),
+        session_id=enrollment.sessionId,
+        details={"student_id": enrollment.studentId, "level": enrollment.level}
+    )
     return Enrollment(**created_enrollment)
 
 
@@ -140,7 +152,7 @@ async def get_my_enrollments(current_user: User = Depends(get_current_user)):
     sessions = db["sessions"]
     
     # Fetch user's enrollments
-    cursor = enrollments.find({"studentId": current_user.id}).sort("createdAt", -1)
+    cursor = enrollments.find({"studentId": current_user.get("_id", "")}).sort("createdAt", -1)
     enrollments_list = await cursor.to_list(length=None)
     
     # Populate session details
@@ -242,6 +254,14 @@ async def update_enrollment(
     updated_enrollment = await enrollments.find_one({"_id": ObjectId(enrollment_id)})
     updated_enrollment["id"] = str(updated_enrollment.pop("_id"))
     
+    await AuditLogger.log(
+        action=AuditLogger.ENROLLMENT_UPDATED,
+        actor_id=str(current_user.get("_id", "") if isinstance(current_user, dict) else getattr(current_user, "_id", "")),
+        actor_email=str(current_user.get("email", "") if isinstance(current_user, dict) else getattr(current_user, "email", "")),
+        resource_type="enrollment",
+        resource_id=enrollment_id,
+        details={"updated_fields": list(update_data.keys())}
+    )
     return Enrollment(**updated_enrollment)
 
 
@@ -265,6 +285,15 @@ async def delete_enrollment(
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Enrollment not found")
     
+    actor_id = str(current_user.get("_id", "") if isinstance(current_user, dict) else getattr(current_user, "_id", ""))
+    actor_email = str(current_user.get("email", "") if isinstance(current_user, dict) else getattr(current_user, "email", ""))
+    await AuditLogger.log(
+        action=AuditLogger.ENROLLMENT_DELETED,
+        actor_id=actor_id,
+        actor_email=actor_email,
+        resource_type="enrollment",
+        resource_id=enrollment_id,
+    )
     return {"message": "Enrollment deleted successfully"}
 
 

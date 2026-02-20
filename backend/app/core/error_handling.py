@@ -81,8 +81,8 @@ async def mongodb_exception_handler(request: Request, exc: PyMongoError):
             field = "email"
         elif "matricNumber" in error_msg:
             field = "matricNumber"
-        elif "firebaseUid" in error_msg:
-            field = "firebaseUid"
+        elif "userId" in error_msg:
+            field = "userId"
         
         logger.warning(f"Duplicate key error on {request.url.path}: {field}")
         

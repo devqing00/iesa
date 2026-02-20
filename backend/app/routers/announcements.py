@@ -17,6 +17,7 @@ from app.db import get_database
 from app.core.security import get_current_user
 from app.core.permissions import require_permission
 from app.core.sanitization import sanitize_html, validate_no_scripts
+from app.core.audit import AuditLogger
 
 router = APIRouter(prefix="/api/v1/announcements", tags=["Announcements"])
 
@@ -72,6 +73,15 @@ async def create_announcement(
     created_announcement = await announcements.find_one({"_id": result.inserted_id})
     created_announcement["_id"] = str(created_announcement["_id"])
     
+    await AuditLogger.log(
+        action=AuditLogger.ANNOUNCEMENT_CREATED,
+        actor_id=user["_id"],
+        actor_email=user.get("email", ""),
+        resource_type="announcement",
+        resource_id=str(result.inserted_id),
+        session_id=announcement_data.sessionId,
+        details={"title": announcement_data.title, "priority": announcement_data.priority}
+    )
     return Announcement(**created_announcement)
 
 
@@ -290,6 +300,14 @@ async def update_announcement(
     updated_announcement = await announcements.find_one({"_id": ObjectId(announcement_id)})
     updated_announcement["_id"] = str(updated_announcement["_id"])
     
+    await AuditLogger.log(
+        action=AuditLogger.ANNOUNCEMENT_UPDATED,
+        actor_id=user["_id"],
+        actor_email=user.get("email", ""),
+        resource_type="announcement",
+        resource_id=announcement_id,
+        details={"updated_fields": list(update_data.keys())}
+    )
     return Announcement(**updated_announcement)
 
 
@@ -319,6 +337,13 @@ async def delete_announcement(
             detail=f"Announcement {announcement_id} not found"
         )
     
+    await AuditLogger.log(
+        action=AuditLogger.ANNOUNCEMENT_DELETED,
+        actor_id=user["_id"],
+        actor_email=user.get("email", ""),
+        resource_type="announcement",
+        resource_id=announcement_id,
+    )
     return None
 
 

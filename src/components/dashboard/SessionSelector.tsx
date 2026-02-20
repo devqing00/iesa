@@ -1,117 +1,50 @@
 "use client";
 
-/**
- * SessionSelector Component
- * 
- * Dropdown to switch between academic sessions.
- * This enables the "time travel" feature.
- */
+import { useSession } from "@/context/SessionContext";
+import { useState } from "react";
 
-import React, { useState } from 'react';
-import { useSession } from '@/context/SessionContext';
-import { ChevronDown, Calendar, Check } from 'lucide-react';
-
-export const SessionSelector: React.FC = () => {
-  const { currentSession, allSessions, switchSession, isLoading } = useSession();
+export default function SessionSelector() {
+  const { allSessions, currentSession, switchSession, isLoading } = useSession();
   const [isOpen, setIsOpen] = useState(false);
 
-  if (isLoading || !currentSession) {
-    return (
-      <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] animate-pulse">
-        <Calendar className="h-4 w-4 text-[var(--foreground)]/50" />
-        <span className="text-sm text-[var(--foreground)]/50">Loading...</span>
-      </div>
-    );
+  if (isLoading) {
+    return <div className="h-10 w-40 bg-cloud rounded-xl border-[3px] border-navy animate-pulse" />;
   }
-
-  const handleSessionChange = (sessionId: string) => {
-    switchSession(sessionId);
-    setIsOpen(false);
-  };
 
   return (
     <div className="relative">
-      {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] hover:border-[var(--primary)] transition-all duration-200 group"
-        aria-label="Select academic session"
+        className="flex items-center gap-2 px-4 py-2 bg-snow border-[3px] border-navy rounded-xl shadow-[3px_3px_0_0_#000] hover:shadow-[5px_5px_0_0_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all text-sm font-bold text-navy"
       >
-        <Calendar className="h-4 w-4 text-[var(--primary)]" />
-        <span className="text-sm font-medium text-[var(--foreground)]">
-          {currentSession.name}
-        </span>
-        {currentSession.isActive && (
-          <span className="px-2 py-0.5 text-xs rounded-full bg-[var(--primary)] text-white">
-            Active
-          </span>
-        )}
-        <ChevronDown
-          className={`h-4 w-4 text-[var(--foreground)]/50 transition-transform duration-200 ${
-            isOpen ? 'rotate-180' : ''
-          }`}
-        />
+        <span>{currentSession?.name || "Select Session"}</span>
+        <svg className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+        </svg>
       </button>
 
-      {/* Dropdown Menu */}
       {isOpen && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setIsOpen(false)}
-          />
-
-          {/* Menu */}
-          <div className="absolute right-0 mt-2 w-64 rounded-xl bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] shadow-lg z-50 overflow-hidden">
-            <div className="p-2">
-              <div className="px-3 py-2 text-xs font-semibold text-[var(--foreground)]/50 uppercase tracking-wide">
-                Academic Sessions
-              </div>
-              
-              {allSessions.length === 0 ? (
-                <div className="px-3 py-4 text-sm text-[var(--foreground)]/50 text-center">
-                  No sessions available
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {allSessions.map((session) => (
-                    <button
-                      key={session.id}
-                      onClick={() => handleSessionChange(session.id)}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-all duration-150 ${
-                        session.id === currentSession.id
-                          ? 'bg-[var(--primary)]/10 text-[var(--primary)]'
-                          : 'hover:bg-[var(--foreground)]/5 text-[var(--foreground)]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{session.name}</span>
-                        {session.isActive && (
-                          <span className="px-1.5 py-0.5 text-xs rounded bg-[var(--primary)]/20 text-[var(--primary)]">
-                            Active
-                          </span>
-                        )}
-                      </div>
-                      
-                      {session.id === currentSession.id && (
-                        <Check className="h-4 w-4 text-[var(--primary)]" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Info Footer */}
-            <div className="px-4 py-3 bg-[var(--foreground)]/5 border-t border-[var(--glass-border)]">
-              <p className="text-xs text-[var(--foreground)]/50">
-                Switching sessions filters all data across the dashboard
-              </p>
-            </div>
+        <div className="absolute top-full left-0 mt-2 w-64 bg-snow border-[3px] border-navy rounded-2xl shadow-[6px_6px_0_0_#000] z-50 overflow-hidden">
+          <div className="p-2 max-h-60 overflow-y-auto">
+            {allSessions.map((session) => (
+              <button
+                key={session.id}
+                onClick={() => { switchSession(session.id); setIsOpen(false); }}
+                className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all ${
+                  currentSession?.id === session.id
+                    ? "bg-lime text-navy font-bold"
+                    : "text-navy/60 hover:bg-cloud font-medium"
+                }`}
+              >
+                <span>{session.name}</span>
+                {session.isActive && (
+                  <span className="ml-2 text-[10px] font-bold text-teal uppercase">Active</span>
+                )}
+              </button>
+            ))}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
-};
+}

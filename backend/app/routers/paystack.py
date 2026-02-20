@@ -462,14 +462,14 @@ async def get_transactions(
         from app.db import get_sync_db
         db = get_sync_db()
         
-        # Get Firebase UID from user
-        firebase_uid = current_user.get("firebaseUid") or current_user.get("firebaseData", {}).get("uid")
-        if not firebase_uid:
-            raise HTTPException(status_code=400, detail="Firebase UID not found")
+        # Get user ID
+        user_id = current_user.get("_id")
+        if not user_id:
+            raise HTTPException(status_code=400, detail="User ID not found")
         
         # Fetch transactions
         transactions = list(
-            db.paystackTransactions.find({"studentId": firebase_uid})
+            db.paystackTransactions.find({"studentId": user_id})
             .sort("createdAt", -1)
             .limit(limit)
         )

@@ -19,6 +19,7 @@ from app.models.payment import (
 from app.db import get_database
 from app.core.security import get_current_user
 from app.core.permissions import require_permission
+from app.core.audit import AuditLogger
 
 router = APIRouter(prefix="/api/v1/payments", tags=["Payments"])
 limiter = Limiter(key_func=get_remote_address)
@@ -60,6 +61,15 @@ async def create_payment(
     created_payment = await payments.find_one({"_id": result.inserted_id})
     created_payment["_id"] = str(created_payment["_id"])
     
+    await AuditLogger.log(
+        action=AuditLogger.PAYMENT_CREATED,
+        actor_id=user.get("_id", ""),
+        actor_email=user.get("email", ""),
+        resource_type="payment",
+        resource_id=str(result.inserted_id),
+        session_id=payment_data.sessionId,
+        details={"amount": payment_data.amount, "type": payment_data.type}
+    )
     return Payment(**created_payment)
 
 
@@ -284,6 +294,14 @@ async def update_payment(
     updated_payment = await payments.find_one({"_id": ObjectId(payment_id)})
     updated_payment["_id"] = str(updated_payment["_id"])
     
+    await AuditLogger.log(
+        action=AuditLogger.PAYMENT_APPROVED,
+        actor_id=user.get("_id", ""),
+        actor_email=user.get("email", ""),
+        resource_type="payment",
+        resource_id=payment_id,
+        details={"updated_fields": list(update_data.keys())}
+    )
     return Payment(**updated_payment)
 
 
@@ -318,4 +336,11 @@ async def delete_payment(
     # Also delete related transactions
     await transactions.delete_many({"paymentId": payment_id})
     
+    await AuditLogger.log(
+        action=AuditLogger.PAYMENT_DELETED,
+        actor_id=user.get("_id", ""),
+        actor_email=user.get("email", ""),
+        resource_type="payment",
+        resource_id=payment_id,
+    )
     return None

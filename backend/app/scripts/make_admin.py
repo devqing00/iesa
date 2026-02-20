@@ -1,13 +1,13 @@
 """
 Make Admin Script
 
-Promote a user to admin role by their Firebase UID.
+Promote a user to admin role by their email address.
 
 Usage:
-    python -m app.scripts.make_admin <firebase_uid>
+    python -m app.scripts.make_admin <email>
     
 Example:
-    python -m app.scripts.make_admin "abc123xyz789"
+    python -m app.scripts.make_admin "admin@iesa.ui.edu.ng"
 """
 
 import asyncio
@@ -24,7 +24,7 @@ MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
 DATABASE_NAME = os.getenv("DATABASE_NAME", "iesa_db")
 
 
-async def make_user_admin(firebase_uid: str):
+async def make_user_admin(email: str):
     """Promote a user to admin role."""
     
     # Connect to MongoDB
@@ -32,18 +32,17 @@ async def make_user_admin(firebase_uid: str):
     db = client[DATABASE_NAME]
     users = db.users
     
-    print(f"🔍 Looking for user with Firebase UID: {firebase_uid}")
+    print(f"🔍 Looking for user with email: {email}")
     
     # Find user
-    user = await users.find_one({"firebaseUid": firebase_uid})
+    user = await users.find_one({"email": email})
     
     if not user:
-        print(f"❌ User not found with Firebase UID: {firebase_uid}")
+        print(f"❌ User not found with email: {email}")
         print()
         print("💡 Available users:")
-        async for u in users.find({}, {"firebaseUid": 1, "email": 1, "firstName": 1, "lastName": 1}):
+        async for u in users.find({}, {"email": 1, "firstName": 1, "lastName": 1}):
             print(f"   - {u.get('firstName')} {u.get('lastName')} ({u.get('email')})")
-            print(f"     Firebase UID: {u.get('firebaseUid')}")
             print()
         client.close()
         return False
@@ -56,7 +55,7 @@ async def make_user_admin(firebase_uid: str):
     
     # Update to admin
     result = await users.update_one(
-        {"firebaseUid": firebase_uid},
+        {"email": email},
         {
             "$set": {
                 "role": "admin",
@@ -97,7 +96,6 @@ async def list_all_users():
         print(f"{count}. {user.get('firstName')} {user.get('lastName')}")
         print(f"   Email: {user.get('email')}")
         print(f"   Role: {user.get('role')}")
-        print(f"   Firebase UID: {user.get('firebaseUid')}")
         print()
     
     if count == 0:
@@ -115,13 +113,13 @@ if __name__ == "__main__":
     print()
     
     if len(sys.argv) < 2:
-        print("❌ Error: Firebase UID required")
+        print("❌ Error: Email address required")
         print()
         print("Usage:")
-        print("   python -m app.scripts.make_admin <firebase_uid>")
+        print("   python -m app.scripts.make_admin <email>")
         print()
         print("Example:")
-        print('   python -m app.scripts.make_admin "abc123xyz789"')
+        print('   python -m app.scripts.make_admin "admin@iesa.ui.edu.ng"')
         print()
         print("To see all users:")
         print("   python -m app.scripts.make_admin --list")
@@ -132,10 +130,10 @@ if __name__ == "__main__":
         
         sys.exit(1)
     
-    firebase_uid = sys.argv[1]
+    email = sys.argv[1]
     
-    if firebase_uid in ["--list", "-l"]:
+    if email in ["--list", "-l"]:
         asyncio.run(list_all_users())
     else:
-        success = asyncio.run(make_user_admin(firebase_uid))
+        success = asyncio.run(make_user_admin(email))
         sys.exit(0 if success else 1)

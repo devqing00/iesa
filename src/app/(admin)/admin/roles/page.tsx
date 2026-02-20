@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { getApiUrl } from "@/lib/api";
+import { ConfirmModal } from "@/components/ui/Modal";
+
+/* ─── Types ──────────────────────────────── */
 
 interface User {
   id: string;
@@ -26,6 +29,7 @@ interface Role {
   userId: string;
   sessionId: string;
   position: string;
+  permissions?: string[];
   user?: User;
   session?: Session;
   createdAt: string;
@@ -35,10 +39,7 @@ const POSITIONS = [
   { value: "president", label: "President" },
   { value: "vice_president", label: "Vice President" },
   { value: "general_secretary", label: "General Secretary" },
-  {
-    value: "assistant_general_secretary",
-    label: "Assistant General Secretary",
-  },
+  { value: "assistant_general_secretary", label: "Assistant General Secretary" },
   { value: "financial_secretary", label: "Financial Secretary" },
   { value: "treasurer", label: "Treasurer" },
   { value: "director_of_socials", label: "Director of Socials" },
@@ -51,14 +52,17 @@ const POSITIONS = [
   { value: "class_rep_500L", label: "500L Class Rep" },
 ];
 
+/* ─── Component ──────────────────────────── */
+
 function RolesPage() {
-  const { user, userProfile, loading: authLoading } = useAuth();
+  const { user, userProfile, loading: authLoading, getAccessToken } = useAuth();
   const [roles, setRoles] = useState<Role[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: "" });
 
   // Filter
   const [filterSession, setFilterSession] = useState<string>("all");
@@ -70,29 +74,31 @@ function RolesPage() {
     position: "",
   });
 
-  // Fetch data
+  // Permissions edit state
+  const [editPermsRole, setEditPermsRole] = useState<Role | null>(null);
+  const [permCatalogue, setPermCatalogue] = useState<Record<string, { key: string; description: string }[]>>({});
+  const [defaultPermsByPosition, setDefaultPermsByPosition] = useState<Record<string, string[]>>({});
+  const [selectedPerms, setSelectedPerms] = useState<Set<string>>(new Set());
+  const [savingPerms, setSavingPerms] = useState(false);
+
+  /* ── Fetch ──────────────────────── */
+
   useEffect(() => {
     if (user && userProfile) {
       fetchData();
+      fetchPermCatalogue();
     }
   }, [user, userProfile]);
 
   const fetchData = async () => {
     try {
-      const token = await user?.getIdToken();
+      const token = await getAccessToken();
       if (!token) return;
 
-      // Fetch roles, users, and sessions in parallel
       const [rolesRes, usersRes, sessionsRes] = await Promise.all([
-        fetch(getApiUrl("/api/v1/roles"), {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(getApiUrl("/api/v1/users"), {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(getApiUrl("/api/v1/sessions"), {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        fetch(getApiUrl("/api/v1/roles/"), { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(getApiUrl("/api/v1/users/"), { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(getApiUrl("/api/v1/sessions/"), { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       if (!rolesRes.ok || !usersRes.ok || !sessionsRes.ok) {
@@ -109,7 +115,6 @@ function RolesPage() {
       setUsers(usersData);
       setSessions(sessionsData);
 
-      // Set default session to active session
       const activeSession = sessionsData.find((s: Session) => s.isActive);
       if (activeSession) {
         setFilterSession(activeSession.id);
@@ -124,20 +129,18 @@ function RolesPage() {
     }
   };
 
+  /* ── Create ─────────────────────── */
+
   const handleCreateRole = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
     try {
-      const token = await user?.getIdToken();
+      const token = await getAccessToken();
       if (!token) return;
 
-      const response = await fetch(getApiUrl("/api/v1/roles"), {
+      const response = await fetch(getApiUrl("/api/v1/roles/"), {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
@@ -146,53 +149,104 @@ function RolesPage() {
         throw new Error(errorData.detail || "Failed to assign role");
       }
 
-      // Reset form and close modal
       setFormData({ userId: "", sessionId: formData.sessionId, position: "" });
       setShowModal(false);
-
-      // Refresh data
       await fetchData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to assign role");
     }
   };
 
-  const handleDeleteRole = async (roleId: string) => {
-    if (!confirm("Are you sure you want to remove this role assignment?"))
-      return;
+  /* ── Delete ─────────────────────── */
 
+  const handleDeleteRole = (roleId: string) => {
+    setDeleteConfirm({ isOpen: true, id: roleId });
+  };
+
+  const confirmDeleteRole = async (roleId: string) => {
     try {
-      const token = await user?.getIdToken();
+      const token = await getAccessToken();
       if (!token) return;
 
-      const response = await fetch(`/api/v1/roles/${roleId}`, {
+      const response = await fetch(getApiUrl(`/api/v1/roles/${roleId}`), {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to delete role");
-      }
-
+      if (!response.ok) throw new Error("Failed to delete role");
       await fetchData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete role");
     }
   };
 
-  // Filter roles by session
-  const filteredRoles =
-    filterSession === "all"
-      ? roles
-      : roles.filter((role) => role.sessionId === filterSession);
+  /* ── Permissions Catalogue ────────── */
 
-  // Group roles by category
-  const executiveRoles = filteredRoles.filter(
-    (r) => !r.position.startsWith("class_rep_")
-  );
-  const classRepRoles = filteredRoles.filter((r) =>
-    r.position.startsWith("class_rep_")
-  );
+  const fetchPermCatalogue = async () => {
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      const [catalogRes, defaultsRes] = await Promise.all([
+        fetch(getApiUrl("/api/v1/roles/permissions"), { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(getApiUrl("/api/v1/roles/permissions/defaults"), { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      if (catalogRes.ok) {
+        const data = await catalogRes.json();
+        setPermCatalogue(data.grouped || {});
+      }
+      if (defaultsRes.ok) {
+        const data = await defaultsRes.json();
+        setDefaultPermsByPosition(data.defaults || {});
+      }
+    } catch { /* silent */ }
+  };
+
+  /* ── Edit Permissions ─────────────── */
+
+  const openEditPerms = (role: Role) => {
+    setEditPermsRole(role);
+    setSelectedPerms(new Set(role.permissions || []));
+  };
+
+  const togglePerm = (key: string) => {
+    setSelectedPerms((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  const savePermissions = async () => {
+    if (!editPermsRole) return;
+    setSavingPerms(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      const response = await fetch(getApiUrl(`/api/v1/roles/${editPermsRole.id}`), {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ permissions: Array.from(selectedPerms) }),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || "Failed to update permissions");
+      }
+      setEditPermsRole(null);
+      await fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save permissions");
+    } finally {
+      setSavingPerms(false);
+    }
+  };
+
+  /* ── Derived ────────────────────── */
+
+  const filteredRoles =
+    filterSession === "all" ? roles : roles.filter((role) => role.sessionId === filterSession);
+
+  const executiveRoles = filteredRoles.filter((r) => !r.position.startsWith("class_rep_"));
+  const classRepRoles = filteredRoles.filter((r) => r.position.startsWith("class_rep_"));
 
   const getPositionLabel = (position: string) => {
     return POSITIONS.find((p) => p.value === position)?.label || position;
@@ -200,276 +254,279 @@ function RolesPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--primary)]"></div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-10 h-10 border-[3px] border-navy border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
+  /* ── Render ─────────────────────── */
+
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="max-w-7xl mx-auto space-y-8">
+      {/* ── Header ── */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-heading font-bold text-[var(--foreground)]">
-            Role Management
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Administration</p>
+          <h1 className="font-display font-black text-3xl md:text-4xl text-navy">
+            <span className="brush-highlight">Role</span> Management
           </h1>
-          <p className="text-[var(--foreground)]/60 mt-1">
-            Assign executive positions and class representatives for each
-            session
-          </p>
+          <p className="text-sm text-navy/60 mt-1">Assign executive positions and class representatives for each session</p>
         </div>
         <PermissionGate permission="role:create">
           <button
+            type="button"
             onClick={() => setShowModal(true)}
-            className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:opacity-90 transition-opacity"
+            className="self-start bg-lime border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D] px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy hover:shadow-[7px_7px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center gap-2"
           >
-            <svg
-              className="h-5 w-5 inline mr-2"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 4v16m8-8H4"
-              />
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
             </svg>
             Assign Role
           </button>
         </PermissionGate>
       </div>
 
-      {/* Error Alert */}
+      {/* ── Error ── */}
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
-          <p className="text-red-600 dark:text-red-400">{error}</p>
+        <div role="alert" className="bg-coral-light border-[3px] border-coral rounded-2xl p-4">
+          <p className="text-coral text-sm font-bold">{error}</p>
         </div>
       )}
 
-      {/* Session Filter */}
-      <div className="bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-xl p-4">
-        <label
-          htmlFor="filter-session-select"
-          className="block text-sm font-medium text-[var(--foreground)]/70 mb-2"
-        >
-          Filter by Session
-        </label>
-        <select
-          id="filter-session-select"
-          value={filterSession}
-          onChange={(e) => setFilterSession(e.target.value)}
-          className="w-full md:w-64 px-3 py-2 bg-[var(--background)] border border-[var(--glass-border)] rounded-lg text-[var(--foreground)]"
-        >
-          <option value="all">All Sessions</option>
-          {sessions.map((session) => (
-            <option key={session.id} value={session.id}>
-              {session.name} {session.isActive && "(Active)"}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* ── Stats + Filter ── */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Session Filter */}
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000] flex flex-col justify-between">
+          <label htmlFor="filter-session-select" className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-3 block">Filter Session</label>
+          <select
+            id="filter-session-select"
+            value={filterSession}
+            onChange={(e) => setFilterSession(e.target.value)}
+            className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
+          >
+            <option value="all">All Sessions</option>
+            {sessions.map((session) => (
+              <option key={session.id} value={session.id}>
+                {session.name} {session.isActive && "(Active)"}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-xl p-6">
-          <div className="text-2xl font-bold text-[var(--primary)]">
-            {executiveRoles.length}
-          </div>
-          <div className="text-sm text-[var(--foreground)]/60">
-            Executive Positions
-          </div>
+        {/* Executive Count */}
+        <div className="bg-teal border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Executive</p>
+          <p className="font-display font-black text-3xl text-snow">{executiveRoles.length}</p>
+          <span className="inline-flex mt-1 px-2.5 py-0.5 rounded-full bg-snow/20 text-snow/80 text-xs font-bold">Positions filled</span>
         </div>
-        <div className="bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-xl p-6">
-          <div className="text-2xl font-bold text-[var(--primary)]">
-            {classRepRoles.length}
-          </div>
-          <div className="text-sm text-[var(--foreground)]/60">
-            Class Representatives
-          </div>
+
+        {/* Class Rep Count */}
+        <div className="bg-lavender border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Class Reps</p>
+          <p className="font-display font-black text-3xl text-snow">{classRepRoles.length}</p>
+          <span className="inline-flex mt-1 px-2.5 py-0.5 rounded-full bg-snow/20 text-snow/80 text-xs font-bold">Representatives</span>
         </div>
-        <div className="bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-xl p-6">
-          <div className="text-2xl font-bold text-[var(--primary)]">
-            {filteredRoles.length}
-          </div>
-          <div className="text-sm text-[var(--foreground)]/60">Total Roles</div>
+
+        {/* Total */}
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000]" aria-live="polite">
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Total</p>
+          <p className="font-display font-black text-3xl text-navy">{filteredRoles.length}</p>
+          <span className="inline-flex mt-1 px-2.5 py-0.5 rounded-full bg-cloud text-slate text-xs font-bold">Active roles</span>
         </div>
       </div>
 
-      {/* Executive Team */}
-      <div className="bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-xl p-6">
-        <h2 className="text-xl font-heading font-bold text-[var(--foreground)] mb-4">
-          Executive Team
-        </h2>
+      {/* ── Executive Team ── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <h2 className="font-display font-bold text-xl text-navy">Executive Team</h2>
+          <span className="px-3 py-1 bg-cloud text-slate text-xs font-bold rounded-full">{executiveRoles.length}</span>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {executiveRoles.length === 0 ? (
-            <div className="col-span-full text-center py-8 text-[var(--foreground)]/60">
-              No executive positions assigned
+            <div className="col-span-full bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[6px_6px_0_0_#000]">
+              <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-lime-light flex items-center justify-center">
+                <svg className="w-7 h-7 text-lime-dark" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" />
+                  <path d="M5.082 14.254a8.287 8.287 0 0 0-1.308 5.135 9.687 9.687 0 0 1-1.764-.44l-.115-.04a.563.563 0 0 1-.373-.487l-.01-.121a3.75 3.75 0 0 1 3.57-4.047ZM20.226 19.389a8.287 8.287 0 0 0-1.308-5.135 3.75 3.75 0 0 1 3.57 4.047l-.01.121a.563.563 0 0 1-.373.486l-.115.04c-.567.2-1.156.349-1.764.441Z" />
+                </svg>
+              </div>
+              <p className="text-sm text-navy/60 font-medium">No executive positions assigned</p>
             </div>
           ) : (
-            executiveRoles.map((role) => (
-              <div
-                key={role.id}
-                className="border border-[var(--glass-border)] rounded-lg p-4 hover:bg-[var(--primary)]/5 transition-colors"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-[var(--primary)] uppercase tracking-wide mb-1">
+            executiveRoles.map((role) => {
+              const initials = role.user ? `${role.user.firstName[0]}${role.user.lastName[0]}` : "??";
+              return (
+                <div key={role.id} className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] hover:shadow-[8px_8px_0_0_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all group">
+                  <div className="flex items-start justify-between mb-4">
+                    <span className="px-3 py-1 rounded-full bg-lime-light text-teal text-xs font-bold">
                       {getPositionLabel(role.position)}
+                    </span>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => openEditPerms(role)}
+                        className="p-1.5 rounded-xl hover:bg-lavender-light text-slate hover:text-lavender transition-colors"
+                        title="Edit permissions"
+                        aria-label={`Edit permissions for ${role.user?.firstName || ""} ${role.user?.lastName || ""}`}
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteRole(role.id)}
+                        className="p-1.5 rounded-xl hover:bg-coral-light text-slate hover:text-coral transition-colors"
+                        title="Remove role"
+                        aria-label={`Remove ${role.user?.firstName || ""} ${role.user?.lastName || ""} from ${getPositionLabel(role.position)}`}
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
+                        </svg>
+                      </button>
                     </div>
-                    <div className="text-lg font-semibold text-[var(--foreground)]">
-                      {role.user?.firstName} {role.user?.lastName}
-                    </div>
-                    <div className="text-sm text-[var(--foreground)]/60">
-                      {role.user?.email}
-                    </div>
-                    {role.user?.matricNumber && (
-                      <div className="text-sm text-[var(--foreground)]/60">
-                        {role.user.matricNumber}
-                      </div>
-                    )}
                   </div>
-                  <button
-                    onClick={() => handleDeleteRole(role.id)}
-                    className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                    title="Remove role"
-                  >
-                    <svg
-                      className="h-5 w-5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-teal-light flex items-center justify-center text-sm font-bold text-teal shrink-0">
+                      {initials}
+                    </div>
+                    <div>
+                      <p className="font-display font-bold text-navy">{role.user?.firstName} {role.user?.lastName}</p>
+                      <p className="text-xs text-navy/50">{role.user?.email}</p>
+                    </div>
+                  </div>
+                  {role.user?.matricNumber && (
+                    <p className="text-xs text-slate mb-3">{role.user.matricNumber}</p>
+                  )}
+                  <div className="pt-3 border-t-[3px] border-navy/10">
+                    <span className="text-xs text-slate">Assigned {new Date(role.createdAt).toLocaleDateString()}</span>
+                  </div>
                 </div>
-                <div className="text-xs text-[var(--foreground)]/50">
-                  Assigned {new Date(role.createdAt).toLocaleDateString()}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
 
-      {/* Class Representatives */}
-      <div className="bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border border-[var(--glass-border)] rounded-xl p-6">
-        <h2 className="text-xl font-heading font-bold text-[var(--foreground)] mb-4">
-          Class Representatives
-        </h2>
+      {/* ── Class Representatives ── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <h2 className="font-display font-bold text-xl text-navy">Class Representatives</h2>
+          <span className="px-3 py-1 bg-cloud text-slate text-xs font-bold rounded-full">{classRepRoles.length}</span>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {classRepRoles.length === 0 ? (
-            <div className="col-span-full text-center py-8 text-[var(--foreground)]/60">
-              No class representatives assigned
+            <div className="col-span-full bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[6px_6px_0_0_#000]">
+              <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-lavender-light flex items-center justify-center">
+                <svg className="w-7 h-7 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM14.25 8.625a3.375 3.375 0 1 1 6.75 0 3.375 3.375 0 0 1-6.75 0ZM1.5 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122ZM17.25 19.128l-.001.144a2.25 2.25 0 0 1-.233.96 10.088 10.088 0 0 0 5.06-1.01.75.75 0 0 0 .42-.643 4.875 4.875 0 0 0-6.957-4.611 8.586 8.586 0 0 1 1.71 5.157v.003Z" />
+                </svg>
+              </div>
+              <p className="text-sm text-navy/60 font-medium">No class representatives assigned</p>
             </div>
           ) : (
-            classRepRoles.map((role) => (
-              <div
-                key={role.id}
-                className="border border-[var(--glass-border)] rounded-lg p-4 hover:bg-[var(--primary)]/5 transition-colors"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-[var(--primary)] uppercase tracking-wide mb-1">
+            classRepRoles.map((role) => {
+              const initials = role.user ? `${role.user.firstName[0]}${role.user.lastName[0]}` : "??";
+              return (
+                <div key={role.id} className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] hover:shadow-[8px_8px_0_0_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all group">
+                  <div className="flex items-start justify-between mb-4">
+                    <span className="px-3 py-1 rounded-full bg-lavender-light text-lavender text-xs font-bold">
                       {getPositionLabel(role.position)}
+                    </span>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => openEditPerms(role)}
+                        className="p-1.5 rounded-xl hover:bg-lavender-light text-slate hover:text-lavender transition-colors"
+                        title="Edit permissions"
+                        aria-label={`Edit permissions for ${role.user?.firstName || ""} ${role.user?.lastName || ""}`}
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteRole(role.id)}
+                        className="p-1.5 rounded-xl hover:bg-coral-light text-slate hover:text-coral transition-colors"
+                        title="Remove role"
+                        aria-label={`Remove ${role.user?.firstName || ""} ${role.user?.lastName || ""} from ${getPositionLabel(role.position)}`}
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
+                        </svg>
+                      </button>
                     </div>
-                    <div className="text-lg font-semibold text-[var(--foreground)]">
-                      {role.user?.firstName} {role.user?.lastName}
-                    </div>
-                    <div className="text-sm text-[var(--foreground)]/60">
-                      {role.user?.email}
-                    </div>
-                    {role.user?.matricNumber && (
-                      <div className="text-sm text-[var(--foreground)]/60">
-                        {role.user.matricNumber}
-                      </div>
-                    )}
                   </div>
-                  <button
-                    onClick={() => handleDeleteRole(role.id)}
-                    className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                    title="Remove role"
-                  >
-                    <svg
-                      className="h-5 w-5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-lavender-light flex items-center justify-center text-sm font-bold text-lavender shrink-0">
+                      {initials}
+                    </div>
+                    <div>
+                      <p className="font-display font-bold text-navy">{role.user?.firstName} {role.user?.lastName}</p>
+                      <p className="text-xs text-navy/50">{role.user?.email}</p>
+                    </div>
+                  </div>
+                  {role.user?.matricNumber && (
+                    <p className="text-xs text-slate mb-3">{role.user.matricNumber}</p>
+                  )}
+                  <div className="pt-3 border-t-[3px] border-navy/10">
+                    <span className="text-xs text-slate">Assigned {new Date(role.createdAt).toLocaleDateString()}</span>
+                  </div>
                 </div>
-                <div className="text-xs text-[var(--foreground)]/50">
-                  Assigned {new Date(role.createdAt).toLocaleDateString()}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
 
-      {/* Assign Role Modal */}
+      {/* ── Assign Role Modal ── */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-[var(--background)] rounded-xl max-w-md w-full p-6 border border-[var(--glass-border)]">
-            <h2 className="text-2xl font-heading font-bold text-[var(--foreground)] mb-4">
-              Assign Role
-            </h2>
-            <form onSubmit={handleCreateRole} className="space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-navy/50" onClick={() => setShowModal(false)} />
+
+          <div className="relative bg-snow border-[4px] border-navy rounded-3xl p-8 w-full max-w-md shadow-[10px_10px_0_0_#000]">
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <label
-                  htmlFor="user-select"
-                  className="block text-sm font-medium text-[var(--foreground)]/70 mb-2"
-                >
-                  User
-                </label>
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">New Assignment</p>
+                <h2 className="font-display font-black text-xl text-navy">Assign Role</h2>
+              </div>
+              <button
+                onClick={() => setShowModal(false)}
+                className="p-2 rounded-xl hover:bg-cloud transition-colors"
+                aria-label="Close modal"
+              >
+                <svg className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateRole} className="space-y-5">
+              <div className="space-y-1.5">
+                <label htmlFor="user-select" className="text-sm font-bold text-navy">User</label>
                 <select
                   id="user-select"
                   value={formData.userId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, userId: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--glass-border)] rounded-lg text-[var(--foreground)]"
+                  onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
+                  className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
                   required
                 >
                   <option value="">Select a user</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.firstName} {user.lastName} (
-                      {user.matricNumber || user.email})
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.firstName} {u.lastName} ({u.matricNumber || u.email})
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div>
-                <label
-                  htmlFor="session-select"
-                  className="block text-sm font-medium text-[var(--foreground)]/70 mb-2"
-                >
-                  Session
-                </label>
+              <div className="space-y-1.5">
+                <label htmlFor="session-select" className="text-sm font-bold text-navy">Session</label>
                 <select
                   id="session-select"
                   value={formData.sessionId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, sessionId: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--glass-border)] rounded-lg text-[var(--foreground)]"
+                  onChange={(e) => setFormData({ ...formData, sessionId: e.target.value })}
+                  className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
                   required
                 >
                   <option value="">Select a session</option>
@@ -481,39 +538,24 @@ function RolesPage() {
                 </select>
               </div>
 
-              <div>
-                <label
-                  htmlFor="position-select"
-                  className="block text-sm font-medium text-[var(--foreground)]/70 mb-2"
-                >
-                  Position
-                </label>
+              <div className="space-y-1.5">
+                <label htmlFor="position-select" className="text-sm font-bold text-navy">Position</label>
                 <select
                   id="position-select"
                   value={formData.position}
-                  onChange={(e) =>
-                    setFormData({ ...formData, position: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--glass-border)] rounded-lg text-[var(--foreground)]"
+                  onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                  className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
                   required
                 >
                   <option value="">Select a position</option>
                   <optgroup label="Executive Positions">
-                    {POSITIONS.filter(
-                      (p) => !p.value.startsWith("class_rep_")
-                    ).map((position) => (
-                      <option key={position.value} value={position.value}>
-                        {position.label}
-                      </option>
+                    {POSITIONS.filter((p) => !p.value.startsWith("class_rep_")).map((position) => (
+                      <option key={position.value} value={position.value}>{position.label}</option>
                     ))}
                   </optgroup>
                   <optgroup label="Class Representatives">
-                    {POSITIONS.filter((p) =>
-                      p.value.startsWith("class_rep_")
-                    ).map((position) => (
-                      <option key={position.value} value={position.value}>
-                        {position.label}
-                      </option>
+                    {POSITIONS.filter((p) => p.value.startsWith("class_rep_")).map((position) => (
+                      <option key={position.value} value={position.value}>{position.label}</option>
                     ))}
                   </optgroup>
                 </select>
@@ -523,18 +565,141 @@ function RolesPage() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 border border-[var(--glass-border)] rounded-lg text-[var(--foreground)] hover:bg-[var(--glass-bg)] transition-colors"
+                  className="flex-1 px-5 py-2.5 rounded-2xl border-[3px] border-navy text-navy text-sm font-bold hover:bg-cloud transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:opacity-90 transition-opacity"
+                  className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold hover:shadow-[4px_4px_0_0_#C8F31D] transition-all"
                 >
                   Assign
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        onClose={() => setDeleteConfirm({ isOpen: false, id: "" })}
+        onConfirm={() => {
+          confirmDeleteRole(deleteConfirm.id);
+          setDeleteConfirm({ isOpen: false, id: "" });
+        }}
+        title="Remove Role"
+        message="Are you sure you want to remove this role assignment?"
+        confirmLabel="Remove"
+        variant="danger"
+      />
+
+      {/* ── Edit Permissions Modal ── */}
+      {editPermsRole && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-navy/60" onClick={() => setEditPermsRole(null)} />
+          <div className="relative bg-snow border-[4px] border-navy rounded-3xl w-full max-w-2xl shadow-[10px_10px_0_0_#000] max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-start justify-between p-7 pb-5 border-b-[3px] border-navy/10">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Role Permissions</p>
+                <h2 className="font-display font-black text-xl text-navy">
+                  {editPermsRole.user?.firstName} {editPermsRole.user?.lastName}
+                </h2>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="px-2.5 py-0.5 rounded-full bg-lime-light text-navy text-xs font-bold">
+                    {getPositionLabel(editPermsRole.position)}
+                  </span>
+                  <span className="text-xs text-slate">
+                    {(defaultPermsByPosition[editPermsRole.position] || []).length} default ·{" "}
+                    {selectedPerms.size} extra selected
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditPermsRole(null)}
+                className="p-2 rounded-xl hover:bg-cloud transition-colors mt-1"
+                aria-label="Close"
+              >
+                <svg className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Info banner */}
+            <div className="mx-7 mt-4 px-4 py-3 rounded-2xl bg-lavender-light border-[2px] border-lavender/30 flex items-start gap-2.5">
+              <svg className="w-4 h-4 text-lavender mt-0.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
+              </svg>
+              <p className="text-xs text-navy/70 leading-relaxed">
+                <span className="font-bold">Default permissions</span> (shown greyed) come from this person&apos;s position and are always active.
+                Use the checkboxes to grant <span className="font-bold">extra permissions</span> on top of those defaults.
+              </p>
+            </div>
+
+            {/* Permission groups (scrollable) */}
+            <div className="flex-1 overflow-y-auto px-7 py-5 space-y-5">
+              {Object.entries(permCatalogue).map(([domain, perms]) => {
+                const positionDefaults = new Set(defaultPermsByPosition[editPermsRole.position] || []);
+                return (
+                  <div key={domain}>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-2 capitalize">{domain}</p>
+                    <div className="bg-ghost border-[2px] border-navy/10 rounded-2xl divide-y divide-navy/10">
+                      {perms.map(({ key, description }) => {
+                        const isDefault = positionDefaults.has(key);
+                        const isChecked = isDefault || selectedPerms.has(key);
+                        return (
+                          <label
+                            key={key}
+                            className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors rounded-2xl ${
+                              isDefault ? "opacity-60" : "hover:bg-cloud/50"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={isDefault}
+                              onChange={() => !isDefault && togglePerm(key)}
+                              className="w-4 h-4 rounded border-[2px] border-navy accent-navy cursor-pointer disabled:cursor-default shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono text-xs font-bold text-navy">{key}</span>
+                                {isDefault && (
+                                  <span className="px-1.5 py-0.5 rounded bg-cloud text-slate text-[9px] font-bold uppercase tracking-wide">default</span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate mt-0.5">{description}</p>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              {Object.keys(permCatalogue).length === 0 && (
+                <div className="text-center py-8 text-navy/40 text-sm">Loading permissions…</div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex gap-3 p-7 pt-5 border-t-[3px] border-navy/10">
+              <button
+                onClick={() => setEditPermsRole(null)}
+                className="flex-1 px-5 py-2.5 rounded-2xl border-[3px] border-navy text-navy text-sm font-bold hover:bg-cloud transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={savePermissions}
+                disabled={savingPerms}
+                className="flex-1 px-5 py-2.5 rounded-2xl bg-lime border-[3px] border-navy text-navy text-sm font-bold shadow-[4px_4px_0_0_#0F0F2D] hover:shadow-[6px_6px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {savingPerms ? "Saving…" : "Save Permissions"}
+              </button>
+            </div>
           </div>
         </div>
       )}

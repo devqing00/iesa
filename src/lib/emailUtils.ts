@@ -22,7 +22,7 @@ export function isInstitutionalEmail(email: string): boolean {
  *   - Last name: 'adetayo'
  *   - Last 3 digits of matric: '856' (matric could be 123856, 236856, etc.)
  * 
- * Returns hints that should be confirmed with Google/Firebase data
+ * Returns hints that should be confirmed with user data
  */
 export function parseInstitutionalEmail(email: string): {
   firstNameInitial?: string;

@@ -4,6 +4,7 @@ import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 
+/* ─── Types ───────────────────────────────────────────────── */
 interface Milestone {
   id: string;
   title: string;
@@ -22,29 +23,18 @@ interface Goal {
   completedAt?: string;
 }
 
+/* ─── Constants ───────────────────────────────────────────── */
 const CATEGORIES = {
-  academic: {
-    label: "Academic",
-    color: "text-blue-600",
-    bgColor: "bg-blue-600",
-  },
-  career: {
-    label: "Career",
-    color: "text-emerald-600",
-    bgColor: "bg-emerald-600",
-  },
-  personal: {
-    label: "Personal",
-    color: "text-purple-600",
-    bgColor: "bg-purple-600",
-  },
-  skill: { label: "Skill", color: "text-amber-600", bgColor: "bg-amber-600" },
+  academic: { label: "Academic", dot: "bg-lavender", badge: "bg-lavender-light text-lavender", ring: "border-lavender/40" },
+  career: { label: "Career", dot: "bg-teal", badge: "bg-teal-light text-teal", ring: "border-teal/40" },
+  personal: { label: "Personal", dot: "bg-coral", badge: "bg-coral-light text-coral", ring: "border-coral/40" },
+  skill: { label: "Skill", dot: "bg-sunny", badge: "bg-sunny-light text-sunny", ring: "border-sunny/40" },
 };
 
 const PRIORITY_CONFIG = {
-  high: { label: "High", color: "text-red-600" },
-  medium: { label: "Medium", color: "text-amber-600" },
-  low: { label: "Low", color: "text-green-600" },
+  high: { label: "High", color: "text-coral", bg: "bg-coral", badge: "bg-coral-light text-coral" },
+  medium: { label: "Medium", color: "text-sunny", bg: "bg-sunny", badge: "bg-sunny-light text-navy" },
+  low: { label: "Low", color: "text-teal", bg: "bg-teal", badge: "bg-teal-light text-teal" },
 };
 
 const MOTIVATIONAL_QUOTES = [
@@ -56,22 +46,22 @@ const MOTIVATIONAL_QUOTES = [
 
 const STORAGE_KEY = "iesa-goals";
 
+/* ─── Component ───────────────────────────────────────────── */
 export default function GoalsPage() {
-  const [goals, setGoals] = useState<Goal[]>([]);
+  const [goals, setGoals] = useState<Goal[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    }
+    return [];
+  });
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [expandedGoals, setExpandedGoals] = useState<Set<string>>(new Set());
-  const [filter, setFilter] = useState<"all" | "active" | "completed">(
-    "active"
-  );
+  const [filter, setFilter] = useState<"all" | "active" | "completed">("active");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [now, setNow] = useState(() => Date.now());
-  const [quote] = useState(
-    () =>
-      MOTIVATIONAL_QUOTES[
-        Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)
-      ]
-  );
+  const [quote] = useState(() => MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 60000);
@@ -79,27 +69,16 @@ export default function GoalsPage() {
   }, []);
 
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) setGoals(JSON.parse(saved));
-  }, []);
-
-  useEffect(() => {
-    if (goals.length > 0)
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
+    if (goals.length > 0) localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
   }, [goals]);
 
   const stats = useMemo(() => {
     const total = goals.length;
     const completed = goals.filter((g) => g.completedAt).length;
     const active = total - completed;
-    const highPriority = goals.filter(
-      (g) => g.priority === "high" && !g.completedAt
-    ).length;
+    const highPriority = goals.filter((g) => g.priority === "high" && !g.completedAt).length;
     return {
-      total,
-      completed,
-      active,
-      highPriority,
+      total, completed, active, highPriority,
       completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
     };
   }, [goals]);
@@ -121,10 +100,10 @@ export default function GoalsPage() {
   }, [goals, filter, categoryFilter]);
 
   const toggleExpand = (id: string) => {
-    const newExpanded = new Set(expandedGoals);
-    if (newExpanded.has(id)) newExpanded.delete(id);
-    else newExpanded.add(id);
-    setExpandedGoals(newExpanded);
+    const next = new Set(expandedGoals);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setExpandedGoals(next);
   };
 
   const toggleMilestone = (goalId: string, milestoneId: string) => {
@@ -134,14 +113,8 @@ export default function GoalsPage() {
         const updatedMilestones = g.milestones.map((m) =>
           m.id === milestoneId ? { ...m, completed: !m.completed } : m
         );
-        const allCompleted =
-          updatedMilestones.length > 0 &&
-          updatedMilestones.every((m) => m.completed);
-        return {
-          ...g,
-          milestones: updatedMilestones,
-          completedAt: allCompleted ? new Date().toISOString() : undefined,
-        };
+        const allCompleted = updatedMilestones.length > 0 && updatedMilestones.every((m) => m.completed);
+        return { ...g, milestones: updatedMilestones, completedAt: allCompleted ? new Date().toISOString() : undefined };
       })
     );
   };
@@ -173,9 +146,7 @@ export default function GoalsPage() {
 
   const saveGoal = (goalData: Partial<Goal>) => {
     if (editingGoal) {
-      setGoals((prev) =>
-        prev.map((g) => (g.id === editingGoal.id ? { ...g, ...goalData } : g))
-      );
+      setGoals((prev) => prev.map((g) => (g.id === editingGoal.id ? { ...g, ...goalData } : g)));
     } else {
       const newGoal: Goal = {
         id: Date.now().toString(),
@@ -193,407 +164,299 @@ export default function GoalsPage() {
     setEditingGoal(null);
   };
 
+  /* ─── Goal card accent cycling ──────────────────────────── */
+  const cardAccents = [
+    { border: "border-l-teal", progressBar: "bg-teal" },
+    { border: "border-l-coral", progressBar: "bg-coral" },
+    { border: "border-l-lavender", progressBar: "bg-lavender" },
+    { border: "border-l-sunny", progressBar: "bg-sunny" },
+  ];
+
   return (
-    <div className="min-h-screen bg-bg-primary">
+    <div className="min-h-screen bg-ghost overflow-x-hidden">
       <DashboardHeader title="Goal Tracker" />
 
-      <div className="px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8 max-w-5xl mx-auto">
-        {/* Back Link */}
-        <Link
-          href="/dashboard/growth"
-          className="inline-flex items-center gap-2 text-label-sm text-text-muted hover:text-text-primary transition-colors mb-6 group"
-        >
-          <svg
-            className="w-4 h-4 group-hover:-translate-x-1 transition-transform"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
-            />
-          </svg>
-          Back to Growth Hub
-        </Link>
+      {/* Diamond sparkle decorators */}
+      <svg className="fixed top-24 left-[6%] w-5 h-5 text-lavender/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+      <svg className="fixed top-44 right-[8%] w-4 h-4 text-coral/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+      <svg className="fixed bottom-28 left-[12%] w-6 h-6 text-teal/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+      <svg className="fixed top-72 right-[22%] w-3 h-3 text-sunny/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
 
-        {/* Page Header */}
-        <div className="mb-8 pb-8 border-b border-border">
-          <span className="text-label-sm text-text-muted flex items-center gap-2 mb-2">
-            <span>✦</span> Set & Achieve
-          </span>
-          <h1 className="font-display text-display-sm mb-2">Your Goals</h1>
-          <p className="text-text-secondary text-body text-sm">{quote}</p>
-        </div>
+      <div className="px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8 relative z-10">
+        <div className="max-w-6xl mx-auto">
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="page-frame p-4">
-            <span className="text-label-sm text-text-muted">Active</span>
-            <p className="font-display text-2xl">{stats.active}</p>
-          </div>
-          <div className="page-frame p-4">
-            <span className="text-label-sm text-text-muted">Completed</span>
-            <p className="font-display text-2xl">{stats.completed}</p>
-          </div>
-          <div className="page-frame p-4">
-            <span className="text-label-sm text-text-muted">Success Rate</span>
-            <p className="font-display text-2xl">{stats.completionRate}%</p>
-          </div>
-          <div className="page-frame p-4">
-            <span className="text-label-sm text-text-muted">High Priority</span>
-            <p className="font-display text-2xl">{stats.highPriority}</p>
-          </div>
-        </div>
+          {/* Back Link */}
+          <Link href="/dashboard/growth" className="inline-flex items-center gap-2 font-display font-bold text-xs text-slate uppercase tracking-wider hover:text-navy transition-colors mb-6 group">
+            <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M11.03 3.97a.75.75 0 010 1.06l-6.22 6.22H21a.75.75 0 010 1.5H4.81l6.22 6.22a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0z" clipRule="evenodd"/></svg>
+            Back to Growth Hub
+          </Link>
 
-        {/* Filters & Add Button */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex border border-border">
-              {(["all", "active", "completed"] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`px-3 py-2 text-label-sm transition-all ${
-                    filter === f
-                      ? "bg-charcoal dark:bg-cream text-cream dark:text-charcoal"
-                      : "text-text-muted hover:text-text-primary"
-                  }`}
-                >
-                  {f.charAt(0).toUpperCase() + f.slice(1)}
-                </button>
-              ))}
+          {/* ═══════════════════════════════════════════════════
+              BENTO HERO — lavender theme
+              ═══════════════════════════════════════════════════ */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
+            {/* Title card */}
+            <div className="md:col-span-7 bg-lavender border-[5px] border-navy rounded-[2rem] shadow-[8px_8px_0_0_#000] p-7 md:p-9 rotate-[-0.4deg] hover:rotate-0 transition-transform">
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/40 mb-3">Set &amp; Achieve</div>
+              <h1 className="font-display font-black text-2xl md:text-3xl lg:text-4xl text-navy mb-3 leading-tight overflow-hidden">
+                Your <span className="brush-highlight brush-coral">Goals</span>
+              </h1>
+              <p className="font-display font-normal text-sm md:text-base text-navy/60 max-w-md italic">&ldquo;{quote}&rdquo;</p>
             </div>
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-3 py-2 text-label-sm bg-bg-card border border-border text-text-primary focus:outline-none"
-            >
-              <option value="all">All Categories</option>
-              {Object.entries(CATEGORIES).map(([key, val]) => (
-                <option key={key} value={key}>
-                  {val.label}
-                </option>
-              ))}
-            </select>
+
+            {/* Stats mini-grid */}
+            <div className="md:col-span-5 grid grid-cols-2 gap-3">
+              <div className="bg-teal-light border-[4px] border-navy rounded-[1.5rem] shadow-[5px_5px_0_0_#000] p-4 flex flex-col justify-between">
+                <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40">Active</div>
+                <div className="font-display font-black text-3xl text-navy">{stats.active}</div>
+              </div>
+              <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] shadow-[5px_5px_0_0_#000] p-4 flex flex-col justify-between">
+                <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40">Done</div>
+                <div className="font-display font-black text-3xl text-navy">{stats.completed}</div>
+              </div>
+              <div className="bg-sunny-light border-[4px] border-navy rounded-[1.5rem] shadow-[5px_5px_0_0_#000] p-4 flex flex-col justify-between">
+                <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40">Success</div>
+                <div className="font-display font-black text-3xl text-navy">{stats.completionRate}%</div>
+              </div>
+              <div className="bg-navy border-[4px] border-navy rounded-[1.5rem] shadow-[5px_5px_0_0_#000] p-4 flex flex-col justify-between">
+                <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-ghost/40">Urgent</div>
+                <div className="font-display font-black text-3xl text-coral">{stats.highPriority}</div>
+              </div>
+            </div>
           </div>
 
-          <button
-            onClick={() => {
-              setEditingGoal(null);
-              setShowAddModal(true);
-            }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-charcoal dark:bg-cream text-cream dark:text-charcoal text-label hover:opacity-90 transition-opacity"
-          >
-            <svg
-              className="w-4 h-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 4.5v15m7.5-7.5h-15"
-              />
-            </svg>
-            Add Goal
-          </button>
-        </div>
-
-        {/* Goals List */}
-        <div className="space-y-4">
-          {filteredGoals.length === 0 ? (
-            <div className="page-frame p-12 text-center">
-              <p className="font-display text-lg mb-2">
-                {filter === "completed"
-                  ? "No completed goals yet"
-                  : "No goals to show"}
-              </p>
-              <p className="text-text-muted text-label-sm mb-4">
-                {filter === "completed"
-                  ? "Keep working toward your active goals!"
-                  : "Set your first goal to start your journey."}
-              </p>
-              {filter !== "completed" && (
-                <button
-                  onClick={() => {
-                    setEditingGoal(null);
-                    setShowAddModal(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-charcoal dark:bg-cream text-cream dark:text-charcoal text-label-sm"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
+          {/* ═══════════════════════════════════════════════════
+              FILTERS & ADD
+              ═══════════════════════════════════════════════════ */}
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Status filter tabs */}
+              <div className="flex bg-snow border-[3px] border-navy rounded-2xl overflow-hidden shadow-[3px_3px_0_0_#000]">
+                {(["all", "active", "completed"] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className={`px-4 py-2.5 font-display font-bold text-xs uppercase tracking-wider transition-all ${
+                      filter === f
+                        ? "bg-navy text-ghost"
+                        : "text-navy/40 hover:text-navy hover:bg-ghost"
+                    }`}
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 4.5v15m7.5-7.5h-15"
-                    />
-                  </svg>
-                  Create Your First Goal
-                </button>
-              )}
+                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                  </button>
+                ))}
+              </div>
+
+              {/* Category filter */}
+              <div className="flex items-center gap-2">
+                {(["all", ...Object.keys(CATEGORIES)] as const).map((cat) => {
+                  const isAll = cat === "all";
+                  const catConfig = !isAll ? CATEGORIES[cat as keyof typeof CATEGORIES] : null;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setCategoryFilter(cat)}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl font-display font-bold text-xs uppercase tracking-wider transition-all border-[2px] ${
+                        categoryFilter === cat
+                          ? "border-navy bg-snow shadow-[2px_2px_0_0_#000]"
+                          : "border-transparent text-navy/40 hover:text-navy"
+                      }`}
+                    >
+                      {catConfig && <div className={`w-2 h-2 rounded-full ${catConfig.dot}`}></div>}
+                      {isAll ? "All" : catConfig?.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          ) : (
-            filteredGoals.map((goal) => {
-              const progress = getProgress(goal);
-              const isExpanded = expandedGoals.has(goal.id);
-              const categoryConfig = CATEGORIES[goal.category];
-              const priorityConfig = PRIORITY_CONFIG[goal.priority];
-              const deadlineNear = isDeadlineNear(goal.deadline);
-              const overdue = isOverdue(goal.deadline) && !goal.completedAt;
 
-              return (
-                <div
-                  key={goal.id}
-                  className={`page-frame transition-all ${
-                    goal.completedAt ? "opacity-60" : ""
-                  } ${overdue ? "border-red-600" : ""}`}
-                >
-                  <div className="p-5">
-                    <div className="flex items-start gap-3">
-                      <button
-                        onClick={() => toggleExpand(goal.id)}
-                        className="mt-1 text-text-muted hover:text-text-primary"
-                      >
-                        <svg
-                          className={`w-5 h-5 transition-transform ${
-                            isExpanded ? "rotate-90" : ""
-                          }`}
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth={1.5}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                          />
-                        </svg>
-                      </button>
+            {/* Add Goal CTA */}
+            <button
+              onClick={() => { setEditingGoal(null); setShowAddModal(true); }}
+              className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-lime text-navy border-[4px] border-navy shadow-[4px_4px_0_0_#0F0F2D] font-display font-bold text-xs uppercase tracking-wider hover:shadow-[6px_6px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 3.75a.75.75 0 01.75.75v6.75h6.75a.75.75 0 010 1.5h-6.75v6.75a.75.75 0 01-1.5 0v-6.75H4.5a.75.75 0 010-1.5h6.75V4.5a.75.75 0 01.75-.75z" clipRule="evenodd"/></svg>
+              Add Goal
+            </button>
+          </div>
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <span
-                            className={`px-2 py-0.5 text-label-sm ${categoryConfig.color} bg-bg-secondary`}
-                          >
-                            {categoryConfig.label}
-                          </span>
-                          <span
-                            className={`px-2 py-0.5 text-label-sm ${priorityConfig.color} bg-bg-secondary`}
-                          >
-                            {priorityConfig.label}
-                          </span>
-                          {goal.completedAt && (
-                            <span className="px-2 py-0.5 text-label-sm text-emerald-600 bg-bg-secondary">
-                              Completed
-                            </span>
-                          )}
-                          {overdue && (
-                            <span className="px-2 py-0.5 text-label-sm text-red-600 bg-bg-secondary">
-                              Overdue
-                            </span>
-                          )}
-                        </div>
-
-                        <h3
-                          className={`font-display text-lg ${
-                            goal.completedAt
-                              ? "line-through text-text-muted"
-                              : ""
-                          }`}
-                        >
-                          {goal.title}
-                        </h3>
-                        {goal.description && (
-                          <p className="text-text-secondary text-body text-sm mt-1 line-clamp-2">
-                            {goal.description}
-                          </p>
-                        )}
-
-                        <div className="flex flex-wrap items-center gap-4 mt-3 text-label-sm text-text-muted">
-                          {goal.deadline && (
-                            <span
-                              className={`flex items-center gap-1 ${
-                                overdue
-                                  ? "text-red-600"
-                                  : deadlineNear
-                                  ? "text-amber-600"
-                                  : ""
-                              }`}
-                            >
-                              <svg
-                                className="w-3.5 h-3.5"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth={1.5}
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
-                                />
-                              </svg>
-                              {new Date(goal.deadline).toLocaleDateString(
-                                "en-US",
-                                { month: "short", day: "numeric" }
-                              )}
-                            </span>
-                          )}
-                          <span>{goal.milestones.length} milestones</span>
-                        </div>
-
-                        {/* Progress Bar */}
-                        <div className="mt-3">
-                          <div className="flex justify-between text-label-sm text-text-muted mb-1">
-                            <span>Progress</span>
-                            <span>{progress}%</span>
-                          </div>
-                          <div className="h-1.5 bg-bg-secondary overflow-hidden">
-                            <div
-                              className={`h-full transition-all ${
-                                goal.completedAt
-                                  ? "bg-emerald-600"
-                                  : "bg-charcoal dark:bg-cream"
-                              }`}
-                              style={{ width: `${progress}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            setEditingGoal(goal);
-                            setShowAddModal(true);
-                          }}
-                          className="p-2 text-text-muted hover:text-text-primary transition-colors"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={1.5}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
-                            />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => deleteGoal(goal.id)}
-                          className="p-2 text-text-muted hover:text-red-600 transition-colors"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={1.5}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Milestones */}
-                    {isExpanded && goal.milestones.length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-border space-y-2">
-                        {goal.milestones.map((milestone) => (
-                          <div
-                            key={milestone.id}
-                            className="flex items-center gap-3 p-3 bg-bg-secondary"
-                          >
-                            <button
-                              onClick={() =>
-                                toggleMilestone(goal.id, milestone.id)
-                              }
-                              className={`transition-colors ${
-                                milestone.completed
-                                  ? "text-emerald-600"
-                                  : "text-text-muted hover:text-text-primary"
-                              }`}
-                            >
-                              {milestone.completed ? (
-                                <svg
-                                  className="w-5 h-5"
-                                  viewBox="0 0 24 24"
-                                  fill="currentColor"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                              ) : (
-                                <svg
-                                  className="w-5 h-5"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth={1.5}
-                                >
-                                  <circle cx="12" cy="12" r="9" />
-                                </svg>
-                              )}
-                            </button>
-                            <span
-                              className={`text-body ${
-                                milestone.completed
-                                  ? "line-through text-text-muted"
-                                  : ""
-                              }`}
-                            >
-                              {milestone.title}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+          {/* ═══════════════════════════════════════════════════
+              GOALS LIST
+              ═══════════════════════════════════════════════════ */}
+          <div className="space-y-4">
+            {filteredGoals.length === 0 ? (
+              <div className="bg-snow border-[4px] border-navy rounded-[2rem] shadow-[8px_8px_0_0_#000] p-12 text-center">
+                <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-lavender-light border-[3px] border-navy flex items-center justify-center">
+                  <svg className="w-7 h-7 text-lavender" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd"/></svg>
                 </div>
-              );
-            })
+                <p className="font-display font-black text-xl text-navy mb-2">
+                  {filter === "completed" ? "No completed goals yet" : "No goals to show"}
+                </p>
+                <p className="font-display font-normal text-sm text-navy/50 mb-5 max-w-xs mx-auto">
+                  {filter === "completed" ? "Keep working toward your active goals!" : "Set your first goal to start your journey."}
+                </p>
+                {filter !== "completed" && (
+                  <button
+                    onClick={() => { setEditingGoal(null); setShowAddModal(true); }}
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-lime text-navy border-[3px] border-navy shadow-[4px_4px_0_0_#0F0F2D] font-display font-bold text-xs uppercase tracking-wider"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 3.75a.75.75 0 01.75.75v6.75h6.75a.75.75 0 010 1.5h-6.75v6.75a.75.75 0 01-1.5 0v-6.75H4.5a.75.75 0 010-1.5h6.75V4.5a.75.75 0 01.75-.75z" clipRule="evenodd"/></svg>
+                    Create Your First Goal
+                  </button>
+                )}
+              </div>
+            ) : (
+              filteredGoals.map((goal, idx) => {
+                const progress = getProgress(goal);
+                const isExpanded = expandedGoals.has(goal.id);
+                const categoryConfig = CATEGORIES[goal.category];
+                const priorityConfig = PRIORITY_CONFIG[goal.priority];
+                const deadlineNear = isDeadlineNear(goal.deadline);
+                const overdue = isOverdue(goal.deadline) && !goal.completedAt;
+                const accent = cardAccents[idx % cardAccents.length];
+
+                return (
+                  <div
+                    key={goal.id}
+                    className={`bg-snow border-[4px] border-navy border-l-[6px] ${accent.border} rounded-[1.5rem] shadow-[6px_6px_0_0_#000] transition-all ${
+                      goal.completedAt ? "opacity-50" : ""
+                    } ${overdue ? "border-coral" : ""}`}
+                  >
+                    <div className="p-5 md:p-6">
+                      <div className="flex items-start gap-3">
+                        {/* Expand toggle */}
+                        <button
+                          onClick={() => toggleExpand(goal.id)}
+                          className="mt-1 text-slate hover:text-navy transition-colors"
+                          aria-label={isExpanded ? "Collapse" : "Expand"}
+                        >
+                          <svg className={`w-5 h-5 transition-transform ${isExpanded ? "rotate-90" : ""}`} fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M16.28 11.47a.75.75 0 010 1.06l-7.5 7.5a.75.75 0 01-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 011.06-1.06l7.5 7.5z" clipRule="evenodd"/></svg>
+                        </button>
+
+                        <div className="flex-1 min-w-0">
+                          {/* Badges row */}
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-display font-bold text-[10px] uppercase tracking-wider ${categoryConfig.badge} border-[2px] ${categoryConfig.ring}`}>
+                              <div className={`w-1.5 h-1.5 rounded-full ${categoryConfig.dot}`}></div>
+                              {categoryConfig.label}
+                            </span>
+                            <span className={`px-2.5 py-1 rounded-full font-display font-bold text-[10px] uppercase tracking-wider ${priorityConfig.badge} border-[2px] border-navy/10`}>
+                              {priorityConfig.label}
+                            </span>
+                            {goal.completedAt && (
+                              <span className="px-2.5 py-1 rounded-full font-display font-bold text-[10px] uppercase tracking-wider bg-teal-light text-teal border-[2px] border-teal/30">
+                                Completed
+                              </span>
+                            )}
+                            {overdue && (
+                              <span className="px-2.5 py-1 rounded-full font-display font-bold text-[10px] uppercase tracking-wider bg-coral-light text-coral border-[2px] border-coral/30 animate-pulse">
+                                Overdue
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Title */}
+                          <h3 className={`font-display font-black text-lg leading-snug ${goal.completedAt ? "line-through text-slate" : "text-navy"}`}>
+                            {goal.title}
+                          </h3>
+                          {goal.description && (
+                            <p className="font-display font-normal text-sm text-navy/50 mt-1 line-clamp-2">{goal.description}</p>
+                          )}
+
+                          {/* Meta row */}
+                          <div className="flex flex-wrap items-center gap-4 mt-3">
+                            {goal.deadline && (
+                              <span className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.1em] ${overdue ? "text-coral" : deadlineNear ? "text-sunny" : "text-navy/40"}`}>
+                                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M6.75 2.25A.75.75 0 017.5 3v1.5h9V3A.75.75 0 0118 3v1.5h.75a3 3 0 013 3v11.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V7.5a3 3 0 013-3H6V3a.75.75 0 01.75-.75zm13.5 9a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5v7.5a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5v-7.5z" clipRule="evenodd"/></svg>
+                                {new Date(goal.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                              </span>
+                            )}
+                            <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/30">
+                              {goal.milestones.length} milestones
+                            </span>
+                          </div>
+
+                          {/* Progress bar */}
+                          <div className="mt-3">
+                            <div className="flex justify-between text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40 mb-1">
+                              <span>Progress</span>
+                              <span>{progress}%</span>
+                            </div>
+                            <div className="h-2 bg-cloud border-[1px] border-navy/10 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${goal.completedAt ? "bg-teal" : accent.progressBar}`}
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex gap-1.5 shrink-0">
+                          <button
+                            onClick={() => { setEditingGoal(goal); setShowAddModal(true); }}
+                            className="p-2 rounded-lg text-slate hover:text-navy hover:bg-ghost transition-all"
+                            aria-label="Edit goal"
+                          >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M21.731 2.269a2.625 2.625 0 00-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 000-3.712zM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 00-1.32 2.214l-.8 2.685a.75.75 0 00.933.933l2.685-.8a5.25 5.25 0 002.214-1.32l8.4-8.4z"/><path d="M5.25 5.25a3 3 0 00-3 3v10.5a3 3 0 003 3h10.5a3 3 0 003-3V14.25a.75.75 0 00-1.5 0v4.5a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5V8.25a1.5 1.5 0 011.5-1.5h4.5a.75.75 0 000-1.5h-4.5z"/></svg>
+                          </button>
+                          <button
+                            onClick={() => deleteGoal(goal.id)}
+                            className="p-2 rounded-lg text-slate hover:text-coral hover:bg-coral-light transition-all"
+                            aria-label="Delete goal"
+                          >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 013.878.512.75.75 0 11-.256 1.478l-.209-.035-1.005 13.07a3 3 0 01-2.991 2.77H8.084a3 3 0 01-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 01-.256-1.478A48.567 48.567 0 017.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 013.369 0c1.603.051 2.815 1.387 2.815 2.951zm-6.136-1.452a51.196 51.196 0 013.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 00-6 0v-.113c0-.794.609-1.428 1.364-1.452zm-.355 5.945a.75.75 0 10-1.5.058l.347 9a.75.75 0 101.499-.058l-.346-9zm5.48.058a.75.75 0 10-1.498-.058l-.347 9a.75.75 0 001.5.058l.345-9z" clipRule="evenodd"/></svg>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Expanded milestones */}
+                      {isExpanded && goal.milestones.length > 0 && (
+                        <div className="mt-5 pt-4 border-t-[3px] border-navy/10 space-y-2 ml-8">
+                          {goal.milestones.map((milestone) => (
+                            <div key={milestone.id} className="flex items-center gap-3 p-3 bg-ghost rounded-xl hover:bg-cloud transition-colors">
+                              <button
+                                onClick={() => toggleMilestone(goal.id, milestone.id)}
+                                className={`transition-colors ${milestone.completed ? "text-teal" : "text-slate hover:text-navy"}`}
+                                aria-label={milestone.completed ? "Mark incomplete" : "Mark complete"}
+                              >
+                                {milestone.completed ? (
+                                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd"/></svg>
+                                ) : (
+                                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><circle cx="12" cy="12" r="9"/></svg>
+                                )}
+                              </button>
+                              <span className={`font-display font-normal text-sm ${milestone.completed ? "line-through text-slate" : "text-navy"}`}>
+                                {milestone.title}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* ═══════════════════════════════════════════════════
+              ADD / EDIT MODAL
+              ═══════════════════════════════════════════════════ */}
+          {showAddModal && (
+            <GoalModal
+              goal={editingGoal}
+              onSave={saveGoal}
+              onClose={() => { setShowAddModal(false); setEditingGoal(null); }}
+            />
           )}
         </div>
-
-        {/* Add/Edit Modal */}
-        {showAddModal && (
-          <GoalModal
-            goal={editingGoal}
-            onSave={saveGoal}
-            onClose={() => {
-              setShowAddModal(false);
-              setEditingGoal(null);
-            }}
-          />
-        )}
       </div>
     </div>
   );
 }
 
+/* ─── Goal Modal ──────────────────────────────────────────── */
 function GoalModal({
   goal,
   onSave,
@@ -605,190 +468,114 @@ function GoalModal({
 }) {
   const [title, setTitle] = useState(goal?.title || "");
   const [description, setDescription] = useState(goal?.description || "");
-  const [category, setCategory] = useState<Goal["category"]>(
-    goal?.category || "personal"
-  );
-  const [priority, setPriority] = useState<Goal["priority"]>(
-    goal?.priority || "medium"
-  );
+  const [category, setCategory] = useState<Goal["category"]>(goal?.category || "personal");
+  const [priority, setPriority] = useState<Goal["priority"]>(goal?.priority || "medium");
   const [deadline, setDeadline] = useState(goal?.deadline || "");
-  const [milestones, setMilestones] = useState<Milestone[]>(
-    goal?.milestones || []
-  );
+  const [milestones, setMilestones] = useState<Milestone[]>(goal?.milestones || []);
   const [newMilestone, setNewMilestone] = useState("");
 
   const addMilestone = () => {
     if (newMilestone.trim()) {
-      setMilestones([
-        ...milestones,
-        {
-          id: Date.now().toString(),
-          title: newMilestone.trim(),
-          completed: false,
-        },
-      ]);
+      setMilestones([...milestones, { id: Date.now().toString(), title: newMilestone.trim(), completed: false }]);
       setNewMilestone("");
     }
   };
 
-  const removeMilestone = (id: string) => {
-    setMilestones(milestones.filter((m) => m.id !== id));
-  };
+  const removeMilestone = (id: string) => setMilestones(milestones.filter((m) => m.id !== id));
 
   const handleSubmit = () => {
     if (!title.trim()) return;
-    onSave({
-      title,
-      description,
-      category,
-      priority,
-      deadline: deadline || undefined,
-      milestones,
-    });
+    onSave({ title, description, category, priority, deadline: deadline || undefined, milestones });
   };
 
   return (
-    <div className="fixed inset-0 bg-charcoal/80 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-bg-primary border border-border w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-border flex items-center justify-between">
+    <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-ghost border-[4px] border-navy rounded-[2rem] shadow-[10px_10px_0_0_#000] w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        {/* Modal header */}
+        <div className="p-6 border-b-[3px] border-navy/10 flex items-center justify-between">
           <div>
-            <span className="text-label-sm text-text-muted flex items-center gap-2 mb-1">
-              <span>✦</span> {goal ? "Edit" : "New"} Goal
-            </span>
-            <h2 className="font-display text-xl">
-              {goal ? "Edit Goal" : "Create Goal"}
-            </h2>
+            <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/40 mb-1">{goal ? "Edit" : "New"} Goal</div>
+            <h2 className="font-display font-black text-xl text-navy">{goal ? "Edit Goal" : "Create Goal"}</h2>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-text-muted hover:text-text-primary transition-colors"
-          >
-            <svg
-              className="w-5 h-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.5}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-cloud flex items-center justify-center text-slate hover:text-navy transition-colors" aria-label="Close">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd"/></svg>
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
+        {/* Modal body */}
+        <div className="p-6 space-y-5">
           <div>
-            <label className="block text-label-sm text-text-secondary mb-2">
-              Title
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="What do you want to achieve?"
-              className="w-full px-4 py-3 bg-bg-card border border-border text-text-primary text-body focus:outline-none focus:border-border-dark transition-colors"
-            />
+            <label htmlFor="goal-title" className="block text-[10px] font-bold uppercase tracking-[0.1em] text-navy/50 mb-2">Title</label>
+            <input id="goal-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What do you want to achieve?" className="w-full px-4 py-3 bg-snow border-[3px] border-navy rounded-xl text-navy font-display font-normal focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal/20 transition-all"/>
           </div>
 
           <div>
-            <label className="block text-label-sm text-text-secondary mb-2">
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add more details..."
-              rows={3}
-              className="w-full px-4 py-3 bg-bg-card border border-border text-text-primary text-body focus:outline-none focus:border-border-dark transition-colors resize-none"
-            />
+            <label htmlFor="goal-desc" className="block text-[10px] font-bold uppercase tracking-[0.1em] text-navy/50 mb-2">Description</label>
+            <textarea id="goal-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Add more details..." rows={3} className="w-full px-4 py-3 bg-snow border-[3px] border-navy rounded-xl text-navy font-display font-normal focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal/20 transition-all resize-none"/>
           </div>
 
+          {/* Category & Priority */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-label-sm text-text-secondary mb-2">
-                Category
-              </label>
-              <select
-                value={category}
-                onChange={(e) =>
-                  setCategory(e.target.value as Goal["category"])
-                }
-                className="w-full px-4 py-3 bg-bg-card border border-border text-text-primary text-body focus:outline-none focus:border-border-dark transition-colors"
-              >
-                {Object.entries(CATEGORIES).map(([key, val]) => (
-                  <option key={key} value={key}>
+              <label className="block text-[10px] font-bold uppercase tracking-[0.1em] text-navy/50 mb-2">Category</label>
+              <div className="space-y-1.5">
+                {(Object.entries(CATEGORIES) as [Goal["category"], typeof CATEGORIES.academic][]).map(([key, val]) => (
+                  <button
+                    key={key}
+                    onClick={() => setCategory(key)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left font-display font-bold text-xs transition-all border-[2px] ${
+                      category === key
+                        ? `${val.badge} border-navy shadow-[2px_2px_0_0_#000]`
+                        : "border-navy/10 text-navy/50 hover:border-navy/30"
+                    }`}
+                  >
+                    <div className={`w-2 h-2 rounded-full ${val.dot}`}></div>
                     {val.label}
-                  </option>
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
             <div>
-              <label className="block text-label-sm text-text-secondary mb-2">
-                Priority
-              </label>
-              <select
-                value={priority}
-                onChange={(e) =>
-                  setPriority(e.target.value as Goal["priority"])
-                }
-                className="w-full px-4 py-3 bg-bg-card border border-border text-text-primary text-body focus:outline-none focus:border-border-dark transition-colors"
-              >
-                {Object.entries(PRIORITY_CONFIG).map(([key, val]) => (
-                  <option key={key} value={key}>
-                    {val.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-label-sm text-text-secondary mb-2">
-              Deadline (optional)
-            </label>
-            <input
-              type="date"
-              value={deadline}
-              onChange={(e) => setDeadline(e.target.value)}
-              className="w-full px-4 py-3 bg-bg-card border border-border text-text-primary text-body focus:outline-none focus:border-border-dark transition-colors"
-            />
-          </div>
-
-          <div>
-            <label className="block text-label-sm text-text-secondary mb-2">
-              Milestones
-            </label>
-            <div className="space-y-2 mb-2">
-              {milestones.map((m) => (
-                <div
-                  key={m.id}
-                  className="flex items-center justify-between p-3 bg-bg-secondary border border-border"
-                >
-                  <span className="text-body text-sm">{m.title}</span>
+              <label className="block text-[10px] font-bold uppercase tracking-[0.1em] text-navy/50 mb-2">Priority</label>
+              <div className="space-y-1.5">
+                {(Object.entries(PRIORITY_CONFIG) as [Goal["priority"], typeof PRIORITY_CONFIG.high][]).map(([key, val]) => (
                   <button
-                    onClick={() => removeMilestone(m.id)}
-                    className="text-text-muted hover:text-red-600"
+                    key={key}
+                    onClick={() => setPriority(key)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left font-display font-bold text-xs transition-all border-[2px] ${
+                      priority === key
+                        ? `${val.badge} border-navy shadow-[2px_2px_0_0_#000]`
+                        : "border-navy/10 text-navy/50 hover:border-navy/30"
+                    }`}
                   >
-                    <svg
-                      className="w-4 h-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
+                    <div className={`w-2 h-2 rounded-full ${val.bg}`}></div>
+                    {val.label}
                   </button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="goal-deadline" className="block text-[10px] font-bold uppercase tracking-[0.1em] text-navy/50 mb-2">Deadline (optional)</label>
+            <input id="goal-deadline" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="w-full px-4 py-3 bg-snow border-[3px] border-navy rounded-xl text-navy font-display font-normal focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal/20 transition-all"/>
+          </div>
+
+          {/* Milestones */}
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-[0.1em] text-navy/50 mb-2">Milestones</label>
+            {milestones.length > 0 && (
+              <div className="space-y-2 mb-3">
+                {milestones.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between p-3 bg-cloud border-[2px] border-navy/10 rounded-xl">
+                    <span className="font-display font-normal text-sm text-navy">{m.title}</span>
+                    <button onClick={() => removeMilestone(m.id)} className="text-slate hover:text-coral transition-colors" aria-label="Remove">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd"/></svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="flex gap-2">
               <input
                 type="text"
@@ -796,30 +583,21 @@ function GoalModal({
                 onChange={(e) => setNewMilestone(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && addMilestone()}
                 placeholder="Add a milestone..."
-                className="flex-1 px-4 py-2 bg-bg-card border border-border text-text-primary text-body text-sm focus:outline-none focus:border-border-dark transition-colors"
+                className="flex-1 px-4 py-2.5 bg-snow border-[3px] border-navy rounded-xl text-navy font-display font-normal text-sm focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal/20 transition-all"
               />
-              <button
-                onClick={addMilestone}
-                className="px-4 py-2 bg-bg-secondary text-text-secondary hover:text-text-primary text-label-sm transition-colors"
-              >
+              <button onClick={addMilestone} className="px-4 py-2.5 rounded-xl bg-teal-light text-teal hover:bg-teal hover:text-snow border-[2px] border-navy/20 font-display font-bold text-xs uppercase tracking-wider transition-all">
                 Add
               </button>
             </div>
           </div>
         </div>
 
-        <div className="p-6 border-t border-border flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-3 border border-border text-text-secondary text-label hover:bg-bg-secondary transition-colors"
-          >
+        {/* Modal footer */}
+        <div className="p-6 border-t-[3px] border-navy/10 flex gap-3">
+          <button onClick={onClose} className="flex-1 px-4 py-3 rounded-xl border-[3px] border-navy text-navy/50 font-display font-bold text-xs uppercase tracking-wider hover:bg-cloud transition-colors">
             Cancel
           </button>
-          <button
-            onClick={handleSubmit}
-            disabled={!title.trim()}
-            className="flex-1 px-4 py-3 bg-charcoal dark:bg-cream text-cream dark:text-charcoal text-label hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
+          <button onClick={handleSubmit} disabled={!title.trim()} className="flex-1 px-4 py-3 rounded-2xl bg-lime text-navy border-[3px] border-navy shadow-[3px_3px_0_0_#0F0F2D] font-display font-bold text-xs uppercase tracking-wider hover:shadow-[5px_5px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-40">
             {goal ? "Save Changes" : "Create Goal"}
           </button>
         </div>

@@ -7,7 +7,7 @@ from app.core.security import verify_token
 from app.core.rate_limiting import setup_rate_limiting
 from app.core.error_handling import setup_exception_handlers, setup_logging
 from app.core.monitoring import init_sentry
-from app.routers import sessions, users, payments, events, announcements, grades, enrollments, roles, students, iesa_ai, resources, timetable, paystack, id_card, telegram_webhook, audit_logs
+from app.routers import sessions, users, payments, events, announcements, grades, enrollments, roles, students, iesa_ai, resources, timetable, paystack, id_card, telegram_webhook, audit_logs, auth
 from app.db import connect_to_mongo, close_mongo_connection
 
 # Setup logging first
@@ -34,7 +34,8 @@ app = FastAPI(
     title="IESA ERP Backend",
     description="Session-Aware Enterprise Resource Planning System for Industrial Engineering Department",
     version="2.0.0",  # Phase 1 with Permission-based RBAC
-    lifespan=lifespan
+    lifespan=lifespan,
+    redirect_slashes=False,  # Prevent 307 redirects that drop Authorization headers
 )
 
 # API Version prefix
@@ -59,8 +60,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
 )
 
 # Setup rate limiting
@@ -82,6 +85,7 @@ async def health():
     return {"status": "ok"}
 
 # Register routers with versioned API prefix
+app.include_router(auth.router)  # Auth: register, login, refresh, logout
 app.include_router(users.router)
 app.include_router(students.router)  # Already has /api/v1/students prefix
 app.include_router(sessions.router)
@@ -103,7 +107,7 @@ app.include_router(audit_logs.router)  # Audit Logs (Admin Only)
 async def protected_route(user_data: dict = Depends(verify_token)):
     return {
         "message": "You are authenticated!",
-        "user_id": user_data.get("uid"),
+        "user_id": user_data.get("sub"),
         "email": user_data.get("email")
     }
 

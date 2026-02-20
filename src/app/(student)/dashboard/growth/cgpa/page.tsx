@@ -4,6 +4,7 @@ import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import Link from "next/link";
 import { useState, useMemo, useEffect } from "react";
 
+/* ─── Types ───────────────────────────────────────────────── */
 interface Course {
   id: string;
   name: string;
@@ -23,6 +24,7 @@ interface SemesterRecord {
 
 type GradingSystem = "4.0" | "5.0";
 
+/* ─── Constants ───────────────────────────────────────────── */
 const GRADING_SYSTEMS: Record<
   GradingSystem,
   { grades: Record<string, number>; maxGpa: number; label: string }
@@ -62,6 +64,17 @@ const MOTIVATIONAL_MESSAGES = {
   ],
 };
 
+/* ─── Grade color mapping for pills ───────────────────────── */
+const GRADE_COLORS: Record<string, string> = {
+  A: "bg-teal text-navy",
+  B: "bg-lavender text-snow",
+  C: "bg-sunny text-navy",
+  D: "bg-coral text-snow",
+  E: "bg-coral/70 text-snow",
+  F: "bg-navy text-snow",
+};
+
+/* ─── Component ───────────────────────────────────────────── */
 export default function CgpaPage() {
   const [gradingSystem, setGradingSystem] = useState<GradingSystem>("5.0");
   const [courses, setCourses] = useState<Course[]>([
@@ -81,11 +94,8 @@ export default function CgpaPage() {
     try {
       const saved = localStorage.getItem("iesa-cgpa-history");
       if (saved) setHistory(JSON.parse(saved));
-      const savedSystem = localStorage.getItem(
-        "iesa-grading-system"
-      ) as GradingSystem;
-      if (savedSystem && GRADING_SYSTEMS[savedSystem])
-        setGradingSystem(savedSystem);
+      const savedSystem = localStorage.getItem("iesa-grading-system") as GradingSystem;
+      if (savedSystem && GRADING_SYSTEMS[savedSystem]) setGradingSystem(savedSystem);
     } catch {
       console.error("Failed to load CGPA data");
     }
@@ -98,6 +108,7 @@ export default function CgpaPage() {
     setCourses(courses.map((c) => ({ ...c, grade: "A" })));
   };
 
+  /* ─── Calculations ──────────────────────────────────────── */
   const result = useMemo(() => {
     let totalPoints = 0;
     let totalCredits = 0;
@@ -110,8 +121,7 @@ export default function CgpaPage() {
       semesterCredits += course.credits;
     });
 
-    const semesterGPA =
-      semesterCredits > 0 ? semesterPoints / semesterCredits : 0;
+    const semesterGPA = semesterCredits > 0 ? semesterPoints / semesterCredits : 0;
 
     if (previousCGPA && previousCredits) {
       const prevCGPA = parseFloat(previousCGPA);
@@ -126,7 +136,6 @@ export default function CgpaPage() {
     }
 
     const cgpa = totalCredits > 0 ? totalPoints / totalCredits : 0;
-
     return {
       cgpa: cgpa.toFixed(2),
       semesterGPA: semesterGPA.toFixed(2),
@@ -153,8 +162,7 @@ export default function CgpaPage() {
     else if (percentage >= 0.7) category = "good";
     else if (percentage >= 0.5) category = "average";
     else category = "needsWork";
-    const messages = MOTIVATIONAL_MESSAGES[category];
-    return messages[motivationIndex % messages.length];
+    return MOTIVATIONAL_MESSAGES[category][motivationIndex % 3];
   }, [result.cgpa, motivationIndex, currentGrading.maxGpa]);
 
   const targetProgress = useMemo(() => {
@@ -166,27 +174,17 @@ export default function CgpaPage() {
     return { target, current, progress, remaining };
   }, [targetCGPA, result.cgpa]);
 
+  /* ─── Handlers ──────────────────────────────────────────── */
   const addCourse = () => {
-    setCourses([
-      ...courses,
-      { id: Date.now().toString(), name: "", credits: 3, grade: "A" },
-    ]);
+    setCourses([...courses, { id: Date.now().toString(), name: "", credits: 3, grade: "A" }]);
   };
 
   const removeCourse = (id: string) => {
-    if (courses.length > 1) {
-      setCourses(courses.filter((c) => c.id !== id));
-    }
+    if (courses.length > 1) setCourses(courses.filter((c) => c.id !== id));
   };
 
-  const updateCourse = (
-    id: string,
-    field: keyof Course,
-    value: string | number
-  ) => {
-    setCourses(
-      courses.map((c) => (c.id === id ? { ...c, [field]: value } : c))
-    );
+  const updateCourse = (id: string, field: keyof Course, value: string | number) => {
+    setCourses(courses.map((c) => (c.id === id ? { ...c, [field]: value } : c)));
   };
 
   const resetCalculator = () => {
@@ -222,127 +220,164 @@ export default function CgpaPage() {
 
   const getClassification = (gpa: number, system: GradingSystem) => {
     const maxGpa = GRADING_SYSTEMS[system].maxGpa;
-    const percentage = gpa / maxGpa;
-    if (percentage >= 0.9)
-      return { label: "First Class", color: "text-emerald-600" };
-    if (percentage >= 0.7)
-      return { label: "Second Class Upper", color: "text-blue-600" };
-    if (percentage >= 0.5)
-      return { label: "Second Class Lower", color: "text-amber-600" };
-    if (percentage >= 0.3)
-      return { label: "Third Class", color: "text-orange-600" };
-    return { label: "Pass", color: "text-red-600" };
+    const pct = gpa / maxGpa;
+    if (pct >= 0.9) return { label: "First Class", color: "text-teal", bg: "bg-teal-light" };
+    if (pct >= 0.7) return { label: "Second Class Upper", color: "text-lavender", bg: "bg-lavender-light" };
+    if (pct >= 0.5) return { label: "Second Class Lower", color: "text-sunny", bg: "bg-sunny-light" };
+    if (pct >= 0.3) return { label: "Third Class", color: "text-coral", bg: "bg-coral-light" };
+    return { label: "Pass", color: "text-navy-muted", bg: "bg-cloud" };
   };
 
-  const classification = getClassification(
-    parseFloat(result.cgpa),
-    gradingSystem
-  );
+  const classification = getClassification(parseFloat(result.cgpa), gradingSystem);
 
+  /* ─── Render ────────────────────────────────────────────── */
   return (
-    <div className="min-h-screen bg-bg-primary">
+    <div className="min-h-screen bg-ghost">
       <DashboardHeader title="CGPA Calculator" />
 
-      <div className="px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8">
-        <div className="max-w-5xl mx-auto">
+      {/* Diamond sparkle decorators */}
+      <svg className="fixed top-20 left-[8%] w-5 h-5 text-teal/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+      <svg className="fixed top-40 right-[6%] w-4 h-4 text-lavender/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+      <svg className="fixed bottom-32 left-[15%] w-6 h-6 text-sunny/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+      <svg className="fixed top-60 right-[20%] w-3 h-3 text-coral/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+
+      <div className="px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8 relative z-10">
+        <div className="max-w-6xl mx-auto">
+
           {/* Back Link */}
           <Link
             href="/dashboard/growth"
-            className="inline-flex items-center gap-2 text-label-sm text-text-muted hover:text-text-primary transition-colors mb-6 group"
+            className="inline-flex items-center gap-2 font-display font-bold text-xs text-slate uppercase tracking-wider hover:text-navy transition-colors mb-6 group"
           >
-            <svg
-              className="w-4 h-4 group-hover:-translate-x-1 transition-transform"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.5}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
-              />
+            <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+              <path fillRule="evenodd" d="M11.03 3.97a.75.75 0 010 1.06l-6.22 6.22H21a.75.75 0 010 1.5H4.81l6.22 6.22a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0z" clipRule="evenodd"/>
             </svg>
             Back to Growth Hub
           </Link>
 
-          {/* Page Header */}
-          <div className="mb-8 pb-8 border-b border-border relative">
+          {/* ═══════════════════════════════════════════════════
+              BENTO HERO — Asymmetric 12-col grid
+              ═══════════════════════════════════════════════════ */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8 relative">
+            {/* Confetti overlay */}
             {showConfetti && (
-              <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                {[5, 25, 45, 65, 85].map((left, i) => (
-                  <span
+              <div className="absolute inset-0 pointer-events-none overflow-hidden z-20">
+                {[8, 22, 40, 58, 75, 90].map((left, i) => (
+                  <svg
                     key={i}
-                    className="absolute text-lg animate-bounce"
-                    style={{
-                      left: `${left}%`,
-                      top: "20%",
-                      animationDelay: `${i * 0.1}s`,
-                    }}
+                    className="absolute w-4 h-4 animate-bounce"
+                    style={{ left: `${left}%`, top: "15%", animationDelay: `${i * 0.12}s`, color: ["#C8F31D", "#E05B4B", "#62D5C5", "#D4A6EF", "#E8C94A", "#C8F31D"][i] }}
+                    viewBox="0 0 24 24" fill="currentColor"
                   >
-                    ✦
-                  </span>
+                    <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/>
+                  </svg>
                 ))}
               </div>
             )}
-            <span className="text-label-sm text-text-muted flex items-center gap-2 mb-2">
-              <span>✦</span> Academic Growth
-            </span>
-            <h1 className="font-display text-display-sm mb-2">
-              Track Your Progress
-            </h1>
-            <p className="text-text-secondary text-body text-sm max-w-lg">
-              Calculate, visualize, and improve your GPA journey
-            </p>
+
+            {/* Hero Title — teal theme */}
+            <div className="md:col-span-7 bg-teal border-[5px] border-navy rounded-[2rem] shadow-[8px_8px_0_0_#000] p-7 md:p-9 rotate-[-0.5deg] hover:rotate-0 transition-transform">
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50 mb-3">
+                Academic Growth
+              </div>
+              <h1 className="font-display font-black text-2xl md:text-3xl lg:text-4xl text-navy mb-3 leading-tight overflow-hidden">
+                <span className="brush-highlight">CGPA</span> Calculator
+              </h1>
+              <p className="font-display font-normal text-sm md:text-base text-navy/70 max-w-md">
+                Calculate, track, and conquer your academic goals semester by semester.
+              </p>
+            </div>
+
+            {/* Live Result Mini — navy card */}
+            <div className="md:col-span-5 bg-navy border-[5px] border-navy rounded-[2rem] shadow-[8px_8px_0_0_#000] p-7 rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-ghost/40">
+                  Current CGPA
+                </span>
+                {trend === "up" && (
+                  <div className="flex items-center gap-1 text-teal text-xs font-bold">
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M11.47 2.47a.75.75 0 011.06 0l7.5 7.5a.75.75 0 11-1.06 1.06l-6.22-6.22V21a.75.75 0 01-1.5 0V4.81l-6.22 6.22a.75.75 0 01-1.06-1.06l7.5-7.5z" clipRule="evenodd"/></svg>
+                    Up
+                  </div>
+                )}
+                {trend === "down" && (
+                  <div className="flex items-center gap-1 text-coral text-xs font-bold">
+                    <svg className="w-3.5 h-3.5 rotate-180" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M11.47 2.47a.75.75 0 011.06 0l7.5 7.5a.75.75 0 11-1.06 1.06l-6.22-6.22V21a.75.75 0 01-1.5 0V4.81l-6.22 6.22a.75.75 0 01-1.06-1.06l7.5-7.5z" clipRule="evenodd"/></svg>
+                    Dip
+                  </div>
+                )}
+              </div>
+              <div className="font-display font-black text-5xl md:text-6xl text-lime mb-1">
+                {result.cgpa}
+              </div>
+              <div className={`text-xs font-bold uppercase tracking-wider ${classification.color === "text-teal" ? "text-teal" : classification.color === "text-lavender" ? "text-lavender-light" : classification.color === "text-sunny" ? "text-sunny" : classification.color === "text-coral" ? "text-coral" : "text-ghost/50"}`}>
+                {classification.label}
+              </div>
+              <div className="flex gap-5 mt-4 pt-3 border-t border-ghost/10">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-ghost/30">Semester</div>
+                  <div className="font-display font-black text-lg text-ghost">{result.semesterGPA}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-ghost/30">Credits</div>
+                  <div className="font-display font-black text-lg text-ghost">{result.totalCredits}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-ghost/30">System</div>
+                  <div className="font-display font-black text-lg text-ghost">{gradingSystem}</div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column - Calculator */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Grading System */}
-              <section className="page-frame p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-label text-text-muted">◆</span>
-                  <h3 className="font-display text-lg">Grading System</h3>
+          {/* ═══════════════════════════════════════════════════
+              MAIN CONTENT — 2-col bento layout
+              ═══════════════════════════════════════════════════ */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+            {/* ── LEFT COLUMN: Calculator ── */}
+            <div className="lg:col-span-8 space-y-5">
+
+              {/* Grading System Selector — lavender accent */}
+              <section className="bg-lavender-light border-[4px] border-navy rounded-[1.5rem] shadow-[6px_6px_0_0_#000] p-5 md:p-6 rotate-[0.3deg] hover:rotate-0 transition-transform">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <div className="w-8 h-8 rounded-xl bg-lavender border-[3px] border-navy flex items-center justify-center">
+                    <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 13.5a8.25 8.25 0 018.25-8.25.75.75 0 01.75.75v6.75H18a.75.75 0 01.75.75 8.25 8.25 0 01-16.5 0z" clipRule="evenodd"/><path fillRule="evenodd" d="M12.75 3a.75.75 0 01.75-.75 8.25 8.25 0 018.25 8.25.75.75 0 01-.75.75h-8.25V3z" clipRule="evenodd"/></svg>
+                  </div>
+                  <h3 className="font-display font-black text-lg text-navy">Grading System</h3>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  {(Object.keys(GRADING_SYSTEMS) as GradingSystem[]).map(
-                    (system) => (
-                      <button
-                        key={system}
-                        onClick={() => handleGradingSystemChange(system)}
-                        className={`px-4 py-3 text-center transition-all ${
-                          gradingSystem === system
-                            ? "bg-charcoal dark:bg-cream text-cream dark:text-charcoal"
-                            : "bg-bg-secondary text-text-secondary hover:bg-bg-card"
-                        }`}
-                      >
-                        <div className="font-display text-lg mb-0.5">
-                          {system}
-                        </div>
-                        <div className="text-label-sm opacity-70">
-                          {GRADING_SYSTEMS[system].label}
-                        </div>
-                      </button>
-                    )
-                  )}
+                  {(Object.keys(GRADING_SYSTEMS) as GradingSystem[]).map((system) => (
+                    <button
+                      key={system}
+                      onClick={() => handleGradingSystemChange(system)}
+                      className={`px-4 py-3.5 rounded-2xl text-center transition-all border-[3px] ${
+                        gradingSystem === system
+                          ? "bg-navy text-ghost border-navy shadow-[4px_4px_0_0_#000]"
+                          : "bg-snow text-navy/60 border-navy/20 hover:border-navy hover:bg-snow"
+                      }`}
+                    >
+                      <div className="font-display font-black text-xl mb-0.5">{system}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-[0.1em] opacity-60">
+                        {GRADING_SYSTEMS[system].label}
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </section>
 
-              {/* Previous Record */}
-              <section className="page-frame p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-label text-text-muted">◆</span>
-                  <h3 className="font-display text-lg">Previous Record</h3>
-                  <span className="text-label-sm text-text-muted">
-                    (optional)
-                  </span>
+              {/* Previous Record — coral-light accent */}
+              <section className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] shadow-[6px_6px_0_0_#000] p-5 md:p-6 rotate-[-0.3deg] hover:rotate-0 transition-transform">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <div className="w-8 h-8 rounded-xl bg-coral border-[3px] border-navy flex items-center justify-center">
+                    <svg className="w-4 h-4 text-snow" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd"/></svg>
+                  </div>
+                  <h3 className="font-display font-black text-lg text-navy">Previous Record</h3>
+                  <span className="ml-auto text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40 bg-snow/60 px-2 py-1 rounded-full">Optional</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-label-sm text-text-secondary mb-2">
-                      Previous CGPA
-                    </label>
+                    <label className="block text-[10px] font-bold uppercase tracking-[0.1em] text-navy/50 mb-2">Previous CGPA</label>
                     <input
                       type="number"
                       step="0.01"
@@ -350,216 +385,154 @@ export default function CgpaPage() {
                       max={currentGrading.maxGpa}
                       value={previousCGPA}
                       onChange={(e) => setPreviousCGPA(e.target.value)}
-                      placeholder={
-                        gradingSystem === "5.0" ? "e.g., 3.50" : "e.g., 3.00"
-                      }
-                      className="w-full px-4 py-3 bg-bg-card border border-border text-text-primary text-body focus:outline-none focus:border-border-dark transition-colors"
+                      placeholder={gradingSystem === "5.0" ? "e.g., 3.50" : "e.g., 3.00"}
+                      className="w-full px-4 py-3 bg-snow border-[3px] border-navy rounded-xl text-navy font-display font-normal focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal/20 transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-label-sm text-text-secondary mb-2">
-                      Credits Completed
-                    </label>
+                    <label className="block text-[10px] font-bold uppercase tracking-[0.1em] text-navy/50 mb-2">Credits Done</label>
                     <input
                       type="number"
                       min="0"
                       value={previousCredits}
                       onChange={(e) => setPreviousCredits(e.target.value)}
                       placeholder="e.g., 60"
-                      className="w-full px-4 py-3 bg-bg-card border border-border text-text-primary text-body focus:outline-none focus:border-border-dark transition-colors"
+                      className="w-full px-4 py-3 bg-snow border-[3px] border-navy rounded-xl text-navy font-display font-normal focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal/20 transition-all"
                     />
                   </div>
                 </div>
               </section>
 
-              {/* Courses */}
-              <section className="page-frame p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-label text-text-muted">◆</span>
-                    <h3 className="font-display text-lg">Current Semester</h3>
+              {/* Course Entry — main calculator card */}
+              <section className="bg-snow border-[5px] border-navy rounded-[2rem] shadow-[8px_8px_0_0_#000] p-5 md:p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-lime border-[3px] border-navy flex items-center justify-center">
+                      <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 24 24"><path d="M11.7 2.805a.75.75 0 01.6 0A60.65 60.65 0 0122.83 8.72a.75.75 0 01-.231 1.337 49.949 49.949 0 00-9.902 3.912l-.003.002-.34.18a.75.75 0 01-.707 0A50.009 50.009 0 007.5 12.174v-.224c0-.131.067-.248.172-.311a.75.75 0 00.328-.658.75.75 0 00-.5-.707 49.009 49.009 0 00-4.347-1.353.75.75 0 01-.231-1.337A60.653 60.653 0 0111.7 2.805z"/><path d="M13.06 15.473a48.45 48.45 0 017.666-3.282c.134 1.414.22 2.843.255 4.285a.75.75 0 01-.46.711 47.878 47.878 0 00-8.105 4.342.75.75 0 01-.832 0 47.877 47.877 0 00-8.104-4.342.75.75 0 01-.461-.71c.035-1.442.121-2.87.255-4.286A48.4 48.4 0 016 13.18v1.27a1.5 1.5 0 00-.14 2.508c-.09.38-.222.753-.397 1.11.452.213.901.434 1.346.661a6.729 6.729 0 00.551-1.608 1.5 1.5 0 00.14-2.67v-.645a48.549 48.549 0 013.44 1.668 2.25 2.25 0 002.12 0z"/><path d="M4.462 19.462c.42-.419.753-.89 1-1.395.453.213.902.434 1.347.661a6.743 6.743 0 01-1.286 1.794.75.75 0 11-1.06-1.06z"/></svg>
+                    </div>
+                    <h3 className="font-display font-black text-lg text-navy">Current Semester</h3>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40 bg-cloud px-2 py-1 rounded-full">
+                      {courses.length} {courses.length === 1 ? "course" : "courses"}
+                    </span>
                   </div>
                   <button
                     onClick={addCourse}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-charcoal dark:bg-cream text-cream dark:text-charcoal text-label-sm hover:opacity-90 transition-opacity"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-lime border-[3px] border-navy shadow-[3px_3px_0_0_#0F0F2D] font-display font-bold text-xs text-navy uppercase tracking-wider hover:shadow-[5px_5px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
                   >
-                    <svg
-                      className="w-3.5 h-3.5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 4.5v15m7.5-7.5h-15"
-                      />
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                      <path fillRule="evenodd" d="M12 3.75a.75.75 0 01.75.75v6.75h6.75a.75.75 0 010 1.5h-6.75v6.75a.75.75 0 01-1.5 0v-6.75H4.5a.75.75 0 010-1.5h6.75V4.5a.75.75 0 01.75-.75z" clipRule="evenodd"/>
                     </svg>
-                    Add Course
+                    Add
                   </button>
                 </div>
 
-                {/* Course Headers */}
-                <div className="hidden md:grid grid-cols-12 gap-3 mb-3 px-2 text-label-sm text-text-muted">
-                  <div className="col-span-5">Course Name</div>
-                  <div className="col-span-2 text-center">Units</div>
-                  <div className="col-span-4 text-center">Grade</div>
+                {/* Course Headers — desktop */}
+                <div className="hidden md:grid grid-cols-12 gap-3 mb-3 px-3">
+                  <div className="col-span-5 text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40">Course Name</div>
+                  <div className="col-span-2 text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40 text-center">Units</div>
+                  <div className="col-span-4 text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40 text-center">Grade</div>
                   <div className="col-span-1"></div>
                 </div>
 
+                {/* Course Rows */}
                 <div className="space-y-3">
-                  {courses.map((course, index) => (
-                    <div
-                      key={course.id}
-                      className="grid grid-cols-12 gap-3 items-center p-4 bg-bg-secondary border border-border"
-                    >
-                      {/* Course Name */}
-                      <div className="col-span-12 md:col-span-5">
-                        <input
-                          type="text"
-                          value={course.name}
-                          onChange={(e) =>
-                            updateCourse(course.id, "name", e.target.value)
-                          }
-                          placeholder={`Course ${index + 1}`}
-                          className="w-full px-3 py-2 bg-bg-card border border-border text-text-primary text-body text-sm focus:outline-none focus:border-border-dark transition-colors"
-                        />
-                      </div>
-
-                      {/* Credits */}
-                      <div className="col-span-4 md:col-span-2">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() =>
-                              updateCourse(
-                                course.id,
-                                "credits",
-                                Math.max(1, course.credits - 1)
-                              )
-                            }
-                            className="p-1.5 text-text-muted hover:text-text-primary transition-colors"
-                          >
-                            <svg
-                              className="w-3.5 h-3.5"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M19.5 12h-15"
-                              />
-                            </svg>
-                          </button>
-                          <span className="w-6 text-center font-display text-lg">
-                            {course.credits}
-                          </span>
-                          <button
-                            onClick={() =>
-                              updateCourse(
-                                course.id,
-                                "credits",
-                                Math.min(6, course.credits + 1)
-                              )
-                            }
-                            className="p-1.5 text-text-muted hover:text-text-primary transition-colors"
-                          >
-                            <svg
-                              className="w-3.5 h-3.5"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M12 4.5v15m7.5-7.5h-15"
-                              />
-                            </svg>
-                          </button>
+                  {courses.map((course, index) => {
+                    const rowColors = ["border-teal/30", "border-lavender/30", "border-coral/30", "border-sunny/30"];
+                    const rowAccent = rowColors[index % rowColors.length];
+                    return (
+                      <div
+                        key={course.id}
+                        className={`grid grid-cols-12 gap-3 items-center p-4 bg-ghost border-[3px] ${rowAccent} rounded-2xl hover:border-navy transition-colors`}
+                      >
+                        {/* Course Name */}
+                        <div className="col-span-12 md:col-span-5">
+                          <input
+                            type="text"
+                            value={course.name}
+                            onChange={(e) => updateCourse(course.id, "name", e.target.value)}
+                            placeholder={`Course ${index + 1}`}
+                            className="w-full px-3 py-2 bg-snow border-[2px] border-navy/20 rounded-xl text-navy font-display font-normal text-sm focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal/20 transition-all"
+                          />
                         </div>
-                      </div>
 
-                      {/* Grade */}
-                      <div className="col-span-6 md:col-span-4">
-                        <div className="flex gap-1 justify-center flex-wrap">
-                          {Object.keys(currentGrading.grades).map((grade) => (
+                        {/* Credits stepper */}
+                        <div className="col-span-4 md:col-span-2">
+                          <div className="flex items-center justify-center gap-1.5">
                             <button
-                              key={grade}
-                              onClick={() =>
-                                updateCourse(course.id, "grade", grade)
-                              }
-                              className={`px-2.5 py-1 text-label-sm transition-all ${
-                                course.grade === grade
-                                  ? "bg-charcoal dark:bg-cream text-cream dark:text-charcoal"
-                                  : "bg-bg-card text-text-muted hover:text-text-primary border border-border"
-                              }`}
+                              onClick={() => updateCourse(course.id, "credits", Math.max(1, course.credits - 1))}
+                              className="w-7 h-7 rounded-lg bg-snow border-[2px] border-navy/20 flex items-center justify-center text-slate hover:text-navy hover:border-navy transition-all"
+                              aria-label="Decrease credits"
                             >
-                              {grade}
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M3.75 12a.75.75 0 01.75-.75h15a.75.75 0 010 1.5h-15a.75.75 0 01-.75-.75z" clipRule="evenodd"/></svg>
                             </button>
-                          ))}
+                            <span className="w-7 text-center font-display font-black text-lg text-navy">{course.credits}</span>
+                            <button
+                              onClick={() => updateCourse(course.id, "credits", Math.min(6, course.credits + 1))}
+                              className="w-7 h-7 rounded-lg bg-snow border-[2px] border-navy/20 flex items-center justify-center text-slate hover:text-navy hover:border-navy transition-all"
+                              aria-label="Increase credits"
+                            >
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 3.75a.75.75 0 01.75.75v6.75h6.75a.75.75 0 010 1.5h-6.75v6.75a.75.75 0 01-1.5 0v-6.75H4.5a.75.75 0 010-1.5h6.75V4.5a.75.75 0 01.75-.75z" clipRule="evenodd"/></svg>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Grade pills — multi-color */}
+                        <div className="col-span-6 md:col-span-4">
+                          <div className="flex gap-1 justify-center flex-wrap">
+                            {Object.keys(currentGrading.grades).map((grade) => (
+                              <button
+                                key={grade}
+                                onClick={() => updateCourse(course.id, "grade", grade)}
+                                className={`px-2.5 py-1 rounded-full font-display font-bold text-xs transition-all ${
+                                  course.grade === grade
+                                    ? `${GRADE_COLORS[grade] || "bg-navy text-ghost"} border-[2px] border-navy shadow-[2px_2px_0_0_#000]`
+                                    : "bg-snow text-navy/40 border-[2px] border-navy/15 hover:border-navy/40"
+                                }`}
+                              >
+                                {grade}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Delete */}
+                        <div className="col-span-2 md:col-span-1 flex justify-end">
+                          <button
+                            onClick={() => removeCourse(course.id)}
+                            disabled={courses.length === 1}
+                            className="p-1.5 text-slate hover:text-coral transition-colors disabled:opacity-20"
+                            aria-label="Remove course"
+                          >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 013.878.512.75.75 0 11-.256 1.478l-.209-.035-1.005 13.07a3 3 0 01-2.991 2.77H8.084a3 3 0 01-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 01-.256-1.478A48.567 48.567 0 017.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 013.369 0c1.603.051 2.815 1.387 2.815 2.951zm-6.136-1.452a51.196 51.196 0 013.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 00-6 0v-.113c0-.794.609-1.428 1.364-1.452zm-.355 5.945a.75.75 0 10-1.5.058l.347 9a.75.75 0 101.499-.058l-.346-9zm5.48.058a.75.75 0 10-1.498-.058l-.347 9a.75.75 0 001.5.058l.345-9z" clipRule="evenodd"/></svg>
+                          </button>
                         </div>
                       </div>
-
-                      {/* Delete */}
-                      <div className="col-span-2 md:col-span-1 flex justify-end">
-                        <button
-                          onClick={() => removeCourse(course.id)}
-                          disabled={courses.length === 1}
-                          className="p-1.5 text-text-muted hover:text-red-600 transition-colors disabled:opacity-30"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={1.5}
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
-                {/* Actions */}
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+                {/* Actions bar */}
+                <div className="flex items-center justify-between mt-5 pt-4 border-t-[3px] border-navy/10">
                   <button
                     onClick={resetCalculator}
-                    className="flex items-center gap-1.5 text-text-muted hover:text-text-primary text-label-sm transition-colors"
+                    className="flex items-center gap-1.5 text-slate hover:text-navy font-display font-bold text-xs uppercase tracking-wider transition-colors"
                   >
-                    <svg
-                      className="w-3.5 h-3.5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"
-                      />
-                    </svg>
-                    Reset
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M4.755 10.059a7.5 7.5 0 0112.548-3.364l1.903 1.903H14.25a.75.75 0 000 1.5h6a.75.75 0 00.75-.75v-6a.75.75 0 00-1.5 0v4.956l-1.903-1.903A9 9 0 003.306 9.67a.75.75 0 101.45.388zm14.49 3.882a7.5 7.5 0 01-12.548 3.364l-1.902-1.903h4.955a.75.75 0 000-1.5h-6a.75.75 0 00-.75.75v6a.75.75 0 001.5 0v-4.956l1.903 1.903A9 9 0 0020.694 14.33a.75.75 0 10-1.45-.388z" clipRule="evenodd"/></svg>
+                    Reset All
                   </button>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/30">
+                    {result.semesterCredits} units this semester
+                  </span>
                 </div>
               </section>
 
-              {/* Target Goal */}
-              <section className="page-frame p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-label text-text-muted">◆</span>
-                  <h3 className="font-display text-lg">Set Your Goal</h3>
+              {/* Target Goal — sunny accent */}
+              <section className="bg-sunny-light border-[4px] border-navy rounded-[1.5rem] shadow-[6px_6px_0_0_#000] p-5 md:p-6 rotate-[-0.3deg] hover:rotate-0 transition-transform">
+                <div className="flex items-center gap-2.5 mb-4">
+                  <div className="w-8 h-8 rounded-xl bg-sunny border-[3px] border-navy flex items-center justify-center">
+                    <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M5.166 2.621v.858c-1.035.148-2.059.33-3.071.543a.75.75 0 00-.584.859 6.753 6.753 0 006.138 5.6 6.73 6.73 0 002.743 1.346A6.707 6.707 0 019.279 15H8.54c-1.036 0-1.875.84-1.875 1.875V19.5h-.75a2.25 2.25 0 00-2.25 2.25c0 .414.336.75.75.75h15.75a.75.75 0 00.75-.75 2.25 2.25 0 00-2.25-2.25h-.75v-2.625c0-1.036-.84-1.875-1.875-1.875h-.739a6.706 6.706 0 01-1.112-3.173 6.73 6.73 0 002.743-1.347 6.753 6.753 0 006.139-5.6.75.75 0 00-.585-.858 47.077 47.077 0 00-3.07-.543V2.62a.75.75 0 00-.658-.744 49.22 49.22 0 00-6.093-.377c-2.063 0-4.096.128-6.093.377a.75.75 0 00-.657.744z" clipRule="evenodd"/></svg>
+                  </div>
+                  <h3 className="font-display font-black text-lg text-navy">Set Your Target</h3>
                 </div>
                 <input
                   type="number"
@@ -568,35 +541,27 @@ export default function CgpaPage() {
                   max={currentGrading.maxGpa}
                   value={targetCGPA}
                   onChange={(e) => setTargetCGPA(e.target.value)}
-                  placeholder={`Target CGPA (e.g., ${
-                    gradingSystem === "5.0" ? "4.5" : "3.5"
-                  })`}
-                  className="w-full px-4 py-3 bg-bg-card border border-border text-text-primary text-body focus:outline-none focus:border-border-dark transition-colors"
+                  placeholder={`Target CGPA (e.g., ${gradingSystem === "5.0" ? "4.5" : "3.5"})`}
+                  className="w-full px-4 py-3 bg-snow border-[3px] border-navy rounded-xl text-navy font-display font-normal focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal/20 transition-all"
                 />
                 {targetProgress && (
                   <div className="mt-4 space-y-2">
-                    <div className="flex justify-between text-label-sm text-text-muted">
-                      <span>
-                        Progress to {targetProgress.target.toFixed(1)}
-                      </span>
+                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-[0.1em] text-navy/50">
+                      <span>Progress to {targetProgress.target.toFixed(1)}</span>
                       <span>{targetProgress.progress.toFixed(0)}%</span>
                     </div>
-                    <div className="h-2 bg-bg-secondary overflow-hidden">
+                    <div className="h-3 bg-snow border-[2px] border-navy rounded-full overflow-hidden">
                       <div
-                        className={`h-full transition-all duration-500 ${
-                          targetProgress.progress >= 100
-                            ? "bg-emerald-600"
-                            : "bg-charcoal dark:bg-cream"
-                        }`}
+                        className={`h-full rounded-full transition-all duration-500 ${targetProgress.progress >= 100 ? "bg-teal" : "bg-navy"}`}
                         style={{ width: `${targetProgress.progress}%` }}
                       />
                     </div>
                     {targetProgress.progress >= 100 ? (
-                      <p className="text-label-sm text-emerald-600">
-                        ✦ Goal achieved! Set a new target?
+                      <p className="font-display font-bold text-xs text-teal">
+                        Goal achieved! Set a new target?
                       </p>
                     ) : (
-                      <p className="text-label-sm text-text-muted">
+                      <p className="font-display font-bold text-xs text-navy/50">
                         {targetProgress.remaining.toFixed(2)} points to go
                       </p>
                     )}
@@ -605,185 +570,111 @@ export default function CgpaPage() {
               </section>
             </div>
 
-            {/* Right Column - Results */}
-            <div className="space-y-6">
-              {/* Main Result */}
-              <div className="bg-charcoal dark:bg-cream p-6 text-cream dark:text-charcoal">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-label-sm text-cream/60 dark:text-charcoal/60">
-                    Your CGPA
-                  </span>
-                  {trend === "up" && (
-                    <span className="text-emerald-400">↑</span>
-                  )}
-                  {trend === "down" && <span className="text-red-400">↓</span>}
+            {/* ── RIGHT COLUMN: Results sidebar ── */}
+            <div className="lg:col-span-4 space-y-5">
+
+              {/* Motivation card — coral */}
+              <div className="bg-coral border-[4px] border-navy rounded-[1.5rem] shadow-[6px_6px_0_0_#000] p-5 rotate-[0.5deg] hover:rotate-0 transition-transform">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-4 h-4 text-snow/60" fill="currentColor" viewBox="0 0 24 24"><path d="M9 4.5a.75.75 0 01.721.544l.813 2.846a3.75 3.75 0 002.576 2.576l2.846.813a.75.75 0 010 1.442l-2.846.813a3.75 3.75 0 00-2.576 2.576l-.813 2.846a.75.75 0 01-1.442 0l-.813-2.846a3.75 3.75 0 00-2.576-2.576l-2.846-.813a.75.75 0 010-1.442l2.846-.813A3.75 3.75 0 007.466 7.89l.813-2.846A.75.75 0 019 4.5zM18 1.5a.75.75 0 01.728.568l.258 1.036c.236.94.97 1.674 1.91 1.91l1.036.258a.75.75 0 010 1.456l-1.036.258c-.94.236-1.674.97-1.91 1.91l-.258 1.036a.75.75 0 01-1.456 0l-.258-1.036a2.625 2.625 0 00-1.91-1.91l-1.036-.258a.75.75 0 010-1.456l1.036-.258a2.625 2.625 0 001.91-1.91l.258-1.036A.75.75 0 0118 1.5z"/></svg>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-snow/60">Motivation</span>
                 </div>
-                <div className="font-display text-display-lg mb-2">
-                  {result.cgpa}
-                </div>
-                <p className={`text-label-sm mb-4 ${classification.color}`}>
-                  {classification.label}
-                </p>
-                <div className="flex gap-6 text-label-sm text-cream/60 dark:text-charcoal/60">
-                  <div>
-                    <span className="block text-cream/40 dark:text-charcoal/40">
-                      Semester GPA
-                    </span>
-                    <span className="text-cream dark:text-charcoal font-display">
-                      {result.semesterGPA}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block text-cream/40 dark:text-charcoal/40">
-                      Total Credits
-                    </span>
-                    <span className="text-cream dark:text-charcoal font-display">
-                      {result.totalCredits}
-                    </span>
-                  </div>
-                </div>
+                <p className="font-display font-black text-base text-snow leading-snug">{motivation}</p>
               </div>
 
-              {/* Motivation */}
-              <div className="page-frame p-5">
-                <p className="font-display text-base text-text-primary">
-                  ✦ {motivation}
-                </p>
+              {/* Classification badge */}
+              <div className={`${classification.bg} border-[4px] border-navy rounded-[1.5rem] shadow-[5px_5px_0_0_#000] p-5`}>
+                <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40 mb-1">Classification</div>
+                <div className={`font-display font-black text-xl ${classification.color}`}>{classification.label}</div>
+                <div className="mt-2 text-xs font-display text-navy/50">on the {gradingSystem} scale</div>
               </div>
 
-              {/* Save Button */}
+              {/* Save button — lime CTA */}
               <button
                 onClick={saveToHistory}
-                className="w-full py-4 bg-charcoal dark:bg-cream text-cream dark:text-charcoal font-display text-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                className="w-full py-4 rounded-2xl bg-lime text-navy border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D] font-display font-black text-base hover:shadow-[8px_8px_0_0_#0F0F2D] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all flex items-center justify-center gap-2"
               >
-                <svg
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z"
-                  />
-                </svg>
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M6.32 2.577a49.255 49.255 0 0111.36 0c1.497.174 2.57 1.46 2.57 2.93V21a.75.75 0 01-1.085.67L12 18.089l-7.165 3.583A.75.75 0 013.75 21V5.507c0-1.47 1.073-2.756 2.57-2.93z" clipRule="evenodd"/></svg>
                 Save to Progress
               </button>
 
-              {/* History */}
-              <div className="page-frame overflow-hidden">
+              {/* History — collapsible */}
+              <div className="bg-snow border-[4px] border-navy rounded-[1.5rem] shadow-[5px_5px_0_0_#000] overflow-hidden">
                 <button
                   onClick={() => setShowHistory(!showHistory)}
-                  className="w-full flex items-center justify-between p-5 hover:bg-bg-secondary transition-colors"
+                  className="w-full flex items-center justify-between p-5 hover:bg-ghost transition-colors"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="text-label text-text-muted">◆</span>
-                    <span className="font-display">Progress History</span>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-lavender-light border-[2px] border-navy/20 flex items-center justify-center">
+                      <svg className="w-3.5 h-3.5 text-lavender" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0118 9.375v9.375a3 3 0 003-3V6.108c0-1.505-1.125-2.811-2.664-2.94A48.972 48.972 0 0012 3c-2.227 0-4.406.148-6.336.432A2.96 2.96 0 003 6.108V8.25a3 3 0 003-3h1.502zM6 13.5V6.75a.75.75 0 01.75-.75h8.5a.75.75 0 01.75.75v6.75a.75.75 0 01-.75.75h-8.5a.75.75 0 01-.75-.75z" clipRule="evenodd"/><path d="M5.25 15.375A3.375 3.375 0 018.625 12h8.25a.75.75 0 01.75.75v6.375a3.375 3.375 0 01-3.375 3.375h-6a3.375 3.375 0 01-3-3.375v-3.75z"/></svg>
+                    </div>
+                    <span className="font-display font-bold text-sm text-navy">Progress History</span>
                     {history.length > 0 && (
-                      <span className="px-2 py-0.5 bg-bg-secondary text-text-muted text-label-sm">
+                      <span className="px-2 py-0.5 rounded-full bg-lavender-light text-lavender font-display font-bold text-[10px]">
                         {history.length}
                       </span>
                     )}
                   </div>
-                  <svg
-                    className={`w-4 h-4 text-text-muted transition-transform ${
-                      showHistory ? "rotate-180" : ""
-                    }`}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M19.5 8.25l-7.5 7.5-7.5-7.5"
-                    />
+                  <svg className={`w-4 h-4 text-slate transition-transform ${showHistory ? "rotate-180" : ""}`} fill="currentColor" viewBox="0 0 24 24">
+                    <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 01-1.06 0l-7.5-7.5a.75.75 0 011.06-1.06L12 14.69l6.97-6.97a.75.75 0 111.06 1.06l-7.5 7.5z" clipRule="evenodd"/>
                   </svg>
                 </button>
 
                 {showHistory && (
-                  <div className="border-t border-border p-5 max-h-80 overflow-y-auto">
+                  <div className="border-t-[3px] border-navy/10 p-4 max-h-80 overflow-y-auto">
                     {history.length === 0 ? (
-                      <div className="text-center py-6">
-                        <p className="text-text-muted text-label-sm">
-                          No saved calculations yet
-                        </p>
+                      <div className="text-center py-8">
+                        <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-cloud flex items-center justify-center">
+                          <svg className="w-5 h-5 text-slate" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M6.32 2.577a49.255 49.255 0 0111.36 0c1.497.174 2.57 1.46 2.57 2.93V21a.75.75 0 01-1.085.67L12 18.089l-7.165 3.583A.75.75 0 013.75 21V5.507c0-1.47 1.073-2.756 2.57-2.93z" clipRule="evenodd"/></svg>
+                        </div>
+                        <p className="text-xs font-display font-bold text-slate">No saved calculations yet</p>
                       </div>
                     ) : (
-                      <div className="space-y-3">
-                        {history.map((record, index) => (
-                          <div
-                            key={record.id}
-                            className="flex items-center justify-between p-3 bg-bg-secondary border border-border group"
-                          >
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="font-display">
-                                  {typeof record.gpa === "number"
-                                    ? record.gpa.toFixed(2)
-                                    : "--"}
-                                </span>
-                                {record.gradingSystem && (
-                                  <span className="text-label-sm text-text-muted">
-                                    {record.gradingSystem}
-                                  </span>
-                                )}
-                                {index === 0 && (
-                                  <span className="text-label-sm text-text-muted">
-                                    Latest
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-label-sm text-text-muted">
-                                {new Date(
-                                  record.timestamp
-                                ).toLocaleDateString()}{" "}
-                                • {record.credits} credits
-                              </span>
-                            </div>
-                            <button
-                              onClick={() => deleteFromHistory(record.id)}
-                              className="p-1.5 text-text-muted hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all"
+                      <div className="space-y-2.5">
+                        {history.map((record, index) => {
+                          const histColors = ["bg-teal-light", "bg-lavender-light", "bg-sunny-light", "bg-coral-light"];
+                          return (
+                            <div
+                              key={record.id}
+                              className={`flex items-center justify-between p-3 ${histColors[index % histColors.length]} border-[2px] border-navy/15 rounded-xl group`}
                             >
-                              <svg
-                                className="w-4 h-4"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth={1.5}
+                              <div>
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className="font-display font-black text-base text-navy">
+                                    {typeof record.gpa === "number" ? record.gpa.toFixed(2) : "--"}
+                                  </span>
+                                  {record.gradingSystem && (
+                                    <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40">{record.gradingSystem}</span>
+                                  )}
+                                  {index === 0 && (
+                                    <span className="px-1.5 py-0.5 rounded-md bg-navy text-ghost text-[9px] font-bold uppercase">Latest</span>
+                                  )}
+                                </div>
+                                <span className="text-[10px] font-bold text-navy/40">
+                                  {new Date(record.timestamp).toLocaleDateString()} · {record.credits} credits
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => deleteFromHistory(record.id)}
+                                className="p-1.5 text-slate hover:text-coral opacity-0 group-hover:opacity-100 transition-all"
+                                aria-label="Delete record"
                               >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-                                />
-                              </svg>
-                            </button>
-                          </div>
-                        ))}
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 013.878.512.75.75 0 11-.256 1.478l-.209-.035-1.005 13.07a3 3 0 01-2.991 2.77H8.084a3 3 0 01-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 01-.256-1.478A48.567 48.567 0 017.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 013.369 0c1.603.051 2.815 1.387 2.815 2.951zm-6.136-1.452a51.196 51.196 0 013.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 00-6 0v-.113c0-.794.609-1.428 1.364-1.452zm-.355 5.945a.75.75 0 10-1.5.058l.347 9a.75.75 0 101.499-.058l-.346-9zm5.48.058a.75.75 0 10-1.498-.058l-.347 9a.75.75 0 001.5.058l.345-9z" clipRule="evenodd"/></svg>
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
                 )}
               </div>
 
-              {/* Privacy Note */}
-              <p className="text-center text-label-sm text-text-muted flex items-center justify-center gap-1.5">
-                <svg
-                  className="w-3 h-3"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-                Data stored locally on your device
-              </p>
+              {/* Privacy note */}
+              <div className="flex items-center justify-center gap-2 py-2">
+                <svg className="w-3 h-3 text-slate" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd"/></svg>
+                <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate">Stored locally on your device</span>
+              </div>
             </div>
           </div>
         </div>

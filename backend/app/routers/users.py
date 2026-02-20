@@ -18,7 +18,7 @@ from app.core.security import verify_token, get_current_user
 from app.core.permissions import require_permission
 from app.core.audit import audit_user_role_change
 
-router = APIRouter(prefix="/api/users", tags=["Users"])
+router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 limiter = Limiter(key_func=get_remote_address)
 
 
@@ -30,37 +30,33 @@ async def create_or_update_user_profile(
     token_data: dict = Depends(verify_token)
 ):
     """
-    Create or update user profile after Firebase authentication.
+    Create or update user profile after authentication.
     
     Rate limited to prevent spam account creation.
-    This endpoint is called by the frontend immediately after
-    Firebase authentication succeeds to sync user data to MongoDB.
+    This endpoint is called by the frontend to sync/update user data in MongoDB.
+    With in-app auth, the user is already created at /auth/register,
+    so this mainly handles profile updates and legacy data linking.
     """
     db = get_database()
     users = db["users"]
     
-    # Verify Firebase UID matches
-    if user_data.firebaseUid != token_data.get("uid"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Firebase UID mismatch"
-        )
+    user_id = token_data.get("sub")
     
-    # Check if user already exists by Firebase UID
-    existing_user = await users.find_one({"firebaseUid": user_data.firebaseUid})
+    # Check if user already exists by _id (normal flow after auth)
+    existing_user = await users.find_one({"_id": ObjectId(user_id)})
     
     if existing_user:
-        # Update existing user
-        update_data = user_data.model_dump(exclude={"firebaseUid"})
+        # Update existing user profile
+        update_data = user_data.model_dump(exclude={"password", "firebaseUid"}, exclude_none=True)
         update_data["updatedAt"] = datetime.utcnow()
         update_data["lastLogin"] = datetime.utcnow()
         
         await users.update_one(
-            {"firebaseUid": user_data.firebaseUid},
+            {"_id": ObjectId(user_id)},
             {"$set": update_data}
         )
         
-        updated_user = await users.find_one({"firebaseUid": user_data.firebaseUid})
+        updated_user = await users.find_one({"_id": ObjectId(user_id)})
         if not updated_user:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -70,54 +66,12 @@ async def create_or_update_user_profile(
         
         return User(**updated_user)
     
-    # Check if user exists by email (from dummy data)
-    email_user = await users.find_one({"email": user_data.email})
-    
-    if email_user:
-        # Link existing MongoDB user to Firebase UID
-        update_data = {
-            "firebaseUid": user_data.firebaseUid,
-            "updatedAt": datetime.utcnow(),
-            "lastLogin": datetime.utcnow()
-        }
-        
-        await users.update_one(
-            {"email": user_data.email},
-            {"$set": update_data}
-        )
-        
-        linked_user = await users.find_one({"email": user_data.email})
-        if not linked_user:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to link existing user"
-            )
-        linked_user["_id"] = str(linked_user["_id"])
-        
-        return User(**linked_user)
-    
-    # Create new user
-    user_dict = user_data.model_dump()
-    user_dict["createdAt"] = datetime.utcnow()
-    user_dict["updatedAt"] = datetime.utcnow()
-    user_dict["lastLogin"] = datetime.utcnow()
-    user_dict["isActive"] = True
-    user_dict["hasCompletedOnboarding"] = False
-    
-    result = await users.insert_one(user_dict)
-    created_user = await users.find_one({"_id": result.inserted_id})
-    if not created_user:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve created user"
-        )
-    created_user["_id"] = str(created_user["_id"])
-    
-    # Auto-enroll in active session if student
-    if user_data.role == "student":
-        await auto_enroll_in_active_session(str(created_user["_id"]), db)
-    
-    return User(**created_user)
+    # User not found by _id — should not happen with in-app auth
+    # (user is created at /auth/register before getting a token)
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="User not found. Please register first."
+    )
 
 
 async def auto_enroll_in_active_session(user_id: str, db):
@@ -265,7 +219,7 @@ async def upload_profile_picture(
         
         # Upload to Cloudinary
         file_extension = file.filename.split('.')[-1] if file.filename and '.' in file.filename else 'jpg'
-        image_url = upload_profile_picture(content, user["firebaseUid"], file_extension)
+        image_url = upload_profile_picture(content, user["_id"], file_extension)
         
         if not image_url:
             raise HTTPException(
@@ -313,7 +267,7 @@ async def list_users(
     role: Optional[str] = None,
     limit: int = 100,
     skip: int = 0,
-    user: dict = Depends(require_permission("user:view"))
+    user: dict = Depends(require_permission("user:view_all"))
 ):
     """
     List all users with optional filtering.

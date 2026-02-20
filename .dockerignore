@@ -1,0 +1,65 @@
+# Docker Ignore File
+# Excludes files from Docker build context
+
+# Dependencies
+node_modules
+backend/venv
+backend/__pycache__
+
+# Build outputs
+.next
+out
+dist
+build
+*.egg-info
+
+# Environment files (sensitive)
+.env
+.env.local
+.env.*.local
+backend/.env
+backend/serviceAccountKey.json
+backend/service_base64.txt
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Testing
+coverage
+.coverage
+.pytest_cache
+.nyc_output
+htmlcov
+
+# Documentation
+docs
+*.md
+!README.md
+
+# Logs
+*.log
+logs
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Development files
+docker-compose.*.yml
+Dockerfile.dev
+*.dev.*
+
+# CI/CD
+.github
+
+# Misc
+*.pem
+*.key
+*.crt

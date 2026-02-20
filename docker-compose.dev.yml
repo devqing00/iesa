@@ -1,0 +1,84 @@
+# Docker Compose for IESA Development with Hot Reloading
+# 
+# Usage:
+#   docker-compose -f docker-compose.dev.yml up -d
+#
+# This configuration:
+# - Mounts source code for hot reloading
+# - Uses development settings
+# - Exposes debug ports
+
+services:
+  # ============================================
+  # Frontend (Next.js Dev Server)
+  # ============================================
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: iesa-frontend-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    networks:
+      - iesa-network
+    command: npm run dev
+
+  # ============================================
+  # Backend (FastAPI Dev Server)
+  # ============================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: iesa-backend-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - MONGODB_URL=mongodb://mongo:27017
+      - DATABASE_NAME=iesa_db
+      - ALLOWED_ORIGINS=http://localhost:3000
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - mongo
+    networks:
+      - iesa-network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ============================================
+  # MongoDB
+  # ============================================
+  mongo:
+    image: mongo:7.0
+    container_name: iesa-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data_dev:/data/db
+    networks:
+      - iesa-network
+
+# ============================================
+# Networks
+# ============================================
+networks:
+  iesa-network:
+    driver: bridge
+
+# ============================================
+# Volumes
+# ============================================
+volumes:
+  mongo_data_dev:

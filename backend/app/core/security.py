@@ -1,41 +1,37 @@
-import firebase_admin
-from firebase_admin import credentials, auth
+"""
+Security — JWT-based authentication (replaces Firebase Admin SDK)
+
+Provides:
+- verify_token: Decode + validate JWT access token
+- get_current_user: Look up user by _id from token `sub`
+- require_role: Role-based dependency guard
+- verify_session_access: Session-level access control
+"""
+
 from fastapi import HTTPException, Security, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import List, Optional
-import os, json, base64
-from dotenv import load_dotenv
+from typing import List
+from bson import ObjectId
 
-load_dotenv()
-
-# Initialize Firebase Admin
-cred_path = "serviceAccountKey.json"
-
-sa_b64 = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON_BASE64")
-if sa_b64:
-    sa_json = json.loads(base64.b64decode(sa_b64).decode("utf-8"))
-    cred = credentials.Certificate(sa_json)
-else:
-    cred = credentials.Certificate(cred_path)
-
-# Initialize Firebase Admin app if not already initialized
-try:
-    firebase_admin.get_app()
-except ValueError:
-    firebase_admin.initialize_app(cred)
+from app.core.auth import decode_access_token
 
 security = HTTPBearer()
 
 
 async def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)) -> dict:
     """
-    Verify Firebase JWT token and return decoded token data.
-    This is the base authentication check.
+    Verify JWT access token and return decoded payload.
+    
+    Returns dict with:
+        sub: user id (string)
+        email: user email
+        role: user role
+        type: "access"
     """
     token = credentials.credentials
     try:
-        decoded_token = auth.verify_id_token(token)
-        return decoded_token
+        payload = decode_access_token(token)
+        return payload
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -47,20 +43,25 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
 async def get_current_user(token_data: dict = Depends(verify_token)) -> dict:
     """
     Get current user with profile data from MongoDB.
+    Looks up user by _id (from JWT `sub` claim).
     Returns enriched user object with role and permissions.
     """
     from app.db import get_database
-    from bson import ObjectId
     
     db = get_database()
     users = db["users"]
     
-    # Find user by Firebase UID
-    user = await users.find_one({"firebaseUid": token_data.get("uid")})
+    user_id = token_data.get("sub")
+    if not user_id or not ObjectId.is_valid(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token: missing or invalid user ID",
+        )
+    
+    # Find user by MongoDB _id
+    user = await users.find_one({"_id": ObjectId(user_id)})
     
     if not user:
-        # User authenticated with Firebase but no profile in DB
-        # This should trigger profile creation on frontend
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User profile not found. Please complete your profile setup."
@@ -69,8 +70,8 @@ async def get_current_user(token_data: dict = Depends(verify_token)) -> dict:
     # Convert ObjectId to string
     user["_id"] = str(user["_id"])
     
-    # Add Firebase data to user object
-    user["firebaseData"] = token_data
+    # Add token data for downstream compatibility
+    user["tokenData"] = token_data
     
     return user
 

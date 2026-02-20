@@ -14,7 +14,7 @@ from app.core.security import get_current_user
 from app.core.permissions import require_permission
 from app.core.audit import AuditLogger
 
-router = APIRouter(prefix="/api/audit-logs", tags=["Audit Logs"])
+router = APIRouter(prefix="/api/v1/audit-logs", tags=["Audit Logs"])
 
 
 class AuditLogResponse(BaseModel):
@@ -34,7 +34,7 @@ class AuditLogResponse(BaseModel):
                 "id": "507f1f77bcf86cd799439011",
                 "action": "user.role_changed",
                 "actor": {
-                    "id": "firebase_uid_123",
+                    "id": "507f1f77bcf86cd799439012",
                     "email": "admin@iesa.com"
                 },
                 "resource": {

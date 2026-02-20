@@ -24,6 +24,7 @@ class AuditLogger:
     
     SESSION_CREATED = "session.created"
     SESSION_ACTIVATED = "session.activated"
+    SESSION_UPDATED = "session.updated"
     SESSION_DELETED = "session.deleted"
     
     ROLE_ASSIGNED = "role.assigned"
@@ -66,7 +67,7 @@ class AuditLogger:
         
         Args:
             action: Action type (use constants above)
-            actor_id: Firebase UID of user performing action
+            actor_id: User ID of user performing action
             actor_email: Email of user performing action
             resource_type: Type of resource (user, session, payment, etc.)
             resource_id: ID of the affected resource

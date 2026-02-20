@@ -5,7 +5,9 @@ import { useAuth } from "@/context/AuthContext";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getApiUrl } from "@/lib/api";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import { useToast } from "@/components/ui/Toast";
 
+/* ─── Types ─── */
 interface Payment {
   _id: string;
   title: string;
@@ -28,7 +30,6 @@ interface PaystackTransaction {
   channel?: string;
 }
 
-// Declare Paystack on window object
 declare global {
   interface Window {
     PaystackPop?: {
@@ -39,15 +40,16 @@ declare global {
         ref: string;
         onClose: () => void;
         callback: (response: { reference: string }) => void;
-      }) => {
-        openIframe: () => void;
-      };
+      }) => { openIframe: () => void };
     };
   }
 }
 
+/* ─── Accent cycle ─── */
+const ACCENT_CYCLE = ["border-l-teal", "border-l-coral", "border-l-lavender", "border-l-sunny"] as const;
+
 export default function PaymentsPage() {
-  const { user } = useAuth();
+  const { user, getAccessToken } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -55,7 +57,9 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
+  const toast = useToast();
 
+  /* ─── Data Fetching ─── */
   useEffect(() => {
     const reference = searchParams.get("reference");
     if (reference) {
@@ -70,27 +74,14 @@ export default function PaymentsPage() {
   const fetchPayments = async () => {
     try {
       setLoading(true);
-      const token = await user?.getIdToken();
-
-      // Fetch current session first
-      const sessionRes = await fetch(getApiUrl("/api/sessions/active"), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
+      const token = await getAccessToken();
+      const sessionRes = await fetch(getApiUrl("/api/v1/sessions/active"), { headers: { Authorization: `Bearer ${token}` } });
       if (!sessionRes.ok) throw new Error("Failed to fetch session");
       const session = await sessionRes.json();
       const sessionId = session.id || session._id;
-
-      const res = await fetch(
-        getApiUrl(`/api/v1/payments?session_id=${sessionId}`),
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
+      const res = await fetch(getApiUrl(`/api/v1/payments?session_id=${sessionId}`), { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed to fetch payments");
-      const data = await res.json();
-      setPayments(data);
+      setPayments(await res.json());
     } catch (error) {
       console.error("Error fetching payments:", error);
     } finally {
@@ -100,14 +91,10 @@ export default function PaymentsPage() {
 
   const fetchTransactions = async () => {
     try {
-      const token = await user?.getIdToken();
-      const res = await fetch(getApiUrl("/api/v1/paystack/transactions"), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl("/api/v1/paystack/transactions"), { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed to fetch transactions");
-      const data = await res.json();
-      setTransactions(data);
+      setTransactions(await res.json());
     } catch (error) {
       console.error("Error fetching transactions:", error);
     }
@@ -115,56 +102,30 @@ export default function PaymentsPage() {
 
   const initiatePayment = async (payment: Payment) => {
     if (processing) return;
-
     setProcessing(true);
     try {
-      const token = await user?.getIdToken();
-
+      const token = await getAccessToken();
       const res = await fetch(getApiUrl("/api/v1/paystack/initialize"), {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          amount: payment.amount,
-          paymentId: payment._id,
-        }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ amount: payment.amount, paymentId: payment._id }),
       });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.detail || "Failed to initialize payment");
-      }
-
+      if (!res.ok) { const error = await res.json(); throw new Error(error.detail || "Failed to initialize payment"); }
       const data = await res.json();
-
-      if (!window.PaystackPop) {
-        await loadPaystackScript();
-      }
-
+      if (!window.PaystackPop) await loadPaystackScript();
       const handler = window.PaystackPop!.setup({
         key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || "pk_test_xxx",
         email: user?.email || "",
         amount: Math.round(payment.amount * 100),
         ref: data.reference,
-        onClose: function () {
-          alert("Payment window closed");
-          setProcessing(false);
-        },
-        callback: function (response) {
-          router.push(
-            `/dashboard/payments/verify?reference=${response.reference}`
-          );
-        },
+        onClose: () => { toast.info("Payment Closed", "Payment window was closed"); setProcessing(false); },
+        callback: (response) => { router.push(`/dashboard/payments/verify?reference=${response.reference}`); },
       });
-
       handler.openIframe();
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to initiate payment";
+      const errorMessage = error instanceof Error ? error.message : "Failed to initiate payment";
       console.error("Payment error:", error);
-      alert(errorMessage);
+      toast.error("Payment Error", errorMessage);
       setProcessing(false);
     }
   };
@@ -172,30 +133,22 @@ export default function PaymentsPage() {
   const verifyPayment = async (reference: string) => {
     try {
       setLoading(true);
-      const token = await user?.getIdToken();
-
-      const res = await fetch(
-        getApiUrl(`/api/v1/paystack/verify/${reference}`),
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl(`/api/v1/paystack/verify/${reference}`), { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed to verify payment");
       const data = await res.json();
-
       if (data.status === "success") {
-        alert("Payment verified successfully!");
+        toast.success("Payment Verified", "Your payment has been verified successfully!");
         router.push("/dashboard/payments");
         fetchPayments();
         fetchTransactions();
       } else {
-        alert(`Payment status: ${data.status}`);
+        toast.warning("Payment Status", `Payment status: ${data.status}`);
         router.push("/dashboard/payments");
       }
     } catch (error) {
       console.error("Verification error:", error);
-      alert("Failed to verify payment");
+      toast.error("Verification Failed", "Failed to verify payment");
       router.push("/dashboard/payments");
     } finally {
       setLoading(false);
@@ -204,39 +157,21 @@ export default function PaymentsPage() {
 
   const loadPaystackScript = (): Promise<void> => {
     return new Promise((resolve, reject) => {
-      if (window.PaystackPop) {
-        resolve();
-        return;
-      }
-
+      if (window.PaystackPop) { resolve(); return; }
       const script = document.createElement("script");
       script.src = "https://js.paystack.co/v1/inline.js";
       script.async = true;
       script.onload = () => resolve();
-      script.onerror = () =>
-        reject(new Error("Failed to load Paystack script"));
+      script.onerror = () => reject(new Error("Failed to load Paystack script"));
       document.body.appendChild(script);
     });
   };
 
-  const pendingPayments = payments.filter((p) => !p.hasPaid);
-  const paidPayments = payments.filter((p) => p.hasPaid);
-
   const downloadReceipt = async (reference: string) => {
     try {
-      const token = await user?.getIdToken();
-      const res = await fetch(
-        getApiUrl(`/api/v1/paystack/receipt/${reference}`),
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.detail || "Failed to download receipt");
-      }
-
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl(`/api/v1/paystack/receipt/${reference}`), { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) { const error = await res.json(); throw new Error(error.detail || "Failed to download receipt"); }
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -247,431 +182,260 @@ export default function PaymentsPage() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to download receipt";
+      const errorMessage = error instanceof Error ? error.message : "Failed to download receipt";
       console.error("Download error:", error);
-      alert(errorMessage);
+      toast.error("Download Failed", errorMessage);
     }
   };
 
+  const pendingPayments = payments.filter((p) => !p.hasPaid);
+  const paidPayments = payments.filter((p) => p.hasPaid);
+
+  /* ─── Render ─── */
   return (
-    <div className="min-h-screen bg-bg-primary">
+    <div className="min-h-screen bg-ghost">
       <DashboardHeader title="Payments & Dues" />
 
-      <div className="px-4 md:px-8 py-6 pb-24 md:pb-8">
+      <div className="px-4 md:px-8 py-6 pb-24 md:pb-8 max-w-6xl mx-auto relative">
+        {/* Diamond Sparkle Decorators */}
+        <svg className="fixed top-20 left-[6%] w-5 h-5 text-sunny/18 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed top-44 right-[8%] w-7 h-7 text-teal/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed top-[52%] left-[4%] w-4 h-4 text-coral/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed bottom-36 right-[12%] w-6 h-6 text-lavender/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed top-[32%] right-[20%] w-4 h-4 text-lime/18 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+
         {loading ? (
-          <div className="max-w-7xl mx-auto space-y-6">
-            <div className="h-6 bg-bg-secondary animate-pulse w-1/4" />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="border border-border p-6 animate-pulse">
-                  <div className="h-4 bg-bg-secondary mb-2 w-1/3" />
-                  <div className="h-8 bg-bg-secondary w-1/2" />
-                </div>
-              ))}
+          /* ── Loading Skeleton ── */
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              <div className="md:col-span-7 h-48 bg-cloud/50 border-[4px] border-navy/10 rounded-[2rem] animate-pulse" />
+              <div className="md:col-span-5 grid grid-cols-1 gap-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-20 bg-cloud/50 border-[4px] border-navy/10 rounded-[1.5rem] animate-pulse" />
+                ))}
+              </div>
             </div>
           </div>
         ) : (
-          <div className="max-w-7xl mx-auto space-y-8">
-            {/* Header Section */}
-            <section className="border-t border-border pt-8">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-charcoal dark:bg-cream flex items-center justify-center">
-                    <svg
-                      className="w-6 h-6 text-cream dark:text-charcoal"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"
-                      />
-                    </svg>
-                  </div>
+          <div className="space-y-8">
+            {/* ═══ BENTO HERO ═══ */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              {/* Title Card — sunny theme */}
+              <div className="md:col-span-7 bg-sunny border-[6px] border-navy rounded-[2rem] p-8 shadow-[10px_10px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
+                <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/70 flex items-center gap-2 mb-3">
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+                  Finance Portal
+                </span>
+                <h1 className="font-display font-black text-3xl md:text-4xl text-navy mb-2">
+                  <span className="brush-highlight brush-coral">Payments</span> & Dues
+                </h1>
+                <p className="font-display font-normal text-sm text-navy/70 max-w-md">
+                  Manage your departmental dues, view payment history, and download receipts.
+                </p>
+              </div>
+
+              {/* Stats Strip */}
+              <div className="md:col-span-5 grid grid-cols-1 gap-3">
+                {/* Completed */}
+                <div className="bg-teal-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[0.3deg] hover:rotate-0 transition-transform flex items-center justify-between">
                   <div>
-                    <h2 className="font-display text-xl text-text-primary">
-                      Payment Management
-                    </h2>
-                    <p className="text-label-sm text-text-muted">
-                      Manage your departmental dues and payment history
-                    </p>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Completed</span>
+                    <p className="font-display font-black text-2xl text-navy">{paidPayments.length}</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-teal/20 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>
                   </div>
                 </div>
-                <span className="page-number hidden md:block">Page 01</span>
-              </div>
-            </section>
-
-            {/* Summary Cards */}
-            <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Paid Card */}
-              <div className="border border-border p-6">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 border border-border flex items-center justify-center">
-                    <svg
-                      className="w-5 h-5 text-green-600 dark:text-green-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
+                {/* Pending */}
+                <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Pending</span>
+                    <p className={`font-display font-black text-2xl ${pendingPayments.length > 0 ? "text-coral" : "text-navy"}`}>{pendingPayments.length}</p>
                   </div>
-                  <span className="text-label-sm text-text-muted">
-                    Completed
-                  </span>
-                </div>
-                <p className="font-display text-3xl text-green-600 dark:text-green-400 mb-1">
-                  {paidPayments.length}
-                </p>
-                <p className="text-body text-sm text-text-secondary">
-                  Payments made
-                </p>
-              </div>
-
-              {/* Pending Card */}
-              <div className="border border-border p-6">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 border border-border flex items-center justify-center">
-                    <svg
-                      className="w-5 h-5 text-orange-600 dark:text-orange-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
+                  <div className="w-10 h-10 rounded-xl bg-coral/20 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-coral" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" /></svg>
                   </div>
-                  <span className="text-label-sm text-text-muted">Pending</span>
                 </div>
-                <p className="font-display text-3xl text-orange-600 dark:text-orange-400 mb-1">
-                  {pendingPayments.length}
-                </p>
-                <p className="text-body text-sm text-text-secondary">
-                  Outstanding dues
-                </p>
-              </div>
-
-              {/* Total Card */}
-              <div className="border border-border p-6">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 border border-border flex items-center justify-center">
-                    <svg
-                      className="w-5 h-5 text-text-primary"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3"
-                      />
-                    </svg>
+                {/* Total Paid */}
+                <div className="bg-navy border-[4px] border-lime rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-lime/60">Total Paid</span>
+                    <p className="font-display font-black text-2xl text-lime">₦{paidPayments.reduce((s, p) => s + p.amount, 0).toLocaleString()}</p>
                   </div>
-                  <span className="text-label-sm text-text-muted">
-                    Total Paid
-                  </span>
+                  <div className="w-10 h-10 rounded-xl bg-lime/20 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-lime" fill="currentColor" viewBox="0 0 24 24"><path d="M12 7.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" /><path fillRule="evenodd" d="M1.5 4.875C1.5 3.839 2.34 3 3.375 3h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 17.625V4.875zM8.25 9.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM18.75 9a.75.75 0 00-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 00.75-.75V9.75a.75.75 0 00-.75-.75h-.008zM4.5 9.75A.75.75 0 015.25 9h.008a.75.75 0 01.75.75v.008a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75V9.75z" clipRule="evenodd" /></svg>
+                  </div>
                 </div>
-                <p className="font-display text-3xl text-text-primary mb-1">
-                  ₦
-                  {paidPayments
-                    .reduce((sum, p) => sum + p.amount, 0)
-                    .toLocaleString()}
-                </p>
-                <p className="text-body text-sm text-text-secondary">
-                  Amount paid
-                </p>
               </div>
-            </section>
+            </div>
 
-            {/* Tabs */}
-            <section className="border-b border-border">
-              <div className="flex gap-6">
+            {/* ═══ TAB BAR ═══ */}
+            <div className="bg-snow border-[4px] border-navy rounded-[1.5rem] shadow-[6px_6px_0_0_#000] p-4">
+              <div className="flex gap-2">
                 <button
                   onClick={() => setActiveTab("pending")}
-                  className={`pb-3 text-label-sm transition-colors ${
+                  className={`px-5 py-2.5 rounded-xl font-display font-bold text-xs uppercase tracking-wider border-[3px] transition-all ${
                     activeTab === "pending"
-                      ? "text-text-primary border-b-2 border-charcoal dark:border-cream"
-                      : "text-text-muted hover:text-text-secondary"
+                      ? "bg-coral text-navy border-navy shadow-[3px_3px_0_0_#000]"
+                      : "bg-ghost text-navy/40 border-transparent hover:border-navy/20 hover:text-navy"
                   }`}
                 >
                   Pending Dues ({pendingPayments.length})
                 </button>
                 <button
                   onClick={() => setActiveTab("history")}
-                  className={`pb-3 text-label-sm transition-colors ${
+                  className={`px-5 py-2.5 rounded-xl font-display font-bold text-xs uppercase tracking-wider border-[3px] transition-all ${
                     activeTab === "history"
-                      ? "text-text-primary border-b-2 border-charcoal dark:border-cream"
-                      : "text-text-muted hover:text-text-secondary"
+                      ? "bg-teal text-navy border-navy shadow-[3px_3px_0_0_#000]"
+                      : "bg-ghost text-navy/40 border-transparent hover:border-navy/20 hover:text-navy"
                   }`}
                 >
                   Payment History ({transactions.length})
                 </button>
               </div>
-            </section>
+            </div>
 
-            {/* Pending Dues */}
+            {/* ═══ PENDING DUES ═══ */}
             {activeTab === "pending" && (
-              <section className="space-y-4">
+              <div className="space-y-4">
                 {pendingPayments.length === 0 ? (
-                  <div className="text-center py-16">
-                    <div className="w-16 h-16 mx-auto mb-4 border border-border flex items-center justify-center">
-                      <svg
-                        className="w-8 h-8 text-green-600 dark:text-green-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={1.5}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
+                  <div className="bg-navy border-[4px] border-lime rounded-[2rem] shadow-[8px_8px_0_0_#000] p-12 text-center">
+                    <div className="w-14 h-14 bg-teal/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-7 h-7 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>
                     </div>
-                    <h3 className="font-display text-lg text-text-primary mb-2">
-                      All Caught Up!
-                    </h3>
-                    <p className="text-body text-sm text-text-muted">
-                      You have no pending payments
-                    </p>
+                    <p className="font-display font-black text-xl text-lime mb-2">All Caught Up!</p>
+                    <p className="font-display font-normal text-sm text-lime/60">You have no pending payments. Well done!</p>
                   </div>
                 ) : (
-                  pendingPayments.map((payment, index) => (
-                    <article
-                      key={payment._id}
-                      className="border border-border hover:border-border-dark transition-colors"
-                    >
-                      <div className="p-4 border-b border-border flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span className="text-label-sm text-text-muted">
-                            {String(index + 1).padStart(2, "0")}
-                          </span>
-                          <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-label-sm">
-                            Pending
-                          </span>
+                  pendingPayments.map((payment, i) => {
+                    const accent = ACCENT_CYCLE[i % ACCENT_CYCLE.length];
+                    return (
+                      <div
+                        key={payment._id}
+                        className={`bg-snow border-[4px] border-navy ${accent} border-l-[6px] rounded-[1.5rem] shadow-[6px_6px_0_0_#000] overflow-hidden transition-all hover:shadow-[4px_4px_0_0_#000] hover:translate-x-[1px] hover:translate-y-[1px]`}
+                      >
+                        {/* Card Header */}
+                        <div className="px-5 py-3 border-b-[3px] border-navy/10 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/40">#{String(i + 1).padStart(2, "0")}</span>
+                            <span className="px-2.5 py-1 rounded-lg bg-sunny-light text-sunny font-display font-bold text-[10px] uppercase tracking-[0.08em] flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-sunny" />
+                              Pending
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/40 capitalize">{payment.category}</span>
                         </div>
-                        <span className="text-label-sm text-text-muted capitalize">
-                          {payment.category}
-                        </span>
-                      </div>
 
-                      <div className="p-6">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          <div className="space-y-2">
-                            <h3 className="font-display text-lg text-text-primary">
-                              {payment.title}
-                            </h3>
-                            <p className="text-body text-sm text-text-secondary">
-                              {payment.description}
-                            </p>
-                            <div className="flex items-center gap-2 text-label-sm text-text-muted">
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={1.5}
+                        {/* Card Body */}
+                        <div className="p-5">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="space-y-2">
+                              <h3 className="font-display font-black text-lg text-navy">{payment.title}</h3>
+                              <p className="font-display font-normal text-sm text-navy/50">{payment.description}</p>
+                              <p className="font-display font-bold text-xs text-slate uppercase tracking-wider flex items-center gap-1.5">
+                                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M6.75 2.25A.75.75 0 017.5 3v1.5h9V3A.75.75 0 0118 3v1.5h.75a3 3 0 013 3v11.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V7.5a3 3 0 013-3H6V3a.75.75 0 01.75-.75zm13.5 9a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5v7.5a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5v-7.5z" clipRule="evenodd" /></svg>
+                                Due: {new Date(payment.deadline).toLocaleDateString()}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-4">
+                              <p className="font-display font-black text-2xl text-navy">₦{payment.amount.toLocaleString()}</p>
+                              <button
+                                onClick={() => initiatePayment(payment)}
+                                disabled={processing}
+                                className="px-6 py-3 bg-lime text-navy border-[4px] border-navy rounded-2xl shadow-[5px_5px_0_0_#0F0F2D] font-display font-bold text-xs uppercase tracking-wider hover:shadow-[7px_7px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
                               >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
-                                />
-                              </svg>
-                              <span>
-                                Due:{" "}
-                                {new Date(
-                                  payment.deadline
-                                ).toLocaleDateString()}
-                              </span>
+                                {processing ? (
+                                  <>
+                                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
+                                    Processing...
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 7.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" /><path fillRule="evenodd" d="M1.5 4.875C1.5 3.839 2.34 3 3.375 3h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 17.625V4.875zM8.25 9.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM18.75 9a.75.75 0 00-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 00.75-.75V9.75a.75.75 0 00-.75-.75h-.008zM4.5 9.75A.75.75 0 015.25 9h.008a.75.75 0 01.75.75v.008a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75V9.75z" clipRule="evenodd" /></svg>
+                                    Pay Now
+                                  </>
+                                )}
+                              </button>
                             </div>
                           </div>
-
-                          <div className="flex items-center gap-4">
-                            <p className="font-display text-2xl text-text-primary">
-                              ₦{payment.amount.toLocaleString()}
-                            </p>
-                            <button
-                              onClick={() => initiatePayment(payment)}
-                              disabled={processing}
-                              className="px-6 py-3 bg-charcoal dark:bg-cream text-cream dark:text-charcoal text-label-sm hover:bg-charcoal-light dark:hover:bg-cream-dark transition-colors disabled:opacity-50 flex items-center gap-2"
-                            >
-                              {processing ? (
-                                <>
-                                  <svg
-                                    className="animate-spin w-4 h-4"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <circle
-                                      className="opacity-25"
-                                      cx="12"
-                                      cy="12"
-                                      r="10"
-                                      stroke="currentColor"
-                                      strokeWidth="4"
-                                    />
-                                    <path
-                                      className="opacity-75"
-                                      fill="currentColor"
-                                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                    />
-                                  </svg>
-                                  Processing...
-                                </>
-                              ) : (
-                                <>
-                                  <svg
-                                    className="w-4 h-4"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                    strokeWidth={1.5}
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"
-                                    />
-                                  </svg>
-                                  Pay Now
-                                </>
-                              )}
-                            </button>
-                          </div>
                         </div>
                       </div>
-                    </article>
-                  ))
+                    );
+                  })
                 )}
-              </section>
+              </div>
             )}
 
-            {/* Payment History */}
+            {/* ═══ PAYMENT HISTORY ═══ */}
             {activeTab === "history" && (
-              <section className="space-y-4">
+              <div className="space-y-4">
                 {transactions.length === 0 ? (
-                  <div className="text-center py-16">
-                    <div className="w-16 h-16 mx-auto mb-4 border border-border flex items-center justify-center">
-                      <svg
-                        className="w-8 h-8 text-text-muted"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={1.5}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
-                        />
-                      </svg>
+                  <div className="bg-navy border-[4px] border-lime rounded-[2rem] shadow-[8px_8px_0_0_#000] p-12 text-center">
+                    <div className="w-14 h-14 bg-lime/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-7 h-7 text-lime" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd" /></svg>
                     </div>
-                    <h3 className="font-display text-lg text-text-primary mb-2">
-                      No Transactions Yet
-                    </h3>
-                    <p className="text-body text-sm text-text-muted">
-                      Your payment history will appear here
-                    </p>
+                    <p className="font-display font-black text-xl text-lime mb-2">No Transactions Yet</p>
+                    <p className="font-display font-normal text-sm text-lime/60">Your payment history will appear here.</p>
                   </div>
                 ) : (
-                  transactions.map((txn, index) => (
-                    <article
-                      key={txn._id}
-                      className="border border-border hover:border-border-dark transition-colors"
-                    >
-                      <div className="p-4 border-b border-border flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span className="text-label-sm text-text-muted">
-                            {String(index + 1).padStart(2, "0")}
-                          </span>
-                          <span
-                            className={`px-2 py-0.5 text-label-sm ${
-                              txn.status === "success"
-                                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                                : txn.status === "pending"
-                                ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
-                                : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
-                            }`}
-                          >
-                            {txn.status}
-                          </span>
-                        </div>
-                        {txn.channel && (
-                          <span className="text-label-sm text-text-muted capitalize">
-                            via {txn.channel}
-                          </span>
-                        )}
-                      </div>
+                  transactions.map((txn, i) => {
+                    const accent = ACCENT_CYCLE[i % ACCENT_CYCLE.length];
+                    const statusCfg = txn.status === "success"
+                      ? { bg: "bg-teal-light", text: "text-teal", dot: "bg-teal" }
+                      : txn.status === "pending"
+                      ? { bg: "bg-sunny-light", text: "text-sunny", dot: "bg-sunny" }
+                      : { bg: "bg-coral-light", text: "text-coral", dot: "bg-coral" };
 
-                      <div className="p-6">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          <div className="space-y-2">
-                            <h3 className="font-display text-base text-text-primary">
-                              Transaction #{txn.reference}
-                            </h3>
-                            <div className="flex flex-wrap gap-4 text-label-sm text-text-muted">
-                              <span>
-                                Created:{" "}
-                                {new Date(txn.createdAt).toLocaleString()}
-                              </span>
-                              {txn.paidAt && (
-                                <span>
-                                  Paid: {new Date(txn.paidAt).toLocaleString()}
-                                </span>
+                    return (
+                      <div
+                        key={txn._id}
+                        className={`bg-snow border-[4px] border-navy ${accent} border-l-[6px] rounded-[1.5rem] shadow-[6px_6px_0_0_#000] overflow-hidden transition-all hover:shadow-[4px_4px_0_0_#000] hover:translate-x-[1px] hover:translate-y-[1px]`}
+                      >
+                        {/* Header */}
+                        <div className="px-5 py-3 border-b-[3px] border-navy/10 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/40">#{String(i + 1).padStart(2, "0")}</span>
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${statusCfg.bg} ${statusCfg.text} font-display font-bold text-[10px] uppercase tracking-[0.08em]`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
+                              {txn.status}
+                            </span>
+                          </div>
+                          {txn.channel && (
+                            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/40 capitalize">via {txn.channel}</span>
+                          )}
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-5">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="space-y-1.5">
+                              <h3 className="font-display font-black text-base text-navy">Ref: {txn.reference}</h3>
+                              <div className="flex flex-wrap gap-4 text-[10px] font-bold uppercase tracking-[0.08em] text-navy/40">
+                                <span>Created: {new Date(txn.createdAt).toLocaleString()}</span>
+                                {txn.paidAt && <span>Paid: {new Date(txn.paidAt).toLocaleString()}</span>}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              <p className="font-display font-black text-xl text-navy">₦{txn.amount.toLocaleString()}</p>
+                              {txn.status === "success" && (
+                                <button
+                                  onClick={() => downloadReceipt(txn.reference)}
+                                  className="px-4 py-2.5 bg-ghost border-[3px] border-navy rounded-xl font-display font-bold text-xs text-navy uppercase tracking-wider hover:bg-cloud transition-colors flex items-center gap-2"
+                                >
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25a.75.75 0 01.75.75v11.69l3.22-3.22a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 111.06-1.06l3.22 3.22V3a.75.75 0 01.75-.75zm-9 13.5a.75.75 0 01.75.75v2.25a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5V16.5a.75.75 0 011.5 0v2.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V16.5a.75.75 0 01.75-.75z" clipRule="evenodd" /></svg>
+                                  Receipt
+                                </button>
                               )}
                             </div>
                           </div>
-
-                          <div className="flex items-center gap-4">
-                            <p className="font-display text-xl text-text-primary">
-                              ₦{txn.amount.toLocaleString()}
-                            </p>
-                            {txn.status === "success" && (
-                              <button
-                                onClick={() => downloadReceipt(txn.reference)}
-                                className="px-4 py-2 border border-border text-label-sm text-text-secondary hover:border-border-dark hover:text-text-primary transition-colors flex items-center gap-2"
-                              >
-                                <svg
-                                  className="w-4 h-4"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                  strokeWidth={1.5}
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
-                                  />
-                                </svg>
-                                Receipt
-                              </button>
-                            )}
-                          </div>
                         </div>
                       </div>
-                    </article>
-                  ))
+                    );
+                  })
                 )}
-              </section>
+              </div>
             )}
           </div>
         )}

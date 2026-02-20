@@ -1,42 +1,12 @@
 /**
  * API Configuration
  * 
- * Centralized API URL management for development and production
+ * This file re-exports from the new API service layer for backward compatibility.
+ * New code should import from '@/lib/api' (the api/ directory).
+ * 
+ * @deprecated Import from '@/lib/api' directly instead
  */
 
-// Get API base URL from environment variable
-// Development: http://localhost:8000
-// Production: Your deployed backend URL (Railway, Render, etc.)
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Re-export everything from the new API layer
+export * from './api/index';
 
-/**
- * Make an authenticated API request to the backend
- */
-export async function apiRequest(
-  endpoint: string,
-  options: RequestInit = {},
-  token?: string
-): Promise<Response> {
-  const url = `${API_BASE_URL}${endpoint}`;
-  
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string>),
-  };
-  
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  
-  return fetch(url, {
-    ...options,
-    headers,
-  });
-}
-
-/**
- * Helper to construct API URLs
- */
-export function getApiUrl(path: string): string {
-  return `${API_BASE_URL}${path}`;
-}

@@ -1,18 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
-import {
-  onAuthStateChanged,
-  User,
-  signInWithPopup,
-  GoogleAuthProvider,
-  signOut as firebaseSignOut,
-} from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { getApiUrl } from "@/lib/api";
+import { getApiUrl, setTokenGetter } from "@/lib/api";
 
-// Extended User Profile from MongoDB
+// ──────────────────────────────────────────────
+// Types
+// ──────────────────────────────────────────────
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -24,186 +19,335 @@ export interface UserProfile {
   phone?: string;
   bio?: string;
   profilePictureUrl?: string;
+  emailVerified?: boolean;
+  hasCompletedOnboarding?: boolean;
+  level?: string;
+  currentLevel?: string;
+  admissionYear?: number;
+  skills?: string[];
 }
 
 interface AuthContextType {
-  user: User | null;
-  userProfile: UserProfile | null;
+  user: UserProfile | null;
+  userProfile: UserProfile | null; // alias for backward compat
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (
+    email: string,
+    password: string,
+    extra?: {
+      firstName?: string;
+      lastName?: string;
+      matricNumber?: string;
+      phone?: string;
+      level?: string;
+      admissionYear?: number;
+      role?: string;
+    }
+  ) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  getAccessToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   userProfile: null,
   loading: true,
-  signInWithGoogle: async () => {},
   signInWithEmail: async () => {},
   signUpWithEmail: async () => {},
   signOut: async () => {},
   refreshProfile: async () => {},
+  getAccessToken: async () => null,
 });
 
 export const useAuth = () => useContext(AuthContext);
 
+// ──────────────────────────────────────────────
+// Token store (in-memory only — never localStorage)
+// ──────────────────────────────────────────────
+
+let memoryAccessToken: string | null = null;
+let tokenExpiresAt: number = 0; // epoch ms
+
+function setMemoryToken(token: string | null, expiresIn?: number) {
+  memoryAccessToken = token;
+  if (token && expiresIn) {
+    // Set expiry 60s before actual to allow proactive refresh
+    tokenExpiresAt = Date.now() + (expiresIn - 60) * 1000;
+  } else {
+    tokenExpiresAt = 0;
+  }
+}
+
+function isTokenExpired(): boolean {
+  return !memoryAccessToken || Date.now() >= tokenExpiresAt;
+}
+
+// ──────────────────────────────────────────────
+// Provider
+// ──────────────────────────────────────────────
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const refreshingRef = useRef(false);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
-   * Fetch user profile from MongoDB after Firebase authentication
+   * Attempt to refresh the access token using the httpOnly cookie.
+   * Returns true if refresh succeeded.
    */
-  const fetchUserProfile = async (firebaseUser: User) => {
+  const refreshAccessToken = useCallback(async (): Promise<boolean> => {
+    if (refreshingRef.current) return false;
+    refreshingRef.current = true;
+
     try {
-      const token = await firebaseUser.getIdToken();
-      const response = await fetch(getApiUrl("/api/users/me"), {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const profile = await response.json();
-        setUserProfile(profile);
-      } else if (response.status === 404) {
-        // User not in MongoDB yet, create profile
-        await createUserProfile(firebaseUser);
-      }
-    } catch (error) {
-      console.error("Error fetching user profile:", error);
-    }
-  };
-
-  /**
-   * Create user profile in MongoDB
-   */
-  const createUserProfile = async (firebaseUser: User) => {
-    try {
-      const token = await firebaseUser.getIdToken();
-
-      // Extract name parts with fallbacks to satisfy backend validation
-      const displayName = firebaseUser.displayName || "";
-      const nameParts = displayName.trim().split(/\s+/);
-
-      // Ensure we have at least 1 char for first and last name as per backend requirements
-      const firstName = (nameParts[0] || "New").trim();
-      const lastName = (
-        nameParts.length > 1 ? nameParts.slice(1).join(" ") : "User"
-      ).trim();
-
-      const response = await fetch(getApiUrl("/api/users"), {
+      const res = await fetch(getApiUrl("/api/v1/auth/refresh"), {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          firebaseUid: firebaseUser.uid,
-          email: firebaseUser.email,
-          firstName: firstName || "User",
-          lastName: lastName || "",
-          department: "Industrial Engineering",
-          role: "student",
-          profilePictureUrl: firebaseUser.photoURL,
-        }),
+        credentials: "include", // send httpOnly cookie
+        headers: { "Content-Type": "application/json" },
       });
 
-      if (response.ok) {
-        const profile = await response.json();
-        setUserProfile(profile);
+      if (!res.ok) {
+        setMemoryToken(null);
+        return false;
       }
-    } catch (error) {
-      console.error("Error creating user profile:", error);
+
+      const data = await res.json();
+      setMemoryToken(data.access_token, data.expires_in);
+      return true;
+    } catch {
+      setMemoryToken(null);
+      return false;
+    } finally {
+      refreshingRef.current = false;
     }
-  };
+  }, []);
 
   /**
-   * Refresh user profile (call after profile updates)
+   * Get a valid access token, refreshing if needed.
    */
-  const refreshProfile = async () => {
-    if (user) {
-      await fetchUserProfile(user);
+  const getAccessToken = useCallback(async (): Promise<string | null> => {
+    if (!isTokenExpired()) return memoryAccessToken;
+
+    const ok = await refreshAccessToken();
+    return ok ? memoryAccessToken : null;
+  }, [refreshAccessToken]);
+
+  /**
+   * Fetch the current user profile from the backend.
+   */
+  const fetchUserProfile = useCallback(async (): Promise<UserProfile | null> => {
+    const token = await getAccessToken();
+    if (!token) return null;
+
+    try {
+      const res = await fetch(getApiUrl("/api/v1/users/me"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) return null;
+
+      const profile = await res.json();
+      // normalize id
+      const normalized: UserProfile = {
+        ...profile,
+        id: profile._id || profile.id,
+      };
+      return normalized;
+    } catch {
+      return null;
     }
-  };
+  }, [getAccessToken]);
 
+  /**
+   * Schedule proactive token refresh.
+   */
+  const scheduleRefresh = useCallback(
+    (expiresIn: number) => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      // Refresh 60s before expiry
+      const ms = Math.max((expiresIn - 60) * 1000, 5000);
+      refreshTimerRef.current = setTimeout(async () => {
+        const ok = await refreshAccessToken();
+        if (ok) {
+          // Re-schedule for the next cycle
+          scheduleRefresh(900); // 15 min default
+        }
+      }, ms);
+    },
+    [refreshAccessToken]
+  );
+
+  /**
+   * Bootstrap: try to restore session from refresh cookie on mount.
+   */
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
+    let cancelled = false;
 
-      if (firebaseUser) {
-        // Fetch MongoDB profile after Firebase auth
-        await fetchUserProfile(firebaseUser);
-      } else {
-        setUserProfile(null);
+    const init = async () => {
+      const ok = await refreshAccessToken();
+
+      if (ok && !cancelled) {
+        const profile = await fetchUserProfile();
+        if (profile) {
+          setUser(profile);
+          scheduleRefresh(900);
+        }
       }
 
-      setLoading(false);
-    });
+      if (!cancelled) setLoading(false);
+    };
 
-    return () => unsubscribe();
+    // Wire token getter for API service layer
+    setTokenGetter(async () => getAccessToken());
+
+    init();
+
+    return () => {
+      cancelled = true;
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-      router.push("/dashboard");
-    } catch (error) {
-      console.error("Error signing in with Google", error);
-      throw error;
-    }
-  };
+  // ─── Auth methods ────────────────────────────
 
   const signInWithEmail = async (email: string, password: string) => {
-    try {
-      const { signInWithEmailAndPassword } = await import("firebase/auth");
-      await signInWithEmailAndPassword(auth, email, password);
+    // Clear any existing session first to prevent stale cookie conflicts
+    if (memoryAccessToken || user) {
+      try {
+        await fetch(getApiUrl("/api/v1/auth/logout"), {
+          method: "POST",
+          credentials: "include",
+        });
+      } catch {
+        // ignore — still proceed with login
+      }
+      setMemoryToken(null);
+      setUser(null);
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    }
+
+    const res = await fetch(getApiUrl("/api/v1/auth/login"), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Login failed" }));
+      throw new Error(err.detail || "Login failed");
+    }
+
+    const data = await res.json();
+    setMemoryToken(data.access_token, data.expires_in);
+
+    // Fetch profile
+    const profile = await fetchUserProfile();
+    if (profile) {
+      setUser(profile);
+      scheduleRefresh(data.expires_in);
+    }
+
+    // Role-based redirect
+    const role = profile?.role;
+    if (role === "admin" || role === "exco") {
+      router.push("/admin/dashboard");
+    } else {
       router.push("/dashboard");
-    } catch (error) {
-      console.error("Error signing in with email", error);
-      throw error;
     }
   };
 
-  const signUpWithEmail = async (email: string, password: string) => {
-    try {
-      const { createUserWithEmailAndPassword } = await import("firebase/auth");
-      await createUserWithEmailAndPassword(auth, email, password);
+  const signUpWithEmail = async (
+    email: string,
+    password: string,
+    extra?: {
+      firstName?: string;
+      lastName?: string;
+      matricNumber?: string;
+      phone?: string;
+      level?: string;
+      admissionYear?: number;
+      role?: string;
+    }
+  ) => {
+    const res = await fetch(getApiUrl("/api/v1/auth/register"), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        password,
+        firstName: extra?.firstName || "New",
+        lastName: extra?.lastName || "User",
+        matricNumber: extra?.matricNumber || null,
+        phone: extra?.phone || null,
+        level: extra?.level || null,
+        admissionYear: extra?.admissionYear || null,
+        role: extra?.role || null,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Registration failed" }));
+      throw new Error(err.detail || "Registration failed");
+    }
+
+    const data = await res.json();
+    setMemoryToken(data.access_token, data.expires_in);
+
+    // Fetch profile
+    const profile = await fetchUserProfile();
+    if (profile) {
+      setUser(profile);
+      scheduleRefresh(data.expires_in);
+    }
+
+    // Role-based redirect
+    const role = profile?.role;
+    if (role === "admin" || role === "exco") {
+      router.push("/admin/dashboard");
+    } else {
       router.push("/dashboard");
-    } catch (error) {
-      console.error("Error signing up with email", error);
-      throw error;
     }
   };
 
   const signOut = async () => {
     try {
-      await firebaseSignOut(auth);
-      setUserProfile(null);
-      router.push("/");
-    } catch (error) {
-      console.error("Error signing out", error);
+      await fetch(getApiUrl("/api/v1/auth/logout"), {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {
+      // ignore — still clear local state
     }
+
+    setMemoryToken(null);
+    setUser(null);
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    router.push("/");
+  };
+
+  const refreshProfile = async () => {
+    const profile = await fetchUserProfile();
+    if (profile) setUser(profile);
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        userProfile,
+        userProfile: user, // backward compat alias
         loading,
-        signInWithGoogle,
         signInWithEmail,
         signUpWithEmail,
         signOut,
         refreshProfile,
+        getAccessToken,
       }}
     >
       {children}

@@ -7,6 +7,7 @@ This allows flexible role management across sessions.
 
 from typing import List, Optional
 from fastapi import Depends, HTTPException, Header
+from bson import ObjectId
 from app.core.security import get_current_user
 from app.models.user import User
 from app.db import get_database
@@ -47,6 +48,9 @@ PERMISSIONS = {
     "role:assign": "Assign roles to users",
     "role:revoke": "Revoke roles from users",
     "role:view": "View role assignments",
+    "role:create": "Create / assign new roles",
+    "role:edit": "Edit existing role assignments",
+    "role:delete": "Delete role assignments",
     
     # Session management permissions
     "session:create": "Create new sessions",
@@ -55,6 +59,7 @@ PERMISSIONS = {
     "session:delete": "Delete sessions",
     
     # Enrollment permissions
+    "enrollment:view": "View all enrollments",
     "enrollment:create": "Enroll students in sessions",
     "enrollment:edit": "Edit enrollments",
     "enrollment:delete": "Delete enrollments",
@@ -79,12 +84,14 @@ DEFAULT_PERMISSIONS = {
         "announcement:create", "announcement:edit", "announcement:delete", "announcement:view",
         "event:create", "event:edit", "event:delete", "event:manage",
         "payment:create", "payment:edit", "payment:delete", "payment:approve", "payment:view_all",
+        "enrollment:view", "enrollment:edit",
         "user:view_all", "role:view",
     ],
     "vice_president": [
         "announcement:create", "announcement:edit", "announcement:view",
         "event:create", "event:edit", "event:manage",
-        "payment:view_all", "user:view_all",
+        "payment:view_all", "enrollment:view", "enrollment:edit",
+        "user:view_all",
     ],
     "general_secretary": [
         "announcement:create", "announcement:edit", "announcement:view",
@@ -98,13 +105,17 @@ DEFAULT_PERMISSIONS = {
         "payment:create", "payment:edit", "payment:view_all",
         "announcement:view",
     ],
-    "director_socials": [
+    "director_of_socials": [
         "event:create", "event:edit", "event:manage",
         "announcement:create", "announcement:view",
     ],
-    "director_sports": [
+    "director_of_sports": [
         "event:create", "event:edit", "event:manage",
         "announcement:create", "announcement:view",
+    ],
+    "director_of_welfare": [
+        "announcement:create", "announcement:view",
+        "user:view_all",
     ],
     "pro": [
         "announcement:create", "announcement:edit", "announcement:view",
@@ -114,6 +125,23 @@ DEFAULT_PERMISSIONS = {
         "announcement:view",
         "event:view",
         "payment:view_all",
+    ],
+    # Committee heads
+    "committee_academic": [
+        "announcement:create", "announcement:view",
+        "event:view",
+    ],
+    "committee_welfare": [
+        "announcement:create", "announcement:view",
+        "user:view_all",
+    ],
+    "committee_sports": [
+        "event:create", "event:view",
+        "announcement:view",
+    ],
+    "committee_socials": [
+        "event:create", "event:view",
+        "announcement:create", "announcement:view",
     ],
 }
 
@@ -136,7 +164,6 @@ async def get_current_session(
     
     # If session ID provided in header, use it
     if x_session_id:
-        from bson import ObjectId
         try:
             session = await sessions.find_one({"_id": ObjectId(x_session_id)})
             if not session:
@@ -171,7 +198,7 @@ async def get_user_permissions(
     users = db["users"]
     
     # Admin users have all permissions
-    user = await users.find_one({"_id": user_id})
+    user = await users.find_one({"_id": ObjectId(user_id)})
     if user and user.get("role") == "admin":
         return list(PERMISSIONS.keys())
     
@@ -192,8 +219,12 @@ async def get_user_permissions(
         
         # Add default permissions for position
         position = role.get("position")
-        if position and position in DEFAULT_PERMISSIONS:
-            all_permissions.update(DEFAULT_PERMISSIONS[position])
+        if position:
+            if position in DEFAULT_PERMISSIONS:
+                all_permissions.update(DEFAULT_PERMISSIONS[position])
+            elif position.startswith("class_rep"):
+                # All class_rep_XL variants inherit base class_rep permissions
+                all_permissions.update(DEFAULT_PERMISSIONS.get("class_rep", []))
     
     return list(all_permissions)
 
@@ -214,11 +245,9 @@ async def check_permission(
     Returns:
         True if user has permission, raises HTTPException otherwise
     """
-    from bson import ObjectId
-    
     # Get user permissions
     user_permissions = await get_user_permissions(
-        str(user.id) if hasattr(user, 'id') else user.get('id'),
+        user.get('_id') or user.get('id'),
         str(session["_id"])
     )
     
@@ -245,14 +274,14 @@ def require_permission(permission: str):
         permission: Required permission string
     
     Returns:
-        Dependency function
+        Dependency function that returns the user data dict
     """
     async def permission_checker(
         user: User = Depends(get_current_user),
         session: dict = Depends(get_current_session)
     ):
         await check_permission(permission, user, session)
-        return True
+        return user  # Return user data instead of True
     
     return permission_checker
 
@@ -268,16 +297,14 @@ def require_any_permission(permissions: List[str]):
         permissions: List of permission strings (user needs at least one)
     
     Returns:
-        Dependency function
+        Dependency function that returns the user data dict
     """
     async def permission_checker(
         user: User = Depends(get_current_user),
         session: dict = Depends(get_current_session)
     ):
-        from bson import ObjectId
-        
         user_permissions = await get_user_permissions(
-            str(user.id) if hasattr(user, 'id') else user.get('id'),
+            user.get('_id') or user.get('id'),
             str(session["_id"])
         )
         
@@ -288,7 +315,7 @@ def require_any_permission(permissions: List[str]):
                 detail=f"Permission denied. Required one of: {', '.join(permissions)}"
             )
         
-        return True
+        return user  # Return user data instead of True
     
     return permission_checker
 
@@ -304,16 +331,14 @@ def require_all_permissions(permissions: List[str]):
         permissions: List of permission strings (user needs all of them)
     
     Returns:
-        Dependency function
+        Dependency function that returns the user data dict
     """
     async def permission_checker(
         user: User = Depends(get_current_user),
         session: dict = Depends(get_current_session)
     ):
-        from bson import ObjectId
-        
         user_permissions = await get_user_permissions(
-            str(user.id) if hasattr(user, 'id') else user.get('id'),
+            user.get('_id') or user.get('id'),
             str(session["_id"])
         )
         
@@ -325,6 +350,6 @@ def require_all_permissions(permissions: List[str]):
                 detail=f"Permission denied. Missing: {', '.join(missing_permissions)}"
             )
         
-        return True
+        return user  # Return user data instead of True
     
     return permission_checker
