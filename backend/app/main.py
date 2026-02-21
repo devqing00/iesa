@@ -7,7 +7,7 @@ from app.core.security import verify_token
 from app.core.rate_limiting import setup_rate_limiting
 from app.core.error_handling import setup_exception_handlers, setup_logging
 from app.core.monitoring import init_sentry
-from app.routers import sessions, users, payments, events, announcements, grades, enrollments, roles, students, iesa_ai, resources, timetable, paystack, id_card, telegram_webhook, audit_logs, auth
+from app.routers import sessions, users, payments, events, announcements, grades, enrollments, roles, students, iesa_ai, resources, timetable, paystack, telegram_webhook, audit_logs, auth, study_groups, press
 from app.db import connect_to_mongo, close_mongo_connection
 
 # Setup logging first
@@ -99,9 +99,10 @@ app.include_router(iesa_ai.router)  # IESA AI Assistant
 app.include_router(resources.router)  # Resource Library
 app.include_router(timetable.router)  # Timetable System
 app.include_router(paystack.router)  # Paystack Payment Integration
-app.include_router(id_card.router)  # Digital ID Cards
 app.include_router(telegram_webhook.router)  # Telegram Bot Webhook
 app.include_router(audit_logs.router)  # Audit Logs (Admin Only)
+app.include_router(study_groups.router)  # Study Group Finder
+app.include_router(press.router)  # Association Press / Blog
 
 @app.get("/api/protected")
 async def protected_route(user_data: dict = Depends(verify_token)):

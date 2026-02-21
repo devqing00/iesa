@@ -25,6 +25,33 @@ interface TimerRecord {
   date: string;
 }
 
+interface GoalData {
+  id: string;
+  completedAt?: string;
+  milestones?: { completed: boolean }[];
+}
+
+interface HabitData {
+  id: string;
+  completions: string[];
+  archived: boolean;
+}
+
+interface DeckData {
+  id: string;
+  cards: { nextReview: string }[];
+}
+
+interface JournalEntry {
+  weekKey: string;
+  mood: number;
+}
+
+interface CourseData {
+  id: string;
+  topics: { completed: boolean }[];
+}
+
 /* ─── Tool definitions ──────────────────────────────────────────── */
 
 const TOOLS = [
@@ -32,29 +59,64 @@ const TOOLS = [
     id: "cgpa",
     title: "CGPA Calculator",
     desc: "Track your academic journey with precision. Calculate, visualize, and improve your GPA.",
-    href: "./growth/cgpa",
+    href: "cgpa",
     color: { bg: "bg-lavender-light", icon: "bg-lavender", iconText: "text-navy" },
   },
   {
     id: "planner",
     title: "Personal Planner",
     desc: "Organize tasks, deadlines, and study sessions. Stay productive and achieve more.",
-    href: "./growth/planner",
+    href: "planner",
     color: { bg: "bg-coral-light", icon: "bg-coral", iconText: "text-snow" },
   },
   {
     id: "timer",
     title: "Study Timer",
     desc: "Pomodoro-style focus sessions. Build productive habits and track your study streaks.",
-    href: "./growth/timer",
+    href: "timer",
     color: { bg: "bg-sunny-light", icon: "bg-sunny", iconText: "text-navy" },
   },
   {
     id: "goals",
     title: "Goal Tracker",
     desc: "Set ambitious goals, break them into milestones, and celebrate your achievements.",
-    href: "./growth/goals",
+    href: "goals",
     color: { bg: "bg-teal-light", icon: "bg-teal", iconText: "text-navy" },
+  },
+  {
+    id: "habits",
+    title: "Habit Tracker",
+    desc: "Build daily routines that stick. Track streaks, heatmaps, and weekly completion.",
+    href: "habits",
+    color: { bg: "bg-lime-light", icon: "bg-lime", iconText: "text-navy" },
+  },
+  {
+    id: "flashcards",
+    title: "Flashcards",
+    desc: "SM-2 spaced repetition for effortless recall. Create decks, rate difficulty, master concepts.",
+    href: "flashcards",
+    color: { bg: "bg-lavender-light", icon: "bg-lavender", iconText: "text-snow" },
+  },
+  {
+    id: "journal",
+    title: "Weekly Journal",
+    desc: "Reflect on wins, identify growth areas, and plan your week with structured prompts.",
+    href: "journal",
+    color: { bg: "bg-coral-light", icon: "bg-coral", iconText: "text-snow" },
+  },
+  {
+    id: "courses",
+    title: "Course Progress",
+    desc: "Track syllabus completion topic by topic. See exactly how far you've come in every course.",
+    href: "courses",
+    color: { bg: "bg-teal-light", icon: "bg-teal", iconText: "text-navy" },
+  },
+  {
+    id: "study-groups",
+    title: "Study Group Finder",
+    desc: "Find study partners, create groups by course, and schedule meetups. Better together.",
+    href: "study-groups",
+    color: { bg: "bg-sunny-light", icon: "bg-sunny", iconText: "text-navy" },
   },
 ];
 
@@ -82,6 +144,33 @@ const toolIcons: Record<string, React.ReactNode> = {
       <path fillRule="evenodd" d="M3 2.25a.75.75 0 01.75.75v.54l1.838-.46a9.75 9.75 0 016.725.738l.108.054a8.25 8.25 0 005.58.652l3.109-.732a.75.75 0 01.917.81 47.784 47.784 0 00.005 10.337.75.75 0 01-.574.812l-3.114.733a9.75 9.75 0 01-6.594-.77l-.108-.054a8.25 8.25 0 00-5.69-.625l-2.202.55V21a.75.75 0 01-1.5 0V3A.75.75 0 013 2.25z" clipRule="evenodd" />
     </svg>
   ),
+  habits: (
+    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+      <path fillRule="evenodd" d="M2.25 13.5a8.25 8.25 0 018.25-8.25.75.75 0 01.75.75v6.75H18a.75.75 0 01.75.75 8.25 8.25 0 01-16.5 0z" clipRule="evenodd" />
+      <path fillRule="evenodd" d="M12.75 3a.75.75 0 01.75-.75 8.25 8.25 0 018.25 8.25.75.75 0 01-.75.75h-7.5a.75.75 0 01-.75-.75V3z" clipRule="evenodd" />
+    </svg>
+  ),
+  flashcards: (
+    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M11.25 4.533A9.707 9.707 0 006 3a9.735 9.735 0 00-3.25.555.75.75 0 00-.5.707v14.25a.75.75 0 001 .707A8.237 8.237 0 016 18.75c1.995 0 3.823.707 5.25 1.886V4.533zM12.75 20.636A8.214 8.214 0 0118 18.75c.966 0 1.89.166 2.75.47a.75.75 0 001-.708V4.262a.75.75 0 00-.5-.707A9.735 9.735 0 0018 3a9.707 9.707 0 00-5.25 1.533v16.103z" />
+    </svg>
+  ),
+  journal: (
+    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+      <path fillRule="evenodd" d="M4.125 3C3.089 3 2.25 3.84 2.25 4.875V18a3 3 0 003 3h15a.75.75 0 000-1.5H5.25a1.5 1.5 0 01-1.5-1.5h15.75a.75.75 0 00.75-.75V4.875C20.25 3.839 19.41 3 18.375 3H4.125zM12 9.75a.75.75 0 000 1.5h4.5a.75.75 0 000-1.5H12zm-3-1.5a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5a.75.75 0 01-.75-.75zm.75 4.5a.75.75 0 000 1.5h4.5a.75.75 0 000-1.5h-4.5z" clipRule="evenodd" />
+    </svg>
+  ),
+  courses: (
+    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+      <path fillRule="evenodd" d="M1.5 5.625c0-1.036.84-1.875 1.875-1.875h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 18.375V5.625zM21 9.375A.375.375 0 0020.625 9h-7.5a.375.375 0 00-.375.375v1.5c0 .207.168.375.375.375h7.5A.375.375 0 0021 10.875v-1.5zm0 3.75a.375.375 0 00-.375-.375h-7.5a.375.375 0 00-.375.375v1.5c0 .207.168.375.375.375h7.5a.375.375 0 00.375-.375v-1.5zm0 3.75a.375.375 0 00-.375-.375h-7.5a.375.375 0 00-.375.375v1.5c0 .207.168.375.375.375h7.5a.375.375 0 00.375-.375v-1.5zM10.875 18.75a.375.375 0 00.375-.375v-1.5a.375.375 0 00-.375-.375h-7.5a.375.375 0 00-.375.375v1.5c0 .207.168.375.375.375h7.5zM3.375 15h7.5a.375.375 0 00.375-.375v-1.5a.375.375 0 00-.375-.375h-7.5a.375.375 0 00-.375.375v1.5c0 .207.168.375.375.375zm0-3.75h7.5a.375.375 0 00.375-.375v-1.5A.375.375 0 0010.875 9h-7.5A.375.375 0 003 9.375v1.5c0 .207.168.375.375.375z" clipRule="evenodd" />
+    </svg>
+  ),
+  "study-groups": (
+    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M8.25 6.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM15.75 9.75a3 3 0 116 0 3 3 0 01-6 0zM2.25 9.75a3 3 0 116 0 3 3 0 01-6 0zM6.31 15.117A6.745 6.745 0 0112 12a6.745 6.745 0 016.709 7.498.75.75 0 01-.372.568A12.696 12.696 0 0112 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 01-.372-.568 6.787 6.787 0 011.019-4.38z" />
+      <path d="M5.082 14.254a8.287 8.287 0 00-1.308 5.135 9.687 9.687 0 01-1.764-.44l-.115-.04a.563.563 0 01-.373-.487l-.01-.121a3.75 3.75 0 013.57-4.047zM20.226 19.389a8.287 8.287 0 00-1.308-5.135 3.75 3.75 0 013.57 4.047l-.01.121a.563.563 0 01-.373.486l-.115.04c-.567.2-1.156.349-1.764.441z" />
+    </svg>
+  ),
 };
 
 /* ─── Component ─────────────────────────────────────────────────── */
@@ -92,9 +181,17 @@ export default function GrowthPage() {
     totalRecords: 0,
     tasksCompleted: 0,
     tasksPending: 0,
-    streak: 0,
+    goalsActive: 0,
+    goalsCompleted: 0,
     focusMinutes: 0,
     focusSessions: 0,
+    habitsActive: 0,
+    habitsStreak: 0,
+    flashcardDecks: 0,
+    flashcardsDue: 0,
+    journalEntries: 0,
+    coursesTracked: 0,
+    coursesProgress: 0,
   });
 
   useEffect(() => {
@@ -102,7 +199,7 @@ export default function GrowthPage() {
       const cgpaHistory = localStorage.getItem("iesa-cgpa-history");
       const cgpaRecords: SemesterRecord[] = cgpaHistory ? JSON.parse(cgpaHistory) : [];
 
-      const plannerTasks = localStorage.getItem("planner-tasks");
+      const plannerTasks = localStorage.getItem("iesa-planner-tasks");
       const tasks: PlannerTask[] = plannerTasks ? JSON.parse(plannerTasks) : [];
       const completed = tasks.filter((t) => t.completed).length;
       const pending = tasks.filter((t) => !t.completed).length;
@@ -113,14 +210,58 @@ export default function GrowthPage() {
       const todayFocus = timerRecords.filter((r) => r.date === today && r.mode === "focus");
       const focusMinutes = todayFocus.reduce((acc, r) => acc + r.duration, 0);
 
+      const goalsData = localStorage.getItem("iesa-goals");
+      const goals: GoalData[] = goalsData ? JSON.parse(goalsData) : [];
+      const goalsCompleted = goals.filter((g) => g.completedAt).length;
+      const goalsActive = goals.length - goalsCompleted;
+
+      // New tools
+      const habitsRaw = localStorage.getItem("iesa-habits-data");
+      const habits: HabitData[] = habitsRaw ? JSON.parse(habitsRaw) : [];
+      const activeHabits = habits.filter((h) => !h.archived);
+      let maxStreak = 0;
+      activeHabits.forEach((h) => {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        let streak = 0;
+        const sorted = [...h.completions].sort().reverse();
+        for (const d of sorted) {
+          const expected = new Date();
+          expected.setDate(expected.getDate() - streak);
+          if (d === expected.toISOString().slice(0, 10) || d === todayStr) { streak++; } else break;
+        }
+        if (streak > maxStreak) maxStreak = streak;
+      });
+
+      const decksRaw = localStorage.getItem("iesa-flashcards-data");
+      const decks: DeckData[] = decksRaw ? JSON.parse(decksRaw) : [];
+      const now = new Date().toISOString();
+      const dueCards = decks.reduce((acc, d) => acc + d.cards.filter((c) => c.nextReview <= now).length, 0);
+
+      const journalRaw = localStorage.getItem("iesa-journal-entries");
+      const journalEntries: JournalEntry[] = journalRaw ? JSON.parse(journalRaw) : [];
+
+      const coursesRaw = localStorage.getItem("iesa-courses-progress");
+      const courses: CourseData[] = coursesRaw ? JSON.parse(coursesRaw) : [];
+      const totalTopics = courses.reduce((a, c) => a + c.topics.length, 0);
+      const completedTopics = courses.reduce((a, c) => a + c.topics.filter((t) => t.completed).length, 0);
+      const coursesPct = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
+
       setStats({
         latestGpa: cgpaRecords.length > 0 ? cgpaRecords[0].gpa : 0,
         totalRecords: cgpaRecords.length,
         tasksCompleted: completed,
         tasksPending: pending,
-        streak: Math.min(cgpaRecords.length, 7),
+        goalsActive,
+        goalsCompleted,
         focusMinutes,
         focusSessions: todayFocus.length,
+        habitsActive: activeHabits.length,
+        habitsStreak: maxStreak,
+        flashcardDecks: decks.length,
+        flashcardsDue: dueCards,
+        journalEntries: journalEntries.length,
+        coursesTracked: courses.length,
+        coursesProgress: coursesPct,
       });
     } catch {
       console.error("Failed to load growth stats");
@@ -136,7 +277,27 @@ export default function GrowthPage() {
       case "timer":
         return `${stats.focusMinutes} min today · ${stats.focusSessions} sessions`;
       case "goals":
-        return "Set and track your goals";
+        return stats.goalsActive + stats.goalsCompleted > 0
+          ? `${stats.goalsCompleted} done · ${stats.goalsActive} active`
+          : "Set and track your goals";
+      case "habits":
+        return stats.habitsActive > 0
+          ? `${stats.habitsActive} habits · ${stats.habitsStreak} day streak`
+          : "Build daily routines";
+      case "flashcards":
+        return stats.flashcardDecks > 0
+          ? `${stats.flashcardDecks} decks · ${stats.flashcardsDue} due`
+          : "Create your first deck";
+      case "journal":
+        return stats.journalEntries > 0
+          ? `${stats.journalEntries} entries written`
+          : "Start reflecting weekly";
+      case "courses":
+        return stats.coursesTracked > 0
+          ? `${stats.coursesTracked} courses · ${stats.coursesProgress}% done`
+          : "Track your syllabus";
+      case "study-groups":
+        return "Find study partners";
       default:
         return "";
     }
@@ -221,15 +382,15 @@ export default function GrowthPage() {
               <p className="font-display font-black text-3xl text-navy">{stats.focusMinutes}<span className="text-base text-slate ml-0.5">m</span></p>
             </div>
 
-            {stats.streak > 0 ? (
+            {stats.goalsActive + stats.goalsCompleted > 0 ? (
               <div className="bg-sunny-light border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] flex flex-col justify-between">
                 <div className="w-9 h-9 rounded-xl bg-sunny/20 flex items-center justify-center mb-3">
                   <svg className="w-4.5 h-4.5 text-sunny" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
                   </svg>
                 </div>
-                <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Streak</p>
-                <p className="font-display font-black text-3xl text-navy">{stats.streak}<span className="text-base text-slate ml-0.5">d</span></p>
+                <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Goals Done</p>
+                <p className="font-display font-black text-3xl text-navy">{stats.goalsCompleted}<span className="text-base text-slate ml-0.5">/{stats.goalsActive + stats.goalsCompleted}</span></p>
               </div>
             ) : (
               <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] flex flex-col justify-between">
@@ -252,7 +413,7 @@ export default function GrowthPage() {
             <h2 className="font-display font-black text-xl text-navy">Growth Tools</h2>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {TOOLS.map((tool, i) => {
               const rotation = i % 3 === 1 ? "rotate-[0.5deg] hover:rotate-0" : i % 3 === 2 ? "rotate-[-0.5deg] hover:rotate-0" : "";
               return (

@@ -87,6 +87,7 @@ async def create_event(
 async def list_events(
     session_id: Optional[str] = Query(None, description="Filter by session ID. Defaults to active session."),
     category: Optional[str] = None,
+    upcoming_only: Optional[bool] = Query(None, description="If true, only return events with date >= now"),
     user: dict = Depends(get_current_user)
 ):
     """
@@ -103,10 +104,8 @@ async def list_events(
     if not session_id:
         active_session = await sessions.find_one({"isActive": True})
         if not active_session:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No active session found"
-            )
+            # No active session — return empty list instead of 404
+            return []
         session_id = str(active_session["_id"])
     
     # Verify session exists
@@ -121,6 +120,8 @@ async def list_events(
     query = {"sessionId": session_id}
     if category:
         query["category"] = category
+    if upcoming_only:
+        query["date"] = {"$gte": datetime.utcnow()}
     
     # Get events for this session
     cursor = events.find(query).sort("date", 1)  # Upcoming first

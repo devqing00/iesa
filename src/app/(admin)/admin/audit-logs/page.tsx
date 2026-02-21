@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -290,9 +290,8 @@ export default function AuditLogsPage() {
                   const { date, time } = formatTimestamp(log.timestamp);
                   const isExpanded = expandedId === log.id;
                   return (
-                    <>
+                    <React.Fragment key={log.id}>
                       <tr
-                        key={log.id}
                         className={`border-b-[2px] border-cloud cursor-pointer transition-colors ${
                           isExpanded ? "bg-lime-light" : idx % 2 === 0 ? "bg-snow hover:bg-ghost" : "bg-ghost hover:bg-lime-light/40"
                         }`}
@@ -343,7 +342,7 @@ export default function AuditLogsPage() {
 
                       {/* Expanded detail row */}
                       {isExpanded && (
-                        <tr key={`${log.id}-detail`} className="bg-lime-light border-b-[2px] border-cloud">
+                        <tr className="bg-lime-light border-b-[2px] border-cloud">
                           <td colSpan={5} className="px-6 py-4">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                               {/* Details */}
@@ -400,7 +399,7 @@ export default function AuditLogsPage() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </React.Fragment>
                   );
                 })}
               </tbody>

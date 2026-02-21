@@ -115,7 +115,6 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
       }
 
       const activeSession: Session = await response.json();
-      console.log("Active session loaded:", activeSession);
       
       // Ensure we have an 'id' field (handle both _id and id from backend)
       const normalizedSession: Session = {
@@ -137,19 +136,20 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
 
   /**
    * Switch to a different session (Time Travel!)
+   * Returns true on success, false on failure.
    */
   const switchSession = useCallback(
-    async (sessionId: string) => {
-      if (!user) return;
+    async (sessionId: string): Promise<boolean> => {
+      if (!user) return false;
       // Guard against stale/invalid IDs
-      if (!sessionId || sessionId === "undefined" || sessionId === "null") return;
+      if (!sessionId || sessionId === "undefined" || sessionId === "null") return false;
 
       setIsLoading(true);
       setError(null);
 
       try {
         const token = await getAccessToken();
-        if (!token) return;
+        if (!token) return false;
         const response = await fetch(getApiUrl(`/api/v1/sessions/${sessionId}`), {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -157,7 +157,8 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
         });
 
         if (!response.ok) {
-          throw new Error("Failed to fetch session");
+          localStorage.removeItem("currentSessionId");
+          return false;
         }
 
         const session: Session = await response.json();
@@ -172,9 +173,11 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
 
         // Store preference
         localStorage.setItem("currentSessionId", normalizedSession.id);
+        return true;
       } catch (err) {
         console.error("Error switching session:", err);
-        setError("Failed to switch session");
+        localStorage.removeItem("currentSessionId");
+        return false;
       } finally {
         setIsLoading(false);
       }
@@ -268,12 +271,9 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
             : null;
 
         if (storedSessionId) {
-          // Try to load stored session first
-          try {
-            await switchSession(storedSessionId);
-          } catch {
-            // If stored session is invalid, clear it and fall back to active
-            localStorage.removeItem("currentSessionId");
+          // Try to load stored session first; fall back to active if it fails
+          const ok = await switchSession(storedSessionId);
+          if (!ok) {
             await fetchActiveSession(token);
           }
         } else {

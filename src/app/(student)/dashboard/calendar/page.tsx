@@ -228,7 +228,7 @@ export default function CalendarPage() {
       {/* Event detail modal */}
       {selectedEvent && (
         <div
-          className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center px-4 pt-4 pb-20 md:p-6"
           onClick={() => setSelectedEvent(null)}
         >
           <div

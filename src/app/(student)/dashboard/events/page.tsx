@@ -82,7 +82,7 @@ export default function EventsPage() {
     try {
       setLoading(true);
       const token = await getAccessToken();
-      const response = await fetch(getApiUrl("/api/v1/events?upcoming_only=true"), {
+      const response = await fetch(getApiUrl("/api/v1/events/?upcoming_only=true"), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error("Failed to fetch events");

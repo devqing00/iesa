@@ -163,8 +163,8 @@ async def list_announcements(
         target_levels = announcement.get("targetLevels")
         
         # If targeted and user is student, check if their level matches
-        if target_levels and user_level:
-            if user_level not in target_levels:
+        if target_levels:
+            if not user_level or user_level not in target_levels:
                 continue  # Skip this announcement
         
         announcement["_id"] = str(announcement["_id"])

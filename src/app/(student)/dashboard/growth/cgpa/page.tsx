@@ -1,6 +1,7 @@
 "use client";
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import Link from "next/link";
 import { useState, useMemo, useEffect } from "react";
 
@@ -87,6 +88,8 @@ export default function CgpaPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [motivationIndex, setMotivationIndex] = useState(0);
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const { showHelp, openHelp, closeHelp } = useToolHelp("cgpa");
 
   const currentGrading = GRADING_SYSTEMS[gradingSystem];
 
@@ -106,6 +109,7 @@ export default function CgpaPage() {
     setGradingSystem(system);
     localStorage.setItem("iesa-grading-system", system);
     setCourses(courses.map((c) => ({ ...c, grade: "A" })));
+    if (hasInteracted) setHasInteracted(false);
   };
 
   /* ─── Calculations ──────────────────────────────────────── */
@@ -177,6 +181,7 @@ export default function CgpaPage() {
   /* ─── Handlers ──────────────────────────────────────────── */
   const addCourse = () => {
     setCourses([...courses, { id: Date.now().toString(), name: "", credits: 3, grade: "A" }]);
+    setHasInteracted(true);
   };
 
   const removeCourse = (id: string) => {
@@ -185,6 +190,7 @@ export default function CgpaPage() {
 
   const updateCourse = (id: string, field: keyof Course, value: string | number) => {
     setCourses(courses.map((c) => (c.id === id ? { ...c, [field]: value } : c)));
+    if (!hasInteracted) setHasInteracted(true);
   };
 
   const resetCalculator = () => {
@@ -192,6 +198,7 @@ export default function CgpaPage() {
     setPreviousCGPA("");
     setPreviousCredits("");
     setTargetCGPA("");
+    setHasInteracted(false);
   };
 
   const saveToHistory = () => {
@@ -234,6 +241,7 @@ export default function CgpaPage() {
   return (
     <div className="min-h-screen bg-ghost">
       <DashboardHeader title="CGPA Calculator" />
+      <ToolHelpModal toolId="cgpa" isOpen={showHelp} onClose={closeHelp} />
 
       {/* Diamond sparkle decorators */}
       <svg className="fixed top-20 left-[8%] w-5 h-5 text-teal/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
@@ -244,16 +252,19 @@ export default function CgpaPage() {
       <div className="px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8 relative z-10">
         <div className="max-w-6xl mx-auto">
 
-          {/* Back Link */}
-          <Link
-            href="/dashboard/growth"
-            className="inline-flex items-center gap-2 font-display font-bold text-xs text-slate uppercase tracking-wider hover:text-navy transition-colors mb-6 group"
-          >
-            <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 24 24">
-              <path fillRule="evenodd" d="M11.03 3.97a.75.75 0 010 1.06l-6.22 6.22H21a.75.75 0 010 1.5H4.81l6.22 6.22a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0z" clipRule="evenodd"/>
-            </svg>
-            Back to Growth Hub
-          </Link>
+          {/* Back Link + Help */}
+          <div className="flex items-center justify-between mb-6">
+            <Link
+              href="/dashboard/growth"
+              className="inline-flex items-center gap-2 font-display font-bold text-xs text-slate uppercase tracking-wider hover:text-navy transition-colors group"
+            >
+              <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+                <path fillRule="evenodd" d="M11.03 3.97a.75.75 0 010 1.06l-6.22 6.22H21a.75.75 0 010 1.5H4.81l6.22 6.22a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0z" clipRule="evenodd"/>
+              </svg>
+              Back to Growth Hub
+            </Link>
+            <HelpButton onClick={openHelp} />
+          </div>
 
           {/* ═══════════════════════════════════════════════════
               BENTO HERO — Asymmetric 12-col grid
@@ -307,20 +318,33 @@ export default function CgpaPage() {
                   </div>
                 )}
               </div>
-              <div className="font-display font-black text-5xl md:text-6xl text-lime mb-1">
-                {result.cgpa}
-              </div>
-              <div className={`text-xs font-bold uppercase tracking-wider ${classification.color === "text-teal" ? "text-teal" : classification.color === "text-lavender" ? "text-lavender-light" : classification.color === "text-sunny" ? "text-sunny" : classification.color === "text-coral" ? "text-coral" : "text-ghost/50"}`}>
-                {classification.label}
-              </div>
+              {hasInteracted ? (
+                <>
+                  <div className="font-display font-black text-5xl md:text-6xl text-lime mb-1">
+                    {result.cgpa}
+                  </div>
+                  <div className={`text-xs font-bold uppercase tracking-wider ${classification.color === "text-teal" ? "text-teal" : classification.color === "text-lavender" ? "text-lavender-light" : classification.color === "text-sunny" ? "text-sunny" : classification.color === "text-coral" ? "text-coral" : "text-ghost/50"}`}>
+                    {classification.label}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="font-display font-black text-5xl md:text-6xl text-ghost/20 mb-1">
+                    —.——
+                  </div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-ghost/30">
+                    Start entering courses below
+                  </div>
+                </>
+              )}
               <div className="flex gap-5 mt-4 pt-3 border-t border-ghost/10">
                 <div>
                   <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-ghost/30">Semester</div>
-                  <div className="font-display font-black text-lg text-ghost">{result.semesterGPA}</div>
+                  <div className="font-display font-black text-lg text-ghost">{hasInteracted ? result.semesterGPA : "—"}</div>
                 </div>
                 <div>
                   <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-ghost/30">Credits</div>
-                  <div className="font-display font-black text-lg text-ghost">{result.totalCredits}</div>
+                  <div className="font-display font-black text-lg text-ghost">{hasInteracted ? result.totalCredits : "—"}</div>
                 </div>
                 <div>
                   <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-ghost/30">System</div>
@@ -579,13 +603,13 @@ export default function CgpaPage() {
                   <svg className="w-4 h-4 text-snow/60" fill="currentColor" viewBox="0 0 24 24"><path d="M9 4.5a.75.75 0 01.721.544l.813 2.846a3.75 3.75 0 002.576 2.576l2.846.813a.75.75 0 010 1.442l-2.846.813a3.75 3.75 0 00-2.576 2.576l-.813 2.846a.75.75 0 01-1.442 0l-.813-2.846a3.75 3.75 0 00-2.576-2.576l-2.846-.813a.75.75 0 010-1.442l2.846-.813A3.75 3.75 0 007.466 7.89l.813-2.846A.75.75 0 019 4.5zM18 1.5a.75.75 0 01.728.568l.258 1.036c.236.94.97 1.674 1.91 1.91l1.036.258a.75.75 0 010 1.456l-1.036.258c-.94.236-1.674.97-1.91 1.91l-.258 1.036a.75.75 0 01-1.456 0l-.258-1.036a2.625 2.625 0 00-1.91-1.91l-1.036-.258a.75.75 0 010-1.456l1.036-.258a2.625 2.625 0 001.91-1.91l.258-1.036A.75.75 0 0118 1.5z"/></svg>
                   <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-snow/60">Motivation</span>
                 </div>
-                <p className="font-display font-black text-base text-snow leading-snug">{motivation}</p>
+                <p className="font-display font-black text-base text-snow leading-snug">{hasInteracted ? motivation : "Add your courses to get started!"}</p>
               </div>
 
               {/* Classification badge */}
-              <div className={`${classification.bg} border-[4px] border-navy rounded-[1.5rem] shadow-[5px_5px_0_0_#000] p-5`}>
+              <div className={`${hasInteracted ? classification.bg : "bg-cloud"} border-[4px] border-navy rounded-[1.5rem] shadow-[5px_5px_0_0_#000] p-5`}>
                 <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40 mb-1">Classification</div>
-                <div className={`font-display font-black text-xl ${classification.color}`}>{classification.label}</div>
+                <div className={`font-display font-black text-xl ${hasInteracted ? classification.color : "text-navy/25"}`}>{hasInteracted ? classification.label : "Awaiting input"}</div>
                 <div className="mt-2 text-xs font-display text-navy/50">on the {gradingSystem} scale</div>
               </div>
 

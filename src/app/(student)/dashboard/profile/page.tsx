@@ -553,12 +553,7 @@ export default function ProfilePage() {
             <div className="bg-navy border-[4px] border-teal rounded-[2rem] p-6 shadow-[8px_8px_0_0_#000]">
               <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-lime/50 mb-3">Quick Links</div>
               <div className="space-y-2">
-                <Link href="/dashboard/id-card" className="flex items-center gap-2 text-sm font-display font-bold text-lime hover:text-teal transition-colors">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M1 6a3 3 0 013-3h12a3 3 0 013 3v8a3 3 0 01-3 3H4a3 3 0 01-3-3V6zm4 1.5a2 2 0 114 0 2 2 0 01-4 0zm2 3a4 4 0 00-3.665 2.395.75.75 0 00.416 1A8.98 8.98 0 007 14.75a8.98 8.98 0 003.249-.604.75.75 0 00.416-1.001A4.001 4.001 0 007 10.5zm6-1a.75.75 0 01.75-.75h2a.75.75 0 010 1.5h-2a.75.75 0 01-.75-.75zm.75 2.25a.75.75 0 000 1.5h2a.75.75 0 000-1.5h-2z" clipRule="evenodd" />
-                  </svg>
-                  View ID Card
-                </Link>
+
                 <Link href="/dashboard/payments" className="flex items-center gap-2 text-sm font-display font-bold text-lime hover:text-teal transition-colors">
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M2.5 4A1.5 1.5 0 001 5.5V6h18v-.5A1.5 1.5 0 0017.5 4h-15zM19 8.5H1v6A1.5 1.5 0 002.5 16h15a1.5 1.5 0 001.5-1.5v-6z" />
@@ -575,7 +570,7 @@ export default function ProfilePage() {
           IMAGE MODAL
       ════════════════════════════════════════ */}
       {showImageModal && (
-        <div className="fixed inset-0 bg-navy/80 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-navy/80 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6">
           <div className="bg-ghost border-[4px] border-navy rounded-[2rem] max-w-lg w-full shadow-[10px_10px_0_0_#000] overflow-hidden">
             {/* header */}
             <div className="bg-coral-light border-b-[4px] border-navy p-5 flex items-center justify-between">

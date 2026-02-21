@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 
 export default function RegisterPage() {
@@ -125,8 +126,8 @@ export default function RegisterPage() {
         <div className="w-full max-w-xl space-y-8 py-8">
           {/* Logo */}
           <Link href="/" className="inline-flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-lime border-[3px] border-navy shadow-[3px_3px_0_0_#000] flex items-center justify-center">
-              <span className="text-navy font-display font-black text-sm">IE</span>
+            <div className="w-10 h-10 rounded-2xl bg-lime border-[3px] border-navy shadow-[3px_3px_0_0_#000] flex items-center justify-center overflow-hidden">
+              <Image src="/assets/images/logo.svg" alt="IESA Logo" width={28} height={28} className="object-contain" />
             </div>
             <span className="font-display font-black text-xl text-navy">IESA</span>
           </Link>

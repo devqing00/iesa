@@ -5,7 +5,7 @@ import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
-import { EventSchema, flattenZodErrors } from "@/lib/schemas";
+import { EventSchemaObject, flattenZodErrors } from "@/lib/schemas";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -238,7 +238,7 @@ export default function AdminEventsPage() {
   };
 
   const handleSubmit = async () => {
-    const CoreSchema = EventSchema.pick({ title: true, description: true, date: true, location: true, category: true });
+    const CoreSchema = EventSchemaObject.pick({ title: true, description: true, date: true, location: true, category: true });
     const parsed = CoreSchema.safeParse(form);
     if (!parsed.success) {
       setFormErrors(flattenZodErrors(parsed.error));

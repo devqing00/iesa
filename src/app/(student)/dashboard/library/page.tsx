@@ -448,9 +448,9 @@ export default function LibraryPage() {
           UPLOAD MODAL
           ═══════════════════════════════════════════════════════ */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-navy/80 z-50 flex items-center justify-center p-4" onClick={() => setShowUploadModal(false)}>
+        <div className="fixed inset-0 bg-navy/80 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6" onClick={() => setShowUploadModal(false)}>
           <div
-            className="bg-snow border-[4px] border-navy rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-[10px_10px_0_0_#000]"
+            className="bg-snow border-[4px] border-navy rounded-3xl max-w-2xl w-full max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[10px_10px_0_0_#000]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}

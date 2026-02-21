@@ -4,6 +4,7 @@ import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
+import { useSearchParams } from "next/navigation";
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -45,12 +46,15 @@ const categoryColors: Record<string, string> = {
 
 export default function AnnouncementsPage() {
   const { user, getAccessToken } = useAuth();
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get("highlight");
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const [readAnnouncements, setReadAnnouncements] = useState<Set<string>>(new Set());
+  const [highlightApplied, setHighlightApplied] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -59,6 +63,23 @@ export default function AnnouncementsPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  /* Deep-link: auto-open highlighted announcement from notification bell */
+  useEffect(() => {
+    if (highlightId && announcements.length > 0 && !highlightApplied) {
+      setOpenId(highlightId);
+      markAsRead(highlightId);
+      setHighlightApplied(true);
+      // Scroll into view after a tick
+      setTimeout(() => {
+        const el = document.getElementById(`announcement-${highlightId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 150);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightId, announcements, highlightApplied]);
 
   const fetchAnnouncements = async () => {
     if (!user) return;
@@ -267,7 +288,12 @@ export default function AnnouncementsPage() {
               return (
                 <article
                   key={announcement.id}
+                  id={`announcement-${announcement.id}`}
                   className={`rounded-3xl overflow-hidden transition-all ${
+                    highlightId === announcement.id && highlightApplied
+                      ? "ring-4 ring-lime ring-offset-2 "
+                      : ""
+                  }${
                     isRead
                       ? "bg-cloud border-[3px] border-navy/15"
                       : "bg-snow border-[4px] border-navy shadow-[5px_5px_0_0_#000] hover:shadow-[3px_3px_0_0_#000] hover:translate-x-[1px] hover:translate-y-[1px]"

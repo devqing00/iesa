@@ -158,7 +158,7 @@ export default function AdminSidebar() {
         <div className="p-4 pb-3 flex items-center gap-3">
           <Link href="/admin/dashboard" className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center overflow-hidden">
-              <Image src="/assets/images/logo-light.svg" alt="IESA Logo" width={28} height={28} className="object-contain" />
+              <Image src="/assets/images/logo.svg" alt="IESA Logo" width={28} height={28} className="object-contain" />
             </div>
             {isExpanded && (
               <div className="min-w-0 overflow-hidden">

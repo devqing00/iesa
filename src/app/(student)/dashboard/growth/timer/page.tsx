@@ -1,6 +1,7 @@
 "use client";
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import Link from "next/link";
 import { useState, useEffect, useCallback, useRef } from "react";
 
@@ -48,6 +49,7 @@ const MOTIVATIONAL_QUOTES = [
 ];
 
 export default function StudyTimerPage() {
+  const { showHelp, openHelp, closeHelp } = useToolHelp("timer");
   /* ─── State ─── */
   const [mode, setMode] = useState<TimerMode>("focus");
   const [timeLeft, setTimeLeft] = useState(25 * 60);
@@ -121,7 +123,7 @@ export default function StudyTimerPage() {
         oscillator.frequency.value = 800;
         oscillator.start();
         setTimeout(() => oscillator.stop(), 200);
-      } catch { console.log("Audio not supported"); }
+      } catch { /* Audio not supported */ }
     }
 
     const newRecord: SessionRecord = {
@@ -204,6 +206,7 @@ export default function StudyTimerPage() {
   return (
     <div className="min-h-screen bg-ghost">
       <DashboardHeader title="Study Timer" />
+      <ToolHelpModal toolId="timer" isOpen={showHelp} onClose={closeHelp} />
 
       <div className="px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8 max-w-4xl mx-auto relative">
         {/* Diamond Sparkle Decorators */}
@@ -214,16 +217,19 @@ export default function StudyTimerPage() {
         <svg className="fixed top-[35%] right-[20%] w-4 h-4 text-lime/18 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
         <svg className="fixed bottom-52 left-[14%] w-5 h-5 text-lavender/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
 
-        {/* Back Link */}
-        <Link
-          href="/dashboard/growth"
-          className="inline-flex items-center gap-2 font-display font-bold text-xs text-slate uppercase tracking-wider hover:text-navy transition-colors mb-6 group"
-        >
-          <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 24 24">
-            <path fillRule="evenodd" d="M11.03 3.97a.75.75 0 010 1.06l-6.22 6.22H21a.75.75 0 010 1.5H4.81l6.22 6.22a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0z" clipRule="evenodd" />
-          </svg>
-          Back to Growth Hub
-        </Link>
+        {/* Back Link + Help */}
+        <div className="flex items-center justify-between mb-6">
+          <Link
+            href="/dashboard/growth"
+            className="inline-flex items-center gap-2 font-display font-bold text-xs text-slate uppercase tracking-wider hover:text-navy transition-colors group"
+          >
+            <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+              <path fillRule="evenodd" d="M11.03 3.97a.75.75 0 010 1.06l-6.22 6.22H21a.75.75 0 010 1.5H4.81l6.22 6.22a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0z" clipRule="evenodd" />
+            </svg>
+            Back to Growth Hub
+          </Link>
+          <HelpButton onClick={openHelp} />
+        </div>
 
         {/* ═══ BENTO HERO ═══ */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">

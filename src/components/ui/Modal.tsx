@@ -80,7 +80,7 @@ export function Modal({
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6"
       onClick={handleOverlayClick}
       role="presentation"
     >
@@ -95,7 +95,8 @@ export function Modal({
         className={`
           relative w-full ${sizeStyles[size]}
           bg-snow border-[4px] border-navy rounded-3xl
-          max-h-[90vh] overflow-hidden
+          max-h-[80vh] md:max-h-[85vh]
+          overflow-hidden
           flex flex-col
           animate-scale-in shadow-[8px_8px_0_0_#000]
         `}

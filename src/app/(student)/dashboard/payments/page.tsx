@@ -114,7 +114,7 @@ export default function PaymentsPage() {
       const data = await res.json();
       if (!window.PaystackPop) await loadPaystackScript();
       const handler = window.PaystackPop!.setup({
-        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || "pk_test_xxx",
+        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || "",
         email: user?.email || "",
         amount: Math.round(payment.amount * 100),
         ref: data.reference,

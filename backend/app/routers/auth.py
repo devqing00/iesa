@@ -14,6 +14,7 @@ Security features:
 from fastapi import APIRouter, HTTPException, Depends, status, Request, Response
 from datetime import datetime, timezone
 from bson import ObjectId
+import os
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -39,10 +40,11 @@ from app.db import get_database
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 limiter = Limiter(key_func=get_remote_address)
 
-# Cookie settings
+# Cookie settings — environment-aware for cross-origin (Vercel ↔ Render)
 REFRESH_COOKIE_NAME = "refresh_token"
-COOKIE_SECURE = False   # Set True in production with HTTPS
-COOKIE_SAMESITE = "lax"
+_ENV = os.getenv("ENVIRONMENT", "development")
+COOKIE_SECURE = _ENV == "production"            # True over HTTPS in prod
+COOKIE_SAMESITE: str = "none" if _ENV == "production" else "lax"  # cross-origin needs "none"
 COOKIE_PATH = "/api/v1/auth"  # Only sent to auth endpoints
 
 

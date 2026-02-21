@@ -40,7 +40,8 @@ export type AnnouncementFormData = z.infer<typeof AnnouncementSchema>;
 
 /* ─── Event ──────────────────────────────────── */
 
-export const EventSchema = z.object({
+/** Inner object schema (no refinement) — supports .pick() / .partial() */
+export const EventSchemaObject = z.object({
   title: z.string().min(3, "Title must be at least 3 characters").max(200),
   description: z.string().min(10, "Description must be at least 10 characters").max(2000),
   date: z.string().min(1, "Event date is required"),
@@ -51,7 +52,10 @@ export const EventSchema = z.object({
   requiresPayment: z.boolean().optional(),
   paymentAmount: z.coerce.number().nonnegative().optional(),
   imageUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
-}).refine(
+});
+
+/** Full schema with cross-field refinement (use for complete form validation) */
+export const EventSchema = EventSchemaObject.refine(
   (d) => !d.requiresPayment || (d.paymentAmount !== undefined && d.paymentAmount > 0),
   { message: "Payment amount is required when payment is needed", path: ["paymentAmount"] }
 );

@@ -501,8 +501,8 @@ export default function TimetablePage() {
         )}
 
         {showCancelModal && (
-          <div className="fixed inset-0 bg-navy/80 z-50 flex items-center justify-center p-4" onClick={() => { setShowCancelModal(false); setSelectedClass(null); setCancelDate(""); setCancelReason(""); }}>
-            <div className="bg-snow border-[4px] border-navy rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-[10px_10px_0_0_#000]" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-navy/80 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6" onClick={() => { setShowCancelModal(false); setSelectedClass(null); setCancelDate(""); setCancelReason(""); }}>
+            <div className="bg-snow border-[4px] border-navy rounded-3xl w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[10px_10px_0_0_#000]" onClick={(e) => e.stopPropagation()}>
               {/* Header */}
               <div className="p-6 border-b-[3px] border-navy/10 flex items-center justify-between">
                 <div className="flex items-center gap-3">

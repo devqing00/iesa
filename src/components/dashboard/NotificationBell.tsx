@@ -38,7 +38,6 @@ export default function NotificationBell() {
   const [announcements, setAnnouncements] = useState<AnnouncementPreview[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [marking, setMarking] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchAnnouncements = useCallback(async () => {
@@ -80,7 +79,6 @@ export default function NotificationBell() {
   }, [open]);
 
   const markAsRead = useCallback(async (id: string) => {
-    setMarking(id);
     try {
       const token = await getAccessToken();
       const res = await fetch(getApiUrl(`/api/v1/announcements/${id}/read`), {
@@ -95,8 +93,6 @@ export default function NotificationBell() {
       }
     } catch {
       // ignore
-    } finally {
-      setMarking(null);
     }
   }, [getAccessToken]);
 
@@ -172,10 +168,15 @@ export default function NotificationBell() {
               </div>
             ) : (
               announcements.map((a) => (
-                <div
+                <Link
                   key={a.id}
-                  className={`border-b-[2px] border-cloud transition-colors ${
-                    a.isRead === false ? "bg-lime-light/60" : "bg-snow hover:bg-ghost"
+                  href={`/dashboard/announcements?highlight=${a.id}`}
+                  onClick={() => {
+                    setOpen(false);
+                    if (a.isRead === false) markAsRead(a.id);
+                  }}
+                  className={`block border-b-[2px] border-cloud transition-colors cursor-pointer ${
+                    a.isRead === false ? "bg-lime-light/60 hover:bg-lime-light/80" : "bg-snow hover:bg-ghost"
                   }`}
                 >
                   <div className="flex gap-3 px-4 py-3">
@@ -188,16 +189,10 @@ export default function NotificationBell() {
                           {a.title}
                         </p>
                         {a.isRead === false && (
-                          <button
-                            disabled={marking === a.id}
-                            onClick={() => markAsRead(a.id)}
-                            className="shrink-0 text-[10px] text-teal font-display font-black hover:underline disabled:opacity-50"
-                          >
-                            {marking === a.id ? "…" : "Read"}
-                          </button>
+                          <span className="shrink-0 w-2 h-2 rounded-full bg-coral mt-1.5" />
                         )}
                       </div>
-                      <p className="text-slate text-xs mt-0.5 line-clamp-2 font-normal">{a.content}</p>
+                      <p className="text-slate text-xs mt-0.5 line-clamp-1 font-normal">{a.content}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-[10px] text-slate font-normal">{timeAgo(a.createdAt)}</span>
                         {a.authorName && (
@@ -206,7 +201,7 @@ export default function NotificationBell() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               ))
             )}
           </div>

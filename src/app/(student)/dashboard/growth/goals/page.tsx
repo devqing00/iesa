@@ -1,6 +1,7 @@
 "use client";
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 
@@ -48,6 +49,7 @@ const STORAGE_KEY = "iesa-goals";
 
 /* ─── Component ───────────────────────────────────────────── */
 export default function GoalsPage() {
+  const { showHelp, openHelp, closeHelp } = useToolHelp("goals");
   const [goals, setGoals] = useState<Goal[]>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -69,7 +71,7 @@ export default function GoalsPage() {
   }, []);
 
   useEffect(() => {
-    if (goals.length > 0) localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
   }, [goals]);
 
   const stats = useMemo(() => {
@@ -175,6 +177,7 @@ export default function GoalsPage() {
   return (
     <div className="min-h-screen bg-ghost overflow-x-hidden">
       <DashboardHeader title="Goal Tracker" />
+      <ToolHelpModal toolId="goals" isOpen={showHelp} onClose={closeHelp} />
 
       {/* Diamond sparkle decorators */}
       <svg className="fixed top-24 left-[6%] w-5 h-5 text-lavender/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
@@ -185,11 +188,14 @@ export default function GoalsPage() {
       <div className="px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8 relative z-10">
         <div className="max-w-6xl mx-auto">
 
-          {/* Back Link */}
-          <Link href="/dashboard/growth" className="inline-flex items-center gap-2 font-display font-bold text-xs text-slate uppercase tracking-wider hover:text-navy transition-colors mb-6 group">
-            <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M11.03 3.97a.75.75 0 010 1.06l-6.22 6.22H21a.75.75 0 010 1.5H4.81l6.22 6.22a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0z" clipRule="evenodd"/></svg>
-            Back to Growth Hub
-          </Link>
+          {/* Back Link + Help */}
+          <div className="flex items-center justify-between mb-6">
+            <Link href="/dashboard/growth" className="inline-flex items-center gap-2 font-display font-bold text-xs text-slate uppercase tracking-wider hover:text-navy transition-colors group">
+              <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M11.03 3.97a.75.75 0 010 1.06l-6.22 6.22H21a.75.75 0 010 1.5H4.81l6.22 6.22a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0z" clipRule="evenodd"/></svg>
+              Back to Growth Hub
+            </Link>
+            <HelpButton onClick={openHelp} />
+          </div>
 
           {/* ═══════════════════════════════════════════════════
               BENTO HERO — lavender theme
@@ -489,8 +495,8 @@ function GoalModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-ghost border-[4px] border-navy rounded-[2rem] shadow-[10px_10px_0_0_#000] w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm flex items-center justify-center z-50 px-4 pt-4 pb-20 md:p-6">
+      <div className="bg-ghost border-[4px] border-navy rounded-[2rem] shadow-[10px_10px_0_0_#000] w-full max-w-lg max-h-[80vh] md:max-h-[85vh] overflow-y-auto">
         {/* Modal header */}
         <div className="p-6 border-b-[3px] border-navy/10 flex items-center justify-between">
           <div>

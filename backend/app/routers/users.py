@@ -127,6 +127,17 @@ async def get_my_permissions(user: dict = Depends(get_current_user)):
     
     # Get active session
     active_session = await sessions.find_one({"isActive": True})
+
+    # Admin users always get all permissions regardless of session state
+    if user.get("role") == "admin":
+        from app.core.permissions import PERMISSIONS
+        return {
+            "permissions": list(PERMISSIONS.keys()),
+            "session_id": str(active_session["_id"]) if active_session else None,
+            "session_name": active_session.get("name") if active_session else None,
+            "is_admin": True
+        }
+
     if not active_session:
         return {
             "permissions": [],

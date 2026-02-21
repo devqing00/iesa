@@ -99,6 +99,7 @@ roles_collection = lambda: get_collection("roles")
 
 # Additional Collections
 transactions_collection = lambda: get_collection("transactions")
+study_groups_collection = lambda: get_collection("study_groups")
 
 # Sync Client for legacy/sync wrappers
 from pymongo import MongoClient

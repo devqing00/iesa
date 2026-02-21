@@ -1,6 +1,7 @@
 "use client";
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 
@@ -37,6 +38,7 @@ const ACCENT_CYCLE = ["border-l-teal", "border-l-coral", "border-l-lavender", "b
 const STORAGE_KEY = "iesa-planner-tasks";
 
 export default function PlannerPage() {
+  const { showHelp, openHelp, closeHelp } = useToolHelp("planner");
   /* ─── State ─── */
   const [tasks, setTasks] = useState<Task[]>(() => {
     if (typeof window !== "undefined") {
@@ -59,7 +61,7 @@ export default function PlannerPage() {
   }, []);
 
   useEffect(() => {
-    if (tasks.length > 0) localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
   }, [tasks]);
 
   /* ─── Computed ─── */
@@ -165,6 +167,7 @@ export default function PlannerPage() {
   return (
     <div className="min-h-screen bg-ghost">
       <DashboardHeader title="Personal Planner" />
+      <ToolHelpModal toolId="planner" isOpen={showHelp} onClose={closeHelp} />
 
       <div className="px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8 max-w-6xl mx-auto relative">
         {/* Diamond Sparkle Decorators */}
@@ -175,16 +178,19 @@ export default function PlannerPage() {
         <svg className="fixed top-[30%] right-[18%] w-4 h-4 text-lime/20 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
         <svg className="fixed bottom-48 left-[15%] w-5 h-5 text-coral/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
 
-        {/* Back Link */}
-        <Link
-          href="/dashboard/growth"
-          className="inline-flex items-center gap-2 font-display font-bold text-xs text-slate uppercase tracking-wider hover:text-navy transition-colors mb-6 group"
-        >
-          <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 24 24">
-            <path fillRule="evenodd" d="M11.03 3.97a.75.75 0 010 1.06l-6.22 6.22H21a.75.75 0 010 1.5H4.81l6.22 6.22a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0z" clipRule="evenodd" />
-          </svg>
-          Back to Growth Hub
-        </Link>
+        {/* Back Link + Help */}
+        <div className="flex items-center justify-between mb-6">
+          <Link
+            href="/dashboard/growth"
+            className="inline-flex items-center gap-2 font-display font-bold text-xs text-slate uppercase tracking-wider hover:text-navy transition-colors group"
+          >
+            <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+              <path fillRule="evenodd" d="M11.03 3.97a.75.75 0 010 1.06l-6.22 6.22H21a.75.75 0 010 1.5H4.81l6.22 6.22a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0z" clipRule="evenodd" />
+            </svg>
+            Back to Growth Hub
+          </Link>
+          <HelpButton onClick={openHelp} />
+        </div>
 
         {/* ═══ BENTO HERO ═══ */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
@@ -464,8 +470,8 @@ function TaskModal({ task, onSave, onClose }: { task: Task | null; onSave: (data
   };
 
   return (
-    <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-ghost border-[4px] border-navy rounded-[2rem] shadow-[10px_10px_0_0_#000] w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm flex items-center justify-center z-50 px-4 pt-4 pb-20 md:p-6">
+      <div className="bg-ghost border-[4px] border-navy rounded-[2rem] shadow-[10px_10px_0_0_#000] w-full max-w-lg max-h-[80vh] md:max-h-[85vh] overflow-y-auto">
         {/* Header */}
         <div className="p-6 border-b-[3px] border-navy flex items-center justify-between">
           <div>

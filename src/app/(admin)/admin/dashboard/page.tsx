@@ -34,12 +34,32 @@ interface ChartData {
   paymentsByStatus: { name: string; value: number }[];
 }
 
+interface AuditLogEntry {
+  id: string;
+  action: string;
+  actor: { name?: string; email?: string };
+  resource: { type: string; name?: string };
+  timestamp: string;
+}
+
 const LEVEL_COLORS = ["#C8F31D", "#9B8AF5", "#FF7B5C", "#6ECFC9", "#F5C842"];
 const PAYMENT_COLORS: Record<string, string> = {
   successful: "#6ECFC9",
   pending: "#F5C842",
   failed: "#FF7B5C",
 };
+
+function formatTimeAgo(timestamp: string): string {
+  const diff = Date.now() - new Date(timestamp).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(timestamp).toLocaleDateString();
+}
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -72,19 +92,21 @@ export default function AdminDashboardPage() {
     paymentsByStatus: [],
   });
   const [loading, setLoading] = useState(true);
+  const [recentActivity, setRecentActivity] = useState<AuditLogEntry[]>([]);
 
   const fetchStats = useCallback(async () => {
     try {
       const token = await getAccessToken();
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [usersRes, enrollmentsRes, eventsRes, announcementsRes, sessionsRes, paymentsRes] = await Promise.allSettled([
+      const [usersRes, enrollmentsRes, eventsRes, announcementsRes, sessionsRes, paymentsRes, auditRes] = await Promise.allSettled([
         fetch(getApiUrl("/api/v1/users/"), { headers }),
         fetch(getApiUrl("/api/v1/enrollments/"), { headers }),
         fetch(getApiUrl("/api/v1/events/"), { headers }),
         fetch(getApiUrl("/api/v1/announcements/"), { headers }),
         fetch(getApiUrl("/api/v1/sessions/"), { headers }),
         fetch(getApiUrl("/api/v1/payments/"), { headers }),
+        fetch(getApiUrl("/api/v1/audit-logs/?limit=5"), { headers }),
       ]);
 
       const users = usersRes.status === "fulfilled" && usersRes.value.ok ? await usersRes.value.json() : [];
@@ -93,6 +115,8 @@ export default function AdminDashboardPage() {
       const announcements = announcementsRes.status === "fulfilled" && announcementsRes.value.ok ? await announcementsRes.value.json() : [];
       const sessions = sessionsRes.status === "fulfilled" && sessionsRes.value.ok ? await sessionsRes.value.json() : [];
       const payments = paymentsRes.status === "fulfilled" && paymentsRes.value.ok ? await paymentsRes.value.json() : [];
+      const auditLogs = auditRes.status === "fulfilled" && auditRes.value.ok ? await auditRes.value.json() : [];
+      if (Array.isArray(auditLogs)) setRecentActivity(auditLogs);
 
       const activeSession = Array.isArray(sessions) ? sessions.find((s: Record<string, unknown>) => s.isActive) : null;
 
@@ -109,7 +133,7 @@ export default function AdminDashboardPage() {
       if (Array.isArray(enrollments)) {
         const levelMap: Record<string, number> = {};
         for (const e of enrollments) {
-          const lvl = e.level ? `${e.level}L` : "Other";
+          const lvl = e.level ?? "Other";
           levelMap[lvl] = (levelMap[lvl] ?? 0) + 1;
         }
         const orderedLevels = ["100L","200L","300L","400L","500L"];
@@ -379,30 +403,44 @@ export default function AdminDashboardPage() {
         <div className="lg:col-span-2 bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
           <div className="flex items-center justify-between mb-5">
             <h3 className="font-display font-black text-lg text-navy">Recent Activity</h3>
-            <Link href="/admin/announcements" className="text-xs font-bold text-teal hover:underline">
+            <Link href="/admin/audit-logs" className="text-xs font-bold text-teal hover:underline">
               View all
             </Link>
           </div>
           <div className="space-y-3">
-            {[
-              { label: "Dashboard loaded", time: "Just now", accent: "border-l-teal" },
-              { label: "System status: healthy", time: "1m ago", accent: "border-l-lime" },
-              { label: "Admin panel active", time: "2m ago", accent: "border-l-lavender" },
-            ].map((item, i) => (
-              <div key={i} className={`flex items-center gap-3 p-3 rounded-xl bg-ghost border-l-[4px] ${item.accent}`}>
-                <div className="w-8 h-8 rounded-xl bg-cloud flex items-center justify-center shrink-0">
-                  <span className="text-slate text-xs font-bold">{String(i + 1).padStart(2, "0")}</span>
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-ghost border-l-[4px] border-l-cloud">
+                  <div className="w-8 h-8 rounded-xl bg-cloud animate-pulse" />
+                  <div className="flex-1"><div className="h-4 bg-cloud rounded-xl animate-pulse w-3/4" /></div>
+                  <div className="h-3 bg-cloud rounded animate-pulse w-12" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  {loading ? (
-                    <div className="h-4 bg-cloud rounded-xl animate-pulse w-3/4" />
-                  ) : (
-                    <p className="text-sm text-navy/70 font-medium">{item.label}</p>
-                  )}
-                </div>
-                <span className="text-[10px] text-slate font-bold">{item.time}</span>
-              </div>
-            ))}
+              ))
+            ) : recentActivity.length === 0 ? (
+              <p className="text-sm text-slate font-medium text-center py-4">No recent activity</p>
+            ) : (
+              recentActivity.slice(0, 5).map((log, i) => {
+                const accents = ["border-l-teal", "border-l-lime", "border-l-lavender", "border-l-coral", "border-l-sunny"];
+                const timeAgo = formatTimeAgo(log.timestamp);
+                return (
+                  <div key={log.id} className={`flex items-center gap-3 p-3 rounded-xl bg-ghost border-l-[4px] ${accents[i % accents.length]}`}>
+                    <div className="w-8 h-8 rounded-xl bg-cloud flex items-center justify-center shrink-0">
+                      <span className="text-slate text-xs font-bold">{String(i + 1).padStart(2, "0")}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-navy/70 font-medium truncate">
+                        {log.action.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+                        {log.resource?.name ? ` — ${log.resource.name}` : ` — ${log.resource?.type ?? ""}`}
+                      </p>
+                      {log.actor?.name && (
+                        <p className="text-[10px] text-slate truncate">by {log.actor.name}</p>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-slate font-bold shrink-0">{timeAgo}</span>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 

@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { useSession } from "@/context/SessionContext";
 import { useState } from "react";
 
 export default function AdminMobileNav() {
   const pathname = usePathname();
   const { signOut } = useAuth();
+  const { currentSession, allSessions } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const activeSession = allSessions.find(s => s.isActive) ?? currentSession;
 
   const mainLinks = [
     {
@@ -93,6 +96,27 @@ export default function AdminMobileNav() {
         </svg>
       ),
     },
+    {
+      name: "Resources",
+      href: "/admin/resources",
+      color: "bg-teal-light",
+      icon: (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
+        </svg>
+      ),
+    },
+    {
+      name: "Audit Logs",
+      href: "/admin/audit-logs",
+      color: "bg-ghost",
+      icon: (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path fillRule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0 1 18 9.375v9.375a3 3 0 0 0 3-3V6.108c0-1.505-1.125-2.811-2.664-2.94a48.972 48.972 0 0 0-8.583-.19 2.977 2.977 0 0 0-2.251 1.9v1.132Z" clipRule="evenodd" />
+          <path fillRule="evenodd" d="M13.023 8.125A3.375 3.375 0 0 0 9.648 4.75H7.502c-.166 0-.33.01-.493.022A4.476 4.476 0 0 0 3 9.03v7.97a3 3 0 0 0 3 3h7.5a3 3 0 0 0 3-3v-7.5c0-.81-.288-1.553-.767-2.133l-.21-.242ZM10.5 10.5a.75.75 0 0 1 .75.75v.75h.75a.75.75 0 0 1 0 1.5h-.75v.75a.75.75 0 0 1-1.5 0v-.75h-.75a.75.75 0 0 1 0-1.5h.75v-.75a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+        </svg>
+      ),
+    },
   ];
 
   return (
@@ -167,7 +191,42 @@ export default function AdminMobileNav() {
                 );
               })}
             </div>
-            <div className="mt-3 pt-3 border-t-[2px] border-navy/10">
+            <div className="mt-3 pt-3 border-t-[2px] border-navy/10 space-y-2">
+              {/* Session Badge */}
+              <Link
+                href="/admin/sessions"
+                className="flex items-center gap-3 rounded-2xl bg-navy border-[3px] border-lime p-3 hover:shadow-[3px_3px_0_0_#C8F31D] transition-all"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <span className="relative flex-shrink-0">
+                  <span className="w-2 h-2 rounded-full bg-lime block" />
+                  <span className="w-2 h-2 rounded-full bg-lime block absolute inset-0 animate-ping opacity-75" />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-lime/60 leading-none mb-0.5">Active Session</p>
+                  <p className="text-xs font-black text-lime truncate">
+                    {activeSession?.name ?? "No active session"}
+                  </p>
+                </div>
+                <svg className="w-3.5 h-3.5 text-lime/40 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z" clipRule="evenodd" />
+                </svg>
+              </Link>
+
+              {/* Switch to Student */}
+              <Link
+                href="/dashboard"
+                className="w-full flex items-center gap-2.5 px-3 py-3 rounded-2xl text-sm font-bold text-teal hover:bg-teal-light transition-all"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M11.7 2.805a.75.75 0 0 1 .6 0A60.65 60.65 0 0 1 22.83 8.72a.75.75 0 0 1-.231 1.337 49.948 49.948 0 0 0-9.902 3.912l-.003.002-.34.18a.75.75 0 0 1-.707 0A50.88 50.88 0 0 0 7.5 12.174v-.224c0-.131.067-.248.172-.311a54.615 54.615 0 0 1 4.653-2.52.75.75 0 0 0-.65-1.352 56.123 56.123 0 0 0-4.78 2.589 1.858 1.858 0 0 0-.859 1.228 49.803 49.803 0 0 0-4.634-1.527.75.75 0 0 1-.231-1.337A60.653 60.653 0 0 1 11.7 2.805Z" />
+                  <path d="M13.06 15.473a48.45 48.45 0 0 1 7.666-3.282c.134 1.414.22 2.843.255 4.284a.75.75 0 0 1-.46.711 47.87 47.87 0 0 0-8.105 4.342.75.75 0 0 1-.832 0 47.87 47.87 0 0 0-8.104-4.342.75.75 0 0 1-.461-.71c.035-1.442.121-2.87.255-4.286a48.4 48.4 0 0 1 6.463 2.806l.203.107a2.25 2.25 0 0 0 2.12 0l.203-.107Z" />
+                  <path d="M6.75 14.771V16.5a.75.75 0 0 0 .375.65 48.34 48.34 0 0 1 3.27 2.012 38.7 38.7 0 0 0-.61-3.225.75.75 0 0 0-.449-.547 47.818 47.818 0 0 0-2.586-1.118Z" />
+                </svg>
+                <span>Switch to Student</span>
+              </Link>
+
               <button
                 onClick={() => {
                   setIsMenuOpen(false);

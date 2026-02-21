@@ -95,23 +95,7 @@ async def main():
             # Now fetch payments with session
             await test_endpoint(session, "GET", "/api/v1/payments/", token=token, description="Fetch payments")
         
-        # 8. Test ID Card Download
-        print("\n--- ID Card ---")
-        async with session.get(f"{BASE_URL}/api/v1/student-document", headers={"Authorization": f"Bearer {token}"}) as response:
-            print(f"[GET] {BASE_URL}/api/v1/student-document")
-            print(f"Goal: ID Card PDF Download")
-            print(f"Status: {response.status}")
-            if response.status == 200:
-                content = await response.read() # Read as binary
-                print(f"Success! Received {len(content)} bytes of PDF data.")
-                # Verify PDF header
-                if content.startswith(b"%PDF"):
-                    print("Verified: Content is a valid PDF.")
-                else:
-                     print("Warning: Content does not start with %PDF")
-            else:
-                 text = await response.text()
-                 print(f"Error Response: {text}")
+
 
         # === Testing Paystack Transactions ===
         print("\n=== Testing Paystack Transactions ===")

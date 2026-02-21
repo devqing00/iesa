@@ -4,11 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useSession } from "@/context/SessionContext";
 
 export default function MobileNav() {
   const pathname = usePathname();
-  const { signOut } = useAuth();
+  const { signOut, userProfile } = useAuth();
+  const { currentSession, allSessions } = useSession();
   const [showMore, setShowMore] = useState(false);
+  const activeSession = allSessions.find(s => s.isActive) ?? currentSession;
 
   const mainLinks = [
     {
@@ -83,15 +86,17 @@ export default function MobileNav() {
       ),
     },
     {
-      name: "ID Card",
-      href: "/dashboard/id-card",
+      name: "Press",
+      href: "/dashboard/press",
       color: "bg-coral-light",
       icon: (
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-          <path fillRule="evenodd" d="M4.5 3.75a3 3 0 0 0-3 3v10.5a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3V6.75a3 3 0 0 0-3-3h-15Zm4.125 3a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5Zm-3.873 8.703a4.126 4.126 0 0 1 7.746 0 .75.75 0 0 1-.351.92 7.47 7.47 0 0 1-3.522.877 7.47 7.47 0 0 1-3.522-.877.75.75 0 0 1-.351-.92ZM15 8.25a.75.75 0 0 0 0 1.5h3.75a.75.75 0 0 0 0-1.5H15ZM14.25 12a.75.75 0 0 1 .75-.75h3.75a.75.75 0 0 1 0 1.5H15a.75.75 0 0 1-.75-.75Zm.75 2.25a.75.75 0 0 0 0 1.5h3.75a.75.75 0 0 0 0-1.5H15Z" clipRule="evenodd" />
+          <path fillRule="evenodd" d="M4.125 3C3.089 3 2.25 3.84 2.25 4.875V18a3 3 0 0 0 3 3h15a3 3 0 0 1-3-3V4.875C17.25 3.839 16.41 3 15.375 3H4.125ZM12 9.75a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5H12Zm-.75-2.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5H12a.75.75 0 0 1-.75-.75ZM6 12.75a.75.75 0 0 0 0 1.5h7.5a.75.75 0 0 0 0-1.5H6Zm-.75 3.75a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H6a.75.75 0 0 1-.75-.75ZM6 6.75a.75.75 0 0 0-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 0 0 .75-.75v-3A.75.75 0 0 0 9 6.75H6Z" clipRule="evenodd" />
+          <path d="M18.75 6.75h1.875c.621 0 1.125.504 1.125 1.125V18a1.5 1.5 0 0 1-3 0V6.75Z" />
         </svg>
       ),
     },
+
     {
       name: "Profile",
       href: "/dashboard/profile",
@@ -179,7 +184,35 @@ export default function MobileNav() {
             </div>
 
             {/* Sign Out in More menu */}
-            <div className="mt-3 pt-3 border-t-[2px] border-navy/10">
+            <div className="mt-3 pt-3 border-t-[2px] border-navy/10 space-y-2">
+              {/* Session Badge */}
+              <div className="flex items-center gap-3 rounded-2xl bg-navy border-[3px] border-lime p-3">
+                <span className="relative flex-shrink-0">
+                  <span className="w-2 h-2 rounded-full bg-lime block" />
+                  <span className="w-2 h-2 rounded-full bg-lime block absolute inset-0 animate-ping opacity-75" />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-lime/60 leading-none mb-0.5">Active Session</p>
+                  <p className="text-xs font-black text-lime truncate">
+                    {activeSession?.name ?? "No active session"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Switch to Admin — only admin/exco users */}
+              {userProfile && (userProfile.role === "admin" || userProfile.role === "exco") && (
+                <Link
+                  href="/admin/dashboard"
+                  className="w-full flex items-center gap-2.5 px-3 py-3 rounded-2xl text-sm font-bold text-lavender hover:bg-lavender-light transition-all"
+                  onClick={() => setShowMore(false)}
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" d="M12 1.5a.75.75 0 0 1 .75.75V4.5a.75.75 0 0 1-1.5 0V2.25A.75.75 0 0 1 12 1.5ZM5.636 4.136a.75.75 0 0 1 1.06 0l1.592 1.591a.75.75 0 0 1-1.061 1.06l-1.591-1.59a.75.75 0 0 1 0-1.061Zm12.728 0a.75.75 0 0 1 0 1.06l-1.591 1.592a.75.75 0 0 1-1.06-1.061l1.59-1.591a.75.75 0 0 1 1.061 0Zm-6.816 4.496a.75.75 0 0 1 .82.311l5.228 7.917a.75.75 0 0 1-.777 1.148l-2.097-.43 1.045 3.9a.75.75 0 0 1-1.45.388l-1.044-3.899-1.601 1.42a.75.75 0 0 1-1.247-.606l.569-9.47a.75.75 0 0 1 .554-.679Z" clipRule="evenodd" />
+                  </svg>
+                  <span>Switch to Admin</span>
+                </Link>
+              )}
+
               <button
                 onClick={() => {
                   setShowMore(false);
