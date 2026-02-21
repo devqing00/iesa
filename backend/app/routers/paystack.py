@@ -22,7 +22,7 @@ from bson import ObjectId
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from ..core.security import get_current_user
-from ..utils.receipt_generator import generate_payment_receipt
+# receipt_generator is lazy-imported where used to save ~30MB startup memory
 from ..core.email import send_payment_receipt
 
 router = APIRouter(prefix="/api/v1/paystack", tags=["Paystack"])
@@ -528,6 +528,7 @@ async def download_receipt(
             student_level = str(student_level)
         
         # Generate PDF receipt
+        from ..utils.receipt_generator import generate_payment_receipt
         pdf_buffer = generate_payment_receipt(
             transaction_id=str(transaction["_id"]),
             reference=reference,

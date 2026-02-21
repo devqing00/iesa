@@ -9,9 +9,6 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
 import os
 import re
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 import json
 import base64
 
@@ -20,34 +17,41 @@ from ..core.database import get_database
 
 router = APIRouter(prefix="/api/v1/resources", tags=["resources"])
 
-# Google Drive configuration
+# Google Drive configuration (lazy-loaded to save memory)
 GOOGLE_DRIVE_ENABLED = False
 DRIVE_SERVICE = None
+_drive_initialized = False
 
-try:
-    # Check for service account credentials
-    service_account_b64 = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON_BASE64", "")
-    
-    if service_account_b64:
-        # Decode base64 service account JSON
-        service_account_json = base64.b64decode(service_account_b64).decode('utf-8')
-        service_account_info = json.loads(service_account_json)
-        
-        # Create credentials
-        SCOPES = ['https://www.googleapis.com/auth/drive']
-        credentials = service_account.Credentials.from_service_account_info(
-            service_account_info, scopes=SCOPES
-        )
-        
-        # Build Drive service
-        DRIVE_SERVICE = build('drive', 'v3', credentials=credentials)
-        GOOGLE_DRIVE_ENABLED = True
-        print("✅ Google Drive API configured successfully")
-    else:
-        print("⚠️  Google Drive not configured. Will use direct links only.")
-except Exception as e:
-    print(f"⚠️  Google Drive configuration failed: {e}")
-    GOOGLE_DRIVE_ENABLED = False
+
+def _get_drive_service():
+    """Lazy-initialize Google Drive service on first use."""
+    global GOOGLE_DRIVE_ENABLED, DRIVE_SERVICE, _drive_initialized
+    if _drive_initialized:
+        return DRIVE_SERVICE
+    _drive_initialized = True
+
+    try:
+        service_account_b64 = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON_BASE64", "")
+        if service_account_b64:
+            from google.oauth2 import service_account
+            from googleapiclient.discovery import build
+
+            service_account_json = base64.b64decode(service_account_b64).decode('utf-8')
+            service_account_info = json.loads(service_account_json)
+            SCOPES = ['https://www.googleapis.com/auth/drive']
+            credentials = service_account.Credentials.from_service_account_info(
+                service_account_info, scopes=SCOPES
+            )
+            DRIVE_SERVICE = build('drive', 'v3', credentials=credentials)
+            GOOGLE_DRIVE_ENABLED = True
+            print("✅ Google Drive API configured successfully")
+        else:
+            print("⚠️  Google Drive not configured. Will use direct links only.")
+    except Exception as e:
+        print(f"⚠️  Google Drive configuration failed: {e}")
+        GOOGLE_DRIVE_ENABLED = False
+
+    return DRIVE_SERVICE
 
 
 # Pydantic Models

@@ -79,3 +79,5 @@ htmlcov/
 # Generated Documentation
 *.md
 !/README.md
+
+.github/copilot-instructions.md

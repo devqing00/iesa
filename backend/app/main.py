@@ -2,22 +2,14 @@ from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import os
-from pymongo import MongoClient
 from app.core.security import verify_token
 from app.core.rate_limiting import setup_rate_limiting
 from app.core.error_handling import setup_exception_handlers, setup_logging
-from app.core.monitoring import init_sentry
-from app.routers import sessions, users, payments, events, announcements, grades, enrollments, roles, students, iesa_ai, resources, timetable, paystack, telegram_webhook, audit_logs, auth, study_groups, press
+from app.routers import sessions, users, payments, events, announcements, grades, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press
 from app.db import connect_to_mongo, close_mongo_connection
 
 # Setup logging first
 setup_logging()
-
-# Synchronous MongoDB client for compatibility with some routers
-MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
-DATABASE_NAME = os.getenv("DATABASE_NAME", "iesa_db")
-sync_client = MongoClient(MONGODB_URL)
-db = sync_client[DATABASE_NAME]
 
 
 @asynccontextmanager
@@ -72,9 +64,6 @@ limiter = setup_rate_limiting(app)
 # Setup centralized error handling
 setup_exception_handlers(app)
 
-# Setup performance monitoring (Sentry)
-init_sentry(app)
-
 @app.get("/")
 async def root():
     return {"message": "Welcome to IESA Backend"}
@@ -99,7 +88,6 @@ app.include_router(iesa_ai.router)  # IESA AI Assistant
 app.include_router(resources.router)  # Resource Library
 app.include_router(timetable.router)  # Timetable System
 app.include_router(paystack.router)  # Paystack Payment Integration
-app.include_router(telegram_webhook.router)  # Telegram Bot Webhook
 app.include_router(audit_logs.router)  # Audit Logs (Admin Only)
 app.include_router(study_groups.router)  # Study Group Finder
 app.include_router(press.router)  # Association Press / Blog

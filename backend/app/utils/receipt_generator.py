@@ -7,18 +7,13 @@ Generates professional PDF receipts with:
 - Payment details
 - QR code for verification
 - Transaction reference
+
+NOTE: Heavy imports (reportlab, qrcode) are lazy-loaded inside methods
+to avoid consuming ~30-50MB on startup when receipts aren't being generated.
 """
 
-from reportlab.lib.pagesizes import letter, A4
-from reportlab.lib.units import inch
-from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-from reportlab.pdfgen import canvas
 from io import BytesIO
 from datetime import datetime
-import qrcode
 from typing import Optional
 
 
@@ -26,14 +21,16 @@ class ReceiptGenerator:
     """Generate PDF receipts for payments"""
     
     def __init__(self):
+        from reportlab.lib.pagesizes import A4
         self.pagesize = A4
         self.width, self.height = self.pagesize
         
     def generate_qr_code(self, data: str) -> BytesIO:
         """Generate QR code as BytesIO"""
-        qr = qrcode.QRCode(
+        import qrcode as qr_module
+        qr = qr_module.QRCode(
             version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            error_correction=qr_module.constants.ERROR_CORRECT_L,
             box_size=10,
             border=1,
         )
@@ -79,6 +76,10 @@ class ReceiptGenerator:
         Returns:
             BytesIO: PDF file as bytes
         """
+        from reportlab.lib.units import inch
+        from reportlab.lib import colors
+        from reportlab.pdfgen import canvas
+
         buffer = BytesIO()
         
         # Create PDF document
@@ -254,8 +255,8 @@ class ReceiptGenerator:
         return buffer
 
 
-# Singleton instance
-receipt_generator = ReceiptGenerator()
+# Lazy singleton — only created when first receipt is generated
+_receipt_generator = None
 
 
 def generate_payment_receipt(
@@ -273,9 +274,13 @@ def generate_payment_receipt(
     """
     Generate a payment receipt PDF
     
-    Convenience function that uses the global receipt_generator instance.
+    Convenience function that uses a lazy singleton ReceiptGenerator.
     """
-    return receipt_generator.generate_receipt(
+    global _receipt_generator
+    if _receipt_generator is None:
+        _receipt_generator = ReceiptGenerator()
+    
+    return _receipt_generator.generate_receipt(
         transaction_id=transaction_id,
         reference=reference,
         student_name=student_name,

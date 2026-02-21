@@ -28,7 +28,6 @@ def init_sentry(app):
         import sentry_sdk
         from sentry_sdk.integrations.fastapi import FastApiIntegration
         from sentry_sdk.integrations.starlette import StarletteIntegration
-        from sentry_sdk.integrations.pymongo import PyMongoIntegration
         
         environment = os.getenv("ENVIRONMENT", "development")
         release = os.getenv("RELEASE_VERSION", "unknown")
@@ -38,15 +37,14 @@ def init_sentry(app):
             environment=environment,
             release=release,
             
-            # Performance monitoring
-            traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")),  # 10% of transactions
-            profiles_sample_rate=float(os.getenv("SENTRY_PROFILES_SAMPLE_RATE", "0.1")),  # 10% profiling
+            # Performance monitoring (reduced for memory efficiency)
+            traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.05")),  # 5% of transactions
+            profiles_sample_rate=0.0,  # Disabled — profiling consumes significant memory
             
-            # Integrations
+            # Integrations (minimal set to reduce memory)
             integrations=[
                 FastApiIntegration(transaction_style="endpoint"),
                 StarletteIntegration(transaction_style="endpoint"),
-                PyMongoIntegration(),
             ],
             
             # Error filtering
@@ -55,7 +53,7 @@ def init_sentry(app):
             # Additional options
             attach_stacktrace=True,
             send_default_pii=False,  # Don't send PII for privacy
-            max_breadcrumbs=50,
+            max_breadcrumbs=25,  # Reduced from 50
         )
         
         logger.info(f"✅ Sentry initialized (env: {environment}, release: {release})")

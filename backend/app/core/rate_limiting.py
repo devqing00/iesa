@@ -40,24 +40,28 @@ def get_storage_uri() -> str:
     """
     Get storage URI for rate limiting.
     
-    Automatically uses Redis in production if REDIS_URL is set,
-    falls back to in-memory storage for development.
+    Automatically uses Redis in production if REDIS_URL is set and reachable,
+    falls back to in-memory storage otherwise.
     """
     redis_url = os.getenv("REDIS_URL")
     
     if redis_url:
-        # Try to import redis to check if it's available
         try:
             import redis
-            logger.info(f"✅ Using Redis for rate limiting: {redis_url}")
+            # Quick connectivity check with short timeout
+            r = redis.from_url(redis_url, socket_connect_timeout=2, socket_timeout=2)
+            r.ping()
+            logger.info(f"✅ Using Redis for rate limiting")
+            r.close()
             return redis_url
         except ImportError:
-            logger.warning("⚠️  REDIS_URL is set but 'redis' package not installed. Install with: pip install redis")
-            logger.warning("⚠️  Falling back to in-memory rate limiting.")
-            return "memory://"
+            logger.warning("⚠️  REDIS_URL is set but 'redis' package not installed. Falling back to in-memory.")
+        except Exception:
+            logger.warning("⚠️  Redis not reachable. Falling back to in-memory rate limiting.")
     else:
-        logger.warning("⚠️  Using in-memory rate limiting. For production, set REDIS_URL environment variable.")
-        return "memory://"
+        logger.info("ℹ️  Using in-memory rate limiting (no REDIS_URL).")
+    
+    return "memory://"
 
 
 # Initialize limiter with auto-detected storage and error handling

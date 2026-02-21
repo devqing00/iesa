@@ -101,11 +101,15 @@ roles_collection = lambda: get_collection("roles")
 transactions_collection = lambda: get_collection("transactions")
 study_groups_collection = lambda: get_collection("study_groups")
 
-# Sync Client for legacy/sync wrappers
+# Sync Client for legacy/sync wrappers (lazy singleton)
 from pymongo import MongoClient
 
+_sync_client = None
+
 def get_sync_db():
-    """Get a synchronous database connection."""
-    sync_client = MongoClient(MONGODB_URL)
-    return sync_client[DATABASE_NAME]
+    """Get a synchronous database connection (lazy singleton)."""
+    global _sync_client
+    if _sync_client is None:
+        _sync_client = MongoClient(MONGODB_URL)
+    return _sync_client[DATABASE_NAME]
 
