@@ -57,6 +57,12 @@ export default function StudyTimerPage() {
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
   const [settings, setSettings] = useState<TimerSettings>(DEFAULT_SETTINGS);
   const [showSettings, setShowSettings] = useState(false);
+  // Draft inputs for duration fields — allows deleting digits without snapping
+  const [draftDurations, setDraftDurations] = useState({
+    focus: String(DEFAULT_SETTINGS.focusDuration),
+    shortBreak: String(DEFAULT_SETTINGS.shortBreakDuration),
+    longBreak: String(DEFAULT_SETTINGS.longBreakDuration),
+  });
   const [history, setHistory] = useState<SessionRecord[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [todayStats, setTodayStats] = useState({ focusMinutes: 0, sessions: 0 });
@@ -87,7 +93,15 @@ export default function StudyTimerPage() {
   useEffect(() => {
     try {
       const savedSettings = localStorage.getItem("iesa-timer-settings");
-      if (savedSettings) setSettings(JSON.parse(savedSettings));
+      if (savedSettings) {
+        const parsed: TimerSettings = JSON.parse(savedSettings);
+        setSettings(parsed);
+        setDraftDurations({
+          focus:      String(parsed.focusDuration),
+          shortBreak: String(parsed.shortBreakDuration),
+          longBreak:  String(parsed.longBreakDuration),
+        });
+      }
       const savedHistory = localStorage.getItem("iesa-timer-history");
       if (savedHistory) {
         const records: SessionRecord[] = JSON.parse(savedHistory);
@@ -180,6 +194,27 @@ export default function StudyTimerPage() {
     if (intervalRef.current) clearInterval(intervalRef.current);
   };
 
+  const isDurationValid = {
+    focus:      () => { const v = parseInt(draftDurations.focus);      return !isNaN(v) && v >= 1 && v <= 90; },
+    shortBreak: () => { const v = parseInt(draftDurations.shortBreak); return !isNaN(v) && v >= 1 && v <= 30; },
+    longBreak:  () => { const v = parseInt(draftDurations.longBreak);  return !isNaN(v) && v >= 1 && v <= 60; },
+  };
+  const allDurationsValid = () => isDurationValid.focus() && isDurationValid.shortBreak() && isDurationValid.longBreak();
+
+  // Called on duration input change — updates draft, and saves to settings only when valid
+  const handleDurationChange = (
+    field: keyof Pick<TimerSettings, "focusDuration" | "shortBreakDuration" | "longBreakDuration">,
+    draftKey: keyof typeof draftDurations,
+    limits: [number, number],
+    value: string
+  ) => {
+    setDraftDurations(prev => ({ ...prev, [draftKey]: value }));
+    const parsed = parseInt(value);
+    if (!isNaN(parsed) && parsed >= limits[0] && parsed <= limits[1]) {
+      saveSettings({ ...settings, [field]: parsed });
+    }
+  };
+
   const saveSettings = (newSettings: TimerSettings) => {
     setSettings(newSettings);
     localStorage.setItem("iesa-timer-settings", JSON.stringify(newSettings));
@@ -234,7 +269,7 @@ export default function StudyTimerPage() {
         {/* ═══ BENTO HERO ═══ */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
           {/* Title Card — lavender theme */}
-          <div className="md:col-span-7 bg-lavender border-[6px] border-navy rounded-[2rem] p-8 shadow-[10px_10px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
+          <div className="md:col-span-7 bg-lavender border-[6px] border-navy rounded-[2rem] p-8 shadow-[4px_4px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
             <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/70 flex items-center gap-2 mb-3">
               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
               Deep Focus
@@ -250,7 +285,7 @@ export default function StudyTimerPage() {
           {/* Stats Strip — 3 inline cards */}
           <div className="md:col-span-5 grid grid-cols-1 gap-3">
             {/* Today Minutes */}
-            <div className="bg-teal-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[0.3deg] hover:rotate-0 transition-transform flex items-center justify-between">
+            <div className="bg-teal-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.3deg] hover:rotate-0 transition-transform flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Today&apos;s Focus</span>
                 <p className="font-display font-black text-2xl text-navy">{todayStats.focusMinutes} <span className="text-sm font-bold text-navy/50">min</span></p>
@@ -260,7 +295,7 @@ export default function StudyTimerPage() {
               </div>
             </div>
             {/* Sessions */}
-            <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
+            <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Sessions</span>
                 <p className="font-display font-black text-2xl text-navy">{todayStats.sessions}</p>
@@ -270,7 +305,7 @@ export default function StudyTimerPage() {
               </div>
             </div>
             {/* Streak */}
-            <div className="bg-sunny-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
+            <div className="bg-sunny-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Streak</span>
                 <p className="font-display font-black text-2xl text-navy">{streak} <span className="text-sm font-bold text-navy/50">days</span></p>
@@ -283,7 +318,7 @@ export default function StudyTimerPage() {
         </div>
 
         {/* ═══ MODE SELECTOR ═══ */}
-        <div className="bg-snow border-[4px] border-navy rounded-[1.5rem] shadow-[6px_6px_0_0_#000] p-4 mb-8">
+        <div className="bg-snow border-[4px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] p-4 mb-8">
           <div className="flex justify-center gap-2">
             {(Object.keys(MODE_CONFIG) as TimerMode[]).map((m) => {
               const cfg = MODE_CONFIG[m];
@@ -305,7 +340,7 @@ export default function StudyTimerPage() {
         </div>
 
         {/* ═══ TIMER DISPLAY ═══ */}
-        <div className={`${modeConfig.light} border-[6px] border-navy rounded-[2rem] shadow-[10px_10px_0_0_#000] p-8 md:p-12 mb-8 rotate-[0.2deg] hover:rotate-0 transition-transform`}>
+        <div className={`${modeConfig.light} border-[6px] border-navy rounded-[2rem] shadow-[4px_4px_0_0_#000] p-8 md:p-12 mb-8 rotate-[0.2deg] hover:rotate-0 transition-transform`}>
           <div className="flex flex-col items-center">
             {/* Circle Timer */}
             <div className="relative w-64 h-64 md:w-72 md:h-72 mb-6">
@@ -331,7 +366,7 @@ export default function StudyTimerPage() {
               {/* Reset */}
               <button
                 onClick={resetTimer}
-                className="w-14 h-14 bg-snow border-[4px] border-navy rounded-2xl shadow-[4px_4px_0_0_#000] flex items-center justify-center text-slate hover:text-navy hover:shadow-[6px_6px_0_0_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+                className="w-14 h-14 bg-snow border-[4px] border-navy rounded-2xl press-3 press-black flex items-center justify-center text-slate hover:text-navy transition-all"
                 aria-label="Reset timer"
               >
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -339,10 +374,16 @@ export default function StudyTimerPage() {
                 </svg>
               </button>
 
-              {/* Play/Pause */}
+              {/* Play/Pause — disabled when settings have invalid inputs */}
               <button
                 onClick={toggleTimer}
-                className={`w-20 h-20 ${modeConfig.bg} border-[4px] border-navy rounded-full shadow-[5px_5px_0_0_#000] flex items-center justify-center text-navy hover:shadow-[7px_7px_0_0_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all`}
+                disabled={!isRunning && !allDurationsValid()}
+                title={!isRunning && !allDurationsValid() ? "Fix timer settings before starting" : undefined}
+                className={`w-20 h-20 ${modeConfig.bg} border-[4px] border-navy rounded-full flex items-center justify-center text-navy transition-all ${
+ !isRunning && !allDurationsValid()
+ ?"opacity-40 cursor-not-allowed press-1 press-black"
+ :"shadow-[3px_3px_0_0_#000]"
+ }`}
                 aria-label={isRunning ? "Pause timer" : "Start timer"}
               >
                 {isRunning ? (
@@ -360,9 +401,9 @@ export default function StudyTimerPage() {
               <button
                 onClick={() => !isRunning && setShowSettings(!showSettings)}
                 disabled={isRunning}
-                className={`w-14 h-14 bg-snow border-[4px] border-navy rounded-2xl shadow-[4px_4px_0_0_#000] flex items-center justify-center transition-all ${
-                  isRunning ? "opacity-40 cursor-not-allowed" : showSettings ? "text-navy" : "text-slate hover:text-navy hover:shadow-[6px_6px_0_0_#000] hover:translate-x-[-1px] hover:translate-y-[-1px]"
-                }`}
+                className={`w-14 h-14 bg-snow border-[4px] border-navy rounded-2xl press-3 press-black flex items-center justify-center transition-all ${
+ isRunning ?"opacity-40 cursor-not-allowed" : showSettings ?"text-navy" :"text-slate hover:text-navy"
+ }`}
                 aria-label="Timer settings"
               >
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -381,7 +422,7 @@ export default function StudyTimerPage() {
 
         {/* ═══ SETTINGS PANEL ═══ */}
         {showSettings && !isRunning && (
-          <div className="bg-snow border-[4px] border-navy rounded-[1.5rem] shadow-[8px_8px_0_0_#000] p-6 mb-8">
+          <div className="bg-snow border-[4px] border-navy rounded-[1.5rem] shadow-[3px_3px_0_0_#000] p-6 mb-8">
             <h3 className="font-display font-black text-lg text-navy mb-5 flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-lavender-light flex items-center justify-center">
                 <svg className="w-4 h-4 text-lavender" fill="currentColor" viewBox="0 0 24 24">
@@ -395,26 +436,38 @@ export default function StudyTimerPage() {
               <div>
                 <label htmlFor="focus-duration" className="block text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50 mb-2">Focus (min)</label>
                 <input
-                  id="focus-duration" type="number" min="1" max="90" value={settings.focusDuration}
-                  onChange={(e) => saveSettings({ ...settings, focusDuration: parseInt(e.target.value) || 25 })}
-                  className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-xl text-navy font-display font-bold text-center focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal/20 transition-all"
+                  id="focus-duration" type="number" min="1" max="90"
+                  value={draftDurations.focus}
+                  onChange={(e) => handleDurationChange("focusDuration", "focus", [1, 90], e.target.value)}
+                  className={`w-full px-4 py-3 bg-ghost border-[3px] rounded-xl text-navy font-display font-bold text-center focus:outline-none focus:ring-1 transition-all ${
+                    isDurationValid.focus() ? "border-navy focus:border-teal focus:ring-teal/20" : "border-coral bg-coral-light/30 focus:border-coral focus:ring-coral/20"
+                  }`}
                 />
+                {!isDurationValid.focus() && <p className="text-[10px] font-bold text-coral mt-1">Enter 1–90 minutes</p>}
               </div>
               <div>
                 <label htmlFor="short-break" className="block text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50 mb-2">Short Break (min)</label>
                 <input
-                  id="short-break" type="number" min="1" max="30" value={settings.shortBreakDuration}
-                  onChange={(e) => saveSettings({ ...settings, shortBreakDuration: parseInt(e.target.value) || 5 })}
-                  className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-xl text-navy font-display font-bold text-center focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal/20 transition-all"
+                  id="short-break" type="number" min="1" max="30"
+                  value={draftDurations.shortBreak}
+                  onChange={(e) => handleDurationChange("shortBreakDuration", "shortBreak", [1, 30], e.target.value)}
+                  className={`w-full px-4 py-3 bg-ghost border-[3px] rounded-xl text-navy font-display font-bold text-center focus:outline-none focus:ring-1 transition-all ${
+                    isDurationValid.shortBreak() ? "border-navy focus:border-teal focus:ring-teal/20" : "border-coral bg-coral-light/30 focus:border-coral focus:ring-coral/20"
+                  }`}
                 />
+                {!isDurationValid.shortBreak() && <p className="text-[10px] font-bold text-coral mt-1">Enter 1–30 minutes</p>}
               </div>
               <div>
                 <label htmlFor="long-break" className="block text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50 mb-2">Long Break (min)</label>
                 <input
-                  id="long-break" type="number" min="1" max="60" value={settings.longBreakDuration}
-                  onChange={(e) => saveSettings({ ...settings, longBreakDuration: parseInt(e.target.value) || 15 })}
-                  className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-xl text-navy font-display font-bold text-center focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal/20 transition-all"
+                  id="long-break" type="number" min="1" max="60"
+                  value={draftDurations.longBreak}
+                  onChange={(e) => handleDurationChange("longBreakDuration", "longBreak", [1, 60], e.target.value)}
+                  className={`w-full px-4 py-3 bg-ghost border-[3px] rounded-xl text-navy font-display font-bold text-center focus:outline-none focus:ring-1 transition-all ${
+                    isDurationValid.longBreak() ? "border-navy focus:border-teal focus:ring-teal/20" : "border-coral bg-coral-light/30 focus:border-coral focus:ring-coral/20"
+                  }`}
                 />
+                {!isDurationValid.longBreak() && <p className="text-[10px] font-bold text-coral mt-1">Enter 1–60 minutes</p>}
               </div>
             </div>
 
@@ -440,7 +493,7 @@ export default function StudyTimerPage() {
         {/* ═══ BOTTOM BENTO: History + Pro Tip ═══ */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* Session History */}
-          <div className="md:col-span-8 bg-snow border-[4px] border-navy rounded-[1.5rem] shadow-[6px_6px_0_0_#000] overflow-hidden">
+          <div className="md:col-span-8 bg-snow border-[4px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] overflow-hidden">
             <button
               onClick={() => setShowHistory(!showHistory)}
               className="w-full flex items-center justify-between p-5 hover:bg-ghost transition-colors"
@@ -499,7 +552,7 @@ export default function StudyTimerPage() {
           </div>
 
           {/* Pro Tip Card */}
-          <div className="md:col-span-4 bg-navy border-[4px] border-lime rounded-[1.5rem] shadow-[8px_8px_0_0_#000] p-6 flex flex-col justify-between">
+          <div className="md:col-span-4 bg-navy border-[4px] border-lime rounded-[1.5rem] shadow-[3px_3px_0_0_#000] p-6 flex flex-col justify-between">
             <div>
               <div className="w-10 h-10 rounded-xl bg-lime/20 flex items-center justify-center mb-4">
                 <svg className="w-5 h-5 text-lime" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>

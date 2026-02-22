@@ -194,7 +194,7 @@ export default function AdminResourcesPage() {
         </div>
         <button
           onClick={() => setShowAddForm((v) => !v)}
-          className="shrink-0 bg-lime border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D] px-5 py-3 rounded-2xl font-display text-navy text-sm hover:shadow-[8px_8px_0_0_#0F0F2D] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all flex items-center gap-2"
+          className="shrink-0 bg-lime border-[4px] border-navy press-3 press-navy px-5 py-3 rounded-2xl font-display text-navy text-sm transition-all flex items-center gap-2"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -205,7 +205,7 @@ export default function AdminResourcesPage() {
 
       {/* Add Resource Form */}
       {showAddForm && (
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000]">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[3px_3px_0_0_#000]">
           <p className="font-display font-black text-xl text-navy mb-6">Add New Resource</p>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -317,7 +317,7 @@ export default function AdminResourcesPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="bg-lime border-[4px] border-navy shadow-[4px_4px_0_0_#0F0F2D] px-6 py-2.5 rounded-xl font-display text-navy text-sm hover:shadow-[6px_6px_0_0_#0F0F2D] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="bg-lime border-[4px] border-navy press-3 press-navy px-6 py-2.5 rounded-xl font-display text-navy text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {submitting ? (
                   <><div className="w-4 h-4 border-[2px] border-navy border-t-transparent rounded-full animate-spin" /> Adding…</>
@@ -336,7 +336,7 @@ export default function AdminResourcesPage() {
             onClick={() => setTab(t)}
             className={`px-5 py-2.5 rounded-xl border-[3px] font-display text-sm capitalize transition-all ${
               tab === t
-                ? "bg-navy border-navy text-lime shadow-[4px_4px_0_0_#0F0F2D]"
+                ? "bg-navy border-navy text-lime shadow-[3px_3px_0_0_#0F0F2D]"
                 : "bg-ghost border-navy text-navy hover:bg-lime-light"
             }`}
           >
@@ -347,7 +347,7 @@ export default function AdminResourcesPage() {
       </div>
 
       {/* Resources table */}
-      <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[8px_8px_0_0_#000] overflow-hidden">
+      <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-10 h-10 border-[4px] border-navy border-t-lime rounded-full animate-spin" />
@@ -482,14 +482,14 @@ export default function AdminResourcesPage() {
             <button
               disabled={page <= 1}
               onClick={() => setPage((p) => p - 1)}
-              className="bg-snow border-[3px] border-navy rounded-xl px-4 py-2 font-display text-sm text-navy shadow-[4px_4px_0_0_#000] hover:shadow-[6px_6px_0_0_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-[4px_4px_0_0_#000] disabled:hover:translate-x-0 disabled:hover:translate-y-0"
+              className="bg-snow border-[3px] border-navy rounded-xl px-4 py-2 font-display text-sm text-navy press-3 press-black transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled: disabled:hover:translate-x-0 disabled:hover:translate-y-0"
             >
               ← Prev
             </button>
             <button
               disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
-              className="bg-lime border-[3px] border-navy rounded-xl px-4 py-2 font-display text-sm text-navy shadow-[4px_4px_0_0_#0F0F2D] hover:shadow-[6px_6px_0_0_#0F0F2D] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-[4px_4px_0_0_#0F0F2D] disabled:hover:translate-x-0 disabled:hover:translate-y-0"
+              className="bg-lime border-[3px] border-navy rounded-xl px-4 py-2 font-display text-sm text-navy press-3 press-navy transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled: disabled:hover:translate-x-0 disabled:hover:translate-y-0"
             >
               Next →
             </button>

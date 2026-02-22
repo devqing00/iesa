@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
 
 export default function StudentLoginPage() {
   const { signInWithEmail } = useAuth();
@@ -19,13 +20,12 @@ export default function StudentLoginPage() {
 
     try {
       await signInWithEmail(email, password);
+      toast.success("Welcome back!", { description: "Redirecting to your dashboard..." });
     } catch (err: unknown) {
       console.error("Login error:", err);
-      if (err instanceof Error) {
-        setError(err.message || "Failed to login");
-      } else {
-        setError("Failed to login");
-      }
+      const msg = err instanceof Error ? err.message || "Failed to login" : "Failed to login";
+      setError(msg);
+      toast.error("Login failed", { description: msg });
       setLoading(false);
     }
   };
@@ -37,8 +37,8 @@ export default function StudentLoginPage() {
         <div className="w-full max-w-md space-y-8">
           {/* Logo */}
           <Link href="/" className="inline-flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-lime border-[3px] border-navy shadow-[3px_3px_0_0_#000] flex items-center justify-center overflow-hidden">
-              <Image src="/assets/images/logo.svg" alt="IESA Logo" width={28} height={28} className="object-contain" />
+            <div className="w-10 h-10 flex items-center justify-center">
+              <Image src="/assets/images/logo.svg" alt="IESA Logo" width={40} height={40} className="object-contain" />
             </div>
             <span className="font-display font-black text-xl text-navy">IESA</span>
           </Link>
@@ -60,7 +60,7 @@ export default function StudentLoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@stu.ui.edu.ng"
+                placeholder="you@example.com"
                 required
                 className="w-full px-4 py-3.5 bg-snow border-[3px] border-navy rounded-2xl text-navy font-display font-normal placeholder:text-slate focus:outline-none focus:border-lime focus:shadow-[3px_3px_0_0_#C8F31D] transition-all"
               />
@@ -88,7 +88,7 @@ export default function StudentLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-lime border-[3px] border-navy rounded-2xl shadow-[4px_4px_0_0_#0F0F2D] font-display font-black text-navy hover:shadow-[6px_6px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-50"
+              className="w-full py-3.5 bg-lime border-[3px] border-navy rounded-2xl press-3 press-navy font-display font-black text-navy transition-all disabled:opacity-50"
             >
               {loading ? "Signing in..." : "Sign In"}
             </button>

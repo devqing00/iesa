@@ -76,7 +76,7 @@ export default function Home() {
                   <span className="absolute top-8 -right-3 text-coral/30 text-xs select-none">✦</span>
                   <h1 className="font-display text-[2.5rem] sm:text-[4rem] lg:text-[5.5rem] leading-[0.9] text-navy mb-6 sm:mb-8 font-black relative">
                     <span className="">Industrial Engineering</span><br />
-                    <span className="inline-block bg-lime border-[4px] sm:border-[6px] border-navy px-4 sm:px-8 py-2 sm:py-3 rotate-[-1deg] shadow-[6px_6px_0_0_#000] sm:shadow-[10px_10px_0_0_#000]">
+                    <span className="inline-block bg-lime border-[4px] sm:border-[6px] border-navy px-4 sm:px-8 py-2 sm:py-3 rotate-[-1deg] shadow-[4px_4px_0_0_#000] sm:shadow-[4px_4px_0_0_#000]">
                       Redefined
                     </span>
                   </h1>
@@ -89,13 +89,13 @@ export default function Home() {
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Link
                     href="/register"
-                    className="font-display text-center bg-lime border-[4px] border-navy rounded-full px-6 sm:px-8 py-3 text-sm font-black text-navy uppercase tracking-wide hover:translate-y-[2px] shadow-[5px_5px_0_0_#0F0F2D] hover:shadow-[3px_3px_0_0_#0F0F2D] transition-all"
+                    className="font-display text-center bg-lime border-[4px] border-navy rounded-full px-6 sm:px-8 py-3 text-sm font-black text-navy uppercase tracking-wide press-3 press-navy transition-all"
                   >
                     Join IESA →
                   </Link>
                   <Link
                     href="#about"
-                    className="font-display text-center bg-snow border-[4px] border-navy rounded-full px-6 sm:px-8 py-3 text-sm font-black text-navy uppercase tracking-wide shadow-[5px_5px_0_0_#000]"
+                    className="font-display text-center bg-snow border-[4px] border-navy rounded-full px-6 sm:px-8 py-3 text-sm font-black text-navy uppercase tracking-wide shadow-[3px_3px_0_0_#000]"
                   >
                     Learn More
                   </Link>
@@ -105,7 +105,7 @@ export default function Home() {
 
               {/* Hero image card */}
               <div className="lg:row-span-2">
-                <div className="bg-lavender border-[4px] border-navy rounded-3xl p-4 sm:p-6 h-full shadow-[8px_8px_0_0_#000]">
+                <div className="bg-lavender border-[4px] border-navy rounded-3xl p-4 sm:p-6 h-full shadow-[3px_3px_0_0_#000]">
                   <div className="aspect-[4/5] bg-gradient-to-br from-teal-light to-coral-light border-[3px] border-navy rounded-2xl overflow-hidden relative mb-4">
                     <Image
                       src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=600"
@@ -143,13 +143,13 @@ export default function Home() {
 
               {/* Quick info cards */}
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                <div className="bg-coral border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000]">
+                <div className="bg-coral border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
                   <svg className="w-8 h-8 text-navy mb-2" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
                   </svg>
                   <p className="font-display text-xs font-bold text-navy">Academic Excellence</p>
                 </div>
-                <div className="bg-teal border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000]">
+                <div className="bg-teal border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
                   <svg className="w-8 h-8 text-navy mb-2" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
                   </svg>
@@ -173,13 +173,13 @@ export default function Home() {
               </svg>
               <span className="absolute -bottom-1 -left-3 text-coral/35 text-xs select-none">✦</span>
               <h2 className="font-display text-3xl sm:text-5xl lg:text-6xl text-navy font-black">
-                About <span className="bg-snow border-[4px] border-navy px-4 sm:px-6 py-2 inline-block rotate-[-2deg] shadow-[6px_6px_0_0_#000]">IESA</span>
+                About <span className="bg-snow border-[4px] border-navy px-4 sm:px-6 py-2 inline-block rotate-[-2deg] shadow-[4px_4px_0_0_#000]">IESA</span>
               </h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {/* Mission card */}
-              <div className="bg-coral border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[8px_8px_0_0_#000] rotate-[-1deg] hover:rotate-0 transition-transform">
+              <div className="bg-coral border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000] rotate-[-1deg] hover:rotate-0 transition-transform">
                 <div className="w-12 h-12 sm:w-14 sm:h-14 bg-navy rounded-full flex items-center justify-center mb-4">
                   <svg className="w-6 h-6 sm:w-8 sm:h-8 text-lime" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
@@ -192,7 +192,7 @@ export default function Home() {
               </div>
 
               {/* Image card */}
-              <div className="bg-snow border-[4px] border-navy rounded-3xl p-4 sm:p-6 shadow-[8px_8px_0_0_#000]">
+              <div className="bg-snow border-[4px] border-navy rounded-3xl p-4 sm:p-6 shadow-[3px_3px_0_0_#000]">
                 <div className="aspect-square bg-gradient-to-br from-lavender-light to-teal-light border-[3px] border-navy rounded-2xl overflow-hidden relative mb-3">
                   <Image
                     src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=600"
@@ -205,7 +205,7 @@ export default function Home() {
               </div>
 
               {/* Vision card */}
-              <div className="bg-sunny border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[8px_8px_0_0_#000] rotate-[1deg] hover:rotate-0 transition-transform">
+              <div className="bg-sunny border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000] rotate-[1deg] hover:rotate-0 transition-transform">
                 <div className="w-12 h-12 sm:w-14 sm:h-14 bg-navy rounded-full flex items-center justify-center mb-4">
                   <svg className="w-6 h-6 sm:w-8 sm:h-8 text-sunny" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
@@ -226,7 +226,7 @@ export default function Home() {
               </p>
               <Link
                 href="/register"
-                className="font-display inline-block bg-lime border-[4px] border-lime rounded-full px-8 sm:px-12 py-3 sm:py-4 text-sm sm:text-base font-black text-navy uppercase tracking-wide hover:translate-y-[2px] shadow-[6px_6px_0_0_#000] hover:shadow-[4px_4px_0_0_#000] transition-all"
+                className="font-display inline-block bg-lime border-[4px] border-lime rounded-full px-8 sm:px-12 py-3 sm:py-4 text-sm sm:text-base font-black text-navy uppercase tracking-wide press-4 press-black transition-all"
               >
                 Become a Member →
               </Link>
@@ -251,7 +251,7 @@ export default function Home() {
               </svg>
               <span className="absolute -top-2 right-[36%] text-sunny/30 text-xs select-none">✦</span>
               <h2 className="font-display text-3xl sm:text-5xl lg:text-6xl text-navy font-black">
-                <span className="brush-highlight">What We</span> <span className="bg-lavender border-[4px] border-navy px-4 sm:px-6 py-2 inline-block rotate-[-2deg] shadow-[6px_6px_0_0_#000]">Offer</span>
+                <span className="brush-highlight">What We</span> <span className="bg-lavender border-[4px] border-navy px-4 sm:px-6 py-2 inline-block rotate-[-2deg] shadow-[4px_4px_0_0_#000]">Offer</span>
               </h2>
             </div>
 
@@ -288,7 +288,7 @@ export default function Home() {
               ].map((item, i) => (
                 <div
                   key={i}
-                  className={`${item.bg} border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] hover:shadow-[5px_5px_0_0_#000] hover:translate-y-[2px] transition-all`}
+                  className={`${item.bg} border-[4px] border-navy rounded-3xl p-6 press-3 press-black transition-all`}
                 >
                   <div className="aspect-video bg-gradient-to-br from-lime-light to-coral-light border-[3px] border-navy rounded-2xl overflow-hidden relative mb-4">
                     <Image
@@ -334,13 +334,13 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row justify-center gap-4">
               <Link
                 href="/register"
-                className="font-display bg-lime border-[4px] border-navy rounded-full px-10 py-4 text-base font-black text-navy uppercase tracking-wide hover:translate-y-[2px] shadow-[8px_8px_0_0_#0F0F2D] hover:shadow-[4px_4px_0_0_#0F0F2D] transition-all"
+                className="font-display bg-lime border-[4px] border-navy rounded-full px-10 py-4 text-base font-black text-navy uppercase tracking-wide press-3 press-navy transition-all"
               >
                 Sign Up Free →
               </Link>
               <Link
                 href="/login"
-                className="font-display bg-snow border-[4px] border-navy rounded-full px-10 py-4 text-base font-black text-navy uppercase tracking-wide shadow-[8px_8px_0_0_#000]"
+                className="font-display bg-snow border-[4px] border-navy rounded-full px-10 py-4 text-base font-black text-navy uppercase tracking-wide shadow-[3px_3px_0_0_#000]"
               >
                 Login
               </Link>

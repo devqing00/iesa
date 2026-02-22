@@ -55,7 +55,7 @@ export default function Header() {
           {/* CTA button — desktop only */}
           <Link
             href={user ? "/dashboard" : "/login"}
-            className="hidden md:inline-flex items-center gap-2 bg-lime border-[3px] border-navy rounded-xl px-5 py-1.5 font-display font-black text-sm text-navy shadow-[3px_3px_0_0_#0F0F2D] hover:shadow-[5px_5px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+            className="hidden md:inline-flex items-center gap-2 bg-lime border-[3px] border-navy rounded-xl px-5 py-1.5 font-display font-black text-sm text-navy press-3 press-navy transition-all"
           >
             {user ? "Dashboard" : "Get Started"}
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -84,7 +84,7 @@ export default function Header() {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="md:hidden absolute top-full left-3 right-3 mt-2 bg-snow border-[4px] border-navy rounded-3xl shadow-[8px_8px_0_0_#000] z-50 overflow-hidden">
+        <div className="md:hidden absolute top-full left-3 right-3 mt-2 bg-snow border-[4px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] z-50 overflow-hidden">
           <div className="p-3 space-y-1">
             {navLinks.map((link) => {
               const isActive = pathname === link.href;

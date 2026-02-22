@@ -24,7 +24,7 @@ export default function AboutSection() {
             Learn More About Us
           </button>
         </div>
-        <div className="relative h-125 rounded-3xl overflow-hidden border-[4px] border-navy shadow-[8px_8px_0_0_#000] group">
+        <div className="relative h-125 rounded-3xl overflow-hidden border-[4px] border-navy shadow-[3px_3px_0_0_#000] group">
           <Image
             src="/assets/images/illust-dark.webp"
             alt="About IESA illustration"

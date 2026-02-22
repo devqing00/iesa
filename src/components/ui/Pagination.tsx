@@ -33,7 +33,7 @@ export default function Pagination({ page, totalPages, onPage, className = "" }:
           ? "bg-navy border-navy text-lime shadow-[3px_3px_0_0_#C8F31D]"
           : disabled
           ? "bg-ghost border-cloud text-slate cursor-not-allowed"
-          : "bg-snow border-navy text-navy hover:bg-lime hover:shadow-[3px_3px_0_0_#000] hover:-translate-y-0.5",
+          : "bg-snow border-navy text-navy hover:bg-lime press-3 press-black",
       ].join(" ")}
     >
       {label}

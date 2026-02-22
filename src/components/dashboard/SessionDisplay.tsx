@@ -23,7 +23,7 @@ export default function SessionDisplay() {
   }
 
   return (
-    <div className="bg-snow rounded-2xl border-[3px] border-navy shadow-[4px_4px_0_0_#000] p-4">
+    <div className="bg-snow rounded-2xl border-[3px] border-navy shadow-[3px_3px_0_0_#000] p-4">
       <div className="flex items-center justify-between">
         <div>
           <p className="font-display font-bold text-xs uppercase tracking-wider text-slate font-bold">Current Session</p>

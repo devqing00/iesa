@@ -199,23 +199,23 @@ export default function CourseProgressPage() {
           </div>
 
           <div className="md:col-span-5 grid grid-cols-2 gap-3">
-            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] flex flex-col justify-between">
+            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Courses</p>
               <p className="font-display font-black text-3xl text-navy mt-2">{courses.length}</p>
             </div>
-            <div className="bg-teal-light border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+            <div className="bg-teal-light border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Progress</p>
               <p className="font-display font-black text-3xl text-navy mt-2">
                 {overallProgress}<span className="text-base text-slate">%</span>
               </p>
             </div>
-            <div className="bg-coral-light border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+            <div className="bg-coral-light border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Topics</p>
               <p className="font-display font-black text-3xl text-navy mt-2">
                 {completedTopics}<span className="text-base text-slate">/{totalTopics}</span>
               </p>
             </div>
-            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] flex flex-col justify-between">
+            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Complete</p>
               <p className="font-display font-black text-3xl text-navy mt-2">
                 {coursesComplete}<span className="text-base text-slate">/{courses.length}</span>
@@ -249,14 +249,14 @@ export default function CourseProgressPage() {
             </div>
             <button
               onClick={() => { resetForm(); setShowForm(true); }}
-              className="bg-lime border-[3px] border-navy shadow-[4px_4px_0_0_#0F0F2D] px-4 py-2 rounded-xl font-display font-bold text-sm text-navy hover:shadow-[6px_6px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+              className="bg-lime border-[3px] border-navy press-3 press-navy px-4 py-2 rounded-xl font-display font-bold text-sm text-navy transition-all"
             >
               + Add Course
             </button>
           </div>
 
           {courses.length === 0 ? (
-            <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[6px_6px_0_0_#000] p-10 text-center">
+            <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] p-10 text-center">
               <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-coral-light flex items-center justify-center">
                 <svg className="w-8 h-8 text-coral" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M11.7 2.805a.75.75 0 0 1 .6 0A60.65 60.65 0 0 1 22.83 8.72a.75.75 0 0 1-.231 1.337 49.949 49.949 0 0 0-9.902 3.912l-.003.002-.34.18a.75.75 0 0 1-.707 0A50.009 50.009 0 0 0 7.5 12.174v-.224c0-.131.067-.248.172-.311a54.614 54.614 0 0 1 4.653-2.52.75.75 0 0 0-.65-1.352 56.129 56.129 0 0 0-4.78 2.589 1.858 1.858 0 0 0-.859 1.228 49.803 49.803 0 0 0-4.634-1.527.75.75 0 0 1-.231-1.337A60.653 60.653 0 0 1 11.7 2.805Z" />
@@ -269,7 +269,7 @@ export default function CourseProgressPage() {
               </p>
               <button
                 onClick={() => { resetForm(); setShowForm(true); }}
-                className="bg-lime border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D] px-8 py-3.5 rounded-2xl font-display font-black text-base text-navy transition-all"
+                className="bg-lime border-[4px] border-navy shadow-[3px_3px_0_0_#0F0F2D] px-8 py-3.5 rounded-2xl font-display font-black text-base text-navy transition-all"
               >
                 Add First Course
               </button>
@@ -285,7 +285,7 @@ export default function CourseProgressPage() {
                 const isComplete = total > 0 && completed === total;
 
                 return (
-                  <div key={course.id} className={`bg-snow border-[4px] border-navy rounded-3xl shadow-[6px_6px_0_0_#000] overflow-hidden ${isComplete ? "opacity-80" : ""}`}>
+                  <div key={course.id} className={`bg-snow border-[4px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] overflow-hidden ${isComplete ? "opacity-80" : ""}`}>
                     {/* Course header */}
                     <button
                       onClick={() => setExpandedId(isExpanded ? null : course.id)}
@@ -418,7 +418,7 @@ export default function CourseProgressPage() {
         {/* ═══ COURSE FORM MODAL ═══ */}
         {showForm && (
           <div className="fixed inset-0 bg-navy/40 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6" onClick={resetForm}>
-            <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[10px_10px_0_0_#000] w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="border-b-[3px] border-navy px-6 py-4 flex items-center justify-between bg-ghost rounded-t-[1.25rem]">
                 <h3 className="font-display font-black text-lg text-navy">
                   {editId ? "Edit Course" : "Add Course"}
@@ -502,7 +502,7 @@ export default function CourseProgressPage() {
                 <button
                   onClick={handleSave}
                   disabled={!formCode.trim() || !formName.trim()}
-                  className="w-full bg-lime border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D] px-6 py-3.5 rounded-2xl font-display font-black text-base text-navy transition-all disabled:opacity-40"
+                  className="w-full bg-lime border-[4px] border-navy shadow-[3px_3px_0_0_#0F0F2D] px-6 py-3.5 rounded-2xl font-display font-black text-base text-navy transition-all disabled:opacity-40"
                 >
                   {editId ? "Update Course" : "Add Course"}
                 </button>

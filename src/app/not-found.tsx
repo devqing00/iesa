@@ -23,7 +23,7 @@ export default function NotFound() {
 
           {/* Big 404 */}
           <h1 className="font-display font-black text-8xl sm:text-9xl text-navy leading-none">
-            4<span className="inline-block bg-lime border-[4px] border-navy px-3 sm:px-5 py-1 rotate-[-3deg] shadow-[6px_6px_0_0_#000]">0</span>4
+            4<span className="inline-block bg-lime border-[4px] border-navy px-3 sm:px-5 py-1 rotate-[-3deg] shadow-[4px_4px_0_0_#000]">0</span>4
           </h1>
 
           {/* Description */}
@@ -43,7 +43,7 @@ export default function NotFound() {
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link
               href="/"
-              className="bg-lime border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D] px-8 py-4 rounded-2xl font-display font-black text-base text-navy hover:shadow-[8px_8px_0_0_#0F0F2D] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all"
+              className="bg-lime border-[4px] border-navy press-3 press-navy px-8 py-4 rounded-2xl font-display font-black text-base text-navy transition-all"
             >
               Back to Home
             </Link>

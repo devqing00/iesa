@@ -130,7 +130,7 @@ export default function RichTextEditor({
   if (!editor) return null;
 
   return (
-    <div className="bg-snow border-[3px] border-navy rounded-2xl shadow-[4px_4px_0_0_#000] overflow-hidden">
+    <div className="bg-snow border-[3px] border-navy rounded-2xl shadow-[3px_3px_0_0_#000] overflow-hidden">
       {/* ── Toolbar ── */}
       <div className="flex flex-wrap items-center gap-0.5 px-3 py-2 border-b-[2px] border-navy/10 bg-ghost/50">
         {/* Text type */}

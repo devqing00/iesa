@@ -130,7 +130,7 @@ export default function CalendarPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Calendar */}
-          <div className="lg:col-span-3 bg-snow border-[4px] border-navy rounded-3xl shadow-[8px_8px_0_0_#000] overflow-hidden">
+          <div className="lg:col-span-3 bg-snow border-[4px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] overflow-hidden">
             {/* View switcher */}
             <div className="flex items-center gap-2 px-5 py-4 border-b-[3px] border-navy bg-ghost flex-wrap">
               {(["month", "week", "agenda"] as View[]).map((v) => (
@@ -148,7 +148,7 @@ export default function CalendarPage() {
               ))}
               <button
                 onClick={() => setCurrentDate(new Date())}
-                className="ml-auto px-4 py-2 rounded-xl border-[3px] border-navy bg-lime font-display text-navy text-sm shadow-[3px_3px_0_0_#0F0F2D] hover:shadow-[5px_5px_0_0_#0F0F2D] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all"
+                className="ml-auto px-4 py-2 rounded-xl border-[3px] border-navy bg-lime font-display text-navy text-sm press-3 press-navy transition-all"
               >
                 Today
               </button>
@@ -180,7 +180,7 @@ export default function CalendarPage() {
           {/* Side panel */}
           <div className="space-y-5">
             {/* Legend */}
-            <div className="bg-snow border-[4px] border-navy rounded-3xl p-5 shadow-[8px_8px_0_0_#000]">
+            <div className="bg-snow border-[4px] border-navy rounded-3xl p-5 shadow-[3px_3px_0_0_#000]">
               <p className="font-display font-black text-navy text-sm uppercase tracking-wider mb-3">Categories</p>
               <div className="space-y-2">
                 {Object.entries(CATEGORY_COLORS).map(([cat, c]) => (
@@ -196,7 +196,7 @@ export default function CalendarPage() {
             </div>
 
             {/* Upcoming events */}
-            <div className="bg-navy border-[4px] border-lime rounded-3xl p-5 shadow-[8px_8px_0_0_#C8F31D]">
+            <div className="bg-navy border-[4px] border-lime rounded-3xl p-5 shadow-[4px_4px_0_0_#C8F31D]">
               <p className="font-display font-black text-lime text-sm uppercase tracking-wider mb-3">
                 Upcoming
               </p>
@@ -232,7 +232,7 @@ export default function CalendarPage() {
           onClick={() => setSelectedEvent(null)}
         >
           <div
-            className="bg-snow border-[4px] border-navy rounded-3xl shadow-[10px_10px_0_0_#000] w-full max-w-lg"
+            className="bg-snow border-[4px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] w-full max-w-lg"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal header */}

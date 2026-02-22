@@ -286,13 +286,19 @@ input:focus, textarea:focus, select:focus {
   border-radius: 24px;
   padding: 24px;
   box-shadow: 6px 6px 0 0 #000;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  translate: 0;
+  transition: translate 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
   overflow: hidden;
 }
 
 .card:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 8px 8px 0 0 #000;
+  translate: 2px 2px;
+  box-shadow: 4px 4px 0 0 #000;
+}
+
+.card:active {
+  translate: 6px 6px;
+  box-shadow: 0 0 0 0 #000;
 }
 
 /* Sizes */
@@ -337,7 +343,12 @@ input:focus, textarea:focus, select:focus {
   box-shadow: 6px 6px 0 0 oklch(88% 0.2 128);
 }
 .card-navy:hover {
-  box-shadow: 8px 8px 0 0 oklch(88% 0.2 128);
+  translate: 2px 2px;
+  box-shadow: 4px 4px 0 0 oklch(88% 0.2 128);
+}
+.card-navy:active {
+  translate: 6px 6px;
+  box-shadow: 0 0 0 0 oklch(88% 0.2 128);
 }
 
 .card-ghost {
@@ -387,16 +398,22 @@ input:focus, textarea:focus, select:focus {
   color: oklch(15% 0.02 280);
   border-color: oklch(15% 0.02 280);
   box-shadow: 4px 4px 0 0 #0F0F2D;
+  translate: 0;
 }
 .btn-primary:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0 0 #0F0F2D;
+  translate: 1.5px 1.5px;
+  box-shadow: 2.5px 2.5px 0 0 #0F0F2D;
+}
+.btn-primary:active {
+  translate: 4px 4px;
+  box-shadow: 0 0 0 0 #0F0F2D;
 }
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none;
+  translate: 0;
   box-shadow: 4px 4px 0 0 #0F0F2D;
+  pointer-events: none;
 }
 
 /* Secondary — Navy with lime accent */
@@ -405,10 +422,15 @@ input:focus, textarea:focus, select:focus {
   color: oklch(88% 0.2 128);
   border-color: oklch(88% 0.2 128);
   box-shadow: 4px 4px 0 0 #000;
+  translate: 0;
 }
 .btn-secondary:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0 0 #000;
+  translate: 1.5px 1.5px;
+  box-shadow: 2.5px 2.5px 0 0 #000;
+}
+.btn-secondary:active {
+  translate: 4px 4px;
+  box-shadow: 0 0 0 0 #000;
 }
 
 /* Outline — Transparent + navy border */
@@ -440,10 +462,15 @@ input:focus, textarea:focus, select:focus {
   color: #ffffff;
   border-color: oklch(15% 0.02 280);
   box-shadow: 4px 4px 0 0 #000;
+  translate: 0;
 }
 .btn-coral:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0 0 #000;
+  translate: 1.5px 1.5px;
+  box-shadow: 2.5px 2.5px 0 0 #000;
+}
+.btn-coral:active {
+  translate: 4px 4px;
+  box-shadow: 0 0 0 0 #000;
 }
 
 /* Lavender */
@@ -452,16 +479,72 @@ input:focus, textarea:focus, select:focus {
   color: oklch(15% 0.02 280);
   border-color: oklch(15% 0.02 280);
   box-shadow: 4px 4px 0 0 #000;
+  translate: 0;
 }
 .btn-lavender:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0 0 #000;
+  translate: 1.5px 1.5px;
+  box-shadow: 2.5px 2.5px 0 0 #000;
+}
+.btn-lavender:active {
+  translate: 4px 4px;
+  box-shadow: 0 0 0 0 #000;
 }
 
 /* Button sizes */
 .btn-sm { padding: 0.375rem 1rem; font-size: 0.8125rem; border-radius: 12px; }
 .btn-lg { padding: 0.875rem 2rem; font-size: 1rem; border-radius: 18px; }
 .btn-xl { padding: 1rem 2.5rem; font-size: 1.125rem; border-radius: 20px; }
+
+/* ============================================
+   PRESS EFFECT SYSTEM
+   Shadow-to-Click: Hover sinks partially, click presses fully
+   Usage: .press-{size} .press-{color}
+   ============================================ */
+
+/* Press color modifiers */
+.press-black { --press-color: #000; }
+.press-navy { --press-color: #0F0F2D; }
+.press-lime { --press-color: #C8F31D; }
+
+/* press-1 */
+.press-1 { box-shadow: 1px 1px 0 0 var(--press-color, #000); translate: 0; transition: translate 150ms ease, box-shadow 150ms ease; }
+.press-1:hover { translate: 0.5px 0.5px; box-shadow: 0.5px 0.5px 0 0 var(--press-color, #000); }
+.press-1:active { translate: 1px 1px; box-shadow: 0 0 0 0 var(--press-color, #000); }
+
+/* press-2 */
+.press-2 { box-shadow: 2px 2px 0 0 var(--press-color, #000); translate: 0; transition: translate 150ms ease, box-shadow 150ms ease; }
+.press-2:hover { translate: 1px 1px; box-shadow: 1px 1px 0 0 var(--press-color, #000); }
+.press-2:active { translate: 2px 2px; box-shadow: 0 0 0 0 var(--press-color, #000); }
+
+/* press-3 */
+.press-3 { box-shadow: 3px 3px 0 0 var(--press-color, #000); translate: 0; transition: translate 150ms ease, box-shadow 150ms ease; }
+.press-3:hover { translate: 1px 1px; box-shadow: 2px 2px 0 0 var(--press-color, #000); }
+.press-3:active { translate: 3px 3px; box-shadow: 0 0 0 0 var(--press-color, #000); }
+
+/* press-4 */
+.press-4 { box-shadow: 4px 4px 0 0 var(--press-color, #000); translate: 0; transition: translate 150ms ease, box-shadow 150ms ease; }
+.press-4:hover { translate: 1.5px 1.5px; box-shadow: 2.5px 2.5px 0 0 var(--press-color, #000); }
+.press-4:active { translate: 4px 4px; box-shadow: 0 0 0 0 var(--press-color, #000); }
+
+/* press-5 */
+.press-5 { box-shadow: 5px 5px 0 0 var(--press-color, #000); translate: 0; transition: translate 150ms ease, box-shadow 150ms ease; }
+.press-5:hover { translate: 2px 2px; box-shadow: 3px 3px 0 0 var(--press-color, #000); }
+.press-5:active { translate: 5px 5px; box-shadow: 0 0 0 0 var(--press-color, #000); }
+
+/* press-6 */
+.press-6 { box-shadow: 6px 6px 0 0 var(--press-color, #000); translate: 0; transition: translate 150ms ease, box-shadow 150ms ease; }
+.press-6:hover { translate: 2px 2px; box-shadow: 4px 4px 0 0 var(--press-color, #000); }
+.press-6:active { translate: 6px 6px; box-shadow: 0 0 0 0 var(--press-color, #000); }
+
+/* press-8 */
+.press-8 { box-shadow: 8px 8px 0 0 var(--press-color, #000); translate: 0; transition: translate 150ms ease, box-shadow 150ms ease; }
+.press-8:hover { translate: 3px 3px; box-shadow: 5px 5px 0 0 var(--press-color, #000); }
+.press-8:active { translate: 8px 8px; box-shadow: 0 0 0 0 var(--press-color, #000); }
+
+/* press-10 */
+.press-10 { box-shadow: 10px 10px 0 0 var(--press-color, #000); translate: 0; transition: translate 150ms ease, box-shadow 150ms ease; }
+.press-10:hover { translate: 4px 4px; box-shadow: 6px 6px 0 0 var(--press-color, #000); }
+.press-10:active { translate: 10px 10px; box-shadow: 0 0 0 0 var(--press-color, #000); }
 
 /* ============================================
    INPUT SYSTEM
@@ -685,31 +768,32 @@ select.input-field {
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Styled scrollbar — Vibrant Academic theme */
-/* Global default: thin navy-themed scrollbar */
+/* Styled scrollbar — Vibrant Academic theme (Ultra Slim) */
+/* Global default: ultra-thin navy-themed scrollbar, no arrows */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: oklch(97% 0.003 280); /* ghost */
-  border-radius: 999px;
+  background: oklch(92% 0.005 280); /* cloud */
 }
 ::-webkit-scrollbar-thumb {
-  background: oklch(55% 0.01 280); /* slate */
-  border-radius: 999px;
-  border: 1px solid oklch(92% 0.005 280); /* cloud */
+  background: oklch(35% 0.01 280); /* navy-muted */
+  border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: oklch(35% 0.01 280); /* navy-muted */
+  background: oklch(15% 0.02 280); /* navy */
 }
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
+::-webkit-scrollbar-button {
+  display: none; /* Remove up/down arrows */
+}
 /* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: oklch(55% 0.01 280) oklch(97% 0.003 280);
+  scrollbar-color: oklch(35% 0.01 280) oklch(92% 0.005 280);
 }
 /* Override for elements that still want hidden scrollbar */
 .scrollbar-hide { scrollbar-width: none; }

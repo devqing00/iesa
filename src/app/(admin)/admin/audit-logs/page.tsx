@@ -170,7 +170,7 @@ export default function AuditLogsPage() {
         </div>
         <button
           onClick={exportCSV}
-          className="shrink-0 bg-lime border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D] px-5 py-3 rounded-2xl font-display text-navy text-sm hover:shadow-[8px_8px_0_0_#0F0F2D] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all flex items-center gap-2"
+          className="shrink-0 bg-lime border-[4px] border-navy press-3 press-navy px-5 py-3 rounded-2xl font-display text-navy text-sm transition-all flex items-center gap-2"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
@@ -195,7 +195,7 @@ export default function AuditLogsPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000]">
+      <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[3px_3px_0_0_#000]">
         <p className="font-display font-black text-lg text-navy mb-4">Filter Logs</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Actor search */}
@@ -260,7 +260,7 @@ export default function AuditLogsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[8px_8px_0_0_#000] overflow-hidden">
+      <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-24">
             <div className="w-10 h-10 border-[4px] border-navy border-t-lime rounded-full animate-spin" />
@@ -346,7 +346,7 @@ export default function AuditLogsPage() {
                           <td colSpan={5} className="px-6 py-4">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                               {/* Details */}
-                              <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000]">
+                              <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
                                 <p className="font-display font-black text-navy uppercase tracking-wider mb-2 text-xs">Details</p>
                                 {Object.keys(log.details).length === 0 ? (
                                   <p className="text-slate">No details recorded</p>
@@ -363,7 +363,7 @@ export default function AuditLogsPage() {
                               </div>
 
                               {/* Metadata */}
-                              <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000]">
+                              <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
                                 <p className="font-display font-black text-navy uppercase tracking-wider mb-2 text-xs">Metadata</p>
                                 <dl className="space-y-1">
                                   <div className="flex gap-2">
@@ -378,7 +378,7 @@ export default function AuditLogsPage() {
                               </div>
 
                               {/* IDs */}
-                              <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000]">
+                              <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
                                 <p className="font-display font-black text-navy uppercase tracking-wider mb-2 text-xs">References</p>
                                 <dl className="space-y-1">
                                   <div className="flex gap-2">
@@ -419,14 +419,14 @@ export default function AuditLogsPage() {
             <button
               disabled={!hasPrev}
               onClick={() => setPage((p) => p - 1)}
-              className="bg-snow border-[3px] border-navy rounded-xl px-4 py-2 font-display text-sm text-navy shadow-[4px_4px_0_0_#000] hover:shadow-[6px_6px_0_0_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-[4px_4px_0_0_#000] disabled:hover:translate-x-0 disabled:hover:translate-y-0"
+              className="bg-snow border-[3px] border-navy rounded-xl px-4 py-2 font-display text-sm text-navy press-3 press-black transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled: disabled:hover:translate-x-0 disabled:hover:translate-y-0"
             >
               ← Previous
             </button>
             <button
               disabled={!hasNext}
               onClick={() => setPage((p) => p + 1)}
-              className="bg-lime border-[3px] border-navy rounded-xl px-4 py-2 font-display text-sm text-navy shadow-[4px_4px_0_0_#0F0F2D] hover:shadow-[6px_6px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-[4px_4px_0_0_#0F0F2D] disabled:hover:translate-x-0 disabled:hover:translate-y-0"
+              className="bg-lime border-[3px] border-navy rounded-xl px-4 py-2 font-display text-sm text-navy press-3 press-navy transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled: disabled:hover:translate-x-0 disabled:hover:translate-y-0"
             >
               Next →
             </button>

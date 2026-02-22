@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { getApiUrl } from "@/lib/api";
 import { ConfirmModal } from "@/components/ui/Modal";
+import { toast } from "sonner";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -35,22 +36,51 @@ interface Role {
   createdAt: string;
 }
 
+// ── Position catalogue ─────────────────────────────────────────────────────
 const POSITIONS = [
-  { value: "president", label: "President" },
-  { value: "vice_president", label: "Vice President" },
-  { value: "general_secretary", label: "General Secretary" },
-  { value: "assistant_general_secretary", label: "Assistant General Secretary" },
-  { value: "financial_secretary", label: "Financial Secretary" },
-  { value: "treasurer", label: "Treasurer" },
-  { value: "director_of_socials", label: "Director of Socials" },
-  { value: "director_of_sports", label: "Director of Sports" },
-  { value: "pro", label: "Public Relations Officer" },
-  { value: "class_rep_100L", label: "100L Class Rep" },
-  { value: "class_rep_200L", label: "200L Class Rep" },
-  { value: "class_rep_300L", label: "300L Class Rep" },
-  { value: "class_rep_400L", label: "400L Class Rep" },
-  { value: "class_rep_500L", label: "500L Class Rep" },
+  // ── Executive ──────────────────────────────────────────────────────
+  { group: "Executive Officers",       value: "president",                         label: "President" },
+  { group: "Executive Officers",       value: "vice_president",                    label: "Vice President" },
+  { group: "Executive Officers",       value: "general_secretary",                 label: "General Secretary" },
+  { group: "Executive Officers",       value: "assistant_general_secretary",       label: "Asst. General Secretary" },
+  { group: "Executive Officers",       value: "financial_secretary",               label: "Financial Secretary" },
+  { group: "Executive Officers",       value: "treasurer",                         label: "Treasurer" },
+  { group: "Executive Officers",       value: "pro",                               label: "Public Relations Officer" },
+  { group: "Executive Officers",       value: "welfare_officer",                   label: "Welfare Officer" },
+  // ── Directors ────────────────────────────────────────────────────── 
+  { group: "Directors",                value: "director_of_socials",               label: "Director of Socials" },
+  { group: "Directors",                value: "director_of_sports",                label: "Director of Sports" },
+  { group: "Directors",                value: "director_of_academics",             label: "Director of Academics" },
+  { group: "Directors",                value: "director_of_information",           label: "Director of Information" },
+  // ── Class Representatives ─────────────────────────────────────────
+  { group: "Class Representatives",    value: "class_rep_100L",                    label: "100L Class Rep" },
+  { group: "Class Representatives",    value: "class_rep_200L",                    label: "200L Class Rep" },
+  { group: "Class Representatives",    value: "class_rep_300L",                    label: "300L Class Rep" },
+  { group: "Class Representatives",    value: "class_rep_400L",                    label: "400L Class Rep" },
+  { group: "Class Representatives",    value: "class_rep_500L",                    label: "500L Class Rep" },
+  { group: "Class Representatives",    value: "asst_class_rep_100L",              label: "100L Asst. Class Rep" },
+  { group: "Class Representatives",    value: "asst_class_rep_200L",              label: "200L Asst. Class Rep" },
+  { group: "Class Representatives",    value: "asst_class_rep_300L",              label: "300L Asst. Class Rep" },
+  { group: "Class Representatives",    value: "asst_class_rep_400L",              label: "400L Asst. Class Rep" },
+  { group: "Class Representatives",    value: "asst_class_rep_500L",              label: "500L Asst. Class Rep" },
+  // ── Committee Heads ───────────────────────────────────────────────
+  { group: "Committee Heads",          value: "committee_head_press",              label: "Press Committee Head" },
+  { group: "Committee Heads",          value: "committee_head_technical",          label: "Technical Committee Head" },
+  { group: "Committee Heads",          value: "committee_head_social",             label: "Social Committee Head" },
+  { group: "Committee Heads",          value: "committee_head_welfare",            label: "Welfare Committee Head" },
+  { group: "Committee Heads",          value: "committee_head_sports",             label: "Sports Committee Head" },
+  { group: "Committee Heads",          value: "committee_head_academic",           label: "Academic Committee Head" },
+  // ── Unit Heads ────────────────────────────────────────────────────
+  { group: "Unit Heads",               value: "unit_head_photography",             label: "Photography Unit Head" },
+  { group: "Unit Heads",               value: "unit_head_logistics",               label: "Logistics Unit Head" },
+  { group: "Unit Heads",               value: "unit_head_security",                label: "Security Unit Head" },
+  { group: "Unit Heads",               value: "unit_head_decoration",              label: "Decoration Unit Head" },
+  // ── Admin Roles ───────────────────────────────────────────────────
+  { group: "Admin Roles",              value: "admin",                             label: "Administrator" },
+  { group: "Admin Roles",              value: "super_admin",                       label: "Super Administrator" },
 ];
+
+const POSITION_GROUPS = Array.from(new Set(POSITIONS.map((p) => p.group)));
 
 /* ─── Component ──────────────────────────── */
 
@@ -73,6 +103,14 @@ function RolesPage() {
     sessionId: "",
     position: "",
   });
+
+  // User search in assign modal
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+
+  // Custom / free-text position
+  const [useCustomPosition, setUseCustomPosition] = useState(false);
+  const [customPosition, setCustomPosition] = useState("");
 
   // Permissions edit state
   const [editPermsRole, setEditPermsRole] = useState<Role | null>(null);
@@ -134,6 +172,11 @@ function RolesPage() {
   const handleCreateRole = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    const effectivePosition = useCustomPosition ? customPosition.trim() : formData.position;
+    if (!effectivePosition) {
+      setError("Please select or enter a position.");
+      return;
+    }
     try {
       const token = await getAccessToken();
       if (!token) return;
@@ -141,7 +184,7 @@ function RolesPage() {
       const response = await fetch(getApiUrl("/api/v1/roles/"), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, position: effectivePosition }),
       });
 
       if (!response.ok) {
@@ -150,10 +193,17 @@ function RolesPage() {
       }
 
       setFormData({ userId: "", sessionId: formData.sessionId, position: "" });
+      setCustomPosition("");
+      setUseCustomPosition(false);
+      setUserSearchQuery("");
+      setUserDropdownOpen(false);
       setShowModal(false);
       await fetchData();
+      toast.success("Role assigned successfully");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to assign role");
+      const msg = err instanceof Error ? err.message : "Failed to assign role";
+      setError(msg);
+      toast.error(msg);
     }
   };
 
@@ -175,8 +225,11 @@ function RolesPage() {
 
       if (!response.ok) throw new Error("Failed to delete role");
       await fetchData();
+      toast.success("Role removed");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete role");
+      const msg = err instanceof Error ? err.message : "Failed to delete role";
+      setError(msg);
+      toast.error(msg);
     }
   };
 
@@ -233,8 +286,11 @@ function RolesPage() {
       }
       setEditPermsRole(null);
       await fetchData();
+      toast.success("Permissions updated");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save permissions");
+      const msg = err instanceof Error ? err.message : "Failed to save permissions";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSavingPerms(false);
     }
@@ -245,11 +301,30 @@ function RolesPage() {
   const filteredRoles =
     filterSession === "all" ? roles : roles.filter((role) => role.sessionId === filterSession);
 
-  const executiveRoles = filteredRoles.filter((r) => !r.position.startsWith("class_rep_"));
-  const classRepRoles = filteredRoles.filter((r) => r.position.startsWith("class_rep_"));
+  const executiveRoles = filteredRoles.filter((r) => {
+    const g = POSITIONS.find(p => p.value === r.position)?.group;
+    return !g || !["Class Representatives"].includes(g);
+  });
+  const classRepRoles = filteredRoles.filter((r) => {
+    const g = POSITIONS.find(p => p.value === r.position)?.group;
+    return g === "Class Representatives";
+  });
+
+  // Filtered users for the searchable dropdown
+  const userSearchLower = userSearchQuery.toLowerCase();
+  const filteredUsers = userSearchLower
+    ? users.filter(
+        (u) =>
+          `${u.firstName} ${u.lastName}`.toLowerCase().includes(userSearchLower) ||
+          (u.matricNumber || "").toLowerCase().includes(userSearchLower) ||
+          u.email.toLowerCase().includes(userSearchLower)
+      )
+    : users;
+
+  const selectedUser = users.find((u) => u.id === formData.userId);
 
   const getPositionLabel = (position: string) => {
-    return POSITIONS.find((p) => p.value === position)?.label || position;
+    return POSITIONS.find((p) => p.value === position)?.label || position.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
   if (authLoading || loading) {
@@ -277,7 +352,7 @@ function RolesPage() {
           <button
             type="button"
             onClick={() => setShowModal(true)}
-            className="self-start bg-lime border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D] px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy hover:shadow-[7px_7px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center gap-2"
+            className="self-start bg-lime border-[4px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
@@ -297,7 +372,7 @@ function RolesPage() {
       {/* ── Stats + Filter ── */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Session Filter */}
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000] flex flex-col justify-between">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] flex flex-col justify-between">
           <label htmlFor="filter-session-select" className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-3 block">Filter Session</label>
           <select
             id="filter-session-select"
@@ -315,21 +390,21 @@ function RolesPage() {
         </div>
 
         {/* Executive Count */}
-        <div className="bg-teal border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+        <div className="bg-teal border-[4px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Executive</p>
           <p className="font-display font-black text-3xl text-snow">{executiveRoles.length}</p>
           <span className="inline-flex mt-1 px-2.5 py-0.5 rounded-full bg-snow/20 text-snow/80 text-xs font-bold">Positions filled</span>
         </div>
 
         {/* Class Rep Count */}
-        <div className="bg-lavender border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+        <div className="bg-lavender border-[4px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Class Reps</p>
           <p className="font-display font-black text-3xl text-snow">{classRepRoles.length}</p>
           <span className="inline-flex mt-1 px-2.5 py-0.5 rounded-full bg-snow/20 text-snow/80 text-xs font-bold">Representatives</span>
         </div>
 
         {/* Total */}
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000]" aria-live="polite">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]" aria-live="polite">
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Total</p>
           <p className="font-display font-black text-3xl text-navy">{filteredRoles.length}</p>
           <span className="inline-flex mt-1 px-2.5 py-0.5 rounded-full bg-cloud text-slate text-xs font-bold">Active roles</span>
@@ -345,7 +420,7 @@ function RolesPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {executiveRoles.length === 0 ? (
-            <div className="col-span-full bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[6px_6px_0_0_#000]">
+            <div className="col-span-full bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
               <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-lime-light flex items-center justify-center">
                 <svg className="w-7 h-7 text-lime-dark" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" />
@@ -358,7 +433,7 @@ function RolesPage() {
             executiveRoles.map((role) => {
               const initials = role.user ? `${role.user.firstName[0]}${role.user.lastName[0]}` : "??";
               return (
-                <div key={role.id} className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] hover:shadow-[8px_8px_0_0_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all group">
+                <div key={role.id} className="bg-snow border-[4px] border-navy rounded-3xl p-6 press-4 press-black transition-all group">
                   <div className="flex items-start justify-between mb-4">
                     <span className="px-3 py-1 rounded-full bg-lime-light text-teal text-xs font-bold">
                       {getPositionLabel(role.position)}
@@ -417,7 +492,7 @@ function RolesPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {classRepRoles.length === 0 ? (
-            <div className="col-span-full bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[6px_6px_0_0_#000]">
+            <div className="col-span-full bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
               <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-lavender-light flex items-center justify-center">
                 <svg className="w-7 h-7 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM14.25 8.625a3.375 3.375 0 1 1 6.75 0 3.375 3.375 0 0 1-6.75 0ZM1.5 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122ZM17.25 19.128l-.001.144a2.25 2.25 0 0 1-.233.96 10.088 10.088 0 0 0 5.06-1.01.75.75 0 0 0 .42-.643 4.875 4.875 0 0 0-6.957-4.611 8.586 8.586 0 0 1 1.71 5.157v.003Z" />
@@ -429,7 +504,7 @@ function RolesPage() {
             classRepRoles.map((role) => {
               const initials = role.user ? `${role.user.firstName[0]}${role.user.lastName[0]}` : "??";
               return (
-                <div key={role.id} className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] hover:shadow-[8px_8px_0_0_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all group">
+                <div key={role.id} className="bg-snow border-[4px] border-navy rounded-3xl p-6 press-4 press-black transition-all group">
                   <div className="flex items-start justify-between mb-4">
                     <span className="px-3 py-1 rounded-full bg-lavender-light text-lavender text-xs font-bold">
                       {getPositionLabel(role.position)}
@@ -482,16 +557,24 @@ function RolesPage() {
       {/* ── Assign Role Modal ── */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6">
-          <div className="absolute inset-0 bg-navy/50" onClick={() => setShowModal(false)} />
+          <div className="absolute inset-0 bg-navy/50" onClick={() => {
+            setShowModal(false);
+            setUserSearchQuery("");
+            setUserDropdownOpen(false);
+          }} />
 
-          <div className="relative bg-snow border-[4px] border-navy rounded-3xl p-8 w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[10px_10px_0_0_#000]">
+          <div className="relative bg-snow border-[4px] border-navy rounded-3xl p-8 w-full max-w-md max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">New Assignment</p>
                 <h2 className="font-display font-black text-xl text-navy">Assign Role</h2>
               </div>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  setShowModal(false);
+                  setUserSearchQuery("");
+                  setUserDropdownOpen(false);
+                }}
                 className="p-2 rounded-xl hover:bg-cloud transition-colors"
                 aria-label="Close modal"
               >
@@ -502,24 +585,92 @@ function RolesPage() {
             </div>
 
             <form onSubmit={handleCreateRole} className="space-y-5">
+
+              {/* ── User search combobox ── */}
               <div className="space-y-1.5">
-                <label htmlFor="user-select" className="text-sm font-bold text-navy">User</label>
-                <select
-                  id="user-select"
-                  value={formData.userId}
-                  onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
-                  className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
-                  required
-                >
-                  <option value="">Select a user</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.firstName} {u.lastName} ({u.matricNumber || u.email})
-                    </option>
-                  ))}
-                </select>
+                <label className="text-sm font-bold text-navy">User</label>
+                {/* Selected user chip */}
+                {selectedUser ? (
+                  <div className="flex items-center justify-between px-4 py-3 bg-lime-light border-[3px] border-navy rounded-2xl">
+                    <div>
+                      <p className="font-bold text-sm text-navy">{selectedUser.firstName} {selectedUser.lastName}</p>
+                      <p className="text-[11px] text-slate">{selectedUser.matricNumber || selectedUser.email}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, userId: "" });
+                        setUserSearchQuery("");
+                        setUserDropdownOpen(true);
+                      }}
+                      className="p-1 rounded-lg hover:bg-cloud transition-colors"
+                      aria-label="Change user"
+                    >
+                      <svg className="w-4 h-4 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
+                        <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="relative">
+                      <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                        <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z" clipRule="evenodd" />
+                      </svg>
+                      <input
+                        type="text"
+                        placeholder="Search by name, matric no. or email…"
+                        value={userSearchQuery}
+                        onChange={(e) => { setUserSearchQuery(e.target.value); setUserDropdownOpen(true); }}
+                        onFocus={() => setUserDropdownOpen(true)}
+                        onBlur={() => {
+                          // Delay closing to allow click events on dropdown items to fire
+                          setTimeout(() => setUserDropdownOpen(false), 200);
+                        }}
+                        className="w-full pl-10 pr-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm placeholder:text-slate focus:outline-none transition-all"
+                      />
+                    </div>
+                    {userDropdownOpen && filteredUsers.length > 0 && (
+                      <div className="absolute z-10 top-full mt-1 w-full bg-snow border-[3px] border-navy rounded-2xl shadow-[4px_4px_0_0_#000] max-h-52 overflow-y-auto">
+                        {filteredUsers.slice(0, 30).map((u) => (
+                          <button
+                            type="button"
+                            key={u.id}
+                            onClick={() => {
+                              setFormData({ ...formData, userId: u.id });
+                              setUserSearchQuery("");
+                              setUserDropdownOpen(false);
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-lime-light text-left transition-colors"
+                          >
+                            <div className="w-7 h-7 rounded-lg bg-lavender flex items-center justify-center shrink-0">
+                              <span className="text-snow text-[10px] font-black">{u.firstName[0]}{u.lastName[0]}</span>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-bold text-sm text-navy truncate">{u.firstName} {u.lastName}</p>
+                              <p className="text-[11px] text-slate truncate">{u.matricNumber || u.email}</p>
+                            </div>
+                          </button>
+                        ))}
+                        {filteredUsers.length > 30 && (
+                          <p className="px-4 py-2 text-xs text-slate font-bold border-t border-cloud">
+                            Showing first 30 results. Refine your search.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {userDropdownOpen && filteredUsers.length === 0 && userSearchQuery && (
+                      <div className="absolute z-10 top-full mt-1 w-full bg-snow border-[3px] border-navy rounded-2xl shadow-[4px_4px_0_0_#000] px-4 py-3">
+                        <p className="text-sm text-navy/60 font-bold">No users found for &ldquo;{userSearchQuery}&rdquo;</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Hidden required input to enforce selection */}
+                <input type="hidden" value={formData.userId || ""} required />
               </div>
 
+              {/* ── Session ── */}
               <div className="space-y-1.5">
                 <label htmlFor="session-select" className="text-sm font-bold text-navy">Session</label>
                 <select
@@ -538,40 +689,67 @@ function RolesPage() {
                 </select>
               </div>
 
+              {/* ── Position / Custom ── */}
               <div className="space-y-1.5">
-                <label htmlFor="position-select" className="text-sm font-bold text-navy">Position</label>
-                <select
-                  id="position-select"
-                  value={formData.position}
-                  onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                  className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
-                  required
-                >
-                  <option value="">Select a position</option>
-                  <optgroup label="Executive Positions">
-                    {POSITIONS.filter((p) => !p.value.startsWith("class_rep_")).map((position) => (
-                      <option key={position.value} value={position.value}>{position.label}</option>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-bold text-navy">Position</label>
+                  <button
+                    type="button"
+                    onClick={() => { setUseCustomPosition(!useCustomPosition); setFormData({ ...formData, position: "" }); setCustomPosition(""); }}
+                    className="text-[11px] font-bold text-lavender hover:text-lavender/70 transition-colors"
+                  >
+                    {useCustomPosition ? "← Choose from list" : "Custom position →"}
+                  </button>
+                </div>
+
+                {useCustomPosition ? (
+                  <input
+                    type="text"
+                    placeholder="e.g. Level Coordinator, Quiz Master…"
+                    value={customPosition}
+                    onChange={(e) => setCustomPosition(e.target.value)}
+                    className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm placeholder:text-slate focus:outline-none transition-all"
+                    required
+                  />
+                ) : (
+                  <select
+                    id="position-select"
+                    value={formData.position}
+                    onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                    className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
+                    required
+                  >
+                    <option value="">Select a position</option>
+                    {POSITION_GROUPS.map((group) => (
+                      <optgroup key={group} label={group}>
+                        {POSITIONS.filter((p) => p.group === group).map((position) => (
+                          <option key={position.value} value={position.value}>{position.label}</option>
+                        ))}
+                      </optgroup>
                     ))}
-                  </optgroup>
-                  <optgroup label="Class Representatives">
-                    {POSITIONS.filter((p) => p.value.startsWith("class_rep_")).map((position) => (
-                      <option key={position.value} value={position.value}>{position.label}</option>
-                    ))}
-                  </optgroup>
-                </select>
+                    <optgroup label="──────────">
+                      <option value="" disabled>Or use &ldquo;Custom position&rdquo; above</option>
+                    </optgroup>
+                  </select>
+                )}
               </div>
 
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false);
+                    setUserSearchQuery("");
+                    setUserDropdownOpen(false);
+                  }}
                   className="flex-1 px-5 py-2.5 rounded-2xl border-[3px] border-navy text-navy text-sm font-bold hover:bg-cloud transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold hover:shadow-[4px_4px_0_0_#C8F31D] transition-all"
+                  disabled={!formData.userId || !formData.sessionId || (!useCustomPosition ? !formData.position : !customPosition.trim())}
+ className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold press-4 press-lime disabled:opacity-40 transition-all"
                 >
                   Assign
                 </button>
@@ -598,7 +776,7 @@ function RolesPage() {
       {editPermsRole && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-navy/60" onClick={() => setEditPermsRole(null)} />
-          <div className="relative bg-snow border-[4px] border-navy rounded-3xl w-full max-w-2xl shadow-[10px_10px_0_0_#000] max-h-[90vh] flex flex-col">
+          <div className="relative bg-snow border-[4px] border-navy rounded-3xl w-full max-w-2xl shadow-[4px_4px_0_0_#000] max-h-[90vh] flex flex-col">
             {/* Header */}
             <div className="flex items-start justify-between p-7 pb-5 border-b-[3px] border-navy/10">
               <div>
@@ -695,7 +873,7 @@ function RolesPage() {
               <button
                 onClick={savePermissions}
                 disabled={savingPerms}
-                className="flex-1 px-5 py-2.5 rounded-2xl bg-lime border-[3px] border-navy text-navy text-sm font-bold shadow-[4px_4px_0_0_#0F0F2D] hover:shadow-[6px_6px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                className="flex-1 px-5 py-2.5 rounded-2xl bg-lime border-[3px] border-navy text-navy text-sm font-bold press-3 press-navy transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {savingPerms ? "Saving…" : "Save Permissions"}
               </button>

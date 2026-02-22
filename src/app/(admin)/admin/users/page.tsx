@@ -96,7 +96,7 @@ export default function AdminUsersPage() {
       {/* ── Stats Bento Grid ───────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Total Users — lime accent */}
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] hover:-translate-y-1 transition-all">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 press-4 press-black hover:-translate-y-1 transition-all">
           <div className="flex items-center justify-between mb-3">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Total</p>
             <div className="w-10 h-10 rounded-xl bg-lime border-[3px] border-navy flex items-center justify-center">
@@ -110,7 +110,7 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Active Users — teal accent */}
-        <div className="bg-teal border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-all">
+        <div className="bg-teal border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-all">
           <div className="flex items-center justify-between mb-3">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60">Active</p>
             <div className="w-10 h-10 rounded-xl bg-snow/20 flex items-center justify-center">
@@ -124,7 +124,7 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Admins — snow card */}
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] hover:-translate-y-1 transition-all">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 press-4 press-black hover:-translate-y-1 transition-all">
           <div className="flex items-center justify-between mb-3">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Admins</p>
             <div className="w-10 h-10 rounded-xl bg-lavender-light flex items-center justify-center">
@@ -176,7 +176,7 @@ export default function AdminUsersPage() {
           </span>
         </div>
 
-        <div className="bg-snow border-[4px] border-navy rounded-3xl overflow-hidden shadow-[6px_6px_0_0_#000]">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl overflow-hidden shadow-[4px_4px_0_0_#000]">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>

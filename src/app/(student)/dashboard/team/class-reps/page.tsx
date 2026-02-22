@@ -116,7 +116,7 @@ export default function ClassRepsPage() {
       </div>
 
       {/* ── level filter ── */}
-      <div className="bg-snow border-[4px] border-navy rounded-[1.5rem] p-2 shadow-[6px_6px_0_0_#000]">
+      <div className="bg-snow border-[4px] border-navy rounded-[1.5rem] p-2 shadow-[4px_4px_0_0_#000]">
         <div className="flex gap-2 overflow-x-auto">
           {LEVELS.map((level) => {
             const isActive = selectedLevel === level;
@@ -148,7 +148,7 @@ export default function ClassRepsPage() {
 
       {/* ── empty ── */}
       {!loading && filteredReps.length === 0 && (
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[6px_6px_0_0_#000]">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
           <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-lavender-light flex items-center justify-center">
             <svg className="w-7 h-7 text-lavender" viewBox="0 0 24 24" fill="currentColor">
               <path d="M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM14.25 8.625a3.375 3.375 0 1 1 6.75 0 3.375 3.375 0 0 1-6.75 0ZM1.5 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122Z" />
@@ -203,7 +203,7 @@ function RepCard({ rep, accent, index }: { rep: ClassRep; accent: typeof ACCENT_
   const rotations = ["rotate-[0.3deg]", "rotate-[-0.4deg]", "rotate-[0.5deg]", "rotate-[-0.3deg]"];
 
   return (
-    <div className={`bg-snow border-[4px] border-navy border-l-[6px] ${accent.border} rounded-[1.5rem] p-5 shadow-[6px_6px_0_0_#000] ${rotations[index % 4]} hover:rotate-0 transition-transform`}>
+    <div className={`bg-snow border-[4px] border-navy border-l-[6px] ${accent.border} rounded-[1.5rem] p-5 shadow-[4px_4px_0_0_#000] ${rotations[index % 4]} hover:rotate-0 transition-transform`}>
       <div className="flex items-start gap-4">
         <div className={`w-12 h-12 rounded-xl ${accent.iconBg} flex items-center justify-center flex-shrink-0 border-[3px] border-navy`}>
           <span className="font-display font-black text-lg text-navy">{rep.user.firstName[0]}</span>

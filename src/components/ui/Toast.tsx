@@ -116,7 +116,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
   const styles = typeStyles[toast.type];
   return (
     <div
-      className={`${styles.bg} ${styles.border} border-[3px] p-4 rounded-2xl flex items-start gap-3 animate-fade-in-up shadow-[6px_6px_0_0_#000]`}
+      className={`${styles.bg} ${styles.border} border-[3px] p-4 rounded-2xl flex items-start gap-3 animate-fade-in-up shadow-[4px_4px_0_0_#000]`}
       role="alert"
     >
       <div className="shrink-0">{styles.icon}</div>

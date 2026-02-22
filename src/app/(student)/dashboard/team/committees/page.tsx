@@ -104,7 +104,7 @@ export default function CommitteesPage() {
 
       {/* ── empty ── */}
       {!loading && committees.length === 0 && (
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[6px_6px_0_0_#000]">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
           <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-teal-light flex items-center justify-center">
             <svg className="w-7 h-7 text-teal" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M1 2.75A.75.75 0 011.75 2h16.5a.75.75 0 010 1.5H18v8.75A2.75 2.75 0 0115.25 15h-1.072l.798 3.06a.75.75 0 01-1.452.38L13.41 18H6.59l-.114.44a.75.75 0 01-1.452-.38L5.822 15H4.75A2.75 2.75 0 012 12.25V3.5h-.25A.75.75 0 011 2.75z" clipRule="evenodd" />
@@ -128,7 +128,7 @@ export default function CommitteesPage() {
             return (
               <div
                 key={committee.user.id}
-                className={`bg-snow border-[4px] border-navy border-l-[6px] ${color.border} rounded-[1.5rem] p-5 shadow-[6px_6px_0_0_#000] ${rotations[i % 4]} hover:rotate-0 transition-transform`}
+                className={`bg-snow border-[4px] border-navy border-l-[6px] ${color.border} rounded-[1.5rem] p-5 shadow-[4px_4px_0_0_#000] ${rotations[i % 4]} hover:rotate-0 transition-transform`}
               >
                 {/* top row */}
                 <div className="flex items-start gap-4">
@@ -168,7 +168,7 @@ export default function CommitteesPage() {
       )}
 
       {/* ── info notice ── */}
-      <div className="bg-navy border-[4px] border-teal rounded-[2rem] p-6 shadow-[8px_8px_0_0_#000] relative overflow-hidden">
+      <div className="bg-navy border-[4px] border-teal rounded-[2rem] p-6 shadow-[3px_3px_0_0_#000] relative overflow-hidden">
         <div className="flex items-start gap-4">
           <div className="w-10 h-10 rounded-xl bg-lime/20 flex items-center justify-center flex-shrink-0">
             <svg className="w-5 h-5 text-lime" fill="currentColor" viewBox="0 0 20 20">

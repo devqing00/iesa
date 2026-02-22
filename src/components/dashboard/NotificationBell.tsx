@@ -125,7 +125,7 @@ export default function NotificationBell() {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute right-0 top-[calc(100%+8px)] w-80 sm:w-96 bg-snow border-[4px] border-navy rounded-3xl shadow-[8px_8px_0_0_#000] z-50 overflow-hidden">
+        <div className="absolute right-0 top-[calc(100%+8px)] w-80 sm:w-96 bg-snow border-[4px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] z-50 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b-[3px] border-navy bg-ghost">
             <div className="flex items-center gap-2">

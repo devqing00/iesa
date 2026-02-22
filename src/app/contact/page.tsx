@@ -62,7 +62,7 @@ export default function ContactPage() {
             <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[5rem] leading-[0.9] text-navy">
               <span className="brush-highlight">Get in</span>
               <br />
-              <span className="inline-block bg-coral border-[4px] sm:border-[6px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[6px_6px_0_0_#000]">Touch</span>
+              <span className="inline-block bg-coral border-[4px] sm:border-[6px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[4px_4px_0_0_#000]">Touch</span>
             </h1>
             <p className="font-display font-medium text-base sm:text-lg text-navy/60 max-w-2xl leading-relaxed">
               Have questions about IESA? Want to collaborate or partner with us?
@@ -80,7 +80,7 @@ export default function ContactPage() {
           {/* Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
             {/* Contact Form */}
-            <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[8px_8px_0_0_#000]">
+            <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
               <h2 className="font-display font-black text-2xl sm:text-3xl text-navy mb-6">
                 <span className="brush-highlight">Send a</span> Message
               </h2>
@@ -148,7 +148,7 @@ export default function ContactPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full font-display font-black bg-lime border-[4px] border-navy rounded-2xl px-8 py-4 text-sm text-navy uppercase tracking-wide shadow-[5px_5px_0_0_#0F0F2D] hover:shadow-[8px_8px_0_0_#0F0F2D] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all disabled:opacity-50"
+                  className="w-full font-display font-black bg-lime border-[4px] border-navy rounded-2xl px-8 py-4 text-sm text-navy uppercase tracking-wide press-3 press-navy transition-all disabled:opacity-50"
                 >
                   {isSubmitting ? "Sending..." : "Send Message →"}
                 </button>
@@ -158,7 +158,7 @@ export default function ContactPage() {
             {/* Contact Info */}
             <div className="space-y-6">
               {/* Address Card */}
-              <div className="bg-lavender border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0_0_#000]">
+              <div className="bg-lavender border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[4px_4px_0_0_#000]">
                 <div className="w-12 h-12 bg-snow border-[3px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[3px_3px_0_0_#000]">
                   <svg className="w-6 h-6 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
@@ -175,7 +175,7 @@ export default function ContactPage() {
               </div>
 
               {/* Email Card */}
-              <div className="bg-teal border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0_0_#000]">
+              <div className="bg-teal border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[4px_4px_0_0_#000]">
                 <div className="w-12 h-12 bg-snow border-[3px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[3px_3px_0_0_#000]">
                   <svg className="w-6 h-6 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
@@ -192,7 +192,7 @@ export default function ContactPage() {
               </div>
 
               {/* Social Card */}
-              <div className="bg-sunny border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0_0_#000]">
+              <div className="bg-sunny border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[4px_4px_0_0_#000]">
                 <div className="w-12 h-12 bg-snow border-[3px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[3px_3px_0_0_#000]">
                   <svg className="w-6 h-6 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
@@ -222,7 +222,7 @@ export default function ContactPage() {
               </div>
 
               {/* Office Hours Card */}
-              <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0_0_#000]">
+              <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[4px_4px_0_0_#000]">
                 <h3 className="font-display font-black text-lg text-navy mb-4">Office Hours</h3>
                 <div className="space-y-3 font-display font-medium text-sm">
                   <div className="flex justify-between">
@@ -276,7 +276,7 @@ export default function ContactPage() {
                 answer: "Yes! Most of our events are open to all students, though some may have limited capacity for members first.",
               },
             ].map((faq, i) => (
-              <div key={i} className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0_0_#000]">
+              <div key={i} className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[4px_4px_0_0_#000]">
                 <h3 className="font-display font-black text-base sm:text-lg text-navy mb-3">{faq.question}</h3>
                 <p className="font-display font-medium text-sm text-navy/80 leading-relaxed">
                   {faq.answer}

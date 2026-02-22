@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+// Google OAuth removed
 import { getApiUrl, setTokenGetter } from "@/lib/api";
 
 // ──────────────────────────────────────────────
@@ -32,6 +33,7 @@ interface AuthContextType {
   userProfile: UserProfile | null; // alias for backward compat
   loading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
+
   signUpWithEmail: (
     email: string,
     password: string,

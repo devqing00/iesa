@@ -6,6 +6,7 @@ Events from different academic sessions are completely separate.
 """
 
 from fastapi import APIRouter, HTTPException, Depends, status, Query, UploadFile, File
+from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
@@ -460,3 +461,190 @@ async def get_my_registrations(
     
     # Return array of event IDs as strings
     return [str(event["_id"]) for event in registered_events]
+
+
+# ── Admin: Manage registrations for a specific event ────────────────────────
+
+class AttendMarkRequest(BaseModel):
+    userId: str
+
+
+@router.get("/{event_id}/registrations")
+async def list_event_registrations(
+    event_id: str,
+    user: dict = Depends(require_permission("event:edit"))
+):
+    """
+    Admin: List all students registered for an event with their profile details.
+    Returns enriched list — name, matric, level, attended status.
+    """
+    db = get_database()
+    events_col = db["events"]
+    users_col  = db["users"]
+
+    if not ObjectId.is_valid(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID")
+
+    event = await events_col.find_one({"_id": ObjectId(event_id)})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    registered_ids = event.get("registrations", [])
+    attended_ids   = event.get("attendees", [])
+
+    result = []
+    for uid in registered_ids:
+        student = await users_col.find_one({"_id": ObjectId(uid)})
+        if not student:
+            continue
+        result.append({
+            "id":            uid,
+            "firstName":     student.get("firstName", ""),
+            "lastName":      student.get("lastName", ""),
+            "email":         student.get("email", ""),
+            "matricNumber":  student.get("matricNumber", ""),
+            "level":         student.get("level", ""),
+            "profilePhotoURL": student.get("profilePhotoURL", ""),
+            "hasAttended":   uid in attended_ids,
+        })
+
+    return {
+        "eventId":         event_id,
+        "eventTitle":      event.get("title", ""),
+        "totalRegistered": len(result),
+        "totalAttended":   sum(1 for r in result if r["hasAttended"]),
+        "registrants":     result,
+    }
+
+
+@router.delete("/{event_id}/registrations/{user_id}", status_code=204)
+async def admin_remove_registration(
+    event_id: str,
+    user_id:  str,
+    admin: dict = Depends(require_permission("event:edit"))
+):
+    """Admin: Remove a student's registration from an event."""
+    db = get_database()
+    events_col = db["events"]
+
+    if not ObjectId.is_valid(event_id) or not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=400, detail="Invalid ID format")
+
+    result = await events_col.update_one(
+        {"_id": ObjectId(event_id)},
+        {
+            "$pull": {"registrations": user_id, "attendees": user_id},
+            "$set":  {"updatedAt": datetime.utcnow()},
+        }
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    await AuditLogger.log(
+        action="event:registration_removed",
+        actor_id=admin["_id"],
+        actor_email=admin.get("email", ""),
+        resource_type="event",
+        resource_id=event_id,
+        details={"removed_user_id": user_id},
+    )
+
+
+@router.post("/{event_id}/attendees/bulk")
+async def admin_mark_all_attended(
+    event_id: str,
+    body: dict,
+    admin: dict = Depends(require_permission("event:edit"))
+):
+    """Admin: Bulk mark multiple registered students as attended in one request."""
+    db = get_database()
+    events_col = db["events"]
+
+    if not ObjectId.is_valid(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID")
+
+    user_ids: list = body.get("userIds", [])
+    if not user_ids:
+        raise HTTPException(status_code=400, detail="userIds must be a non-empty list")
+
+    event = await events_col.find_one({"_id": ObjectId(event_id)})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    registered = set(event.get("registrations", []))
+    valid_ids = [uid for uid in user_ids if uid in registered]
+
+    if not valid_ids:
+        raise HTTPException(status_code=400, detail="None of the provided users are registered for this event")
+
+    await events_col.update_one(
+        {"_id": ObjectId(event_id)},
+        {
+            "$addToSet": {"attendees": {"$each": valid_ids}},
+            "$set": {"updatedAt": datetime.utcnow()},
+        }
+    )
+
+    await AuditLogger.log(
+        action="event:bulk_attendance_marked",
+        actor_id=admin["_id"],
+        actor_email=admin.get("email", ""),
+        resource_type="event",
+        resource_id=event_id,
+        details={"marked_count": len(valid_ids)},
+    )
+
+    return {"message": f"Marked {len(valid_ids)} attendee(s)", "markedCount": len(valid_ids)}
+
+
+@router.post("/{event_id}/attendees")
+async def admin_mark_attended(
+    event_id: str,
+    body:     AttendMarkRequest,
+    admin: dict = Depends(require_permission("event:edit"))
+):
+    """Admin: Mark a registered student as having attended."""
+    db = get_database()
+    events_col = db["events"]
+
+    if not ObjectId.is_valid(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID")
+
+    event = await events_col.find_one({"_id": ObjectId(event_id)})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    if body.userId not in event.get("registrations", []):
+        raise HTTPException(status_code=400, detail="User is not registered for this event")
+
+    await events_col.update_one(
+        {"_id": ObjectId(event_id)},
+        {
+            "$addToSet": {"attendees": body.userId},
+            "$set":      {"updatedAt": datetime.utcnow()},
+        }
+    )
+    return {"message": "Attendance marked"}
+
+
+@router.delete("/{event_id}/attendees/{user_id}", status_code=204)
+async def admin_unmark_attended(
+    event_id: str,
+    user_id:  str,
+    admin: dict = Depends(require_permission("event:edit"))
+):
+    """Admin: Unmark a student's attendance."""
+    db = get_database()
+    events_col = db["events"]
+
+    if not ObjectId.is_valid(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID")
+
+    await events_col.update_one(
+        {"_id": ObjectId(event_id)},
+        {
+            "$pull": {"attendees": user_id},
+            "$set":  {"updatedAt": datetime.utcnow()},
+        }
+    )
+

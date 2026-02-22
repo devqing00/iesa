@@ -31,6 +31,7 @@ class EmailTemplate(Enum):
     ROLE_ASSIGNED = "role_assigned"
     WELCOME = "welcome"
     PASSWORD_RESET = "password_reset"
+    EMAIL_VERIFICATION = "email_verification"
 
 
 class EmailService:
@@ -309,6 +310,91 @@ class EmailService:
             </html>
             """
         
+        elif template == EmailTemplate.EMAIL_VERIFICATION:
+            subject = "Verify your IESA email address"
+            html = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #1E4528;">Verify Your Email</h2>
+                <p>Dear {context.get('name', 'Student')},</p>
+                <p>Thank you for registering with IESA! Please verify your email address to complete your account setup.</p>
+                <p><a href="{context.get('verification_url')}" style="background: #1E4528; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 20px 0;">Verify Email Address</a></p>
+                <p>Or copy and paste this link into your browser:</p>
+                <p style="background: #f5f5f5; padding: 10px; border-radius: 4px; word-break: break-all; font-size: 12px;">{context.get('verification_url')}</p>
+                <p>This link will expire in 24 hours.</p>
+                <p>If you didn't create an account with IESA, you can safely ignore this email.</p>
+                <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+                <p style="color: #666; font-size: 12px;">
+                    Industrial Engineering Students' Association<br>
+                    University of Ibadan
+                </p>
+            </body>
+            </html>
+            """
+        
+        elif template == EmailTemplate.ANNOUNCEMENT:
+            priority = context.get('priority', 'normal')
+            priority_colors = {
+                'urgent': '#DC2626',
+                'important': '#D97706',
+                'normal': '#1E4528',
+                'info': '#2563EB',
+            }
+            priority_labels = {
+                'urgent': '🚨 URGENT',
+                'important': '⚠️ IMPORTANT',
+                'normal': 'ANNOUNCEMENT',
+                'info': 'INFO',
+            }
+            accent = priority_colors.get(priority, '#1E4528')
+            badge = priority_labels.get(priority, 'ANNOUNCEMENT')
+            target_label = context.get('target_label', 'All Students')
+            content_preview = context.get('content', '')[:400]
+            if len(context.get('content', '')) > 400:
+                content_preview += '…'
+            dashboard_url = context.get('dashboard_url', 'https://iesa-ui.vercel.app/dashboard/announcements')
+
+            subject = f"[{badge}] {context.get('title', 'New Announcement')} — IESA"
+            html = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; padding: 24px;">
+                <div style="background: #ffffff; border: 3px solid #0F0F2D; border-radius: 16px; overflow: hidden; box-shadow: 5px 5px 0 #000;">
+                    <!-- Header bar -->
+                    <div style="background: {accent}; padding: 12px 24px; display: flex; align-items: center; gap: 8px;">
+                        <span style="color: #ffffff; font-weight: 900; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;">{badge}</span>
+                        <span style="color: rgba(255,255,255,0.6); font-size: 11px;">·</span>
+                        <span style="color: rgba(255,255,255,0.8); font-size: 11px;">Targeted at: {target_label}</span>
+                    </div>
+                    <!-- Body -->
+                    <div style="padding: 28px 28px 24px;">
+                        <p style="margin: 0 0 4px; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.08em;">
+                            Industrial Engineering Students' Association — University of Ibadan
+                        </p>
+                        <h2 style="margin: 8px 0 16px; color: #0F0F2D; font-size: 22px; line-height: 1.3;">
+                            {context.get('title', 'New Announcement')}
+                        </h2>
+                        <p style="color: #444; font-size: 14px; line-height: 1.7; margin: 0 0 20px;">
+                            Dear {context.get('student_name', 'Student')},
+                        </p>
+                        <p style="color: #444; font-size: 14px; line-height: 1.7; margin: 0 0 20px; white-space: pre-line;">
+                            {content_preview}
+                        </p>
+                        <a href="{dashboard_url}" style="display: inline-block; background: #C8F31D; color: #0F0F2D; font-weight: 900; font-size: 13px; padding: 12px 24px; border-radius: 10px; border: 3px solid #0F0F2D; text-decoration: none; box-shadow: 3px 3px 0 #0F0F2D; margin-bottom: 8px;">
+                            View Full Announcement →
+                        </a>
+                    </div>
+                    <!-- Footer -->
+                    <div style="background: #f4f4f8; border-top: 2px solid #e0e0e8; padding: 16px 28px;">
+                        <p style="margin: 0; color: #888; font-size: 11px; line-height: 1.6;">
+                            You received this because you are enrolled in {target_label} for the current IESA academic session.<br>
+                            © IESA — Industrial Engineering Students' Association, University of Ibadan
+                        </p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+
         else:
             subject = "IESA Notification"
             html = "<p>You have a new notification from IESA.</p>"
@@ -362,6 +448,44 @@ async def send_welcome_email(to: str, name: str, dashboard_url: str):
         context={
             "name": name,
             "dashboard_url": dashboard_url
+        }
+    )
+
+
+async def send_verification_email(to: str, name: str, verification_url: str):
+    """Send email verification link to new users"""
+    service = get_email_service()
+    return await service.send_template_email(
+        to=to,
+        template=EmailTemplate.EMAIL_VERIFICATION,
+        context={
+            "name": name,
+            "verification_url": verification_url
+        }
+    )
+
+
+async def send_announcement_email(
+    to: str,
+    student_name: str,
+    title: str,
+    content: str,
+    priority: str,
+    target_label: str,
+    dashboard_url: str = "https://iesa-ui.vercel.app/dashboard/announcements",
+):
+    """Send an announcement notification email to a student."""
+    service = get_email_service()
+    return await service.send_template_email(
+        to=to,
+        template=EmailTemplate.ANNOUNCEMENT,
+        context={
+            "student_name": student_name,
+            "title": title,
+            "content": content,
+            "priority": priority,
+            "target_label": target_label,
+            "dashboard_url": dashboard_url,
         }
     )
 

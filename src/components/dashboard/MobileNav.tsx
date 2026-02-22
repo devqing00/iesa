@@ -146,7 +146,7 @@ export default function MobileNav() {
       {showMore && (
         <div className="md:hidden fixed inset-0 bg-navy/30 z-40" onClick={() => setShowMore(false)}>
           <div
-            className="absolute bottom-20 left-3 right-3 bg-snow border-[4px] border-navy rounded-3xl shadow-[8px_8px_0_0_#000] p-4"
+            className="absolute bottom-20 left-3 right-3 bg-snow border-[4px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] p-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3 px-1">

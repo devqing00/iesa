@@ -213,7 +213,7 @@ function AdminSessionsPage() {
         <PermissionGate permission="session:create">
           <button
             onClick={() => setShowCreateModal(true)}
-            className="self-start bg-lime border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D] px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy hover:shadow-[7px_7px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center gap-2"
+            className="self-start bg-lime border-[4px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
@@ -226,18 +226,18 @@ function AdminSessionsPage() {
       {/* ── Stats Row ── */}
       {!loading && sessions.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
+          <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Total Sessions</p>
             <p className="font-display font-black text-3xl text-navy">{sessions.length}</p>
           </div>
-          <div className="bg-teal border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+          <div className="bg-teal border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Active</p>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-snow animate-pulse" />
               <p className="font-display font-black text-3xl text-snow">{activeSession ? 1 : 0}</p>
             </div>
           </div>
-          <div className="bg-lavender border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] col-span-2 md:col-span-1 rotate-[-0.5deg] hover:rotate-0 transition-transform">
+          <div className="bg-lavender border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] col-span-2 md:col-span-1 rotate-[-0.5deg] hover:rotate-0 transition-transform">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Current Semester</p>
             <p className="font-display font-black text-3xl text-snow">
               {activeSession ? `Sem ${activeSession.currentSemester}` : "—"}
@@ -268,7 +268,7 @@ function AdminSessionsPage() {
           ))}
         </div>
       ) : sessions.length === 0 ? (
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-16 text-center shadow-[6px_6px_0_0_#000] space-y-4">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-16 text-center shadow-[4px_4px_0_0_#000] space-y-4">
           <div className="w-16 h-16 bg-sunny-light rounded-2xl flex items-center justify-center mx-auto">
             <svg className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
@@ -283,7 +283,7 @@ function AdminSessionsPage() {
         <div className="space-y-8">
           {/* Active Session — Featured Card */}
           {activeSession && (
-            <div className="bg-navy border-[4px] border-lime rounded-3xl p-6 md:p-8 shadow-[8px_8px_0_0_#C8F31D] relative overflow-hidden">
+            <div className="bg-navy border-[4px] border-lime rounded-3xl p-6 md:p-8 shadow-[4px_4px_0_0_#C8F31D] relative overflow-hidden">
               {/* Decorative diamonds */}
               <svg className="absolute top-4 right-4 w-5 h-5 text-lime/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
@@ -342,7 +342,7 @@ function AdminSessionsPage() {
                 {inactiveSessions.map((session) => (
                   <div
                     key={session.id}
-                    className="bg-snow border-[4px] border-navy rounded-3xl p-6 hover:shadow-[8px_8px_0_0_#000] hover:-translate-y-1 transition-all group"
+ className="bg-snow border-[4px] border-navy rounded-3xl p-6 press-3 press-black transition-all group"
                   >
                     <div className="flex items-start justify-between mb-4">
                       <h3 className="font-display font-black text-xl text-navy">{session.name}</h3>
@@ -363,7 +363,7 @@ function AdminSessionsPage() {
                     <div className="flex gap-2.5">
                       <button
                         onClick={() => toggleActive(session.id)}
-                        className="flex-1 bg-lime border-[3px] border-navy text-navy px-4 py-2.5 rounded-2xl text-sm font-bold hover:shadow-[4px_4px_0_0_#0F0F2D] transition-all"
+ className="flex-1 bg-lime border-[3px] border-navy text-navy px-4 py-2.5 rounded-2xl text-sm font-bold press-3 press-navy transition-all"
                       >
                         Set as Active
                       </button>
@@ -393,7 +393,7 @@ function AdminSessionsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6">
           <div className="absolute inset-0 bg-navy/50" onClick={() => setShowCreateModal(false)} />
 
-          <div className="relative bg-snow border-[4px] border-navy rounded-3xl p-8 w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[10px_10px_0_0_#000]">
+          <div className="relative bg-snow border-[4px] border-navy rounded-3xl p-8 w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">New Session</p>
@@ -496,7 +496,7 @@ function AdminSessionsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold hover:shadow-[4px_4px_0_0_#C8F31D] transition-all"
+ className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold press-4 press-lime transition-all"
                 >
                   Create Session
                 </button>
@@ -511,7 +511,7 @@ function AdminSessionsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6">
           <div className="absolute inset-0 bg-navy/50" onClick={() => setShowEditModal(false)} />
 
-          <div className="relative bg-snow border-[4px] border-navy rounded-3xl p-8 w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[10px_10px_0_0_#000]">
+          <div className="relative bg-snow border-[4px] border-navy rounded-3xl p-8 w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Edit Session</p>
@@ -614,7 +614,7 @@ function AdminSessionsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold hover:shadow-[4px_4px_0_0_#C8F31D] transition-all"
+ className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold press-4 press-lime transition-all"
                 >
                   Update Session
                 </button>

@@ -304,10 +304,9 @@ export default function StudyGroupFinderPage() {
 
     return (
       <div
-        className={`bg-snow border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000] cursor-pointer
-          hover:shadow-[8px_8px_0_0_#000] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all ${
-            member ? "ring-4 ring-lime/40" : ""
-          }`}
+        className={`bg-snow border-[4px] border-navy rounded-3xl p-5 press-4 press-black cursor-pointer transition-all ${
+ member ?"ring-4 ring-lime/40" :""
+ }`}
         onClick={() => {
           setSelectedGroup(group);
           setView("detail");
@@ -421,7 +420,7 @@ export default function StudyGroupFinderPage() {
         </button>
 
         {/* Main card */}
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[8px_8px_0_0_#000]">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -449,7 +448,7 @@ export default function StudyGroupFinderPage() {
                 <button
                   onClick={() => joinGroup(g.id)}
                   disabled={actionLoading}
-                  className="bg-lime border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D] px-6 py-3 rounded-2xl font-display text-base text-navy hover:shadow-[8px_8px_0_0_#0F0F2D] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all disabled:opacity-50"
+                  className="bg-lime border-[4px] border-navy press-3 press-navy px-6 py-3 rounded-2xl font-display text-base text-navy transition-all disabled:opacity-50"
                 >
                   {actionLoading ? "..." : "Join Group"}
                 </button>
@@ -579,7 +578,7 @@ export default function StudyGroupFinderPage() {
         Back
       </button>
 
-      <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[8px_8px_0_0_#000]">
+      <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
         <h2 className="font-display font-black text-navy text-2xl mb-6">Create Study Group</h2>
 
         <div className="space-y-4">
@@ -715,7 +714,7 @@ export default function StudyGroupFinderPage() {
           <button
             onClick={createGroup}
             disabled={actionLoading}
-            className="bg-lime border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D] px-8 py-4 rounded-2xl font-display text-lg text-navy hover:shadow-[8px_8px_0_0_#0F0F2D] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all disabled:opacity-50 w-full sm:w-auto"
+            className="bg-lime border-[4px] border-navy press-3 press-navy px-8 py-4 rounded-2xl font-display text-lg text-navy transition-all disabled:opacity-50 w-full sm:w-auto"
           >
             {actionLoading ? "Creating..." : "Create Study Group"}
           </button>
@@ -733,7 +732,7 @@ export default function StudyGroupFinderPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Toast */}
         {toast && (
-          <div className="fixed top-6 right-6 z-50 bg-navy text-lime px-5 py-3 rounded-2xl border-[3px] border-lime shadow-[5px_5px_0_0_#C8F31D] font-display text-sm animate-bounce">
+          <div className="fixed top-6 right-6 z-50 bg-navy text-lime px-5 py-3 rounded-2xl border-[3px] border-lime shadow-[4px_4px_0_0_#C8F31D] font-display text-sm animate-bounce">
             {toast}
           </div>
         )}
@@ -765,7 +764,7 @@ export default function StudyGroupFinderPage() {
               resetForm();
               setView("create");
             }}
-            className="bg-lime border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D] px-6 py-3 rounded-2xl font-display text-base text-navy hover:shadow-[8px_8px_0_0_#0F0F2D] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all"
+            className="bg-lime border-[4px] border-navy press-3 press-navy px-6 py-3 rounded-2xl font-display text-base text-navy transition-all"
           >
             + New Group
           </button>
@@ -851,7 +850,7 @@ export default function StudyGroupFinderPage() {
                     resetForm();
                     setView("create");
                   }}
-                  className="bg-lime border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D] px-6 py-3 rounded-2xl font-display text-navy hover:shadow-[8px_8px_0_0_#0F0F2D] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all"
+                  className="bg-lime border-[4px] border-navy press-3 press-navy px-6 py-3 rounded-2xl font-display text-navy transition-all"
                 >
                   + Create Study Group
                 </button>

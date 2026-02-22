@@ -9,6 +9,8 @@ from fastapi import APIRouter, HTTPException, Depends, status, Query
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
+import asyncio
+import logging
 
 from app.models.announcement import (
     Announcement, AnnouncementCreate, AnnouncementUpdate, AnnouncementWithStatus
@@ -18,8 +20,72 @@ from app.core.security import get_current_user
 from app.core.permissions import require_permission
 from app.core.sanitization import sanitize_html, validate_no_scripts
 from app.core.audit import AuditLogger
+from app.core.email import send_announcement_email
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/announcements", tags=["Announcements"])
+
+
+async def _notify_students_of_announcement(
+    session_id: str,
+    target_levels: Optional[List[str]],
+    title: str,
+    content: str,
+    priority: str,
+    db,
+):
+    """Fire-and-forget: email all enrolled students matching the target levels."""
+    try:
+        users_col = db["users"]
+        enrollments_col = db["enrollments"]
+
+        # Build target label string
+        if not target_levels:
+            target_label = "All Students"
+            query: dict = {"sessionId": session_id, "status": "active"}
+        else:
+            level_map = {
+                "100": "100 Level", "200": "200 Level", "300": "300 Level",
+                "400": "400 Level", "500": "500 Level", "PG": "Postgraduate",
+            }
+            target_label = ", ".join(level_map.get(lv, lv) for lv in target_levels)
+            query = {"sessionId": session_id, "status": "active", "level": {"$in": target_levels}}
+
+        cursor = enrollments_col.find(query, {"studentId": 1})
+        student_ids = [doc["studentId"] async for doc in cursor]
+
+        if not student_ids:
+            return
+
+        students = await users_col.find(
+            {"_id": {"$in": [ObjectId(sid) for sid in student_ids]}},
+            {"email": 1, "firstName": 1, "lastName": 1}
+        ).to_list(length=None)
+
+        sent = 0
+        for student in students:
+            email = student.get("email", "")
+            if not email:
+                continue
+            name = f"{student.get('firstName', '')} {student.get('lastName', '')}".strip() or "Student"
+            try:
+                await send_announcement_email(
+                    to=email,
+                    student_name=name,
+                    title=title,
+                    content=content,
+                    priority=priority,
+                    target_label=target_label,
+                )
+                sent += 1
+            except Exception as e:
+                logger.warning(f"Failed to send announcement email to {email}: {e}")
+
+        logger.info(f"Announcement email sent to {sent}/{len(students)} student(s) — '{title}'")
+
+    except Exception as e:
+        logger.error(f"Announcement email dispatch error: {e}")
 
 
 @router.post("/", response_model=Announcement, status_code=status.HTTP_201_CREATED)
@@ -82,6 +148,17 @@ async def create_announcement(
         session_id=announcement_data.sessionId,
         details={"title": announcement_data.title, "priority": announcement_data.priority}
     )
+
+    # Fire-and-forget: email enrolled students matching this announcement's target levels
+    asyncio.create_task(_notify_students_of_announcement(
+        session_id=announcement_data.sessionId,
+        target_levels=announcement_data.targetLevels,
+        title=announcement_data.title,
+        content=announcement_data.content,
+        priority=announcement_data.priority,
+        db=db,
+    ))
+
     return Announcement(**created_announcement)
 
 
@@ -158,14 +235,17 @@ async def list_announcements(
     
     # Filter by target levels and enrich with read status
     result = []
+    user_role = user.get("role", "student")
+    is_admin_user = user_role in ("admin", "super_admin")
+
     for announcement in announcement_list:
-        # Check if announcement is targeted
+        # Check if announcement is targeted to specific levels
         target_levels = announcement.get("targetLevels")
-        
-        # If targeted and user is student, check if their level matches
-        if target_levels:
+
+        # If targeted, admins always see it; students must match their enrolled level
+        if target_levels and not is_admin_user:
             if not user_level or user_level not in target_levels:
-                continue  # Skip this announcement
+                continue  # Skip — student's level doesn't match
         
         announcement["_id"] = str(announcement["_id"])
         

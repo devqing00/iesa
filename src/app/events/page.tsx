@@ -89,7 +89,7 @@ export default function EventsPage() {
             <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[5rem] leading-[0.9] text-navy">
               <span className="brush-highlight">Connect, Learn,</span>
               <br />
-              &amp; <span className="inline-block bg-sunny border-[4px] sm:border-[6px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[6px_6px_0_0_#000]">Grow</span>
+              &amp; <span className="inline-block bg-sunny border-[4px] sm:border-[6px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[4px_4px_0_0_#000]">Grow</span>
             </h1>
             <p className="font-display font-medium text-base sm:text-lg text-navy/60 max-w-2xl leading-relaxed">
               From technical workshops to networking events, IESA hosts a
@@ -121,7 +121,7 @@ export default function EventsPage() {
             {upcomingEvents.map((event, i) => {
               const colors = ["bg-lavender", "bg-teal", "bg-coral"];
               return (
-                <div key={i} className={`${colors[i % 3]} border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[8px_8px_0_0_#000] hover:shadow-[5px_5px_0_0_#000] hover:translate-y-[2px] transition-all`}>
+                <div key={i} className={`${colors[i % 3]} border-[4px] border-navy rounded-3xl p-6 sm:p-8 press-3 press-black transition-all`}>
                   <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
                     <div className="flex-1 space-y-4">
                       <div className="flex items-center gap-3 flex-wrap">
@@ -149,7 +149,7 @@ export default function EventsPage() {
                     <div className="shrink-0">
                       <Link
                         href="/register"
-                        className="inline-block font-display font-black bg-navy border-[3px] border-navy rounded-xl px-6 py-3 text-sm text-lime uppercase tracking-wide shadow-[4px_4px_0_0_#C8F31D] hover:shadow-[6px_6px_0_0_#C8F31D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+                        className="inline-block font-display font-black bg-navy border-[3px] border-navy rounded-xl px-6 py-3 text-sm text-lime uppercase tracking-wide press-4 press-lime transition-all"
                       >
                         Register →
                       </Link>
@@ -170,14 +170,14 @@ export default function EventsPage() {
           {/* Section Header */}
           <div className="mb-10 sm:mb-14">
             <h2 className="font-display font-black text-3xl sm:text-5xl text-navy">
-              Past <span className="bg-snow border-[4px] border-navy px-4 sm:px-6 py-2 inline-block rotate-[-2deg] shadow-[6px_6px_0_0_#000]">Events</span>
+              Past <span className="bg-snow border-[4px] border-navy px-4 sm:px-6 py-2 inline-block rotate-[-2deg] shadow-[4px_4px_0_0_#000]">Events</span>
             </h2>
           </div>
 
           {/* Past Events Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {pastEvents.map((event, i) => (
-              <div key={i} className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] hover:shadow-[4px_4px_0_0_#000] hover:translate-y-[1px] transition-all">
+              <div key={i} className="bg-snow border-[4px] border-navy rounded-3xl p-6 press-4 press-black transition-all">
                 <div className="flex items-center justify-between mb-3">
                   <span className="font-display font-bold text-xs text-navy/60 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-navy/30" />
@@ -214,7 +214,7 @@ export default function EventsPage() {
               { name: "Industry Visits", count: "5+/year", bg: "bg-sunny", icon: <svg className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd" /></svg> },
               { name: "Social Events", count: "8+/year", bg: "bg-coral", icon: <svg className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" /></svg> },
             ].map((category, i) => (
-              <div key={i} className={`${category.bg} border-[4px] border-navy rounded-3xl p-6 text-center shadow-[6px_6px_0_0_#000] hover:shadow-[4px_4px_0_0_#000] hover:translate-y-[1px] transition-all`}>
+              <div key={i} className={`${category.bg} border-[4px] border-navy rounded-3xl p-6 text-center press-4 press-black transition-all`}>
                 <div className="w-14 h-14 mx-auto bg-snow border-[3px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[3px_3px_0_0_#000]">
                   {category.icon}
                 </div>
@@ -244,7 +244,7 @@ export default function EventsPage() {
           </p>
           <Link
             href="/register"
-            className="font-display font-black inline-block bg-lime border-[4px] border-lime rounded-full px-10 py-4 text-base text-navy uppercase tracking-wide hover:translate-y-[2px] shadow-[6px_6px_0_0_#000] hover:shadow-[4px_4px_0_0_#000] transition-all"
+            className="font-display font-black inline-block bg-lime border-[4px] border-lime rounded-full px-10 py-4 text-base text-navy uppercase tracking-wide press-4 press-black transition-all"
           >
             Join IESA →
           </Link>

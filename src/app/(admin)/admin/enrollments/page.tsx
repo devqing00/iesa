@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { getApiUrl } from "@/lib/api";
 import { ConfirmModal } from "@/components/ui/Modal";
+import { toast } from "sonner";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -137,8 +138,11 @@ function EnrollmentsPage() {
       setFormData({ studentId: "", sessionId: formData.sessionId, level: "100L" });
       setShowModal(false);
       await fetchData();
+      toast.success("Enrollment created successfully");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create enrollment");
+      const msg = err instanceof Error ? err.message : "Failed to create enrollment";
+      setError(msg);
+      toast.error(msg);
     }
   };
 
@@ -160,8 +164,11 @@ function EnrollmentsPage() {
 
       if (!response.ok) throw new Error("Failed to delete enrollment");
       await fetchData();
+      toast.success("Enrollment removed");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete enrollment");
+      const msg = err instanceof Error ? err.message : "Failed to delete enrollment";
+      setError(msg);
+      toast.error(msg);
     }
   };
 
@@ -198,7 +205,7 @@ function EnrollmentsPage() {
           <button
             type="button"
             onClick={() => setShowModal(true)}
-            className="self-start bg-lime border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D] px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy hover:shadow-[7px_7px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center gap-2"
+            className="self-start bg-lime border-[4px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
@@ -217,17 +224,17 @@ function EnrollmentsPage() {
 
       {/* ── Stats ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Total</p>
           <p className="font-display font-black text-3xl text-navy">{enrollments.length}</p>
           <p className="text-xs text-navy/40 mt-1">Enrollments</p>
         </div>
-        <div className="bg-teal border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+        <div className="bg-teal border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Students</p>
           <p className="font-display font-black text-3xl text-snow">{students.length}</p>
           <p className="text-xs text-snow/40 mt-1">Registered</p>
         </div>
-        <div className="bg-lavender border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform" aria-live="polite">
+        <div className="bg-lavender border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform" aria-live="polite">
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Filtered</p>
           <p className="font-display font-black text-3xl text-snow">{filteredEnrollments.length}</p>
           <p className="text-xs text-snow/40 mt-1">Results</p>
@@ -235,7 +242,7 @@ function EnrollmentsPage() {
       </div>
 
       {/* ── Filters ── */}
-      <div className="bg-snow border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000]">
+      <div className="bg-snow border-[4px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]">
         <p className="text-sm font-bold text-navy mb-4">Filters</p>
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1 space-y-1.5">
@@ -277,7 +284,7 @@ function EnrollmentsPage() {
           <h2 className="font-display font-bold text-lg text-navy">Enrollment Records</h2>
           <span className="px-3 py-1 bg-cloud text-slate text-xs font-bold rounded-full">{filteredEnrollments.length} records</span>
         </div>
-        <div className="bg-snow border-[4px] border-navy rounded-3xl overflow-hidden shadow-[6px_6px_0_0_#000]">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl overflow-hidden shadow-[4px_4px_0_0_#000]">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -368,7 +375,7 @@ function EnrollmentsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6">
           <div className="absolute inset-0 bg-navy/50" onClick={() => setShowModal(false)} />
 
-          <div className="relative bg-snow border-[4px] border-navy rounded-3xl p-8 w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[10px_10px_0_0_#000]">
+          <div className="relative bg-snow border-[4px] border-navy rounded-3xl p-8 w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">New Enrollment</p>
@@ -447,7 +454,7 @@ function EnrollmentsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold hover:shadow-[4px_4px_0_0_#C8F31D] transition-all"
+ className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold press-4 press-lime transition-all"
                 >
                   Enroll
                 </button>

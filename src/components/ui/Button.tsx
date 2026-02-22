@@ -16,17 +16,17 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    'bg-lime text-navy border-[3px] border-navy shadow-[4px_4px_0_0_#0F0F2D] hover:shadow-[6px_6px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] active:shadow-[2px_2px_0_0_#0F0F2D] active:translate-x-[1px] active:translate-y-[1px]',
+    'bg-lime text-navy border-[3px] border-navy press-3 press-navy',
   secondary:
-    'bg-navy text-lime border-[3px] border-lime shadow-[4px_4px_0_0_#000] hover:bg-navy-light active:shadow-[2px_2px_0_0_#000]',
+    'bg-navy text-lime border-[3px] border-lime press-3 press-black hover:bg-navy-light',
   outline:
     'bg-transparent text-navy border-[3px] border-navy hover:bg-navy hover:text-lime',
   ghost:
     'bg-transparent text-navy/60 border-[3px] border-transparent hover:bg-cloud hover:text-navy',
   coral:
-    'bg-coral text-white border-[3px] border-navy shadow-[4px_4px_0_0_#000] hover:shadow-[6px_6px_0_0_#000] hover:translate-x-[-1px] hover:translate-y-[-1px]',
+    'bg-coral text-white border-[3px] border-navy press-3 press-black',
   lavender:
-    'bg-lavender text-white border-[3px] border-navy shadow-[4px_4px_0_0_#000] hover:shadow-[6px_6px_0_0_#000] hover:translate-x-[-1px] hover:translate-y-[-1px]',
+    'bg-lavender text-white border-[3px] border-navy press-3 press-black',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {

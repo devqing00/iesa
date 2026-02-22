@@ -223,3 +223,44 @@ def validate_password_strength(password: str) -> tuple[bool, str]:
     if not any(c in "!@#$%^&*()_+-=[]{}|;':\",./<>?" for c in password):
         return False, "Password must contain at least one special character"
     return True, ""
+
+
+# ──────────────────────────────────────────────
+# Email Verification Tokens
+# ──────────────────────────────────────────────
+
+VERIFICATION_TOKEN_EXPIRE_HOURS = int(os.getenv("VERIFICATION_TOKEN_EXPIRE_HOURS", "24"))
+
+
+def create_verification_token(user_id: str, email: str) -> tuple[str, datetime]:
+    """
+    Create an email verification token.
+    
+    Returns:
+        (jwt_token, expires_at)
+    """
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(hours=VERIFICATION_TOKEN_EXPIRE_HOURS)
+    
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "type": "email_verification",
+        "iat": now,
+        "exp": expires_at,
+    }
+    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return token, expires_at
+
+
+def decode_verification_token(token: str) -> dict:
+    """
+    Decode and verify an email verification token.
+    
+    Returns the payload dict.
+    Raises JWTError or ExpiredSignatureError on failure.
+    """
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    if payload.get("type") != "email_verification":
+        raise JWTError("Invalid token type")
+    return payload

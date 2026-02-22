@@ -201,7 +201,7 @@ export default function StudentDashboardPage() {
           </div>
 
           {/* — Classes Today Counter — */}
-          <div className="lg:col-span-4 bg-coral border-[5px] border-navy rounded-[2rem] p-8 relative overflow-hidden flex flex-col justify-between min-h-[230px] shadow-[8px_8px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+          <div className="lg:col-span-4 bg-coral border-[5px] border-navy rounded-[2rem] p-8 relative overflow-hidden flex flex-col justify-between min-h-[230px] shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
             {/* Decorative shapes */}
             <div className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full bg-navy/10 pointer-events-none" />
             <svg className="absolute top-4 right-5 w-5 h-5 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
@@ -231,7 +231,7 @@ export default function StudentDashboardPage() {
             {
               label: "Announcements",
               value: loading ? "--" : announcements.length,
-              bg: "bg-sunny border-[4px] border-navy shadow-[5px_5px_0_0_#000]",
+              bg: "bg-sunny border-[4px] border-navy shadow-[3px_3px_0_0_#000]",
               iconBg: "bg-navy/10",
               iconColor: "text-navy",
               textColor: "text-navy",
@@ -262,7 +262,7 @@ export default function StudentDashboardPage() {
             {
               label: "Upcoming Events",
               value: loading ? "--" : events.length,
-              bg: "bg-lavender-light border-[4px] border-navy shadow-[5px_5px_0_0_#000]",
+              bg: "bg-lavender-light border-[4px] border-navy shadow-[3px_3px_0_0_#000]",
               iconBg: "bg-lavender/30",
               iconColor: "text-lavender",
               textColor: "text-navy",
@@ -277,7 +277,7 @@ export default function StudentDashboardPage() {
             {
               label: "Resources",
               value: loading ? "--" : "24+",
-              bg: "bg-teal-light border-[4px] border-navy shadow-[5px_5px_0_0_#000]",
+              bg: "bg-teal-light border-[4px] border-navy shadow-[3px_3px_0_0_#000]",
               iconBg: "bg-teal/30",
               iconColor: "text-teal",
               textColor: "text-navy",
@@ -320,7 +320,7 @@ export default function StudentDashboardPage() {
             <Link
               key={link.name}
               href={link.href}
-              className={`group ${link.color} ${link.hoverBg} border-[3px] border-navy rounded-2xl p-3 md:p-4 shadow-[4px_4px_0_0_#000] hover:shadow-[2px_2px_0_0_#000] hover:-translate-y-1 transition-all text-center`}
+              className={`group ${link.color} ${link.hoverBg} border-[3px] border-navy rounded-2xl p-3 md:p-4 press-3 press-black hover:-translate-y-1 transition-all text-center`}
             >
               <div className="w-10 h-10 rounded-xl bg-navy/10 flex items-center justify-center mx-auto mb-2 group-hover:bg-navy/15 transition-colors">
                 <span className="text-navy">{link.icon}</span>
@@ -339,7 +339,7 @@ export default function StudentDashboardPage() {
           <div className="lg:col-span-8 space-y-4">
 
             {/* Today's Schedule Card */}
-            <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
+            <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-8 rounded-full bg-lavender" />
@@ -376,7 +376,7 @@ export default function StudentDashboardPage() {
                     return (
                       <div
                         key={cls._id || i}
-                        className={`flex items-center gap-4 p-4 rounded-2xl border-[3px] ${c.border} ${c.bg} transition-all hover:shadow-[3px_3px_0_0_#000]`}
+ className={`flex items-center gap-4 p-4 rounded-2xl border-[3px] ${c.border} ${c.bg} transition-all press-3 press-black`}
                       >
                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 font-display font-black text-sm ${c.timeBg} ${c.timeTxt}`}>
                           {cls.startTime}
@@ -398,7 +398,7 @@ export default function StudentDashboardPage() {
             </div>
 
             {/* Announcements Card */}
-            <div className="bg-sunny-light border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform">
+            <div className="bg-sunny-light border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-8 rounded-full bg-sunny" />
@@ -457,7 +457,7 @@ export default function StudentDashboardPage() {
           <div className="lg:col-span-4 space-y-4">
 
             {/* Pending Dues Card */}
-            <div className="bg-coral-light border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
+            <div className="bg-coral-light border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-6 rounded-full bg-coral" />
@@ -507,7 +507,7 @@ export default function StudentDashboardPage() {
             </div>
 
             {/* Upcoming Events Card */}
-            <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+            <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-6 rounded-full bg-lavender" />
@@ -556,7 +556,7 @@ export default function StudentDashboardPage() {
             </div>
 
             {/* Growth CTA */}
-            <Link href="/dashboard/growth" className="block bg-teal border-[4px] border-navy rounded-3xl p-6 relative overflow-hidden group shadow-[6px_6px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+            <Link href="/dashboard/growth" className="block bg-teal border-[4px] border-navy rounded-3xl p-6 relative overflow-hidden group shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
               {/* Decorative */}
               <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full bg-navy/10 pointer-events-none" />
               <svg className="absolute top-3 right-4 w-4 h-4 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">

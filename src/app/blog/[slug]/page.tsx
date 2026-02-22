@@ -8,6 +8,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
 
 interface ArticleFull {
   _id: string;
@@ -87,7 +88,7 @@ export default function BlogArticlePage() {
         setLikeCount(data.likeCount);
       }
     } catch {
-      console.error("Failed to toggle like");
+      toast.error("Failed to toggle like");
     }
   };
 
@@ -125,10 +126,10 @@ export default function BlogArticlePage() {
               </div>
             </div>
           ) : !article ? (
-            <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 shadow-[8px_8px_0_0_#000] text-center">
+            <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 shadow-[3px_3px_0_0_#000] text-center">
               <h2 className="font-display font-black text-2xl text-navy mb-2">Article not found</h2>
               <p className="text-slate mb-6">This article may have been removed or the link is incorrect.</p>
-              <Link href="/blog" className="bg-lime border-[3px] border-navy px-6 py-2.5 rounded-xl font-display font-bold text-navy shadow-[4px_4px_0_0_#0F0F2D] hover:shadow-[2px_2px_0_0_#0F0F2D] hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
+              <Link href="/blog" className="bg-lime border-[3px] border-navy px-6 py-2.5 rounded-xl font-display font-bold text-navy press-3 press-navy transition-all">
                 Browse Articles
               </Link>
             </div>
@@ -181,7 +182,7 @@ export default function BlogArticlePage() {
 
               {/* Cover Image */}
               {article.coverImageUrl && (
-                <div className="relative h-64 sm:h-80 lg:h-96 mb-10 rounded-3xl overflow-hidden border-[4px] border-navy shadow-[8px_8px_0_0_#000]">
+                <div className="relative h-64 sm:h-80 lg:h-96 mb-10 rounded-3xl overflow-hidden border-[4px] border-navy shadow-[3px_3px_0_0_#000]">
                   <Image src={article.coverImageUrl} alt={article.title} fill className="object-cover" />
                 </div>
               )}
@@ -216,7 +217,7 @@ export default function BlogArticlePage() {
 
               {/* Back to blog CTA */}
               <div className="mt-12 text-center">
-                <Link href="/blog" className="inline-flex bg-navy border-[4px] border-lime px-8 py-3 rounded-2xl font-display font-bold text-lime shadow-[5px_5px_0_0_#C8F31D] hover:shadow-[3px_3px_0_0_#C8F31D] hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
+                <Link href="/blog" className="inline-flex bg-navy border-[4px] border-lime px-8 py-3 rounded-2xl font-display font-bold text-lime press-4 press-lime transition-all">
                   More Articles
                 </Link>
               </div>

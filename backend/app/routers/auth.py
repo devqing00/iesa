@@ -17,6 +17,8 @@ from bson import ObjectId
 import os
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from jose import JWTError, ExpiredSignatureError
+from pydantic import BaseModel
 
 from app.core.auth import (
     hash_password,
@@ -27,6 +29,8 @@ from app.core.auth import (
     decode_access_token,
     decode_refresh_token,
     validate_password_strength,
+    create_verification_token,
+    decode_verification_token,
     TokenPair,
     RegisterRequest,
     LoginRequest,
@@ -35,6 +39,7 @@ from app.core.auth import (
     REFRESH_TOKEN_EXPIRE_DAYS,
 )
 from app.core.security import get_current_user
+from app.core.email import send_verification_email
 from app.db import get_database
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
@@ -160,6 +165,21 @@ async def register(
 
     # Auto-enroll in active session with selected level
     await _auto_enroll(db, user_id, data.level)
+
+    # Send verification email (non-blocking, errors logged but don't fail registration)
+    try:
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        verification_token, _ = create_verification_token(user_id, data.email)
+        verification_url = f"{frontend_url}/verify-email?token={verification_token}"
+        await send_verification_email(
+            to=data.email,
+            name=f"{data.firstName} {data.lastName}",
+            verification_url=verification_url
+        )
+    except Exception as e:
+        # Log error but don't fail registration
+        import logging
+        logging.error(f"Failed to send verification email: {e}")
 
     # Issue tokens
     access = create_access_token(user_id, data.email, role)
@@ -400,6 +420,71 @@ async def change_password(
     )
 
     return {"message": "Password changed successfully"}
+
+
+# ──────────────────────────────────────────────
+# EMAIL VERIFICATION
+# ──────────────────────────────────────────────
+
+@router.get("/verify-email")
+async def verify_email(token: str):
+    """
+    Verify user's email address using token from verification email.
+    
+    - Validates JWT token
+    - Marks emailVerified = True
+    - Returns success message
+    """
+    db = get_database()
+    users = db["users"]
+    
+    try:
+        # Decode and validate token
+        payload = decode_verification_token(token)
+        user_id = payload.get("sub")
+        email = payload.get("email")
+        
+        if not user_id or not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid verification token"
+            )
+        
+        # Find user
+        user = await users.find_one({"_id": ObjectId(user_id), "email": email})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Check if already verified
+        if user.get("emailVerified"):
+            return {"message": "Email already verified", "alreadyVerified": True}
+        
+        # Mark as verified
+        await users.update_one(
+            {"_id": ObjectId(user_id)},
+            {
+                "$set": {
+                    "emailVerified": True,
+                    "updatedAt": datetime.now(timezone.utc)
+                }
+            }
+        )
+        
+        return {"message": "Email verified successfully", "alreadyVerified": False}
+        
+    except ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification link has expired. Please request a new one."
+        )
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid verification token"
+        )
 
 
 # ──────────────────────────────────────────────

@@ -195,7 +195,7 @@ export default function PlannerPage() {
         {/* ═══ BENTO HERO ═══ */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
           {/* Title Card — coral theme */}
-          <div className="md:col-span-7 bg-coral border-[6px] border-navy rounded-[2rem] p-8 shadow-[10px_10px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
+          <div className="md:col-span-7 bg-coral border-[6px] border-navy rounded-[2rem] p-8 shadow-[4px_4px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
             <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/70 flex items-center gap-2 mb-3">
               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
               Plan & Execute
@@ -208,7 +208,7 @@ export default function PlannerPage() {
             </p>
             <button
               onClick={() => { setEditingTask(null); setShowAddModal(true); }}
-              className="inline-flex items-center gap-2 bg-navy text-lime border-[4px] border-lime rounded-2xl px-6 py-3 font-display font-bold text-sm shadow-[5px_5px_0_0_#000] hover:shadow-[8px_8px_0_0_#000] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all"
+              className="inline-flex items-center gap-2 bg-navy text-lime border-[4px] border-lime rounded-2xl px-6 py-3 font-display font-bold text-sm press-3 press-black transition-all"
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 3.75a.75.75 0 01.75.75v6.75h6.75a.75.75 0 010 1.5h-6.75v6.75a.75.75 0 01-1.5 0v-6.75H4.5a.75.75 0 010-1.5h6.75V4.5a.75.75 0 01.75-.75z" clipRule="evenodd" /></svg>
               Add New Task
@@ -218,25 +218,25 @@ export default function PlannerPage() {
           {/* Stats Grid — 2×2 */}
           <div className="md:col-span-5 grid grid-cols-2 gap-3">
             {/* Active */}
-            <div className="bg-teal-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[0.3deg] hover:rotate-0 transition-transform">
+            <div className="bg-teal-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.3deg] hover:rotate-0 transition-transform">
               <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Active</span>
               <p className="font-display font-black text-3xl text-navy mt-1">{stats.active}</p>
               <div className="w-6 h-1.5 rounded-full bg-teal mt-2" />
             </div>
             {/* Due Today */}
-            <div className="bg-sunny-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+            <div className="bg-sunny-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
               <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Due Today</span>
               <p className="font-display font-black text-3xl text-navy mt-1">{stats.dueToday}</p>
               <div className="w-6 h-1.5 rounded-full bg-sunny mt-2" />
             </div>
             {/* Overdue */}
-            <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+            <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
               <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Overdue</span>
               <p className={`font-display font-black text-3xl mt-1 ${stats.overdue > 0 ? "text-coral" : "text-navy"}`}>{stats.overdue}</p>
               <div className="w-6 h-1.5 rounded-full bg-coral mt-2" />
             </div>
             {/* Completed */}
-            <div className="bg-lavender-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform">
+            <div className="bg-lavender-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform">
               <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Completed</span>
               <p className="font-display font-black text-3xl text-navy mt-1">{stats.completed}</p>
               <div className="w-6 h-1.5 rounded-full bg-lavender mt-2" />
@@ -245,7 +245,7 @@ export default function PlannerPage() {
         </div>
 
         {/* ═══ FILTER BAR ═══ */}
-        <div className="bg-snow border-[4px] border-navy rounded-[1.5rem] shadow-[6px_6px_0_0_#000] p-4 mb-6">
+        <div className="bg-snow border-[4px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] p-4 mb-6">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             {/* Status Tabs */}
             <div className="flex flex-wrap items-center gap-2">
@@ -296,7 +296,7 @@ export default function PlannerPage() {
         <div className="space-y-3">
           {filteredTasks.length === 0 ? (
             /* Empty State */
-            <div className="bg-navy border-[4px] border-lime rounded-[2rem] shadow-[8px_8px_0_0_#000] p-12 text-center">
+            <div className="bg-navy border-[4px] border-lime rounded-[2rem] shadow-[3px_3px_0_0_#000] p-12 text-center">
               <div className="w-14 h-14 bg-lime/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <svg className="w-7 h-7 text-lime" fill="currentColor" viewBox="0 0 24 24">
                   <path fillRule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0118 9.375v9.375a3 3 0 003-3V6.108c0-1.505-1.125-2.811-2.664-2.94A48.972 48.972 0 0012 3c-2.227 0-4.406.148-6.532.418A2.943 2.943 0 003 6.108V8.25a3 3 0 003-3h1.502zM13.5 8.25a.75.75 0 00-1.5 0v5.25H6.75a.75.75 0 000 1.5H12v5.25a.75.75 0 001.5 0v-5.25h5.25a.75.75 0 000-1.5H13.5V8.25z" clipRule="evenodd" />
@@ -311,7 +311,7 @@ export default function PlannerPage() {
               {filter !== "completed" && (
                 <button
                   onClick={() => { setEditingTask(null); setShowAddModal(true); }}
-                  className="inline-flex items-center gap-2 bg-lime text-navy border-[4px] border-navy rounded-2xl px-6 py-3 font-display font-bold text-sm shadow-[5px_5px_0_0_#0F0F2D] hover:shadow-[8px_8px_0_0_#0F0F2D] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all"
+                  className="inline-flex items-center gap-2 bg-lime text-navy border-[4px] border-navy rounded-2xl px-6 py-3 font-display font-bold text-sm press-3 press-navy transition-all"
                 >
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 3.75a.75.75 0 01.75.75v6.75h6.75a.75.75 0 010 1.5h-6.75v6.75a.75.75 0 01-1.5 0v-6.75H4.5a.75.75 0 010-1.5h6.75V4.5a.75.75 0 01.75-.75z" clipRule="evenodd" /></svg>
                   Create First Task
@@ -329,9 +329,9 @@ export default function PlannerPage() {
               return (
                 <div
                   key={task.id}
-                  className={`bg-snow border-[4px] border-navy ${accent} border-l-[6px] rounded-[1.5rem] shadow-[6px_6px_0_0_#000] p-5 transition-all hover:shadow-[4px_4px_0_0_#000] hover:translate-x-[1px] hover:translate-y-[1px] ${
-                    task.completed ? "opacity-50" : ""
-                  } ${overdue ? "border-coral border-l-coral" : ""}`}
+                  className={`bg-snow border-[4px] border-navy ${accent} border-l-[6px] rounded-[1.5rem] press-4 press-black p-5 transition-all ${
+ task.completed ?"opacity-50" :""
+ } ${overdue ?"border-coral border-l-coral" :""}`}
                 >
                   <div className="flex items-start gap-4">
                     {/* Checkbox */}
@@ -471,7 +471,7 @@ function TaskModal({ task, onSave, onClose }: { task: Task | null; onSave: (data
 
   return (
     <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm flex items-center justify-center z-50 px-4 pt-4 pb-20 md:p-6">
-      <div className="bg-ghost border-[4px] border-navy rounded-[2rem] shadow-[10px_10px_0_0_#000] w-full max-w-lg max-h-[80vh] md:max-h-[85vh] overflow-y-auto">
+      <div className="bg-ghost border-[4px] border-navy rounded-[2rem] shadow-[4px_4px_0_0_#000] w-full max-w-lg max-h-[80vh] md:max-h-[85vh] overflow-y-auto">
         {/* Header */}
         <div className="p-6 border-b-[3px] border-navy flex items-center justify-between">
           <div>
@@ -582,7 +582,7 @@ function TaskModal({ task, onSave, onClose }: { task: Task | null; onSave: (data
           <button
             onClick={handleSubmit}
             disabled={!title.trim()}
-            className="flex-1 px-4 py-3 rounded-2xl bg-lime text-navy border-[4px] border-navy shadow-[4px_4px_0_0_#0F0F2D] font-display font-bold text-xs uppercase tracking-wider hover:shadow-[6px_6px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-40 disabled:pointer-events-none"
+            className="flex-1 px-4 py-3 rounded-2xl bg-lime text-navy border-[4px] border-navy press-3 press-navy font-display font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-40 disabled:pointer-events-none"
           >
             {task ? "Save Changes" : "Create Task"}
           </button>

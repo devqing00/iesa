@@ -202,7 +202,7 @@ export default function AnnouncementsPage() {
 
           {/* Stats mini-cards */}
           <div className="md:col-span-5 grid grid-cols-2 gap-3">
-            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] flex flex-col justify-between">
+            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-coral-light flex items-center justify-center mb-3">
                 <svg className="w-4.5 h-4.5 text-coral" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clipRule="evenodd" />
@@ -211,7 +211,7 @@ export default function AnnouncementsPage() {
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Unread</p>
               <p className="font-display font-black text-3xl text-navy">{unreadCount}</p>
             </div>
-            <div className="bg-teal-light border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+            <div className="bg-teal-light border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-teal/20 flex items-center justify-center mb-3">
                 <svg className="w-4.5 h-4.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
@@ -227,7 +227,7 @@ export default function AnnouncementsPage() {
             ERROR BANNER
             ═══════════════════════════════════════════════════════ */}
         {error && (
-          <div className="bg-coral-light border-[3px] border-navy rounded-2xl p-4 mb-5 shadow-[4px_4px_0_0_#000] flex items-center gap-3">
+          <div className="bg-coral-light border-[3px] border-navy rounded-2xl p-4 mb-5 shadow-[3px_3px_0_0_#000] flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-coral flex items-center justify-center shrink-0">
               <svg className="w-4 h-4 text-snow" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
@@ -264,7 +264,7 @@ export default function AnnouncementsPage() {
             ANNOUNCEMENTS LIST
             ═══════════════════════════════════════════════════════ */}
         {filtered.length === 0 ? (
-          <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[6px_6px_0_0_#000]">
+          <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-lavender-light flex items-center justify-center">
               <svg className="w-8 h-8 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clipRule="evenodd" />
@@ -290,14 +290,14 @@ export default function AnnouncementsPage() {
                   key={announcement.id}
                   id={`announcement-${announcement.id}`}
                   className={`rounded-3xl overflow-hidden transition-all ${
-                    highlightId === announcement.id && highlightApplied
-                      ? "ring-4 ring-lime ring-offset-2 "
-                      : ""
-                  }${
-                    isRead
-                      ? "bg-cloud border-[3px] border-navy/15"
-                      : "bg-snow border-[4px] border-navy shadow-[5px_5px_0_0_#000] hover:shadow-[3px_3px_0_0_#000] hover:translate-x-[1px] hover:translate-y-[1px]"
-                  }`}
+ highlightId === announcement.id && highlightApplied
+ ?"ring-4 ring-lime ring-offset-2"
+ :""
+ }${
+ isRead
+ ?"bg-cloud border-[3px] border-navy/15"
+ :"bg-snow border-[4px] border-navy press-3 press-black"
+ }`}
                 >
                   <button
                     onClick={() => handleToggle(announcement.id)}

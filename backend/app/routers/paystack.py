@@ -106,11 +106,11 @@ async def initialize_payment(
     Rate limited to prevent payment spam.
     """
     try:
-        from app.db import get_sync_db
-        db = get_sync_db()
+        from app.db import get_database
+        db = get_database()
         
         # Verify payment exists
-        payment = db.payments.find_one({"_id": ObjectId(payment_request.paymentId)})
+        payment = await db.payments.find_one({"_id": ObjectId(payment_request.paymentId)})
         if not payment:
             raise HTTPException(status_code=404, detail="Payment not found")
         
@@ -191,7 +191,7 @@ async def initialize_payment(
             "updatedAt": datetime.utcnow()
         }
         
-        result = db.paystackTransactions.insert_one(transaction_record)
+        result = await db.paystackTransactions.insert_one(transaction_record)
         
         return PaymentResponse(
             transactionId=str(result.inserted_id),
@@ -226,11 +226,11 @@ async def verify_payment(
     Checks Paystack for transaction status and updates local record.
     """
     try:
-        from app.db import get_sync_db
-        db = get_sync_db()
+        from app.db import get_database
+        db = get_database()
         
         # Check local database first
-        transaction = db.paystackTransactions.find_one({"reference": reference})
+        transaction = await db.paystackTransactions.find_one({"reference": reference})
         
         if not transaction:
             raise HTTPException(status_code=404, detail="Transaction not found")
@@ -291,7 +291,7 @@ async def verify_payment(
             
             # Update payment's paidBy array
             payment_id = transaction["paymentId"]
-            db.payments.update_one(
+            await db.payments.update_one(
                 {"_id": ObjectId(payment_id)},
                 {
                     "$addToSet": {"paidBy": current_user["uid"]},
@@ -300,7 +300,7 @@ async def verify_payment(
             )
             
             # Also create a transaction record in the transactions collection
-            db.transactions.insert_one({
+            await db.transactions.insert_one({
                 "paymentId": payment_id,
                 "studentId": current_user["uid"],
                 "amount": transaction["amount"],
@@ -310,13 +310,13 @@ async def verify_payment(
                 "createdAt": datetime.utcnow()
             })
         
-        db.paystackTransactions.update_one(
+        await db.paystackTransactions.update_one(
             {"reference": reference},
             {"$set": update_data}
         )
         
         # Fetch updated record
-        transaction = db.paystackTransactions.find_one({"reference": reference})
+        transaction = await db.paystackTransactions.find_one({"reference": reference})
         
         return PaymentVerifyResponse(
             transactionId=str(transaction["_id"]),
@@ -372,9 +372,9 @@ async def paystack_webhook(
                 return {"status": "ignored", "reason": "No reference found"}
             
             # Update transaction in database
-            from app.db import get_sync_db
-            db = get_sync_db()
-            transaction = db.paystackTransactions.find_one({"reference": reference})
+            from app.db import get_database
+            db = get_database()
+            transaction = await db.paystackTransactions.find_one({"reference": reference})
             
             if not transaction:
                 return {"status": "ignored", "reason": "Transaction not found"}
@@ -397,7 +397,7 @@ async def paystack_webhook(
                 "updatedAt": datetime.utcnow()
             }
             
-            db.paystackTransactions.update_one(
+            await db.paystackTransactions.update_one(
                 {"reference": reference},
                 {"$set": update_data}
             )
@@ -406,7 +406,7 @@ async def paystack_webhook(
             payment_id = transaction["paymentId"]
             student_id = transaction["studentId"]
             
-            db.payments.update_one(
+            await db.payments.update_one(
                 {"_id": ObjectId(payment_id)},
                 {
                     "$addToSet": {"paidBy": student_id},
@@ -415,7 +415,7 @@ async def paystack_webhook(
             )
             
             # Create transaction record
-            db.transactions.insert_one({
+            await db.transactions.insert_one({
                 "paymentId": payment_id,
                 "studentId": student_id,
                 "amount": transaction["amount"],
@@ -427,7 +427,7 @@ async def paystack_webhook(
             
             # Send receipt email asynchronously
             try:
-                payment = db.payments.find_one({"_id": ObjectId(payment_id)})
+                payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
                 await send_payment_receipt(
                     to=transaction.get("studentEmail", "student@example.com"),
                     student_name=transaction.get("studentName", "Student"),
@@ -455,28 +455,38 @@ async def get_transactions(
     limit: int = 50
 ):
     """
-    Get Paystack transactions for current user.
-    Returns list of all Paystack transactions.
+    Get Paystack transactions.
+    - Admin/Super Admin: Returns all transactions
+    - Students: Returns only their transactions
     """
     try:
-        from app.db import get_sync_db
-        db = get_sync_db()
+        from app.db import get_database
+        from app.core.permissions import get_user_permissions
+        db = get_database()
         
-        # Get user ID
-        user_id = current_user.get("_id")
-        if not user_id:
-            raise HTTPException(status_code=400, detail="User ID not found")
+        # Get active session for permission check
+        sessions = db["sessions"]
+        active_session = await sessions.find_one({"isActive": True})
+        if not active_session:
+            raise HTTPException(status_code=404, detail="No active session found")
         
-        # Fetch transactions
-        transactions = list(
-            db.paystackTransactions.find({"studentId": user_id})
-            .sort("createdAt", -1)
-            .limit(limit)
-        )
+        # Check if user has admin permissions
+        user_id = current_user.get("_id") or current_user.get("id")
+        user_permissions = await get_user_permissions(user_id, str(active_session["_id"]))
+        is_admin = "payment:create" in user_permissions
         
-        # Convert ObjectId to string
-        for txn in transactions:
+        # Fetch transactions based on role
+        transactions = []
+        if is_admin:
+            # Admin sees all transactions
+            cursor = db.paystackTransactions.find({}).sort("createdAt", -1).limit(limit)
+        else:
+            # Students see only their transactions
+            cursor = db.paystackTransactions.find({"studentId": user_id}).sort("createdAt", -1).limit(limit)
+        
+        async for txn in cursor:
             txn["_id"] = str(txn["_id"])
+            transactions.append(txn)
         
         return transactions
         
@@ -497,11 +507,11 @@ async def download_receipt(
     Only available for verified transactions.
     """
     try:
-        from app.db import get_sync_db
-        db = get_sync_db()
+        from app.db import get_database
+        db = get_database()
         
         # Fetch transaction
-        transaction = db.paystackTransactions.find_one({"reference": reference})
+        transaction = await db.paystackTransactions.find_one({"reference": reference})
         
         if not transaction:
             raise HTTPException(status_code=404, detail="Transaction not found")
@@ -518,7 +528,7 @@ async def download_receipt(
             )
         
         # Get payment details
-        payment = db.payments.find_one({"_id": ObjectId(transaction["paymentId"])})
+        payment = await db.payments.find_one({"_id": ObjectId(transaction["paymentId"])})
         if not payment:
             raise HTTPException(status_code=404, detail="Payment record not found")
         

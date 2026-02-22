@@ -172,7 +172,7 @@ export default function AdminSidebar() {
         {/* Collapse/Expand Toggle — positioned on sidebar edge */}
         <button
           onClick={toggleSidebar}
-          className="absolute -right-[14px] top-[54px] w-7 h-7 rounded-full bg-snow border-[3px] border-navy flex items-center justify-center shadow-[2px_2px_0_0_#000] hover:bg-lime hover:shadow-[3px_3px_0_0_#000] transition-all z-50"
+          className="absolute -right-[14px] top-[54px] w-7 h-7 rounded-full bg-snow border-[3px] border-navy flex items-center justify-center press-2 press-black hover:bg-lime transition-all z-50"
           aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
         >
           <svg
@@ -234,7 +234,7 @@ export default function AdminSidebar() {
           {isExpanded ? (
             <Link
               href="/admin/sessions"
-              className="flex items-center gap-3 rounded-2xl bg-navy border-[3px] border-lime p-3 hover:shadow-[3px_3px_0_0_#C8F31D] hover:-translate-y-px transition-all group"
+ className="flex items-center gap-3 rounded-2xl bg-navy border-[3px] border-lime p-3 press-3 press-lime transition-all group"
             >
               <span className="relative flex-shrink-0">
                 <span className="w-2 h-2 rounded-full bg-lime block" />

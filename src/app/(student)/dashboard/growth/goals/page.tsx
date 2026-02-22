@@ -202,7 +202,7 @@ export default function GoalsPage() {
               ═══════════════════════════════════════════════════ */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
             {/* Title card */}
-            <div className="md:col-span-7 bg-lavender border-[5px] border-navy rounded-[2rem] shadow-[8px_8px_0_0_#000] p-7 md:p-9 rotate-[-0.4deg] hover:rotate-0 transition-transform">
+            <div className="md:col-span-7 bg-lavender border-[5px] border-navy rounded-[2rem] shadow-[3px_3px_0_0_#000] p-7 md:p-9 rotate-[-0.4deg] hover:rotate-0 transition-transform">
               <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/40 mb-3">Set &amp; Achieve</div>
               <h1 className="font-display font-black text-2xl md:text-3xl lg:text-4xl text-navy mb-3 leading-tight overflow-hidden">
                 Your <span className="brush-highlight brush-coral">Goals</span>
@@ -212,19 +212,19 @@ export default function GoalsPage() {
 
             {/* Stats mini-grid */}
             <div className="md:col-span-5 grid grid-cols-2 gap-3">
-              <div className="bg-teal-light border-[4px] border-navy rounded-[1.5rem] shadow-[5px_5px_0_0_#000] p-4 flex flex-col justify-between">
+              <div className="bg-teal-light border-[4px] border-navy rounded-[1.5rem] shadow-[3px_3px_0_0_#000] p-4 flex flex-col justify-between">
                 <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40">Active</div>
                 <div className="font-display font-black text-3xl text-navy">{stats.active}</div>
               </div>
-              <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] shadow-[5px_5px_0_0_#000] p-4 flex flex-col justify-between">
+              <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] shadow-[3px_3px_0_0_#000] p-4 flex flex-col justify-between">
                 <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40">Done</div>
                 <div className="font-display font-black text-3xl text-navy">{stats.completed}</div>
               </div>
-              <div className="bg-sunny-light border-[4px] border-navy rounded-[1.5rem] shadow-[5px_5px_0_0_#000] p-4 flex flex-col justify-between">
+              <div className="bg-sunny-light border-[4px] border-navy rounded-[1.5rem] shadow-[3px_3px_0_0_#000] p-4 flex flex-col justify-between">
                 <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40">Success</div>
                 <div className="font-display font-black text-3xl text-navy">{stats.completionRate}%</div>
               </div>
-              <div className="bg-navy border-[4px] border-navy rounded-[1.5rem] shadow-[5px_5px_0_0_#000] p-4 flex flex-col justify-between">
+              <div className="bg-navy border-[4px] border-navy rounded-[1.5rem] shadow-[3px_3px_0_0_#000] p-4 flex flex-col justify-between">
                 <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-ghost/40">Urgent</div>
                 <div className="font-display font-black text-3xl text-coral">{stats.highPriority}</div>
               </div>
@@ -279,7 +279,7 @@ export default function GoalsPage() {
             {/* Add Goal CTA */}
             <button
               onClick={() => { setEditingGoal(null); setShowAddModal(true); }}
-              className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-lime text-navy border-[4px] border-navy shadow-[4px_4px_0_0_#0F0F2D] font-display font-bold text-xs uppercase tracking-wider hover:shadow-[6px_6px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+              className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-lime text-navy border-[4px] border-navy press-3 press-navy font-display font-bold text-xs uppercase tracking-wider transition-all"
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 3.75a.75.75 0 01.75.75v6.75h6.75a.75.75 0 010 1.5h-6.75v6.75a.75.75 0 01-1.5 0v-6.75H4.5a.75.75 0 010-1.5h6.75V4.5a.75.75 0 01.75-.75z" clipRule="evenodd"/></svg>
               Add Goal
@@ -291,7 +291,7 @@ export default function GoalsPage() {
               ═══════════════════════════════════════════════════ */}
           <div className="space-y-4">
             {filteredGoals.length === 0 ? (
-              <div className="bg-snow border-[4px] border-navy rounded-[2rem] shadow-[8px_8px_0_0_#000] p-12 text-center">
+              <div className="bg-snow border-[4px] border-navy rounded-[2rem] shadow-[3px_3px_0_0_#000] p-12 text-center">
                 <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-lavender-light border-[3px] border-navy flex items-center justify-center">
                   <svg className="w-7 h-7 text-lavender" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd"/></svg>
                 </div>
@@ -304,7 +304,7 @@ export default function GoalsPage() {
                 {filter !== "completed" && (
                   <button
                     onClick={() => { setEditingGoal(null); setShowAddModal(true); }}
-                    className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-lime text-navy border-[3px] border-navy shadow-[4px_4px_0_0_#0F0F2D] font-display font-bold text-xs uppercase tracking-wider"
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-lime text-navy border-[3px] border-navy shadow-[3px_3px_0_0_#0F0F2D] font-display font-bold text-xs uppercase tracking-wider"
                   >
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 3.75a.75.75 0 01.75.75v6.75h6.75a.75.75 0 010 1.5h-6.75v6.75a.75.75 0 01-1.5 0v-6.75H4.5a.75.75 0 010-1.5h6.75V4.5a.75.75 0 01.75-.75z" clipRule="evenodd"/></svg>
                     Create Your First Goal
@@ -324,7 +324,7 @@ export default function GoalsPage() {
                 return (
                   <div
                     key={goal.id}
-                    className={`bg-snow border-[4px] border-navy border-l-[6px] ${accent.border} rounded-[1.5rem] shadow-[6px_6px_0_0_#000] transition-all ${
+                    className={`bg-snow border-[4px] border-navy border-l-[6px] ${accent.border} rounded-[1.5rem] shadow-[4px_4px_0_0_#000] transition-all ${
                       goal.completedAt ? "opacity-50" : ""
                     } ${overdue ? "border-coral" : ""}`}
                   >
@@ -496,7 +496,7 @@ function GoalModal({
 
   return (
     <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm flex items-center justify-center z-50 px-4 pt-4 pb-20 md:p-6">
-      <div className="bg-ghost border-[4px] border-navy rounded-[2rem] shadow-[10px_10px_0_0_#000] w-full max-w-lg max-h-[80vh] md:max-h-[85vh] overflow-y-auto">
+      <div className="bg-ghost border-[4px] border-navy rounded-[2rem] shadow-[4px_4px_0_0_#000] w-full max-w-lg max-h-[80vh] md:max-h-[85vh] overflow-y-auto">
         {/* Modal header */}
         <div className="p-6 border-b-[3px] border-navy/10 flex items-center justify-between">
           <div>
@@ -603,7 +603,7 @@ function GoalModal({
           <button onClick={onClose} className="flex-1 px-4 py-3 rounded-xl border-[3px] border-navy text-navy/50 font-display font-bold text-xs uppercase tracking-wider hover:bg-cloud transition-colors">
             Cancel
           </button>
-          <button onClick={handleSubmit} disabled={!title.trim()} className="flex-1 px-4 py-3 rounded-2xl bg-lime text-navy border-[3px] border-navy shadow-[3px_3px_0_0_#0F0F2D] font-display font-bold text-xs uppercase tracking-wider hover:shadow-[5px_5px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-40">
+          <button onClick={handleSubmit} disabled={!title.trim()} className="flex-1 px-4 py-3 rounded-2xl bg-lime text-navy border-[3px] border-navy press-3 press-navy font-display font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-40">
             {goal ? "Save Changes" : "Create Goal"}
           </button>
         </div>

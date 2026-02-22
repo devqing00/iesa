@@ -76,9 +76,22 @@ PERMISSIONS = {
 
 # Default permissions by position
 DEFAULT_PERMISSIONS = {
-    "admin": [
-        # Admins have all permissions
+    "super_admin": [
+        # Super admins have ALL permissions — almighty access
         *PERMISSIONS.keys()
+    ],
+    "admin": [
+        # Regular admins: view-only dashboard access.
+        # Full permissions come from additional positions (president, treasurer, etc.)
+        "announcement:view",
+        "user:view_all",
+        "role:view",
+        "session:view",
+        "audit:view",
+        "enrollment:view",
+        "grade:view_all",
+        "payment:view_all",
+        "resource:view",
     ],
     "president": [
         "announcement:create", "announcement:edit", "announcement:delete", "announcement:view",
@@ -195,11 +208,14 @@ async def get_user_permissions(
     """
     db = get_database()
     roles_collection = db["roles"]
-    users = db["users"]
     
-    # Admin users have all permissions
-    user = await users.find_one({"_id": ObjectId(user_id)})
-    if user and user.get("role") == "admin":
+    # Super admin check — if user has super_admin position in ANY session, they have ALL permissions
+    super_admin_role = await roles_collection.find_one({
+        "userId": user_id,
+        "position": "super_admin",
+        "isActive": True
+    })
+    if super_admin_role:
         return list(PERMISSIONS.keys())
     
     # Get user's roles for this session
@@ -222,8 +238,8 @@ async def get_user_permissions(
         if position:
             if position in DEFAULT_PERMISSIONS:
                 all_permissions.update(DEFAULT_PERMISSIONS[position])
-            elif position.startswith("class_rep"):
-                # All class_rep_XL variants inherit base class_rep permissions
+            elif position.startswith("class_rep") or position.startswith("asst_class_rep"):
+                # All class_rep/asst_class_rep variants inherit base class_rep permissions
                 all_permissions.update(DEFAULT_PERMISSIONS.get("class_rep", []))
     
     return list(all_permissions)

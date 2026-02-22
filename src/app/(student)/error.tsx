@@ -29,7 +29,7 @@ export default function DashboardError({
         </p>
 
         {process.env.NODE_ENV === "development" && (
-          <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 text-left shadow-[4px_4px_0_0_#000]">
+          <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 text-left shadow-[3px_3px_0_0_#000]">
             <p className="font-display font-bold text-xs text-coral uppercase tracking-wider mb-2">Error Details</p>
             <p className="text-sm text-navy/60 font-mono break-all">
               {error.message}

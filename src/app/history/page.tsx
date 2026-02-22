@@ -88,7 +88,7 @@ export default function HistoryPage() {
               A Legacy of
               <br />
               <span className="brush-highlight">Excellence</span>
-              <span className="inline-block bg-lavender border-[4px] border-navy px-4 sm:px-6 py-2 rotate-[2deg] shadow-[6px_6px_0_0_#000] ml-3 text-4xl sm:text-6xl align-middle">Since 2018</span>
+              <span className="inline-block bg-lavender border-[4px] border-navy px-4 sm:px-6 py-2 rotate-[2deg] shadow-[4px_4px_0_0_#000] ml-3 text-4xl sm:text-6xl align-middle">Since 2018</span>
             </h1>
             <p className="font-display font-medium text-base sm:text-lg text-navy/70 max-w-2xl leading-relaxed">
               From humble beginnings to becoming one of the most vibrant student
@@ -132,7 +132,7 @@ export default function HistoryPage() {
                   {/* Content */}
                   <div className="md:w-1/2 pl-16 md:pl-0">
                     <div className={i % 2 === 0 ? "md:pl-10 md:text-left" : "md:pr-10 md:text-right"}>
-                      <div className={`bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] hover:shadow-[4px_4px_0_0_#000] hover:translate-y-[1px] transition-all`}>
+                      <div className={`bg-snow border-[4px] border-navy rounded-3xl p-6 press-4 press-black transition-all`}>
                         <div className={`inline-block ${item.color} border-[3px] border-navy rounded-full px-3 py-0.5 mb-3`}>
                           <span className="font-display font-black text-sm text-navy">{item.year}</span>
                         </div>
@@ -164,7 +164,7 @@ export default function HistoryPage() {
           {/* Section Header */}
           <div className="text-center mb-10 sm:mb-14">
             <h2 className="font-display font-black text-3xl sm:text-5xl text-navy">
-              Key <span className="bg-snow border-[4px] border-navy px-4 sm:px-6 py-2 inline-block rotate-[-2deg] shadow-[6px_6px_0_0_#000]">Milestones</span>
+              Key <span className="bg-snow border-[4px] border-navy px-4 sm:px-6 py-2 inline-block rotate-[-2deg] shadow-[4px_4px_0_0_#000]">Milestones</span>
             </h2>
           </div>
 
@@ -176,7 +176,7 @@ export default function HistoryPage() {
               { number: "50+", label: "Events Hosted", bg: "bg-lavender" },
               { number: "20+", label: "Industry Partners", bg: "bg-teal" },
             ].map((stat, i) => (
-              <div key={i} className={`${stat.bg} border-[4px] border-navy rounded-3xl p-6 sm:p-8 text-center shadow-[6px_6px_0_0_#000]`}>
+              <div key={i} className={`${stat.bg} border-[4px] border-navy rounded-3xl p-6 sm:p-8 text-center shadow-[4px_4px_0_0_#000]`}>
                 <span className="font-display font-black text-4xl sm:text-5xl text-navy block mb-2">
                   {stat.number}
                 </span>
@@ -207,7 +207,7 @@ export default function HistoryPage() {
           </p>
           <Link
             href="/register"
-            className="font-display font-black inline-block bg-lime border-[4px] border-lime rounded-full px-10 py-4 text-base text-navy uppercase tracking-wide hover:translate-y-[2px] shadow-[6px_6px_0_0_#000] hover:shadow-[4px_4px_0_0_#000] transition-all"
+            className="font-display font-black inline-block bg-lime border-[4px] border-lime rounded-full px-10 py-4 text-base text-navy uppercase tracking-wide press-4 press-black transition-all"
           >
             Join IESA →
           </Link>

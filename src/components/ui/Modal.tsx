@@ -98,7 +98,7 @@ export function Modal({
           max-h-[80vh] md:max-h-[85vh]
           overflow-hidden
           flex flex-col
-          animate-scale-in shadow-[8px_8px_0_0_#000]
+          animate-scale-in shadow-[3px_3px_0_0_#000]
         `}
       >
         {(title || showCloseButton) && (

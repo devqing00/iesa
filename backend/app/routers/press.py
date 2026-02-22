@@ -57,8 +57,20 @@ def _slugify(text: str) -> str:
 
 
 async def _check_press_member(user: dict, db) -> bool:
-    """Check if user is a press unit member (has any press permission in their role)."""
+    """Check if user is a press unit member (has any press permission in their role).
+    Super admins always have access."""
     roles = db["roles"]
+    
+    # Check for super admin (omnipotent access)
+    super_admin = await roles.find_one({
+        "userId": user["_id"],
+        "position": "super_admin",
+        "isActive": True
+    })
+    if super_admin:
+        return True
+    
+    # Check for press-specific permissions or position
     user_role = await roles.find_one({
         "userId": user["_id"],
         "$or": [
@@ -71,8 +83,19 @@ async def _check_press_member(user: dict, db) -> bool:
 
 async def _check_press_head(user: dict, db) -> bool:
     """Check if user has press review/publish permissions (unit head).
-    Admins do NOT automatically get press head access — must have explicit press role."""
+    Super admins always have access."""
     roles = db["roles"]
+    
+    # Check for super admin (omnipotent access)
+    super_admin = await roles.find_one({
+        "userId": user["_id"],
+        "position": "super_admin",
+        "isActive": True
+    })
+    if super_admin:
+        return True
+    
+    # Check for press head permissions
     user_role = await roles.find_one({
         "userId": user["_id"],
         "permissions": {"$in": ["press:review", "press:publish", "press:manage"]},

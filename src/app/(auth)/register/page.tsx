@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -32,9 +33,9 @@ export default function RegisterPage() {
 
   const validateForm = (): boolean => {
     setError("");
-    const emailRegex = /@stu\.ui\.edu\.ng$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email) { setError("Email is required"); return false; }
-    if (!emailRegex.test(email)) { setError("Please use your institutional email (@stu.ui.edu.ng)"); return false; }
+    if (!emailRegex.test(email)) { setError("Please enter a valid email address"); return false; }
     if (!password) { setError("Password is required"); return false; }
     if (password.length < 8) { setError("Password must be at least 8 characters with uppercase, lowercase, and a number"); return false; }
     if (password !== confirmPassword) { setError("Passwords do not match"); return false; }
@@ -60,13 +61,12 @@ export default function RegisterPage() {
         level,
         admissionYear: parseInt(admissionYear),
       });
+      toast.success("Account created!", { description: "Verification email sent. Check your inbox." });
     } catch (err: unknown) {
       console.error("Registration error:", err);
-      if (err instanceof Error) {
-        setError(err.message || "Registration failed. Please try again.");
-      } else {
-        setError("An unexpected error occurred. Please try again.");
-      }
+      const msg = err instanceof Error ? err.message || "Registration failed. Please try again." : "An unexpected error occurred. Please try again.";
+      setError(msg);
+      toast.error("Registration failed", { description: msg });
     } finally {
       setIsSubmitting(false);
     }
@@ -126,8 +126,8 @@ export default function RegisterPage() {
         <div className="w-full max-w-xl space-y-8 py-8">
           {/* Logo */}
           <Link href="/" className="inline-flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-lime border-[3px] border-navy shadow-[3px_3px_0_0_#000] flex items-center justify-center overflow-hidden">
-              <Image src="/assets/images/logo.svg" alt="IESA Logo" width={28} height={28} className="object-contain" />
+            <div className="w-10 h-10 flex items-center justify-center">
+              <Image src="/assets/images/logo.svg" alt="IESA Logo" width={40} height={40} className="object-contain" />
             </div>
             <span className="font-display font-black text-xl text-navy">IESA</span>
           </Link>
@@ -135,7 +135,7 @@ export default function RegisterPage() {
           {/* Header */}
           <div className="space-y-2">
             <h1 className="font-display font-black text-2xl md:text-3xl text-navy">Create Account</h1>
-            <p className="font-display font-normal text-navy/60">Register with your institutional email</p>
+            <p className="font-display font-normal text-navy/60">Register with any email you own</p>
           </div>
 
           {/* Form */}
@@ -227,13 +227,13 @@ export default function RegisterPage() {
               </div>
             )}
 
-            <button type="submit" disabled={isSubmitting} className="w-full py-3.5 bg-lime border-[3px] border-navy rounded-2xl shadow-[4px_4px_0_0_#0F0F2D] font-display font-black text-navy hover:shadow-[6px_6px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-50">
+            <button type="submit" disabled={isSubmitting} className="w-full py-3.5 bg-lime border-[3px] border-navy rounded-2xl press-3 press-navy font-display font-black text-navy transition-all disabled:opacity-50">
               {isSubmitting ? "Creating Account..." : "Create Account"}
             </button>
           </form>
 
           {/* Links */}
-          <div className="pt-6 border-t-[3px] border-cloud space-y-4">
+          <div className="pt-6 border-t-[3px] border-cloud">
             <p className="font-display font-normal text-navy/60 text-center">
               Already have an account?{" "}
               <Link href="/login" className="text-navy font-bold hover:underline">Sign in</Link>
@@ -241,12 +241,12 @@ export default function RegisterPage() {
           </div>
 
           {/* Help Info */}
-          <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000]">
+          <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
             <div className="flex items-start gap-3">
-              <span className="text-lime">&#9670;</span>
+              <span className="text-teal">&#9670;</span>
               <p className="text-sm text-navy/60">
-                Use your institutional email ending with{" "}
-                <strong className="text-navy font-bold">@stu.ui.edu.ng</strong>
+                You can register with any email you own — institutional or personal.
+                A verification email will be sent after registration.
               </p>
             </div>
           </div>

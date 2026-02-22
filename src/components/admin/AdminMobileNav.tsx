@@ -155,7 +155,7 @@ export default function AdminMobileNav() {
       {isMenuOpen && (
         <div className="md:hidden fixed inset-0 bg-navy/30 z-40" onClick={() => setIsMenuOpen(false)}>
           <div
-            className="absolute bottom-20 left-3 right-3 bg-snow border-[4px] border-navy rounded-3xl p-4 shadow-[8px_8px_0_0_#000]"
+            className="absolute bottom-20 left-3 right-3 bg-snow border-[4px] border-navy rounded-3xl p-4 shadow-[3px_3px_0_0_#000]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3 px-1">
@@ -195,7 +195,7 @@ export default function AdminMobileNav() {
               {/* Session Badge */}
               <Link
                 href="/admin/sessions"
-                className="flex items-center gap-3 rounded-2xl bg-navy border-[3px] border-lime p-3 hover:shadow-[3px_3px_0_0_#C8F31D] transition-all"
+ className="flex items-center gap-3 rounded-2xl bg-navy border-[3px] border-lime p-3 press-3 press-lime transition-all"
                 onClick={() => setIsMenuOpen(false)}
               >
                 <span className="relative flex-shrink-0">

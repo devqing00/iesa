@@ -133,7 +133,7 @@ export default function PressDashboardPage() {
       <div className="max-w-5xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
 
     {accessDenied ? (
-      <div className="bg-snow border-[4px] border-navy rounded-3xl p-10 shadow-[6px_6px_0_0_#000] text-center max-w-lg mx-auto mt-8">
+      <div className="bg-snow border-[4px] border-navy rounded-3xl p-10 shadow-[4px_4px_0_0_#000] text-center max-w-lg mx-auto mt-8">
         <svg className="w-14 h-14 text-lavender/40 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 0 1-2.25 2.25M16.5 7.5V18a2.25 2.25 0 0 0 2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 0 0 2.25 2.25h13.5M6 7.5h3v3H6V7.5Z" />
         </svg>
@@ -141,7 +141,7 @@ export default function PressDashboardPage() {
         <p className="text-sm text-slate mb-5">You need to be enrolled in the Press unit to write and manage articles. Contact your department admin or press unit head to get access.</p>
         <Link
           href="/dashboard"
-          className="inline-flex bg-lime border-[3px] border-navy px-6 py-2.5 rounded-xl font-display font-bold text-navy shadow-[4px_4px_0_0_#0F0F2D] hover:shadow-[2px_2px_0_0_#0F0F2D] transition-all"
+          className="inline-flex bg-lime border-[3px] border-navy px-6 py-2.5 rounded-xl font-display font-bold text-navy press-3 press-navy transition-all"
         >
           Back to Dashboard
         </Link>
@@ -169,7 +169,7 @@ export default function PressDashboardPage() {
           )}
           <Link
             href="/dashboard/press/write"
-          className="inline-flex items-center gap-2 bg-lime border-[4px] border-navy px-6 py-3 rounded-2xl font-display font-bold text-navy shadow-[5px_5px_0_0_#0F0F2D] hover:shadow-[3px_3px_0_0_#0F0F2D] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+          className="inline-flex items-center gap-2 bg-lime border-[4px] border-navy px-6 py-3 rounded-2xl font-display font-bold text-navy press-3 press-navy transition-all"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -188,7 +188,7 @@ export default function PressDashboardPage() {
           { label: "Drafts", value: stats.drafts, color: "bg-cloud" },
           { label: "Needs Revision", value: stats.needsRevision, color: "bg-coral-light" },
         ].map((s) => (
-          <div key={s.label} className={`${s.color} border-[3px] border-navy rounded-2xl p-3 shadow-[4px_4px_0_0_#000]`}>
+          <div key={s.label} className={`${s.color} border-[3px] border-navy rounded-2xl p-3 shadow-[3px_3px_0_0_#000]`}>
             <p className="text-[10px] font-bold uppercase tracking-wider text-navy/50">{s.label}</p>
             <p className="font-display font-black text-2xl text-navy">{s.value}</p>
           </div>
@@ -223,7 +223,7 @@ export default function PressDashboardPage() {
           ))}
         </div>
       ) : articles.length === 0 ? (
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-10 shadow-[6px_6px_0_0_#000] text-center">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-10 shadow-[4px_4px_0_0_#000] text-center">
           <svg className="w-14 h-14 text-slate/30 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
           </svg>
@@ -231,7 +231,7 @@ export default function PressDashboardPage() {
           <p className="text-slate mb-5">Start writing your first article for the IESA blog.</p>
           <Link
             href="/dashboard/press/write"
-            className="inline-flex bg-lime border-[3px] border-navy px-6 py-2.5 rounded-xl font-display font-bold text-navy shadow-[4px_4px_0_0_#0F0F2D] hover:shadow-[2px_2px_0_0_#0F0F2D] transition-all"
+            className="inline-flex bg-lime border-[3px] border-navy px-6 py-2.5 rounded-xl font-display font-bold text-navy press-3 press-navy transition-all"
           >
             Write Article
           </Link>
@@ -246,7 +246,7 @@ export default function PressDashboardPage() {
             return (
               <div
                 key={article._id}
-                className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[4px_4px_0_0_#000] hover:shadow-[2px_2px_0_0_#000] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                className="bg-snow border-[3px] border-navy rounded-2xl p-5 press-3 press-black transition-all"
               >
                 <div className="flex flex-col sm:flex-row sm:items-start gap-3">
                   <div className="flex-1 min-w-0">

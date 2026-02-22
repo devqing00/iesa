@@ -113,30 +113,41 @@ async def list_enrollments(
     # Populate student and session details
     result = []
     for enrollment in enrollments_list:
-        # Get student details
-        student = await users.find_one({"_id": ObjectId(enrollment["studentId"])})
-        student_info = {
-            "id": str(student["_id"]),
-            "firstName": student.get("firstName", ""),
-            "lastName": student.get("lastName", ""),
-            "email": student.get("email", ""),
-            "matricNumber": student.get("matricNumber", "")
-        } if student else None
-        
-        # Get session details
-        session = await sessions.find_one({"_id": ObjectId(enrollment["sessionId"])})
-        session_info = {
-            "id": str(session["_id"]),
-            "name": session.get("name", ""),
-            "isActive": session.get("isActive", False)
-        } if session else None
-        
-        # Build response
-        enrollment["id"] = str(enrollment.pop("_id"))
-        enrollment["student"] = student_info
-        enrollment["session"] = session_info
-        
-        result.append(enrollment)
+        try:
+            # Safely convert to ObjectId (handles both string and ObjectId inputs)
+            student_id = enrollment["studentId"] if isinstance(enrollment["studentId"], ObjectId) else ObjectId(enrollment["studentId"])
+            session_id = enrollment["sessionId"] if isinstance(enrollment["sessionId"], ObjectId) else ObjectId(enrollment["sessionId"])
+            
+            # Get student details
+            student = await users.find_one({"_id": student_id})
+            student_info = {
+                "id": str(student["_id"]),
+                "firstName": student.get("firstName", ""),
+                "lastName": student.get("lastName", ""),
+                "email": student.get("email", ""),
+                "matricNumber": student.get("matricNumber", "")
+            } if student else None
+            
+            # Get session details
+            session = await sessions.find_one({"_id": session_id})
+            session_info = {
+                "id": str(session["_id"]),
+                "name": session.get("name", ""),
+                "isActive": session.get("isActive", False)
+            } if session else None
+            
+            # Build response
+            enrollment["id"] = str(enrollment.pop("_id"))
+            enrollment["studentId"] = str(student_id)
+            enrollment["sessionId"] = str(session_id)
+            enrollment["student"] = student_info
+            enrollment["session"] = session_info
+            
+            result.append(enrollment)
+        except Exception as e:
+            # Log error but continue processing other enrollments
+            print(f"Error processing enrollment {enrollment.get('_id')}: {str(e)}")
+            continue
     
     return result
 

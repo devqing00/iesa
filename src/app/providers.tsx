@@ -31,7 +31,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
               position="top-right"
               toastOptions={{
                 classNames: {
-                  toast: "font-display font-bold text-sm border-[3px] border-navy shadow-[4px_4px_0_0_#000] rounded-2xl",
+                  toast: "font-display font-bold text-sm border-[3px] border-navy shadow-[3px_3px_0_0_#000] rounded-2xl",
                   title: "font-display font-black",
                   description: "font-normal",
                   success: "bg-teal text-snow border-navy",

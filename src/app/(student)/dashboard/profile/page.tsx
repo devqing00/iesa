@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
 import { getApiUrl } from "@/lib/api";
 import Link from "next/link";
+import { toast } from "sonner";
 
 /* ─── types ─── */
 interface UserProfile {
@@ -97,6 +98,7 @@ export default function ProfilePage() {
       setSuccessMessage("Profile updated successfully!");
       setIsEditing(false);
       setTimeout(() => setSuccessMessage(""), 3000);
+      toast.success("Profile updated!");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to update profile");
     } finally {
@@ -150,6 +152,7 @@ export default function ProfilePage() {
       setProfileData(updatedData);
       setSuccessMessage("Profile picture updated!");
       setTimeout(() => setSuccessMessage(""), 3000);
+      toast.success("Profile picture updated!");
       setShowImageModal(false);
       setImagePreview(null);
       setSelectedFile(null);
@@ -184,7 +187,7 @@ export default function ProfilePage() {
     return (
       <div className="min-h-screen bg-ghost p-4 sm:p-6 lg:p-8">
         <div className="max-w-6xl mx-auto flex items-center justify-center min-h-[60vh]">
-          <div className="bg-navy border-[4px] border-lime rounded-[2rem] p-8 shadow-[8px_8px_0_0_#000] text-center">
+          <div className="bg-navy border-[4px] border-lime rounded-[2rem] p-8 shadow-[3px_3px_0_0_#000] text-center">
             <p className="font-display font-black text-lg text-lime">Failed to load profile</p>
             <p className="text-sm text-lime/60 mt-2">Please try refreshing the page.</p>
           </div>
@@ -228,7 +231,7 @@ export default function ProfilePage() {
 
         {/* ── notifications ── */}
         {successMessage && (
-          <div className="bg-teal-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] flex items-center gap-3">
+          <div className="bg-teal-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-teal/30 flex items-center justify-center flex-shrink-0">
               <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
@@ -238,7 +241,7 @@ export default function ProfilePage() {
           </div>
         )}
         {error && (
-          <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] flex items-center gap-3">
+          <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-coral/30 flex items-center justify-center flex-shrink-0">
               <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
@@ -258,7 +261,7 @@ export default function ProfilePage() {
         ════════════════════════════════════════ */}
         <div className="grid grid-cols-12 gap-4">
           {/* left: title + avatar card */}
-          <div className="col-span-12 md:col-span-7 bg-coral border-[6px] border-navy rounded-[2rem] p-8 shadow-[10px_10px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
+          <div className="col-span-12 md:col-span-7 bg-coral border-[6px] border-navy rounded-[2rem] p-8 shadow-[4px_4px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
             <div className="flex items-start gap-5">
               {/* avatar */}
               <div className="relative flex-shrink-0">
@@ -312,7 +315,7 @@ export default function ProfilePage() {
 
           {/* right: 2×2 stats */}
           <div className="col-span-12 md:col-span-5 grid grid-cols-2 gap-3">
-            <div className="bg-teal-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+            <div className="bg-teal-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
               <div className="w-8 h-8 rounded-xl bg-teal/30 flex items-center justify-center mb-2">
                 <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" />
@@ -324,7 +327,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="bg-lavender-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[-0.6deg] hover:rotate-0 transition-transform">
+            <div className="bg-lavender-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.6deg] hover:rotate-0 transition-transform">
               <div className="w-8 h-8 rounded-xl bg-lavender/30 flex items-center justify-center mb-2">
                 <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clipRule="evenodd" />
@@ -336,7 +339,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="bg-sunny-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[0.7deg] hover:rotate-0 transition-transform">
+            <div className="bg-sunny-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.7deg] hover:rotate-0 transition-transform">
               <div className="w-8 h-8 rounded-xl bg-sunny/30 flex items-center justify-center mb-2">
                 <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M1 2.75A.75.75 0 011.75 2h16.5a.75.75 0 010 1.5H18v8.75A2.75 2.75 0 0115.25 15h-1.072l.798 3.06a.75.75 0 01-1.452.38L13.41 18H6.59l-.114.44a.75.75 0 01-1.452-.38L5.822 15H4.75A2.75 2.75 0 012 12.25V3.5h-.25A.75.75 0 011 2.75zM7.373 15l-.391 1.5h6.037l-.392-1.5H7.373zm.879-6.206a.75.75 0 00-.146 1.49A13.94 13.94 0 0010 10.5c.65 0 1.286-.056 1.894-.216a.75.75 0 10-.382-1.45A12.41 12.41 0 0110 9c-.59 0-1.18-.043-1.748-.206z" clipRule="evenodd" />
@@ -348,7 +351,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+            <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
               <div className="w-8 h-8 rounded-xl bg-coral/30 flex items-center justify-center mb-2">
                 <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M4.214 3.227a.75.75 0 00-1.156-.955 8.97 8.97 0 00-1.856 3.825.75.75 0 001.466.316 7.47 7.47 0 011.546-3.186zM16.942 2.272a.75.75 0 00-1.157.955 7.47 7.47 0 011.547 3.186.75.75 0 001.466-.316 8.97 8.97 0 00-1.856-3.825z" />
@@ -377,7 +380,7 @@ export default function ProfilePage() {
               {!isEditing ? (
                 <button
                   onClick={() => setIsEditing(true)}
-                  className="bg-snow border-[3px] border-navy rounded-xl px-4 py-2 font-display font-bold text-[10px] text-navy uppercase tracking-[0.08em] hover:shadow-[4px_4px_0_0_#000] transition-all inline-flex items-center gap-2"
+ className="bg-snow border-[3px] border-navy rounded-xl px-4 py-2 font-display font-bold text-[10px] text-navy uppercase tracking-[0.08em] press-3 press-black transition-all inline-flex items-center gap-2"
                 >
                   <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
@@ -396,7 +399,7 @@ export default function ProfilePage() {
                   <button
                     onClick={handleSave}
                     disabled={loading}
-                    className="bg-lime border-[4px] border-navy shadow-[4px_4px_0_0_#0F0F2D] px-5 py-2 rounded-xl font-display font-black text-[10px] text-navy uppercase tracking-[0.08em] hover:shadow-[6px_6px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-50 inline-flex items-center gap-2"
+                    className="bg-lime border-[4px] border-navy press-3 press-navy px-5 py-2 rounded-xl font-display font-black text-[10px] text-navy uppercase tracking-[0.08em] transition-all disabled:opacity-50 inline-flex items-center gap-2"
                   >
                     {loading ? (
                       <><div className="w-3 h-3 border-2 border-navy border-t-transparent rounded-full animate-spin" />Saving...</>
@@ -407,7 +410,7 @@ export default function ProfilePage() {
             </div>
 
             {/* form card */}
-            <div className="bg-snow border-[4px] border-navy rounded-[2rem] p-6 md:p-8 shadow-[8px_8px_0_0_#000]">
+            <div className="bg-snow border-[4px] border-navy rounded-[2rem] p-6 md:p-8 shadow-[3px_3px_0_0_#000]">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* First Name */}
                 <div className="space-y-1.5">
@@ -504,7 +507,7 @@ export default function ProfilePage() {
               Account Status
             </div>
 
-            <div className="bg-snow border-[4px] border-navy rounded-[2rem] p-6 shadow-[8px_8px_0_0_#000] space-y-3">
+            <div className="bg-snow border-[4px] border-navy rounded-[2rem] p-6 shadow-[3px_3px_0_0_#000] space-y-3">
               {/* profile status */}
               <div className="flex items-center justify-between p-3 bg-teal-light border-[3px] border-navy rounded-xl">
                 <div className="flex items-center gap-2">
@@ -550,7 +553,7 @@ export default function ProfilePage() {
             </div>
 
             {/* quick links */}
-            <div className="bg-navy border-[4px] border-teal rounded-[2rem] p-6 shadow-[8px_8px_0_0_#000]">
+            <div className="bg-navy border-[4px] border-teal rounded-[2rem] p-6 shadow-[3px_3px_0_0_#000]">
               <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-lime/50 mb-3">Quick Links</div>
               <div className="space-y-2">
 
@@ -571,7 +574,7 @@ export default function ProfilePage() {
       ════════════════════════════════════════ */}
       {showImageModal && (
         <div className="fixed inset-0 bg-navy/80 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6">
-          <div className="bg-ghost border-[4px] border-navy rounded-[2rem] max-w-lg w-full shadow-[10px_10px_0_0_#000] overflow-hidden">
+          <div className="bg-ghost border-[4px] border-navy rounded-[2rem] max-w-lg w-full shadow-[4px_4px_0_0_#000] overflow-hidden">
             {/* header */}
             <div className="bg-coral-light border-b-[4px] border-navy p-5 flex items-center justify-between">
               <h2 className="font-display font-black text-lg text-navy">
@@ -624,7 +627,7 @@ export default function ProfilePage() {
                   <button
                     onClick={confirmImageUpload}
                     disabled={uploadingImage}
-                    className="flex-1 bg-lime border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D] px-4 py-3 rounded-xl font-display font-black text-xs text-navy uppercase tracking-[0.08em] hover:shadow-[7px_7px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                    className="flex-1 bg-lime border-[4px] border-navy press-3 press-navy px-4 py-3 rounded-xl font-display font-black text-xs text-navy uppercase tracking-[0.08em] transition-all disabled:opacity-50 inline-flex items-center justify-center gap-2"
                   >
                     {uploadingImage ? (
                       <><div className="w-4 h-4 border-2 border-navy border-t-transparent rounded-full animate-spin" />Uploading...</>

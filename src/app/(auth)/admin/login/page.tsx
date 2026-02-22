@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
 
 export default function AdminLoginPage() {
   const { signInWithEmail } = useAuth();
@@ -19,13 +20,12 @@ export default function AdminLoginPage() {
 
     try {
       await signInWithEmail(email, password);
+      toast.success("Welcome, Admin!", { description: "Redirecting to admin dashboard..." });
     } catch (err: unknown) {
       console.error("Admin login error:", err);
-      if (err instanceof Error) {
-        setError(err.message || "Failed to login");
-      } else {
-        setError("Failed to login");
-      }
+      const msg = err instanceof Error ? err.message || "Failed to login" : "Failed to login";
+      setError(msg);
+      toast.error("Login failed", { description: msg });
       setLoading(false);
     }
   };
@@ -84,8 +84,8 @@ export default function AdminLoginPage() {
         <div className="w-full max-w-md space-y-8">
           {/* Logo */}
           <Link href="/" className="inline-flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-coral border-[3px] border-navy shadow-[3px_3px_0_0_#000] flex items-center justify-center overflow-hidden">
-              <Image src="/assets/images/logo.svg" alt="IESA Logo" width={28} height={28} className="object-contain" />
+            <div className="w-10 h-10 flex items-center justify-center">
+              <Image src="/assets/images/logo.svg" alt="IESA Logo" width={40} height={40} className="object-contain" />
             </div>
             <span className="font-display font-black text-xl text-navy">IESA</span>
           </Link>
@@ -97,7 +97,7 @@ export default function AdminLoginPage() {
           </div>
 
           {/* Info Card */}
-          <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000]">
+          <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
             <div className="flex items-start gap-3">
               <svg className="w-5 h-5 text-slate shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
@@ -127,7 +127,7 @@ export default function AdminLoginPage() {
               </div>
             )}
 
-            <button type="submit" disabled={loading} className="w-full py-3.5 bg-lime border-[3px] border-navy rounded-2xl shadow-[4px_4px_0_0_#0F0F2D] font-display font-black text-navy hover:shadow-[6px_6px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-50">
+            <button type="submit" disabled={loading} className="w-full py-3.5 bg-lime border-[3px] border-navy rounded-2xl press-3 press-navy font-display font-black text-navy transition-all disabled:opacity-50">
               {loading ? "Signing in..." : "Sign In"}
             </button>
           </form>

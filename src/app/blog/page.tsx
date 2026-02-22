@@ -123,7 +123,7 @@ export default function BlogPage() {
                 placeholder="Search articles..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-snow border-[3px] border-navy rounded-2xl font-display text-sm text-navy placeholder:text-slate/60 focus:outline-none focus:ring-2 focus:ring-lime shadow-[4px_4px_0_0_#000]"
+                className="w-full pl-10 pr-4 py-3 bg-snow border-[3px] border-navy rounded-2xl font-display text-sm text-navy placeholder:text-slate/60 focus:outline-none focus:ring-2 focus:ring-lime shadow-[3px_3px_0_0_#000]"
               />
             </div>
           </div>
@@ -135,10 +135,10 @@ export default function BlogPage() {
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
                 className={`px-4 py-1.5 text-[11px] font-display font-bold uppercase tracking-wider rounded-xl border-[2px] transition-all ${
-                  activeCategory === cat
-                    ? "bg-navy text-lime border-navy shadow-[3px_3px_0_0_#C8F31D]"
-                    : "bg-snow text-navy border-navy/20 hover:border-navy hover:shadow-[2px_2px_0_0_#000]"
-                }`}
+ activeCategory === cat
+ ?"bg-navy text-lime border-navy press-3 press-lime"
+ :"bg-snow text-navy border-navy/20 hover:border-navy"
+ }`}
               >
                 {cat === "event_coverage" ? "Events" : cat === "campus_life" ? "Campus" : cat}
               </button>
@@ -160,7 +160,7 @@ export default function BlogPage() {
               ))}
             </div>
           ) : articles.length === 0 ? (
-            <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 shadow-[8px_8px_0_0_#000] text-center">
+            <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 shadow-[3px_3px_0_0_#000] text-center">
               <svg className="w-16 h-16 text-slate/30 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
@@ -172,7 +172,7 @@ export default function BlogPage() {
               {/* Featured Article (first one) */}
               {featured && (
                 <Link href={`/blog/${featured.slug}`} className="block mb-8 group">
-                  <div className="bg-lime border-[6px] border-navy rounded-3xl overflow-hidden shadow-[10px_10px_0_0_#000] hover:shadow-[6px_6px_0_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all rotate-[-0.5deg] hover:rotate-0">
+                  <div className="bg-lime border-[6px] border-navy rounded-3xl overflow-hidden press-4 press-black transition-all rotate-[-0.5deg] hover:rotate-0">
                     <div className="grid grid-cols-1 lg:grid-cols-2">
                       {/* Cover image */}
                       <div className="relative h-64 lg:h-80">
@@ -242,7 +242,7 @@ export default function BlogPage() {
                   const rotation = idx % 3 === 0 ? "rotate-[-0.5deg]" : idx % 3 === 1 ? "rotate-[0.5deg]" : "";
                   return (
                     <Link key={article._id} href={`/blog/${article.slug}`} className="block group">
-                      <div className={`bg-snow border-[4px] border-navy rounded-3xl overflow-hidden shadow-[6px_6px_0_0_#000] hover:shadow-[3px_3px_0_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] transition-all ${rotation} hover:rotate-0 h-full flex flex-col`}>
+                      <div className={`bg-snow border-[4px] border-navy rounded-3xl overflow-hidden press-4 press-black transition-all ${rotation} hover:rotate-0 h-full flex flex-col`}>
                         {/* Cover */}
                         <div className="relative h-44">
                           {article.coverImageUrl ? (

@@ -237,7 +237,7 @@ export default function LibraryPage() {
 
           {/* Stats + Upload */}
           <div className="md:col-span-4 flex flex-col gap-3">
-            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] flex-1 flex flex-col justify-between">
+            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex-1 flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-lavender-light flex items-center justify-center mb-2">
                 <svg className="w-4.5 h-4.5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
@@ -249,7 +249,7 @@ export default function LibraryPage() {
             {hasUploadPermission && (
               <button
                 onClick={() => setShowUploadModal(true)}
-                className="bg-lime border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#0F0F2D] hover:shadow-[7px_7px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center gap-3"
+                className="bg-lime border-[4px] border-navy rounded-2xl p-5 press-3 press-navy transition-all flex items-center gap-3"
               >
                 <div className="w-9 h-9 rounded-xl bg-navy/10 flex items-center justify-center shrink-0">
                   <svg className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
@@ -268,7 +268,7 @@ export default function LibraryPage() {
         {/* ═══════════════════════════════════════════════════════
             SEARCH & FILTERS
             ═══════════════════════════════════════════════════════ */}
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-5 md:p-6 mb-6 shadow-[6px_6px_0_0_#000]">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-5 md:p-6 mb-6 shadow-[4px_4px_0_0_#000]">
           {/* Search */}
           <div className="relative mb-5">
             <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate" viewBox="0 0 24 24" fill="currentColor">
@@ -328,7 +328,7 @@ export default function LibraryPage() {
             RESOURCES GRID
             ═══════════════════════════════════════════════════════ */}
         {filteredResources.length === 0 ? (
-          <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[6px_6px_0_0_#000]">
+          <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-teal-light flex items-center justify-center">
               <svg className="w-8 h-8 text-teal" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
@@ -346,7 +346,7 @@ export default function LibraryPage() {
               return (
                 <article
                   key={resource._id}
-                  className={`bg-snow border-[4px] border-navy rounded-3xl overflow-hidden shadow-[5px_5px_0_0_#000] hover:shadow-[3px_3px_0_0_#000] hover:translate-x-[1px] hover:translate-y-[1px] transition-all ${rotation} hover:rotate-0 group`}
+                  className={`bg-snow border-[4px] border-navy rounded-3xl overflow-hidden press-3 press-black transition-all ${rotation} hover:rotate-0 group`}
                 >
                   {/* Header bar */}
                   <div className="p-4 pb-3 flex items-center justify-between border-b-[3px] border-navy/10">
@@ -417,7 +417,7 @@ export default function LibraryPage() {
                     </span>
                     <button
                       onClick={() => handleViewResource(resource._id, resource.url)}
-                      className="flex items-center gap-2 px-4 py-2.5 bg-lime border-[3px] border-navy rounded-xl font-bold text-xs text-navy uppercase tracking-wider shadow-[3px_3px_0_0_#0F0F2D] hover:shadow-[5px_5px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+                      className="flex items-center gap-2 px-4 py-2.5 bg-lime border-[3px] border-navy rounded-xl font-bold text-xs text-navy uppercase tracking-wider press-3 press-navy transition-all"
                     >
                       {resource.type === "video" ? (
                         <>
@@ -450,7 +450,7 @@ export default function LibraryPage() {
       {showUploadModal && (
         <div className="fixed inset-0 bg-navy/80 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6" onClick={() => setShowUploadModal(false)}>
           <div
-            className="bg-snow border-[4px] border-navy rounded-3xl max-w-2xl w-full max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[10px_10px_0_0_#000]"
+            className="bg-snow border-[4px] border-navy rounded-3xl max-w-2xl w-full max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -525,7 +525,7 @@ export default function LibraryPage() {
                 <button type="button" onClick={() => setShowUploadModal(false)} className="flex-1 px-4 py-3 rounded-2xl font-bold text-xs uppercase tracking-wider border-[3px] border-navy text-navy hover:bg-cloud transition-colors">
                   Cancel
                 </button>
-                <button type="submit" disabled={uploading} className="flex-1 px-4 py-3 rounded-2xl bg-teal text-snow font-bold text-xs uppercase tracking-wider border-[3px] border-navy shadow-[3px_3px_0_0_#000] hover:shadow-[5px_5px_0_0_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-50">
+                <button type="submit" disabled={uploading} className="flex-1 px-4 py-3 rounded-2xl bg-teal text-snow font-bold text-xs uppercase tracking-wider border-[3px] border-navy press-3 press-black transition-all disabled:opacity-50">
                   {uploading ? "Adding…" : "Add Resource"}
                 </button>
               </div>

@@ -190,7 +190,7 @@ export default function WriteArticlePage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Your article title..."
-            className="w-full px-4 py-3 bg-snow border-[3px] border-navy rounded-2xl font-display font-bold text-lg text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-lime shadow-[4px_4px_0_0_#000]"
+            className="w-full px-4 py-3 bg-snow border-[3px] border-navy rounded-2xl font-display font-bold text-lg text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-lime shadow-[3px_3px_0_0_#000]"
           />
         </div>
 
@@ -202,7 +202,7 @@ export default function WriteArticlePage() {
             onChange={(e) => setExcerpt(e.target.value)}
             placeholder="A short summary that appears on the blog cards..."
             rows={2}
-            className="w-full px-4 py-3 bg-snow border-[3px] border-navy rounded-2xl font-display text-sm text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-lime shadow-[4px_4px_0_0_#000] resize-none"
+            className="w-full px-4 py-3 bg-snow border-[3px] border-navy rounded-2xl font-display text-sm text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-lime shadow-[3px_3px_0_0_#000] resize-none"
           />
         </div>
 
@@ -213,7 +213,7 @@ export default function WriteArticlePage() {
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-4 py-3 bg-snow border-[3px] border-navy rounded-2xl font-display font-bold text-sm text-navy focus:outline-none focus:ring-2 focus:ring-lime shadow-[4px_4px_0_0_#000] appearance-none cursor-pointer"
+              className="w-full px-4 py-3 bg-snow border-[3px] border-navy rounded-2xl font-display font-bold text-sm text-navy focus:outline-none focus:ring-2 focus:ring-lime shadow-[3px_3px_0_0_#000] appearance-none cursor-pointer"
             >
               {CATEGORIES.map((c) => (
                 <option key={c.value} value={c.value}>{c.label}</option>
@@ -227,7 +227,7 @@ export default function WriteArticlePage() {
               value={tags}
               onChange={(e) => setTags(e.target.value)}
               placeholder="e.g. engineering, campus, UI"
-              className="w-full px-4 py-3 bg-snow border-[3px] border-navy rounded-2xl font-display text-sm text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-lime shadow-[4px_4px_0_0_#000]"
+              className="w-full px-4 py-3 bg-snow border-[3px] border-navy rounded-2xl font-display text-sm text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-lime shadow-[3px_3px_0_0_#000]"
             />
           </div>
         </div>
@@ -240,7 +240,7 @@ export default function WriteArticlePage() {
             value={coverImageUrl}
             onChange={(e) => setCoverImageUrl(e.target.value)}
             placeholder="https://example.com/image.jpg"
-            className="w-full px-4 py-3 bg-snow border-[3px] border-navy rounded-2xl font-display text-sm text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-lime shadow-[4px_4px_0_0_#000]"
+            className="w-full px-4 py-3 bg-snow border-[3px] border-navy rounded-2xl font-display text-sm text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-lime shadow-[3px_3px_0_0_#000]"
           />
         </div>
 
@@ -260,14 +260,14 @@ export default function WriteArticlePage() {
           <button
             onClick={() => handleSave(false)}
             disabled={saving || submitting}
-            className="px-6 py-3 bg-snow border-[3px] border-navy rounded-2xl font-display font-bold text-navy shadow-[4px_4px_0_0_#000] hover:shadow-[2px_2px_0_0_#000] hover:translate-x-[1px] hover:translate-y-[1px] transition-all disabled:opacity-50"
+            className="px-6 py-3 bg-snow border-[3px] border-navy rounded-2xl font-display font-bold text-navy press-3 press-black transition-all disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save as Draft"}
           </button>
           <button
             onClick={() => handleSave(true)}
             disabled={saving || submitting}
-            className="px-6 py-3 bg-lime border-[4px] border-navy rounded-2xl font-display font-bold text-navy shadow-[5px_5px_0_0_#0F0F2D] hover:shadow-[3px_3px_0_0_#0F0F2D] hover:translate-x-[1px] hover:translate-y-[1px] transition-all disabled:opacity-50"
+            className="px-6 py-3 bg-lime border-[4px] border-navy rounded-2xl font-display font-bold text-navy press-3 press-navy transition-all disabled:opacity-50"
           >
             {submitting ? "Submitting..." : "Save & Submit for Review"}
           </button>

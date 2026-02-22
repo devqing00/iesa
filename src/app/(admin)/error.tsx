@@ -37,7 +37,7 @@ export default function AdminError({
         )}
 
         <div className="flex justify-center gap-4">
-          <button onClick={reset} className="px-6 py-2.5 bg-lime border-[3px] border-navy rounded-2xl font-display font-bold text-sm text-navy shadow-[4px_4px_0_0_#0F0F2D] hover:shadow-[6px_6px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all">
+          <button onClick={reset} className="px-6 py-2.5 bg-lime border-[3px] border-navy rounded-2xl font-display font-bold text-sm text-navy press-3 press-navy transition-all">
             Try Again
           </button>
           <a href="/admin/dashboard" className="px-6 py-2.5 bg-transparent border-[3px] border-navy rounded-2xl font-display font-bold text-sm text-navy hover:bg-navy hover:text-lime transition-all">

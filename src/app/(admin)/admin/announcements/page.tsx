@@ -169,7 +169,12 @@ export default function AdminAnnouncementsPage() {
           isPinned: form.isPinned,
           expiresAt: form.expiresAt || null,
         };
-        await fetch(getApiUrl(`/api/v1/announcements/${editingId}`), { method: "PATCH", headers, body: JSON.stringify(body) });
+        const res = await fetch(getApiUrl(`/api/v1/announcements/${editingId}`), { method: "PATCH", headers, body: JSON.stringify(body) });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || "Failed to update announcement");
+        }
+        toast.success("Announcement updated");
       } else {
         if (!currentSession?.id) {
           throw new Error("No active academic session found. Please activate a session first.");
@@ -184,7 +189,16 @@ export default function AdminAnnouncementsPage() {
           expiresAt: form.expiresAt || null,
           authorId: user?.id ?? "",
         };
-        await fetch(getApiUrl("/api/v1/announcements/"), { method: "POST", headers, body: JSON.stringify(body) });
+        const res = await fetch(getApiUrl("/api/v1/announcements/"), { method: "POST", headers, body: JSON.stringify(body) });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || "Failed to create announcement");
+        }
+        toast.success(
+          form.targetLevels.length > 0
+            ? `Announcement created for ${form.targetLevels.join(", ")}`
+            : "Announcement created for all students"
+        );
       }
 
       setModalOpen(false);
@@ -203,10 +217,12 @@ export default function AdminAnnouncementsPage() {
   const handleDelete = async (id: string) => {
     try {
       const token = await getAccessToken();
-      await fetch(getApiUrl(`/api/v1/announcements/${id}`), {
+      const res = await fetch(getApiUrl(`/api/v1/announcements/${id}`), {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!res.ok) throw new Error("Failed to delete announcement");
+      toast.success("Announcement deleted");
       setDeleteConfirmId(null);
       await fetchAnnouncements();
     } catch {
@@ -251,7 +267,7 @@ export default function AdminAnnouncementsPage() {
       <div className="max-w-7xl mx-auto space-y-8">
         {/* ── No Session Warning ─────────────────── */}
         {!currentSession && (
-          <div className="bg-coral-light border-[4px] border-coral rounded-2xl p-6 shadow-[6px_6px_0_0_#000]">
+          <div className="bg-coral-light border-[4px] border-coral rounded-2xl p-6 shadow-[4px_4px_0_0_#000]">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-xl bg-coral/20 flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5 text-coral" fill="currentColor" viewBox="0 0 20 20">
@@ -281,11 +297,11 @@ export default function AdminAnnouncementsPage() {
           <button
             onClick={openCreate}
             disabled={!currentSession}
-            className={`self-start border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D] px-6 py-2.5 rounded-2xl font-display font-bold text-sm transition-all flex items-center gap-2 ${
-              currentSession
-                ? "bg-lime text-navy hover:shadow-[7px_7px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] cursor-pointer"
-                : "bg-slate/30 text-slate/50 cursor-not-allowed"
-            }`}
+            className={`self-start border-[4px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm transition-all flex items-center gap-2 ${
+ currentSession
+ ?"bg-lime text-navy cursor-pointer"
+ :"bg-slate/30 text-slate/50 cursor-not-allowed"
+ }`}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
@@ -296,15 +312,15 @@ export default function AdminAnnouncementsPage() {
 
         {/* ── Stats Bento Row ─────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
+          <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Total</p>
             <p className="font-display font-black text-3xl text-navy">{totalCount}</p>
           </div>
-          <div className="bg-coral border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+          <div className="bg-coral border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">High Priority</p>
             <p className="font-display font-black text-3xl text-snow">{highCount}</p>
           </div>
-          <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
+          <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Pinned</p>
             <p className="font-display font-black text-3xl text-navy">{pinnedCount}</p>
           </div>
@@ -340,12 +356,12 @@ export default function AdminAnnouncementsPage() {
         {/* ── Announcements Grid ──────── */}
         <div aria-live="polite">
           {loading ? (
-            <div className="bg-snow rounded-3xl border-[4px] border-navy p-12 text-center shadow-[6px_6px_0_0_#000]">
+            <div className="bg-snow rounded-3xl border-[4px] border-navy p-12 text-center shadow-[4px_4px_0_0_#000]">
               <div className="inline-block w-10 h-10 border-[3px] border-navy border-t-transparent rounded-full animate-spin mb-4" />
               <p className="text-sm text-navy/60">Loading announcements...</p>
             </div>
           ) : filteredAnnouncements.length === 0 ? (
-            <div className="bg-snow rounded-3xl border-[4px] border-navy p-16 text-center shadow-[6px_6px_0_0_#000] space-y-4">
+            <div className="bg-snow rounded-3xl border-[4px] border-navy p-16 text-center shadow-[4px_4px_0_0_#000] space-y-4">
               <div className="w-16 h-16 mx-auto rounded-2xl bg-sunny-light flex items-center justify-center">
                 <svg className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M16.881 4.345A23.112 23.112 0 0 1 8.25 6H7.5a5.25 5.25 0 0 0-.88 10.427 21.593 21.593 0 0 0 1.378 3.94c.464 1.004 1.674 1.32 2.582.796l.657-.379c.88-.508 1.165-1.593.772-2.468a17.116 17.116 0 0 1-.628-1.607c1.918.258 3.76.75 5.5 1.446A21.727 21.727 0 0 0 18 11.25c0-2.414-.393-4.735-1.119-6.905Z" />
@@ -354,7 +370,7 @@ export default function AdminAnnouncementsPage() {
               <p className="text-sm text-navy/60 font-medium">No announcements found</p>
               <button
                 onClick={openCreate}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold hover:shadow-[4px_4px_0_0_#C8F31D] transition-all"
+ className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold press-4 press-lime transition-all"
               >
                 Create your first announcement
               </button>
@@ -367,7 +383,7 @@ export default function AdminAnnouncementsPage() {
                 return (
                   <div
                     key={id}
-                    className={`group bg-snow rounded-3xl border-[4px] border-navy p-6 flex flex-col gap-4 transition-all hover:shadow-[8px_8px_0_0_#000] hover:-translate-y-0.5 ${
+ className={`group bg-snow rounded-3xl border-[4px] border-navy p-6 flex flex-col gap-4 transition-all press-3 press-black ${
                       a.isPinned ? "md:col-span-2 border-l-[6px] " + accentBorders[idx % 4] : ""
                     }`}
                   >
@@ -449,7 +465,7 @@ export default function AdminAnnouncementsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-navy/50" onClick={() => { setModalOpen(false); setEditingId(null); setForm(EMPTY_FORM); setFormErrors({}); }} />
 
-          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-snow rounded-3xl border-[4px] border-navy shadow-[10px_10px_0_0_#000] p-6 sm:p-8 space-y-6">
+          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-snow rounded-3xl border-[4px] border-navy shadow-[4px_4px_0_0_#000] p-6 sm:p-8 space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
               <h2 className="font-display font-black text-xl text-navy">
@@ -576,7 +592,7 @@ export default function AdminAnnouncementsPage() {
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="px-6 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold hover:shadow-[4px_4px_0_0_#C8F31D] disabled:opacity-40 transition-all"
+ className="px-6 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold press-4 press-lime disabled:opacity-40 transition-all"
               >
                 {submitting ? "Saving..." : editingId ? "Save Changes" : "Publish"}
               </button>

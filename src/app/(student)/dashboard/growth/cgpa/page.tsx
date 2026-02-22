@@ -225,14 +225,30 @@ export default function CgpaPage() {
     localStorage.setItem("iesa-cgpa-history", JSON.stringify(updated));
   };
 
+  /**
+   * CGPA classification using Nigerian University standard absolute breakpoints.
+   * Based on NUC/NANS guidelines — NO percentage approximation.
+   *
+   * 5-Point:  ≥4.50 First Class | ≥3.50 2:1 | ≥2.40 2:2 | ≥1.50 Third | ≥1.00 Pass | <1.00 Fail
+   * 4-Point:  ≥3.60 First Class | ≥3.00 2:1 | ≥2.00 2:2 | ≥1.50 Third | ≥1.00 Pass | <1.00 Fail
+   */
   const getClassification = (gpa: number, system: GradingSystem) => {
-    const maxGpa = GRADING_SYSTEMS[system].maxGpa;
-    const pct = gpa / maxGpa;
-    if (pct >= 0.9) return { label: "First Class", color: "text-teal", bg: "bg-teal-light" };
-    if (pct >= 0.7) return { label: "Second Class Upper", color: "text-lavender", bg: "bg-lavender-light" };
-    if (pct >= 0.5) return { label: "Second Class Lower", color: "text-sunny", bg: "bg-sunny-light" };
-    if (pct >= 0.3) return { label: "Third Class", color: "text-coral", bg: "bg-coral-light" };
-    return { label: "Pass", color: "text-navy-muted", bg: "bg-cloud" };
+    if (system === "5.0") {
+      if (gpa >= 4.50) return { label: "First Class",        color: "text-teal",       bg: "bg-teal-light" };
+      if (gpa >= 3.50) return { label: "Second Class Upper", color: "text-lavender",   bg: "bg-lavender-light" };
+      if (gpa >= 2.40) return { label: "Second Class Lower", color: "text-sunny",      bg: "bg-sunny-light" };
+      if (gpa >= 1.50) return { label: "Third Class",        color: "text-coral",      bg: "bg-coral-light" };
+      if (gpa >= 1.00) return { label: "Pass",               color: "text-navy-muted", bg: "bg-cloud" };
+      return             { label: "Fail",               color: "text-coral",      bg: "bg-coral-light/60" };
+    } else {
+      // 4.0 system
+      if (gpa >= 3.60) return { label: "First Class",        color: "text-teal",       bg: "bg-teal-light" };
+      if (gpa >= 3.00) return { label: "Second Class Upper", color: "text-lavender",   bg: "bg-lavender-light" };
+      if (gpa >= 2.00) return { label: "Second Class Lower", color: "text-sunny",      bg: "bg-sunny-light" };
+      if (gpa >= 1.50) return { label: "Third Class",        color: "text-coral",      bg: "bg-coral-light" };
+      if (gpa >= 1.00) return { label: "Pass",               color: "text-navy-muted", bg: "bg-cloud" };
+      return             { label: "Fail",               color: "text-coral",      bg: "bg-coral-light/60" };
+    }
   };
 
   const classification = getClassification(parseFloat(result.cgpa), gradingSystem);
@@ -287,7 +303,7 @@ export default function CgpaPage() {
             )}
 
             {/* Hero Title — teal theme */}
-            <div className="md:col-span-7 bg-teal border-[5px] border-navy rounded-[2rem] shadow-[8px_8px_0_0_#000] p-7 md:p-9 rotate-[-0.5deg] hover:rotate-0 transition-transform">
+            <div className="md:col-span-7 bg-teal border-[5px] border-navy rounded-[2rem] shadow-[3px_3px_0_0_#000] p-7 md:p-9 rotate-[-0.5deg] hover:rotate-0 transition-transform">
               <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50 mb-3">
                 Academic Growth
               </div>
@@ -300,7 +316,7 @@ export default function CgpaPage() {
             </div>
 
             {/* Live Result Mini — navy card */}
-            <div className="md:col-span-5 bg-navy border-[5px] border-navy rounded-[2rem] shadow-[8px_8px_0_0_#000] p-7 rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+            <div className="md:col-span-5 bg-navy border-[5px] border-navy rounded-[2rem] shadow-[3px_3px_0_0_#000] p-7 rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-ghost/40">
                   Current CGPA
@@ -363,7 +379,7 @@ export default function CgpaPage() {
             <div className="lg:col-span-8 space-y-5">
 
               {/* Grading System Selector — lavender accent */}
-              <section className="bg-lavender-light border-[4px] border-navy rounded-[1.5rem] shadow-[6px_6px_0_0_#000] p-5 md:p-6 rotate-[0.3deg] hover:rotate-0 transition-transform">
+              <section className="bg-lavender-light border-[4px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] p-5 md:p-6 rotate-[0.3deg] hover:rotate-0 transition-transform">
                 <div className="flex items-center gap-2.5 mb-4">
                   <div className="w-8 h-8 rounded-xl bg-lavender border-[3px] border-navy flex items-center justify-center">
                     <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 13.5a8.25 8.25 0 018.25-8.25.75.75 0 01.75.75v6.75H18a.75.75 0 01.75.75 8.25 8.25 0 01-16.5 0z" clipRule="evenodd"/><path fillRule="evenodd" d="M12.75 3a.75.75 0 01.75-.75 8.25 8.25 0 018.25 8.25.75.75 0 01-.75.75h-8.25V3z" clipRule="evenodd"/></svg>
@@ -377,7 +393,7 @@ export default function CgpaPage() {
                       onClick={() => handleGradingSystemChange(system)}
                       className={`px-4 py-3.5 rounded-2xl text-center transition-all border-[3px] ${
                         gradingSystem === system
-                          ? "bg-navy text-ghost border-navy shadow-[4px_4px_0_0_#000]"
+                          ? "bg-navy text-ghost border-navy shadow-[3px_3px_0_0_#000]"
                           : "bg-snow text-navy/60 border-navy/20 hover:border-navy hover:bg-snow"
                       }`}
                     >
@@ -391,7 +407,7 @@ export default function CgpaPage() {
               </section>
 
               {/* Previous Record — coral-light accent */}
-              <section className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] shadow-[6px_6px_0_0_#000] p-5 md:p-6 rotate-[-0.3deg] hover:rotate-0 transition-transform">
+              <section className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] p-5 md:p-6 rotate-[-0.3deg] hover:rotate-0 transition-transform">
                 <div className="flex items-center gap-2.5 mb-4">
                   <div className="w-8 h-8 rounded-xl bg-coral border-[3px] border-navy flex items-center justify-center">
                     <svg className="w-4 h-4 text-snow" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd"/></svg>
@@ -428,7 +444,7 @@ export default function CgpaPage() {
               </section>
 
               {/* Course Entry — main calculator card */}
-              <section className="bg-snow border-[5px] border-navy rounded-[2rem] shadow-[8px_8px_0_0_#000] p-5 md:p-6">
+              <section className="bg-snow border-[5px] border-navy rounded-[2rem] shadow-[3px_3px_0_0_#000] p-5 md:p-6">
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-xl bg-lime border-[3px] border-navy flex items-center justify-center">
@@ -441,7 +457,7 @@ export default function CgpaPage() {
                   </div>
                   <button
                     onClick={addCourse}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-lime border-[3px] border-navy shadow-[3px_3px_0_0_#0F0F2D] font-display font-bold text-xs text-navy uppercase tracking-wider hover:shadow-[5px_5px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-lime border-[3px] border-navy press-3 press-navy font-display font-bold text-xs text-navy uppercase tracking-wider transition-all"
                   >
                     <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
                       <path fillRule="evenodd" d="M12 3.75a.75.75 0 01.75.75v6.75h6.75a.75.75 0 010 1.5h-6.75v6.75a.75.75 0 01-1.5 0v-6.75H4.5a.75.75 0 010-1.5h6.75V4.5a.75.75 0 01.75-.75z" clipRule="evenodd"/>
@@ -551,7 +567,7 @@ export default function CgpaPage() {
               </section>
 
               {/* Target Goal — sunny accent */}
-              <section className="bg-sunny-light border-[4px] border-navy rounded-[1.5rem] shadow-[6px_6px_0_0_#000] p-5 md:p-6 rotate-[-0.3deg] hover:rotate-0 transition-transform">
+              <section className="bg-sunny-light border-[4px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] p-5 md:p-6 rotate-[-0.3deg] hover:rotate-0 transition-transform">
                 <div className="flex items-center gap-2.5 mb-4">
                   <div className="w-8 h-8 rounded-xl bg-sunny border-[3px] border-navy flex items-center justify-center">
                     <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M5.166 2.621v.858c-1.035.148-2.059.33-3.071.543a.75.75 0 00-.584.859 6.753 6.753 0 006.138 5.6 6.73 6.73 0 002.743 1.346A6.707 6.707 0 019.279 15H8.54c-1.036 0-1.875.84-1.875 1.875V19.5h-.75a2.25 2.25 0 00-2.25 2.25c0 .414.336.75.75.75h15.75a.75.75 0 00.75-.75 2.25 2.25 0 00-2.25-2.25h-.75v-2.625c0-1.036-.84-1.875-1.875-1.875h-.739a6.706 6.706 0 01-1.112-3.173 6.73 6.73 0 002.743-1.347 6.753 6.753 0 006.139-5.6.75.75 0 00-.585-.858 47.077 47.077 0 00-3.07-.543V2.62a.75.75 0 00-.658-.744 49.22 49.22 0 00-6.093-.377c-2.063 0-4.096.128-6.093.377a.75.75 0 00-.657.744z" clipRule="evenodd"/></svg>
@@ -598,7 +614,7 @@ export default function CgpaPage() {
             <div className="lg:col-span-4 space-y-5">
 
               {/* Motivation card — coral */}
-              <div className="bg-coral border-[4px] border-navy rounded-[1.5rem] shadow-[6px_6px_0_0_#000] p-5 rotate-[0.5deg] hover:rotate-0 transition-transform">
+              <div className="bg-coral border-[4px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] p-5 rotate-[0.5deg] hover:rotate-0 transition-transform">
                 <div className="flex items-center gap-2 mb-2">
                   <svg className="w-4 h-4 text-snow/60" fill="currentColor" viewBox="0 0 24 24"><path d="M9 4.5a.75.75 0 01.721.544l.813 2.846a3.75 3.75 0 002.576 2.576l2.846.813a.75.75 0 010 1.442l-2.846.813a3.75 3.75 0 00-2.576 2.576l-.813 2.846a.75.75 0 01-1.442 0l-.813-2.846a3.75 3.75 0 00-2.576-2.576l-2.846-.813a.75.75 0 010-1.442l2.846-.813A3.75 3.75 0 007.466 7.89l.813-2.846A.75.75 0 019 4.5zM18 1.5a.75.75 0 01.728.568l.258 1.036c.236.94.97 1.674 1.91 1.91l1.036.258a.75.75 0 010 1.456l-1.036.258c-.94.236-1.674.97-1.91 1.91l-.258 1.036a.75.75 0 01-1.456 0l-.258-1.036a2.625 2.625 0 00-1.91-1.91l-1.036-.258a.75.75 0 010-1.456l1.036-.258a2.625 2.625 0 001.91-1.91l.258-1.036A.75.75 0 0118 1.5z"/></svg>
                   <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-snow/60">Motivation</span>
@@ -607,7 +623,7 @@ export default function CgpaPage() {
               </div>
 
               {/* Classification badge */}
-              <div className={`${hasInteracted ? classification.bg : "bg-cloud"} border-[4px] border-navy rounded-[1.5rem] shadow-[5px_5px_0_0_#000] p-5`}>
+              <div className={`${hasInteracted ? classification.bg : "bg-cloud"} border-[4px] border-navy rounded-[1.5rem] shadow-[3px_3px_0_0_#000] p-5`}>
                 <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40 mb-1">Classification</div>
                 <div className={`font-display font-black text-xl ${hasInteracted ? classification.color : "text-navy/25"}`}>{hasInteracted ? classification.label : "Awaiting input"}</div>
                 <div className="mt-2 text-xs font-display text-navy/50">on the {gradingSystem} scale</div>
@@ -616,14 +632,14 @@ export default function CgpaPage() {
               {/* Save button — lime CTA */}
               <button
                 onClick={saveToHistory}
-                className="w-full py-4 rounded-2xl bg-lime text-navy border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D] font-display font-black text-base hover:shadow-[8px_8px_0_0_#0F0F2D] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all flex items-center justify-center gap-2"
+                className="w-full py-4 rounded-2xl bg-lime text-navy border-[4px] border-navy press-3 press-navy font-display font-black text-base transition-all flex items-center justify-center gap-2"
               >
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M6.32 2.577a49.255 49.255 0 0111.36 0c1.497.174 2.57 1.46 2.57 2.93V21a.75.75 0 01-1.085.67L12 18.089l-7.165 3.583A.75.75 0 013.75 21V5.507c0-1.47 1.073-2.756 2.57-2.93z" clipRule="evenodd"/></svg>
                 Save to Progress
               </button>
 
               {/* History — collapsible */}
-              <div className="bg-snow border-[4px] border-navy rounded-[1.5rem] shadow-[5px_5px_0_0_#000] overflow-hidden">
+              <div className="bg-snow border-[4px] border-navy rounded-[1.5rem] shadow-[3px_3px_0_0_#000] overflow-hidden">
                 <button
                   onClick={() => setShowHistory(!showHistory)}
                   className="w-full flex items-center justify-between p-5 hover:bg-ghost transition-colors"

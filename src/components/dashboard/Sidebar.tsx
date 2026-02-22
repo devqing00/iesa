@@ -187,7 +187,7 @@ export default function Sidebar() {
         {/* Collapse/Expand Toggle — positioned on sidebar edge */}
         <button
           onClick={toggleSidebar}
-          className="absolute -right-[14px] top-[54px] w-7 h-7 rounded-full bg-snow border-[3px] border-navy flex items-center justify-center shadow-[2px_2px_0_0_#000] hover:bg-lime hover:shadow-[3px_3px_0_0_#000] transition-all z-50"
+          className="absolute -right-[14px] top-[54px] w-7 h-7 rounded-full bg-snow border-[3px] border-navy flex items-center justify-center press-2 press-black hover:bg-lime transition-all z-50"
           aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
         >
           <svg

@@ -44,7 +44,7 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
         ════════════════════════════════════════ */}
         <div className="grid grid-cols-12 gap-4">
           {/* left: title */}
-          <div className="col-span-12 md:col-span-7 bg-teal border-[6px] border-navy rounded-[2rem] p-8 shadow-[10px_10px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
+          <div className="col-span-12 md:col-span-7 bg-teal border-[6px] border-navy rounded-[2rem] p-8 shadow-[4px_4px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
             <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50 mb-1">IESA Leadership</div>
             <h1 className="font-display font-black text-3xl sm:text-4xl text-navy leading-tight">
               Team<br />Sustainability
@@ -62,7 +62,7 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
 
           {/* right: 3 stats */}
           <div className="col-span-12 md:col-span-5 grid grid-rows-3 gap-3">
-            <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex items-center gap-3">
+            <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex items-center gap-3">
               <div className="w-8 h-8 rounded-xl bg-coral/30 flex items-center justify-center flex-shrink-0">
                 <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M10 9a3 3 0 100-6 3 3 0 000 6zM6 8a2 2 0 11-4 0 2 2 0 014 0zM1.49 15.326a.78.78 0 01-.358-.442 3 3 0 014.308-3.516 6.484 6.484 0 00-1.905 3.959c-.023.222-.014.442.025.654a4.97 4.97 0 01-2.07-.655zM16.44 15.98a4.97 4.97 0 002.07-.654.78.78 0 00.357-.442 3 3 0 00-4.308-3.517 6.484 6.484 0 011.907 3.96 2.32 2.32 0 01-.026.654zM18 8a2 2 0 11-4 0 2 2 0 014 0zM5.304 16.19a.844.844 0 01-.277-.71 5 5 0 019.947 0 .843.843 0 01-.277.71A6.975 6.975 0 0110 18a6.974 6.974 0 01-4.696-1.81z" />
@@ -74,7 +74,7 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
               </div>
             </div>
 
-            <div className="bg-lavender-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[-0.6deg] hover:rotate-0 transition-transform flex items-center gap-3">
+            <div className="bg-lavender-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.6deg] hover:rotate-0 transition-transform flex items-center gap-3">
               <div className="w-8 h-8 rounded-xl bg-lavender/30 flex items-center justify-center flex-shrink-0">
                 <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M9.664 1.319a.75.75 0 01.672 0 41.059 41.059 0 018.198 5.424.75.75 0 01-.254 1.285 31.372 31.372 0 00-7.86 3.83.75.75 0 01-.84 0 31.508 31.508 0 00-7.86-3.83.75.75 0 01-.254-1.285 41.059 41.059 0 018.198-5.424zM6.303 9.796a.75.75 0 01.49.976A23.05 23.05 0 005.44 14.9a.75.75 0 01-.262.542 47.099 47.099 0 00-2.04 1.874.75.75 0 01-1.263-.566 49.464 49.464 0 00-.23-3.478.75.75 0 01.306-.753 38.036 38.036 0 014.353-2.724zM18.56 17.316a.75.75 0 01-1.263.566 47.192 47.192 0 00-2.04-1.874.75.75 0 01-.262-.542 23.04 23.04 0 00-1.354-4.128.75.75 0 011.466-.491 38.124 38.124 0 014.353 2.724.75.75 0 01.306.752 49.478 49.478 0 00-.23 3.478.75.75 0 01-.976.516z" clipRule="evenodd" />
@@ -86,7 +86,7 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
               </div>
             </div>
 
-            <div className="bg-sunny-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[0.4deg] hover:rotate-0 transition-transform flex items-center gap-3">
+            <div className="bg-sunny-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.4deg] hover:rotate-0 transition-transform flex items-center gap-3">
               <div className="w-8 h-8 rounded-xl bg-sunny/30 flex items-center justify-center flex-shrink-0">
                 <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M1 2.75A.75.75 0 011.75 2h16.5a.75.75 0 010 1.5H18v8.75A2.75 2.75 0 0115.25 15h-1.072l.798 3.06a.75.75 0 01-1.452.38L13.41 18H6.59l-.114.44a.75.75 0 01-1.452-.38L5.822 15H4.75A2.75 2.75 0 012 12.25V3.5h-.25A.75.75 0 011 2.75z" clipRule="evenodd" />
@@ -101,7 +101,7 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
         </div>
 
         {/* ── tab navigation ── */}
-        <div className="bg-snow border-[4px] border-navy rounded-[1.5rem] p-2 shadow-[6px_6px_0_0_#000]">
+        <div className="bg-snow border-[4px] border-navy rounded-[1.5rem] p-2 shadow-[4px_4px_0_0_#000]">
           <div className="flex gap-2 overflow-x-auto scrollbar-hide">
             {NAV_TABS.map((tab) => {
               const isActive = pathname === tab.href;

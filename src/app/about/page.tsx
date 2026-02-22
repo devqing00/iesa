@@ -49,7 +49,7 @@ export default function AboutPage() {
             <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[5rem] leading-[0.9] text-navy">
               <span className="brush-highlight">Shaping the Future</span>
               <br />
-              of <span className="inline-block bg-lime border-[4px] sm:border-[6px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[6px_6px_0_0_#000]">Industrial</span> Engineering
+              of <span className="inline-block bg-lime border-[4px] sm:border-[6px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[4px_4px_0_0_#000]">Industrial</span> Engineering
             </h1>
             <p className="font-display text-base sm:text-lg text-navy/60 max-w-2xl leading-relaxed font-medium">
               The Industrial Engineering Student Association (IESA) at the
@@ -73,14 +73,14 @@ export default function AboutPage() {
             </svg>
             <span className="absolute -top-2 -right-3 text-navy/15 text-xs select-none">✦</span>
             <h2 className="font-display font-black text-3xl sm:text-5xl text-navy">
-              Our <span className="bg-snow border-[4px] border-navy px-4 sm:px-6 py-2 inline-block rotate-[-2deg] shadow-[6px_6px_0_0_#000]">Purpose</span>
+              Our <span className="bg-snow border-[4px] border-navy px-4 sm:px-6 py-2 inline-block rotate-[-2deg] shadow-[4px_4px_0_0_#000]">Purpose</span>
             </h2>
           </div>
 
           {/* Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
             {/* Mission */}
-            <div className="bg-coral border-[4px] border-navy rounded-3xl p-8 sm:p-10 shadow-[8px_8px_0_0_#000] rotate-[-1deg] hover:rotate-0 transition-transform">
+            <div className="bg-coral border-[4px] border-navy rounded-3xl p-8 sm:p-10 shadow-[3px_3px_0_0_#000] rotate-[-1deg] hover:rotate-0 transition-transform">
               <div className="w-14 h-14 bg-navy rounded-full flex items-center justify-center mb-5">
                 <svg className="w-7 h-7 text-lime" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
@@ -98,7 +98,7 @@ export default function AboutPage() {
             </div>
 
             {/* Vision */}
-            <div className="bg-sunny border-[4px] border-navy rounded-3xl p-8 sm:p-10 shadow-[8px_8px_0_0_#000] rotate-[1deg] hover:rotate-0 transition-transform">
+            <div className="bg-sunny border-[4px] border-navy rounded-3xl p-8 sm:p-10 shadow-[3px_3px_0_0_#000] rotate-[1deg] hover:rotate-0 transition-transform">
               <div className="w-14 h-14 bg-navy rounded-full flex items-center justify-center mb-5">
                 <svg className="w-7 h-7 text-sunny" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
@@ -129,7 +129,7 @@ export default function AboutPage() {
             </svg>
             <span className="absolute -top-4 left-1/2 -translate-x-6 text-teal/25 text-xs select-none">✦</span>
             <h2 className="font-display font-black text-3xl sm:text-5xl text-navy">
-              <span className="brush-highlight">What We</span> <span className="bg-lavender border-[4px] border-navy px-4 sm:px-6 py-2 inline-block rotate-[-2deg] shadow-[6px_6px_0_0_#000]">Do</span>
+              <span className="brush-highlight">What We</span> <span className="bg-lavender border-[4px] border-navy px-4 sm:px-6 py-2 inline-block rotate-[-2deg] shadow-[4px_4px_0_0_#000]">Do</span>
             </h2>
           </div>
 
@@ -199,7 +199,7 @@ export default function AboutPage() {
             ].map((activity, i) => (
               <div
                 key={i}
-                className={`${activity.bg} border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0_0_#000] hover:shadow-[4px_4px_0_0_#000] hover:translate-y-[1px] transition-all`}
+                className={`${activity.bg} border-[4px] border-navy rounded-3xl p-6 sm:p-8 press-4 press-black transition-all`}
               >
                 <div className="w-12 h-12 bg-snow border-[3px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[3px_3px_0_0_#000]">
                   {activity.icon}
@@ -234,7 +234,7 @@ export default function AboutPage() {
               { role: "General Secretary", name: "Leadership Position", bg: "bg-teal" },
               { role: "Financial Secretary", name: "Leadership Position", bg: "bg-coral" },
             ].map((leader, i) => (
-              <div key={i} className={`${leader.bg} border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] text-center hover:shadow-[4px_4px_0_0_#000] hover:translate-y-[1px] transition-all`}>
+              <div key={i} className={`${leader.bg} border-[4px] border-navy rounded-3xl p-6 press-4 press-black text-center transition-all`}>
                 <div className="w-20 h-20 mx-auto bg-snow border-[3px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[3px_3px_0_0_#000]">
                   <svg className="w-8 h-8 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
@@ -268,13 +268,13 @@ export default function AboutPage() {
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link
               href="/register"
-              className="font-display font-black bg-lime border-[4px] border-navy rounded-full px-10 py-4 text-base text-navy uppercase tracking-wide hover:translate-y-[2px] shadow-[8px_8px_0_0_#0F0F2D] hover:shadow-[4px_4px_0_0_#0F0F2D] transition-all text-center"
+              className="font-display font-black bg-lime border-[4px] border-navy rounded-full px-10 py-4 text-base text-navy uppercase tracking-wide press-3 press-navy transition-all text-center"
             >
               Join IESA →
             </Link>
             <Link
               href="/contact"
-              className="font-display font-black bg-snow border-[4px] border-navy rounded-full px-10 py-4 text-base text-navy uppercase tracking-wide shadow-[8px_8px_0_0_#000] text-center"
+              className="font-display font-black bg-snow border-[4px] border-navy rounded-full px-10 py-4 text-base text-navy uppercase tracking-wide shadow-[3px_3px_0_0_#000] text-center"
             >
               Contact Us
             </Link>

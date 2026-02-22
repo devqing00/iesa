@@ -121,7 +121,7 @@ export default function ArticleDetailPage() {
       <div className="min-h-screen bg-ghost">
         <DashboardHeader title="Article" />
         <div className="max-w-5xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
-          <div className="bg-snow border-[4px] border-navy rounded-3xl p-10 shadow-[6px_6px_0_0_#000] text-center">
+          <div className="bg-snow border-[4px] border-navy rounded-3xl p-10 shadow-[4px_4px_0_0_#000] text-center">
             <h3 className="font-display font-black text-xl text-navy mb-2">Article not found</h3>
             <Link href="/dashboard/press" className="text-sm font-display font-bold text-lavender hover:text-navy transition-colors">
               Back to Press
@@ -180,7 +180,7 @@ export default function ArticleDetailPage() {
         {canEdit && (
           <Link
             href={`/dashboard/press/write?edit=${article._id}`}
-            className="px-4 py-2 bg-snow border-[3px] border-navy rounded-xl font-display font-bold text-sm text-navy shadow-[3px_3px_0_0_#000] hover:shadow-[1px_1px_0_0_#000] transition-all"
+            className="px-4 py-2 bg-snow border-[3px] border-navy rounded-xl font-display font-bold text-sm text-navy press-3 press-black transition-all"
           >
             Edit Article
           </Link>
@@ -188,7 +188,7 @@ export default function ArticleDetailPage() {
         {canSubmit && (
           <button
             onClick={handleSubmit}
-            className="px-4 py-2 bg-lime border-[3px] border-navy rounded-xl font-display font-bold text-sm text-navy shadow-[3px_3px_0_0_#0F0F2D] hover:shadow-[1px_1px_0_0_#0F0F2D] transition-all"
+            className="px-4 py-2 bg-lime border-[3px] border-navy rounded-xl font-display font-bold text-sm text-navy press-3 press-navy transition-all"
           >
             Submit for Review
           </button>
@@ -197,7 +197,7 @@ export default function ArticleDetailPage() {
           <Link
             href={`/blog/${article.slug}`}
             target="_blank"
-            className="px-4 py-2 bg-teal-light border-[3px] border-navy rounded-xl font-display font-bold text-sm text-navy shadow-[3px_3px_0_0_#000] hover:shadow-[1px_1px_0_0_#000] transition-all"
+            className="px-4 py-2 bg-teal-light border-[3px] border-navy rounded-xl font-display font-bold text-sm text-navy press-3 press-black transition-all"
           >
             View Live
           </Link>
@@ -205,7 +205,7 @@ export default function ArticleDetailPage() {
       </div>
 
       {/* Preview */}
-      <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[6px_6px_0_0_#000]">
+      <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[4px_4px_0_0_#000]">
         <p className="text-[10px] font-bold uppercase tracking-wider text-slate mb-4">Article Preview</p>
         {article.excerpt && (
           <p className="text-sm text-navy/70 italic mb-4 pb-4 border-b border-cloud">{article.excerpt}</p>
@@ -224,7 +224,7 @@ export default function ArticleDetailPage() {
 
       {/* Feedback Thread */}
       {article.feedback.length > 0 && (
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
           <h2 className="font-display font-black text-lg text-navy mb-4 flex items-center gap-2">
             <svg className="w-5 h-5 text-coral" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" />
@@ -250,11 +250,11 @@ export default function ArticleDetailPage() {
       {/* Stats (if published) */}
       {article.status === "published" && (
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-lime-light border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000]">
+          <div className="bg-lime-light border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
             <p className="text-[10px] font-bold uppercase tracking-wider text-navy/50">Views</p>
             <p className="font-display font-black text-3xl text-navy">{article.viewCount}</p>
           </div>
-          <div className="bg-coral-light border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000]">
+          <div className="bg-coral-light border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
             <p className="text-[10px] font-bold uppercase tracking-wider text-navy/50">Likes</p>
             <p className="font-display font-black text-3xl text-navy">{article.likeCount}</p>
           </div>

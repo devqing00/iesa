@@ -39,7 +39,7 @@ export function Card({
       className={`
         ${variantStyles[variant]}
         ${paddingStyles[padding]}
-        ${hover ? 'transition-all duration-200 hover:shadow-[10px_10px_0_0_#000] hover:-translate-y-1' : ''}
+        ${hover ? 'press-4 press-black' : ''}
         ${className}
       `}
       {...props}

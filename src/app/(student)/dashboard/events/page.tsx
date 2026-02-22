@@ -131,6 +131,7 @@ export default function EventsPage() {
       }
       setRegisteredEvents((prev) => new Set([...prev, eventId]));
       setEvents((prev) => prev.map((e) => (e.id === eventId ? { ...e, attendeeCount: e.attendeeCount + 1 } : e)));
+      toast.success("Registered!", "You've been registered for this event");
     } catch (err: unknown) {
       console.error("Error registering:", err);
       const message = err instanceof Error ? err.message : "Failed to register for event";
@@ -156,6 +157,7 @@ export default function EventsPage() {
         return newSet;
       });
       setEvents((prev) => prev.map((e) => (e.id === eventId ? { ...e, attendeeCount: Math.max(0, e.attendeeCount - 1) } : e)));
+      toast.success("Unregistered", "You've been removed from this event");
     } catch (err) {
       console.error("Error unregistering:", err);
       toast.error("Unregister Failed", "Failed to unregister from event");
@@ -219,7 +221,7 @@ export default function EventsPage() {
 
           {/* Stats cards */}
           <div className="md:col-span-4 grid grid-cols-2 md:grid-cols-1 gap-3">
-            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] flex flex-col justify-between">
+            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-lavender-light flex items-center justify-center mb-2">
                 <svg className="w-4.5 h-4.5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
@@ -228,7 +230,7 @@ export default function EventsPage() {
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Total</p>
               <p className="font-display font-black text-3xl text-navy">{events.length}</p>
             </div>
-            <div className="bg-teal-light border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+            <div className="bg-teal-light border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-teal/20 flex items-center justify-center mb-2">
                 <svg className="w-4.5 h-4.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
@@ -244,7 +246,7 @@ export default function EventsPage() {
             ERROR
             ═══════════════════════════════════════════════════════ */}
         {error && (
-          <div className="bg-coral-light border-[3px] border-navy rounded-2xl p-4 mb-5 shadow-[4px_4px_0_0_#000] flex items-center gap-3">
+          <div className="bg-coral-light border-[3px] border-navy rounded-2xl p-4 mb-5 shadow-[3px_3px_0_0_#000] flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-coral flex items-center justify-center shrink-0">
               <svg className="w-4 h-4 text-snow" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
@@ -281,7 +283,7 @@ export default function EventsPage() {
             EVENT CARDS
             ═══════════════════════════════════════════════════════ */}
         {filteredEvents.length === 0 ? (
-          <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[6px_6px_0_0_#000]">
+          <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-sunny-light flex items-center justify-center">
               <svg className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
@@ -304,7 +306,7 @@ export default function EventsPage() {
               return (
                 <article
                   key={event.id}
-                  className={`bg-snow border-[4px] ${accent.border} rounded-3xl overflow-hidden shadow-[6px_6px_0_0_#000] hover:shadow-[4px_4px_0_0_#000] hover:translate-x-[1px] hover:translate-y-[1px] transition-all ${rotation}`}
+                  className={`bg-snow border-[4px] ${accent.border} rounded-3xl overflow-hidden press-4 press-black transition-all ${rotation}`}
                 >
                   {/* Colored Header */}
                   <div className={`${accent.header} p-5 relative overflow-hidden`}>
@@ -388,10 +390,10 @@ export default function EventsPage() {
                         onClick={() => handleRegister(event.id)}
                         disabled={isProcessing || isFull}
                         className={`w-full py-3 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 rounded-2xl border-[3px] ${
-                          isFull
-                            ? "bg-cloud text-slate border-navy/20 cursor-not-allowed"
-                            : "bg-lime text-navy border-navy shadow-[3px_3px_0_0_#0F0F2D] hover:shadow-[5px_5px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] disabled:opacity-50"
-                        }`}
+ isFull
+ ?"bg-cloud text-slate border-navy/20 cursor-not-allowed"
+ :"bg-lime text-navy border-navy press-3 press-navy disabled:opacity-50"
+ }`}
                       >
                         {isProcessing ? (
                           <>

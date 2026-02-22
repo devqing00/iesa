@@ -10,21 +10,24 @@ import { toast } from "sonner";
 interface Payment {
   _id: string;
   id?: string;
-  studentId: string;
-  sessionId: string;
-  category: string;
+  title?: string;
   amount: number;
-  status: string;
-  dueDate: string;
-  paidDate?: string;
-  student?: {
-    firstName: string;
-    lastName: string;
-    matricNumber: string;
-  };
-  session?: {
-    name: string;
-  };
+  sessionId: string;
+  category?: string;
+  type?: string;
+  deadline?: string;
+  status?: string;
+  mandatory?: boolean;
+  description?: string;
+  paidBy?: string[];
+  createdAt?: string;
+}
+
+interface Session {
+  _id: string;
+  id?: string;
+  name: string;
+  isActive: boolean;
 }
 
 interface Transaction {
@@ -44,17 +47,6 @@ interface Transaction {
 
 /* ─── Helpers ────────────────────────────── */
 
-function paymentStatusBadge(status: string) {
-  switch (status) {
-    case "paid":
-      return "bg-teal-light text-teal";
-    case "overdue":
-      return "bg-coral-light text-coral";
-    default:
-      return "bg-sunny-light text-sunny";
-  }
-}
-
 function transactionStatusBadge(status: string) {
   switch (status) {
     case "success":
@@ -73,17 +65,53 @@ export default function AdminPaymentsPage() {
   const [activeTab, setActiveTab] = useState<"payments" | "transactions">("payments");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    title: "",
+    amount: "",
+    sessionId: "",
+    category: "Dues",
+    mandatory: true,
+    deadline: "",
+    description: "",
+  });
 
   useEffect(() => {
+    fetchSessions();
     if (activeTab === "payments") {
       fetchPayments();
     } else {
       fetchTransactions();
     }
   }, [activeTab]);
+
+  /* ─── Data Fetching ──────────────────────────── */
+
+  const fetchSessions = async () => {
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      const response = await fetch(getApiUrl("/api/v1/sessions/"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSessions(data.map((item: Session & { _id?: string }) => ({ ...item, id: item.id || item._id })));
+        // Set active session as default
+        const active = data.find((s: Session) => s.isActive);
+        if (active && !formData.sessionId) {
+          setFormData(prev => ({ ...prev, sessionId: active._id }));
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load sessions", error);
+    }
+  };
 
   const fetchPayments = async () => {
     try {
@@ -123,9 +151,65 @@ export default function AdminPaymentsPage() {
     }
   };
 
+  const handleCreatePayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      
+      const response = await fetch(getApiUrl("/api/v1/payments/"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: formData.title,
+          amount: parseFloat(formData.amount),
+          sessionId: formData.sessionId,
+          category: formData.category,
+          mandatory: formData.mandatory,
+          deadline: new Date(formData.deadline).toISOString(),
+          description: formData.description || undefined,
+        }),
+      });
+
+      if (response.ok) {
+        toast.success("Payment created successfully!");
+        setShowCreateModal(false);
+        setFormData({
+          title: "",
+          amount: "",
+          sessionId: formData.sessionId, // Keep session
+          category: "Dues",
+          mandatory: true,
+          deadline: "",
+          description: "",
+        });
+        fetchPayments();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || "Failed to create payment");
+      }
+    } catch (error) {
+      toast.error("Failed to create payment");
+      console.error(error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  /* ─── Filtering Logic ──────────────────────────── */
+
   const filteredPayments = payments.filter((p) => {
     const matchesCategory = categoryFilter === "all" || p.category === categoryFilter;
-    const matchesStatus = statusFilter === "all" || p.status === statusFilter;
+    const matchesStatus = 
+      statusFilter === "all" ? true :
+      statusFilter === "paid" ? (p.paidBy && p.paidBy.length > 0) :
+      statusFilter === "pending" ? (!p.paidBy || p.paidBy.length === 0) :
+      false;
     return matchesCategory && matchesStatus;
   });
 
@@ -136,9 +220,9 @@ export default function AdminPaymentsPage() {
   /* ── Stats ──────────────────────── */
 
   const totalPaymentAmount = payments.reduce((sum, p) => sum + p.amount, 0);
-  const paidCount = payments.filter((p) => p.status === "paid").length;
-  const pendingCount = payments.filter((p) => p.status === "pending").length;
-  const overdueCount = payments.filter((p) => p.status === "overdue").length;
+  const paidCount = payments.filter((p) => p.paidBy && p.paidBy.length > 0).length;
+  const pendingCount = payments.filter((p) => !p.paidBy || p.paidBy.length === 0).length;
+  const overdueCount = 0; // Calculate based on deadline if needed
   const totalTransactionAmount = transactions
     .filter((t) => t.status === "success")
     .reduce((sum, t) => sum + t.amount / 100, 0);
@@ -156,18 +240,21 @@ export default function AdminPaymentsPage() {
           </h1>
           <p className="text-sm text-navy/60 mt-1">Manage payment dues and transactions</p>
         </div>
-        <button className="self-start bg-navy border-[4px] border-lime shadow-[5px_5px_0_0_#000] px-6 py-2.5 rounded-2xl text-sm font-bold text-lime hover:shadow-[7px_7px_0_0_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center gap-2">
+        <button 
+          onClick={() => setShowCreateModal(true)}
+          className="self-start bg-lime border-[4px] border-navy press-3 press-black px-6 py-2.5 rounded-2xl text-sm font-bold text-navy transition-all flex items-center gap-2"
+        >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-            <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+            <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
           </svg>
-          Export Report
+          Create Payment Due
         </button>
       </div>
 
       {/* ── Stats Bento Grid ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Revenue */}
-        <div className="bg-navy border-[4px] border-lime rounded-3xl p-6 shadow-[6px_6px_0_0_#C8F31D]">
+        <div className="bg-navy border-[4px] border-lime rounded-3xl p-6 shadow-[4px_4px_0_0_#C8F31D]">
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-lime/60 mb-2">Total Revenue</p>
           <p className="font-display font-black text-2xl md:text-3xl text-lime">
             ₦{totalPaymentAmount.toLocaleString()}
@@ -176,7 +263,7 @@ export default function AdminPaymentsPage() {
         </div>
 
         {/* Paid */}
-        <div className="bg-teal border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+        <div className="bg-teal border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60">Paid</p>
             <div className="w-9 h-9 rounded-xl bg-snow/20 flex items-center justify-center">
@@ -190,7 +277,7 @@ export default function AdminPaymentsPage() {
         </div>
 
         {/* Pending */}
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Pending</p>
             <div className="w-9 h-9 rounded-xl bg-sunny-light flex items-center justify-center">
@@ -204,7 +291,7 @@ export default function AdminPaymentsPage() {
         </div>
 
         {/* Overdue */}
-        <div className="bg-coral border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+        <div className="bg-coral border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60">Overdue</p>
             <div className="w-9 h-9 rounded-xl bg-snow/20 flex items-center justify-center">
@@ -276,17 +363,17 @@ export default function AdminPaymentsPage() {
           </div>
 
           {/* Table */}
-          <div className="bg-snow border-[4px] border-navy rounded-3xl overflow-hidden shadow-[6px_6px_0_0_#000]">
+          <div className="bg-snow border-[4px] border-navy rounded-3xl overflow-hidden shadow-[4px_4px_0_0_#000]">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b-[4px] border-navy bg-navy">
-                    <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-lime/80">Student</th>
-                    <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-lime/80">Session</th>
+                    <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-lime/80">Title</th>
                     <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-lime/80">Category</th>
                     <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-lime/80">Amount</th>
-                    <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-lime/80">Status</th>
-                    <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-lime/80">Due Date</th>
+                    <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-lime/80">Paid By</th>
+                    <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-lime/80">Mandatory</th>
+                    <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-lime/80">Deadline</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -313,21 +400,11 @@ export default function AdminPaymentsPage() {
                     filteredPayments.map((payment) => (
                       <tr key={payment.id} className="border-b-[3px] border-navy/10 last:border-b-0 hover:bg-ghost transition-colors">
                         <td className="p-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-xl bg-lavender-light flex items-center justify-center text-xs font-bold text-lavender shrink-0">
-                              {payment.student ? `${payment.student.firstName[0]}${payment.student.lastName[0]}` : "?"}
-                            </div>
-                            <div>
-                              <div className="font-bold text-navy text-sm">
-                                {payment.student ? `${payment.student.firstName} ${payment.student.lastName}` : "N/A"}
-                              </div>
-                              {payment.student?.matricNumber && (
-                                <div className="text-xs text-slate mt-0.5">{payment.student.matricNumber}</div>
-                              )}
-                            </div>
-                          </div>
+                          <div className="font-bold text-navy text-sm">{payment.title}</div>
+                          {payment.description && (
+                            <div className="text-xs text-slate mt-0.5 line-clamp-1">{payment.description}</div>
+                          )}
                         </td>
-                        <td className="p-4 text-navy/60 text-sm">{payment.session?.name || "N/A"}</td>
                         <td className="p-4">
                           <span className="inline-block px-3 py-1 rounded-full bg-cloud text-navy/60 text-xs font-bold">{payment.category}</span>
                         </td>
@@ -335,11 +412,22 @@ export default function AdminPaymentsPage() {
                           <span className="font-display font-black text-base text-navy">₦{payment.amount.toLocaleString()}</span>
                         </td>
                         <td className="p-4">
-                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${paymentStatusBadge(payment.status)}`}>
-                            {payment.status}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="inline-block px-3 py-1 rounded-full bg-teal-light text-teal text-xs font-bold">
+                              {payment.paidBy?.length || 0} students
+                            </span>
+                          </div>
                         </td>
-                        <td className="p-4 text-navy/60 text-sm">{new Date(payment.dueDate).toLocaleDateString()}</td>
+                        <td className="p-4">
+                          {payment.mandatory ? (
+                            <span className="inline-block px-3 py-1 rounded-full bg-coral-light text-coral text-xs font-bold">Yes</span>
+                          ) : (
+                            <span className="inline-block px-3 py-1 rounded-full bg-cloud text-navy/60 text-xs font-bold">No</span>
+                          )}
+                        </td>
+                        <td className="p-4 text-navy/60 text-sm">
+                          {payment.deadline ? new Date(payment.deadline).toLocaleDateString() : "N/A"}
+                        </td>
                       </tr>
                     ))
                   )}
@@ -354,7 +442,7 @@ export default function AdminPaymentsPage() {
       {activeTab === "transactions" && (
         <div className="space-y-6">
           {/* Transaction Summary Card */}
-          <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
+          <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Total Successful Transactions</p>
@@ -387,7 +475,7 @@ export default function AdminPaymentsPage() {
           </div>
 
           {/* Table */}
-          <div className="bg-snow border-[4px] border-navy rounded-3xl overflow-hidden shadow-[6px_6px_0_0_#000]">
+          <div className="bg-snow border-[4px] border-navy rounded-3xl overflow-hidden shadow-[4px_4px_0_0_#000]">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -458,6 +546,167 @@ export default function AdminPaymentsPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Create Payment Modal ── */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setShowCreateModal(false)}>
+          <div className="bg-snow border-[4px] border-navy rounded-3xl p-8 shadow-[10px_10px_0_0_#000] max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-display font-black text-2xl text-navy">Create Payment Due</h3>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="w-8 h-8 rounded-xl bg-cloud hover:bg-navy/10 flex items-center justify-center transition-colors"
+                aria-label="Close modal"
+              >
+                <svg className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleCreatePayment} className="space-y-5">
+              {/* Title Field */}
+              <div>
+                <label htmlFor="title" className="block text-xs font-bold uppercase tracking-wider text-slate mb-2">
+                  Payment Title <span className="text-coral">*</span>
+                </label>
+                <input
+                  id="title"
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="e.g., Department Dues 2024/2025"
+                  required
+                  className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy placeholder:text-slate/50 focus:outline-none focus:ring-4 focus:ring-lime/30 transition-all"
+                />
+              </div>
+
+              {/* Amount and Category Row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label htmlFor="amount" className="block text-xs font-bold uppercase tracking-wider text-slate mb-2">
+                    Amount (₦) <span className="text-coral">*</span>
+                  </label>
+                  <input
+                    id="amount"
+                    type="number"
+                    value={formData.amount}
+                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                    placeholder="5000"
+                    required
+                    min="0"
+                    step="0.01"
+                    className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy placeholder:text-slate/50 focus:outline-none focus:ring-4 focus:ring-lime/30 transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="category" className="block text-xs font-bold uppercase tracking-wider text-slate mb-2">
+                    Category <span className="text-coral">*</span>
+                  </label>
+                  <select
+                    id="category"
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    required
+                    className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy appearance-none cursor-pointer focus:outline-none focus:ring-4 focus:ring-lime/30 transition-all"
+                  >
+                    <option key="dues" value="Dues">Dues</option>
+                    <option key="event" value="Event">Event</option>
+                    <option key="other" value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Session and Deadline Row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label htmlFor="sessionId" className="block text-xs font-bold uppercase tracking-wider text-slate mb-2">
+                    Session <span className="text-coral">*</span>
+                  </label>
+                  <select
+                    id="sessionId"
+                    value={formData.sessionId}
+                    onChange={(e) => setFormData({ ...formData, sessionId: e.target.value })}
+                    required
+                    className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy appearance-none cursor-pointer focus:outline-none focus:ring-4 focus:ring-lime/30 transition-all"
+                  >
+                    <option value="">Select Session</option>
+                    {sessions.map((session) => (
+                      <option key={session._id} value={session._id}>
+                        {session.name} {session.isActive && "(Active)"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="deadline" className="block text-xs font-bold uppercase tracking-wider text-slate mb-2">
+                    Deadline <span className="text-coral">*</span>
+                  </label>
+                  <input
+                    id="deadline"
+                    type="datetime-local"
+                    value={formData.deadline}
+                    onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                    required
+                    className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy focus:outline-none focus:ring-4 focus:ring-lime/30 transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Mandatory Checkbox */}
+              <div>
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={formData.mandatory}
+                    onChange={(e) => setFormData({ ...formData, mandatory: e.target.checked })}
+                    className="w-5 h-5 rounded-lg border-[3px] border-navy checked:bg-lime checked:border-navy focus:ring-4 focus:ring-lime/30 cursor-pointer"
+                  />
+                  <span className="text-sm font-bold text-navy group-hover:text-navy/70 transition-colors">
+                    Mandatory Payment (Students must pay to access certain features)
+                  </span>
+                </label>
+              </div>
+
+              {/* Description Field */}
+              <div>
+                <label htmlFor="description" className="block text-xs font-bold uppercase tracking-wider text-slate mb-2">
+                  Description <span className="text-slate/50">(Optional)</span>
+                </label>
+                <textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Additional details about this payment..."
+                  rows={3}
+                  className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy placeholder:text-slate/50 focus:outline-none focus:ring-4 focus:ring-lime/30 transition-all resize-none"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  disabled={submitting}
+                  className="flex-1 px-6 py-3 bg-transparent border-[3px] border-navy rounded-2xl font-display font-black text-navy hover:bg-navy hover:text-lime transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 px-6 py-3 bg-lime border-[4px] border-navy rounded-2xl font-display font-black text-navy shadow-[5px_5px_0_0_#0F0F2D] hover:shadow-[8px_8px_0_0_#0F0F2D] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0"
+                >
+                  {submitting ? "Creating..." : "Create Payment"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

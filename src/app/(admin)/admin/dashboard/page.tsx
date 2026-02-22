@@ -65,7 +65,7 @@ function formatTimeAgo(timestamp: string): string {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-snow border-[3px] border-navy rounded-2xl px-4 py-3 shadow-[4px_4px_0_0_#000]">
+      <div className="bg-snow border-[3px] border-navy rounded-2xl px-4 py-3 shadow-[3px_3px_0_0_#000]">
         <p className="font-display font-black text-navy text-sm">{label}</p>
         <p className="text-navy/70 font-bold text-sm">{payload[0].value}</p>
       </div>
@@ -272,7 +272,7 @@ export default function AdminDashboardPage() {
         {/* Right column — 2 stacked cards spanning 5 cols */}
         <div className="md:col-span-5 grid grid-rows-2 gap-4">
           {/* Enrollments — lime card */}
-          <div className="bg-lime border-[4px] border-navy rounded-3xl p-6 flex items-center justify-between shadow-[6px_6px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+          <div className="bg-lime border-[4px] border-navy rounded-3xl p-6 flex items-center justify-between shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50 mb-1">Enrollments</p>
               <p className="font-display font-black text-4xl text-navy">{loading ? "--" : stats.totalEnrollments}</p>
@@ -286,7 +286,7 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* Events — coral card */}
-          <div className="bg-coral border-[4px] border-navy rounded-3xl p-6 flex items-center justify-between shadow-[6px_6px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+          <div className="bg-coral border-[4px] border-navy rounded-3xl p-6 flex items-center justify-between shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Events</p>
               <p className="font-display font-black text-4xl text-snow">{loading ? "--" : stats.totalEvents}</p>
@@ -306,7 +306,7 @@ export default function AdminDashboardPage() {
           <Link
             key={link.name}
             href={link.href}
-            className="group bg-snow border-[4px] border-navy rounded-2xl p-5 hover:shadow-[8px_8px_0_0_#000] hover:-translate-y-1 transition-all"
+ className="group bg-snow border-[4px] border-navy rounded-2xl p-5 press-3 press-black transition-all"
           >
             <div className="flex items-center justify-between mb-4">
               <div className={`w-10 h-10 rounded-xl ${link.color} flex items-center justify-center`}>
@@ -325,7 +325,7 @@ export default function AdminDashboardPage() {
       {/* ── Charts Row ─────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Enrollments by Level */}
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
           <div className="flex items-center justify-between mb-5">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-0.5">Breakdown</p>
@@ -354,7 +354,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Payments by Status */}
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
           <div className="flex items-center justify-between mb-5">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-0.5">Overview</p>
@@ -400,7 +400,7 @@ export default function AdminDashboardPage() {
       {/* ── Bottom Row ─────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Recent Activity */}
-        <div className="lg:col-span-2 bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
+        <div className="lg:col-span-2 bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
           <div className="flex items-center justify-between mb-5">
             <h3 className="font-display font-black text-lg text-navy">Recent Activity</h3>
             <Link href="/admin/audit-logs" className="text-xs font-bold text-teal hover:underline">
@@ -445,7 +445,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Session Status */}
-        <div className="bg-lavender border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+        <div className="bg-lavender border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
           <h3 className="font-display font-black text-lg text-snow mb-5">Session Status</h3>
           <div className="space-y-3">
             <div className="bg-snow/90 rounded-2xl p-4 border-[3px] border-navy/20">
@@ -458,7 +458,7 @@ export default function AdminDashboardPage() {
             </div>
             <Link
               href="/admin/sessions"
-              className="block w-full text-center py-3 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold hover:shadow-[4px_4px_0_0_#C8F31D] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all"
+ className="block w-full text-center py-3 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold press-4 press-lime transition-all"
             >
               Manage Sessions
             </Link>

@@ -68,12 +68,12 @@ const typeStyles: Record<string, { bg: string; text: string; calColor: string; d
 };
 
 const todayCardColors = [
-  { bg: "bg-snow", border: "border-navy", shadow: "shadow-[5px_5px_0_0_#000]", text: "text-navy", sub: "text-slate" },
-  { bg: "bg-lavender-light", border: "border-navy", shadow: "shadow-[5px_5px_0_0_#000]", text: "text-navy", sub: "text-navy/50" },
-  { bg: "bg-coral-light", border: "border-navy", shadow: "shadow-[5px_5px_0_0_#000]", text: "text-navy", sub: "text-navy/50" },
-  { bg: "bg-teal-light", border: "border-navy", shadow: "shadow-[5px_5px_0_0_#000]", text: "text-navy", sub: "text-navy/50" },
-  { bg: "bg-sunny-light", border: "border-navy", shadow: "shadow-[5px_5px_0_0_#000]", text: "text-navy", sub: "text-navy/50" },
-  { bg: "bg-snow", border: "border-navy", shadow: "shadow-[5px_5px_0_0_#000]", text: "text-navy", sub: "text-slate" },
+  { bg: "bg-snow", border: "border-navy", shadow: "shadow-[3px_3px_0_0_#000]", text: "text-navy", sub: "text-slate" },
+  { bg: "bg-lavender-light", border: "border-navy", shadow: "shadow-[3px_3px_0_0_#000]", text: "text-navy", sub: "text-navy/50" },
+  { bg: "bg-coral-light", border: "border-navy", shadow: "shadow-[3px_3px_0_0_#000]", text: "text-navy", sub: "text-navy/50" },
+  { bg: "bg-teal-light", border: "border-navy", shadow: "shadow-[3px_3px_0_0_#000]", text: "text-navy", sub: "text-navy/50" },
+  { bg: "bg-sunny-light", border: "border-navy", shadow: "shadow-[3px_3px_0_0_#000]", text: "text-navy", sub: "text-navy/50" },
+  { bg: "bg-snow", border: "border-navy", shadow: "shadow-[3px_3px_0_0_#000]", text: "text-navy", sub: "text-slate" },
 ];
 
 /* ─── Component ─────────────────────────────────────────────────── */
@@ -307,7 +307,7 @@ export default function TimetablePage() {
 
           {/* Action cards */}
           <div className="lg:col-span-5 grid grid-cols-2 gap-3">
-            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] flex flex-col justify-between">
+            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-sunny-light flex items-center justify-center mb-3">
                 <svg className="w-4.5 h-4.5 text-sunny" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
@@ -317,7 +317,7 @@ export default function TimetablePage() {
               <p className="font-display font-black text-3xl text-navy">{todaysClasses.length}</p>
             </div>
 
-            <div className="bg-teal-light border-[4px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+            <div className="bg-teal-light border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-teal/20 flex items-center justify-center mb-3">
                 <svg className="w-4.5 h-4.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
@@ -419,7 +419,7 @@ export default function TimetablePage() {
                 const rotation = i % 3 === 1 ? "rotate-[0.5deg] hover:rotate-0" : i % 3 === 2 ? "rotate-[-0.5deg] hover:rotate-0" : "";
 
                 return (
-                  <div key={event.id} className={`bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000] transition-all ${isCancelled ? "opacity-50" : ""} ${rotation}`}>
+                  <div key={event.id} className={`bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000] transition-all ${isCancelled ? "opacity-50" : ""} ${rotation}`}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-display font-black text-base text-navy">{classSession.courseCode}</span>
                       <span className="text-[10px] font-bold text-slate uppercase tracking-wider bg-cloud rounded-full px-2 py-0.5">
@@ -441,7 +441,7 @@ export default function TimetablePage() {
         {/* ═══════════════════════════════════════════════════════
             CALENDAR
             ═══════════════════════════════════════════════════════ */}
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-4 md:p-6 shadow-[6px_6px_0_0_#000] overflow-hidden">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-4 md:p-6 shadow-[4px_4px_0_0_#000] overflow-hidden">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-3 h-8 rounded-full bg-sunny" />
             <h2 className="font-display font-black text-xl text-navy">Weekly View</h2>
@@ -491,7 +491,7 @@ export default function TimetablePage() {
         {canCancelClasses && (
           <button
             onClick={() => setShowCancelModal(true)}
-            className="fixed bottom-24 md:bottom-8 right-6 bg-coral border-[4px] border-navy rounded-2xl px-5 py-3 shadow-[5px_5px_0_0_#000] hover:shadow-[3px_3px_0_0_#000] hover:translate-x-[1px] hover:translate-y-[1px] transition-all flex items-center gap-2 z-30"
+            className="fixed bottom-24 md:bottom-8 right-6 bg-coral border-[4px] border-navy rounded-2xl px-5 py-3 press-3 press-black transition-all flex items-center gap-2 z-30"
           >
             <svg className="w-5 h-5 text-snow" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z" clipRule="evenodd" />
@@ -502,7 +502,7 @@ export default function TimetablePage() {
 
         {showCancelModal && (
           <div className="fixed inset-0 bg-navy/80 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6" onClick={() => { setShowCancelModal(false); setSelectedClass(null); setCancelDate(""); setCancelReason(""); }}>
-            <div className="bg-snow border-[4px] border-navy rounded-3xl w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[10px_10px_0_0_#000]" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-snow border-[4px] border-navy rounded-3xl w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]" onClick={(e) => e.stopPropagation()}>
               {/* Header */}
               <div className="p-6 border-b-[3px] border-navy/10 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -549,7 +549,7 @@ export default function TimetablePage() {
                 <button onClick={() => { setShowCancelModal(false); setSelectedClass(null); setCancelDate(""); setCancelReason(""); }} disabled={cancelling} className="flex-1 px-4 py-3 rounded-2xl border-[3px] border-navy text-navy font-bold text-xs uppercase tracking-wider hover:bg-cloud transition-colors">
                   Cancel
                 </button>
-                <button onClick={handleCancelClass} disabled={cancelling} className="flex-1 px-4 py-3 rounded-2xl bg-coral text-snow font-bold text-xs uppercase tracking-wider border-[3px] border-navy shadow-[3px_3px_0_0_#000] hover:shadow-[5px_5px_0_0_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                <button onClick={handleCancelClass} disabled={cancelling} className="flex-1 px-4 py-3 rounded-2xl bg-coral text-snow font-bold text-xs uppercase tracking-wider border-[3px] border-navy press-3 press-black transition-all disabled:opacity-50 flex items-center justify-center gap-2">
                   {cancelling ? (
                     <>
                       <div className="w-4 h-4 border-[2px] border-snow border-t-transparent rounded-full animate-spin" />

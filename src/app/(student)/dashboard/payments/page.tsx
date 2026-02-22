@@ -79,7 +79,7 @@ export default function PaymentsPage() {
       if (!sessionRes.ok) throw new Error("Failed to fetch session");
       const session = await sessionRes.json();
       const sessionId = session.id || session._id;
-      const res = await fetch(getApiUrl(`/api/v1/payments?session_id=${sessionId}`), { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(getApiUrl(`/api/v1/payments/?session_id=${sessionId}`), { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed to fetch payments");
       setPayments(await res.json());
     } catch (error) {
@@ -221,7 +221,7 @@ export default function PaymentsPage() {
             {/* ═══ BENTO HERO ═══ */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
               {/* Title Card — sunny theme */}
-              <div className="md:col-span-7 bg-sunny border-[6px] border-navy rounded-[2rem] p-8 shadow-[10px_10px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
+              <div className="md:col-span-7 bg-sunny border-[6px] border-navy rounded-[2rem] p-8 shadow-[4px_4px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
                 <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/70 flex items-center gap-2 mb-3">
                   <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
                   Finance Portal
@@ -237,7 +237,7 @@ export default function PaymentsPage() {
               {/* Stats Strip */}
               <div className="md:col-span-5 grid grid-cols-1 gap-3">
                 {/* Completed */}
-                <div className="bg-teal-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[0.3deg] hover:rotate-0 transition-transform flex items-center justify-between">
+                <div className="bg-teal-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.3deg] hover:rotate-0 transition-transform flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Completed</span>
                     <p className="font-display font-black text-2xl text-navy">{paidPayments.length}</p>
@@ -247,7 +247,7 @@ export default function PaymentsPage() {
                   </div>
                 </div>
                 {/* Pending */}
-                <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
+                <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Pending</span>
                     <p className={`font-display font-black text-2xl ${pendingPayments.length > 0 ? "text-coral" : "text-navy"}`}>{pendingPayments.length}</p>
@@ -257,7 +257,7 @@ export default function PaymentsPage() {
                   </div>
                 </div>
                 {/* Total Paid */}
-                <div className="bg-navy border-[4px] border-lime rounded-[1.5rem] p-4 shadow-[6px_6px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
+                <div className="bg-navy border-[4px] border-lime rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-lime/60">Total Paid</span>
                     <p className="font-display font-black text-2xl text-lime">₦{paidPayments.reduce((s, p) => s + p.amount, 0).toLocaleString()}</p>
@@ -270,7 +270,7 @@ export default function PaymentsPage() {
             </div>
 
             {/* ═══ TAB BAR ═══ */}
-            <div className="bg-snow border-[4px] border-navy rounded-[1.5rem] shadow-[6px_6px_0_0_#000] p-4">
+            <div className="bg-snow border-[4px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] p-4">
               <div className="flex gap-2">
                 <button
                   onClick={() => setActiveTab("pending")}
@@ -299,7 +299,7 @@ export default function PaymentsPage() {
             {activeTab === "pending" && (
               <div className="space-y-4">
                 {pendingPayments.length === 0 ? (
-                  <div className="bg-navy border-[4px] border-lime rounded-[2rem] shadow-[8px_8px_0_0_#000] p-12 text-center">
+                  <div className="bg-navy border-[4px] border-lime rounded-[2rem] shadow-[3px_3px_0_0_#000] p-12 text-center">
                     <div className="w-14 h-14 bg-teal/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                       <svg className="w-7 h-7 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>
                     </div>
@@ -312,7 +312,7 @@ export default function PaymentsPage() {
                     return (
                       <div
                         key={payment._id}
-                        className={`bg-snow border-[4px] border-navy ${accent} border-l-[6px] rounded-[1.5rem] shadow-[6px_6px_0_0_#000] overflow-hidden transition-all hover:shadow-[4px_4px_0_0_#000] hover:translate-x-[1px] hover:translate-y-[1px]`}
+                        className={`bg-snow border-[4px] border-navy ${accent} border-l-[6px] rounded-[1.5rem] press-4 press-black overflow-hidden transition-all`}
                       >
                         {/* Card Header */}
                         <div className="px-5 py-3 border-b-[3px] border-navy/10 flex items-center justify-between">
@@ -343,7 +343,7 @@ export default function PaymentsPage() {
                               <button
                                 onClick={() => initiatePayment(payment)}
                                 disabled={processing}
-                                className="px-6 py-3 bg-lime text-navy border-[4px] border-navy rounded-2xl shadow-[5px_5px_0_0_#0F0F2D] font-display font-bold text-xs uppercase tracking-wider hover:shadow-[7px_7px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
+                                className="px-6 py-3 bg-lime text-navy border-[4px] border-navy rounded-2xl press-3 press-navy font-display font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
                               >
                                 {processing ? (
                                   <>
@@ -371,7 +371,7 @@ export default function PaymentsPage() {
             {activeTab === "history" && (
               <div className="space-y-4">
                 {transactions.length === 0 ? (
-                  <div className="bg-navy border-[4px] border-lime rounded-[2rem] shadow-[8px_8px_0_0_#000] p-12 text-center">
+                  <div className="bg-navy border-[4px] border-lime rounded-[2rem] shadow-[3px_3px_0_0_#000] p-12 text-center">
                     <div className="w-14 h-14 bg-lime/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                       <svg className="w-7 h-7 text-lime" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd" /></svg>
                     </div>
@@ -390,7 +390,7 @@ export default function PaymentsPage() {
                     return (
                       <div
                         key={txn._id}
-                        className={`bg-snow border-[4px] border-navy ${accent} border-l-[6px] rounded-[1.5rem] shadow-[6px_6px_0_0_#000] overflow-hidden transition-all hover:shadow-[4px_4px_0_0_#000] hover:translate-x-[1px] hover:translate-y-[1px]`}
+                        className={`bg-snow border-[4px] border-navy ${accent} border-l-[6px] rounded-[1.5rem] press-4 press-black overflow-hidden transition-all`}
                       >
                         {/* Header */}
                         <div className="px-5 py-3 border-b-[3px] border-navy/10 flex items-center justify-between">

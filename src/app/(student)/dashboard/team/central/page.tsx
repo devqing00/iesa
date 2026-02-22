@@ -100,7 +100,7 @@ export default function CentralExcosPage() {
 
       {/* ── empty state ── */}
       {!loading && executives.length === 0 && (
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[6px_6px_0_0_#000]">
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
           <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-coral-light flex items-center justify-center">
             <svg className="w-7 h-7 text-coral" viewBox="0 0 24 24" fill="currentColor">
               <path d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0Z" />
@@ -113,7 +113,7 @@ export default function CentralExcosPage() {
 
       {!loading && president && (
         /* ── president hero card ── */
-        <div className="bg-navy border-[4px] border-lime rounded-[2rem] p-6 md:p-8 shadow-[8px_8px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform relative overflow-hidden">
+        <div className="bg-navy border-[4px] border-lime rounded-[2rem] p-6 md:p-8 shadow-[3px_3px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform relative overflow-hidden">
           <div className="flex items-center gap-5">
             <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-lime flex items-center justify-center flex-shrink-0 border-[3px] border-lime-dark">
               <span className="font-display font-black text-2xl md:text-3xl text-navy">
@@ -157,7 +157,7 @@ export default function CentralExcosPage() {
             return (
               <div
                 key={exco.user.id}
-                className={`bg-snow border-[4px] border-navy border-l-[6px] ${accent.border} rounded-[1.5rem] p-5 shadow-[6px_6px_0_0_#000] ${rotations[i % rotations.length]} hover:rotate-0 transition-transform`}
+                className={`bg-snow border-[4px] border-navy border-l-[6px] ${accent.border} rounded-[1.5rem] p-5 shadow-[4px_4px_0_0_#000] ${rotations[i % rotations.length]} hover:rotate-0 transition-transform`}
               >
                 <div className="flex items-start gap-4">
                   <div className={`w-12 h-12 rounded-xl ${accent.iconBg} flex items-center justify-center flex-shrink-0 border-[3px] border-navy`}>
