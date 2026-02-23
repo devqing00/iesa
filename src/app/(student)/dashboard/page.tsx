@@ -58,7 +58,16 @@ export default function StudentDashboardPage() {
   const [payments, setPayments] = useState<PaymentItem[]>([]);
   const [classes, setClasses] = useState<ClassSession[]>([]);
   const [loading, setLoading] = useState(true);
-  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  // Initialise from localStorage to avoid flash-of-banner on dismissed users.
+  // Wrapped in try/catch for SSR safety even though this is "use client".
+  const [onboardingDismissed, setOnboardingDismissed] = useState<boolean>(() => {
+    try {
+      return typeof window !== "undefined" &&
+        localStorage.getItem("iesa_onboarding_dismissed") === "1";
+    } catch {
+      return false;
+    }
+  });
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -112,13 +121,6 @@ export default function StudentDashboardPage() {
     if (user) fetchDashboardData();
   }, [user, fetchDashboardData]);
 
-  useEffect(() => {
-    try {
-      if (localStorage.getItem("iesa_onboarding_dismissed") === "1") {
-        setOnboardingDismissed(true);
-      }
-    } catch { /* SSR or storage error */ }
-  }, []);
 
   const greeting = () => {
     const hour = new Date().getHours();
@@ -165,7 +167,11 @@ export default function StudentDashboardPage() {
     if (!userProfile.phone) profileMissing.push("phone number");
     if (!userProfile.emailVerified) profileMissing.push("email verification");
   }
-  const showOnboarding = !onboardingDismissed && profileMissing.length > 0;
+  // Hide banner if backend says onboarding is complete OR if user has dismissed it
+  const showOnboarding =
+    !onboardingDismissed &&
+    !userProfile?.hasCompletedOnboarding &&
+    profileMissing.length > 0;
 
   const dismissOnboarding = () => {
     setOnboardingDismissed(true);

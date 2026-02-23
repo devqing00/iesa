@@ -756,7 +756,12 @@ export default function ProfilePage() {
                     {enrollments.map((e, i) => (
                       <tr key={e.id || i} className="border-b-[2px] border-navy/10 last:border-b-0 hover:bg-ghost transition-colors">
                         <td className="p-4">
-                          <span className="font-display font-bold text-sm text-navy">{e.sessionId}</span>
+                          <div>
+                            <span className="font-display font-bold text-sm text-navy">{e.session?.name || "—"}</span>
+                            {e.session?.isActive && (
+                              <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-teal-light text-[9px] font-bold uppercase tracking-wider text-teal">Active</span>
+                            )}
+                          </div>
                         </td>
                         <td className="p-4">
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-lavender-light text-xs font-bold text-navy">

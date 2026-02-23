@@ -30,6 +30,7 @@ export default function Header() {
   ];
 
   return (
+    <>
     <header className="fixed top-0 left-0 right-0 z-50 bg-snow/95 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14 sm:h-16">
         {/* Logo */}
@@ -90,9 +91,11 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Fullscreen Mobile Menu — editorial style */}
+    </header>
+
+      {/* Fullscreen Mobile Menu — rendered outside <header> to avoid backdrop-filter containing-block bug */}
       {isMenuOpen && (
-        <div className="fixed inset-0 z-50 bg-navy flex flex-col items-center justify-center md:hidden">
+        <div className="fixed inset-0 z-[100] bg-navy flex flex-col items-center justify-center md:hidden">
           {/* Decorative sparkle */}
           <svg className="absolute bottom-12 left-8 w-6 h-6 text-snow/10 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
@@ -133,6 +136,6 @@ export default function Header() {
           </p>
         </div>
       )}
-    </header>
+    </>  
   );
 }

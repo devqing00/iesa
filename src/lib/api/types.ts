@@ -324,6 +324,15 @@ export interface RoleWithUser extends Role {
 // Enrollment Types
 // ============================================
 
+export interface SessionSummaryInfo {
+  id: string;
+  name: string;
+  isActive: boolean;
+  startDate?: string;
+  endDate?: string;
+  currentSemester?: string;
+}
+
 export interface Enrollment {
   id: string;
   studentId: string;
@@ -331,6 +340,7 @@ export interface Enrollment {
   level: string;
   createdAt: string;
   updatedAt: string;
+  session?: SessionSummaryInfo;
 }
 
 export interface EnrollmentWithDetails extends Enrollment {

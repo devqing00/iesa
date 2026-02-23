@@ -206,6 +206,7 @@ export default function IESAAIPage() {
   const [conversationSearch, setConversationSearch] = useState("");
 
   const chatRef = useRef<HTMLDivElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const speechSynthRef = useRef<SpeechSynthesisUtterance | null>(null);
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -213,12 +214,9 @@ export default function IESAAIPage() {
 
   /* ── scroll helper ── */
   const scrollToBottom = useCallback(() => {
-    const el = chatRef.current;
-    if (el)
-      setTimeout(
-        () => el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }),
-        100,
-      );
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }, 80);
   }, []);
 
   /* ── text-to-speech ── */
@@ -1426,6 +1424,8 @@ export default function IESAAIPage() {
                 </div>
               </div>
             )}
+            {/* Scroll anchor */}
+            <div ref={messagesEndRef} className="h-px" />
           </div>
 
           {/* ════════════════════════════════════════
