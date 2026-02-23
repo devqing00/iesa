@@ -22,8 +22,13 @@ function VerifyEmailContent() {
 
     const verifyEmail = async () => {
       try {
+        console.log("🔐 Verifying email with token:", token.substring(0, 50) + "...");
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-        const response = await fetch(`${apiUrl}/api/v1/auth/verify-email?token=${token}`, {
+        console.log("📡 API URL:", apiUrl);
+        const fullUrl = `${apiUrl}/api/v1/auth/verify-email?token=${token}`;
+        console.log("🌐 Request URL:", fullUrl.substring(0, 100) + "...");
+        
+        const response = await fetch(fullUrl, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -31,6 +36,7 @@ function VerifyEmailContent() {
         });
 
         const data = await response.json();
+        console.log("📦 Response:", { status: response.status, data });
 
         if (!response.ok) {
           throw new Error(data.detail || "Verification failed");
@@ -63,15 +69,15 @@ function VerifyEmailContent() {
     <div className="min-h-screen bg-ghost flex items-center justify-center p-8">
       <div className="w-full max-w-md space-y-8">
         {/* Logo */}
-        <Link href="/" className="inline-flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-lime border-[3px] border-navy shadow-[3px_3px_0_0_#000] flex items-center justify-center overflow-hidden">
+        <Link href="/" className="w-full inline-flex justify-center items-center gap-3">
+          <div className="w-10 h-10 flex items-center justify-center overflow-hidden">
             <Image src="/assets/images/logo.svg" alt="IESA Logo" width={28} height={28} className="object-contain" />
           </div>
           <span className="font-display font-black text-xl text-navy">IESA</span>
         </Link>
 
         {/* Card */}
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-8 shadow-[3px_3px_0_0_#000]">
+        <div className="bg-snow border-[3px] border-navy rounded-3xl p-8 shadow-[3px_3px_0_0_#000]">
           {status === "verifying" && (
             <div className="space-y-6 text-center">
               <div className="flex justify-center">
@@ -87,7 +93,7 @@ function VerifyEmailContent() {
           {status === "success" && (
             <div className="space-y-6 text-center">
               <div className="flex justify-center">
-                <div className="w-16 h-16 rounded-full bg-teal border-[4px] border-navy flex items-center justify-center">
+                <div className="w-16 h-16 rounded-full bg-teal border-[3px] border-navy flex items-center justify-center">
                   <svg className="w-8 h-8 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
@@ -99,7 +105,7 @@ function VerifyEmailContent() {
               </div>
               <button
                 onClick={handleGoToLogin}
-                className="w-full bg-lime border-[4px] border-navy press-3 press-navy px-8 py-4 rounded-2xl font-display font-bold text-lg text-navy transition-all"
+                className="w-full bg-lime border-[3px] border-navy press-3 press-navy px-8 py-4 rounded-2xl font-display font-bold text-lg text-navy transition-all"
               >
                 Go to Login
               </button>
@@ -109,7 +115,7 @@ function VerifyEmailContent() {
           {status === "already-verified" && (
             <div className="space-y-6 text-center">
               <div className="flex justify-center">
-                <div className="w-16 h-16 rounded-full bg-sunny border-[4px] border-navy flex items-center justify-center">
+                <div className="w-16 h-16 rounded-full bg-sunny border-[3px] border-navy flex items-center justify-center">
                   <svg className="w-8 h-8 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -121,7 +127,7 @@ function VerifyEmailContent() {
               </div>
               <button
                 onClick={handleGoToLogin}
-                className="w-full bg-lime border-[4px] border-navy press-3 press-navy px-8 py-4 rounded-2xl font-display font-bold text-lg text-navy transition-all"
+                className="w-full bg-lime border-[3px] border-navy press-3 press-navy px-8 py-4 rounded-2xl font-display font-bold text-lg text-navy transition-all"
               >
                 Go to Login
               </button>
@@ -131,7 +137,7 @@ function VerifyEmailContent() {
           {status === "error" && (
             <div className="space-y-6 text-center">
               <div className="flex justify-center">
-                <div className="w-16 h-16 rounded-full bg-coral border-[4px] border-navy flex items-center justify-center">
+                <div className="w-16 h-16 rounded-full bg-coral border-[3px] border-navy flex items-center justify-center">
                   <svg className="w-8 h-8 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -144,13 +150,13 @@ function VerifyEmailContent() {
               <div className="space-y-3">
                 <button
                   onClick={() => router.push("/register")}
-                  className="w-full bg-lime border-[4px] border-navy press-3 press-navy px-8 py-4 rounded-2xl font-display font-bold text-lg text-navy transition-all"
+                  className="w-full bg-lime border-[3px] border-navy press-3 press-navy px-8 py-4 rounded-2xl font-display font-bold text-lg text-navy transition-all"
                 >
                   Register Again
                 </button>
                 <Link
                   href="/login"
-                  className="block w-full bg-transparent border-[3px] border-navy px-8 py-3 rounded-xl font-display font-bold text-base text-navy hover:bg-navy hover:text-lime transition-all text-center"
+                  className="block w-full bg-transparent border-[3px] border-navy px-8 py-3 rounded-xl font-display font-bold text-base text-navy hover:bg-navy hover:text-snow transition-all text-center"
                 >
                   Back to Login
                 </Link>
@@ -161,7 +167,7 @@ function VerifyEmailContent() {
 
         {/* Footer */}
         <p className="text-center font-display font-normal text-sm text-navy/60">
-          Need help? <Link href="/contact" className="text-lime hover:underline">Contact support</Link>
+          Need help? <Link href="/contact" className="text-navy hover:underline">Contact support</Link>
         </p>
       </div>
     </div>

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { withAuth } from "@/lib/withAuth";
 
 /* ─── Types ────────────────────────────────────── */
 
@@ -68,7 +69,7 @@ const LIMIT = 25;
 
 /* ─── Component ─────────────────────────────────── */
 
-export default function AuditLogsPage() {
+function AuditLogsPage() {
   const { getAccessToken } = useAuth();
 
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
@@ -170,7 +171,7 @@ export default function AuditLogsPage() {
         </div>
         <button
           onClick={exportCSV}
-          className="shrink-0 bg-lime border-[4px] border-navy press-3 press-navy px-5 py-3 rounded-2xl font-display text-navy text-sm transition-all flex items-center gap-2"
+          className="shrink-0 bg-lime border-[3px] border-navy press-3 press-navy px-5 py-3 rounded-2xl font-display text-navy text-sm transition-all flex items-center gap-2"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
@@ -195,7 +196,7 @@ export default function AuditLogsPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[3px_3px_0_0_#000]">
+      <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[3px_3px_0_0_#000]">
         <p className="font-display font-black text-lg text-navy mb-4">Filter Logs</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Actor search */}
@@ -208,11 +209,11 @@ export default function AuditLogsPage() {
                 value={actorSearch}
                 onChange={(e) => setActorSearch(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && setActorQuery(actorSearch)}
-                className="flex-1 bg-ghost border-[3px] border-navy rounded-xl px-4 py-2 font-normal text-navy placeholder:text-slate text-sm focus:outline-none focus:border-lime"
+                className="flex-1 bg-ghost border-[3px] border-navy rounded-xl px-4 py-2 font-normal text-navy placeholder:text-slate text-sm focus:outline-none focus:border-coral"
               />
               <button
                 onClick={() => setActorQuery(actorSearch)}
-                className="bg-navy text-lime border-[3px] border-navy rounded-xl px-3 py-2 text-sm font-display hover:bg-navy-light transition-colors"
+                className="bg-navy text-snow border-[3px] border-navy rounded-xl px-3 py-2 text-sm font-display hover:bg-navy-light transition-colors"
               >
                 Go
               </button>
@@ -225,7 +226,7 @@ export default function AuditLogsPage() {
             <select
               value={resourceTypeFilter}
               onChange={(e) => setResourceTypeFilter(e.target.value)}
-              className="w-full bg-ghost border-[3px] border-navy rounded-xl px-4 py-2 font-normal text-navy text-sm focus:outline-none focus:border-lime appearance-none"
+              className="w-full bg-ghost border-[3px] border-navy rounded-xl px-4 py-2 font-normal text-navy text-sm focus:outline-none focus:border-coral appearance-none"
             >
               {RESOURCE_TYPES.map((t) => (
                 <option key={t} value={t}>{t || "All resource types"}</option>
@@ -239,7 +240,7 @@ export default function AuditLogsPage() {
             <select
               value={actionFilter}
               onChange={(e) => setActionFilter(e.target.value)}
-              className="w-full bg-ghost border-[3px] border-navy rounded-xl px-4 py-2 font-normal text-navy text-sm focus:outline-none focus:border-lime appearance-none"
+              className="w-full bg-ghost border-[3px] border-navy rounded-xl px-4 py-2 font-normal text-navy text-sm focus:outline-none focus:border-coral appearance-none"
             >
               {ACTION_TYPES.map((a) => (
                 <option key={a} value={a}>{a ? formatAction(a) : "All actions"}</option>
@@ -260,10 +261,10 @@ export default function AuditLogsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] overflow-hidden">
+      <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-24">
-            <div className="w-10 h-10 border-[4px] border-navy border-t-lime rounded-full animate-spin" />
+            <div className="w-10 h-10 border-[3px] border-navy border-t-lime rounded-full animate-spin" />
           </div>
         ) : displayedLogs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3">
@@ -293,7 +294,7 @@ export default function AuditLogsPage() {
                     <React.Fragment key={log.id}>
                       <tr
                         className={`border-b-[2px] border-cloud cursor-pointer transition-colors ${
-                          isExpanded ? "bg-lime-light" : idx % 2 === 0 ? "bg-snow hover:bg-ghost" : "bg-ghost hover:bg-lime-light/40"
+                          isExpanded ? "bg-lime-light" : idx % 2 === 0 ? "bg-snow hover:bg-ghost" : "bg-ghost hover:bg-ghost-light/40"
                         }`}
                         onClick={() => setExpandedId(isExpanded ? null : log.id)}
                       >
@@ -436,3 +437,7 @@ export default function AuditLogsPage() {
     </div>
   );
 }
+
+export default withAuth(AuditLogsPage, {
+  anyPermission: ["audit:view", "audit:export"],
+});

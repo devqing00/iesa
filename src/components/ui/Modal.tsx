@@ -94,7 +94,7 @@ export function Modal({
         tabIndex={-1}
         className={`
           relative w-full ${sizeStyles[size]}
-          bg-snow border-[4px] border-navy rounded-3xl
+          bg-snow border-[3px] border-navy rounded-3xl
           max-h-[80vh] md:max-h-[85vh]
           overflow-hidden
           flex flex-col

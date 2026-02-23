@@ -6,14 +6,8 @@ export default function AboutPage() {
 
   return (
     <div className="min-h-screen bg-ghost text-navy overflow-x-hidden">
-      {/* ✦ Text decorators */}
-      <span className="fixed top-24 left-[12%] text-lime/15 text-lg pointer-events-none z-0 select-none">✦</span>
-      <span className="fixed top-[35%] right-[8%] text-coral/12 text-xl pointer-events-none z-0 select-none">✦</span>
-      <span className="fixed top-[65%] left-[6%] text-lavender/15 text-base pointer-events-none z-0 select-none">✦</span>
-      <span className="fixed bottom-[20%] right-[15%] text-teal/12 text-lg pointer-events-none z-0 select-none">✦</span>
-
       {/* Diamond sparkle decorators */}
-      <svg className="fixed top-20 left-[8%] w-6 h-6 text-lime/20 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed top-20 left-[8%] w-6 h-6 text-navy/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
       <svg className="fixed top-[40%] right-[12%] w-7 h-7 text-coral/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
@@ -29,27 +23,20 @@ export default function AboutPage() {
       {/* SHARED HEADER */}
       <Header />
 
-      <main id="main-content">
+      <main id="main-content" className="pt-14 sm:pt-16">
       {/* ============================================
           HERO SECTION
           ============================================ */}
-      <section className="pt-32 pb-16 sm:pb-20 relative overflow-hidden">
+      <section className="pt-16 pb-16 sm:pb-20 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Small tag */}
-          <div className="inline-flex items-center gap-2 bg-lavender border-[3px] border-navy rounded-full px-3 py-1 mb-6">
-            <span className="text-[10px] font-display font-black text-navy uppercase tracking-widest">✦ About Us</span>
-          </div>
+          
 
           {/* Hero Content */}
           <div className="max-w-4xl space-y-8 relative">
-            <svg className="absolute -top-6 -left-8 w-9 h-9 text-sunny/50" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
-            </svg>
-            <span className="absolute -top-3 -left-2 text-sunny/35 text-xs select-none">✦</span>
             <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[5rem] leading-[0.9] text-navy">
-              <span className="brush-highlight">Shaping the Future</span>
+              Shaping the Future
               <br />
-              of <span className="inline-block bg-lime border-[4px] sm:border-[6px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[4px_4px_0_0_#000]">Industrial</span> Engineering
+              of <span className="inline-block bg-lime border-[2px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[3px_3px_0_0_#000]">Industrial</span> Engineering
             </h1>
             <p className="font-display text-base sm:text-lg text-navy/60 max-w-2xl leading-relaxed font-medium">
               The Industrial Engineering Student Association (IESA) at the
@@ -64,32 +51,28 @@ export default function AboutPage() {
       {/* ============================================
           MISSION & VISION
           ============================================ */}
-      <section className="py-16 sm:py-20 bg-lime">
+      <section className="py-16 sm:py-20 bg-ghost">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Section Header */}
           <div className="relative inline-block mb-10 sm:mb-14">
-            <svg className="absolute -top-5 -right-8 w-7 h-7 text-navy/25" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
-            </svg>
-            <span className="absolute -top-2 -right-3 text-navy/15 text-xs select-none">✦</span>
             <h2 className="font-display font-black text-3xl sm:text-5xl text-navy">
-              Our <span className="bg-snow border-[4px] border-navy px-4 sm:px-6 py-2 inline-block rotate-[-2deg] shadow-[4px_4px_0_0_#000]">Purpose</span>
+              Our <span className="bg-snow border-[2px] border-navy px-4 sm:px-6 py-2 inline-block rotate-[-2deg] shadow-[3px_3px_0_0_#000]">Purpose</span>
             </h2>
           </div>
 
           {/* Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
             {/* Mission */}
-            <div className="bg-coral border-[4px] border-navy rounded-3xl p-8 sm:p-10 shadow-[3px_3px_0_0_#000] rotate-[-1deg] hover:rotate-0 transition-transform">
+            <div className="bg-coral border-[2px] border-navy rounded-3xl p-8 sm:p-10 shadow-[3px_3px_0_0_#000] rotate-[-1deg] hover:rotate-0 transition-transform">
               <div className="w-14 h-14 bg-navy rounded-full flex items-center justify-center mb-5">
-                <svg className="w-7 h-7 text-lime" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-7 h-7 text-snow" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
                 </svg>
               </div>
-              <h3 className="font-display font-black text-2xl sm:text-3xl text-navy mb-4">
-                <span className="brush-highlight brush-coral">Empowering</span> Students
+              <h3 className="font-display font-black text-2xl sm:text-3xl text-snow mb-4">
+                Empowering Students
               </h3>
-              <p className="font-display font-medium text-sm sm:text-base text-navy/80 leading-relaxed">
+              <p className="font-display font-medium text-sm sm:text-base text-snow/85 leading-relaxed">
                 To foster academic excellence, professional growth, and a
                 strong sense of community among industrial engineering
                 students while bridging the gap between theoretical knowledge
@@ -98,14 +81,14 @@ export default function AboutPage() {
             </div>
 
             {/* Vision */}
-            <div className="bg-sunny border-[4px] border-navy rounded-3xl p-8 sm:p-10 shadow-[3px_3px_0_0_#000] rotate-[1deg] hover:rotate-0 transition-transform">
+            <div className="bg-sunny border-[2px] border-navy rounded-3xl p-8 sm:p-10 shadow-[3px_3px_0_0_#000] rotate-[1deg] hover:rotate-0 transition-transform">
               <div className="w-14 h-14 bg-navy rounded-full flex items-center justify-center mb-5">
                 <svg className="w-7 h-7 text-sunny" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                 </svg>
               </div>
               <h3 className="font-display font-black text-2xl sm:text-3xl text-navy mb-4">
-                <span className="brush-highlight brush-coral">Leading</span> Innovation
+                Leading Innovation
               </h3>
               <p className="font-display font-medium text-sm sm:text-base text-navy/80 leading-relaxed">
                 To be the foremost student association in Nigeria, recognized
@@ -124,12 +107,8 @@ export default function AboutPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Section Header */}
           <div className="relative mb-10 sm:mb-14 text-center">
-            <svg className="absolute -top-8 left-1/2 -translate-x-12 w-8 h-8 text-teal/40" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
-            </svg>
-            <span className="absolute -top-4 left-1/2 -translate-x-6 text-teal/25 text-xs select-none">✦</span>
             <h2 className="font-display font-black text-3xl sm:text-5xl text-navy">
-              <span className="brush-highlight">What We</span> <span className="bg-lavender border-[4px] border-navy px-4 sm:px-6 py-2 inline-block rotate-[-2deg] shadow-[4px_4px_0_0_#000]">Do</span>
+              What We <span className="bg-lavender border-[2px] border-navy px-4 sm:px-6 py-2 inline-block rotate-[-2deg] shadow-[3px_3px_0_0_#000]">Do</span>
             </h2>
           </div>
 
@@ -199,9 +178,9 @@ export default function AboutPage() {
             ].map((activity, i) => (
               <div
                 key={i}
-                className={`${activity.bg} border-[4px] border-navy rounded-3xl p-6 sm:p-8 press-4 press-black transition-all`}
+                className={`${activity.bg} border-[2px] border-navy rounded-3xl p-6 sm:p-8 press-4 press-black transition-all`}
               >
-                <div className="w-12 h-12 bg-snow border-[3px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[3px_3px_0_0_#000]">
+                <div className="w-12 h-12 bg-snow border-[2px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[2px_2px_0_0_#000]">
                   {activity.icon}
                 </div>
                 <h3 className="font-display font-black text-xl text-navy mb-3">{activity.title}</h3>
@@ -222,7 +201,7 @@ export default function AboutPage() {
           {/* Section Header */}
           <div className="text-center mb-10 sm:mb-14">
             <h2 className="font-display font-black text-3xl sm:text-5xl text-navy">
-              Our <span className="brush-highlight">Leadership</span>
+              Our Leadership
             </h2>
           </div>
 
@@ -234,8 +213,8 @@ export default function AboutPage() {
               { role: "General Secretary", name: "Leadership Position", bg: "bg-teal" },
               { role: "Financial Secretary", name: "Leadership Position", bg: "bg-coral" },
             ].map((leader, i) => (
-              <div key={i} className={`${leader.bg} border-[4px] border-navy rounded-3xl p-6 press-4 press-black text-center transition-all`}>
-                <div className="w-20 h-20 mx-auto bg-snow border-[3px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[3px_3px_0_0_#000]">
+              <div key={i} className={`${leader.bg} border-[2px] border-navy rounded-3xl p-6 press-4 press-black text-center transition-all`}>
+                <div className="w-20 h-20 mx-auto bg-snow border-[2px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[2px_2px_0_0_#000]">
                   <svg className="w-8 h-8 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                   </svg>
@@ -254,27 +233,27 @@ export default function AboutPage() {
       <section className="py-16 sm:py-24 bg-coral">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="inline-block bg-navy rounded-full px-4 py-1.5 mb-6">
-            <span className="font-display text-xs font-black text-lime uppercase tracking-widest">✦ Join Us ✦</span>
+            <span className="font-display text-xs font-black text-snow uppercase tracking-widest">✦ Join Us ✦</span>
           </div>
 
-          <h2 className="font-display font-black text-4xl sm:text-6xl text-navy mb-6 leading-none">
-            <span className="brush-highlight brush-coral">Become Part</span>
+          <h2 className="font-display font-black text-4xl sm:text-6xl text-snow mb-6 leading-none">
+            Become Part
             <br />of Our Story
           </h2>
-          <p className="font-display font-medium text-base sm:text-lg text-navy/80 max-w-md mx-auto mb-8 sm:mb-10">
+          <p className="font-display font-medium text-base sm:text-lg text-snow/85 max-w-md mx-auto mb-8 sm:mb-10">
             Join IESA today and connect with fellow students, access exclusive
             resources, and shape your engineering career.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link
               href="/register"
-              className="font-display font-black bg-lime border-[4px] border-navy rounded-full px-10 py-4 text-base text-navy uppercase tracking-wide press-3 press-navy transition-all text-center"
+              className="font-display font-black bg-navy border-[2px] border-navy rounded-full px-10 py-4 text-base text-snow uppercase tracking-wide press-3 press-navy transition-all text-center"
             >
               Join IESA →
             </Link>
             <Link
               href="/contact"
-              className="font-display font-black bg-snow border-[4px] border-navy rounded-full px-10 py-4 text-base text-navy uppercase tracking-wide shadow-[3px_3px_0_0_#000] text-center"
+              className="font-display font-black bg-snow border-[2px] border-navy rounded-full px-10 py-4 text-base text-navy uppercase tracking-wide shadow-[3px_3px_0_0_#000] text-center"
             >
               Contact Us
             </Link>

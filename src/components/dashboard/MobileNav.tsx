@@ -5,13 +5,28 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useSession } from "@/context/SessionContext";
+import { usePermissions } from "@/context/PermissionsContext";
+
+interface MobileNavLink {
+  name: string;
+  href: string;
+  icon: React.ReactNode;
+  color?: string;
+  anyPermission?: string[];
+}
 
 export default function MobileNav() {
   const pathname = usePathname();
   const { signOut, userProfile } = useAuth();
   const { currentSession, allSessions } = useSession();
+  const { hasPermission } = usePermissions();
   const [showMore, setShowMore] = useState(false);
   const activeSession = allSessions.find(s => s.isActive) ?? currentSession;
+
+  const isVisible = (link: MobileNavLink) => {
+    if (!link.anyPermission) return true;
+    return link.anyPermission.some((p) => hasPermission(p));
+  };
 
   const mainLinks = [
     {
@@ -89,10 +104,32 @@ export default function MobileNav() {
       name: "Press",
       href: "/dashboard/press",
       color: "bg-coral-light",
+      anyPermission: ["press:access", "press:create", "press:edit", "press:publish"],
       icon: (
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <path fillRule="evenodd" d="M4.125 3C3.089 3 2.25 3.84 2.25 4.875V18a3 3 0 0 0 3 3h15a3 3 0 0 1-3-3V4.875C17.25 3.839 16.41 3 15.375 3H4.125ZM12 9.75a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5H12Zm-.75-2.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5H12a.75.75 0 0 1-.75-.75ZM6 12.75a.75.75 0 0 0 0 1.5h7.5a.75.75 0 0 0 0-1.5H6Zm-.75 3.75a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H6a.75.75 0 0 1-.75-.75ZM6 6.75a.75.75 0 0 0-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 0 0 .75-.75v-3A.75.75 0 0 0 9 6.75H6Z" clipRule="evenodd" />
           <path d="M18.75 6.75h1.875c.621 0 1.125.504 1.125 1.125V18a1.5 1.5 0 0 1-3 0V6.75Z" />
+        </svg>
+      ),
+    },
+    {
+      name: "Applications",
+      href: "/dashboard/applications",
+      color: "bg-lavender-light",
+      icon: (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path fillRule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0 1 18 9.375v9.375a3 3 0 0 0 3-3V6.108c0-1.505-1.125-2.811-2.664-2.94a48.972 48.972 0 0 0-8.583-.164 3.023 3.023 0 0 0-2.251 2.996Z" clipRule="evenodd" />
+          <path fillRule="evenodd" d="M2.25 13.5a3 3 0 0 0 3 3h1.228a3.375 3.375 0 0 1-.978-2.375v-9.75a3.375 3.375 0 0 1 3-3.357H13.5a3 3 0 0 1 3 3v1.107a3.375 3.375 0 0 1 .878 2.618v6.007a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3v-1.25Z" clipRule="evenodd" />
+        </svg>
+      ),
+    },
+    {
+      name: "TIMP",
+      href: "/dashboard/timp",
+      color: "bg-teal-light",
+      icon: (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A18.034 18.034 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" clipRule="evenodd" />
         </svg>
       ),
     },
@@ -146,7 +183,7 @@ export default function MobileNav() {
       {showMore && (
         <div className="md:hidden fixed inset-0 bg-navy/30 z-40" onClick={() => setShowMore(false)}>
           <div
-            className="absolute bottom-20 left-3 right-3 bg-snow border-[4px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] p-4"
+            className="absolute bottom-20 left-3 right-3 bg-snow border-[3px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] p-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3 px-1">
@@ -163,7 +200,7 @@ export default function MobileNav() {
               </button>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {moreLinks.map((link) => {
+              {moreLinks.filter(isVisible).map((link) => {
                 const isActive = pathname === link.href;
                 return (
                   <Link
@@ -186,14 +223,14 @@ export default function MobileNav() {
             {/* Sign Out in More menu */}
             <div className="mt-3 pt-3 border-t-[2px] border-navy/10 space-y-2">
               {/* Session Badge */}
-              <div className="flex items-center gap-3 rounded-2xl bg-navy border-[3px] border-lime p-3">
+              <div className="flex items-center gap-3 rounded-2xl bg-navy border-[3px] border-ghost/20 p-3">
                 <span className="relative flex-shrink-0">
                   <span className="w-2 h-2 rounded-full bg-lime block" />
                   <span className="w-2 h-2 rounded-full bg-lime block absolute inset-0 animate-ping opacity-75" />
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-lime/60 leading-none mb-0.5">Active Session</p>
-                  <p className="text-xs font-black text-lime truncate">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-snow/50 leading-none mb-0.5">Active Session</p>
+                  <p className="text-xs font-black text-snow truncate">
                     {activeSession?.name ?? "No active session"}
                   </p>
                 </div>

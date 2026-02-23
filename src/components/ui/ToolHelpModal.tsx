@@ -203,7 +203,7 @@ export function ToolHelpModal({ toolId, isOpen, onClose }: ToolHelpModalProps) {
       <div
         role="dialog"
         aria-modal="true"
-        className="relative w-full max-w-lg bg-snow border-[4px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] max-h-[80vh] md:max-h-[85vh] overflow-hidden flex flex-col animate-scale-in"
+        className="relative w-full max-w-lg bg-snow border-[3px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] max-h-[80vh] md:max-h-[85vh] overflow-hidden flex flex-col animate-scale-in"
       >
         {/* Header */}
         <div className={`${content.accentColor} p-6 pb-5 border-b-[3px] border-navy`}>

@@ -6,6 +6,7 @@ Events from different academic sessions are completely separate.
 """
 
 from fastapi import APIRouter, HTTPException, Depends, status, Query, UploadFile, File
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
@@ -89,13 +90,16 @@ async def list_events(
     session_id: Optional[str] = Query(None, description="Filter by session ID. Defaults to active session."),
     category: Optional[str] = None,
     upcoming_only: Optional[bool] = Query(None, description="If true, only return events with date >= now"),
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of events to return"),
+    skip: int = Query(0, ge=0, description="Number of events to skip (for pagination)"),
     user: dict = Depends(get_current_user)
 ):
     """
-    List all events for a specific session.
+    List all events for a specific session with pagination.
     
     The session_id parameter enables "time travel".
     Returns events with user's registration status.
+    Pagination: Use limit and skip parameters for large datasets.
     """
     db = get_database()
     events = db["events"]
@@ -124,9 +128,9 @@ async def list_events(
     if upcoming_only:
         query["date"] = {"$gte": datetime.utcnow()}
     
-    # Get events for this session
-    cursor = events.find(query).sort("date", 1)  # Upcoming first
-    event_list = await cursor.to_list(length=None)
+    # Get events for this session with pagination
+    cursor = events.find(query).sort("date", 1).skip(skip).limit(limit)
+    event_list = await cursor.to_list(length=limit)
     
     # Enrich with user's status
     result = []
@@ -140,11 +144,30 @@ async def list_events(
         if event.get("maxAttendees"):
             is_full = len(event.get("registrations", [])) >= event["maxAttendees"]
         
+        # Check payment status for paid events
+        has_paid = False
+        if event.get("requiresPayment"):
+            payment_id = event.get("paymentId")
+            if payment_id:
+                payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+                if payment and user["_id"] in payment.get("paidBy", []):
+                    has_paid = True
+            else:
+                # Check if there's a direct event payment transaction
+                txn = await db.paystackTransactions.find_one({
+                    "eventId": event["_id"],
+                    "studentId": user["_id"],
+                    "status": "success"
+                })
+                if txn:
+                    has_paid = True
+        
         event_with_status = EventWithStatus(
             **event,
             isRegistered=is_registered,
             hasAttended=has_attended,
-            isFull=is_full
+            isFull=is_full,
+            hasPaid=has_paid
         )
         result.append(event_with_status)
     
@@ -228,11 +251,29 @@ async def get_event(
     if event.get("maxAttendees"):
         is_full = len(event.get("registrations", [])) >= event["maxAttendees"]
     
+    # Check payment status for paid events
+    has_paid = False
+    if event.get("requiresPayment"):
+        payment_id = event.get("paymentId")
+        if payment_id:
+            payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+            if payment and user["_id"] in payment.get("paidBy", []):
+                has_paid = True
+        else:
+            txn = await db.paystackTransactions.find_one({
+                "eventId": event["_id"],
+                "studentId": user["_id"],
+                "status": "success"
+            })
+            if txn:
+                has_paid = True
+    
     return EventWithStatus(
         **event,
         isRegistered=is_registered,
         hasAttended=has_attended,
-        isFull=is_full
+        isFull=is_full,
+        hasPaid=has_paid
     )
 
 
@@ -284,6 +325,29 @@ async def register_for_event(
                 detail="Registration deadline has passed"
             )
     
+    # Check payment for paid events
+    if event.get("requiresPayment"):
+        has_paid = False
+        payment_id = event.get("paymentId")
+        if payment_id:
+            payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+            if payment and user["_id"] in payment.get("paidBy", []):
+                has_paid = True
+        else:
+            txn = await db.paystackTransactions.find_one({
+                "eventId": str(event["_id"]),
+                "studentId": user["_id"],
+                "status": "success"
+            })
+            if txn:
+                has_paid = True
+        
+        if not has_paid:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail="Payment is required before registering for this event"
+            )
+    
     # Register user
     await events.update_one(
         {"_id": ObjectId(event_id)},
@@ -307,6 +371,328 @@ async def register_for_event(
         hasAttended=False,
         isFull=is_full
     )
+
+
+@router.post("/{event_id}/pay")
+async def pay_for_event(
+    event_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Initialize payment for a paid event via Paystack.
+    Returns Paystack authorization URL and reference.
+    """
+    import requests as http_requests
+    import os
+    
+    db = get_database()
+    events_col = db["events"]
+    
+    if not ObjectId.is_valid(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+    
+    event = await events_col.find_one({"_id": ObjectId(event_id)})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    if not event.get("requiresPayment"):
+        raise HTTPException(status_code=400, detail="This event does not require payment")
+    
+    amount = event.get("paymentAmount", 0)
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Event payment amount is not configured")
+    
+    # Check if user already paid
+    # Option 1: Linked payment
+    payment_id = event.get("paymentId")
+    if payment_id:
+        payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+        if payment and user["_id"] in payment.get("paidBy", []):
+            raise HTTPException(status_code=400, detail="You have already paid for this event")
+    else:
+        # Option 2: Direct event transaction
+        existing_txn = await db.paystackTransactions.find_one({
+            "eventId": event_id,
+            "studentId": user["_id"],
+            "status": "success"
+        })
+        if existing_txn:
+            raise HTTPException(status_code=400, detail="You have already paid for this event")
+    
+    # Generate reference
+    from app.routers.paystack import generate_payment_reference
+    reference = generate_payment_reference(user["_id"])
+    
+    PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY", "")
+    if not PAYSTACK_SECRET_KEY:
+        raise HTTPException(status_code=503, detail="Payment service not configured")
+    
+    amount_kobo = int(amount * 100)
+    
+    paystack_data = {
+        "email": user.get("email", "student@example.com"),
+        "amount": amount_kobo,
+        "reference": reference,
+        "callback_url": f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/dashboard/events?payment_ref={reference}",
+        "metadata": {
+            "studentId": user["_id"],
+            "studentName": user.get("displayName", user.get("email", "Unknown")),
+            "eventId": event_id,
+            "eventTitle": event.get("title", "Event Payment"),
+            "type": "event_payment",
+            "custom_fields": [
+                {"display_name": "Student Name", "variable_name": "student_name", "value": user.get("displayName", "Unknown")},
+                {"display_name": "Event", "variable_name": "event_title", "value": event.get("title", "Event")}
+            ]
+        }
+    }
+    
+    headers = {
+        "Authorization": f"Bearer {PAYSTACK_SECRET_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        response = http_requests.post(
+            "https://api.paystack.co/transaction/initialize",
+            json=paystack_data,
+            headers=headers,
+            timeout=10
+        )
+        
+        if not response.ok:
+            error_data = response.json()
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=error_data.get("message", "Failed to initialize payment")
+            )
+        
+        data = response.json()["data"]
+        
+        # Store transaction record linked to event
+        transaction_record = {
+            "reference": reference,
+            "eventId": event_id,
+            "studentId": user["_id"],
+            "studentName": user.get("displayName", user.get("email", "Unknown")),
+            "studentEmail": user.get("email", "student@example.com"),
+            "amount": amount,
+            "amountKobo": amount_kobo,
+            "status": "pending",
+            "type": "event_payment",
+            "paystackData": {
+                "accessCode": data["access_code"],
+                "authorizationUrl": data["authorization_url"]
+            },
+            "createdAt": datetime.utcnow(),
+            "updatedAt": datetime.utcnow()
+        }
+        
+        if payment_id:
+            transaction_record["paymentId"] = payment_id
+        
+        result = await db.paystackTransactions.insert_one(transaction_record)
+        
+        return {
+            "transactionId": str(result.inserted_id),
+            "reference": reference,
+            "authorizationUrl": data["authorization_url"],
+            "accessCode": data["access_code"],
+            "amount": amount,
+            "status": "pending"
+        }
+    except http_requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Payment service unavailable: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to initialize event payment: {str(e)}")
+
+
+@router.get("/{event_id}/payment-status")
+async def get_event_payment_status(
+    event_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Check if user has paid for a specific event."""
+    db = get_database()
+    events_col = db["events"]
+    
+    if not ObjectId.is_valid(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+    
+    event = await events_col.find_one({"_id": ObjectId(event_id)})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    if not event.get("requiresPayment"):
+        return {"requiresPayment": False, "hasPaid": True}
+    
+    has_paid = False
+    payment_ref = None
+    payment_id = event.get("paymentId")
+    if payment_id:
+        payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+        if payment and user["_id"] in payment.get("paidBy", []):
+            has_paid = True
+    else:
+        txn = await db.paystackTransactions.find_one({
+            "eventId": event_id,
+            "studentId": user["_id"],
+            "status": "success"
+        })
+        if txn:
+            has_paid = True
+            payment_ref = txn.get("reference")
+    
+    # Also check approved bank transfers
+    if not has_paid:
+        approved_transfer = await db.bankTransfers.find_one({
+            "eventId": event_id,
+            "studentId": user["_id"],
+            "status": "approved",
+        })
+        if approved_transfer:
+            has_paid = True
+            payment_ref = approved_transfer.get("transactionReference")
+    
+    # Check pending bank transfer
+    pending_transfer = await db.bankTransfers.find_one({
+        "eventId": event_id,
+        "studentId": user["_id"],
+        "status": "pending",
+    })
+    
+    return {
+        "requiresPayment": True,
+        "hasPaid": has_paid,
+        "paymentAmount": event.get("paymentAmount", 0),
+        "eventTitle": event.get("title", ""),
+        "paymentReference": payment_ref,
+        "hasPendingTransfer": pending_transfer is not None,
+    }
+
+
+class EventBankTransferCreate(BaseModel):
+    """Student submits bank transfer proof for an event payment."""
+    bankAccountId: str
+    senderName: str
+    senderBank: str
+    transactionReference: str
+    transferDate: str
+    narration: Optional[str] = None
+
+
+@router.post("/{event_id}/bank-transfer")
+async def submit_event_bank_transfer(
+    event_id: str,
+    data: EventBankTransferCreate,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Student submits bank transfer proof for a paid event.
+    Creates a bankTransfer document with eventId for admin review.
+    """
+    db = get_database()
+    user_id = user.get("uid") or user.get("_id")
+    
+    if not ObjectId.is_valid(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+    
+    event = await db.events.find_one({"_id": ObjectId(event_id)})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    if not event.get("requiresPayment"):
+        raise HTTPException(status_code=400, detail="This event does not require payment")
+    
+    amount = event.get("paymentAmount", 0)
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Event payment amount is not configured")
+    
+    # Check if already paid (Paystack)
+    existing_txn = await db.paystackTransactions.find_one({
+        "eventId": event_id,
+        "studentId": user_id,
+        "status": "success"
+    })
+    if existing_txn:
+        raise HTTPException(status_code=400, detail="You have already paid for this event")
+    
+    # Check for existing pending bank transfer
+    existing_transfer = await db.bankTransfers.find_one({
+        "studentId": user_id,
+        "eventId": event_id,
+        "status": "pending",
+    })
+    if existing_transfer:
+        raise HTTPException(
+            status_code=400,
+            detail="You already have a pending bank transfer for this event. Please wait for admin review."
+        )
+    
+    # Check approved transfer
+    approved_transfer = await db.bankTransfers.find_one({
+        "studentId": user_id,
+        "eventId": event_id,
+        "status": "approved",
+    })
+    if approved_transfer:
+        raise HTTPException(status_code=400, detail="Your bank transfer for this event has already been approved")
+    
+    # Check for duplicate transaction reference globally
+    duplicate_ref = await db.bankTransfers.find_one({
+        "transactionReference": data.transactionReference
+    })
+    if duplicate_ref:
+        raise HTTPException(
+            status_code=409,
+            detail=f"A transfer submission with reference '{data.transactionReference}' already exists. "
+                   "Each bank transaction can only be submitted once."
+        )
+    # Also check approved transactions collection
+    duplicate_txn = await db.transactions.find_one({"reference": data.transactionReference})
+    if duplicate_txn:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Reference '{data.transactionReference}' has already been used for a verified payment."
+        )
+    
+    # Validate bank account exists and is active
+    bank_account = await db.bankAccounts.find_one({
+        "_id": ObjectId(data.bankAccountId),
+        "isActive": True,
+    })
+    if not bank_account:
+        raise HTTPException(status_code=404, detail="Bank account not found or inactive")
+    
+    doc = {
+        "studentId": user_id,
+        "studentName": user.get("displayName", user.get("email", "Unknown")),
+        "studentEmail": user.get("email", ""),
+        "eventId": event_id,
+        "eventTitle": event.get("title", "Event Payment"),
+        "paymentTitle": f"Event: {event.get('title', 'Event Payment')}",
+        "bankAccountId": data.bankAccountId,
+        "bankAccountName": bank_account.get("accountName", ""),
+        "bankAccountBank": bank_account.get("bankName", ""),
+        "bankAccountNumber": bank_account.get("accountNumber", ""),
+        "amount": amount,
+        "senderName": data.senderName,
+        "senderBank": data.senderBank,
+        "transactionReference": data.transactionReference,
+        "transferDate": data.transferDate,
+        "narration": data.narration,
+        "status": "pending",
+        "adminNote": None,
+        "reviewedBy": None,
+        "reviewedAt": None,
+        "createdAt": datetime.utcnow(),
+        "updatedAt": datetime.utcnow(),
+    }
+    result = await db.bankTransfers.insert_one(doc)
+    doc["_id"] = str(result.inserted_id)
+    return doc
 
 
 @router.delete("/{event_id}/register", response_model=EventWithStatus)
@@ -647,4 +1033,152 @@ async def admin_unmark_attended(
             "$set":  {"updatedAt": datetime.utcnow()},
         }
     )
+
+
+@router.get("/{event_id}/ticket/pdf")
+async def download_event_ticket(
+    event_id: str,
+    reference: str = Query(..., description="Payment reference for the event"),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Download PDF ticket for a registered event.
+    Supports both online payments (Paystack) and bank transfers.
+    """
+    try:
+        db = get_database()
+        
+        print(f"[TICKET] Event ID: {event_id}, Reference: {reference}")
+        print(f"[TICKET] User ID: {current_user.get('_id')}")
+        
+        # Validate event ID
+        if not ObjectId.is_valid(event_id):
+            raise HTTPException(status_code=400, detail="Invalid event ID")
+        
+        # Fetch event
+        event = await db.events.find_one({"_id": ObjectId(event_id)})
+        if not event:
+            print(f"[TICKET] Event not found: {event_id}")
+            raise HTTPException(status_code=404, detail="Event not found")
+        
+        print(f"[TICKET] Event found: {event.get('title')}")
+        
+        # Try paystackTransactions first (online payments)
+        transaction = await db.paystackTransactions.find_one({"reference": reference})
+        payment_method = "Paystack"
+        
+        # If not found, check transactions collection (bank transfers)
+        if not transaction:
+            print(f"[TICKET] Not found in paystackTransactions, checking transactions...")
+            transaction = await db.transactions.find_one({"reference": reference})
+            payment_method = "Bank Transfer"
+        
+        if not transaction:
+            print(f"[TICKET] Transaction not found in any collection for reference: {reference}")
+            # Debug: Show user's recent transactions
+            paystack_txns = await db.paystackTransactions.find(
+                {"studentId": current_user["_id"]}
+            ).limit(3).to_list(length=3)
+            other_txns = await db.transactions.find(
+                {"studentId": current_user["_id"]}
+            ).limit(3).to_list(length=3)
+            print(f"[TICKET] Paystack transactions: {len(paystack_txns)}")
+            print(f"[TICKET] Other transactions: {len(other_txns)}")
+            if paystack_txns:
+                print(f"[TICKET] Sample Paystack refs: {[t.get('reference') for t in paystack_txns]}")
+            if other_txns:
+                print(f"[TICKET] Sample other refs: {[t.get('reference') for t in other_txns]}")
+            raise HTTPException(status_code=404, detail=f"Transaction not found with reference: {reference}")
+        
+        print(f"[TICKET] Transaction found via {payment_method}: {transaction.get('_id')}, status: {transaction.get('status')}")
+        
+        # Verify ownership
+        if transaction["studentId"] != current_user["_id"]:
+            print(f"[TICKET] Ownership mismatch")
+            raise HTTPException(status_code=403, detail="Not authorized to access this ticket")
+        
+        # Check if payment was successful/verified
+        status = transaction.get("status")
+        if status not in ["success", "verified"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Ticket not available. Payment status: {status}"
+            )
+        
+        print(f"[TICKET] Payment verified, checking event registration...")
+        
+        # Check if user is registered for the event
+        user_id = current_user["_id"]
+        if "registrations" in event:
+            # Check if user ID is in registrations (could be string or dict)
+            is_registered = False
+            for reg in event["registrations"]:
+                if isinstance(reg, dict):
+                    if reg.get("userId") == user_id:
+                        is_registered = True
+                        has_paid = reg.get("hasPaid", False)
+                        break
+                elif reg == user_id:
+                    is_registered = True
+                    has_paid = True  # Assume paid if registered via bank transfer
+                    break
+            
+            if not is_registered:
+                print(f"[TICKET] User not registered for event")
+                raise HTTPException(status_code=403, detail="You are not registered for this event")
+        else:
+            print(f"[TICKET] Event has no registrations")
+            raise HTTPException(status_code=403, detail="You are not registered for this event")
+        
+        print(f"[TICKET] User is registered, generating ticket...")
+        
+        # Get student level
+        student_level = current_user.get("level", "Unknown")
+        if isinstance(student_level, int):
+            student_level = str(student_level)
+        
+        # Format event date
+        event_date = event.get("date")
+        if isinstance(event_date, str):
+            from dateutil import parser
+            event_date = parser.parse(event_date)
+        elif not isinstance(event_date, datetime):
+            event_date = datetime.utcnow()
+        
+        # Generate PDF ticket
+        from ..utils.ticket_generator import generate_event_ticket
+        pdf_buffer = generate_event_ticket(
+            event_id=str(event["_id"]),
+            event_title=event.get("title", "IESA Event"),
+            event_date=event_date,
+            event_location=event.get("location", "TBA"),
+            student_name=current_user.get("displayName", "Unknown Student"),
+            student_email=current_user.get("email", "student@example.com"),
+            student_level=student_level,
+            reference=reference,
+            ticket_number=f"{event_id[:8]}-{reference[:8]}",
+            event_category=event.get("category", "Event")
+        )
+        
+        print(f"[TICKET] PDF generated successfully")
+        
+        # Return PDF as downloadable file
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=IESA_Ticket_{event_id}.pdf"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[TICKET] Error generating ticket: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate ticket: {str(e)}"
+        )
 

@@ -274,7 +274,7 @@ export default function TimetablePage() {
             ═══════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
           {/* Title card */}
-          <div className="lg:col-span-7 bg-sunny border-[5px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[200px] flex flex-col justify-between">
+          <div className="lg:col-span-7 bg-sunny border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[200px] flex flex-col justify-between">
             <div className="absolute -bottom-12 -right-12 w-36 h-36 rounded-full bg-navy/8 pointer-events-none" />
             <svg className="absolute top-6 right-10 w-5 h-5 text-navy/12 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
@@ -307,7 +307,7 @@ export default function TimetablePage() {
 
           {/* Action cards */}
           <div className="lg:col-span-5 grid grid-cols-2 gap-3">
-            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
+            <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-sunny-light flex items-center justify-center mb-3">
                 <svg className="w-4.5 h-4.5 text-sunny" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
@@ -317,7 +317,7 @@ export default function TimetablePage() {
               <p className="font-display font-black text-3xl text-navy">{todaysClasses.length}</p>
             </div>
 
-            <div className="bg-teal-light border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+            <div className="bg-teal-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-teal/20 flex items-center justify-center mb-3">
                 <svg className="w-4.5 h-4.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
@@ -328,14 +328,14 @@ export default function TimetablePage() {
             </div>
 
             {/* Download button */}
-            <button onClick={downloadSchedule} className="col-span-2 bg-navy border-[4px] border-navy rounded-2xl p-4 flex items-center gap-3 hover:bg-navy-light transition-colors group">
-              <div className="w-9 h-9 rounded-xl bg-lime/15 flex items-center justify-center shrink-0">
-                <svg className="w-5 h-5 text-lime" viewBox="0 0 24 24" fill="currentColor">
+            <button onClick={downloadSchedule} className="col-span-2 bg-navy border-[3px] border-navy rounded-2xl p-4 flex items-center gap-3 hover:bg-navy-light transition-colors group">
+              <div className="w-9 h-9 rounded-xl bg-teal/15 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-snow" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="text-left">
-                <p className="font-display font-black text-sm text-snow group-hover:text-lime transition-colors">Download CSV</p>
+                <p className="font-display font-black text-sm text-snow group-hover:text-snow transition-colors">Download CSV</p>
                 <p className="text-[10px] text-ghost/40">Export your schedule</p>
               </div>
             </button>
@@ -358,7 +358,7 @@ export default function TimetablePage() {
                 const card = todayCardColors[i % todayCardColors.length];
 
                 return (
-                  <div key={event.id} className={`${card.bg} border-[4px] ${card.border} rounded-3xl p-5 ${card.shadow} ${isCancelled ? "opacity-50" : ""} transition-all`}>
+                  <div key={event.id} className={`${card.bg} border-[3px] ${card.border} rounded-3xl p-5 ${card.shadow} ${isCancelled ? "opacity-50" : ""} transition-all`}>
                     <div className="flex items-center justify-between mb-3">
                       <h3 className={`font-display font-black text-lg ${isCancelled ? "line-through text-slate" : card.text}`}>
                         {classSession.courseCode}
@@ -441,7 +441,7 @@ export default function TimetablePage() {
         {/* ═══════════════════════════════════════════════════════
             CALENDAR
             ═══════════════════════════════════════════════════════ */}
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-4 md:p-6 shadow-[4px_4px_0_0_#000] overflow-hidden">
+        <div className="bg-snow border-[3px] border-navy rounded-3xl p-4 md:p-6 shadow-[4px_4px_0_0_#000] overflow-hidden">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-3 h-8 rounded-full bg-sunny" />
             <h2 className="font-display font-black text-xl text-navy">Weekly View</h2>
@@ -491,7 +491,7 @@ export default function TimetablePage() {
         {canCancelClasses && (
           <button
             onClick={() => setShowCancelModal(true)}
-            className="fixed bottom-24 md:bottom-8 right-6 bg-coral border-[4px] border-navy rounded-2xl px-5 py-3 press-3 press-black transition-all flex items-center gap-2 z-30"
+            className="fixed bottom-24 md:bottom-8 right-6 bg-coral border-[3px] border-navy rounded-2xl px-5 py-3 press-3 press-black transition-all flex items-center gap-2 z-30"
           >
             <svg className="w-5 h-5 text-snow" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z" clipRule="evenodd" />
@@ -502,7 +502,7 @@ export default function TimetablePage() {
 
         {showCancelModal && (
           <div className="fixed inset-0 bg-navy/80 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6" onClick={() => { setShowCancelModal(false); setSelectedClass(null); setCancelDate(""); setCancelReason(""); }}>
-            <div className="bg-snow border-[4px] border-navy rounded-3xl w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-snow border-[3px] border-navy rounded-3xl w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]" onClick={(e) => e.stopPropagation()}>
               {/* Header */}
               <div className="p-6 border-b-[3px] border-navy/10 flex items-center justify-between">
                 <div className="flex items-center gap-3">

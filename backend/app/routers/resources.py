@@ -75,6 +75,7 @@ class ResourceResponse(BaseModel):
     viewCount: int
     isApproved: bool
     approvedBy: Optional[str] = None
+    feedback: Optional[str] = None  # Approval/rejection feedback from reviewer
     createdAt: datetime
     updatedAt: datetime
 
@@ -91,6 +92,7 @@ class ResourceListResponse(BaseModel):
 
 class ApproveResourceRequest(BaseModel):
     approved: bool
+    feedback: Optional[str] = None
 
 
 class AddResourceRequest(BaseModel):
@@ -191,12 +193,8 @@ async def add_resource(
 ):
     """
     Add a new resource with Google Drive link or YouTube URL.
-    Requires 'resource:upload' permission (Academic Committee only).
+    Any authenticated student can submit. Resources go through approval.
     """
-    # Check permissions
-    if not check_permission(user, "resource:upload"):
-        raise HTTPException(status_code=403, detail="You don't have permission to upload resources")
-    
     # Validate level
     if resource_data.level not in [100, 200, 300, 400, 500]:
         raise HTTPException(status_code=400, detail="Invalid level. Must be 100, 200, 300, 400, or 500")
@@ -254,6 +252,7 @@ async def add_resource(
         "viewCount": 0,
         "isApproved": check_permission(user, "admin:all"),  # Auto-approve for admins
         "approvedBy": user["_id"] if check_permission(user, "admin:all") else None,
+        "feedback": None,
         "createdAt": datetime.utcnow(),
         "updatedAt": datetime.utcnow()
     }
@@ -269,6 +268,32 @@ async def add_resource(
             "isApproved": resource_doc["isApproved"]
         }
     }
+
+
+@router.get("/my", response_model=List[dict])
+async def get_my_submissions(
+    user: dict = Depends(verify_token),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get current user's resource submissions (including pending/rejected)"""
+    resources = db["resources"]
+    session = await get_current_session(db)
+
+    cursor = resources.find({
+        "uploadedBy": user["_id"],
+        "sessionId": session["_id"],
+    }).sort("createdAt", -1)
+
+    result = []
+    async for doc in cursor:
+        doc["_id"] = str(doc["_id"])
+        doc["sessionId"] = str(doc["sessionId"])
+        doc["uploadedBy"] = str(doc["uploadedBy"])
+        if doc.get("approvedBy"):
+            doc["approvedBy"] = str(doc["approvedBy"])
+        result.append(doc)
+
+    return result
 
 
 @router.get("", response_model=ResourceListResponse)
@@ -419,6 +444,7 @@ async def approve_resource(
                 "$set": {
                     "isApproved": approve_data.approved,
                     "approvedBy": user["_id"] if approve_data.approved else None,
+                    "feedback": approve_data.feedback,
                     "updatedAt": datetime.utcnow()
                 }
             }

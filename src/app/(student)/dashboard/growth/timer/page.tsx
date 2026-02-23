@@ -249,7 +249,7 @@ export default function StudyTimerPage() {
         <svg className="fixed top-44 right-[8%] w-7 h-7 text-teal/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
         <svg className="fixed top-[50%] left-[5%] w-4 h-4 text-sunny/18 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
         <svg className="fixed bottom-36 right-[12%] w-6 h-6 text-coral/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed top-[35%] right-[20%] w-4 h-4 text-lime/18 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed top-[35%] right-[20%] w-4 h-4 text-navy/10 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
         <svg className="fixed bottom-52 left-[14%] w-5 h-5 text-lavender/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
 
         {/* Back Link + Help */}
@@ -269,7 +269,7 @@ export default function StudyTimerPage() {
         {/* ═══ BENTO HERO ═══ */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
           {/* Title Card — lavender theme */}
-          <div className="md:col-span-7 bg-lavender border-[6px] border-navy rounded-[2rem] p-8 shadow-[4px_4px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
+          <div className="md:col-span-7 bg-lavender border-[3px] border-navy rounded-[2rem] p-8 shadow-[4px_4px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
             <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/70 flex items-center gap-2 mb-3">
               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
               Deep Focus
@@ -285,7 +285,7 @@ export default function StudyTimerPage() {
           {/* Stats Strip — 3 inline cards */}
           <div className="md:col-span-5 grid grid-cols-1 gap-3">
             {/* Today Minutes */}
-            <div className="bg-teal-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.3deg] hover:rotate-0 transition-transform flex items-center justify-between">
+            <div className="bg-teal-light border-[3px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.3deg] hover:rotate-0 transition-transform flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Today&apos;s Focus</span>
                 <p className="font-display font-black text-2xl text-navy">{todayStats.focusMinutes} <span className="text-sm font-bold text-navy/50">min</span></p>
@@ -295,7 +295,7 @@ export default function StudyTimerPage() {
               </div>
             </div>
             {/* Sessions */}
-            <div className="bg-coral-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
+            <div className="bg-coral-light border-[3px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Sessions</span>
                 <p className="font-display font-black text-2xl text-navy">{todayStats.sessions}</p>
@@ -305,7 +305,7 @@ export default function StudyTimerPage() {
               </div>
             </div>
             {/* Streak */}
-            <div className="bg-sunny-light border-[4px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
+            <div className="bg-sunny-light border-[3px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Streak</span>
                 <p className="font-display font-black text-2xl text-navy">{streak} <span className="text-sm font-bold text-navy/50">days</span></p>
@@ -318,7 +318,7 @@ export default function StudyTimerPage() {
         </div>
 
         {/* ═══ MODE SELECTOR ═══ */}
-        <div className="bg-snow border-[4px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] p-4 mb-8">
+        <div className="bg-snow border-[3px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] p-4 mb-8">
           <div className="flex justify-center gap-2">
             {(Object.keys(MODE_CONFIG) as TimerMode[]).map((m) => {
               const cfg = MODE_CONFIG[m];
@@ -340,7 +340,7 @@ export default function StudyTimerPage() {
         </div>
 
         {/* ═══ TIMER DISPLAY ═══ */}
-        <div className={`${modeConfig.light} border-[6px] border-navy rounded-[2rem] shadow-[4px_4px_0_0_#000] p-8 md:p-12 mb-8 rotate-[0.2deg] hover:rotate-0 transition-transform`}>
+        <div className={`${modeConfig.light} border-[3px] border-navy rounded-[2rem] shadow-[4px_4px_0_0_#000] p-8 md:p-12 mb-8 rotate-[0.2deg] hover:rotate-0 transition-transform`}>
           <div className="flex flex-col items-center">
             {/* Circle Timer */}
             <div className="relative w-64 h-64 md:w-72 md:h-72 mb-6">
@@ -366,7 +366,7 @@ export default function StudyTimerPage() {
               {/* Reset */}
               <button
                 onClick={resetTimer}
-                className="w-14 h-14 bg-snow border-[4px] border-navy rounded-2xl press-3 press-black flex items-center justify-center text-slate hover:text-navy transition-all"
+                className="w-14 h-14 bg-snow border-[3px] border-navy rounded-2xl press-3 press-black flex items-center justify-center text-slate hover:text-navy transition-all"
                 aria-label="Reset timer"
               >
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -379,7 +379,7 @@ export default function StudyTimerPage() {
                 onClick={toggleTimer}
                 disabled={!isRunning && !allDurationsValid()}
                 title={!isRunning && !allDurationsValid() ? "Fix timer settings before starting" : undefined}
-                className={`w-20 h-20 ${modeConfig.bg} border-[4px] border-navy rounded-full flex items-center justify-center text-navy transition-all ${
+                className={`w-20 h-20 ${modeConfig.bg} border-[3px] border-navy rounded-full flex items-center justify-center text-navy transition-all ${
  !isRunning && !allDurationsValid()
  ?"opacity-40 cursor-not-allowed press-1 press-black"
  :"shadow-[3px_3px_0_0_#000]"
@@ -401,7 +401,7 @@ export default function StudyTimerPage() {
               <button
                 onClick={() => !isRunning && setShowSettings(!showSettings)}
                 disabled={isRunning}
-                className={`w-14 h-14 bg-snow border-[4px] border-navy rounded-2xl press-3 press-black flex items-center justify-center transition-all ${
+                className={`w-14 h-14 bg-snow border-[3px] border-navy rounded-2xl press-3 press-black flex items-center justify-center transition-all ${
  isRunning ?"opacity-40 cursor-not-allowed" : showSettings ?"text-navy" :"text-slate hover:text-navy"
  }`}
                 aria-label="Timer settings"
@@ -422,7 +422,7 @@ export default function StudyTimerPage() {
 
         {/* ═══ SETTINGS PANEL ═══ */}
         {showSettings && !isRunning && (
-          <div className="bg-snow border-[4px] border-navy rounded-[1.5rem] shadow-[3px_3px_0_0_#000] p-6 mb-8">
+          <div className="bg-snow border-[3px] border-navy rounded-[1.5rem] shadow-[3px_3px_0_0_#000] p-6 mb-8">
             <h3 className="font-display font-black text-lg text-navy mb-5 flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-lavender-light flex items-center justify-center">
                 <svg className="w-4 h-4 text-lavender" fill="currentColor" viewBox="0 0 24 24">
@@ -493,7 +493,7 @@ export default function StudyTimerPage() {
         {/* ═══ BOTTOM BENTO: History + Pro Tip ═══ */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* Session History */}
-          <div className="md:col-span-8 bg-snow border-[4px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] overflow-hidden">
+          <div className="md:col-span-8 bg-snow border-[3px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] overflow-hidden">
             <button
               onClick={() => setShowHistory(!showHistory)}
               className="w-full flex items-center justify-between p-5 hover:bg-ghost transition-colors"
@@ -552,18 +552,18 @@ export default function StudyTimerPage() {
           </div>
 
           {/* Pro Tip Card */}
-          <div className="md:col-span-4 bg-navy border-[4px] border-lime rounded-[1.5rem] shadow-[3px_3px_0_0_#000] p-6 flex flex-col justify-between">
+          <div className="md:col-span-4 bg-navy border-[3px] border-ghost/20 rounded-[1.5rem] shadow-[3px_3px_0_0_#000] p-6 flex flex-col justify-between">
             <div>
-              <div className="w-10 h-10 rounded-xl bg-lime/20 flex items-center justify-center mb-4">
-                <svg className="w-5 h-5 text-lime" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+              <div className="w-10 h-10 rounded-xl bg-teal/20 flex items-center justify-center mb-4">
+                <svg className="w-5 h-5 text-snow" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
               </div>
-              <h4 className="font-display font-black text-base text-lime mb-2">Pro Tip</h4>
-              <p className="font-display font-normal text-sm text-lime/60">
+              <h4 className="font-display font-black text-base text-snow mb-2">Pro Tip</h4>
+              <p className="font-display font-normal text-sm text-snow/50">
                 Take a 15-30 minute long break after completing 4 focus sessions. Your brain needs time to consolidate learning!
               </p>
             </div>
-            <div className="mt-4 pt-4 border-t border-lime/20">
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-lime/40 flex items-center gap-1.5">
+            <div className="mt-4 pt-4 border-t border-navy/10">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/30 flex items-center gap-1.5">
                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" /></svg>
                 All data stored locally
               </p>

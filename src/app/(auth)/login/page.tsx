@@ -62,7 +62,7 @@ export default function StudentLoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="w-full px-4 py-3.5 bg-snow border-[3px] border-navy rounded-2xl text-navy font-display font-normal placeholder:text-slate focus:outline-none focus:border-lime focus:shadow-[3px_3px_0_0_#C8F31D] transition-all"
+                className="w-full px-4 py-3.5 bg-snow border-[3px] border-navy rounded-2xl text-navy font-display font-normal placeholder:text-slate focus:outline-none focus:border-coral transition-all"
               />
             </div>
 
@@ -75,7 +75,7 @@ export default function StudentLoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full px-4 py-3.5 bg-snow border-[3px] border-navy rounded-2xl text-navy font-display font-normal placeholder:text-slate focus:outline-none focus:border-lime focus:shadow-[3px_3px_0_0_#C8F31D] transition-all"
+                className="w-full px-4 py-3.5 bg-snow border-[3px] border-navy rounded-2xl text-navy font-display font-normal placeholder:text-slate focus:outline-none focus:border-coral transition-all"
               />
             </div>
 
@@ -112,14 +112,14 @@ export default function StudentLoginPage() {
         <div className="absolute inset-0 bg-dots opacity-20 pointer-events-none" />
 
         {/* Diamond Sparkles */}
-        <svg className="absolute top-12 right-[15%] w-5 h-5 text-lime/20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="absolute top-12 right-[15%] w-5 h-5 text-navy/12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
         <svg className="absolute bottom-20 left-[10%] w-4 h-4 text-coral/15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
         <svg className="absolute top-[40%] right-[8%] w-3 h-3 text-sunny/20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
 
         {/* Decorative Content */}
         <div className="relative z-10 max-w-md p-12 text-center space-y-8">
           <div className="space-y-4">
-            <span className="font-display font-bold text-xs uppercase tracking-wider text-lime/60 flex items-center justify-center gap-2">
+            <span className="font-display font-bold text-xs uppercase tracking-wider text-snow/50 flex items-center justify-center gap-2">
               <span>&#10022;</span> IESA Platform
             </span>
             <h2 className="font-display font-black text-3xl md:text-4xl text-snow">
@@ -140,7 +140,7 @@ export default function StudentLoginPage() {
               "Student resources",
             ].map((feature, i) => (
               <div key={i} className="flex items-center gap-3 text-snow/80">
-                <span className="text-lime/40">&#9670;</span>
+                <span className="text-snow/30">&#9670;</span>
                 <span className="font-display font-normal text-sm">{feature}</span>
               </div>
             ))}

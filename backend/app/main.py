@@ -5,7 +5,7 @@ import os
 from app.core.security import verify_token
 from app.core.rate_limiting import setup_rate_limiting
 from app.core.error_handling import setup_exception_handlers, setup_logging
-from app.routers import sessions, users, payments, events, announcements, grades, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press
+from app.routers import sessions, users, payments, events, announcements, grades, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press, unit_applications, academic_calendar, timp, bank_transfers, settings
 from app.db import connect_to_mongo, close_mongo_connection
 
 # Setup logging first
@@ -27,7 +27,6 @@ app = FastAPI(
     description="Session-Aware Enterprise Resource Planning System for Industrial Engineering Department",
     version="2.0.0",  # Phase 1 with Permission-based RBAC
     lifespan=lifespan,
-    redirect_slashes=False,  # Prevent 307 redirects that drop Authorization headers
 )
 
 # API Version prefix
@@ -91,6 +90,11 @@ app.include_router(paystack.router)  # Paystack Payment Integration
 app.include_router(audit_logs.router)  # Audit Logs (Admin Only)
 app.include_router(study_groups.router)  # Study Group Finder
 app.include_router(press.router)  # Association Press / Blog
+app.include_router(unit_applications.router)  # Unit Applications
+app.include_router(academic_calendar.router)  # Academic Calendar Events
+app.include_router(timp.router)  # TIMP Mentoring Project
+app.include_router(bank_transfers.router)  # Bank Transfer Payments
+app.include_router(settings.router)        # Platform Settings (admin toggles)
 
 @app.get("/api/protected")
 async def protected_route(user_data: dict = Depends(verify_token)):

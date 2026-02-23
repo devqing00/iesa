@@ -95,7 +95,7 @@ export default function BlogArticlePage() {
   return (
     <div className="min-h-screen bg-ghost text-navy overflow-x-hidden">
       {/* Sparkle decorators */}
-      <svg className="fixed top-24 left-[6%] w-5 h-5 text-lime/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed top-24 left-[6%] w-5 h-5 text-navy/10 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
       <svg className="fixed top-[50%] right-[8%] w-6 h-6 text-coral/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
@@ -104,8 +104,8 @@ export default function BlogArticlePage() {
 
       <Header />
 
-      <main className="pt-28 pb-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <main className="pt-14 sm:pt-16 pb-20">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-12">
           {/* Back link */}
           <Link href="/blog" className="inline-flex items-center gap-2 text-sm font-display font-bold text-navy/60 hover:text-navy transition-colors mb-8">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -126,10 +126,10 @@ export default function BlogArticlePage() {
               </div>
             </div>
           ) : !article ? (
-            <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 shadow-[3px_3px_0_0_#000] text-center">
+            <div className="bg-snow border-[2px] border-navy rounded-3xl p-12 shadow-[3px_3px_0_0_#000] text-center">
               <h2 className="font-display font-black text-2xl text-navy mb-2">Article not found</h2>
               <p className="text-slate mb-6">This article may have been removed or the link is incorrect.</p>
-              <Link href="/blog" className="bg-lime border-[3px] border-navy px-6 py-2.5 rounded-xl font-display font-bold text-navy press-3 press-navy transition-all">
+              <Link href="/blog" className="bg-lime border-[2px] border-navy px-6 py-2.5 rounded-xl font-display font-bold text-navy press-3 press-navy transition-all">
                 Browse Articles
               </Link>
             </div>
@@ -151,8 +151,8 @@ export default function BlogArticlePage() {
               </h1>
 
               {/* Author bar */}
-              <div className="flex items-center gap-3 mb-8 pb-6 border-b-[3px] border-cloud">
-                <div className="w-10 h-10 rounded-full bg-navy/10 flex items-center justify-center overflow-hidden border-[3px] border-navy">
+              <div className="flex items-center gap-3 mb-8 pb-6 border-b-[2px] border-cloud">
+                <div className="w-10 h-10 rounded-full bg-navy/10 flex items-center justify-center overflow-hidden border-[2px] border-navy">
                   {article.authorProfilePicture ? (
                     <Image src={article.authorProfilePicture} alt="" width={40} height={40} className="object-cover" />
                   ) : (
@@ -182,7 +182,7 @@ export default function BlogArticlePage() {
 
               {/* Cover Image */}
               {article.coverImageUrl && (
-                <div className="relative h-64 sm:h-80 lg:h-96 mb-10 rounded-3xl overflow-hidden border-[4px] border-navy shadow-[3px_3px_0_0_#000]">
+                <div className="relative h-64 sm:h-80 lg:h-96 mb-10 rounded-3xl overflow-hidden border-[2px] border-navy shadow-[3px_3px_0_0_#000]">
                   <Image src={article.coverImageUrl} alt={article.title} fill className="object-cover" />
                 </div>
               )}
@@ -194,7 +194,7 @@ export default function BlogArticlePage() {
                   [&_h3]:font-display [&_h3]:font-bold [&_h3]:text-navy [&_h3]:mt-8 [&_h3]:mb-3
                   [&_p]:mb-4
                   [&_a]:text-lavender [&_a]:font-bold [&_a]:underline [&_a]:decoration-2
-                  [&_blockquote]:border-l-[4px] [&_blockquote]:border-lime [&_blockquote]:pl-6 [&_blockquote]:italic [&_blockquote]:text-navy/70
+                  [&_blockquote]:border-l-[4px] [&_blockquote]:border-ghost/20 [&_blockquote]:pl-6 [&_blockquote]:italic [&_blockquote]:text-navy/70
                   [&_img]:rounded-2xl [&_img]:border-[3px] [&_img]:border-navy
                   [&_ul]:list-disc [&_ul]:pl-6
                   [&_ol]:list-decimal [&_ol]:pl-6
@@ -205,7 +205,7 @@ export default function BlogArticlePage() {
 
               {/* Tags */}
               {article.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-10 pt-6 border-t-[3px] border-cloud">
+                <div className="flex flex-wrap gap-2 mt-10 pt-6 border-t-[2px] border-cloud">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate mr-2 self-center">Tags:</span>
                   {article.tags.map((tag) => (
                     <span key={tag} className="px-3 py-1 bg-ghost border-[2px] border-navy/15 rounded-xl text-xs font-display font-bold text-navy/70">
@@ -217,7 +217,7 @@ export default function BlogArticlePage() {
 
               {/* Back to blog CTA */}
               <div className="mt-12 text-center">
-                <Link href="/blog" className="inline-flex bg-navy border-[4px] border-lime px-8 py-3 rounded-2xl font-display font-bold text-lime press-4 press-lime transition-all">
+                <Link href="/blog" className="inline-flex bg-navy border-[2px] border-ghost/20 px-8 py-3 rounded-2xl font-display font-bold text-snow press-4 press-navy transition-all">
                   More Articles
                 </Link>
               </div>

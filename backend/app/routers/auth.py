@@ -447,7 +447,14 @@ async def verify_email(token: str):
         if not user_id or not email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid verification token"
+                detail="Invalid verification token: missing user ID or email"
+            )
+        
+        # Validate ObjectId format
+        if not ObjectId.is_valid(user_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid verification token: malformed user ID"
             )
         
         # Find user
@@ -455,7 +462,7 @@ async def verify_email(token: str):
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+                detail="User not found. The account may have been deleted."
             )
         
         # Check if already verified
@@ -480,10 +487,18 @@ async def verify_email(token: str):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Verification link has expired. Please request a new one."
         )
-    except JWTError:
+    except JWTError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid verification token"
+            detail=f"Invalid verification token: {str(e)}"
+        )
+    except Exception as e:
+        # Log unexpected errors
+        import logging
+        logging.error(f"Unexpected error during email verification: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred during verification. Please try again or contact support."
         )
 
 

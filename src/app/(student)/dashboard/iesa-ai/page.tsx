@@ -678,7 +678,7 @@ export default function IESAAIPage() {
         "top-32 right-[10%] w-4 h-4 text-teal/12",
         "top-[50%] left-[3%] w-6 h-6 text-coral/10",
         "top-[60%] right-[5%] w-5 h-5 text-sunny/14",
-        "bottom-36 left-[12%] w-4 h-4 text-lime/12",
+        "bottom-36 left-[12%] w-4 h-4 text-navy/8",
       ].map((cls, i) => (
         <svg
           key={i}
@@ -825,7 +825,7 @@ export default function IESAAIPage() {
                       className="fixed inset-0 z-40"
                       onClick={() => setShowLanguageMenu(false)}
                     />
-                    <div className="absolute right-0 top-full mt-2 bg-snow border-[4px] border-navy rounded-xl z-50 min-w-40 shadow-[4px_4px_0_0_#000] overflow-hidden">
+                    <div className="absolute right-0 top-full mt-2 bg-snow border-[3px] border-navy rounded-xl z-50 min-w-40 shadow-[4px_4px_0_0_#000] overflow-hidden">
                       <div className="px-3 py-2 border-b-[3px] border-navy bg-lavender-light">
                         <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-navy/60">
                           Locked after first message
@@ -909,7 +909,7 @@ export default function IESAAIPage() {
                       className="fixed inset-0 z-40"
                       onClick={() => setShowMobileMenu(false)}
                     />
-                    <div className="absolute right-0 top-full mt-2 bg-snow border-[4px] border-navy rounded-xl z-50 w-56 shadow-[4px_4px_0_0_#000] overflow-hidden">
+                    <div className="absolute right-0 top-full mt-2 bg-snow border-[3px] border-navy rounded-xl z-50 w-56 shadow-[4px_4px_0_0_#000] overflow-hidden">
                       <button
                         onClick={() => {
                           setShowConversations(!showConversations);
@@ -1192,7 +1192,7 @@ export default function IESAAIPage() {
                   }`}
                 >
                   {message.sender === "user" ? (
-                    <span className="text-lime text-sm font-display font-black">
+                    <span className="text-snow text-sm font-display font-black">
                       {user?.firstName?.[0] || "U"}
                     </span>
                   ) : (
@@ -1369,7 +1369,7 @@ export default function IESAAIPage() {
             ))}
 
             {/* Loading */}
-            {(loading || isTyping) && (
+            {loading && (
               <div className="flex gap-3 items-start">
                 <div className="w-9 h-9 rounded-2xl bg-lavender border-[3px] border-navy flex items-center justify-center shadow-[2px_2px_0_0_#000]">
                   <svg

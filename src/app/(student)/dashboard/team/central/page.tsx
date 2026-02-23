@@ -39,7 +39,7 @@ const ACCENT_CYCLE = [
   { border: "border-l-teal", bg: "bg-teal-light", dot: "bg-teal", iconBg: "bg-teal/30" },
   { border: "border-l-lavender", bg: "bg-lavender-light", dot: "bg-lavender", iconBg: "bg-lavender/30" },
   { border: "border-l-sunny", bg: "bg-sunny-light", dot: "bg-sunny", iconBg: "bg-sunny/30" },
-  { border: "border-l-lime", bg: "bg-lime-light", dot: "bg-lime", iconBg: "bg-lime/30" },
+  { border: "border-l-lime", bg: "bg-lime-light", dot: "bg-lime", iconBg: "bg-teal/30" },
 ];
 
 /* ─── Component ─── */
@@ -100,7 +100,7 @@ export default function CentralExcosPage() {
 
       {/* ── empty state ── */}
       {!loading && executives.length === 0 && (
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
+        <div className="bg-snow border-[3px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
           <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-coral-light flex items-center justify-center">
             <svg className="w-7 h-7 text-coral" viewBox="0 0 24 24" fill="currentColor">
               <path d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0Z" />
@@ -113,34 +113,34 @@ export default function CentralExcosPage() {
 
       {!loading && president && (
         /* ── president hero card ── */
-        <div className="bg-navy border-[4px] border-lime rounded-[2rem] p-6 md:p-8 shadow-[3px_3px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform relative overflow-hidden">
+        <div className="bg-navy border-[3px] border-ghost/20 rounded-[2rem] p-6 md:p-8 shadow-[3px_3px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform relative overflow-hidden">
           <div className="flex items-center gap-5">
-            <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-lime flex items-center justify-center flex-shrink-0 border-[3px] border-lime-dark">
+            <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-lime flex items-center justify-center flex-shrink-0 border-[3px] border-ghost/20-dark">
               <span className="font-display font-black text-2xl md:text-3xl text-navy">
                 {president.user.firstName[0]}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-lime/20 font-display font-bold text-[10px] text-lime uppercase tracking-[0.08em] mb-1">
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-teal/20 font-display font-bold text-[10px] text-snow uppercase tracking-[0.08em] mb-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-lime" />
                 President
               </span>
-              <h3 className="font-display font-black text-xl md:text-2xl text-lime">
+              <h3 className="font-display font-black text-xl md:text-2xl text-snow">
                 {president.user.firstName} {president.user.lastName}
               </h3>
               <div className="flex flex-wrap items-center gap-3 mt-2">
-                <a href={`mailto:${president.user.email}`} className="inline-flex items-center gap-1.5 text-lime/60 hover:text-lime transition-colors text-sm font-medium">
+                <a href={`mailto:${president.user.email}`} className="inline-flex items-center gap-1.5 text-snow/50 hover:text-snow transition-colors text-sm font-medium">
                   <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a2 2 0 00-2 2v1.161l8.441 4.221a1.25 1.25 0 001.118 0L19 7.162V6a2 2 0 00-2-2H3z" /><path d="M19 8.839l-7.77 3.885a2.75 2.75 0 01-2.46 0L1 8.839V14a2 2 0 002 2h14a2 2 0 002-2V8.839z" /></svg>
                   {president.user.email}
                 </a>
                 {president.user.matricNumber && (
-                  <span className="text-lime/50 text-sm font-medium">{president.user.matricNumber}</span>
+                  <span className="text-snow/50 text-sm font-medium">{president.user.matricNumber}</span>
                 )}
               </div>
             </div>
           </div>
-          <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full bg-lime/8" />
-          <div className="absolute top-3 right-4 text-lime/15">
+          <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full bg-teal/8" />
+          <div className="absolute top-3 right-4 text-navy/10">
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
             </svg>
@@ -157,7 +157,7 @@ export default function CentralExcosPage() {
             return (
               <div
                 key={exco.user.id}
-                className={`bg-snow border-[4px] border-navy border-l-[6px] ${accent.border} rounded-[1.5rem] p-5 shadow-[4px_4px_0_0_#000] ${rotations[i % rotations.length]} hover:rotate-0 transition-transform`}
+                className={`bg-snow border-[3px] border-navy border-l-[6px] ${accent.border} rounded-[1.5rem] p-5 shadow-[4px_4px_0_0_#000] ${rotations[i % rotations.length]} hover:rotate-0 transition-transform`}
               >
                 <div className="flex items-start gap-4">
                   <div className={`w-12 h-12 rounded-xl ${accent.iconBg} flex items-center justify-center flex-shrink-0 border-[3px] border-navy`}>

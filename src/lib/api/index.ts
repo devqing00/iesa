@@ -239,3 +239,111 @@ export {
   isPaymentQuery,
   isEventQuery,
 } from './chat';
+// Unit Applications
+export {
+  createApplication,
+  getMyApplications,
+  listApplications,
+  reviewApplication,
+  UNIT_LABELS,
+  UNIT_DESCRIPTIONS,
+  UNIT_COLORS,
+} from './applications';
+
+export type {
+  UnitApplication,
+  UnitType,
+  ApplicationStatus,
+  CreateApplicationData,
+  ReviewApplicationData,
+} from './applications';
+
+// Academic Calendar
+export {
+  listAcademicEvents,
+  getAcademicEvent,
+  createAcademicEvent,
+  updateAcademicEvent,
+  deleteAcademicEvent,
+  EVENT_TYPE_LABELS,
+  EVENT_TYPE_COLORS,
+  ALL_EVENT_TYPES,
+} from './academic-calendar';
+
+export type {
+  AcademicEvent,
+  AcademicEventType,
+  CreateAcademicEventData,
+  UpdateAcademicEventData,
+} from './academic-calendar';
+
+// TIMP Mentoring
+export {
+  applyAsMentor,
+  getMyApplication,
+  listMentorApplications,
+  reviewMentorApplication,
+  createPair,
+  listPairs,
+  updatePairStatus,
+  submitTimpFeedback,
+  getPairFeedback,
+  getMyTimpInfo,
+  getTimpSettings,
+  updateTimpSettings,
+  APPLICATION_STATUS_STYLES,
+  PAIR_STATUS_STYLES,
+} from './timp';
+
+export type {
+  MentorApplication,
+  MentorApplicationStatus,
+  MentorshipPair,
+  PairStatus,
+  TimpFeedback,
+  MyTimpInfo,
+  ApplyAsMentorData,
+  ReviewMentorData,
+  CreatePairData,
+  SubmitFeedbackData,
+} from './timp';
+
+// Bank Transfers
+export {
+  listBankAccounts,
+  createBankAccount,
+  updateBankAccount,
+  deleteBankAccount,
+  submitTransferProof,
+  submitEventBankTransfer,
+  getMyTransfers,
+  listAllTransfers,
+  reviewTransfer,
+  getTransferById,
+  checkTransactionReference,
+  TRANSFER_STATUS_STYLES,
+  NIGERIAN_BANKS,
+} from './bank-transfers';
+
+export type {
+  BankAccount,
+  BankTransfer,
+  CreateBankAccountData,
+  UpdateBankAccountData,
+  SubmitTransferProofData,
+  SubmitEventTransferData,
+  ReviewTransferData,
+} from './bank-transfers';
+// ============================================
+// Receipts
+// ============================================
+
+export {
+  getReceiptData,
+  getReceiptPdfUrl,
+} from './receipts';
+
+export type {
+  ReceiptData,
+  ReceiptEventData,
+} from './receipts';

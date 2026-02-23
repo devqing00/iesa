@@ -267,7 +267,7 @@ export default function WriteArticlePage() {
           <button
             onClick={() => handleSave(true)}
             disabled={saving || submitting}
-            className="px-6 py-3 bg-lime border-[4px] border-navy rounded-2xl font-display font-bold text-navy press-3 press-navy transition-all disabled:opacity-50"
+            className="px-6 py-3 bg-lime border-[3px] border-navy rounded-2xl font-display font-bold text-navy press-3 press-navy transition-all disabled:opacity-50"
           >
             {submitting ? "Submitting..." : "Save & Submit for Review"}
           </button>

@@ -104,7 +104,7 @@ export default function CommitteesPage() {
 
       {/* ── empty ── */}
       {!loading && committees.length === 0 && (
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
+        <div className="bg-snow border-[3px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
           <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-teal-light flex items-center justify-center">
             <svg className="w-7 h-7 text-teal" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M1 2.75A.75.75 0 011.75 2h16.5a.75.75 0 010 1.5H18v8.75A2.75 2.75 0 0115.25 15h-1.072l.798 3.06a.75.75 0 01-1.452.38L13.41 18H6.59l-.114.44a.75.75 0 01-1.452-.38L5.822 15H4.75A2.75 2.75 0 012 12.25V3.5h-.25A.75.75 0 011 2.75z" clipRule="evenodd" />
@@ -128,7 +128,7 @@ export default function CommitteesPage() {
             return (
               <div
                 key={committee.user.id}
-                className={`bg-snow border-[4px] border-navy border-l-[6px] ${color.border} rounded-[1.5rem] p-5 shadow-[4px_4px_0_0_#000] ${rotations[i % 4]} hover:rotate-0 transition-transform`}
+                className={`bg-snow border-[3px] border-navy border-l-[6px] ${color.border} rounded-[1.5rem] p-5 shadow-[4px_4px_0_0_#000] ${rotations[i % 4]} hover:rotate-0 transition-transform`}
               >
                 {/* top row */}
                 <div className="flex items-start gap-4">
@@ -168,19 +168,19 @@ export default function CommitteesPage() {
       )}
 
       {/* ── info notice ── */}
-      <div className="bg-navy border-[4px] border-teal rounded-[2rem] p-6 shadow-[3px_3px_0_0_#000] relative overflow-hidden">
+      <div className="bg-navy border-[3px] border-teal rounded-[2rem] p-6 shadow-[3px_3px_0_0_#000] relative overflow-hidden">
         <div className="flex items-start gap-4">
-          <div className="w-10 h-10 rounded-xl bg-lime/20 flex items-center justify-center flex-shrink-0">
-            <svg className="w-5 h-5 text-lime" fill="currentColor" viewBox="0 0 20 20">
+          <div className="w-10 h-10 rounded-xl bg-teal/20 flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5 text-snow" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
             </svg>
           </div>
           <div>
-            <h4 className="font-display font-black text-sm text-lime">Want to join a committee?</h4>
-            <p className="text-xs text-lime/60 mt-1">Reach out to the committee head or the IESA Central team to express your interest.</p>
+            <h4 className="font-display font-black text-sm text-snow">Want to join a committee?</h4>
+            <p className="text-xs text-snow/50 mt-1">Reach out to the committee head or the IESA Central team to express your interest.</p>
           </div>
         </div>
-        <div className="absolute -bottom-5 -right-5 w-20 h-20 rounded-full bg-lime/8" />
+        <div className="absolute -bottom-5 -right-5 w-20 h-20 rounded-full bg-teal/8" />
       </div>
     </div>
   );

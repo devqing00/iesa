@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useSidebar } from "@/context/SidebarContext";
 import { useSession } from "@/context/SessionContext";
+import { usePermissions } from "@/context/PermissionsContext";
 
 /* ─── Admin Nav Group Definitions ──────────────────────────────── */
 
@@ -13,6 +14,8 @@ interface NavLink {
   name: string;
   href: string;
   icon: React.ReactNode;
+  /** If set, link only shows when user has at least one of these permissions */
+  anyPermission?: string[];
 }
 
 interface NavGroup {
@@ -38,6 +41,7 @@ const navGroups: NavGroup[] = [
       {
         name: "Users",
         href: "/admin/users",
+        anyPermission: ["user:view_all", "user:edit", "user:delete"],
         icon: (
           <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
@@ -48,6 +52,7 @@ const navGroups: NavGroup[] = [
       {
         name: "Sessions",
         href: "/admin/sessions",
+        anyPermission: ["session:create", "session:edit", "session:view"],
         icon: (
           <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
@@ -63,6 +68,7 @@ const navGroups: NavGroup[] = [
       {
         name: "Announcements",
         href: "/admin/announcements",
+        anyPermission: ["announcement:create", "announcement:edit", "announcement:view"],
         icon: (
           <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path d="M16.881 4.345A23.112 23.112 0 0 1 8.25 6H7.5a5.25 5.25 0 0 0-.88 10.427 21.593 21.593 0 0 0 1.378 3.94c.464 1.004 1.674 1.32 2.582.796l.657-.379c.88-.508 1.165-1.593.772-2.468a17.116 17.116 0 0 1-.628-1.607c1.918.258 3.76.75 5.5 1.446A21.727 21.727 0 0 0 18 11.25c0-2.414-.393-4.735-1.119-6.905ZM18.26 3.74a23.22 23.22 0 0 1 1.24 7.51 23.22 23.22 0 0 1-1.24 7.51c-.055.161.044.348.206.404a.75.75 0 0 0 .974-.518 24.725 24.725 0 0 0 0-14.792.75.75 0 0 0-.974-.518.348.348 0 0 0-.206.404Z" />
@@ -72,6 +78,7 @@ const navGroups: NavGroup[] = [
       {
         name: "Events",
         href: "/admin/events",
+        anyPermission: ["event:create", "event:edit", "event:view", "event:manage"],
         icon: (
           <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" clipRule="evenodd" />
@@ -82,6 +89,7 @@ const navGroups: NavGroup[] = [
       {
         name: "Enrollments",
         href: "/admin/enrollments",
+        anyPermission: ["enrollment:view", "enrollment:create", "enrollment:edit"],
         icon: (
           <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25a3.75 3.75 0 0 0-3-3.75H5.625ZM7.5 15a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7.5 15Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H8.25Z" />
@@ -92,9 +100,20 @@ const navGroups: NavGroup[] = [
       {
         name: "Resources",
         href: "/admin/resources",
+        anyPermission: ["resource:view", "resource:approve", "resource:create"],
         icon: (
           <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
+          </svg>
+        ),
+      },
+      {
+        name: "Timetable",
+        href: "/admin/timetable",
+        anyPermission: ["timetable:create", "timetable:edit", "timetable:view"],
+        icon: (
+          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
           </svg>
         ),
       },
@@ -107,6 +126,7 @@ const navGroups: NavGroup[] = [
       {
         name: "Payments",
         href: "/admin/payments",
+        anyPermission: ["payment:view_all", "payment:create", "payment:approve"],
         icon: (
           <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path d="M4.5 3.75a3 3 0 0 0-3 3v.75h21v-.75a3 3 0 0 0-3-3h-15Z" />
@@ -117,6 +137,7 @@ const navGroups: NavGroup[] = [
       {
         name: "Roles",
         href: "/admin/roles",
+        anyPermission: ["role:view", "role:create", "role:edit"],
         icon: (
           <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
@@ -124,8 +145,30 @@ const navGroups: NavGroup[] = [
         ),
       },
       {
+        name: "Applications",
+        href: "/admin/applications",
+        anyPermission: ["role:create", "role:edit", "user:edit"],
+        icon: (
+          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <path fillRule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0 1 18 9.375v9.375a3 3 0 0 0 3-3V6.108c0-1.505-1.125-2.811-2.664-2.94a48.972 48.972 0 0 0-8.583-.164 3.023 3.023 0 0 0-2.251 2.996Z" clipRule="evenodd" />
+            <path fillRule="evenodd" d="M2.25 13.5a3 3 0 0 0 3 3h1.228a3.375 3.375 0 0 1-.978-2.375v-9.75a3.375 3.375 0 0 1 3-3.357H13.5a3 3 0 0 1 3 3v1.107a3.375 3.375 0 0 1 .878 2.618v6.007a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3v-1.25Z" clipRule="evenodd" />
+          </svg>
+        ),
+      },
+      {
+        name: "TIMP",
+        href: "/admin/timp",
+        anyPermission: ["timp:manage"],
+        icon: (
+          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A18.034 18.034 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" clipRule="evenodd" />
+          </svg>
+        ),
+      },
+      {
         name: "Audit Logs",
         href: "/admin/audit-logs",
+        anyPermission: ["audit:view", "audit:export"],
         icon: (
           <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M9 1.5H5.625c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5Zm6.75 12a.75.75 0 0 0-1.5 0v2.25H12a.75.75 0 0 0 0 1.5h2.25v2.25a.75.75 0 0 0 1.5 0v-2.25H18a.75.75 0 0 0 0-1.5h-2.25V13.5Z" clipRule="evenodd" />
@@ -144,7 +187,14 @@ export default function AdminSidebar() {
   const { signOut } = useAuth();
   const { isExpanded, toggleSidebar, closeSidebar } = useSidebar();
   const { currentSession, allSessions } = useSession();
+  const { hasPermission } = usePermissions();
   const activeSession = allSessions.find(s => s.isActive) ?? currentSession;
+
+  /** Check if a nav link should be visible based on permissions */
+  const isLinkVisible = (link: NavLink) => {
+    if (!link.anyPermission) return true; // No restriction
+    return link.anyPermission.some((p) => hasPermission(p));
+  };
 
   return (
     <>
@@ -172,7 +222,7 @@ export default function AdminSidebar() {
         {/* Collapse/Expand Toggle — positioned on sidebar edge */}
         <button
           onClick={toggleSidebar}
-          className="absolute -right-[14px] top-[54px] w-7 h-7 rounded-full bg-snow border-[3px] border-navy flex items-center justify-center press-2 press-black hover:bg-lime transition-all z-50"
+          className="absolute -right-[14px] top-[54px] w-7 h-7 rounded-full bg-snow border-[3px] border-navy flex items-center justify-center press-2 press-black hover:bg-ghost transition-all z-50"
           aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
         >
           <svg
@@ -185,8 +235,11 @@ export default function AdminSidebar() {
         </button>
 
         {/* Navigation Groups */}
-        <nav aria-label="Admin navigation" className="flex-1 overflow-y-auto px-2.5 space-y-4 scrollbar-thin">
-          {navGroups.map((group) => (
+        <nav aria-label="Admin navigation" className="flex-1 overflow-y-auto px-2.5 pb-3 space-y-3 scrollbar-thin">
+          {navGroups.map((group, index) => {
+            const visibleLinks = group.links.filter(isLinkVisible);
+            if (visibleLinks.length === 0) return null;
+            return (
             <div key={group.label}>
               {/* Group Header */}
               {isExpanded ? (
@@ -197,14 +250,14 @@ export default function AdminSidebar() {
                   </span>
                 </div>
               ) : (
-                <div className="flex justify-center py-1">
-                  <span className={`w-5 h-[2px] rounded-full ${group.accentColor}`} />
-                </div>
+                  <div className="flex justify-center pb-1">
+                    <span className={`w-5 h-[2px] rounded-full ${group.accentColor}`} />
+                  </div>
               )}
 
               {/* Group Links */}
               <div className="space-y-0.5">
-                {group.links.map((link) => {
+                {group.links.filter(isLinkVisible).map((link) => {
                   const isActive = pathname === link.href;
                   return (
                     <Link
@@ -226,7 +279,7 @@ export default function AdminSidebar() {
                 })}
               </div>
             </div>
-          ))}
+          ); })}
         </nav>
 
         {/* Session Badge */}
@@ -234,19 +287,19 @@ export default function AdminSidebar() {
           {isExpanded ? (
             <Link
               href="/admin/sessions"
- className="flex items-center gap-3 rounded-2xl bg-navy border-[3px] border-lime p-3 press-3 press-lime transition-all group"
+ className="flex items-center gap-3 rounded-2xl bg-navy border-[3px] border-ghost/20 p-3 press-3 press-navy transition-all group"
             >
               <span className="relative flex-shrink-0">
                 <span className="w-2 h-2 rounded-full bg-lime block" />
                 <span className="w-2 h-2 rounded-full bg-lime block absolute inset-0 animate-ping opacity-75" />
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-lime/60 leading-none mb-0.5">Active Session</p>
-                <p className="text-xs font-black text-lime truncate">
+                <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-snow/50 leading-none mb-0.5">Active Session</p>
+                <p className="text-xs font-black text-snow truncate">
                   {activeSession?.name ?? "No active session"}
                 </p>
               </div>
-              <svg className="w-3.5 h-3.5 text-lime/40 group-hover:text-lime transition-colors shrink-0" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="w-3.5 h-3.5 text-snow/30 group-hover:text-snow transition-colors shrink-0" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z" clipRule="evenodd" />
               </svg>
             </Link>

@@ -20,6 +20,28 @@ from app.core.audit import AuditLogger
 router = APIRouter(prefix="/api/v1/sessions", tags=["Sessions"])
 
 
+def normalize_session_doc(doc: dict) -> dict:
+    """Ensure session doc has semester date fields (backward compat for old docs)."""
+    if "semester1StartDate" not in doc and "startDate" in doc:
+        start = doc["startDate"]
+        end = doc.get("endDate", start)
+        midpoint = start + (end - start) / 2
+        doc["semester1StartDate"] = start
+        doc["semester1EndDate"] = midpoint
+        doc["semester2StartDate"] = midpoint
+        doc["semester2EndDate"] = end
+    return doc
+
+
+def compute_current_semester(doc: dict) -> int:
+    """Compute currentSemester from semester dates for a raw MongoDB doc."""
+    sem2_start = doc.get("semester2StartDate")
+    if sem2_start:
+        now = datetime.utcnow()
+        return 1 if now < sem2_start else 2
+    return doc.get("currentSemester", 1)
+
+
 @router.post("/", response_model=Session, status_code=status.HTTP_201_CREATED)
 async def create_session(
     session_data: SessionCreate,
@@ -64,6 +86,7 @@ async def create_session(
     
     # Convert ObjectId to string
     created_session["_id"] = str(created_session["_id"])
+    normalize_session_doc(created_session)
     
     await AuditLogger.log(
         action=AuditLogger.SESSION_CREATED,
@@ -98,7 +121,7 @@ async def list_sessions(
     if active_only:
         query["isActive"] = True
     
-    cursor = sessions.find(query).sort("startDate", -1)  # Most recent first
+    cursor = sessions.find(query).sort("semester1StartDate", -1)  # Most recent first
     
     if limit:
         cursor = cursor.limit(limit)
@@ -110,7 +133,7 @@ async def list_sessions(
             id=str(s["_id"]),
             name=s["name"],
             isActive=s.get("isActive", False),
-            currentSemester=s.get("currentSemester", 1)
+            currentSemester=compute_current_semester(normalize_session_doc(s))
         )
         for s in session_list
     ]
@@ -134,6 +157,7 @@ async def get_active_session(user_data: dict = Depends(verify_token)):
         )
     
     active_session["_id"] = str(active_session["_id"])
+    normalize_session_doc(active_session)
     return Session(**active_session)
 
 
@@ -161,6 +185,7 @@ async def get_session(
         )
     
     session["_id"] = str(session["_id"])
+    normalize_session_doc(session)
     return Session(**session)
 
 
@@ -216,6 +241,7 @@ async def update_session(
     # Return updated session
     updated_session = await sessions.find_one({"_id": ObjectId(session_id)})
     updated_session["_id"] = str(updated_session["_id"])
+    normalize_session_doc(updated_session)
     
     action = AuditLogger.SESSION_ACTIVATED if update_data.get("isActive") else AuditLogger.SESSION_UPDATED
     await AuditLogger.log(

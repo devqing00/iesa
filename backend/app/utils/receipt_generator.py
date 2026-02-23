@@ -79,6 +79,7 @@ class ReceiptGenerator:
         from reportlab.lib.units import inch
         from reportlab.lib import colors
         from reportlab.pdfgen import canvas
+        from reportlab.lib.utils import ImageReader
 
         buffer = BytesIO()
         
@@ -200,6 +201,7 @@ class ReceiptGenerator:
         # Generate QR code with verification data
         qr_data = f"IESA-RECEIPT|{reference}|{amount}|{paid_at.isoformat()}"
         qr_buffer = self.generate_qr_code(qr_data)
+        qr_image = ImageReader(qr_buffer)
         
         # Draw QR code
         qr_size = 1.2 * inch
@@ -207,7 +209,7 @@ class ReceiptGenerator:
         qr_y = 1.5 * inch
         
         pdf.drawImage(
-            qr_buffer,
+            qr_image,
             qr_x,
             qr_y,
             width=qr_size,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -10,6 +10,16 @@ export default function Header() {
   const { user } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [isMenuOpen]);
 
   const navLinks = [
     { label: "About", href: "/about" },
@@ -20,14 +30,14 @@ export default function Header() {
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-snow/95 backdrop-blur-sm border-b-[3px] border-navy">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-snow/95 backdrop-blur-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14 sm:h-16">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 shrink-0">
+        <Link href="/" className="flex items-center gap-2.5 shrink-0 relative z-[60]">
           <div className="w-9 h-9 relative">
             <Image src="/assets/images/logo.svg" alt="IESA Logo" fill className="object-contain" />
           </div>
-          <span className="font-display font-black text-lg text-navy hidden sm:block">IESA</span>
+          <span className={`font-display font-black text-lg hidden sm:block ${isMenuOpen ? "text-snow" : "text-navy"} md:text-navy transition-colors`}>IESA</span>
         </Link>
 
         {/* Desktop Nav — pill container */}
@@ -40,7 +50,7 @@ export default function Header() {
                 href={link.href}
                 className={`px-4 py-1.5 text-xs font-display font-bold uppercase tracking-wide rounded-xl transition-all ${
                   isActive
-                    ? "bg-lime text-navy shadow-[2px_2px_0_0_#0F0F2D]"
+                    ? "bg-navy text-snow"
                     : "text-navy/60 hover:text-navy hover:bg-snow"
                 }`}
               >
@@ -55,7 +65,7 @@ export default function Header() {
           {/* CTA button — desktop only */}
           <Link
             href={user ? "/dashboard" : "/login"}
-            className="hidden md:inline-flex items-center gap-2 bg-lime border-[3px] border-navy rounded-xl px-5 py-1.5 font-display font-black text-sm text-navy press-3 press-navy transition-all"
+            className="hidden md:inline-flex items-center gap-2 bg-navy border-[3px] border-navy rounded-xl px-5 py-2 font-display font-black text-sm text-snow hover:bg-navy-light transition-colors"
           >
             {user ? "Dashboard" : "Get Started"}
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -66,15 +76,13 @@ export default function Header() {
           {/* Mobile menu toggle */}
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden p-2 rounded-xl border-[3px] border-navy text-navy hover:bg-lime-light transition-colors"
+            className="md:hidden p-2.5 rounded-xl bg-ghost border-[2px] border-navy hover:bg-navy hover:border-navy transition-all relative z-[60] group"
             aria-label="Toggle menu"
           >
             {isMenuOpen ? (
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <span className="font-display font-black text-sm text-snow uppercase tracking-widest">Close</span>
             ) : (
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <svg className="w-7 h-7 text-navy group-hover:text-snow transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
               </svg>
             )}
@@ -82,20 +90,25 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Fullscreen Mobile Menu — editorial style */}
       {isMenuOpen && (
-        <div className="md:hidden absolute top-full left-3 right-3 mt-2 bg-snow border-[4px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] z-50 overflow-hidden">
-          <div className="p-3 space-y-1">
+        <div className="fixed inset-0 z-50 bg-navy flex flex-col items-center justify-center md:hidden">
+          {/* Decorative sparkle */}
+          <svg className="absolute bottom-12 left-8 w-6 h-6 text-snow/10 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+          </svg>
+
+          <nav className="flex flex-col items-center gap-2">
             {navLinks.map((link) => {
               const isActive = pathname === link.href;
               return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`block px-4 py-3 rounded-2xl text-sm font-display font-bold transition-all ${
+                  className={`font-display font-black text-4xl sm:text-5xl uppercase tracking-tight transition-colors ${
                     isActive
-                      ? "bg-lime text-navy"
-                      : "text-navy/60 hover:text-navy hover:bg-lime-light"
+                      ? "text-coral"
+                      : "text-snow/90 hover:text-coral"
                   }`}
                   onClick={() => setIsMenuOpen(false)}
                 >
@@ -103,16 +116,21 @@ export default function Header() {
                 </Link>
               );
             })}
-            <div className="border-t-[3px] border-navy/10 pt-2 mt-2">
-              <Link
-                href={user ? "/dashboard" : "/login"}
-                className="block w-full text-center bg-lime border-[3px] border-navy rounded-xl py-3 font-display font-black text-sm text-navy shadow-[3px_3px_0_0_#0F0F2D]"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                {user ? "Go to Dashboard" : "Get Started →"}
-              </Link>
-            </div>
+          </nav>
+
+          <div className="mt-10">
+            <Link
+              href={user ? "/dashboard" : "/login"}
+              className="inline-flex items-center gap-2 bg-snow rounded-full px-8 py-3 font-display font-black text-base text-navy uppercase tracking-wide hover:bg-ghost transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              {user ? "Go to Dashboard" : "Get Started →"}
+            </Link>
           </div>
+
+          <p className="absolute bottom-8 text-[10px] font-bold text-snow/20 uppercase tracking-[0.2em]">
+            Be creative with us
+          </p>
         </div>
       )}
     </header>

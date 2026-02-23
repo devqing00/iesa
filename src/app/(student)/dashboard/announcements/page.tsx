@@ -1,6 +1,7 @@
 "use client";
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import Pagination from "@/components/ui/Pagination";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
@@ -52,9 +53,16 @@ export default function AnnouncementsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "priority">("newest");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const [readAnnouncements, setReadAnnouncements] = useState<Set<string>>(new Set());
   const [highlightApplied, setHighlightApplied] = useState(false);
+  const [page, setPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+
+  // Reset page when filters change
+  useEffect(() => { setPage(1); }, [filter, sortBy, priorityFilter]);
 
   useEffect(() => {
     if (user) {
@@ -147,12 +155,24 @@ export default function AnnouncementsPage() {
   };
 
   const filtered = announcements.filter((a) => {
-    if (filter === "all") return true;
-    if (filter === "read") return readAnnouncements.has(a.id);
-    if (filter === "unread") return !readAnnouncements.has(a.id);
+    // Read status filter
+    if (filter === "read" && !readAnnouncements.has(a.id)) return false;
+    if (filter === "unread" && readAnnouncements.has(a.id)) return false;
+    // Priority filter
+    if (priorityFilter !== "all" && a.priority?.toLowerCase() !== priorityFilter) return false;
     return true;
   });
 
+  // Sort
+  const PRIORITY_ORDER: Record<string, number> = { urgent: 4, high: 3, normal: 2, low: 1 };
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === "oldest") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    if (sortBy === "priority") return (PRIORITY_ORDER[b.priority?.toLowerCase()] || 0) - (PRIORITY_ORDER[a.priority?.toLowerCase()] || 0);
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(); // newest
+  });
+
+  const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
+  const paginatedAnnouncements = sorted.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
   const unreadCount = announcements.length - readAnnouncements.size;
 
   /* ── Loading State ── */
@@ -182,7 +202,7 @@ export default function AnnouncementsPage() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6">
 
           {/* Title block */}
-          <div className="md:col-span-7 bg-lavender border-[5px] border-navy rounded-[2rem] p-8 relative overflow-hidden min-h-[170px] flex flex-col justify-between">
+          <div className="md:col-span-7 bg-lavender border-[3px] border-navy rounded-[2rem] p-8 relative overflow-hidden min-h-[170px] flex flex-col justify-between">
             {/* decorative */}
             <div className="absolute -bottom-10 -right-10 w-36 h-36 rounded-full bg-navy/8 pointer-events-none" />
             <svg className="absolute top-5 right-8 w-5 h-5 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
@@ -202,7 +222,7 @@ export default function AnnouncementsPage() {
 
           {/* Stats mini-cards */}
           <div className="md:col-span-5 grid grid-cols-2 gap-3">
-            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
+            <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-coral-light flex items-center justify-center mb-3">
                 <svg className="w-4.5 h-4.5 text-coral" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clipRule="evenodd" />
@@ -211,7 +231,7 @@ export default function AnnouncementsPage() {
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Unread</p>
               <p className="font-display font-black text-3xl text-navy">{unreadCount}</p>
             </div>
-            <div className="bg-teal-light border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+            <div className="bg-teal-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-teal/20 flex items-center justify-center mb-3">
                 <svg className="w-4.5 h-4.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
@@ -260,11 +280,50 @@ export default function AnnouncementsPage() {
           ))}
         </div>
 
+        {/* Priority Filter + Sort */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-5">
+          {/* Priority filter pills */}
+          <div className="flex gap-1.5 overflow-x-auto pb-1 flex-1">
+            {[
+              { key: "all", label: "All Priorities" },
+              { key: "urgent", label: "Urgent", color: "bg-coral" },
+              { key: "high", label: "High", color: "bg-sunny" },
+              { key: "normal", label: "Normal", color: "bg-navy/30" },
+              { key: "low", label: "Low", color: "bg-slate/30" },
+            ].map((p) => (
+              <button
+                key={p.key}
+                onClick={() => setPriorityFilter(p.key)}
+                className={`flex items-center gap-1.5 px-3.5 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg border-2 transition-all whitespace-nowrap ${
+                  priorityFilter === p.key
+                    ? "bg-navy text-snow border-navy"
+                    : "bg-snow text-slate border-navy/15 hover:border-navy"
+                }`}
+              >
+                {p.color && <span className={`w-2 h-2 rounded-full ${p.color}`} />}
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Sort dropdown */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as "newest" | "oldest" | "priority")}
+            title="Sort announcements"
+            className="bg-snow border-[3px] border-navy rounded-xl px-4 py-2 text-xs font-bold text-navy appearance-none cursor-pointer shrink-0"
+          >
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="priority">By Priority</option>
+          </select>
+        </div>
+
         {/* ═══════════════════════════════════════════════════════
             ANNOUNCEMENTS LIST
             ═══════════════════════════════════════════════════════ */}
-        {filtered.length === 0 ? (
-          <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
+        {sorted.length === 0 ? (
+          <div className="bg-snow border-[3px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-lavender-light flex items-center justify-center">
               <svg className="w-8 h-8 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clipRule="evenodd" />
@@ -279,7 +338,7 @@ export default function AnnouncementsPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {filtered.map((announcement, index) => {
+            {paginatedAnnouncements.map((announcement, index) => {
               const isOpen = openId === announcement.id;
               const isRead = readAnnouncements.has(announcement.id);
               const pConfig = priorityConfig[announcement.priority?.toLowerCase()] || priorityConfig.normal;
@@ -296,7 +355,7 @@ export default function AnnouncementsPage() {
  }${
  isRead
  ?"bg-cloud border-[3px] border-navy/15"
- :"bg-snow border-[4px] border-navy press-3 press-black"
+ :"bg-snow border-[3px] border-navy press-3 press-black"
  }`}
                 >
                   <button
@@ -390,6 +449,8 @@ export default function AnnouncementsPage() {
             })}
           </div>
         )}
+
+        <Pagination page={page} totalPages={totalPages} onPage={setPage} className="mt-6" />
       </div>
     </div>
   );

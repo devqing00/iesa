@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -29,11 +28,8 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen bg-ghost text-navy overflow-x-hidden">
-      {/* ✦ and diamond decorators */}
-      <span className="fixed top-24 right-[15%] text-coral/12 text-xl pointer-events-none z-0 select-none">✦</span>
-      <span className="fixed top-[50%] left-[8%] text-teal/15 text-lg pointer-events-none z-0 select-none">✦</span>
-      <span className="fixed bottom-[30%] right-[22%] text-lavender/12 text-base pointer-events-none z-0 select-none">✦</span>
-      <svg className="fixed top-20 left-[10%] w-6 h-6 text-lime/20 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      {/* Diamond decorators */}
+      <svg className="fixed top-20 left-[10%] w-6 h-6 text-navy/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
       <svg className="fixed top-[45%] right-[10%] w-7 h-7 text-sunny/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
@@ -46,23 +42,19 @@ export default function ContactPage() {
       {/* SHARED HEADER */}
       <Header />
 
-      <main id="main-content">
+      <main id="main-content" className="pt-14 sm:pt-16">
       {/* ============================================
           HERO SECTION
           ============================================ */}
-      <section className="pt-32 pb-12 sm:pb-16 relative overflow-hidden">
+      <section className="pt-16 pb-12 sm:pb-16 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Small tag */}
-          <div className="inline-flex items-center gap-2 bg-teal border-[3px] border-navy rounded-full px-3 py-1 mb-6">
-            <span className="text-[10px] font-display font-black text-navy uppercase tracking-widest">✦ Contact</span>
-          </div>
 
           {/* Hero Content */}
           <div className="max-w-4xl space-y-8">
             <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[5rem] leading-[0.9] text-navy">
-              <span className="brush-highlight">Get in</span>
+              Get in
               <br />
-              <span className="inline-block bg-coral border-[4px] sm:border-[6px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[4px_4px_0_0_#000]">Touch</span>
+              <span className="inline-block bg-coral border-[2px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[3px_3px_0_0_#000]">Touch</span>
             </h1>
             <p className="font-display font-medium text-base sm:text-lg text-navy/60 max-w-2xl leading-relaxed">
               Have questions about IESA? Want to collaborate or partner with us?
@@ -80,9 +72,9 @@ export default function ContactPage() {
           {/* Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
             {/* Contact Form */}
-            <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
+            <div className="bg-snow border-[2px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
               <h2 className="font-display font-black text-2xl sm:text-3xl text-navy mb-6">
-                <span className="brush-highlight">Send a</span> Message
+                Send a Message
               </h2>
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
@@ -94,7 +86,7 @@ export default function ContactPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
                     }
-                    className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-xl font-display font-medium text-sm text-navy placeholder:text-slate focus:outline-none focus:border-lime focus:shadow-[3px_3px_0_0_#C8F31D] transition-all"
+                    className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-xl font-display font-medium text-sm text-navy placeholder:text-slate focus:outline-none focus:border-coral transition-all"
                     placeholder="Your full name"
                     required
                   />
@@ -109,7 +101,7 @@ export default function ContactPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
                     }
-                    className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-xl font-display font-medium text-sm text-navy placeholder:text-slate focus:outline-none focus:border-lime focus:shadow-[3px_3px_0_0_#C8F31D] transition-all"
+                    className="w-full px-4 py-3 bg-ghost border-[2px] border-navy rounded-xl font-display font-medium text-sm text-navy placeholder:text-slate focus:outline-none focus:border-coral transition-all"
                     placeholder="your.email@example.com"
                     required
                   />
@@ -124,7 +116,7 @@ export default function ContactPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, subject: e.target.value })
                     }
-                    className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-xl font-display font-medium text-sm text-navy placeholder:text-slate focus:outline-none focus:border-lime focus:shadow-[3px_3px_0_0_#C8F31D] transition-all"
+                    className="w-full px-4 py-3 bg-ghost border-[2px] border-navy rounded-xl font-display font-medium text-sm text-navy placeholder:text-slate focus:outline-none focus:border-coral transition-all"
                     placeholder="What is this about?"
                     required
                   />
@@ -139,7 +131,7 @@ export default function ContactPage() {
                       setFormData({ ...formData, message: e.target.value })
                     }
                     rows={6}
-                    className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-xl font-display font-medium text-sm text-navy placeholder:text-slate focus:outline-none focus:border-lime focus:shadow-[3px_3px_0_0_#C8F31D] transition-all resize-none"
+                    className="w-full px-4 py-3 bg-ghost border-[2px] border-navy rounded-xl font-display font-medium text-sm text-navy placeholder:text-slate focus:outline-none focus:border-coral transition-all resize-none"
                     placeholder="Your message..."
                     required
                   />
@@ -148,7 +140,7 @@ export default function ContactPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full font-display font-black bg-lime border-[4px] border-navy rounded-2xl px-8 py-4 text-sm text-navy uppercase tracking-wide press-3 press-navy transition-all disabled:opacity-50"
+                  className="w-full font-display font-black bg-navy border-[2px] border-navy rounded-2xl px-8 py-4 text-sm text-snow uppercase tracking-wide press-3 press-navy transition-all disabled:opacity-50"
                 >
                   {isSubmitting ? "Sending..." : "Send Message →"}
                 </button>
@@ -158,8 +150,8 @@ export default function ContactPage() {
             {/* Contact Info */}
             <div className="space-y-6">
               {/* Address Card */}
-              <div className="bg-lavender border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[4px_4px_0_0_#000]">
-                <div className="w-12 h-12 bg-snow border-[3px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[3px_3px_0_0_#000]">
+              <div className="bg-lavender border-[2px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
+                <div className="w-12 h-12 bg-snow border-[2px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[2px_2px_0_0_#000]">
                   <svg className="w-6 h-6 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                   </svg>
@@ -175,8 +167,8 @@ export default function ContactPage() {
               </div>
 
               {/* Email Card */}
-              <div className="bg-teal border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[4px_4px_0_0_#000]">
-                <div className="w-12 h-12 bg-snow border-[3px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[3px_3px_0_0_#000]">
+              <div className="bg-teal border-[2px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
+                <div className="w-12 h-12 bg-snow border-[2px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[2px_2px_0_0_#000]">
                   <svg className="w-6 h-6 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                     <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
@@ -192,8 +184,8 @@ export default function ContactPage() {
               </div>
 
               {/* Social Card */}
-              <div className="bg-sunny border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[4px_4px_0_0_#000]">
-                <div className="w-12 h-12 bg-snow border-[3px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[3px_3px_0_0_#000]">
+              <div className="bg-sunny border-[2px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
+                <div className="w-12 h-12 bg-snow border-[2px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[2px_2px_0_0_#000]">
                   <svg className="w-6 h-6 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
                   </svg>
@@ -210,7 +202,7 @@ export default function ContactPage() {
                       href={social.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-10 h-10 bg-snow border-[3px] border-navy rounded-full flex items-center justify-center hover:bg-lime hover:scale-110 transition-all duration-200 shadow-[2px_2px_0_0_#000]"
+                      className="w-10 h-10 bg-snow border-[2px] border-navy rounded-full flex items-center justify-center hover:bg-ghost hover:scale-110 transition-all duration-200 shadow-[2px_2px_0_0_#000]"
                       aria-label={social.label}
                     >
                       <svg className="w-5 h-5 text-navy" fill="currentColor" viewBox="0 0 24 24">
@@ -222,7 +214,7 @@ export default function ContactPage() {
               </div>
 
               {/* Office Hours Card */}
-              <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[4px_4px_0_0_#000]">
+              <div className="bg-snow border-[2px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
                 <h3 className="font-display font-black text-lg text-navy mb-4">Office Hours</h3>
                 <div className="space-y-3 font-display font-medium text-sm">
                   <div className="flex justify-between">
@@ -247,12 +239,12 @@ export default function ContactPage() {
       {/* ============================================
           FAQ SECTION
           ============================================ */}
-      <section className="py-16 sm:py-20 bg-lime">
+      <section className="py-16 sm:py-20 bg-ghost">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Section Header */}
           <div className="relative inline-block mb-10 sm:mb-14">
             <h2 className="font-display font-black text-3xl sm:text-5xl text-navy">
-              <span className="brush-highlight brush-lime">FAQ</span>
+              FAQ
             </h2>
           </div>
 
@@ -276,7 +268,7 @@ export default function ContactPage() {
                 answer: "Yes! Most of our events are open to all students, though some may have limited capacity for members first.",
               },
             ].map((faq, i) => (
-              <div key={i} className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[4px_4px_0_0_#000]">
+              <div key={i} className="bg-snow border-[2px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
                 <h3 className="font-display font-black text-base sm:text-lg text-navy mb-3">{faq.question}</h3>
                 <p className="font-display font-medium text-sm text-navy/80 leading-relaxed">
                   {faq.answer}

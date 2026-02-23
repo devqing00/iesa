@@ -5,6 +5,7 @@ import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { ResourceSchema, type ResourceFormData, flattenZodErrors } from "@/lib/schemas";
+import { withAuth } from "@/lib/withAuth";
 
 /* ─── Types ─────────────────────────────────────── */
 
@@ -34,7 +35,7 @@ const TYPE_BADGE: Record<string, string> = {
   pastQuestion: "bg-coral-light text-coral border-[2px] border-coral",
   note: "bg-teal-light text-teal border-[2px] border-teal",
   textbook: "bg-sunny-light text-navy border-[2px] border-navy",
-  video: "bg-navy text-lime border-[2px] border-lime",
+  video: "bg-navy text-snow border-[2px] border-ghost/20",
 };
 
 const RESOURCE_TYPES = ["slide", "pastQuestion", "note", "textbook", "video"] as const;
@@ -42,7 +43,7 @@ const LEVELS = [100, 200, 300, 400, 500];
 
 /* ─── Component ─────────────────────────────────── */
 
-export default function AdminResourcesPage() {
+function AdminResourcesPage() {
   const { getAccessToken } = useAuth();
 
   const [resources, setResources] = useState<Resource[]>([]);
@@ -59,6 +60,11 @@ export default function AdminResourcesPage() {
 
   const [approving, setApproving] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+
+  // Review modal state
+  const [reviewResource, setReviewResource] = useState<Resource | null>(null);
+  const [reviewAction, setReviewAction] = useState<boolean>(true); // true=approve, false=reject
+  const [reviewFeedback, setReviewFeedback] = useState("");
 
   const fetchResources = useCallback(async () => {
     setLoading(true);
@@ -95,7 +101,7 @@ export default function AdminResourcesPage() {
     fetchResources();
   }, [fetchResources]);
 
-  const approveResource = async (id: string, approve: boolean) => {
+  const approveResource = async (id: string, approve: boolean, feedback?: string) => {
     setApproving(id);
     try {
       const token = await getAccessToken();
@@ -105,10 +111,12 @@ export default function AdminResourcesPage() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ approved: approve }),
+        body: JSON.stringify({ approved: approve, feedback: feedback || null }),
       });
       if (!res.ok) throw new Error("Failed");
-      toast.success(approve ? "Resource approved" : "Resource unapproved");
+      toast.success(approve ? "Resource approved" : "Resource rejected");
+      setReviewResource(null);
+      setReviewFeedback("");
       fetchResources();
     } catch {
       toast.error("Failed to update resource");
@@ -194,7 +202,7 @@ export default function AdminResourcesPage() {
         </div>
         <button
           onClick={() => setShowAddForm((v) => !v)}
-          className="shrink-0 bg-lime border-[4px] border-navy press-3 press-navy px-5 py-3 rounded-2xl font-display text-navy text-sm transition-all flex items-center gap-2"
+          className="shrink-0 bg-lime border-[3px] border-navy press-3 press-navy px-5 py-3 rounded-2xl font-display text-navy text-sm transition-all flex items-center gap-2"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -205,7 +213,7 @@ export default function AdminResourcesPage() {
 
       {/* Add Resource Form */}
       {showAddForm && (
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[3px_3px_0_0_#000]">
+        <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[3px_3px_0_0_#000]">
           <p className="font-display font-black text-xl text-navy mb-6">Add New Resource</p>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -217,7 +225,7 @@ export default function AdminResourcesPage() {
                   placeholder="e.g. GEG 201 Past Questions 2023"
                   value={formData.title ?? ""}
                   onChange={(e) => updateField("title", e.target.value)}
-                  className={`w-full bg-ghost border-[3px] rounded-xl px-4 py-2.5 font-normal text-navy placeholder:text-slate text-sm focus:outline-none transition-colors ${fieldErrors.title ? "border-coral" : "border-navy focus:border-lime"}`}
+                  className={`w-full bg-ghost border-[3px] rounded-xl px-4 py-2.5 font-normal text-navy placeholder:text-slate text-sm focus:outline-none transition-colors ${fieldErrors.title ? "border-coral" : "border-navy focus:border-coral"}`}
                 />
                 {fieldErrors.title && <p className="text-coral text-xs mt-1 font-normal">{fieldErrors.title}</p>}
               </div>
@@ -230,7 +238,7 @@ export default function AdminResourcesPage() {
                   placeholder="Brief description of this resource…"
                   value={formData.description ?? ""}
                   onChange={(e) => updateField("description", e.target.value)}
-                  className={`w-full bg-ghost border-[3px] rounded-xl px-4 py-2.5 font-normal text-navy placeholder:text-slate text-sm focus:outline-none resize-none transition-colors ${fieldErrors.description ? "border-coral" : "border-navy focus:border-lime"}`}
+                  className={`w-full bg-ghost border-[3px] rounded-xl px-4 py-2.5 font-normal text-navy placeholder:text-slate text-sm focus:outline-none resize-none transition-colors ${fieldErrors.description ? "border-coral" : "border-navy focus:border-coral"}`}
                 />
                 {fieldErrors.description && <p className="text-coral text-xs mt-1 font-normal">{fieldErrors.description}</p>}
               </div>
@@ -241,7 +249,7 @@ export default function AdminResourcesPage() {
                 <select
                   value={formData.type ?? ""}
                   onChange={(e) => updateField("type", e.target.value as ResourceFormData["type"])}
-                  className={`w-full bg-ghost border-[3px] rounded-xl px-4 py-2.5 font-normal text-navy text-sm focus:outline-none appearance-none transition-colors ${fieldErrors.type ? "border-coral" : "border-navy focus:border-lime"}`}
+                  className={`w-full bg-ghost border-[3px] rounded-xl px-4 py-2.5 font-normal text-navy text-sm focus:outline-none appearance-none transition-colors ${fieldErrors.type ? "border-coral" : "border-navy focus:border-coral"}`}
                 >
                   <option value="">Select type…</option>
                   {RESOURCE_TYPES.map((t) => (
@@ -257,7 +265,7 @@ export default function AdminResourcesPage() {
                 <select
                   value={formData.level ?? ""}
                   onChange={(e) => updateField("level", Number(e.target.value) as ResourceFormData["level"])}
-                  className={`w-full bg-ghost border-[3px] rounded-xl px-4 py-2.5 font-normal text-navy text-sm focus:outline-none appearance-none transition-colors ${fieldErrors.level ? "border-coral" : "border-navy focus:border-lime"}`}
+                  className={`w-full bg-ghost border-[3px] rounded-xl px-4 py-2.5 font-normal text-navy text-sm focus:outline-none appearance-none transition-colors ${fieldErrors.level ? "border-coral" : "border-navy focus:border-coral"}`}
                 >
                   <option value="">Select level…</option>
                   {LEVELS.map((l) => (
@@ -275,7 +283,7 @@ export default function AdminResourcesPage() {
                   placeholder="e.g. GEG201"
                   value={formData.courseCode ?? ""}
                   onChange={(e) => updateField("courseCode", e.target.value)}
-                  className={`w-full bg-ghost border-[3px] rounded-xl px-4 py-2.5 font-normal text-navy placeholder:text-slate text-sm focus:outline-none transition-colors ${fieldErrors.courseCode ? "border-coral" : "border-navy focus:border-lime"}`}
+                  className={`w-full bg-ghost border-[3px] rounded-xl px-4 py-2.5 font-normal text-navy placeholder:text-slate text-sm focus:outline-none transition-colors ${fieldErrors.courseCode ? "border-coral" : "border-navy focus:border-coral"}`}
                 />
                 {fieldErrors.courseCode && <p className="text-coral text-xs mt-1 font-normal">{fieldErrors.courseCode}</p>}
               </div>
@@ -288,7 +296,7 @@ export default function AdminResourcesPage() {
                   placeholder="e.g. 2023, exam, mcq"
                   value={formData.tags ?? ""}
                   onChange={(e) => updateField("tags", e.target.value)}
-                  className="w-full bg-ghost border-[3px] border-navy rounded-xl px-4 py-2.5 font-normal text-navy placeholder:text-slate text-sm focus:outline-none focus:border-lime transition-colors"
+                  className="w-full bg-ghost border-[3px] border-navy rounded-xl px-4 py-2.5 font-normal text-navy placeholder:text-slate text-sm focus:outline-none focus:border-coral transition-colors"
                 />
               </div>
 
@@ -300,7 +308,7 @@ export default function AdminResourcesPage() {
                   placeholder="https://drive.google.com/file/d/...  or  https://youtube.com/watch?v=..."
                   value={formData.url ?? ""}
                   onChange={(e) => updateField("url", e.target.value)}
-                  className={`w-full bg-ghost border-[3px] rounded-xl px-4 py-2.5 font-normal text-navy placeholder:text-slate text-sm focus:outline-none transition-colors ${fieldErrors.url ? "border-coral" : "border-navy focus:border-lime"}`}
+                  className={`w-full bg-ghost border-[3px] rounded-xl px-4 py-2.5 font-normal text-navy placeholder:text-slate text-sm focus:outline-none transition-colors ${fieldErrors.url ? "border-coral" : "border-navy focus:border-coral"}`}
                 />
                 {fieldErrors.url && <p className="text-coral text-xs mt-1 font-normal">{fieldErrors.url}</p>}
               </div>
@@ -317,7 +325,7 @@ export default function AdminResourcesPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="bg-lime border-[4px] border-navy press-3 press-navy px-6 py-2.5 rounded-xl font-display text-navy text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-xl font-display text-navy text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {submitting ? (
                   <><div className="w-4 h-4 border-[2px] border-navy border-t-transparent rounded-full animate-spin" /> Adding…</>
@@ -336,8 +344,8 @@ export default function AdminResourcesPage() {
             onClick={() => setTab(t)}
             className={`px-5 py-2.5 rounded-xl border-[3px] font-display text-sm capitalize transition-all ${
               tab === t
-                ? "bg-navy border-navy text-lime shadow-[3px_3px_0_0_#0F0F2D]"
-                : "bg-ghost border-navy text-navy hover:bg-lime-light"
+                ? "bg-navy border-navy text-snow shadow-[3px_3px_0_0_#0F0F2D]"
+                : "bg-ghost border-navy text-navy hover:bg-ghost-light"
             }`}
           >
             {t === "pending" ? "Pending Approval" : "Approved"}
@@ -347,10 +355,10 @@ export default function AdminResourcesPage() {
       </div>
 
       {/* Resources table */}
-      <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] overflow-hidden">
+      <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="w-10 h-10 border-[4px] border-navy border-t-lime rounded-full animate-spin" />
+            <div className="w-10 h-10 border-[3px] border-navy border-t-lime rounded-full animate-spin" />
           </div>
         ) : resources.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -433,18 +441,25 @@ export default function AdminResourcesPage() {
                             href={r.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="bg-ghost border-[2px] border-navy rounded-lg px-2.5 py-1 text-xs font-display text-navy hover:bg-lime-light transition-colors"
+                            className="bg-ghost border-[2px] border-navy rounded-lg px-2.5 py-1 text-xs font-display text-navy hover:bg-ghost-light transition-colors"
                           >
                             View
                           </a>
                           {tab === "pending" ? (
-                            <button
-                              disabled={approving === id}
-                              onClick={() => approveResource(id, true)}
-                              className="bg-teal-light border-[2px] border-teal rounded-lg px-2.5 py-1 text-xs font-display text-teal hover:bg-teal hover:text-snow transition-colors disabled:opacity-50"
-                            >
-                              {approving === id ? "…" : "Approve"}
-                            </button>
+                            <>
+                              <button
+                                onClick={() => { setReviewResource(r); setReviewAction(true); setReviewFeedback(""); }}
+                                className="bg-teal-light border-[2px] border-teal rounded-lg px-2.5 py-1 text-xs font-display text-teal hover:bg-teal hover:text-snow transition-colors"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => { setReviewResource(r); setReviewAction(false); setReviewFeedback(""); }}
+                                className="bg-coral-light border-[2px] border-coral rounded-lg px-2.5 py-1 text-xs font-display text-coral hover:bg-coral hover:text-snow transition-colors"
+                              >
+                                Reject
+                              </button>
+                            </>
                           ) : (
                             <button
                               disabled={approving === id}
@@ -496,6 +511,91 @@ export default function AdminResourcesPage() {
           </div>
         </div>
       )}
+      {/* Review Modal */}
+      {reviewResource && (
+        <div className="fixed inset-0 bg-navy/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[8px_8px_0_0_#000] w-full max-w-lg">
+            {/* Header */}
+            <div className={`${reviewAction ? 'bg-teal' : 'bg-coral'} border-b-[4px] border-navy rounded-t-[20px] px-6 py-4`}>
+              <h3 className="font-display font-black text-xl text-navy">
+                {reviewAction ? 'Approve' : 'Reject'} Resource
+              </h3>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Resource info */}
+              <div>
+                <p className="font-display font-bold text-navy">{reviewResource.title}</p>
+                <p className="text-slate text-sm">{reviewResource.courseCode} · {reviewResource.type}</p>
+              </div>
+
+              {/* Action toggle */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setReviewAction(true)}
+                  className={`flex-1 py-2 rounded-xl font-display text-sm border-[3px] transition-all ${
+                    reviewAction
+                      ? 'bg-teal border-navy text-navy'
+                      : 'bg-ghost border-cloud text-slate hover:border-navy'
+                  }`}
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={() => setReviewAction(false)}
+                  className={`flex-1 py-2 rounded-xl font-display text-sm border-[3px] transition-all ${
+                    !reviewAction
+                      ? 'bg-coral border-navy text-snow'
+                      : 'bg-ghost border-cloud text-slate hover:border-navy'
+                  }`}
+                >
+                  Reject
+                </button>
+              </div>
+
+              {/* Feedback */}
+              <div>
+                <label className="text-label text-slate mb-1 block">Feedback {!reviewAction && <span className="text-coral">(recommended)</span>}</label>
+                <textarea
+                  value={reviewFeedback}
+                  onChange={(e) => setReviewFeedback(e.target.value)}
+                  rows={3}
+                  placeholder={reviewAction ? 'Optional note for the student...' : 'Reason for rejection...'}
+                  className="w-full border-[3px] border-cloud rounded-xl px-4 py-3 text-sm text-navy font-normal focus:border-navy focus:outline-none transition-colors resize-none"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => { setReviewResource(null); setReviewFeedback(""); }}
+                  className="flex-1 bg-ghost border-[3px] border-navy rounded-xl px-4 py-2.5 font-display text-sm text-navy hover:bg-cloud transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={approving !== null}
+                  onClick={() => {
+                    const id = (reviewResource as unknown as Record<string, string>)._id || (reviewResource as unknown as Record<string, string>).id;
+                    approveResource(id, reviewAction, reviewFeedback || undefined);
+                  }}
+                  className={`flex-1 border-[3px] border-navy rounded-xl px-4 py-2.5 font-display text-sm press-3 press-black transition-all disabled:opacity-50 ${
+                    reviewAction
+                      ? 'bg-teal text-navy'
+                      : 'bg-coral text-snow'
+                  }`}
+                >
+                  {approving ? '…' : reviewAction ? 'Approve Resource' : 'Reject Resource'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+export default withAuth(AdminResourcesPage, {
+  anyPermission: ["resource:view", "resource:approve", "resource:create"],
+});

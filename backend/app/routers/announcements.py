@@ -166,10 +166,12 @@ async def create_announcement(
 async def list_announcements(
     session_id: Optional[str] = Query(None, description="Filter by session ID. Defaults to active session."),
     priority: Optional[str] = None,
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of announcements to return"),
+    skip: int = Query(0, ge=0, description="Number of announcements to skip"),
     user: dict = Depends(get_current_user)
 ):
     """
-    List all announcements for a specific session.
+    List all announcements for a specific session with pagination.
     
     Filters announcements based on:
     - session_id (time travel)
@@ -177,6 +179,7 @@ async def list_announcements(
     - expiresAt (hides expired announcements)
     
     Returns announcements with user's read status.
+    Supports pagination via limit and skip parameters.
     """
     db = get_database()
     announcements = db["announcements"]
@@ -230,8 +233,8 @@ async def list_announcements(
         ("isPinned", -1),  # Pinned first
         ("priority", -1),   # High priority next
         ("createdAt", -1)   # Most recent
-    ])
-    announcement_list = await cursor.to_list(length=None)
+    ]).skip(skip).limit(limit)
+    announcement_list = await cursor.to_list(length=limit)
     
     # Filter by target levels and enrich with read status
     result = []

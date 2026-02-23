@@ -20,7 +20,7 @@ export function isInstitutionalEmail(email: string): boolean {
  * Example: aadetayo856@stu.ui.edu.ng
  *   - First letter: 'a' (first letter of first name)
  *   - Last name: 'adetayo'
- *   - Last 3 digits of matric: '856' (matric could be 123856, 236856, etc.)
+ *   - Last 3 digits of matric: '856' (matric could be 123856, 236123, etc.)
  * 
  * Returns hints that should be confirmed with user data
  */
@@ -61,7 +61,7 @@ function capitalizeFirstLetter(str: string): string {
 
 /**
  * Validate matric number format
- * UI matric numbers are exactly 6 digits (e.g., 236856, 123456)
+ * UI matric numbers are exactly 6 digits (e.g., 236123, 123456)
  */
 export function isValidMatricNumber(matricNumber: string): boolean {
   return /^\d{6}$/.test(matricNumber);

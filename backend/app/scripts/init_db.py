@@ -73,39 +73,94 @@ async def create_indexes(db):
     await db.users.create_index("email", unique=True)
     await db.users.create_index("matricNumber")
     await db.users.create_index("role")
+    await db.users.create_index("isActive")
+    await db.users.create_index("createdAt")
+    await db.users.create_index([("firstName", 1), ("lastName", 1)])  # For name searches
     
     # Sessions collection indexes
     await db.sessions.create_index("isActive")
     await db.sessions.create_index("name", unique=True)
+    await db.sessions.create_index([("startDate", -1)])  # For date range queries
     
     # Enrollments collection indexes
     await db.enrollments.create_index([("studentId", 1), ("sessionId", 1)], unique=True)
     await db.enrollments.create_index("sessionId")
     await db.enrollments.create_index("level")
+    await db.enrollments.create_index("isActive")
+    await db.enrollments.create_index([("sessionId", 1), ("level", 1)])  # Compound index for session+level queries
     
     # Roles collection indexes
     await db.roles.create_index([("userId", 1), ("sessionId", 1), ("position", 1)], unique=True)
     await db.roles.create_index("sessionId")
     await db.roles.create_index("position")
+    await db.roles.create_index("userId")
+    await db.roles.create_index("isActive")
+    await db.roles.create_index([("sessionId", 1), ("isActive", 1)])  # For active roles in session
     
     # Payments collection indexes
     await db.payments.create_index("sessionId")
     await db.payments.create_index("category")
+    await db.payments.create_index("dueDate")
+    await db.payments.create_index("isActive")
+    await db.payments.create_index([("sessionId", 1), ("isActive", 1)])  # For active payments in session
     
     # Transactions collection indexes
     await db.transactions.create_index("studentId")
     await db.transactions.create_index("paymentId")
     await db.transactions.create_index("sessionId")
     await db.transactions.create_index("reference", unique=True)
+    await db.transactions.create_index("status")
+    await db.transactions.create_index("createdAt")
+    await db.transactions.create_index([("studentId", 1), ("createdAt", -1)])  # For student transaction history
+    
+    # Paystack Transactions collection indexes
+    await db.paystackTransactions.create_index("reference", unique=True)
+    await db.paystackTransactions.create_index("studentId")
+    await db.paystackTransactions.create_index("status")
+    await db.paystackTransactions.create_index("createdAt")
+    await db.paystackTransactions.create_index([("studentId", 1), ("createdAt", -1)])  # For student payment history
+    
+    # Bank Transfers collection indexes
+    await db.bankTransfers.create_index("studentId")
+    await db.bankTransfers.create_index("status")
+    await db.bankTransfers.create_index("createdAt")
+    await db.bankTransfers.create_index("transactionReference")
+    await db.bankTransfers.create_index([("status", 1), ("createdAt", -1)])  # For pending transfers
     
     # Events collection indexes
     await db.events.create_index("sessionId")
     await db.events.create_index("date")
+    await db.events.create_index("category")
+    await db.events.create_index([("sessionId", 1), ("date", 1)])  # For session events sorted by date
+    await db.events.create_index("registrations")  # For checking if user is registered
+    await db.events.create_index([("date", 1), ("sessionId", 1)])  # For upcoming events queries
     
     # Announcements collection indexes
     await db.announcements.create_index("sessionId")
     await db.announcements.create_index("targetLevels")
     await db.announcements.create_index("createdAt")
+    await db.announcements.create_index("priority")
+    await db.announcements.create_index([("sessionId", 1), ("createdAt", -1)])  # For recent announcements
+    await db.announcements.create_index([("targetLevels", 1), ("createdAt", -1)])  # For level-specific announcements
+    
+    # Grades collection indexes
+    await db.grades.create_index("studentId")
+    await db.grades.create_index("sessionId")
+    await db.grades.create_index("semester")
+    await db.grades.create_index([("studentId", 1), ("sessionId", 1)])  # For student grades by session
+    await db.grades.create_index("createdAt")
+    
+    # Refresh Tokens collection indexes
+    await db.refresh_tokens.create_index("token", unique=True)
+    await db.refresh_tokens.create_index("userId")
+    await db.refresh_tokens.create_index("expiresAt")
+    await db.refresh_tokens.create_index([("userId", 1), ("isRevoked", 1)])  # For active tokens per user
+    
+    # Unit Applications collection indexes
+    await db.unit_applications.create_index("studentId")
+    await db.unit_applications.create_index("sessionId")
+    await db.unit_applications.create_index("status")
+    await db.unit_applications.create_index([("sessionId", 1), ("status", 1)])  # For filtering applications
 
 
 async def create_default_session(db):

@@ -106,7 +106,7 @@ export default function NotificationBell() {
       {/* Bell button */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="relative w-10 h-10 rounded-xl bg-ghost border-[3px] border-navy flex items-center justify-center hover:bg-lime-light hover:border-lime transition-colors"
+        className="relative w-10 h-10 rounded-xl bg-ghost border-[3px] border-navy flex items-center justify-center hover:bg-ghost-light hover:border-navy transition-colors"
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
       >
         <svg className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
@@ -125,7 +125,7 @@ export default function NotificationBell() {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute right-0 top-[calc(100%+8px)] w-80 sm:w-96 bg-snow border-[4px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] z-50 overflow-hidden">
+        <div className="absolute right-0 top-[calc(100%+8px)] w-80 sm:w-96 bg-snow border-[3px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] z-50 overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b-[3px] border-navy bg-ghost">
             <div className="flex items-center gap-2">
@@ -176,7 +176,7 @@ export default function NotificationBell() {
                     if (a.isRead === false) markAsRead(a.id);
                   }}
                   className={`block border-b-[2px] border-cloud transition-colors cursor-pointer ${
-                    a.isRead === false ? "bg-lime-light/60 hover:bg-lime-light/80" : "bg-snow hover:bg-ghost"
+                    a.isRead === false ? "bg-lime-light/60 hover:bg-ghost-light/80" : "bg-snow hover:bg-ghost"
                   }`}
                 >
                   <div className="flex gap-3 px-4 py-3">

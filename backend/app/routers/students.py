@@ -60,7 +60,7 @@ class CompleteRegistrationRequest(BaseModel):
     
     @validator("matricNumber")
     def validate_matric_number(cls, v):
-        # UI matric numbers are exactly 6 digits (e.g., 236856)
+        # UI matric numbers are exactly 6 digits (e.g., 236123)
         v = v.strip()
         if not re.match(r"^\d{6}$", v):
             raise ValueError("Matric number must be exactly 6 digits")
@@ -107,14 +107,6 @@ class CompleteRegistrationRequest(BaseModel):
                     f"Expected around {expected_level_num}L based on {values['admissionYear']} admission."
                 )
         return v
-    
-    @validator("institutionalEmail")
-    def validate_institutional_email(cls, v):
-        if v:
-            v = v.strip().lower()
-            if not v.endswith("@stu.ui.edu.ng"):
-                raise ValueError("Institutional email must end with @stu.ui.edu.ng")
-        return v
 
 
 @router.post("/complete-registration")
@@ -130,9 +122,8 @@ async def complete_student_registration(
     This updates the user's profile with additional student-specific details.
     
     Security checks:
-    1. Prevents duplicate registrations by matric, institutional email, or user ID
-    2. Validates matric matches institutional email (last 3 digits)
-    3. Ensures institutional email belongs to UI domain
+    1. Prevents duplicate registrations by matric number or user ID
+    2. Accepts both institutional (@stu.ui.edu.ng) and personal emails
     """
     
     users = db.users
@@ -149,15 +140,8 @@ async def complete_student_registration(
             detail="User not found. Please register first."
         )
     
-    # Check for duplicate registration (by matric, institutional email, or already completed)
+    # Accept both institutional and personal emails
     institutional_email = data.institutionalEmail if data.institutionalEmail else email
-    
-    # Ensure institutional email is provided and valid
-    if not institutional_email or not institutional_email.endswith("@stu.ui.edu.ng"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Valid institutional email (@stu.ui.edu.ng) is required"
-        )
     
     # Check if user has already completed registration
     if user.get("hasCompletedOnboarding"):
@@ -166,39 +150,17 @@ async def complete_student_registration(
             detail="Registration already completed. Contact admin if you need to update your details."
         )
     
-    # Check for duplicate matric number or institutional email (excluding current user)
+    # Check for duplicate matric number (excluding current user)
     existing = await users.find_one({
-        "$or": [
-            {"matricNumber": data.matricNumber},
-            {"institutionalEmail": institutional_email}
-        ],
+        "matricNumber": data.matricNumber,
         "_id": {"$ne": ObjectId(user_id)}
     })
     
     if existing:
-        if existing.get("matricNumber") == data.matricNumber:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Matric number already registered"
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Institutional email already registered"
-            )
-    
-    # Validate matric matches email (last 3 digits)
-    # Email format: [letter][lastname][3digits]@stu.ui.edu.ng (e.g., aadetayo856@stu.ui.edu.ng)
-    email_local = institutional_email.split("@")[0]
-    if len(email_local) >= 3:
-        email_digits = email_local[-3:]  # Last 3 characters should be digits
-        matric_digits = data.matricNumber[-3:]  # Last 3 digits of matric
-        
-        if email_digits.isdigit() and email_digits != matric_digits:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Matric number does not match institutional email. Please verify your details."
-            )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Matric number already registered"
+        )
     
     # Update user profile
     update_data = {

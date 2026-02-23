@@ -5,37 +5,48 @@ import Link from "next/link";
 
 export default function Footer() {
   return (
-    <footer className="relative z-20 w-full bg-navy border-t-[4px] border-navy">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 mb-12">
+    <footer className="relative z-20 w-full bg-navy overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-8 relative z-20">
+        {/* Top section: links + info */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-8 mb-16">
           {/* Brand */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 relative">
-                <Image src="/assets/images/logo.svg" alt="IESA Logo" width={40} height={40} className="object-contain brightness-0 invert" />
+          <div className="col-span-2 sm:col-span-1 space-y-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 relative">
+                <Image src="/assets/images/logo.svg" alt="IESA Logo" width={32} height={32} className="object-contain brightness-0 invert" />
               </div>
-              <span className="font-display font-black text-xl text-ghost">IESA</span>
+              <span className="font-display font-black text-lg text-ghost">IESA</span>
             </div>
-            <p className="text-sm text-ghost/70 font-medium max-w-xs leading-relaxed">
+            <p className="text-sm text-ghost/60 font-medium max-w-xs leading-relaxed">
               Industrial &amp; Production Engineering Students&apos; Association, University of Ibadan.
             </p>
-            {/* ✦ decorator */}
-            <div className="flex items-center gap-2 text-lime/30">
-              <span className="text-xs">✦</span>
-              <div className="h-px w-16 bg-lime/20" />
-              <span className="text-xs">✦</span>
-            </div>
           </div>
 
-          {/* Quick Links */}
+          {/* Navigation */}
           <div>
-            <h3 className="font-display font-black text-lime mb-5 uppercase tracking-widest text-xs">Quick Links</h3>
-            <div className="space-y-3">
+            <h3 className="font-display font-black text-ghost/40 mb-4 uppercase tracking-widest text-[10px]">Navigate</h3>
+            <div className="space-y-2.5">
               {["About", "Events", "History", "Contact"].map((label) => (
                 <Link
                   key={label}
                   href={`/${label.toLowerCase()}`}
-                  className="block text-sm text-ghost/70 font-medium hover:text-lime hover:translate-x-1 transition-all duration-200"
+                  className="block text-sm text-ghost/60 font-medium hover:text-snow transition-colors"
+                >
+                  {label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Resources */}
+          <div>
+            <h3 className="font-display font-black text-ghost/40 mb-4 uppercase tracking-widest text-[10px]">Resources</h3>
+            <div className="space-y-2.5">
+              {["Blog", "Dashboard", "Login", "Register"].map((label) => (
+                <Link
+                  key={label}
+                  href={`/${label.toLowerCase()}`}
+                  className="block text-sm text-ghost/60 font-medium hover:text-snow transition-colors"
                 >
                   {label}
                 </Link>
@@ -45,8 +56,8 @@ export default function Footer() {
 
           {/* Connect */}
           <div>
-            <h3 className="font-display font-black text-lime mb-5 uppercase tracking-widest text-xs">Connect</h3>
-            <div className="flex gap-3 mb-6">
+            <h3 className="font-display font-black text-ghost/40 mb-4 uppercase tracking-widest text-[10px]">Connect</h3>
+            <div className="flex gap-2 mb-4">
               {[
                 {
                   label: "Twitter",
@@ -69,29 +80,36 @@ export default function Footer() {
                   href={social.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-10 h-10 bg-lime border-[3px] border-navy rounded-full flex items-center justify-center hover:bg-coral hover:scale-110 transition-all duration-200"
+                  className="w-9 h-9 bg-ghost/10 border-[2px] border-ghost/20 rounded-full flex items-center justify-center hover:bg-ghost/20 hover:scale-110 transition-all duration-200"
                   aria-label={social.label}
                 >
-                  <svg className="w-5 h-5 text-navy" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-ghost/70" fill="currentColor" viewBox="0 0 24 24">
                     {social.icon}
                   </svg>
                 </a>
               ))}
             </div>
-            <p className="text-xs text-ghost/50 font-medium">University of Ibadan, Nigeria</p>
+            <p className="text-xs text-ghost/40 font-medium">University of Ibadan, Nigeria</p>
           </div>
         </div>
 
         {/* Bottom bar */}
-        <div className="border-t-[2px] border-ghost/10 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-ghost/50 font-medium">
+        <div className="border-t border-ghost/10 pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 mb-4">
+          <p className="text-xs text-ghost/40 font-medium">
             &copy; {new Date().getFullYear()} IESA. All rights reserved.
           </p>
-          <div className="flex items-center gap-2 text-ghost/30 text-xs">
-            <span>✦</span>
-            <span className="text-ghost/50 font-medium">Built with purpose</span>
-            <span>✦</span>
-          </div>
+          <p className="text-xs text-ghost/30 font-medium">
+            Built with purpose
+          </p>
+        </div>
+      </div>
+
+      {/* Large "IESA" watermark at bottom with gradient fade */}
+      <div className="relative w-full overflow-hidden">
+        <div className="text-center select-none pb-0 leading-none">
+          <span className="font-display font-black text-[clamp(6rem,30vw,20rem)] tracking-tighter bg-gradient-to-b from-sunny/[0.1] via-sunny/[0.02] to-transparent bg-clip-text text-transparent">
+            IESAUI
+          </span>
         </div>
       </div>
     </footer>

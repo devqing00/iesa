@@ -25,6 +25,7 @@ PERMISSIONS = {
     "event:create": "Create events",
     "event:edit": "Edit events",
     "event:delete": "Delete events",
+    "event:view": "View events",
     "event:manage": "Manage event registrations",
     
     # Payment permissions
@@ -55,6 +56,7 @@ PERMISSIONS = {
     # Session management permissions
     "session:create": "Create new sessions",
     "session:edit": "Edit sessions",
+    "session:view": "View sessions",
     "session:activate": "Activate/deactivate sessions",
     "session:delete": "Delete sessions",
     
@@ -64,6 +66,25 @@ PERMISSIONS = {
     "enrollment:edit": "Edit enrollments",
     "enrollment:delete": "Delete enrollments",
     
+    # Resource permissions
+    "resource:view": "View resources",
+    "resource:create": "Create / upload resources",
+    "resource:edit": "Edit resources",
+    "resource:delete": "Delete resources",
+    "resource:approve": "Approve or reject resource submissions",
+    
+    # Timetable permissions
+    "timetable:view": "View timetable",
+    "timetable:create": "Create timetable entries",
+    "timetable:edit": "Edit timetable entries",
+    "timetable:cancel": "Cancel timetable entries",
+    
+    # Press permissions
+    "press:access": "Access the IESA Press ecosystem",
+    "press:create": "Create press articles",
+    "press:edit": "Edit press articles",
+    "press:publish": "Publish / approve press articles",
+    
     # Audit log permissions
     "audit:view": "View audit logs (admin only)",
     "audit:export": "Export audit logs",
@@ -71,18 +92,34 @@ PERMISSIONS = {
     # Additional permissions
     "user:edit_role": "Change user roles (student/exco/admin)",
     "user:edit_academic": "Edit academic info (admission year, level)",
+
+    # TIMP permissions
+    "timp:manage": "Manage TIMP mentoring (review applications, create pairs)",
+    "timp:view": "View TIMP pairs and feedback",
+
+    # Bank transfer permissions
+    "bank_transfer:manage_accounts": "Manage bank accounts (add/edit/delete IESA bank details)",
+    "bank_transfer:review": "Review and approve/reject bank transfer submissions",
+    "bank_transfer:view_all": "View all bank transfer submissions",
+
+    # Platform settings permissions
+    "admin:manage_settings": "Manage platform-wide settings (e.g. toggle online payments)",
 }
 
 
 # Default permissions by position
+# NOTE: Position keys MUST match the "value" field in the frontend POSITIONS
+# catalogue (admin roles page) so that roles created from the admin UI
+# automatically inherit the correct defaults.
 DEFAULT_PERMISSIONS = {
+    # ── Super Admin ──────────────────────────────────────────────────
     "super_admin": [
         # Super admins have ALL permissions — almighty access
         *PERMISSIONS.keys()
     ],
+
+    # ── Regular Admin (view-only dashboard) ──────────────────────────
     "admin": [
-        # Regular admins: view-only dashboard access.
-        # Full permissions come from additional positions (president, treasurer, etc.)
         "announcement:view",
         "user:view_all",
         "role:view",
@@ -92,54 +129,120 @@ DEFAULT_PERMISSIONS = {
         "grade:view_all",
         "payment:view_all",
         "resource:view",
+        "timetable:view",
+        "event:view",
+        "bank_transfer:view_all",
     ],
+
+    # ── Executive Officers ───────────────────────────────────────────
     "president": [
         "announcement:create", "announcement:edit", "announcement:delete", "announcement:view",
-        "event:create", "event:edit", "event:delete", "event:manage",
+        "event:create", "event:edit", "event:delete", "event:view", "event:manage",
         "payment:create", "payment:edit", "payment:delete", "payment:approve", "payment:view_all",
         "enrollment:view", "enrollment:edit",
         "user:view_all", "role:view",
+        "resource:view", "resource:approve",
+        "timetable:create", "timetable:edit", "timetable:cancel", "timetable:view",
+        "press:access", "press:publish",
+        "timp:manage", "timp:view",
+        "bank_transfer:manage_accounts", "bank_transfer:review", "bank_transfer:view_all",
     ],
     "vice_president": [
         "announcement:create", "announcement:edit", "announcement:view",
-        "event:create", "event:edit", "event:manage",
+        "event:create", "event:edit", "event:view", "event:manage",
         "payment:view_all", "enrollment:view", "enrollment:edit",
         "user:view_all",
+        "resource:view", "resource:approve",
+        "timetable:create", "timetable:edit", "timetable:view",
+        "press:access",
+        "timp:manage", "timp:view",
+        "bank_transfer:review", "bank_transfer:view_all",
     ],
     "general_secretary": [
         "announcement:create", "announcement:edit", "announcement:view",
         "user:view_all", "role:view",
+        "timetable:view",
+    ],
+    "assistant_general_secretary": [
+        "announcement:create", "announcement:view",
+        "user:view_all",
+        "timetable:view",
     ],
     "financial_secretary": [
         "payment:create", "payment:edit", "payment:approve", "payment:view_all",
         "announcement:view",
+        "bank_transfer:manage_accounts", "bank_transfer:review", "bank_transfer:view_all",
     ],
     "treasurer": [
         "payment:create", "payment:edit", "payment:view_all",
         "announcement:view",
-    ],
-    "director_of_socials": [
-        "event:create", "event:edit", "event:manage",
-        "announcement:create", "announcement:view",
-    ],
-    "director_of_sports": [
-        "event:create", "event:edit", "event:manage",
-        "announcement:create", "announcement:view",
-    ],
-    "director_of_welfare": [
-        "announcement:create", "announcement:view",
-        "user:view_all",
+        "bank_transfer:review", "bank_transfer:view_all",
     ],
     "pro": [
         "announcement:create", "announcement:edit", "announcement:view",
         "event:view", "user:view_all",
+        "press:access", "press:create", "press:edit", "press:publish",
     ],
+    "welfare_officer": [
+        "announcement:create", "announcement:view",
+        "user:view_all",
+    ],
+
+    # ── Directors ────────────────────────────────────────────────────
+    "director_of_socials": [
+        "event:create", "event:edit", "event:view", "event:manage",
+        "announcement:create", "announcement:view",
+    ],
+    "director_of_sports": [
+        "event:create", "event:edit", "event:view", "event:manage",
+        "announcement:create", "announcement:view",
+    ],
+    "director_of_academics": [
+        "announcement:create", "announcement:view",
+        "resource:view", "resource:create",
+        "timetable:view",
+    ],
+    "director_of_information": [
+        "announcement:create", "announcement:edit", "announcement:view",
+        "press:access", "press:create",
+    ],
+    # Legacy alias — kept for backward compatibility with any roles
+    # created before the rename; maps to same perms as director_of_academics
+    "director_of_welfare": [
+        "announcement:create", "announcement:view",
+        "user:view_all",
+    ],
+
+    # ── Class Representatives ────────────────────────────────────────
     "class_rep": [
         "announcement:view",
         "event:view",
         "payment:view_all",
     ],
-    # Committee heads
+
+    # ── Committee Heads (more permissions than members) ──────────────
+    "committee_head_academic": [
+        "announcement:create", "announcement:view",
+        "event:create", "event:view",
+        "resource:view",
+    ],
+    "committee_head_welfare": [
+        "announcement:create", "announcement:view",
+        "user:view_all",
+    ],
+    "committee_head_sports": [
+        "event:create", "event:edit", "event:view",
+        "announcement:create", "announcement:view",
+    ],
+    "committee_head_social": [
+        "event:create", "event:edit", "event:view",
+        "announcement:create", "announcement:view",
+    ],
+    "committee_head_technical": [
+        "announcement:create", "announcement:view",
+        "resource:view", "resource:create",
+    ],
+    # Legacy aliases — old keys kept for backward compatibility
     "committee_academic": [
         "announcement:create", "announcement:view",
         "event:view",
@@ -155,6 +258,56 @@ DEFAULT_PERMISSIONS = {
     "committee_socials": [
         "event:create", "event:view",
         "announcement:create", "announcement:view",
+    ],
+
+    # ── Committee Members (fewer permissions than heads) ─────────────
+    "committee_academic_member": [
+        "announcement:view",
+        "event:view",
+    ],
+    "committee_welfare_member": [
+        "announcement:view",
+    ],
+    "committee_sports_member": [
+        "announcement:view",
+        "event:view",
+    ],
+    "committee_socials_member": [
+        "announcement:view",
+        "event:view",
+    ],
+
+    # ── Unit Heads ───────────────────────────────────────────────────
+    "unit_head_photography": [
+        "announcement:view",
+        "event:view",
+    ],
+    "unit_head_logistics": [
+        "announcement:view",
+        "event:view",
+    ],
+    "unit_head_security": [
+        "announcement:view",
+        "event:view",
+    ],
+    "unit_head_decoration": [
+        "announcement:view",
+        "event:view",
+    ],
+
+    # ── Special Roles ────────────────────────────────────────────────
+    "timp_lead": [
+        "timp:manage", "timp:view",
+        "announcement:create", "announcement:view",
+        "user:view_all",
+    ],
+    "press_head": [
+        "press:access", "press:create", "press:edit", "press:publish",
+        "announcement:create", "announcement:view",
+        "user:view_all",
+    ],
+    "press_member": [
+        "press:access", "press:create",
     ],
 }
 

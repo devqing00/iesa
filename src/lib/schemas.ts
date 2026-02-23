@@ -15,12 +15,20 @@ export const SessionSchema = z.object({
     .min(4, "Session name must be at least 4 characters")
     .max(50)
     .regex(/^\d{4}\/\d{4}$/, 'Format must be "YYYY/YYYY" — e.g. 2024/2025'),
-  startDate: z.string().min(1, "Start date is required"),
-  endDate: z.string().min(1, "End date is required"),
+  semester1StartDate: z.string().min(1, "Semester 1 start date is required"),
+  semester1EndDate: z.string().min(1, "Semester 1 end date is required"),
+  semester2StartDate: z.string().min(1, "Semester 2 start date is required"),
+  semester2EndDate: z.string().min(1, "Semester 2 end date is required"),
   isActive: z.boolean().optional(),
 }).refine(
-  (d) => !d.startDate || !d.endDate || new Date(d.startDate) < new Date(d.endDate),
-  { message: "End date must be after start date", path: ["endDate"] }
+  (d) => new Date(d.semester1StartDate) < new Date(d.semester1EndDate),
+  { message: "Semester 1 end date must be after start date", path: ["semester1EndDate"] }
+).refine(
+  (d) => new Date(d.semester2StartDate) < new Date(d.semester2EndDate),
+  { message: "Semester 2 end date must be after start date", path: ["semester2EndDate"] }
+).refine(
+  (d) => new Date(d.semester1EndDate) <= new Date(d.semester2StartDate),
+  { message: "Semester 2 must start on or after Semester 1 ends", path: ["semester2StartDate"] }
 );
 
 export type SessionFormData = z.infer<typeof SessionSchema>;

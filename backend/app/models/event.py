@@ -26,6 +26,7 @@ class EventBase(BaseModel):
     imageUrl: Optional[str] = None
     requiresPayment: bool = Field(default=False)
     paymentAmount: Optional[float] = Field(None, ge=0)
+    paymentId: Optional[str] = Field(None, description="Linked payment ID for paid events")
 
 
 class EventCreate(EventBase):
@@ -43,6 +44,9 @@ class EventUpdate(BaseModel):
     maxAttendees: Optional[int] = Field(None, gt=0)
     registrationDeadline: Optional[datetime] = None
     imageUrl: Optional[str] = None
+    requiresPayment: Optional[bool] = None
+    paymentAmount: Optional[float] = Field(None, ge=0)
+    paymentId: Optional[str] = None
 
 
 class Event(EventBase):
@@ -64,6 +68,7 @@ class EventWithStatus(Event):
     isRegistered: bool = Field(default=False)
     hasAttended: bool = Field(default=False)
     isFull: bool = Field(default=False)
+    hasPaid: bool = Field(default=False, description="Whether user has paid for this event (if requiresPayment)")
 
 
 class EventRegistration(BaseModel):

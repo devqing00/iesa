@@ -160,13 +160,13 @@ export default function StudentDashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-5">
 
           {/* — Greeting Hero — */}
-          <div className="lg:col-span-8 bg-navy border-[5px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[230px] flex flex-col justify-between">
+          <div className="lg:col-span-8 bg-navy border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[230px] flex flex-col justify-between">
             {/* Decorative shapes */}
             <div className="absolute top-6 right-8 w-20 h-20 rounded-full bg-coral/15 pointer-events-none" />
             <div className="absolute bottom-8 right-32 w-10 h-10 rounded-lg bg-lavender/10 rotate-12 pointer-events-none" />
             <div className="absolute top-1/2 right-16 w-6 h-6 rounded-full bg-teal/15 pointer-events-none" />
             {/* Diamond sparkle */}
-            <svg className="absolute top-5 right-24 w-5 h-5 text-lime/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+            <svg className="absolute top-5 right-24 w-5 h-5 text-navy/12 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
             </svg>
             <svg className="absolute bottom-12 right-12 w-4 h-4 text-coral/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
@@ -180,7 +180,7 @@ export default function StudentDashboardPage() {
               <h1 className="font-display font-black text-4xl md:text-5xl lg:text-[3.5rem] text-ghost leading-[0.95]">
                 {greeting()},
                 <br />
-                <span className="text-lime">{userProfile?.firstName || user?.email?.split("@")[0]}</span>
+                <span className="text-snow">{userProfile?.firstName || user?.email?.split("@")[0]}</span>
               </h1>
             </div>
             <div className="relative z-10 flex flex-wrap items-center gap-2 mt-6">
@@ -201,7 +201,7 @@ export default function StudentDashboardPage() {
           </div>
 
           {/* — Classes Today Counter — */}
-          <div className="lg:col-span-4 bg-coral border-[5px] border-navy rounded-[2rem] p-8 relative overflow-hidden flex flex-col justify-between min-h-[230px] shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+          <div className="lg:col-span-4 bg-coral border-[3px] border-navy rounded-[2rem] p-8 relative overflow-hidden flex flex-col justify-between min-h-[230px] shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
             {/* Decorative shapes */}
             <div className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full bg-navy/10 pointer-events-none" />
             <svg className="absolute top-4 right-5 w-5 h-5 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
@@ -224,113 +224,6 @@ export default function StudentDashboardPage() {
         </div>
 
         {/* ═══════════════════════════════════════════════════════════
-            ROW 2 — Stats Bento: 4 cards, varied colors
-            ═══════════════════════════════════════════════════════════ */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-          {[
-            {
-              label: "Announcements",
-              value: loading ? "--" : announcements.length,
-              bg: "bg-sunny border-[4px] border-navy shadow-[3px_3px_0_0_#000]",
-              iconBg: "bg-navy/10",
-              iconColor: "text-navy",
-              textColor: "text-navy",
-              subColor: "text-navy/50",
-              rotate: "rotate-[-0.5deg] hover:rotate-0",
-              icon: (
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path fillRule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clipRule="evenodd" />
-                </svg>
-              ),
-            },
-            {
-              label: "Pending Dues",
-              value: loading ? "--" : pendingPayments.length,
-              bg: "bg-navy border-[4px] border-navy",
-              iconBg: "bg-ghost/10",
-              iconColor: "text-coral",
-              textColor: "text-snow",
-              subColor: "text-ghost/40",
-              rotate: "",
-              icon: (
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M4.5 3.75a3 3 0 0 0-3 3v.75h21v-.75a3 3 0 0 0-3-3h-15Z" />
-                  <path fillRule="evenodd" d="M22.5 9.75h-21v7.5a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3v-7.5Zm-18 3.75a.75.75 0 0 1 .75-.75h6a.75.75 0 0 1 0 1.5h-6a.75.75 0 0 1-.75-.75Zm.75 2.25a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z" clipRule="evenodd" />
-                </svg>
-              ),
-            },
-            {
-              label: "Upcoming Events",
-              value: loading ? "--" : events.length,
-              bg: "bg-lavender-light border-[4px] border-navy shadow-[3px_3px_0_0_#000]",
-              iconBg: "bg-lavender/30",
-              iconColor: "text-lavender",
-              textColor: "text-navy",
-              subColor: "text-navy/50",
-              rotate: "rotate-[0.5deg] hover:rotate-0",
-              icon: (
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
-                </svg>
-              ),
-            },
-            {
-              label: "Resources",
-              value: loading ? "--" : "24+",
-              bg: "bg-teal-light border-[4px] border-navy shadow-[3px_3px_0_0_#000]",
-              iconBg: "bg-teal/30",
-              iconColor: "text-teal",
-              textColor: "text-navy",
-              subColor: "text-navy/50",
-              rotate: "rotate-[-0.3deg] hover:rotate-0",
-              icon: (
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
-                </svg>
-              ),
-            },
-          ].map((stat, i) => (
-            <div
-              key={i}
-              className={`rounded-2xl p-5 flex flex-col justify-between min-h-[135px] transition-transform ${stat.bg} ${stat.rotate}`}
-            >
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${stat.iconBg}`}>
-                <span className={stat.iconColor}>{stat.icon}</span>
-              </div>
-              <div className="mt-auto">
-                <p className={`text-[10px] font-bold tracking-[0.1em] uppercase mb-0.5 ${stat.subColor}`}>{stat.label}</p>
-                <p className={`font-display font-black text-3xl ${stat.textColor}`}>{stat.value}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* ═══════════════════════════════════════════════════════════
-            ROW 3 — Quick Access Bento: 6 shortcut tiles
-            ═══════════════════════════════════════════════════════════ */}
-        <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
-          {[
-            { name: "Timetable", href: "/dashboard/timetable", color: "bg-lavender-light", hoverBg: "hover:bg-lavender", icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" /></svg> },
-            { name: "Payments", href: "/dashboard/payments", color: "bg-coral-light", hoverBg: "hover:bg-coral", icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 3.75a3 3 0 0 0-3 3v.75h21v-.75a3 3 0 0 0-3-3h-15Z" /><path fillRule="evenodd" d="M22.5 9.75h-21v7.5a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3v-7.5Zm-18 3.75a.75.75 0 0 1 .75-.75h6a.75.75 0 0 1 0 1.5h-6a.75.75 0 0 1-.75-.75Zm.75 2.25a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z" clipRule="evenodd" /></svg> },
-            { name: "Events", href: "/dashboard/events", color: "bg-sunny-light", hoverBg: "hover:bg-sunny", icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" /></svg> },
-            { name: "Library", href: "/dashboard/library", color: "bg-teal-light", hoverBg: "hover:bg-teal", icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" /></svg> },
-
-            { name: "IESA AI", href: "/dashboard/iesa-ai", color: "bg-cloud", hoverBg: "hover:bg-ghost", icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5ZM18 1.5a.75.75 0 0 1 .728.568l.258 1.036c.236.94.97 1.674 1.91 1.91l1.036.258a.75.75 0 0 1 0 1.456l-1.036.258c-.94.236-1.674.97-1.91 1.91l-.258 1.036a.75.75 0 0 1-1.456 0l-.258-1.036a2.625 2.625 0 0 0-1.91-1.91l-1.036-.258a.75.75 0 0 1 0-1.456l1.036-.258a2.625 2.625 0 0 0 1.91-1.91l.258-1.036A.75.75 0 0 1 18 1.5Z" clipRule="evenodd" /></svg> },
-          ].map((link) => (
-            <Link
-              key={link.name}
-              href={link.href}
-              className={`group ${link.color} ${link.hoverBg} border-[3px] border-navy rounded-2xl p-3 md:p-4 press-3 press-black hover:-translate-y-1 transition-all text-center`}
-            >
-              <div className="w-10 h-10 rounded-xl bg-navy/10 flex items-center justify-center mx-auto mb-2 group-hover:bg-navy/15 transition-colors">
-                <span className="text-navy">{link.icon}</span>
-              </div>
-              <p className="text-xs font-bold text-navy truncate">{link.name}</p>
-            </Link>
-          ))}
-        </div>
-
-        {/* ═══════════════════════════════════════════════════════════
             ROW 4 — Main Content Bento: Schedule (8) + Sidebar (4)
             ═══════════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-5">
@@ -339,7 +232,7 @@ export default function StudentDashboardPage() {
           <div className="lg:col-span-8 space-y-4">
 
             {/* Today's Schedule Card */}
-            <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+            <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-8 rounded-full bg-lavender" />
@@ -398,7 +291,7 @@ export default function StudentDashboardPage() {
             </div>
 
             {/* Announcements Card */}
-            <div className="bg-sunny-light border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform">
+            <div className="bg-sunny-light border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-8 rounded-full bg-sunny" />
@@ -457,7 +350,7 @@ export default function StudentDashboardPage() {
           <div className="lg:col-span-4 space-y-4">
 
             {/* Pending Dues Card */}
-            <div className="bg-coral-light border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+            <div className="bg-coral-light border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-6 rounded-full bg-coral" />
@@ -507,7 +400,7 @@ export default function StudentDashboardPage() {
             </div>
 
             {/* Upcoming Events Card */}
-            <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+            <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-6 rounded-full bg-lavender" />
@@ -556,7 +449,7 @@ export default function StudentDashboardPage() {
             </div>
 
             {/* Growth CTA */}
-            <Link href="/dashboard/growth" className="block bg-teal border-[4px] border-navy rounded-3xl p-6 relative overflow-hidden group shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+            <Link href="/dashboard/growth" className="block bg-teal border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
               {/* Decorative */}
               <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full bg-navy/10 pointer-events-none" />
               <svg className="absolute top-3 right-4 w-4 h-4 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
@@ -574,7 +467,7 @@ export default function StudentDashboardPage() {
             </Link>
 
             {/* IESA AI CTA */}
-            <Link href="/dashboard/iesa-ai" className="block bg-navy border-[4px] border-navy rounded-3xl p-6 relative overflow-hidden group">
+            <Link href="/dashboard/iesa-ai" className="block bg-navy border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group">
               <svg className="absolute top-4 right-5 w-5 h-5 text-lavender/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
               </svg>

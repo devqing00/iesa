@@ -133,7 +133,7 @@ export default function PressDashboardPage() {
       <div className="max-w-5xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
 
     {accessDenied ? (
-      <div className="bg-snow border-[4px] border-navy rounded-3xl p-10 shadow-[4px_4px_0_0_#000] text-center max-w-lg mx-auto mt-8">
+      <div className="bg-snow border-[3px] border-navy rounded-3xl p-10 shadow-[4px_4px_0_0_#000] text-center max-w-lg mx-auto mt-8">
         <svg className="w-14 h-14 text-lavender/40 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 0 1-2.25 2.25M16.5 7.5V18a2.25 2.25 0 0 0 2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 0 0 2.25 2.25h13.5M6 7.5h3v3H6V7.5Z" />
         </svg>
@@ -169,7 +169,7 @@ export default function PressDashboardPage() {
           )}
           <Link
             href="/dashboard/press/write"
-          className="inline-flex items-center gap-2 bg-lime border-[4px] border-navy px-6 py-3 rounded-2xl font-display font-bold text-navy press-3 press-navy transition-all"
+          className="inline-flex items-center gap-2 bg-lime border-[3px] border-navy px-6 py-3 rounded-2xl font-display font-bold text-navy press-3 press-navy transition-all"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -203,7 +203,7 @@ export default function PressDashboardPage() {
             onClick={() => setActiveTab(tab.key)}
             className={`px-4 py-1.5 text-[11px] font-display font-bold uppercase tracking-wider rounded-xl border-[2px] transition-all ${
               activeTab === tab.key
-                ? "bg-navy text-lime border-navy shadow-[3px_3px_0_0_#C8F31D]"
+                ? "bg-navy text-snow border-navy"
                 : "bg-snow text-navy border-navy/20 hover:border-navy"
             }`}
           >
@@ -223,7 +223,7 @@ export default function PressDashboardPage() {
           ))}
         </div>
       ) : articles.length === 0 ? (
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-10 shadow-[4px_4px_0_0_#000] text-center">
+        <div className="bg-snow border-[3px] border-navy rounded-3xl p-10 shadow-[4px_4px_0_0_#000] text-center">
           <svg className="w-14 h-14 text-slate/30 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
           </svg>
@@ -299,7 +299,7 @@ export default function PressDashboardPage() {
                         </Link>
                         <button
                           onClick={() => handleSubmit(article._id)}
-                          className="px-3 py-1.5 bg-lime border-[2px] border-navy rounded-xl text-xs font-display font-bold text-navy hover:bg-lime-dark transition-all"
+                          className="px-3 py-1.5 bg-lime border-[2px] border-navy rounded-xl text-xs font-display font-bold text-navy hover:bg-ghost-dark transition-all"
                         >
                           Submit
                         </button>

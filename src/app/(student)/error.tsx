@@ -38,10 +38,10 @@ export default function DashboardError({
         )}
 
         <div className="flex justify-center gap-4">
-          <button onClick={reset} className="bg-transparent border-[3px] border-navy px-5 py-2.5 rounded-xl font-display font-black text-sm text-navy hover:bg-navy hover:text-lime transition-all">
+          <button onClick={reset} className="bg-transparent border-[3px] border-navy px-5 py-2.5 rounded-xl font-display font-black text-sm text-navy hover:bg-navy hover:text-snow transition-all">
             Try Again
           </button>
-          <a href="/dashboard" className="bg-transparent border-[3px] border-navy px-5 py-2.5 rounded-xl font-display font-black text-sm text-navy hover:bg-navy hover:text-lime transition-all">
+          <a href="/dashboard" className="bg-transparent border-[3px] border-navy px-5 py-2.5 rounded-xl font-display font-black text-sm text-navy hover:bg-navy hover:text-snow transition-all">
             Back to Dashboard
           </a>
         </div>

@@ -15,6 +15,10 @@ interface Session {
   name: string;
   startDate?: string;
   endDate?: string;
+  semester1StartDate?: string;
+  semester1EndDate?: string;
+  semester2StartDate?: string;
+  semester2EndDate?: string;
   currentSemester: 1 | 2;
   isActive: boolean;
   createdAt: string;
@@ -35,9 +39,10 @@ function AdminSessionsPage() {
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof SessionFormData, string>>>({});
   const [formData, setFormData] = useState({
     name: "",
-    startDate: "",
-    endDate: "",
-    currentSemester: 1 as 1 | 2,
+    semester1StartDate: "",
+    semester1EndDate: "",
+    semester2StartDate: "",
+    semester2EndDate: "",
     isActive: false,
   });
 
@@ -90,7 +95,7 @@ function AdminSessionsPage() {
       if (response.ok) {
         setShowCreateModal(false);
         setFormErrors({});
-        setFormData({ name: "", startDate: "", endDate: "", currentSemester: 1, isActive: false });
+        setFormData({ name: "", semester1StartDate: "", semester1EndDate: "", semester2StartDate: "", semester2EndDate: "", isActive: false });
         await fetchSessions();
         await refreshSessions();
         toast.success("Session created successfully");
@@ -129,7 +134,7 @@ function AdminSessionsPage() {
         setShowEditModal(false);
         setEditingSession(null);
         setFormErrors({});
-        setFormData({ name: "", startDate: "", endDate: "", currentSemester: 1, isActive: false });
+        setFormData({ name: "", semester1StartDate: "", semester1EndDate: "", semester2StartDate: "", semester2EndDate: "", isActive: false });
         await fetchSessions();
         await refreshSessions();
         toast.success("Session updated successfully");
@@ -147,9 +152,10 @@ function AdminSessionsPage() {
     setFormErrors({});
     setFormData({
       name: session.name,
-      startDate: session.startDate ? session.startDate.split('T')[0] : '',
-      endDate: session.endDate ? session.endDate.split('T')[0] : '',
-      currentSemester: session.currentSemester,
+      semester1StartDate: session.semester1StartDate ? session.semester1StartDate.split('T')[0] : '',
+      semester1EndDate: session.semester1EndDate ? session.semester1EndDate.split('T')[0] : '',
+      semester2StartDate: session.semester2StartDate ? session.semester2StartDate.split('T')[0] : '',
+      semester2EndDate: session.semester2EndDate ? session.semester2EndDate.split('T')[0] : '',
       isActive: session.isActive,
     });
     setShowEditModal(true);
@@ -213,7 +219,7 @@ function AdminSessionsPage() {
         <PermissionGate permission="session:create">
           <button
             onClick={() => setShowCreateModal(true)}
-            className="self-start bg-lime border-[4px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
+            className="self-start bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
@@ -226,18 +232,18 @@ function AdminSessionsPage() {
       {/* ── Stats Row ── */}
       {!loading && sessions.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+          <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Total Sessions</p>
             <p className="font-display font-black text-3xl text-navy">{sessions.length}</p>
           </div>
-          <div className="bg-teal border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+          <div className="bg-teal border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Active</p>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-snow animate-pulse" />
               <p className="font-display font-black text-3xl text-snow">{activeSession ? 1 : 0}</p>
             </div>
           </div>
-          <div className="bg-lavender border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] col-span-2 md:col-span-1 rotate-[-0.5deg] hover:rotate-0 transition-transform">
+          <div className="bg-lavender border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] col-span-2 md:col-span-1 rotate-[-0.5deg] hover:rotate-0 transition-transform">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Current Semester</p>
             <p className="font-display font-black text-3xl text-snow">
               {activeSession ? `Sem ${activeSession.currentSemester}` : "—"}
@@ -250,7 +256,7 @@ function AdminSessionsPage() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-snow border-[4px] border-navy rounded-3xl p-6 space-y-4 animate-pulse">
+            <div key={i} className="bg-snow border-[3px] border-navy rounded-3xl p-6 space-y-4 animate-pulse">
               <div className="flex items-start justify-between">
                 <div className="space-y-2 flex-1">
                   <div className="h-5 w-20 rounded-xl bg-cloud" />
@@ -268,7 +274,7 @@ function AdminSessionsPage() {
           ))}
         </div>
       ) : sessions.length === 0 ? (
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-16 text-center shadow-[4px_4px_0_0_#000] space-y-4">
+        <div className="bg-snow border-[3px] border-navy rounded-3xl p-16 text-center shadow-[4px_4px_0_0_#000] space-y-4">
           <div className="w-16 h-16 bg-sunny-light rounded-2xl flex items-center justify-center mx-auto">
             <svg className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
@@ -283,30 +289,30 @@ function AdminSessionsPage() {
         <div className="space-y-8">
           {/* Active Session — Featured Card */}
           {activeSession && (
-            <div className="bg-navy border-[4px] border-lime rounded-3xl p-6 md:p-8 shadow-[4px_4px_0_0_#C8F31D] relative overflow-hidden">
+            <div className="bg-navy border-[3px] border-ghost/20 rounded-3xl p-6 md:p-8 relative overflow-hidden">
               {/* Decorative diamonds */}
-              <svg className="absolute top-4 right-4 w-5 h-5 text-lime/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="absolute top-4 right-4 w-5 h-5 text-navy/12 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
               </svg>
-              <svg className="absolute bottom-6 right-16 w-4 h-4 text-lime/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="absolute bottom-6 right-16 w-4 h-4 text-navy/10 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
               </svg>
 
               <div className="relative flex flex-col md:flex-row md:items-center gap-6">
                 <div className="flex-1 space-y-3">
                   <div className="flex items-center gap-2.5">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-lime/20 text-lime text-xs font-bold">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal/20 text-snow text-xs font-bold">
                       <span className="w-2 h-2 rounded-full bg-lime animate-pulse" />
                       Active Session
                     </span>
-                    <span className="px-3 py-1 rounded-full bg-lime/10 text-lime/80 text-xs font-bold">
+                    <span className="px-3 py-1 rounded-full bg-lime/10 text-snow/80 text-xs font-bold">
                       Semester {activeSession.currentSemester}
                     </span>
                   </div>
-                  <h2 className="font-display font-black text-2xl md:text-3xl text-lime">
+                  <h2 className="font-display font-black text-2xl md:text-3xl text-snow">
                     {activeSession.name}
                   </h2>
-                  <div className="flex items-center gap-2 text-sm text-lime/60">
+                  <div className="flex items-center gap-2 text-sm text-snow/50">
                     <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                       <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
                     </svg>
@@ -318,7 +324,7 @@ function AdminSessionsPage() {
                 <PermissionGate permission="session:edit">
                   <button
                     onClick={() => openEditModal(activeSession)}
-                    className="bg-lime/20 border-[3px] border-lime text-lime px-6 py-2.5 rounded-2xl text-sm font-bold hover:bg-lime hover:text-navy transition-all flex items-center gap-2"
+                    className="bg-teal/20 border-[3px] border-ghost/20 text-snow px-6 py-2.5 rounded-2xl text-sm font-bold hover:bg-ghost hover:text-navy transition-all flex items-center gap-2"
                   >
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32l8.4-8.4Z" />
@@ -342,7 +348,7 @@ function AdminSessionsPage() {
                 {inactiveSessions.map((session) => (
                   <div
                     key={session.id}
- className="bg-snow border-[4px] border-navy rounded-3xl p-6 press-3 press-black transition-all group"
+ className="bg-snow border-[3px] border-navy rounded-3xl p-6 press-3 press-black transition-all group"
                   >
                     <div className="flex items-start justify-between mb-4">
                       <h3 className="font-display font-black text-xl text-navy">{session.name}</h3>
@@ -370,7 +376,7 @@ function AdminSessionsPage() {
                       <PermissionGate permission="session:edit">
                         <button
                           onClick={() => openEditModal(session)}
-                          className="p-2.5 bg-ghost border-[3px] border-navy text-navy rounded-2xl hover:bg-navy hover:text-lime transition-all"
+                          className="p-2.5 bg-ghost border-[3px] border-navy text-navy rounded-2xl hover:bg-navy hover:text-snow transition-all"
                           aria-label="Edit session"
                         >
                           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
@@ -393,7 +399,7 @@ function AdminSessionsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6">
           <div className="absolute inset-0 bg-navy/50" onClick={() => setShowCreateModal(false)} />
 
-          <div className="relative bg-snow border-[4px] border-navy rounded-3xl p-8 w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]">
+          <div className="relative bg-snow border-[3px] border-navy rounded-3xl p-8 w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">New Session</p>
@@ -429,48 +435,82 @@ function AdminSessionsPage() {
                 {formErrors.name && <p className="text-coral text-xs font-normal mt-0.5">{formErrors.name}</p>}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label htmlFor="startDate" className="text-sm font-bold text-navy">Start Date</label>
-                  <input
-                    id="startDate"
-                    type="date"
-                    required
-                    value={formData.startDate}
-                    onChange={(e) => { setFormData({ ...formData, startDate: e.target.value }); setFormErrors((p) => ({ ...p, startDate: undefined, endDate: undefined })); }}
-                    title="Start date of the session"
-                    className={`w-full px-4 py-3 bg-ghost border-[3px] rounded-2xl text-navy text-sm transition-all ${formErrors.startDate ? "border-coral" : "border-navy"}`}
-                  />
-                  {formErrors.startDate && <p className="text-coral text-xs font-normal mt-0.5">{formErrors.startDate}</p>}
-                </div>
-                <div className="space-y-1.5">
-                  <label htmlFor="endDate" className="text-sm font-bold text-navy">End Date</label>
-                  <input
-                    id="endDate"
-                    type="date"
-                    required
-                    value={formData.endDate}
-                    onChange={(e) => { setFormData({ ...formData, endDate: e.target.value }); setFormErrors((p) => ({ ...p, endDate: undefined })); }}
-                    title="End date of the session"
-                    className={`w-full px-4 py-3 bg-ghost border-[3px] rounded-2xl text-navy text-sm transition-all ${formErrors.endDate ? "border-coral" : "border-navy"}`}
-                  />
-                  {formErrors.endDate && <p className="text-coral text-xs font-normal mt-0.5">{formErrors.endDate}</p>}
+              <div className="space-y-4">
+                <p className="text-xs font-bold text-navy uppercase tracking-wider">Semester 1</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label htmlFor="sem1Start" className="text-sm font-bold text-navy">Start Date</label>
+                    <input
+                      id="sem1Start"
+                      type="date"
+                      required
+                      value={formData.semester1StartDate}
+                      onChange={(e) => { setFormData({ ...formData, semester1StartDate: e.target.value }); setFormErrors((p) => ({ ...p, semester1StartDate: undefined, semester1EndDate: undefined })); }}
+                      className={`w-full px-4 py-3 bg-ghost border-[3px] rounded-2xl text-navy text-sm transition-all ${formErrors.semester1StartDate ? "border-coral" : "border-navy"}`}
+                    />
+                    {formErrors.semester1StartDate && <p className="text-coral text-xs font-normal mt-0.5">{formErrors.semester1StartDate}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="sem1End" className="text-sm font-bold text-navy">End Date</label>
+                    <input
+                      id="sem1End"
+                      type="date"
+                      required
+                      value={formData.semester1EndDate}
+                      onChange={(e) => { setFormData({ ...formData, semester1EndDate: e.target.value }); setFormErrors((p) => ({ ...p, semester1EndDate: undefined })); }}
+                      className={`w-full px-4 py-3 bg-ghost border-[3px] rounded-2xl text-navy text-sm transition-all ${formErrors.semester1EndDate ? "border-coral" : "border-navy"}`}
+                    />
+                    {formErrors.semester1EndDate && <p className="text-coral text-xs font-normal mt-0.5">{formErrors.semester1EndDate}</p>}
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label htmlFor="currentSemester" className="text-sm font-bold text-navy">Current Semester</label>
-                <select
-                  id="currentSemester"
-                  value={formData.currentSemester}
-                  onChange={(e) => setFormData({ ...formData, currentSemester: parseInt(e.target.value) as 1 | 2 })}
-                  title="Current semester for the session"
-                  className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
-                >
-                  <option value={1}>Semester 1</option>
-                  <option value={2}>Semester 2</option>
-                </select>
+              <div className="space-y-4">
+                <p className="text-xs font-bold text-navy uppercase tracking-wider">Semester 2</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label htmlFor="sem2Start" className="text-sm font-bold text-navy">Start Date</label>
+                    <input
+                      id="sem2Start"
+                      type="date"
+                      required
+                      value={formData.semester2StartDate}
+                      onChange={(e) => { setFormData({ ...formData, semester2StartDate: e.target.value }); setFormErrors((p) => ({ ...p, semester2StartDate: undefined, semester2EndDate: undefined })); }}
+                      className={`w-full px-4 py-3 bg-ghost border-[3px] rounded-2xl text-navy text-sm transition-all ${formErrors.semester2StartDate ? "border-coral" : "border-navy"}`}
+                    />
+                    {formErrors.semester2StartDate && <p className="text-coral text-xs font-normal mt-0.5">{formErrors.semester2StartDate}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="sem2End" className="text-sm font-bold text-navy">End Date</label>
+                    <input
+                      id="sem2End"
+                      type="date"
+                      required
+                      value={formData.semester2EndDate}
+                      onChange={(e) => { setFormData({ ...formData, semester2EndDate: e.target.value }); setFormErrors((p) => ({ ...p, semester2EndDate: undefined })); }}
+                      className={`w-full px-4 py-3 bg-ghost border-[3px] rounded-2xl text-navy text-sm transition-all ${formErrors.semester2EndDate ? "border-coral" : "border-navy"}`}
+                    />
+                    {formErrors.semester2EndDate && <p className="text-coral text-xs font-normal mt-0.5">{formErrors.semester2EndDate}</p>}
+                  </div>
+                </div>
               </div>
+
+              {/* Auto-derived info */}
+              {formData.semester1StartDate && formData.semester2EndDate && (
+                <div className="bg-ghost border-[2px] border-navy/10 rounded-2xl p-4 space-y-1">
+                  <p className="text-xs font-bold text-slate uppercase tracking-wider mb-2">Auto-Derived</p>
+                  <p className="text-sm text-navy">
+                    <span className="font-bold">Session:</span> {new Date(formData.semester1StartDate).toLocaleDateString()} – {new Date(formData.semester2EndDate).toLocaleDateString()}
+                  </p>
+                  <p className="text-sm text-navy">
+                    <span className="font-bold">Current Semester:</span> {(() => {
+                      const now = new Date();
+                      const sem2Start = new Date(formData.semester2StartDate);
+                      return now < sem2Start ? "Semester 1" : "Semester 2";
+                    })()}
+                  </p>
+                </div>
+              )}
 
               <label className="flex items-center gap-3 cursor-pointer">
                 <div
@@ -496,7 +536,7 @@ function AdminSessionsPage() {
                 </button>
                 <button
                   type="submit"
- className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold press-4 press-lime transition-all"
+ className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy transition-all"
                 >
                   Create Session
                 </button>
@@ -511,7 +551,7 @@ function AdminSessionsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6">
           <div className="absolute inset-0 bg-navy/50" onClick={() => setShowEditModal(false)} />
 
-          <div className="relative bg-snow border-[4px] border-navy rounded-3xl p-8 w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]">
+          <div className="relative bg-snow border-[3px] border-navy rounded-3xl p-8 w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Edit Session</p>
@@ -547,48 +587,82 @@ function AdminSessionsPage() {
                 {formErrors.name && <p className="text-coral text-xs font-normal mt-0.5">{formErrors.name}</p>}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label htmlFor="editStartDate" className="text-sm font-bold text-navy">Start Date</label>
-                  <input
-                    id="editStartDate"
-                    type="date"
-                    required
-                    value={formData.startDate}
-                    onChange={(e) => { setFormData({ ...formData, startDate: e.target.value }); setFormErrors((p) => ({ ...p, startDate: undefined, endDate: undefined })); }}
-                    title="Start date of the session"
-                    className={`w-full px-4 py-3 bg-ghost border-[3px] rounded-2xl text-navy text-sm transition-all ${formErrors.startDate ? "border-coral" : "border-navy"}`}
-                  />
-                  {formErrors.startDate && <p className="text-coral text-xs font-normal mt-0.5">{formErrors.startDate}</p>}
-                </div>
-                <div className="space-y-1.5">
-                  <label htmlFor="editEndDate" className="text-sm font-bold text-navy">End Date</label>
-                  <input
-                    id="editEndDate"
-                    type="date"
-                    required
-                    value={formData.endDate}
-                    onChange={(e) => { setFormData({ ...formData, endDate: e.target.value }); setFormErrors((p) => ({ ...p, endDate: undefined })); }}
-                    title="End date of the session"
-                    className={`w-full px-4 py-3 bg-ghost border-[3px] rounded-2xl text-navy text-sm transition-all ${formErrors.endDate ? "border-coral" : "border-navy"}`}
-                  />
-                  {formErrors.endDate && <p className="text-coral text-xs font-normal mt-0.5">{formErrors.endDate}</p>}
+              <div className="space-y-4">
+                <p className="text-xs font-bold text-navy uppercase tracking-wider">Semester 1</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label htmlFor="editSem1Start" className="text-sm font-bold text-navy">Start Date</label>
+                    <input
+                      id="editSem1Start"
+                      type="date"
+                      required
+                      value={formData.semester1StartDate}
+                      onChange={(e) => { setFormData({ ...formData, semester1StartDate: e.target.value }); setFormErrors((p) => ({ ...p, semester1StartDate: undefined, semester1EndDate: undefined })); }}
+                      className={`w-full px-4 py-3 bg-ghost border-[3px] rounded-2xl text-navy text-sm transition-all ${formErrors.semester1StartDate ? "border-coral" : "border-navy"}`}
+                    />
+                    {formErrors.semester1StartDate && <p className="text-coral text-xs font-normal mt-0.5">{formErrors.semester1StartDate}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="editSem1End" className="text-sm font-bold text-navy">End Date</label>
+                    <input
+                      id="editSem1End"
+                      type="date"
+                      required
+                      value={formData.semester1EndDate}
+                      onChange={(e) => { setFormData({ ...formData, semester1EndDate: e.target.value }); setFormErrors((p) => ({ ...p, semester1EndDate: undefined })); }}
+                      className={`w-full px-4 py-3 bg-ghost border-[3px] rounded-2xl text-navy text-sm transition-all ${formErrors.semester1EndDate ? "border-coral" : "border-navy"}`}
+                    />
+                    {formErrors.semester1EndDate && <p className="text-coral text-xs font-normal mt-0.5">{formErrors.semester1EndDate}</p>}
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label htmlFor="editCurrentSemester" className="text-sm font-bold text-navy">Current Semester</label>
-                <select
-                  id="editCurrentSemester"
-                  value={formData.currentSemester}
-                  onChange={(e) => setFormData({ ...formData, currentSemester: parseInt(e.target.value) as 1 | 2 })}
-                  title="Current semester for the session"
-                  className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
-                >
-                  <option value={1}>Semester 1</option>
-                  <option value={2}>Semester 2</option>
-                </select>
+              <div className="space-y-4">
+                <p className="text-xs font-bold text-navy uppercase tracking-wider">Semester 2</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label htmlFor="editSem2Start" className="text-sm font-bold text-navy">Start Date</label>
+                    <input
+                      id="editSem2Start"
+                      type="date"
+                      required
+                      value={formData.semester2StartDate}
+                      onChange={(e) => { setFormData({ ...formData, semester2StartDate: e.target.value }); setFormErrors((p) => ({ ...p, semester2StartDate: undefined, semester2EndDate: undefined })); }}
+                      className={`w-full px-4 py-3 bg-ghost border-[3px] rounded-2xl text-navy text-sm transition-all ${formErrors.semester2StartDate ? "border-coral" : "border-navy"}`}
+                    />
+                    {formErrors.semester2StartDate && <p className="text-coral text-xs font-normal mt-0.5">{formErrors.semester2StartDate}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <label htmlFor="editSem2End" className="text-sm font-bold text-navy">End Date</label>
+                    <input
+                      id="editSem2End"
+                      type="date"
+                      required
+                      value={formData.semester2EndDate}
+                      onChange={(e) => { setFormData({ ...formData, semester2EndDate: e.target.value }); setFormErrors((p) => ({ ...p, semester2EndDate: undefined })); }}
+                      className={`w-full px-4 py-3 bg-ghost border-[3px] rounded-2xl text-navy text-sm transition-all ${formErrors.semester2EndDate ? "border-coral" : "border-navy"}`}
+                    />
+                    {formErrors.semester2EndDate && <p className="text-coral text-xs font-normal mt-0.5">{formErrors.semester2EndDate}</p>}
+                  </div>
+                </div>
               </div>
+
+              {/* Auto-derived info */}
+              {formData.semester1StartDate && formData.semester2EndDate && (
+                <div className="bg-ghost border-[2px] border-navy/10 rounded-2xl p-4 space-y-1">
+                  <p className="text-xs font-bold text-slate uppercase tracking-wider mb-2">Auto-Derived</p>
+                  <p className="text-sm text-navy">
+                    <span className="font-bold">Session:</span> {new Date(formData.semester1StartDate).toLocaleDateString()} – {new Date(formData.semester2EndDate).toLocaleDateString()}
+                  </p>
+                  <p className="text-sm text-navy">
+                    <span className="font-bold">Current Semester:</span> {(() => {
+                      const now = new Date();
+                      const sem2Start = new Date(formData.semester2StartDate);
+                      return now < sem2Start ? "Semester 1" : "Semester 2";
+                    })()}
+                  </p>
+                </div>
+              )}
 
               <label className="flex items-center gap-3 cursor-pointer">
                 <div
@@ -614,7 +688,7 @@ function AdminSessionsPage() {
                 </button>
                 <button
                   type="submit"
- className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold press-4 press-lime transition-all"
+ className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy transition-all"
                 >
                   Update Session
                 </button>

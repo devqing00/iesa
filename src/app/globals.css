@@ -178,38 +178,21 @@ input:focus, textarea:focus, select:focus {
    TYPOGRAPHY SYSTEM
    ============================================ */
 
-/* Brush highlight effect - for headers/titles */
+/* Brush highlight effect - DISABLED (design v3.1) */
 .brush-highlight {
   position: relative;
   display: inline-block;
-  padding: 0 4px;
-  overflow: hidden;
+  padding: 0;
 }
 
 .brush-highlight::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0.15em;
-  height: 0.45em;
-  background: oklch(88% 0.2 128);
-  z-index: -1;
-  transform: rotate(-1deg);
-  border-radius: 4px;
+  display: none;
 }
 
-/* Brush variants for different backgrounds - more specific selectors to ensure override */
-.brush-highlight.brush-coral::after {
-  background: oklch(85% 0.14 90) !important;
-}
-
-.brush-highlight.brush-lime::after {
-  background: oklch(68% 0.18 25) !important;
-}
-
+.brush-highlight.brush-coral::after,
+.brush-highlight.brush-lime::after,
 .brush-highlight.brush-navy::after {
-  background: oklch(85% 0.14 90) !important;
+  display: none;
 }
 
 .font-display {

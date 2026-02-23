@@ -42,7 +42,7 @@ interface AuditLogEntry {
   timestamp: string;
 }
 
-const LEVEL_COLORS = ["#C8F31D", "#9B8AF5", "#FF7B5C", "#6ECFC9", "#F5C842"];
+const LEVEL_COLORS = ["#6ECFC9", "#9B8AF5", "#FF7B5C", "#6ECFC9", "#F5C842"];
 const PAYMENT_COLORS: Record<string, string> = {
   successful: "#6ECFC9",
   pending: "#F5C842",
@@ -249,9 +249,9 @@ export default function AdminDashboardPage() {
       {/* ── Hero Bento Grid ────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
         {/* Total Students — navy hero card spanning 7 cols */}
-        <div className="md:col-span-7 bg-navy border-[4px] border-lime rounded-3xl p-8 relative overflow-hidden">
+        <div className="md:col-span-7 bg-navy border-[3px] border-ghost/20 rounded-3xl p-8 relative overflow-hidden">
           {/* Decorative diamonds */}
-          <svg className="absolute top-6 right-6 w-5 h-5 text-lime/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+          <svg className="absolute top-6 right-6 w-5 h-5 text-navy/10 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
           </svg>
           <svg className="absolute bottom-8 right-20 w-3 h-3 text-coral/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
@@ -259,10 +259,10 @@ export default function AdminDashboardPage() {
           </svg>
 
           <div className="relative z-10">
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-lime/60 mb-6">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/50 mb-6">
               Total Students Registered
             </p>
-            <p className="font-display font-black text-6xl md:text-7xl text-lime mb-2">
+            <p className="font-display font-black text-6xl md:text-7xl text-snow mb-2">
               {loading ? "---" : stats.totalStudents}
             </p>
             <p className="text-ghost/50 text-sm">enrolled across all sessions</p>
@@ -272,7 +272,7 @@ export default function AdminDashboardPage() {
         {/* Right column — 2 stacked cards spanning 5 cols */}
         <div className="md:col-span-5 grid grid-rows-2 gap-4">
           {/* Enrollments — lime card */}
-          <div className="bg-lime border-[4px] border-navy rounded-3xl p-6 flex items-center justify-between shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+          <div className="bg-lime border-[3px] border-navy rounded-3xl p-6 flex items-center justify-between shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50 mb-1">Enrollments</p>
               <p className="font-display font-black text-4xl text-navy">{loading ? "--" : stats.totalEnrollments}</p>
@@ -286,7 +286,7 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* Events — coral card */}
-          <div className="bg-coral border-[4px] border-navy rounded-3xl p-6 flex items-center justify-between shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+          <div className="bg-coral border-[3px] border-navy rounded-3xl p-6 flex items-center justify-between shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Events</p>
               <p className="font-display font-black text-4xl text-snow">{loading ? "--" : stats.totalEvents}</p>
@@ -306,7 +306,7 @@ export default function AdminDashboardPage() {
           <Link
             key={link.name}
             href={link.href}
- className="group bg-snow border-[4px] border-navy rounded-2xl p-5 press-3 press-black transition-all"
+ className="group bg-snow border-[3px] border-navy rounded-2xl p-5 press-3 press-black transition-all"
           >
             <div className="flex items-center justify-between mb-4">
               <div className={`w-10 h-10 rounded-xl ${link.color} flex items-center justify-center`}>
@@ -325,7 +325,7 @@ export default function AdminDashboardPage() {
       {/* ── Charts Row ─────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Enrollments by Level */}
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+        <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
           <div className="flex items-center justify-between mb-5">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-0.5">Breakdown</p>
@@ -354,7 +354,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Payments by Status */}
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+        <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
           <div className="flex items-center justify-between mb-5">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-0.5">Overview</p>
@@ -400,7 +400,7 @@ export default function AdminDashboardPage() {
       {/* ── Bottom Row ─────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Recent Activity */}
-        <div className="lg:col-span-2 bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+        <div className="lg:col-span-2 bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
           <div className="flex items-center justify-between mb-5">
             <h3 className="font-display font-black text-lg text-navy">Recent Activity</h3>
             <Link href="/admin/audit-logs" className="text-xs font-bold text-teal hover:underline">
@@ -445,7 +445,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Session Status */}
-        <div className="bg-lavender border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+        <div className="bg-lavender border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
           <h3 className="font-display font-black text-lg text-snow mb-5">Session Status</h3>
           <div className="space-y-3">
             <div className="bg-snow/90 rounded-2xl p-4 border-[3px] border-navy/20">
@@ -458,7 +458,7 @@ export default function AdminDashboardPage() {
             </div>
             <Link
               href="/admin/sessions"
- className="block w-full text-center py-3 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold press-4 press-lime transition-all"
+ className="block w-full text-center py-3 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy transition-all"
             >
               Manage Sessions
             </Link>

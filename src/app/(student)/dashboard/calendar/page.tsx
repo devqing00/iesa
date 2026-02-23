@@ -130,7 +130,7 @@ export default function CalendarPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Calendar */}
-          <div className="lg:col-span-3 bg-snow border-[4px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] overflow-hidden">
+          <div className="lg:col-span-3 bg-snow border-[3px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] overflow-hidden">
             {/* View switcher */}
             <div className="flex items-center gap-2 px-5 py-4 border-b-[3px] border-navy bg-ghost flex-wrap">
               {(["month", "week", "agenda"] as View[]).map((v) => (
@@ -139,8 +139,8 @@ export default function CalendarPage() {
                   onClick={() => setCurrentView(v)}
                   className={`px-4 py-2 rounded-xl border-[3px] font-display text-sm capitalize transition-all ${
                     currentView === v
-                      ? "bg-navy border-navy text-lime shadow-[3px_3px_0_0_#0F0F2D]"
-                      : "bg-ghost border-navy text-navy hover:bg-lime-light"
+                      ? "bg-navy border-navy text-snow shadow-[3px_3px_0_0_#0F0F2D]"
+                      : "bg-ghost border-navy text-navy hover:bg-ghost-light"
                   }`}
                 >
                   {v}
@@ -156,7 +156,7 @@ export default function CalendarPage() {
 
             {loading ? (
               <div className="flex items-center justify-center h-[520px]">
-                <div className="w-10 h-10 border-[4px] border-navy border-t-lime rounded-full animate-spin" />
+                <div className="w-10 h-10 border-[3px] border-navy border-t-lime rounded-full animate-spin" />
               </div>
             ) : (
               <div className="p-4 calendar-wrapper">
@@ -180,7 +180,7 @@ export default function CalendarPage() {
           {/* Side panel */}
           <div className="space-y-5">
             {/* Legend */}
-            <div className="bg-snow border-[4px] border-navy rounded-3xl p-5 shadow-[3px_3px_0_0_#000]">
+            <div className="bg-snow border-[3px] border-navy rounded-3xl p-5 shadow-[3px_3px_0_0_#000]">
               <p className="font-display font-black text-navy text-sm uppercase tracking-wider mb-3">Categories</p>
               <div className="space-y-2">
                 {Object.entries(CATEGORY_COLORS).map(([cat, c]) => (
@@ -196,8 +196,8 @@ export default function CalendarPage() {
             </div>
 
             {/* Upcoming events */}
-            <div className="bg-navy border-[4px] border-lime rounded-3xl p-5 shadow-[4px_4px_0_0_#C8F31D]">
-              <p className="font-display font-black text-lime text-sm uppercase tracking-wider mb-3">
+            <div className="bg-navy border-[3px] border-ghost/20 rounded-3xl p-5">
+              <p className="font-display font-black text-snow text-sm uppercase tracking-wider mb-3">
                 Upcoming
               </p>
               {upcomingEvents.length === 0 ? (
@@ -210,7 +210,7 @@ export default function CalendarPage() {
                       onClick={() => setSelectedEvent(e.resource)}
                       className="w-full text-left group"
                     >
-                      <p className="text-snow text-sm font-display font-black group-hover:text-lime transition-colors line-clamp-1">
+                      <p className="text-snow text-sm font-display font-black group-hover:text-snow transition-colors line-clamp-1">
                         {e.title}
                       </p>
                       <p className="text-slate text-xs font-normal mt-0.5">
@@ -232,7 +232,7 @@ export default function CalendarPage() {
           onClick={() => setSelectedEvent(null)}
         >
           <div
-            className="bg-snow border-[4px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] w-full max-w-lg"
+            className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] w-full max-w-lg"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal header */}

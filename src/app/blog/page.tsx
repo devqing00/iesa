@@ -84,7 +84,7 @@ export default function BlogPage() {
   return (
     <div className="min-h-screen bg-ghost text-navy overflow-x-hidden">
       {/* Diamond sparkle decorators */}
-      <svg className="fixed top-20 left-[8%] w-6 h-6 text-lime/20 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed top-20 left-[8%] w-6 h-6 text-navy/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
       <svg className="fixed top-[40%] right-[12%] w-7 h-7 text-coral/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
@@ -96,14 +96,11 @@ export default function BlogPage() {
 
       <Header />
 
-      <main className="pt-28 pb-20">
+      <main className="pt-14 sm:pt-16 pb-12">
         {/* ── Hero ── */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
-          <div className="inline-flex items-center gap-2 bg-coral border-[3px] border-navy rounded-full px-3 py-1 mb-6">
-            <span className="text-[10px] font-display font-black text-navy uppercase tracking-widest">Association Press</span>
-          </div>
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12 pt-12">
           <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[5rem] leading-[0.9] text-navy mb-4">
-            <span className="brush-highlight">IESA Blog</span>
+            IESA Blog
           </h1>
           <p className="text-lg text-slate max-w-2xl">
             Stories, features, and perspectives from the Industrial Engineering Students&apos; Association.
@@ -123,7 +120,7 @@ export default function BlogPage() {
                 placeholder="Search articles..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-snow border-[3px] border-navy rounded-2xl font-display text-sm text-navy placeholder:text-slate/60 focus:outline-none focus:ring-2 focus:ring-lime shadow-[3px_3px_0_0_#000]"
+                className="w-full pl-10 pr-4 py-3 bg-snow border-[2px] border-navy rounded-2xl font-display text-sm text-navy placeholder:text-slate/60 focus:outline-none focus:ring-2 focus:ring-lime shadow-[3px_3px_0_0_#000]"
               />
             </div>
           </div>
@@ -136,7 +133,7 @@ export default function BlogPage() {
                 onClick={() => setActiveCategory(cat)}
                 className={`px-4 py-1.5 text-[11px] font-display font-bold uppercase tracking-wider rounded-xl border-[2px] transition-all ${
  activeCategory === cat
- ?"bg-navy text-lime border-navy press-3 press-lime"
+ ?"bg-navy text-snow border-navy press-3 press-navy"
  :"bg-snow text-navy border-navy/20 hover:border-navy"
  }`}
               >
@@ -151,7 +148,7 @@ export default function BlogPage() {
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="bg-snow border-[4px] border-navy/10 rounded-3xl p-6 animate-pulse">
+                <div key={i} className="bg-snow border-[2px] border-navy/10 rounded-3xl p-6 animate-pulse">
                   <div className="h-40 bg-cloud rounded-2xl mb-4" />
                   <div className="h-4 bg-cloud rounded w-1/3 mb-3" />
                   <div className="h-6 bg-cloud rounded w-3/4 mb-2" />
@@ -160,7 +157,7 @@ export default function BlogPage() {
               ))}
             </div>
           ) : articles.length === 0 ? (
-            <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 shadow-[3px_3px_0_0_#000] text-center">
+            <div className="bg-snow border-[2px] border-navy rounded-3xl p-12 shadow-[3px_3px_0_0_#000] text-center">
               <svg className="w-16 h-16 text-slate/30 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
@@ -172,7 +169,7 @@ export default function BlogPage() {
               {/* Featured Article (first one) */}
               {featured && (
                 <Link href={`/blog/${featured.slug}`} className="block mb-8 group">
-                  <div className="bg-lime border-[6px] border-navy rounded-3xl overflow-hidden press-4 press-black transition-all rotate-[-0.5deg] hover:rotate-0">
+                  <div className="bg-lime border-[2px] border-navy rounded-3xl overflow-hidden press-4 press-black transition-all rotate-[-0.5deg] hover:rotate-0">
                     <div className="grid grid-cols-1 lg:grid-cols-2">
                       {/* Cover image */}
                       <div className="relative h-64 lg:h-80">
@@ -242,7 +239,7 @@ export default function BlogPage() {
                   const rotation = idx % 3 === 0 ? "rotate-[-0.5deg]" : idx % 3 === 1 ? "rotate-[0.5deg]" : "";
                   return (
                     <Link key={article._id} href={`/blog/${article.slug}`} className="block group">
-                      <div className={`bg-snow border-[4px] border-navy rounded-3xl overflow-hidden press-4 press-black transition-all ${rotation} hover:rotate-0 h-full flex flex-col`}>
+                      <div className={`bg-snow border-[2px] border-navy rounded-3xl overflow-hidden press-4 press-black transition-all ${rotation} hover:rotate-0 h-full flex flex-col`}>
                         {/* Cover */}
                         <div className="relative h-44">
                           {article.coverImageUrl ? (

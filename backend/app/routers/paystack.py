@@ -9,7 +9,7 @@ Features:
 - Payment receipt generation
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Header, Request
+from fastapi import APIRouter, HTTPException, Depends, Header, Request, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, validator
 from typing import Optional, List
@@ -115,11 +115,11 @@ async def initialize_payment(
             raise HTTPException(status_code=404, detail="Payment not found")
         
         # Check if already paid
-        if current_user["uid"] in payment.get("paidBy", []):
+        if current_user["_id"] in payment.get("paidBy", []):
             raise HTTPException(status_code=400, detail="You have already paid this due")
         
         # Generate unique reference
-        reference = generate_payment_reference(current_user["uid"])
+        reference = generate_payment_reference(current_user["_id"])
         
         # Convert to kobo (Paystack uses kobo)
         amount_kobo = int(payment_request.amount * 100)
@@ -131,7 +131,7 @@ async def initialize_payment(
             "reference": reference,
             "callback_url": f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/dashboard/payments/verify?reference={reference}",
             "metadata": {
-                "studentId": current_user["uid"],
+                "studentId": current_user["_id"],
                 "studentName": current_user.get("displayName", current_user.get("email", "Unknown")),
                 "studentEmail": current_user.get("email", "student@example.com"),
                 "paymentId": payment_request.paymentId,
@@ -176,11 +176,11 @@ async def initialize_payment(
         # Store transaction record
         transaction_record = {
             "reference": reference,
-            "paymentId": request.paymentId,
-            "studentId": current_user["uid"],
+            "paymentId": payment_request.paymentId,
+            "studentId": current_user["_id"],
             "studentName": current_user.get("displayName", current_user.get("email", "Unknown")),
             "studentEmail": current_user.get("email", "student@example.com"),
-            "amount": request.amount,
+            "amount": payment_request.amount,
             "amountKobo": amount_kobo,
             "status": "pending",
             "paystackData": {
@@ -198,7 +198,7 @@ async def initialize_payment(
             reference=reference,
             authorizationUrl=data["authorization_url"],
             accessCode=data["access_code"],
-            amount=request.amount,
+            amount=payment_request.amount,
             status="pending"
         )
         
@@ -236,7 +236,7 @@ async def verify_payment(
             raise HTTPException(status_code=404, detail="Transaction not found")
         
         # Verify ownership
-        if transaction["studentId"] != current_user["uid"]:
+        if transaction["studentId"] != current_user["_id"]:
             raise HTTPException(status_code=403, detail="Not authorized to access this transaction")
         
         # If already verified as success, return cached result
@@ -289,26 +289,38 @@ async def verify_payment(
             update_data["channel"] = data.get("channel")
             update_data["amountPaid"] = data["amount"] / 100  # Convert from kobo
             
-            # Update payment's paidBy array
-            payment_id = transaction["paymentId"]
-            await db.payments.update_one(
-                {"_id": ObjectId(payment_id)},
-                {
-                    "$addToSet": {"paidBy": current_user["uid"]},
-                    "$set": {"updatedAt": datetime.utcnow()}
-                }
-            )
-            
-            # Also create a transaction record in the transactions collection
-            await db.transactions.insert_one({
-                "paymentId": payment_id,
-                "studentId": current_user["uid"],
-                "amount": transaction["amount"],
-                "method": "paystack",
-                "reference": reference,
-                "status": "verified",
-                "createdAt": datetime.utcnow()
+            # Update payment's paidBy array (if linked to a payment)
+            payment_id = transaction.get("paymentId")
+            if payment_id:
+                await db.payments.update_one(
+                    {"_id": ObjectId(payment_id)},
+                    {
+                        "$addToSet": {"paidBy": current_user["_id"]},
+                        "$set": {"updatedAt": datetime.utcnow()}
+                    }
+                )
+                
+                # Also create a transaction record in the transactions collection
+                await db.transactions.insert_one({
+                    "paymentId": payment_id,
+                    "studentId": current_user["_id"],
+                    "amount": transaction["amount"],
+                    "method": "paystack",
+                    "reference": reference,
+                    "status": "verified",
+                    "createdAt": datetime.utcnow()
             })
+            
+            # Handle event payment: auto-register user for the event
+            event_id = transaction.get("eventId")
+            if event_id:
+                await db.events.update_one(
+                    {"_id": ObjectId(event_id)},
+                    {
+                        "$addToSet": {"registrations": current_user["_id"]},
+                        "$set": {"updatedAt": datetime.utcnow()}
+                    }
+                )
         
         await db.paystackTransactions.update_one(
             {"reference": reference},
@@ -402,30 +414,42 @@ async def paystack_webhook(
                 {"$set": update_data}
             )
             
-            # Update payment's paidBy array
-            payment_id = transaction["paymentId"]
+            # Update payment's paidBy array (only for regular payments, not event-only payments)
+            payment_id = transaction.get("paymentId")
             student_id = transaction["studentId"]
             
-            await db.payments.update_one(
-                {"_id": ObjectId(payment_id)},
-                {
-                    "$addToSet": {"paidBy": student_id},
-                    "$set": {"updatedAt": datetime.utcnow()}
-                }
-            )
+            if payment_id:
+                await db.payments.update_one(
+                    {"_id": ObjectId(payment_id)},
+                    {
+                        "$addToSet": {"paidBy": student_id},
+                        "$set": {"updatedAt": datetime.utcnow()}
+                    }
+                )
+                
+                # Create transaction record
+                await db.transactions.insert_one({
+                    "paymentId": payment_id,
+                    "studentId": student_id,
+                    "amount": transaction["amount"],
+                    "method": "paystack",
+                    "reference": reference,
+                    "status": "verified",
+                    "createdAt": datetime.utcnow()
+                })
             
-            # Create transaction record
-            await db.transactions.insert_one({
-                "paymentId": payment_id,
-                "studentId": student_id,
-                "amount": transaction["amount"],
-                "method": "paystack",
-                "reference": reference,
-                "status": "verified",
-                "createdAt": datetime.utcnow()
-            })
+            # Handle event payment: auto-register user for the event
+            event_id = transaction.get("eventId")
+            if event_id:
+                await db.events.update_one(
+                    {"_id": ObjectId(event_id)},
+                    {
+                        "$addToSet": {"registrations": student_id},
+                        "$set": {"updatedAt": datetime.utcnow()}
+                    }
+                )
             
-            # Send receipt email asynchronously
+            # Send receipt email asynchronously with PDF attachment
             try:
                 payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
                 await send_payment_receipt(
@@ -434,7 +458,10 @@ async def paystack_webhook(
                     payment_title=payment.get("title", "IESA Payment") if payment else "IESA Payment",
                     amount=transaction["amount"],
                     reference=reference,
-                    date=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                    date=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                    student_email=transaction.get("studentEmail", "student@example.com"),
+                    student_level=transaction.get("studentLevel", "N/A"),
+                    transaction_id=str(transaction.get("_id", reference))
                 )
             except Exception as email_error:
                 # Log error but don't fail the payment
@@ -497,6 +524,162 @@ async def get_transactions(
         )
 
 
+@router.get("/receipt/data")
+async def get_receipt_data(
+    reference: str = Query(..., description="Transaction reference"),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get receipt data as JSON for web display.
+    Supports Paystack, bank transfer, and event payment receipts.
+    """
+    try:
+        from app.db import get_database
+        db = get_database()
+        
+        # Try Paystack transaction first
+        transaction = await db.paystackTransactions.find_one({"reference": reference})
+        receipt_type = "paystack"
+        
+        # If not found, try bank transfers
+        if not transaction:
+            transaction = await db.bankTransfers.find_one({"transactionReference": reference})
+            receipt_type = "bank_transfer"
+            
+            if not transaction:
+                raise HTTPException(status_code=404, detail="Transaction not found")
+            
+            # Check if approved
+            if transaction.get("status") != "approved":
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Receipt not available. Transfer status: {transaction.get('status', 'pending')}"
+                )
+        
+        # Verify ownership
+        student_id = transaction.get("studentId")
+        if student_id != current_user["_id"]:
+            raise HTTPException(status_code=403, detail="Not authorized to access this receipt")
+        
+        # For Paystack, check status
+        if receipt_type == "paystack" and transaction.get("status") != "success":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Receipt not available. Payment status: {transaction.get('status', 'pending')}"
+            )
+        
+        # Check if this is an event payment
+        is_event_payment = False
+        event_data = None
+        metadata = transaction.get("metadata", {})
+        event_id = metadata.get("eventId") or transaction.get("eventId")
+        if event_id:
+            is_event_payment = True
+            event = await db.events.find_one({"_id": ObjectId(event_id)})
+            if event:
+                event_data = {
+                    "id": str(event["_id"]),
+                    "title": event.get("title", "Event"),
+                    "date": str(event.get("date", "")) if event.get("date") else None,
+                    "location": event.get("location", ""),
+                    "category": event.get("category", "General"),
+                }
+        
+        # Get payment details
+        payment_id = transaction.get("paymentId")
+        payment = None
+        if payment_id:
+            try:
+                payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+            except Exception:
+                pass
+        
+        # Get student details
+        student = await db.users.find_one({"uid": student_id})
+        if not student:
+            raise HTTPException(status_code=404, detail="Student not found")
+        
+        # Safely serialize date fields — convert datetime to ISO string
+        def safe_date(val):
+            if val is None:
+                return None
+            if hasattr(val, 'isoformat'):
+                return val.isoformat()
+            return str(val)
+        
+        tx_date = (
+            transaction.get("paidAt")
+            or transaction.get("reviewedAt")
+            or transaction.get("createdAt")
+        )
+        
+        # Determine title/category based on payment type
+        if is_event_payment and event_data:
+            payment_title = f"Event: {event_data['title']}"
+            payment_category = "Event Payment"
+        elif payment:
+            payment_title = payment.get("title", "Payment")
+            payment_category = payment.get("category", "General")
+        else:
+            payment_title = transaction.get("paymentTitle", "Payment")
+            payment_category = "General"
+        
+        receipt_data = {
+            "transactionId": str(transaction["_id"]),
+            "reference": reference,
+            "receiptType": receipt_type,
+            "isEventPayment": is_event_payment,
+            "event": event_data,
+            "student": {
+                "name": f"{student.get('firstName', '')} {student.get('lastName', '')}".strip() or transaction.get("studentName", "Unknown"),
+                "email": student.get("email", transaction.get("studentEmail", "")),
+                "matricNumber": student.get("matricNumber"),
+                "level": str(student.get("currentLevel") or student.get("level") or "N/A"),
+                "department": student.get("department", "Industrial Engineering"),
+            },
+            "payment": {
+                "title": payment_title,
+                "category": payment_category,
+                "amount": float(transaction.get("amount", 0)),
+                "description": payment.get("description") if payment else None,
+            },
+            "transaction": {
+                "method": "Online (Paystack)" if receipt_type == "paystack" else f"Bank Transfer ({transaction.get('senderBank', '')})",
+                "reference": reference,
+                "date": safe_date(tx_date),
+                "status": "Successful" if receipt_type == "paystack" or transaction.get("status") == "approved" else transaction.get("status", "Pending"),
+                "channel": transaction.get("channel", "Paystack") if receipt_type == "paystack" else "Bank Transfer",
+                "verifiedBy": transaction.get("verifiedBy") or transaction.get("reviewedBy"),
+                "bankAccount": {
+                    "bank": transaction.get("bankAccountBank"),
+                    "accountNumber": transaction.get("bankAccountNumber"),
+                    "accountName": transaction.get("bankAccountName"),
+                } if receipt_type == "bank_transfer" else None,
+            },
+        }
+        
+        return receipt_data
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch receipt data: {str(e)}"
+        )
+
+
+@router.get("/receipt/pdf")
+async def download_receipt_by_query(
+    reference: str = Query(..., description="Transaction reference"),
+    current_user: dict = Depends(get_current_user)
+):
+    """Download PDF receipt using query parameter (supports slashes in reference)."""
+    return await download_receipt(reference, current_user)
+
+
 @router.get("/receipt/{reference}")
 async def download_receipt(
     reference: str,
@@ -504,38 +687,86 @@ async def download_receipt(
 ):
     """
     Download PDF receipt for a successful payment.
-    Only available for verified transactions.
+    Supports both online payments (Paystack) and bank transfers.
     """
     try:
         from app.db import get_database
         db = get_database()
         
-        # Fetch transaction
+        print(f"[RECEIPT] Looking for transaction with reference: {reference}")
+        print(f"[RECEIPT] User ID: {current_user.get('_id')}")
+        
+        # Try paystackTransactions first (online payments)
         transaction = await db.paystackTransactions.find_one({"reference": reference})
+        payment_method = "Paystack"
+        
+        # If not found, check transactions collection (bank transfers)
+        if not transaction:
+            print(f"[RECEIPT] Not found in paystackTransactions, checking transactions...")
+            transaction = await db.transactions.find_one({"reference": reference})
+            payment_method = "Bank Transfer"
         
         if not transaction:
-            raise HTTPException(status_code=404, detail="Transaction not found")
+            print(f"[RECEIPT] Transaction not found in any collection for reference: {reference}")
+            # Debug: Show user's recent transactions
+            paystack_txns = await db.paystackTransactions.find(
+                {"studentId": current_user["_id"]}
+            ).limit(3).to_list(length=3)
+            other_txns = await db.transactions.find(
+                {"studentId": current_user["_id"]}
+            ).limit(3).to_list(length=3)
+            print(f"[RECEIPT] Paystack transactions: {len(paystack_txns)}")
+            print(f"[RECEIPT] Other transactions: {len(other_txns)}")
+            if paystack_txns:
+                print(f"[RECEIPT] Sample Paystack refs: {[t.get('reference') for t in paystack_txns]}")
+            if other_txns:
+                print(f"[RECEIPT] Sample other refs: {[t.get('reference') for t in other_txns]}")
+            raise HTTPException(status_code=404, detail=f"Transaction not found with reference: {reference}")
+        
+        print(f"[RECEIPT] Transaction found in {payment_method}: {transaction.get('_id')}, status: {transaction.get('status')}")
         
         # Verify ownership
-        if transaction["studentId"] != current_user["uid"]:
+        if transaction["studentId"] != current_user["_id"]:
+            print(f"[RECEIPT] Ownership mismatch")
             raise HTTPException(status_code=403, detail="Not authorized to access this receipt")
         
-        # Check if payment was successful
-        if transaction["status"] != "success":
+        # Check if payment was successful/verified
+        status = transaction.get("status")
+        if status not in ["success", "verified"]:
             raise HTTPException(
                 status_code=400,
-                detail=f"Receipt not available. Payment status: {transaction['status']}"
+                detail=f"Receipt not available. Payment status: {status}"
             )
         
         # Get payment details
-        payment = await db.payments.find_one({"_id": ObjectId(transaction["paymentId"])})
-        if not payment:
-            raise HTTPException(status_code=404, detail="Payment record not found")
+        payment_id = transaction.get("paymentId")
+        if payment_id:
+            payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+            if not payment:
+                print(f"[RECEIPT] Payment record not found: {payment_id}")
+                raise HTTPException(status_code=404, detail="Payment record not found")
+            payment_title = payment.get("title", "IESA Payment")
+            payment_category = payment.get("category", "Departmental Dues")
+        else:
+            # Event payment - get event details
+            event_id = transaction.get("eventId")
+            if event_id:
+                event = await db.events.find_one({"_id": ObjectId(event_id)})
+                payment_title = f"Event: {event.get('title', 'IESA Event')}" if event else "IESA Event"
+                payment_category = "Event Registration"
+            else:
+                payment_title = "IESA Payment"
+                payment_category = "Payment"
         
-        # Get student level (try to get from user profile or default)
+        print(f"[RECEIPT] Generating PDF for: {payment_title}")
+        
+        # Get student level
         student_level = current_user.get("level", "Unknown")
         if isinstance(student_level, int):
             student_level = str(student_level)
+        
+        # Get payment date
+        paid_at = transaction.get("paidAt") or transaction.get("createdAt") or datetime.utcnow()
         
         # Generate PDF receipt
         from ..utils.receipt_generator import generate_payment_receipt
@@ -545,12 +776,14 @@ async def download_receipt(
             student_name=transaction.get("studentName", current_user.get("displayName", "Unknown Student")),
             student_email=transaction.get("studentEmail", current_user.get("email", "student@example.com")),
             student_level=student_level,
-            payment_title=payment.get("title", "IESA Payment"),
+            payment_title=payment_title,
             amount=transaction["amount"],
-            paid_at=transaction.get("paidAt", datetime.utcnow()),
-            channel=transaction.get("channel", "Paystack"),
-            payment_type=payment.get("category", "Departmental Dues")
+            paid_at=paid_at,
+            channel=transaction.get("channel", payment_method),
+            payment_type=payment_category
         )
+        
+        print(f"[RECEIPT] PDF generated successfully")
         
         # Return PDF as downloadable file
         return StreamingResponse(
@@ -564,6 +797,9 @@ async def download_receipt(
     except HTTPException:
         raise
     except Exception as e:
+        print(f"[RECEIPT] Error generating receipt: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate receipt: {str(e)}"

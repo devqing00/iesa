@@ -80,7 +80,7 @@ export default function RegisterPage() {
     );
   }
 
-  const inputClass = "w-full px-4 py-3.5 bg-snow border-[3px] border-navy rounded-2xl text-navy font-display font-normal placeholder:text-slate focus:outline-none focus:border-lime focus:shadow-[3px_3px_0_0_#C8F31D] transition-all";
+  const inputClass = "w-full px-4 py-3.5 bg-snow border-[3px] border-navy rounded-2xl text-navy font-display font-normal placeholder:text-slate focus:outline-none focus:border-coral transition-all";
 
   return (
     <div className="min-h-screen bg-ghost flex">
@@ -89,13 +89,13 @@ export default function RegisterPage() {
         <div className="absolute inset-0 bg-dots opacity-20 pointer-events-none" />
 
         {/* Diamond Sparkles */}
-        <svg className="absolute top-16 left-[12%] w-5 h-5 text-lime/20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="absolute top-16 left-[12%] w-5 h-5 text-navy/12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
         <svg className="absolute bottom-24 right-[15%] w-4 h-4 text-coral/15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
         <svg className="absolute top-[60%] left-[8%] w-3 h-3 text-sunny/20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
 
         <div className="relative z-10 max-w-sm p-12 space-y-8">
           <div className="space-y-4">
-            <span className="font-display font-bold text-xs uppercase tracking-wider text-lime/60 flex items-center gap-2">
+            <span className="font-display font-bold text-xs uppercase tracking-wider text-snow/50 flex items-center gap-2">
               <span>&#10022;</span> Join IESA
             </span>
             <h2 className="font-display font-black text-3xl md:text-4xl text-snow">
@@ -109,7 +109,7 @@ export default function RegisterPage() {
           <div className="space-y-4">
             {["Access course materials", "Stay updated with events", "Connect with peers", "Track your progress"].map((benefit, i) => (
               <div key={i} className="flex items-center gap-3 text-snow/80">
-                <span className="text-lime/40">&#9670;</span>
+                <span className="text-snow/30">&#9670;</span>
                 <span className="font-display font-normal text-sm">{benefit}</span>
               </div>
             ))}
@@ -149,8 +149,8 @@ export default function RegisterPage() {
 
               <div className="space-y-2">
                 <label htmlFor="register-email" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Email</label>
-                <input id="register-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@stu.ui.edu.ng" required className={inputClass} />
-                <p className="text-xs text-slate">Must end with @stu.ui.edu.ng</p>
+                <input id="register-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@stu.ui.edu.ng/you@gmail.com" required className={inputClass} />
+                <p className="text-xs text-slate">Can use either institutional or personal email</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -186,7 +186,7 @@ export default function RegisterPage() {
 
               <div className="space-y-2">
                 <label htmlFor="register-matric-number" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Matric Number</label>
-                <input id="register-matric-number" type="text" value={matricNumber} onChange={(e) => { const value = e.target.value.replace(/\D/g, "").slice(0, 6); setMatricNumber(value); }} placeholder="236856" required maxLength={6} className={inputClass} />
+                <input id="register-matric-number" type="text" value={matricNumber} onChange={(e) => { const value = e.target.value.replace(/\D/g, "").slice(0, 6); setMatricNumber(value); }} placeholder="236123" required maxLength={6} className={inputClass} />
                 <p className="text-xs text-slate">6 digits only</p>
               </div>
 

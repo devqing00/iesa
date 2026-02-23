@@ -53,12 +53,13 @@ class EmailService:
     
     def _detect_provider(self) -> EmailProvider:
         """Auto-detect email provider based on environment variables"""
-        if os.getenv("SENDGRID_API_KEY"):
+        # Check SMTP first (prioritize Gmail/custom SMTP over third-party services)
+        if os.getenv("SMTP_HOST") and os.getenv("SMTP_USER") and os.getenv("SMTP_PASSWORD"):
+            return EmailProvider.SMTP
+        elif os.getenv("SENDGRID_API_KEY"):
             return EmailProvider.SENDGRID
         elif os.getenv("RESEND_API_KEY"):
             return EmailProvider.RESEND
-        elif os.getenv("SMTP_HOST"):
-            return EmailProvider.SMTP
         else:
             return EmailProvider.CONSOLE
     
@@ -84,13 +85,19 @@ class EmailService:
             self.provider = EmailProvider.CONSOLE
     
     def _init_smtp(self):
-        """Initialize SMTP client"""
+        """Initialize SMTP client (Gmail or other SMTP servers)"""
         import smtplib
-        self.smtp_host = os.getenv("SMTP_HOST")
-        self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        self.smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")  # Default to Gmail
+        self.smtp_port = int(os.getenv("SMTP_PORT", "587"))  # TLS port
         self.smtp_user = os.getenv("SMTP_USER")
-        self.smtp_password = os.getenv("SMTP_PASSWORD")
-        logger.info("✅ SMTP email provider initialized")
+        self.smtp_password = os.getenv("SMTP_PASSWORD")  # Gmail App Password
+        self.smtp_use_tls = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
+        
+        if not self.smtp_user or not self.smtp_password:
+            logger.error("❌ SMTP credentials not configured. Set SMTP_USER and SMTP_PASSWORD in .env")
+            self.provider = EmailProvider.CONSOLE
+        else:
+            logger.info(f"✅ SMTP email provider initialized (Host: {self.smtp_host}, Port: {self.smtp_port})")
     
     async def send_email(
         self,
@@ -119,7 +126,7 @@ class EmailService:
             elif self.provider == EmailProvider.RESEND:
                 return await self._send_resend(to, subject, html_content, text_content)
             elif self.provider == EmailProvider.SMTP:
-                return await self._send_smtp(to, subject, html_content, text_content)
+                return await self._send_smtp(to, subject, html_content, text_content, attachments)
             elif self.provider == EmailProvider.CONSOLE:
                 return await self._send_console(to, subject, html_content)
             
@@ -183,28 +190,63 @@ class EmailService:
         
         return success
     
-    async def _send_smtp(self, to, subject, html_content, text_content):
-        """Send email via SMTP"""
+    async def _send_smtp(self, to, subject, html_content, text_content, attachments=None):
+        """Send email via SMTP (Gmail or other providers)"""
         import smtplib
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
+        from email.mime.application import MIMEApplication
         
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = f"{self.from_name} <{self.from_email}>"
-        msg["To"] = to
-        
-        if text_content:
-            msg.attach(MIMEText(text_content, "plain"))
-        msg.attach(MIMEText(html_content, "html"))
-        
-        with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-            server.starttls()
-            server.login(self.smtp_user, self.smtp_password)
-            server.send_message(msg)
-        
-        logger.info(f"✅ Email sent to {to} via SMTP")
-        return True
+        try:
+            msg = MIMEMultipart("mixed")
+            msg["Subject"] = subject
+            msg["From"] = f"{self.from_name} <{self.smtp_user}>"  # Use SMTP user as sender
+            msg["To"] = to
+            
+            # Create alternative part for text and HTML
+            msg_alternative = MIMEMultipart("alternative")
+            
+            # Attach plain text and HTML parts
+            if text_content:
+                msg_alternative.attach(MIMEText(text_content, "plain", "utf-8"))
+            msg_alternative.attach(MIMEText(html_content, "html", "utf-8"))
+            
+            msg.attach(msg_alternative)
+            
+            # Attach files (PDF receipts, etc.)
+            if attachments:
+                for attachment in attachments:
+                    part = MIMEApplication(attachment["content"], _subtype=attachment.get("subtype", "pdf"))
+                    part.add_header(
+                        "Content-Disposition",
+                        "attachment",
+                        filename=attachment["filename"]
+                    )
+                    msg.attach(part)
+            
+            # Connect and send
+            with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=10) as server:
+                server.set_debuglevel(0)  # Set to 1 for debugging
+                
+                if self.smtp_use_tls:
+                    server.starttls()
+                
+                server.login(self.smtp_user, self.smtp_password)
+                server.send_message(msg)
+            
+            logger.info(f"✅ Email sent to {to} via SMTP ({self.smtp_host})")
+            return True
+            
+        except smtplib.SMTPAuthenticationError as e:
+            logger.error(f"❌ SMTP Authentication failed: {str(e)}")
+            logger.error("   Check your SMTP_USER and SMTP_PASSWORD (use App Password for Gmail)")
+            return False
+        except smtplib.SMTPException as e:
+            logger.error(f"❌ SMTP error: {str(e)}")
+            return False
+        except Exception as e:
+            logger.error(f"❌ Failed to send email via SMTP: {str(e)}")
+            return False
     
     async def _send_console(self, to, subject, html_content):
         """Print email to console (development)"""
@@ -252,8 +294,12 @@ class EmailService:
                     <p><strong>Amount:</strong> ₦{context.get('amount'):,.2f}</p>
                     <p><strong>Reference:</strong> {context.get('reference')}</p>
                     <p><strong>Date:</strong> {context.get('date')}</p>
-                </p>
+                </div>
                 <p>Thank you for your payment!</p>
+                <p style="background: #E8F5E9; padding: 12px; border-radius: 6px; border-left: 4px solid #1E4528;">
+                    📎 <strong>Your official receipt is attached as a PDF.</strong><br>
+                    <small>Please keep this receipt for your records.</small>
+                </p>
                 <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
                 <p style="color: #666; font-size: 12px;">
                     Industrial Engineering Students' Association<br>
@@ -422,21 +468,62 @@ async def send_payment_receipt(
     payment_title: str,
     amount: float,
     reference: str,
-    date: str
+    date: str,
+    student_email: str = None,
+    student_level: str = "N/A",
+    transaction_id: str = None
 ):
-    """Send a payment receipt email"""
+    """Send a payment receipt email with PDF attachment"""
+    from datetime import datetime
+    from ..utils.receipt_generator import ReceiptGenerator
+    
     service = get_email_service()
-    return await service.send_template_email(
-        to=to,
-        template=EmailTemplate.PAYMENT_RECEIPT,
-        context={
-            "student_name": student_name,
-            "payment_title": payment_title,
-            "amount": amount,
-            "reference": reference,
-            "date": date
-        }
-    )
+    
+    # Generate PDF receipt
+    pdf_buffer = None
+    try:
+        generator = ReceiptGenerator()
+        pdf_buffer = generator.generate_receipt(
+            transaction_id=transaction_id or reference,
+            reference=reference,
+            student_name=student_name,
+            student_email=student_email or to,
+            student_level=student_level,
+            payment_title=payment_title,
+            amount=amount,
+            paid_at=datetime.now(),
+            channel="Paystack",
+            payment_type=payment_title
+        )
+    except Exception as e:
+        logger.error(f"Failed to generate PDF receipt: {e}")
+        # Continue without PDF if generation fails
+    
+    # Prepare email context
+    context = {
+        "student_name": student_name,
+        "payment_title": payment_title,
+        "amount": amount,
+        "reference": reference,
+        "date": date
+    }
+    
+    # Render template
+    subject, html = service._render_template(EmailTemplate.PAYMENT_RECEIPT, context)
+    
+    # Prepare attachments
+    attachments = None
+    if pdf_buffer:
+        pdf_buffer.seek(0)
+        attachments = [{
+            "content": pdf_buffer.read(),
+            "filename": f"IESA_Receipt_{reference}.pdf",
+            "type": "application/pdf",
+            "subtype": "pdf"
+        }]
+    
+    # Send email with attachment
+    return await service.send_email(to, subject, html, attachments=attachments)
 
 
 async def send_welcome_email(to: str, name: str, dashboard_url: str):

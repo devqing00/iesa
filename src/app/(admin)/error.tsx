@@ -40,7 +40,7 @@ export default function AdminError({
           <button onClick={reset} className="px-6 py-2.5 bg-lime border-[3px] border-navy rounded-2xl font-display font-bold text-sm text-navy press-3 press-navy transition-all">
             Try Again
           </button>
-          <a href="/admin/dashboard" className="px-6 py-2.5 bg-transparent border-[3px] border-navy rounded-2xl font-display font-bold text-sm text-navy hover:bg-navy hover:text-lime transition-all">
+          <a href="/admin/dashboard" className="px-6 py-2.5 bg-transparent border-[3px] border-navy rounded-2xl font-display font-bold text-sm text-navy hover:bg-navy hover:text-snow transition-all">
             Admin Home
           </a>
         </div>

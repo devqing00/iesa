@@ -312,7 +312,7 @@ export default function GrowthPage() {
         {/* ═══ BENTO HERO ═══ */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-8">
           {/* Title card */}
-          <div className="lg:col-span-7 bg-lime border-[5px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[200px] flex flex-col justify-between">
+          <div className="lg:col-span-7 bg-lime border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[200px] flex flex-col justify-between">
             <div className="absolute -bottom-14 -right-14 w-40 h-40 rounded-full bg-navy/8 pointer-events-none" />
             <svg className="absolute top-8 right-12 w-5 h-5 text-navy/12 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
@@ -352,7 +352,7 @@ export default function GrowthPage() {
 
           {/* Quick stats cards */}
           <div className="lg:col-span-5 grid grid-cols-2 gap-3">
-            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
+            <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-lavender-light flex items-center justify-center mb-3">
                 <svg className="w-4.5 h-4.5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75zM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 01-1.875-1.875V8.625zM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 013 19.875v-6.75z" />
@@ -362,7 +362,7 @@ export default function GrowthPage() {
               <p className="font-display font-black text-3xl text-navy">{stats.latestGpa > 0 ? stats.latestGpa.toFixed(2) : "--"}</p>
             </div>
 
-            <div className="bg-teal-light border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+            <div className="bg-teal-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-teal/20 flex items-center justify-center mb-3">
                 <svg className="w-4.5 h-4.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
@@ -372,7 +372,7 @@ export default function GrowthPage() {
               <p className="font-display font-black text-3xl text-navy">{stats.tasksCompleted}</p>
             </div>
 
-            <div className="bg-coral-light border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+            <div className="bg-coral-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-coral/20 flex items-center justify-center mb-3">
                 <svg className="w-4.5 h-4.5 text-coral" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M12.963 2.286a.75.75 0 00-1.071-.136 9.742 9.742 0 00-3.539 6.177A7.547 7.547 0 016.648 6.61a.75.75 0 00-1.152-.082A9 9 0 1015.68 4.534a7.46 7.46 0 01-2.717-2.248zM15.75 14.25a3.75 3.75 0 11-7.313-1.172c.628.465 1.35.81 2.133 1a5.99 5.99 0 011.925-3.545 3.75 3.75 0 013.255 3.717z" clipRule="evenodd" />
@@ -383,7 +383,7 @@ export default function GrowthPage() {
             </div>
 
             {stats.goalsActive + stats.goalsCompleted > 0 ? (
-              <div className="bg-sunny-light border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
+              <div className="bg-sunny-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
                 <div className="w-9 h-9 rounded-xl bg-sunny/20 flex items-center justify-center mb-3">
                   <svg className="w-4.5 h-4.5 text-sunny" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
@@ -393,7 +393,7 @@ export default function GrowthPage() {
                 <p className="font-display font-black text-3xl text-navy">{stats.goalsCompleted}<span className="text-base text-slate ml-0.5">/{stats.goalsActive + stats.goalsCompleted}</span></p>
               </div>
             ) : (
-              <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
+              <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
                 <div className="w-9 h-9 rounded-xl bg-cloud flex items-center justify-center mb-3">
                   <svg className="w-4.5 h-4.5 text-slate" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
@@ -420,7 +420,7 @@ export default function GrowthPage() {
                 <Link
                   key={tool.id}
                   href={tool.href}
-                  className={`group bg-snow border-[4px] border-navy rounded-3xl press-4 press-black transition-all overflow-hidden ${rotation}`}
+                  className={`group bg-snow border-[3px] border-navy rounded-3xl press-4 press-black transition-all overflow-hidden ${rotation}`}
                 >
                   <div className={`${tool.color.bg} px-6 py-4 border-b-[4px] border-navy flex items-center justify-between`}>
                     <span className="font-display font-bold text-[10px] text-navy/40 uppercase tracking-[0.15em]">
@@ -452,10 +452,10 @@ export default function GrowthPage() {
         </div>
 
         {/* ═══ MOTIVATION CARD ═══ */}
-        <div className="bg-navy border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+        <div className="bg-navy border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-lime/15 flex items-center justify-center shrink-0">
-              <svg className="w-6 h-6 text-lime" fill="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 rounded-2xl bg-teal/15 flex items-center justify-center shrink-0">
+              <svg className="w-6 h-6 text-snow" fill="currentColor" viewBox="0 0 24 24">
                 <path fillRule="evenodd" d="M15.22 6.268a.75.75 0 01.968-.432l5.942 2.28a.75.75 0 01.431.97l-2.28 5.941a.75.75 0 11-1.4-.537l1.63-4.251-1.086.483a11.2 11.2 0 00-5.45 5.174.75.75 0 01-1.199.19L9 12.31l-6.22 6.22a.75.75 0 11-1.06-1.06l6.75-6.75a.75.75 0 011.06 0l3.606 3.605a12.694 12.694 0 015.68-4.973l1.086-.484-4.251-1.631a.75.75 0 01-.432-.97z" clipRule="evenodd" />
               </svg>
             </div>

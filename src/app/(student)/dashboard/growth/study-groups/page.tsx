@@ -304,7 +304,7 @@ export default function StudyGroupFinderPage() {
 
     return (
       <div
-        className={`bg-snow border-[4px] border-navy rounded-3xl p-5 press-4 press-black cursor-pointer transition-all ${
+        className={`bg-snow border-[3px] border-navy rounded-3xl p-5 press-4 press-black cursor-pointer transition-all ${
  member ?"ring-4 ring-lime/40" :""
  }`}
         onClick={() => {
@@ -316,7 +316,7 @@ export default function StudyGroupFinderPage() {
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="bg-navy text-lime text-label-sm px-2 py-0.5 rounded-lg font-bold">
+              <span className="bg-navy text-snow text-label-sm px-2 py-0.5 rounded-lg font-bold">
                 {group.courseCode}
               </span>
               {group.level && (
@@ -411,7 +411,7 @@ export default function StudyGroupFinderPage() {
         {/* Back */}
         <button
           onClick={() => setView("browse")}
-          className="flex items-center gap-2 text-navy font-bold hover:text-lime transition-colors"
+          className="flex items-center gap-2 text-navy font-bold hover:text-snow transition-colors"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -420,11 +420,11 @@ export default function StudyGroupFinderPage() {
         </button>
 
         {/* Main card */}
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
+        <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="bg-navy text-lime text-label px-3 py-1 rounded-xl font-bold">
+                <span className="bg-navy text-snow text-label px-3 py-1 rounded-xl font-bold">
                   {g.courseCode}
                 </span>
                 {g.level && (
@@ -448,7 +448,7 @@ export default function StudyGroupFinderPage() {
                 <button
                   onClick={() => joinGroup(g.id)}
                   disabled={actionLoading}
-                  className="bg-lime border-[4px] border-navy press-3 press-navy px-6 py-3 rounded-2xl font-display text-base text-navy transition-all disabled:opacity-50"
+                  className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-3 rounded-2xl font-display text-base text-navy transition-all disabled:opacity-50"
                 >
                   {actionLoading ? "..." : "Join Group"}
                 </button>
@@ -536,7 +536,7 @@ export default function StudyGroupFinderPage() {
                   key={m.userId}
                   className="flex items-center gap-3 bg-ghost rounded-xl px-4 py-3"
                 >
-                  <div className="w-8 h-8 rounded-full bg-navy text-lime flex items-center justify-center font-display font-bold text-sm">
+                  <div className="w-8 h-8 rounded-full bg-navy text-snow flex items-center justify-center font-display font-bold text-sm">
                     {m.firstName?.[0]}
                     {m.lastName?.[0]}
                   </div>
@@ -544,7 +544,7 @@ export default function StudyGroupFinderPage() {
                     <p className="font-medium text-navy text-sm truncate">
                       {m.firstName} {m.lastName}
                       {m.userId === g.createdBy && (
-                        <span className="text-label-sm text-lime ml-1">(Creator)</span>
+                        <span className="text-label-sm text-snow ml-1">(Creator)</span>
                       )}
                     </p>
                     {m.matricNumber && (
@@ -570,7 +570,7 @@ export default function StudyGroupFinderPage() {
     <div className="space-y-6">
       <button
         onClick={() => setView("browse")}
-        className="flex items-center gap-2 text-navy font-bold hover:text-lime transition-colors"
+        className="flex items-center gap-2 text-navy font-bold hover:text-snow transition-colors"
       >
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -578,7 +578,7 @@ export default function StudyGroupFinderPage() {
         Back
       </button>
 
-      <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
+      <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
         <h2 className="font-display font-black text-navy text-2xl mb-6">Create Study Group</h2>
 
         <div className="space-y-4">
@@ -592,7 +592,7 @@ export default function StudyGroupFinderPage() {
               onChange={(e) => setFormName(e.target.value)}
               placeholder="e.g. Operations Research Study Squad"
               maxLength={100}
-              className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-lime focus:outline-none transition-colors"
+              className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors"
             />
           </div>
 
@@ -607,7 +607,7 @@ export default function StudyGroupFinderPage() {
                 onChange={(e) => setFormCourseCode(e.target.value.toUpperCase())}
                 placeholder="e.g. IEN 401"
                 maxLength={20}
-                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-lime focus:outline-none transition-colors"
+                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors"
               />
             </div>
             <div>
@@ -617,7 +617,7 @@ export default function StudyGroupFinderPage() {
                 onChange={(e) => setFormCourseName(e.target.value)}
                 placeholder="e.g. Operations Research I"
                 maxLength={200}
-                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-lime focus:outline-none transition-colors"
+                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors"
               />
             </div>
           </div>
@@ -631,7 +631,7 @@ export default function StudyGroupFinderPage() {
               placeholder="What will this group focus on? Study goals, expectations..."
               maxLength={500}
               rows={3}
-              className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-lime focus:outline-none transition-colors resize-none"
+              className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors resize-none"
             />
           </div>
 
@@ -642,7 +642,7 @@ export default function StudyGroupFinderPage() {
               <select
                 value={formLevel}
                 onChange={(e) => setFormLevel(e.target.value)}
-                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-lime focus:outline-none transition-colors bg-white"
+                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors bg-white"
               >
                 <option value="">Any level</option>
                 {LEVELS.map((l) => (
@@ -658,7 +658,7 @@ export default function StudyGroupFinderPage() {
                 onChange={(e) => setFormMaxMembers(Math.max(2, Math.min(20, Number(e.target.value))))}
                 min={2}
                 max={20}
-                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-lime focus:outline-none transition-colors"
+                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors"
               />
             </div>
           </div>
@@ -670,7 +670,7 @@ export default function StudyGroupFinderPage() {
               <select
                 value={formMeetingDay}
                 onChange={(e) => setFormMeetingDay(e.target.value)}
-                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-lime focus:outline-none transition-colors bg-white"
+                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors bg-white"
               >
                 <option value="">Select day</option>
                 {DAYS.map((d) => (
@@ -684,7 +684,7 @@ export default function StudyGroupFinderPage() {
                 type="time"
                 value={formMeetingTime}
                 onChange={(e) => setFormMeetingTime(e.target.value)}
-                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-lime focus:outline-none transition-colors"
+                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors"
               />
             </div>
             <div>
@@ -694,7 +694,7 @@ export default function StudyGroupFinderPage() {
                 onChange={(e) => setFormMeetingLocation(e.target.value)}
                 placeholder="e.g. Room 204, IE Building"
                 maxLength={200}
-                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-lime focus:outline-none transition-colors"
+                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors"
               />
             </div>
           </div>
@@ -706,7 +706,7 @@ export default function StudyGroupFinderPage() {
               value={formTags}
               onChange={(e) => setFormTags(e.target.value)}
               placeholder="e.g. exam prep, linear programming, tutorials"
-              className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-lime focus:outline-none transition-colors"
+              className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors"
             />
           </div>
 
@@ -714,7 +714,7 @@ export default function StudyGroupFinderPage() {
           <button
             onClick={createGroup}
             disabled={actionLoading}
-            className="bg-lime border-[4px] border-navy press-3 press-navy px-8 py-4 rounded-2xl font-display text-lg text-navy transition-all disabled:opacity-50 w-full sm:w-auto"
+            className="bg-lime border-[3px] border-navy press-3 press-navy px-8 py-4 rounded-2xl font-display text-lg text-navy transition-all disabled:opacity-50 w-full sm:w-auto"
           >
             {actionLoading ? "Creating..." : "Create Study Group"}
           </button>
@@ -732,7 +732,7 @@ export default function StudyGroupFinderPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Toast */}
         {toast && (
-          <div className="fixed top-6 right-6 z-50 bg-navy text-lime px-5 py-3 rounded-2xl border-[3px] border-lime shadow-[4px_4px_0_0_#C8F31D] font-display text-sm animate-bounce">
+          <div className="fixed top-6 right-6 z-50 bg-navy text-snow px-5 py-3 rounded-2xl border-[3px] border-ghost/20 font-display text-sm animate-bounce">
             {toast}
           </div>
         )}
@@ -741,7 +741,7 @@ export default function StudyGroupFinderPage() {
         <div className="flex items-center justify-between mb-6">
           <Link
             href="/dashboard/growth"
-            className="inline-flex items-center gap-2 text-navy font-bold hover:text-lime transition-colors"
+            className="inline-flex items-center gap-2 text-navy font-bold hover:text-snow transition-colors"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -764,7 +764,7 @@ export default function StudyGroupFinderPage() {
               resetForm();
               setView("create");
             }}
-            className="bg-lime border-[4px] border-navy press-3 press-navy px-6 py-3 rounded-2xl font-display text-base text-navy transition-all"
+            className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-3 rounded-2xl font-display text-base text-navy transition-all"
           >
             + New Group
           </button>
@@ -777,7 +777,7 @@ export default function StudyGroupFinderPage() {
               onClick={() => setView("browse")}
               className={`px-5 py-2.5 rounded-xl font-display text-sm border-[3px] transition-all ${
                 view === "browse"
-                  ? "bg-navy text-lime border-navy"
+                  ? "bg-navy text-snow border-navy"
                   : "bg-snow text-navy border-navy/20 hover:border-navy"
               }`}
             >
@@ -787,7 +787,7 @@ export default function StudyGroupFinderPage() {
               onClick={() => setView("my-groups")}
               className={`px-5 py-2.5 rounded-xl font-display text-sm border-[3px] transition-all ${
                 view === "my-groups"
-                  ? "bg-navy text-lime border-navy"
+                  ? "bg-navy text-snow border-navy"
                   : "bg-snow text-navy border-navy/20 hover:border-navy"
               }`}
             >
@@ -815,13 +815,13 @@ export default function StudyGroupFinderPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search groups by name, course, or tags..."
-                  className="w-full pl-12 pr-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-lime focus:outline-none transition-colors"
+                  className="w-full pl-12 pr-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors"
                 />
               </div>
               <select
                 value={filterLevel}
                 onChange={(e) => setFilterLevel(e.target.value)}
-                className="px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-lime focus:outline-none transition-colors bg-white min-w-[140px]"
+                className="px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors bg-white min-w-[140px]"
               >
                 <option value="">All levels</option>
                 {LEVELS.map((l) => (
@@ -837,7 +837,7 @@ export default function StudyGroupFinderPage() {
                 <p className="text-slate">Loading groups...</p>
               </div>
             ) : groups.length === 0 ? (
-              <div className="bg-snow border-[4px] border-navy/10 rounded-3xl p-12 text-center">
+              <div className="bg-snow border-[3px] border-navy/10 rounded-3xl p-12 text-center">
                 <svg className="w-16 h-16 mx-auto text-cloud mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
                 </svg>
@@ -850,7 +850,7 @@ export default function StudyGroupFinderPage() {
                     resetForm();
                     setView("create");
                   }}
-                  className="bg-lime border-[4px] border-navy press-3 press-navy px-6 py-3 rounded-2xl font-display text-navy transition-all"
+                  className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-3 rounded-2xl font-display text-navy transition-all"
                 >
                   + Create Study Group
                 </button>
@@ -869,12 +869,12 @@ export default function StudyGroupFinderPage() {
         {view === "my-groups" && (
           <div className="space-y-6">
             {myGroups.length === 0 ? (
-              <div className="bg-snow border-[4px] border-navy/10 rounded-3xl p-12 text-center">
+              <div className="bg-snow border-[3px] border-navy/10 rounded-3xl p-12 text-center">
                 <p className="text-navy font-display font-bold text-lg mb-2">You haven&apos;t joined any groups yet</p>
                 <p className="text-slate mb-4">Browse available groups or create your own!</p>
                 <button
                   onClick={() => setView("browse")}
-                  className="bg-transparent border-[3px] border-navy px-6 py-3 rounded-xl font-display text-navy hover:bg-navy hover:text-lime transition-all"
+                  className="bg-transparent border-[3px] border-navy px-6 py-3 rounded-xl font-display text-navy hover:bg-navy hover:text-snow transition-all"
                 >
                   Browse Groups
                 </button>

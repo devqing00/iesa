@@ -26,6 +26,7 @@ interface Resource {
   downloadCount: number;
   viewCount: number;
   isApproved: boolean;
+  feedback?: string;
   createdAt: string;
 }
 
@@ -54,7 +55,7 @@ const typeAccents: Record<string, { bg: string; text: string }> = {
   pastQuestion: { bg: "bg-coral", text: "text-snow" },
   note: { bg: "bg-teal", text: "text-snow" },
   textbook: { bg: "bg-sunny", text: "text-navy" },
-  video: { bg: "bg-navy", text: "text-lime" },
+  video: { bg: "bg-navy", text: "text-snow" },
 };
 
 const cardRotations = ["", "rotate-[0.4deg]", "rotate-[-0.3deg]", "", "rotate-[0.3deg]", "rotate-[-0.4deg]"];
@@ -78,7 +79,8 @@ export default function LibraryPage() {
   const [levelFilter, setLevelFilter] = useState<number | "all">("all");
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [hasUploadPermission, setHasUploadPermission] = useState(false);
+  const [mySubmissions, setMySubmissions] = useState<Resource[]>([]);
+  const [showMySubmissions, setShowMySubmissions] = useState(false);
   const toast = useToast();
 
   const [uploadForm, setUploadForm] = useState({
@@ -94,26 +96,24 @@ export default function LibraryPage() {
   useEffect(() => {
     if (user) {
       fetchResources();
-      checkPermissions();
+      fetchMySubmissions();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, typeFilter, levelFilter]);
 
-  const checkPermissions = async () => {
+  const fetchMySubmissions = async () => {
     if (!user) return;
     try {
       const token = await getAccessToken();
-      const response = await fetch(getApiUrl("/api/v1/users/me"), {
+      const response = await fetch(getApiUrl("/api/v1/resources/my"), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (response.ok) {
-        const userData = await response.json();
-        setHasUploadPermission(
-          userData.permissions?.includes("resource:upload") || userData.permissions?.includes("admin:all")
-        );
+        const data = await response.json();
+        setMySubmissions(data);
       }
     } catch (error) {
-      console.error("Error checking permissions:", error);
+      console.error("Error fetching my submissions:", error);
     }
   };
 
@@ -157,6 +157,7 @@ export default function LibraryPage() {
         setShowUploadModal(false);
         setUploadForm({ title: "", description: "", type: "note", courseCode: "", level: 300, tags: "", url: "" });
         fetchResources();
+        fetchMySubmissions();
       } else {
         const error = await response.json();
         toast.error("Upload Failed", `Failed to add resource: ${error.detail}`);
@@ -218,7 +219,7 @@ export default function LibraryPage() {
             ═══════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6">
           {/* Main title card */}
-          <div className="md:col-span-8 bg-teal border-[5px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[180px] flex flex-col justify-between">
+          <div className="md:col-span-8 bg-teal border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[180px] flex flex-col justify-between">
             <div className="absolute -bottom-12 -right-12 w-40 h-40 rounded-full bg-navy/8 pointer-events-none" />
             <svg className="absolute top-6 right-10 w-5 h-5 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
@@ -237,7 +238,7 @@ export default function LibraryPage() {
 
           {/* Stats + Upload */}
           <div className="md:col-span-4 flex flex-col gap-3">
-            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex-1 flex flex-col justify-between">
+            <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex-1 flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-lavender-light flex items-center justify-center mb-2">
                 <svg className="w-4.5 h-4.5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
@@ -246,29 +247,28 @@ export default function LibraryPage() {
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Total Resources</p>
               <p className="font-display font-black text-3xl text-navy">{resources.length}</p>
             </div>
-            {hasUploadPermission && (
-              <button
-                onClick={() => setShowUploadModal(true)}
-                className="bg-lime border-[4px] border-navy rounded-2xl p-5 press-3 press-navy transition-all flex items-center gap-3"
-              >
-                <div className="w-9 h-9 rounded-xl bg-navy/10 flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
-                    <path fillRule="evenodd" d="M11.47 2.47a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06l-3.22-3.22V16.5a.75.75 0 0 1-1.5 0V4.81L8.03 8.03a.75.75 0 0 1-1.06-1.06l4.5-4.5ZM3 15.75a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="text-left">
-                  <p className="font-display font-black text-sm text-navy">Add Resource</p>
-                  <p className="text-[10px] text-navy/50">Share materials</p>
-                </div>
-              </button>
-            )}
+            {/* Submit Resource — available to all students */}
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="bg-lime border-[3px] border-navy rounded-2xl p-5 press-3 press-navy transition-all flex items-center gap-3"
+            >
+              <div className="w-9 h-9 rounded-xl bg-navy/10 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M11.47 2.47a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06l-3.22-3.22V16.5a.75.75 0 0 1-1.5 0V4.81L8.03 8.03a.75.75 0 0 1-1.06-1.06l4.5-4.5ZM3 15.75a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="text-left">
+                <p className="font-display font-black text-sm text-navy">Add Resource</p>
+                <p className="text-[10px] text-navy/50">Share materials</p>
+              </div>
+            </button>
           </div>
         </div>
 
         {/* ═══════════════════════════════════════════════════════
             SEARCH & FILTERS
             ═══════════════════════════════════════════════════════ */}
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-5 md:p-6 mb-6 shadow-[4px_4px_0_0_#000]">
+        <div className="bg-snow border-[3px] border-navy rounded-3xl p-5 md:p-6 mb-6 shadow-[4px_4px_0_0_#000]">
           {/* Search */}
           <div className="relative mb-5">
             <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate" viewBox="0 0 24 24" fill="currentColor">
@@ -325,10 +325,76 @@ export default function LibraryPage() {
         </div>
 
         {/* ═══════════════════════════════════════════════════════
+            MY SUBMISSIONS
+            ═══════════════════════════════════════════════════════ */}
+        {mySubmissions.length > 0 && (
+          <div className="mb-6">
+            <button
+              onClick={() => setShowMySubmissions(!showMySubmissions)}
+              className="w-full bg-snow border-[3px] border-navy rounded-3xl p-4 shadow-[4px_4px_0_0_#000] flex items-center justify-between hover:bg-ghost transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0 1 18 9.375v9.375a3 3 0 0 0 3-3V6.108c0-1.505-1.125-2.811-2.664-2.94a48.972 48.972 0 0 0-8.583-.164 3.023 3.023 0 0 0-2.251 2.996Z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M2.25 13.5a3 3 0 0 0 3 3h1.228a3.375 3.375 0 0 1-.978-2.375v-9.75a3.375 3.375 0 0 1 3-3.357H13.5a3 3 0 0 1 3 3v1.107a3.375 3.375 0 0 1 .878 2.618v6.007a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3v-1.25Z" clipRule="evenodd" />
+                </svg>
+                <span className="font-display font-bold text-navy">
+                  My Submissions ({mySubmissions.length})
+                </span>
+                <span className="bg-sunny-light text-navy text-label px-2 py-0.5 rounded-full border border-navy text-[10px]">
+                  {mySubmissions.filter((s) => s.isApproved === false && !s.feedback).length} pending
+                </span>
+              </div>
+              <svg className={`w-5 h-5 text-navy transition-transform ${showMySubmissions ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="currentColor">
+                <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clipRule="evenodd" />
+              </svg>
+            </button>
+
+            {showMySubmissions && (
+              <div className="mt-3 space-y-3">
+                {mySubmissions.map((sub) => {
+                  const accent = typeAccents[sub.type] || { bg: "bg-slate", text: "text-snow" };
+                  const statusLabel = sub.isApproved ? "Approved" : (sub.feedback ? "Rejected" : "Pending");
+                  const statusColor = sub.isApproved
+                    ? "bg-teal text-snow"
+                    : (sub.feedback ? "bg-coral text-snow" : "bg-sunny-light text-navy");
+
+                  return (
+                    <div
+                      key={sub._id}
+                      className="bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000] flex flex-col sm:flex-row sm:items-center gap-3"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`${accent.bg} ${accent.text} text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full`}>
+                            {sub.type}
+                          </span>
+                          <span className={`${statusColor} text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-navy`}>
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <p className="font-display font-bold text-navy text-sm truncate">{sub.title}</p>
+                        <p className="text-xs text-slate">{sub.courseCode} &middot; Level {sub.level}</p>
+                        {sub.feedback && (
+                          <p className="text-xs text-coral mt-1 italic">&ldquo;{sub.feedback}&rdquo;</p>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate shrink-0">
+                        {new Date(sub.createdAt).toLocaleDateString("en-NG", { day: "numeric", month: "short" })}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════
             RESOURCES GRID
             ═══════════════════════════════════════════════════════ */}
         {filteredResources.length === 0 ? (
-          <div className="bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
+          <div className="bg-snow border-[3px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-teal-light flex items-center justify-center">
               <svg className="w-8 h-8 text-teal" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
@@ -346,7 +412,7 @@ export default function LibraryPage() {
               return (
                 <article
                   key={resource._id}
-                  className={`bg-snow border-[4px] border-navy rounded-3xl overflow-hidden press-3 press-black transition-all ${rotation} hover:rotate-0 group`}
+                  className={`bg-snow border-[3px] border-navy rounded-3xl overflow-hidden press-3 press-black transition-all ${rotation} hover:rotate-0 group`}
                 >
                   {/* Header bar */}
                   <div className="p-4 pb-3 flex items-center justify-between border-b-[3px] border-navy/10">
@@ -450,7 +516,7 @@ export default function LibraryPage() {
       {showUploadModal && (
         <div className="fixed inset-0 bg-navy/80 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6" onClick={() => setShowUploadModal(false)}>
           <div
-            className="bg-snow border-[4px] border-navy rounded-3xl max-w-2xl w-full max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]"
+            className="bg-snow border-[3px] border-navy rounded-3xl max-w-2xl w-full max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}

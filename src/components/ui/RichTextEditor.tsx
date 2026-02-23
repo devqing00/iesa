@@ -31,7 +31,7 @@ function ToolbarButton({
       title={title}
       className={`p-1.5 rounded-lg transition-all ${
         active
-          ? "bg-navy text-lime"
+          ? "bg-navy text-snow"
           : "text-navy/60 hover:bg-ghost hover:text-navy"
       } ${disabled ? "opacity-30 cursor-not-allowed" : "cursor-pointer"}`}
     >
@@ -83,7 +83,7 @@ export default function RichTextEditor({
           "[&_h2]:font-display [&_h2]:font-black [&_h2]:text-navy [&_h2]:text-xl [&_h2]:mt-6 [&_h2]:mb-2 " +
           "[&_h3]:font-display [&_h3]:font-bold [&_h3]:text-navy [&_h3]:text-lg " +
           "[&_p]:mb-2 [&_a]:text-lavender [&_a]:font-bold " +
-          "[&_blockquote]:border-l-[3px] [&_blockquote]:border-lime [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-navy/70 " +
+          "[&_blockquote]:border-l-[3px] [&_blockquote]:border-ghost/20 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-navy/70 " +
           "[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 " +
           "[&_img]:rounded-xl [&_img]:my-4 [&_img]:max-w-full " +
           "[&_hr]:border-cloud [&_hr]:my-6 " +

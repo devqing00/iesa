@@ -7,6 +7,7 @@ import { getApiUrl } from "@/lib/api";
 import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
 import { AnnouncementSchema, flattenZodErrors } from "@/lib/schemas";
+import { withAuth } from "@/lib/withAuth";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -74,7 +75,7 @@ function relativeTime(dateStr: string) {
 
 /* ─── Component ──────────────────────────── */
 
-export default function AdminAnnouncementsPage() {
+function AdminAnnouncementsPage() {
   const { user, getAccessToken } = useAuth();
   const { currentSession } = useSession();
 
@@ -267,7 +268,7 @@ export default function AdminAnnouncementsPage() {
       <div className="max-w-7xl mx-auto space-y-8">
         {/* ── No Session Warning ─────────────────── */}
         {!currentSession && (
-          <div className="bg-coral-light border-[4px] border-coral rounded-2xl p-6 shadow-[4px_4px_0_0_#000]">
+          <div className="bg-coral-light border-[3px] border-coral rounded-2xl p-6 shadow-[4px_4px_0_0_#000]">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-xl bg-coral/20 flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5 text-coral" fill="currentColor" viewBox="0 0 20 20">
@@ -297,7 +298,7 @@ export default function AdminAnnouncementsPage() {
           <button
             onClick={openCreate}
             disabled={!currentSession}
-            className={`self-start border-[4px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm transition-all flex items-center gap-2 ${
+            className={`self-start border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm transition-all flex items-center gap-2 ${
  currentSession
  ?"bg-lime text-navy cursor-pointer"
  :"bg-slate/30 text-slate/50 cursor-not-allowed"
@@ -312,15 +313,15 @@ export default function AdminAnnouncementsPage() {
 
         {/* ── Stats Bento Row ─────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+          <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Total</p>
             <p className="font-display font-black text-3xl text-navy">{totalCount}</p>
           </div>
-          <div className="bg-coral border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+          <div className="bg-coral border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">High Priority</p>
             <p className="font-display font-black text-3xl text-snow">{highCount}</p>
           </div>
-          <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+          <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Pinned</p>
             <p className="font-display font-black text-3xl text-navy">{pinnedCount}</p>
           </div>
@@ -356,12 +357,12 @@ export default function AdminAnnouncementsPage() {
         {/* ── Announcements Grid ──────── */}
         <div aria-live="polite">
           {loading ? (
-            <div className="bg-snow rounded-3xl border-[4px] border-navy p-12 text-center shadow-[4px_4px_0_0_#000]">
+            <div className="bg-snow rounded-3xl border-[3px] border-navy p-12 text-center shadow-[4px_4px_0_0_#000]">
               <div className="inline-block w-10 h-10 border-[3px] border-navy border-t-transparent rounded-full animate-spin mb-4" />
               <p className="text-sm text-navy/60">Loading announcements...</p>
             </div>
           ) : filteredAnnouncements.length === 0 ? (
-            <div className="bg-snow rounded-3xl border-[4px] border-navy p-16 text-center shadow-[4px_4px_0_0_#000] space-y-4">
+            <div className="bg-snow rounded-3xl border-[3px] border-navy p-16 text-center shadow-[4px_4px_0_0_#000] space-y-4">
               <div className="w-16 h-16 mx-auto rounded-2xl bg-sunny-light flex items-center justify-center">
                 <svg className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M16.881 4.345A23.112 23.112 0 0 1 8.25 6H7.5a5.25 5.25 0 0 0-.88 10.427 21.593 21.593 0 0 0 1.378 3.94c.464 1.004 1.674 1.32 2.582.796l.657-.379c.88-.508 1.165-1.593.772-2.468a17.116 17.116 0 0 1-.628-1.607c1.918.258 3.76.75 5.5 1.446A21.727 21.727 0 0 0 18 11.25c0-2.414-.393-4.735-1.119-6.905Z" />
@@ -370,7 +371,7 @@ export default function AdminAnnouncementsPage() {
               <p className="text-sm text-navy/60 font-medium">No announcements found</p>
               <button
                 onClick={openCreate}
- className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold press-4 press-lime transition-all"
+ className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy transition-all"
               >
                 Create your first announcement
               </button>
@@ -383,7 +384,7 @@ export default function AdminAnnouncementsPage() {
                 return (
                   <div
                     key={id}
- className={`group bg-snow rounded-3xl border-[4px] border-navy p-6 flex flex-col gap-4 transition-all press-3 press-black ${
+ className={`group bg-snow rounded-3xl border-[3px] border-navy p-6 flex flex-col gap-4 transition-all press-3 press-black ${
                       a.isPinned ? "md:col-span-2 border-l-[6px] " + accentBorders[idx % 4] : ""
                     }`}
                   >
@@ -465,7 +466,7 @@ export default function AdminAnnouncementsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-navy/50" onClick={() => { setModalOpen(false); setEditingId(null); setForm(EMPTY_FORM); setFormErrors({}); }} />
 
-          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-snow rounded-3xl border-[4px] border-navy shadow-[4px_4px_0_0_#000] p-6 sm:p-8 space-y-6">
+          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-snow rounded-3xl border-[3px] border-navy shadow-[4px_4px_0_0_#000] p-6 sm:p-8 space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
               <h2 className="font-display font-black text-xl text-navy">
@@ -521,7 +522,7 @@ export default function AdminAnnouncementsPage() {
                     onClick={() => setForm((f) => ({ ...f, priority: p }))}
                     className={`px-4 py-2 rounded-xl text-xs font-bold border-[3px] transition-colors ${
                       form.priority === p
-                        ? "bg-navy border-navy text-lime"
+                        ? "bg-navy border-navy text-snow"
                         : "border-navy/20 text-navy/60 hover:border-navy/40"
                     }`}
                   >
@@ -543,7 +544,7 @@ export default function AdminAnnouncementsPage() {
                     onClick={() => toggleLevel(level)}
                     className={`px-4 py-2 rounded-xl text-xs font-bold border-[3px] transition-colors ${
                       form.targetLevels.includes(level)
-                        ? "bg-navy border-navy text-lime"
+                        ? "bg-navy border-navy text-snow"
                         : "border-navy/20 text-navy/60 hover:border-navy/40"
                     }`}
                   >
@@ -592,7 +593,7 @@ export default function AdminAnnouncementsPage() {
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
- className="px-6 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold press-4 press-lime disabled:opacity-40 transition-all"
+ className="px-6 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy disabled:opacity-40 transition-all"
               >
                 {submitting ? "Saving..." : editingId ? "Save Changes" : "Publish"}
               </button>
@@ -603,3 +604,7 @@ export default function AdminAnnouncementsPage() {
     </>
   );
 }
+
+export default withAuth(AdminAnnouncementsPage, {
+  anyPermission: ["announcement:create", "announcement:edit", "announcement:view"],
+});

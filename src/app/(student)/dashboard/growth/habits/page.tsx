@@ -26,7 +26,7 @@ const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_LABELS_SHORT = ["S", "M", "T", "W", "T", "F", "S"];
 
 const COLOR_MAP: Record<string, { bg: string; border: string; text: string; light: string; dot: string }> = {
-  lime: { bg: "bg-lime", border: "border-lime", text: "text-navy", light: "bg-lime-light", dot: "bg-lime" },
+  lime: { bg: "bg-lime", border: "border-ghost/20", text: "text-navy", light: "bg-lime-light", dot: "bg-lime" },
   coral: { bg: "bg-coral", border: "border-coral", text: "text-snow", light: "bg-coral-light", dot: "bg-coral" },
   lavender: { bg: "bg-lavender", border: "border-lavender", text: "text-snow", light: "bg-lavender-light", dot: "bg-lavender" },
   teal: { bg: "bg-teal", border: "border-teal", text: "text-navy", light: "bg-teal-light", dot: "bg-teal" },
@@ -253,7 +253,7 @@ export default function HabitTrackerPage() {
         {/* ═══ BENTO HERO ═══ */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
           {/* Title card */}
-          <div className="md:col-span-7 bg-teal border-[5px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[180px] flex flex-col justify-between">
+          <div className="md:col-span-7 bg-teal border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[180px] flex flex-col justify-between">
             <div className="absolute -bottom-14 -right-14 w-40 h-40 rounded-full bg-navy/8 pointer-events-none" />
             <svg className="absolute top-6 right-10 w-5 h-5 text-navy/12 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
@@ -271,23 +271,23 @@ export default function HabitTrackerPage() {
 
           {/* Stats */}
           <div className="md:col-span-5 grid grid-cols-2 gap-3">
-            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
+            <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Today</p>
               <p className="font-display font-black text-3xl text-navy mt-2">
                 {todayDone}<span className="text-base text-slate">/{todayTotal}</span>
               </p>
             </div>
-            <div className="bg-sunny-light border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+            <div className="bg-sunny-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Best Streak</p>
               <p className="font-display font-black text-3xl text-navy mt-2">
                 {bestStreak}<span className="text-base text-slate ml-0.5">d</span>
               </p>
             </div>
-            <div className="bg-teal-light border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+            <div className="bg-teal-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Active</p>
               <p className="font-display font-black text-3xl text-navy mt-2">{activeHabits.length}</p>
             </div>
-            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
+            <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Completion</p>
               <p className="font-display font-black text-3xl text-navy mt-2">
                 {todayTotal > 0 ? Math.round((todayDone / todayTotal) * 100) : 0}<span className="text-base text-slate">%</span>
@@ -364,7 +364,7 @@ export default function HabitTrackerPage() {
               <h2 className="font-display font-black text-xl text-navy">This Week</h2>
             </div>
 
-            <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] overflow-hidden">
+            <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] overflow-hidden">
               {/* Day headers */}
               <div className="grid border-b-[3px] border-navy" style={{ gridTemplateColumns: "1fr repeat(7, 48px)" }}>
                 <div className="px-4 py-3" />
@@ -452,7 +452,7 @@ export default function HabitTrackerPage() {
                 const rate = getCompletionRate(habit);
                 const grid = getLast30DaysGrid(habit);
                 return (
-                  <div key={habit.id} className="bg-snow border-[4px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] overflow-hidden">
+                  <div key={habit.id} className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] overflow-hidden">
                     {/* Header */}
                     <div className={`${c.light} border-b-[3px] border-navy px-5 py-4 flex items-center justify-between`}>
                       <div className="flex items-center gap-3">
@@ -518,7 +518,7 @@ export default function HabitTrackerPage() {
         {/* ═══ ADD / EDIT FORM ═══ */}
         {showForm && (
           <div className="fixed inset-0 bg-navy/40 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6" onClick={() => resetForm()}>
-            <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="border-b-[3px] border-navy px-6 py-4 flex items-center justify-between bg-ghost rounded-t-[1.25rem]">
                 <h3 className="font-display font-black text-lg text-navy">
                   {editId ? "Edit Habit" : "New Habit"}
@@ -628,7 +628,7 @@ export default function HabitTrackerPage() {
                 <button
                   onClick={handleSave}
                   disabled={!formName.trim()}
-                  className="w-full bg-lime border-[4px] border-navy press-3 press-navy px-6 py-3.5 rounded-2xl font-display font-black text-base text-navy transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full bg-lime border-[3px] border-navy press-3 press-navy px-6 py-3.5 rounded-2xl font-display font-black text-base text-navy transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {editId ? "Update Habit" : "Create Habit"}
                 </button>
@@ -649,7 +649,7 @@ export default function HabitTrackerPage() {
 
         {/* ═══ EMPTY STATE ═══ */}
         {activeHabits.length === 0 && !showForm && (
-          <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] p-10 text-center">
+          <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] p-10 text-center">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-teal-light flex items-center justify-center">
               <svg className="w-8 h-8 text-teal" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 9a.75.75 0 0 0-1.5 0v2.25H9a.75.75 0 0 0 0 1.5h2.25V15a.75.75 0 0 0 1.5 0v-2.25H15a.75.75 0 0 0 0-1.5h-2.25V9Z" clipRule="evenodd" />
@@ -661,7 +661,7 @@ export default function HabitTrackerPage() {
             </p>
             <button
               onClick={() => { resetForm(); setShowForm(true); }}
-              className="bg-lime border-[4px] border-navy press-3 press-navy px-8 py-3.5 rounded-2xl font-display font-black text-base text-navy transition-all"
+              className="bg-lime border-[3px] border-navy press-3 press-navy px-8 py-3.5 rounded-2xl font-display font-black text-base text-navy transition-all"
             >
               Create Your First Habit
             </button>

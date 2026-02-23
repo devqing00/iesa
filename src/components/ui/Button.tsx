@@ -18,9 +18,9 @@ const variantStyles: Record<ButtonVariant, string> = {
   primary:
     'bg-lime text-navy border-[3px] border-navy press-3 press-navy',
   secondary:
-    'bg-navy text-lime border-[3px] border-lime press-3 press-black hover:bg-navy-light',
+    'bg-navy text-snow border-[3px] border-ghost/20 press-3 press-black hover:bg-navy-light',
   outline:
-    'bg-transparent text-navy border-[3px] border-navy hover:bg-navy hover:text-lime',
+    'bg-transparent text-navy border-[3px] border-navy hover:bg-navy hover:text-snow',
   ghost:
     'bg-transparent text-navy/60 border-[3px] border-transparent hover:bg-cloud hover:text-navy',
   coral:

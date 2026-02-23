@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useSidebar } from "@/context/SidebarContext";
+import { usePermissions } from "@/context/PermissionsContext";
 
 /* ─── Nav Group Definitions ────────────────────────────────────── */
 
@@ -12,6 +13,8 @@ interface NavLink {
   name: string;
   href: string;
   icon: React.ReactNode;
+  /** If set, link is only visible to users with at least one of these permissions or admin/exco role */
+  anyPermission?: string[];
 }
 
 interface NavGroup {
@@ -98,6 +101,7 @@ const navGroups: NavGroup[] = [
       {
         name: "Press",
         href: "/dashboard/press",
+        anyPermission: ["press:access", "press:create", "press:edit", "press:publish"],
         icon: (
           <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M4.125 3C3.089 3 2.25 3.84 2.25 4.875V18a3 3 0 0 0 3 3h15a3 3 0 0 1-3-3V4.875C17.25 3.839 16.41 3 15.375 3H4.125ZM12 9.75a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5H12Zm-.75-2.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5H12a.75.75 0 0 1-.75-.75ZM6 12.75a.75.75 0 0 0 0 1.5h7.5a.75.75 0 0 0 0-1.5H6Zm-.75 3.75a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H6a.75.75 0 0 1-.75-.75ZM6 6.75a.75.75 0 0 0-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 0 0 .75-.75v-3A.75.75 0 0 0 9 6.75H6Z" clipRule="evenodd" />
@@ -111,6 +115,25 @@ const navGroups: NavGroup[] = [
     label: "Personal",
     accentColor: "bg-coral",
     links: [
+      {
+        name: "Applications",
+        href: "/dashboard/applications",
+        icon: (
+          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <path fillRule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0 1 18 9.375v9.375a3 3 0 0 0 3-3V6.108c0-1.505-1.125-2.811-2.664-2.94a48.972 48.972 0 0 0-8.583-.164 3.023 3.023 0 0 0-2.251 2.996Z" clipRule="evenodd" />
+            <path fillRule="evenodd" d="M2.25 13.5a3 3 0 0 0 3 3h1.228a3.375 3.375 0 0 1-.978-2.375v-9.75a3.375 3.375 0 0 1 3-3.357H13.5a3 3 0 0 1 3 3v1.107a3.375 3.375 0 0 1 .878 2.618v6.007a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3v-1.25Z" clipRule="evenodd" />
+          </svg>
+        ),
+      },
+      {
+        name: "TIMP",
+        href: "/dashboard/timp",
+        icon: (
+          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A18.034 18.034 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" clipRule="evenodd" />
+          </svg>
+        ),
+      },
       {
         name: "Payments",
         href: "/dashboard/payments",
@@ -160,6 +183,13 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { signOut, userProfile } = useAuth();
   const { isExpanded, toggleSidebar, closeSidebar } = useSidebar();
+  const { hasPermission } = usePermissions();
+
+  /** Check if a nav link should be visible based on permissions */
+  const isLinkVisible = (link: NavLink) => {
+    if (!link.anyPermission) return true;
+    return link.anyPermission.some((p) => hasPermission(p));
+  };
 
   return (
     <>
@@ -187,7 +217,7 @@ export default function Sidebar() {
         {/* Collapse/Expand Toggle — positioned on sidebar edge */}
         <button
           onClick={toggleSidebar}
-          className="absolute -right-[14px] top-[54px] w-7 h-7 rounded-full bg-snow border-[3px] border-navy flex items-center justify-center press-2 press-black hover:bg-lime transition-all z-50"
+          className="absolute -right-[14px] top-[54px] w-7 h-7 rounded-full bg-snow border-[3px] border-navy flex items-center justify-center press-2 press-black hover:bg-ghost transition-all z-50"
           aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
         >
           <svg
@@ -201,7 +231,10 @@ export default function Sidebar() {
 
         {/* Navigation Groups */}
         <nav aria-label="Dashboard navigation" className="flex-1 overflow-y-auto px-2.5 space-y-4 scrollbar-thin">
-          {navGroups.map((group) => (
+          {navGroups.map((group) => {
+            const visibleLinks = group.links.filter(isLinkVisible);
+            if (visibleLinks.length === 0) return null;
+            return (
             <div key={group.label}>
               {/* Group Header */}
               {isExpanded ? (
@@ -219,7 +252,7 @@ export default function Sidebar() {
 
               {/* Group Links */}
               <div className="space-y-0.5">
-                {group.links.map((link) => {
+                {group.links.filter(isLinkVisible).map((link) => {
                   const isActive =
                     link.href === "/dashboard"
                       ? pathname === "/dashboard"
@@ -244,7 +277,7 @@ export default function Sidebar() {
                 })}
               </div>
             </div>
-          ))}
+          ); })}
         </nav>
 
         {/* Ecosystem Switch — show only for admin/exco users */}

@@ -64,7 +64,6 @@ const POSITIONS = [
   { group: "Class Representatives",    value: "asst_class_rep_400L",              label: "400L Asst. Class Rep" },
   { group: "Class Representatives",    value: "asst_class_rep_500L",              label: "500L Asst. Class Rep" },
   // ── Committee Heads ───────────────────────────────────────────────
-  { group: "Committee Heads",          value: "committee_head_press",              label: "Press Committee Head" },
   { group: "Committee Heads",          value: "committee_head_technical",          label: "Technical Committee Head" },
   { group: "Committee Heads",          value: "committee_head_social",             label: "Social Committee Head" },
   { group: "Committee Heads",          value: "committee_head_welfare",            label: "Welfare Committee Head" },
@@ -75,6 +74,15 @@ const POSITIONS = [
   { group: "Unit Heads",               value: "unit_head_logistics",               label: "Logistics Unit Head" },
   { group: "Unit Heads",               value: "unit_head_security",                label: "Security Unit Head" },
   { group: "Unit Heads",               value: "unit_head_decoration",              label: "Decoration Unit Head" },
+  // ── Committee Members ─────────────────────────────────────────────
+  { group: "Committee Members",        value: "committee_academic_member",         label: "Academic Committee Member" },
+  { group: "Committee Members",        value: "committee_welfare_member",          label: "Welfare Committee Member" },
+  { group: "Committee Members",        value: "committee_sports_member",           label: "Sports Committee Member" },
+  { group: "Committee Members",        value: "committee_socials_member",          label: "Socials Committee Member" },
+  // ── Special Roles ─────────────────────────────────────────────────
+  { group: "Special Roles",            value: "press_head",                        label: "Press Unit Head" },
+  { group: "Special Roles",            value: "timp_lead",                         label: "TIMP Lead" },
+  { group: "Special Roles",            value: "press_member",                      label: "Press Member" },
   // ── Admin Roles ───────────────────────────────────────────────────
   { group: "Admin Roles",              value: "admin",                             label: "Administrator" },
   { group: "Admin Roles",              value: "super_admin",                       label: "Super Administrator" },
@@ -177,6 +185,7 @@ function RolesPage() {
       setError("Please select or enter a position.");
       return;
     }
+    const isCustomPosition = useCustomPosition;
     try {
       const token = await getAccessToken();
       if (!token) return;
@@ -192,6 +201,8 @@ function RolesPage() {
         throw new Error(errorData.detail || "Failed to assign role");
       }
 
+      const newRole = await response.json();
+
       setFormData({ userId: "", sessionId: formData.sessionId, position: "" });
       setCustomPosition("");
       setUseCustomPosition(false);
@@ -200,6 +211,14 @@ function RolesPage() {
       setShowModal(false);
       await fetchData();
       toast.success("Role assigned successfully");
+      
+      // Auto-open permissions modal for custom positions
+      if (isCustomPosition && newRole) {
+        setTimeout(() => {
+          openEditPerms(newRole);
+          toast.info("Configure permissions for this custom role");
+        }, 300);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to assign role";
       setError(msg);
@@ -352,7 +371,7 @@ function RolesPage() {
           <button
             type="button"
             onClick={() => setShowModal(true)}
-            className="self-start bg-lime border-[4px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
+            className="self-start bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
@@ -372,7 +391,7 @@ function RolesPage() {
       {/* ── Stats + Filter ── */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Session Filter */}
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] flex flex-col justify-between">
+        <div className="bg-snow border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] flex flex-col justify-between">
           <label htmlFor="filter-session-select" className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-3 block">Filter Session</label>
           <select
             id="filter-session-select"
@@ -390,21 +409,21 @@ function RolesPage() {
         </div>
 
         {/* Executive Count */}
-        <div className="bg-teal border-[4px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+        <div className="bg-teal border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Executive</p>
           <p className="font-display font-black text-3xl text-snow">{executiveRoles.length}</p>
           <span className="inline-flex mt-1 px-2.5 py-0.5 rounded-full bg-snow/20 text-snow/80 text-xs font-bold">Positions filled</span>
         </div>
 
         {/* Class Rep Count */}
-        <div className="bg-lavender border-[4px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+        <div className="bg-lavender border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Class Reps</p>
           <p className="font-display font-black text-3xl text-snow">{classRepRoles.length}</p>
           <span className="inline-flex mt-1 px-2.5 py-0.5 rounded-full bg-snow/20 text-snow/80 text-xs font-bold">Representatives</span>
         </div>
 
         {/* Total */}
-        <div className="bg-snow border-[4px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]" aria-live="polite">
+        <div className="bg-snow border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]" aria-live="polite">
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Total</p>
           <p className="font-display font-black text-3xl text-navy">{filteredRoles.length}</p>
           <span className="inline-flex mt-1 px-2.5 py-0.5 rounded-full bg-cloud text-slate text-xs font-bold">Active roles</span>
@@ -420,9 +439,9 @@ function RolesPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {executiveRoles.length === 0 ? (
-            <div className="col-span-full bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
+            <div className="col-span-full bg-snow border-[3px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
               <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-lime-light flex items-center justify-center">
-                <svg className="w-7 h-7 text-lime-dark" viewBox="0 0 24 24" fill="currentColor">
+                <svg className="w-7 h-7 text-snow-dark" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" />
                   <path d="M5.082 14.254a8.287 8.287 0 0 0-1.308 5.135 9.687 9.687 0 0 1-1.764-.44l-.115-.04a.563.563 0 0 1-.373-.487l-.01-.121a3.75 3.75 0 0 1 3.57-4.047ZM20.226 19.389a8.287 8.287 0 0 0-1.308-5.135 3.75 3.75 0 0 1 3.57 4.047l-.01.121a.563.563 0 0 1-.373.486l-.115.04c-.567.2-1.156.349-1.764.441Z" />
                 </svg>
@@ -433,7 +452,7 @@ function RolesPage() {
             executiveRoles.map((role) => {
               const initials = role.user ? `${role.user.firstName[0]}${role.user.lastName[0]}` : "??";
               return (
-                <div key={role.id} className="bg-snow border-[4px] border-navy rounded-3xl p-6 press-4 press-black transition-all group">
+                <div key={role.id} className="bg-snow border-[3px] border-navy rounded-3xl p-6 press-4 press-black transition-all group">
                   <div className="flex items-start justify-between mb-4">
                     <span className="px-3 py-1 rounded-full bg-lime-light text-teal text-xs font-bold">
                       {getPositionLabel(role.position)}
@@ -492,7 +511,7 @@ function RolesPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {classRepRoles.length === 0 ? (
-            <div className="col-span-full bg-snow border-[4px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
+            <div className="col-span-full bg-snow border-[3px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
               <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-lavender-light flex items-center justify-center">
                 <svg className="w-7 h-7 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM14.25 8.625a3.375 3.375 0 1 1 6.75 0 3.375 3.375 0 0 1-6.75 0ZM1.5 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122ZM17.25 19.128l-.001.144a2.25 2.25 0 0 1-.233.96 10.088 10.088 0 0 0 5.06-1.01.75.75 0 0 0 .42-.643 4.875 4.875 0 0 0-6.957-4.611 8.586 8.586 0 0 1 1.71 5.157v.003Z" />
@@ -504,7 +523,7 @@ function RolesPage() {
             classRepRoles.map((role) => {
               const initials = role.user ? `${role.user.firstName[0]}${role.user.lastName[0]}` : "??";
               return (
-                <div key={role.id} className="bg-snow border-[4px] border-navy rounded-3xl p-6 press-4 press-black transition-all group">
+                <div key={role.id} className="bg-snow border-[3px] border-navy rounded-3xl p-6 press-4 press-black transition-all group">
                   <div className="flex items-start justify-between mb-4">
                     <span className="px-3 py-1 rounded-full bg-lavender-light text-lavender text-xs font-bold">
                       {getPositionLabel(role.position)}
@@ -563,7 +582,7 @@ function RolesPage() {
             setUserDropdownOpen(false);
           }} />
 
-          <div className="relative bg-snow border-[4px] border-navy rounded-3xl p-8 w-full max-w-md max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]">
+          <div className="relative bg-snow border-[3px] border-navy rounded-3xl p-8 w-full max-w-md max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">New Assignment</p>
@@ -630,39 +649,44 @@ function RolesPage() {
                         className="w-full pl-10 pr-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm placeholder:text-slate focus:outline-none transition-all"
                       />
                     </div>
-                    {userDropdownOpen && filteredUsers.length > 0 && (
-                      <div className="absolute z-10 top-full mt-1 w-full bg-snow border-[3px] border-navy rounded-2xl shadow-[4px_4px_0_0_#000] max-h-52 overflow-y-auto">
-                        {filteredUsers.slice(0, 30).map((u) => (
-                          <button
-                            type="button"
-                            key={u.id}
-                            onClick={() => {
-                              setFormData({ ...formData, userId: u.id });
-                              setUserSearchQuery("");
-                              setUserDropdownOpen(false);
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-lime-light text-left transition-colors"
-                          >
-                            <div className="w-7 h-7 rounded-lg bg-lavender flex items-center justify-center shrink-0">
-                              <span className="text-snow text-[10px] font-black">{u.firstName[0]}{u.lastName[0]}</span>
+                    {userDropdownOpen && (
+                      <>
+                        {filteredUsers.length > 0 ? (
+                          <div key="user-list" className="absolute z-10 top-full mt-1 w-full bg-snow border-[3px] border-navy rounded-2xl shadow-[4px_4px_0_0_#000] max-h-52 overflow-y-auto">
+                            {filteredUsers.slice(0, 30).map((u, idx) => (
+                              <button
+                                type="button"
+                                key={`user-${u.id || u.email}-${idx}`}
+                                onClick={() => {
+                                  setFormData(prev => ({ ...prev, userId: u.id }));
+                                  setUserSearchQuery("");
+                                  setUserDropdownOpen(false);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-ghost-light text-left transition-colors"
+                              >
+                                <div className="w-7 h-7 rounded-lg bg-lavender flex items-center justify-center shrink-0">
+                                  <span className="text-snow text-[10px] font-black">{u.firstName[0]}{u.lastName[0]}</span>
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-bold text-sm text-navy truncate">{u.firstName} {u.lastName}</p>
+                                  <p className="text-[11px] text-slate truncate">{u.matricNumber || u.email}</p>
+                                </div>
+                              </button>
+                            ))}
+                            {filteredUsers.length > 30 && (
+                              <p className="px-4 py-2 text-xs text-slate font-bold border-t border-cloud">
+                                Showing first 30 results. Refine your search.
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          userSearchQuery && (
+                            <div key="no-results" className="absolute z-10 top-full mt-1 w-full bg-snow border-[3px] border-navy rounded-2xl shadow-[4px_4px_0_0_#000] px-4 py-3">
+                              <p className="text-sm text-navy/60 font-bold">No users found for &ldquo;{userSearchQuery}&rdquo;</p>
                             </div>
-                            <div className="min-w-0">
-                              <p className="font-bold text-sm text-navy truncate">{u.firstName} {u.lastName}</p>
-                              <p className="text-[11px] text-slate truncate">{u.matricNumber || u.email}</p>
-                            </div>
-                          </button>
-                        ))}
-                        {filteredUsers.length > 30 && (
-                          <p className="px-4 py-2 text-xs text-slate font-bold border-t border-cloud">
-                            Showing first 30 results. Refine your search.
-                          </p>
+                          )
                         )}
-                      </div>
-                    )}
-                    {userDropdownOpen && filteredUsers.length === 0 && userSearchQuery && (
-                      <div className="absolute z-10 top-full mt-1 w-full bg-snow border-[3px] border-navy rounded-2xl shadow-[4px_4px_0_0_#000] px-4 py-3">
-                        <p className="text-sm text-navy/60 font-bold">No users found for &ldquo;{userSearchQuery}&rdquo;</p>
-                      </div>
+                      </>
                     )}
                   </div>
                 )}
@@ -703,14 +727,22 @@ function RolesPage() {
                 </div>
 
                 {useCustomPosition ? (
-                  <input
-                    type="text"
-                    placeholder="e.g. Level Coordinator, Quiz Master…"
-                    value={customPosition}
-                    onChange={(e) => setCustomPosition(e.target.value)}
-                    className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm placeholder:text-slate focus:outline-none transition-all"
-                    required
-                  />
+                  <>
+                    <input
+                      type="text"
+                      placeholder="e.g. Level Coordinator, Quiz Master…"
+                      value={customPosition}
+                      onChange={(e) => setCustomPosition(e.target.value)}
+                      className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm placeholder:text-slate focus:outline-none transition-all"
+                      required
+                    />
+                    <p className="text-xs text-slate mt-1.5 flex items-start gap-1.5">
+                      <svg className="w-3.5 h-3.5 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
+                      </svg>
+                      <span>You&apos;ll be able to configure custom permissions immediately after creating this role.</span>
+                    </p>
+                  </>
                 ) : (
                   <select
                     id="position-select"
@@ -727,7 +759,7 @@ function RolesPage() {
                         ))}
                       </optgroup>
                     ))}
-                    <optgroup label="──────────">
+                    <optgroup key="divider" label="──────────">
                       <option value="" disabled>Or use &ldquo;Custom position&rdquo; above</option>
                     </optgroup>
                   </select>
@@ -749,7 +781,7 @@ function RolesPage() {
                 <button
                   type="submit"
                   disabled={!formData.userId || !formData.sessionId || (!useCustomPosition ? !formData.position : !customPosition.trim())}
- className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold press-4 press-lime disabled:opacity-40 transition-all"
+ className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy disabled:opacity-40 transition-all"
                 >
                   Assign
                 </button>
@@ -776,7 +808,7 @@ function RolesPage() {
       {editPermsRole && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-navy/60" onClick={() => setEditPermsRole(null)} />
-          <div className="relative bg-snow border-[4px] border-navy rounded-3xl w-full max-w-2xl shadow-[4px_4px_0_0_#000] max-h-[90vh] flex flex-col">
+          <div className="relative bg-snow border-[3px] border-navy rounded-3xl w-full max-w-2xl shadow-[4px_4px_0_0_#000] max-h-[90vh] flex flex-col">
             {/* Header */}
             <div className="flex items-start justify-between p-7 pb-5 border-b-[3px] border-navy/10">
               <div>

@@ -263,7 +263,7 @@ export default function FlashcardsPage() {
 
         {/* ═══ BENTO HERO ═══ */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
-          <div className="md:col-span-7 bg-lavender border-[5px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[180px] flex flex-col justify-between">
+          <div className="md:col-span-7 bg-lavender border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[180px] flex flex-col justify-between">
             <div className="absolute -bottom-14 -right-14 w-40 h-40 rounded-full bg-navy/8 pointer-events-none" />
             <svg className="absolute top-6 right-10 w-5 h-5 text-snow/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
@@ -280,19 +280,19 @@ export default function FlashcardsPage() {
           </div>
 
           <div className="md:col-span-5 grid grid-cols-2 gap-3">
-            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
+            <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Decks</p>
               <p className="font-display font-black text-3xl text-navy mt-2">{decks.length}</p>
             </div>
-            <div className="bg-coral-light border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+            <div className="bg-coral-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Due Now</p>
               <p className="font-display font-black text-3xl text-navy mt-2">{totalDue}</p>
             </div>
-            <div className="bg-lavender-light border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+            <div className="bg-lavender-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Total Cards</p>
               <p className="font-display font-black text-3xl text-navy mt-2">{totalCards}</p>
             </div>
-            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
+            <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Mastered</p>
               <p className="font-display font-black text-3xl text-navy mt-2">
                 {decks.reduce((s, d) => s + d.cards.filter((c) => c.repetitions >= 5).length, 0)}
@@ -346,7 +346,7 @@ export default function FlashcardsPage() {
               >
                 {/* Front */}
                 <div
-                  className={`${COLOR_MAP[activeDeck.color].light} border-[4px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] p-8 md:p-12 min-h-[250px] flex flex-col items-center justify-center text-center`}
+                  className={`${COLOR_MAP[activeDeck.color].light} border-[3px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] p-8 md:p-12 min-h-[250px] flex flex-col items-center justify-center text-center`}
                   style={{ backfaceVisibility: "hidden" }}
                 >
                   <p className="text-[10px] font-bold text-slate uppercase tracking-wider mb-3">Question</p>
@@ -358,7 +358,7 @@ export default function FlashcardsPage() {
 
                 {/* Back */}
                 <div
-                  className="bg-snow border-[4px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] p-8 md:p-12 min-h-[250px] flex flex-col items-center justify-center text-center absolute inset-0"
+                  className="bg-snow border-[3px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] p-8 md:p-12 min-h-[250px] flex flex-col items-center justify-center text-center absolute inset-0"
                   style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
                 >
                   <p className="text-[10px] font-bold text-teal uppercase tracking-wider mb-3">Answer</p>
@@ -432,11 +432,11 @@ export default function FlashcardsPage() {
 
             {/* Cards list */}
             {activeDeck.cards.length === 0 ? (
-              <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] p-10 text-center">
+              <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] p-10 text-center">
                 <p className="text-sm text-slate mb-4">No cards in this deck yet.</p>
                 <button
                   onClick={() => { resetCardForm(); setShowCardForm(true); }}
-                  className="bg-lime border-[3px] border-navy shadow-[3px_3px_0_0_#0F0F2D] px-6 py-3 rounded-xl font-display font-bold text-sm text-navy transition-all"
+                  className="bg-lime border-[3px] border-navy px-6 py-3 rounded-xl font-display font-bold text-sm text-navy press-2 press-navy transition-all"
                 >
                   Add Your First Card
                 </button>
@@ -467,7 +467,7 @@ export default function FlashcardsPage() {
                             setEditCardId(card.id);
                             setShowCardForm(true);
                           }}
-                          className="w-7 h-7 rounded-lg bg-ghost hover:bg-lime-light flex items-center justify-center transition-colors"
+                          className="w-7 h-7 rounded-lg bg-ghost hover:bg-ghost-light flex items-center justify-center transition-colors"
                         >
                           <svg className="w-3 h-3 text-navy/40" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-12.15 12.15a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32L19.513 8.2Z" />
@@ -508,7 +508,7 @@ export default function FlashcardsPage() {
 
             {/* Session complete toast */}
             {sessionStats.reviewed > 0 && (
-              <div className="bg-teal-light border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] mb-5 flex items-center gap-4">
+              <div className="bg-teal-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] mb-5 flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-teal border-[3px] border-navy flex items-center justify-center shrink-0">
                   <svg className="w-6 h-6 text-navy" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
@@ -532,7 +532,7 @@ export default function FlashcardsPage() {
             )}
 
             {decks.length === 0 ? (
-              <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] p-10 text-center">
+              <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] p-10 text-center">
                 <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-lavender-light flex items-center justify-center">
                   <svg className="w-8 h-8 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
@@ -544,7 +544,7 @@ export default function FlashcardsPage() {
                 </p>
                 <button
                   onClick={() => { resetDeckForm(); setShowDeckForm(true); }}
-                  className="bg-lime border-[4px] border-navy shadow-[3px_3px_0_0_#0F0F2D] px-8 py-3.5 rounded-2xl font-display font-black text-base text-navy transition-all"
+                  className="bg-lime border-[3px] border-navy px-8 py-3.5 rounded-2xl font-display font-black text-base text-navy press-2 press-navy transition-all"
                 >
                   Create a Deck
                 </button>
@@ -556,7 +556,7 @@ export default function FlashcardsPage() {
                   const due = getDueCards(deck).length;
                   const mastered = deck.cards.filter((c) => c.repetitions >= 5).length;
                   return (
-                    <div key={deck.id} className="bg-snow border-[4px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] overflow-hidden">
+                    <div key={deck.id} className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] overflow-hidden">
                       <div className={`${c.light} border-b-[3px] border-navy px-5 py-4 flex items-center justify-between`}>
                         <div className="flex items-center gap-3">
                           <span className="text-xl">{deck.icon}</span>
@@ -637,7 +637,7 @@ export default function FlashcardsPage() {
         {/* ═══ DECK FORM MODAL ═══ */}
         {showDeckForm && (
           <div className="fixed inset-0 bg-navy/40 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6" onClick={resetDeckForm}>
-            <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] w-full max-w-md" onClick={(e) => e.stopPropagation()}>
               <div className="border-b-[3px] border-navy px-6 py-4 flex items-center justify-between bg-ghost rounded-t-[1.25rem]">
                 <h3 className="font-display font-black text-lg text-navy">
                   {editDeckId ? "Edit Deck" : "New Deck"}
@@ -693,7 +693,7 @@ export default function FlashcardsPage() {
                 <button
                   onClick={saveDeck}
                   disabled={!deckName.trim()}
-                  className="w-full bg-lime border-[4px] border-navy shadow-[3px_3px_0_0_#0F0F2D] px-6 py-3.5 rounded-2xl font-display font-black text-base text-navy transition-all disabled:opacity-40"
+                  className="w-full bg-lime border-[3px] border-navy px-6 py-3.5 rounded-2xl font-display font-black text-base text-navy press-2 press-navy transition-all disabled:opacity-40"
                 >
                   {editDeckId ? "Update Deck" : "Create Deck"}
                 </button>
@@ -713,7 +713,7 @@ export default function FlashcardsPage() {
         {/* ═══ CARD FORM MODAL ═══ */}
         {showCardForm && (
           <div className="fixed inset-0 bg-navy/40 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6" onClick={resetCardForm}>
-            <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] w-full max-w-md" onClick={(e) => e.stopPropagation()}>
               <div className="border-b-[3px] border-navy px-6 py-4 flex items-center justify-between bg-ghost rounded-t-[1.25rem]">
                 <h3 className="font-display font-black text-lg text-navy">
                   {editCardId ? "Edit Card" : "Add Card"}
@@ -749,7 +749,7 @@ export default function FlashcardsPage() {
                 <button
                   onClick={saveCard}
                   disabled={!cardFront.trim() || !cardBack.trim()}
-                  className="w-full bg-lime border-[4px] border-navy shadow-[3px_3px_0_0_#0F0F2D] px-6 py-3.5 rounded-2xl font-display font-black text-base text-navy transition-all disabled:opacity-40"
+                  className="w-full bg-lime border-[3px] border-navy px-6 py-3.5 rounded-2xl font-display font-black text-base text-navy press-2 press-navy transition-all disabled:opacity-40"
                 >
                   {editCardId ? "Update Card" : "Add Card"}
                 </button>

@@ -76,15 +76,18 @@ async def create_payment(
 @router.get("/", response_model=List[PaymentWithStatus])
 async def list_payments(
     session_id: Optional[str] = Query(None, description="Filter by session ID. Defaults to active session."),
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of payments to return"),
+    skip: int = Query(0, ge=0, description="Number of payments to skip"),
     user: dict = Depends(get_current_user)
 ):
     """
-    List all payments for a specific session.
+    List all payments for a specific session with pagination.
     
     The session_id parameter enables "time travel" - pass different
     session IDs to view payments from different academic years.
     
     Returns payments with user's payment status.
+    Supports pagination via limit and skip parameters.
     """
     db = get_database()
     payments = db["payments"]
@@ -110,8 +113,8 @@ async def list_payments(
         )
     
     # Get payments for this session
-    cursor = payments.find({"sessionId": session_id}).sort("deadline", 1)
-    payment_list = await cursor.to_list(length=None)
+    cursor = payments.find({"sessionId": session_id}).sort("deadline", 1).skip(skip).limit(limit)
+    payment_list = await cursor.to_list(length=limit)
     
     # Enrich with user's payment status
     result = []

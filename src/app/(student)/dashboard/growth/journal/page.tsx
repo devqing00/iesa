@@ -222,7 +222,7 @@ export default function JournalPage() {
 
         {/* ═══ BENTO HERO ═══ */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
-          <div className="md:col-span-7 bg-sunny border-[5px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[180px] flex flex-col justify-between">
+          <div className="md:col-span-7 bg-sunny border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[180px] flex flex-col justify-between">
             <div className="absolute -bottom-14 -right-14 w-40 h-40 rounded-full bg-navy/8 pointer-events-none" />
             <svg className="absolute top-6 right-10 w-5 h-5 text-navy/10 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
@@ -239,23 +239,23 @@ export default function JournalPage() {
           </div>
 
           <div className="md:col-span-5 grid grid-cols-2 gap-3">
-            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
+            <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Entries</p>
               <p className="font-display font-black text-3xl text-navy mt-2">{totalEntries}</p>
             </div>
-            <div className="bg-teal-light border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+            <div className="bg-teal-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">8-Week Run</p>
               <p className="font-display font-black text-3xl text-navy mt-2">
                 {journalStreak}<span className="text-base text-slate">/{8}</span>
               </p>
             </div>
-            <div className="bg-sunny-light border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+            <div className="bg-sunny-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Avg Mood</p>
               <p className="font-display font-black text-3xl text-navy mt-2">
                 {avgMood > 0 ? MOODS[Math.round(avgMood) - 1]?.emoji || "—" : "—"}
               </p>
             </div>
-            <div className="bg-snow border-[4px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
+            <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">This Week</p>
               <p className="font-display font-black text-2xl text-navy mt-2">
                 {hasCurrentWeek ? (
@@ -285,7 +285,7 @@ export default function JournalPage() {
               </button>
             </div>
 
-            <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] overflow-hidden">
+            <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] overflow-hidden">
               {/* Mood selector */}
               <div className="border-b-[3px] border-navy px-6 py-5 bg-ghost">
                 <p className="text-[10px] font-bold text-slate uppercase tracking-wider mb-3">How was your week?</p>
@@ -332,7 +332,7 @@ export default function JournalPage() {
 
                 <button
                   onClick={handleSave}
-                  className="w-full bg-lime border-[4px] border-navy press-3 press-navy px-6 py-3.5 rounded-2xl font-display font-black text-base text-navy transition-all"
+                  className="w-full bg-lime border-[3px] border-navy press-3 press-navy px-6 py-3.5 rounded-2xl font-display font-black text-base text-navy transition-all"
                 >
                   {editId ? "Update Entry" : "Save Reflection"}
                 </button>
@@ -360,7 +360,7 @@ export default function JournalPage() {
               </div>
             </div>
 
-            <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] overflow-hidden">
+            <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] overflow-hidden">
               {/* Mood */}
               <div className="border-b-[3px] border-navy px-6 py-4 bg-ghost flex items-center gap-3">
                 <span className="text-2xl">{MOODS[viewingEntry.mood - 1]?.emoji}</span>
@@ -386,7 +386,7 @@ export default function JournalPage() {
           <div className="mb-8">
             {/* CTA for current week */}
             {!hasCurrentWeek && (
-              <div className="bg-sunny-light border-[4px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] p-6 mb-6 flex items-center gap-4">
+              <div className="bg-sunny-light border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] p-6 mb-6 flex items-center gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-sunny border-[3px] border-navy flex items-center justify-center shrink-0">
                   <svg className="w-7 h-7 text-navy" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
@@ -421,7 +421,7 @@ export default function JournalPage() {
             )}
 
             {sortedEntries.length === 0 ? (
-              <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] p-10 text-center">
+              <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] p-10 text-center">
                 <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-sunny-light flex items-center justify-center">
                   <svg className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M4.125 3C3.089 3 2.25 3.84 2.25 4.875V18a3 3 0 0 0 3 3h15a3 3 0 0 1-3-3V4.875C17.25 3.839 16.41 3 15.375 3H4.125ZM12 9.75a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5H12Zm-.75-2.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5H12a.75.75 0 0 1-.75-.75ZM6 12.75a.75.75 0 0 0 0 1.5h7.5a.75.75 0 0 0 0-1.5H6Zm-.75 3.75a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H6a.75.75 0 0 1-.75-.75ZM6 6.75a.75.75 0 0 0-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 0 0 .75-.75v-3A.75.75 0 0 0 9 6.75H6Z" clipRule="evenodd" />
@@ -434,7 +434,7 @@ export default function JournalPage() {
                 </p>
                 <button
                   onClick={startNewEntry}
-                  className="bg-lime border-[4px] border-navy shadow-[3px_3px_0_0_#0F0F2D] px-8 py-3.5 rounded-2xl font-display font-black text-base text-navy transition-all"
+                  className="bg-lime border-[3px] border-navy px-8 py-3.5 rounded-2xl font-display font-black text-base text-navy press-2 press-navy transition-all"
                 >
                   Write Your First Entry
                 </button>

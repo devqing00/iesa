@@ -30,10 +30,10 @@ export default function Pagination({ page, totalPages, onPage, className = "" }:
       className={[
         "h-9 min-w-[2.25rem] px-2 rounded-xl border-[3px] font-display font-black text-sm transition-all",
         active
-          ? "bg-navy border-navy text-lime shadow-[3px_3px_0_0_#C8F31D]"
+          ? "bg-navy border-navy text-snow"
           : disabled
           ? "bg-ghost border-cloud text-slate cursor-not-allowed"
-          : "bg-snow border-navy text-navy hover:bg-lime press-3 press-black",
+          : "bg-snow border-navy text-navy hover:bg-ghost press-3 press-black",
       ].join(" ")}
     >
       {label}

@@ -2,12 +2,14 @@
 
 import { useAuth } from "@/context/AuthContext";
 import NotificationBell from "@/components/dashboard/NotificationBell";
+import UrgentBar from "@/components/dashboard/UrgentBar";
 
 export default function DashboardHeader({ title = "Dashboard" }: { title?: string }) {
   const { userProfile } = useAuth();
 
   return (
-    <div className="bg-snow border-b-[3px] border-navy px-4 md:px-6 lg:px-8 py-4 sticky top-0 z-30">
+    <div className="sticky top-0 z-30">
+      <div className="bg-snow border-b-[3px] border-navy px-4 md:px-6 lg:px-8 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div>
@@ -36,6 +38,8 @@ export default function DashboardHeader({ title = "Dashboard" }: { title?: strin
           )}
         </div>
       </div>
+      </div>
+      <UrgentBar />
     </div>
   );
 }

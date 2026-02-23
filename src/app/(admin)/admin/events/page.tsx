@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { withAuth } from "@/lib/withAuth";
 import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
 import { EventSchemaObject, flattenZodErrors } from "@/lib/schemas";
@@ -62,6 +63,9 @@ interface EventFormData {
   category: EventCategory;
   maxAttendees: string;
   imageUrl: string;
+  requiresPayment: boolean;
+  paymentAmount: string;
+  registrationDeadline: string;
 }
 
 const CATEGORIES: EventCategory[] = [
@@ -90,6 +94,9 @@ const emptyForm: EventFormData = {
   category: "Other",
   maxAttendees: "",
   imageUrl: "",
+  requiresPayment: false,
+  paymentAmount: "",
+  registrationDeadline: "",
 };
 
 /* ─── Helpers ────────────────────────────── */
@@ -121,7 +128,7 @@ function attendeeCount(event: Event) {
 
 /* ─── Component ──────────────────────────── */
 
-export default function AdminEventsPage() {
+function AdminEventsPage() {
   const { user, getAccessToken } = useAuth();
   const [viewMode, setViewMode] = useState<"upcoming" | "past">("upcoming");
   const [events, setEvents] = useState<Event[]>([]);
@@ -259,6 +266,9 @@ export default function AdminEventsPage() {
       category: event.category,
       maxAttendees: event.maxAttendees?.toString() ?? "",
       imageUrl: event.imageUrl ?? "",
+      requiresPayment: event.requiresPayment ?? false,
+      paymentAmount: event.paymentAmount?.toString() ?? "",
+      registrationDeadline: event.registrationDeadline ? new Date(event.registrationDeadline).toISOString().slice(0, 16) : "",
     });
     setFormErrors({});
     setShowModal(true);
@@ -284,6 +294,9 @@ export default function AdminEventsPage() {
         category: form.category,
         ...(form.maxAttendees ? { maxAttendees: parseInt(form.maxAttendees) } : {}),
         ...(form.imageUrl ? { imageUrl: form.imageUrl } : {}),
+        requiresPayment: form.requiresPayment,
+        ...(form.requiresPayment && form.paymentAmount ? { paymentAmount: parseFloat(form.paymentAmount) } : {}),
+        ...(form.registrationDeadline ? { registrationDeadline: new Date(form.registrationDeadline).toISOString() } : {}),
       };
 
       if (editingEvent) {
@@ -461,7 +474,7 @@ export default function AdminEventsPage() {
           </div>
           <button
             onClick={openCreate}
-            className="self-start bg-lime border-[4px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
+            className="self-start bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
@@ -472,33 +485,33 @@ export default function AdminEventsPage() {
 
         {/* ── Stats Row ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-snow border-[4px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]">
+          <div className="bg-snow border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Total Events</p>
             <p className="font-display font-black text-2xl text-navy">{events.length}</p>
           </div>
-          <div className="bg-teal border-[4px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+          <div className="bg-teal border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Upcoming</p>
             <p className="font-display font-black text-2xl text-snow">{totalUpcoming}</p>
           </div>
-          <div className="bg-snow border-[4px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]">
+          <div className="bg-snow border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Past</p>
             <p className="font-display font-black text-2xl text-navy">{totalPast}</p>
           </div>
-          <div className="bg-lavender border-[4px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+          <div className="bg-lavender border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Registrations</p>
             <p className="font-display font-black text-2xl text-snow">{totalAttendees}</p>
           </div>
         </div>
 
         {/* ── Filters Bar ── */}
-        <div className="bg-snow rounded-3xl border-[4px] border-navy p-4 shadow-[4px_4px_0_0_#000] flex flex-col md:flex-row md:items-center gap-4">
+        <div className="bg-snow rounded-3xl border-[3px] border-navy p-4 shadow-[4px_4px_0_0_#000] flex flex-col md:flex-row md:items-center gap-4">
           {/* Tab toggle */}
           <div className="flex items-center bg-cloud rounded-2xl p-1 shrink-0">
             <button
               onClick={() => setViewMode("upcoming")}
               className={`px-4 py-1.5 text-sm font-bold rounded-xl transition-colors ${
                 viewMode === "upcoming"
-                  ? "bg-navy text-lime"
+                  ? "bg-navy text-snow"
                   : "text-navy/60 hover:text-navy"
               }`}
             >
@@ -508,7 +521,7 @@ export default function AdminEventsPage() {
               onClick={() => setViewMode("past")}
               className={`px-4 py-1.5 text-sm font-bold rounded-xl transition-colors ${
                 viewMode === "past"
-                  ? "bg-navy text-lime"
+                  ? "bg-navy text-snow"
                   : "text-navy/60 hover:text-navy"
               }`}
             >
@@ -549,7 +562,7 @@ export default function AdminEventsPage() {
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="bg-snow rounded-3xl border-[4px] border-navy p-5 animate-pulse">
+                <div key={i} className="bg-snow rounded-3xl border-[3px] border-navy p-5 animate-pulse">
                   <div className="h-36 rounded-2xl bg-cloud mb-4" />
                   <div className="h-4 w-2/3 rounded-full bg-cloud mb-3" />
                   <div className="h-3 w-full rounded-full bg-cloud mb-2" />
@@ -558,7 +571,7 @@ export default function AdminEventsPage() {
               ))}
             </div>
           ) : filteredEvents.length === 0 ? (
-            <div className="bg-snow rounded-3xl border-[4px] border-navy p-16 text-center shadow-[4px_4px_0_0_#000] space-y-4">
+            <div className="bg-snow rounded-3xl border-[3px] border-navy p-16 text-center shadow-[4px_4px_0_0_#000] space-y-4">
               <div className="w-16 h-16 mx-auto rounded-2xl bg-coral-light flex items-center justify-center">
                 <svg className="w-8 h-8 text-coral" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12.75 12.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM7.5 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM8.25 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM9.75 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM10.5 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM12.75 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM14.25 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM15 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM16.5 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM15 12.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM16.5 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" />
@@ -576,7 +589,7 @@ export default function AdminEventsPage() {
               {viewMode === "upcoming" && (
                 <button
                   onClick={openCreate}
- className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold press-4 press-lime transition-all"
+ className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy transition-all"
                 >
                   Create Event
                 </button>
@@ -589,7 +602,7 @@ export default function AdminEventsPage() {
                 return (
                   <div
                     key={event.id}
- className={`group bg-snow rounded-3xl border-[4px] border-navy overflow-hidden press-3 press-black transition-all ${
+ className={`group bg-snow rounded-3xl border-[3px] border-navy overflow-hidden press-3 press-black transition-all ${
                       isLarge ? "md:col-span-2" : ""
                     }`}
                   >
@@ -618,6 +631,11 @@ export default function AdminEventsPage() {
                         <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${CATEGORY_COLORS[event.category] ?? CATEGORY_COLORS.Other}`}>
                           {event.category}
                         </span>
+                        {event.requiresPayment && (
+                          <span className="px-2.5 py-0.5 rounded-full bg-sunny-light text-navy text-xs font-bold">
+                            ₦{event.paymentAmount?.toLocaleString() ?? "Paid"}
+                          </span>
+                        )}
                         {!event.imageUrl && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-cloud text-xs font-bold text-navy/60">
                             <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
@@ -665,7 +683,7 @@ export default function AdminEventsPage() {
                       <div className="flex items-center gap-2 pt-2">
                         <button
                           onClick={() => openEdit(event)}
-                          className="flex-1 px-4 py-2 rounded-xl bg-ghost border-[3px] border-navy text-sm text-navy font-bold hover:bg-navy hover:text-lime transition-colors"
+                          className="flex-1 px-4 py-2 rounded-xl bg-ghost border-[3px] border-navy text-sm text-navy font-bold hover:bg-navy hover:text-snow transition-colors"
                         >
                           Edit
                         </button>
@@ -711,7 +729,7 @@ export default function AdminEventsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-navy/50" onClick={() => { setShowModal(false); setEditingEvent(null); setFormErrors({}); }} />
 
-          <div className="relative w-full max-w-lg bg-snow rounded-3xl border-[4px] border-navy shadow-[4px_4px_0_0_#000] overflow-hidden">
+          <div className="relative w-full max-w-lg bg-snow rounded-3xl border-[3px] border-navy shadow-[4px_4px_0_0_#000] overflow-hidden">
             {/* Modal header */}
             <div className="flex items-center justify-between p-6 border-b-[4px] border-navy">
               <h2 className="font-display font-black text-xl text-navy">
@@ -848,6 +866,51 @@ export default function AdminEventsPage() {
                   </label>
                 )}
               </div>
+
+              {/* ── Payment & Registration ──────────────────── */}
+              <div className="space-y-4 pt-2 border-t-[3px] border-cloud">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-bold text-navy">Requires Payment</label>
+                    <p className="text-xs text-slate mt-0.5">Enable if attendees must pay to register</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, requiresPayment: !f.requiresPayment }))}
+                    className={`relative w-12 h-7 rounded-full border-[3px] border-navy transition-colors ${form.requiresPayment ? "bg-lime" : "bg-cloud"}`}
+                    aria-label="Toggle requires payment"
+                  >
+                    <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-navy transition-transform ${form.requiresPayment ? "left-5" : "left-0.5"}`} />
+                  </button>
+                </div>
+
+                {form.requiresPayment && (
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-bold text-navy">Payment Amount (₦)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="100"
+                      value={form.paymentAmount}
+                      onChange={(e) => setForm((f) => ({ ...f, paymentAmount: e.target.value }))}
+                      placeholder="e.g. 2000"
+                      className="w-full px-4 py-3 rounded-2xl bg-ghost border-[3px] border-navy text-sm text-navy placeholder:text-slate transition-all"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-navy">
+                    Registration Deadline <span className="text-slate font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={form.registrationDeadline}
+                    onChange={(e) => setForm((f) => ({ ...f, registrationDeadline: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-2xl bg-ghost border-[3px] border-navy text-sm text-navy transition-all"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Footer */}
@@ -861,7 +924,7 @@ export default function AdminEventsPage() {
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
- className="px-6 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-lime text-sm font-bold press-4 press-lime disabled:opacity-40 transition-all"
+                className="px-6 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy disabled:opacity-40 transition-all"
               >
                 {submitting ? "Saving..." : editingEvent ? "Save Changes" : "Create Event"}
               </button>
@@ -875,7 +938,7 @@ export default function AdminEventsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-navy/60 backdrop-blur-sm" onClick={() => setRegistrantsEvent(null)} />
 
-          <div className="relative bg-snow border-[4px] border-navy rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-[6px_6px_0_0_#000]">
+          <div className="relative bg-snow border-[3px] border-navy rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-[6px_6px_0_0_#000]">
             {/* Header */}
             <div className="flex items-start justify-between p-6 border-b-[4px] border-navy">
               <div>
@@ -1049,7 +1112,7 @@ export default function AdminEventsPage() {
                     <div className="absolute right-0 bottom-full mb-1.5 w-36 bg-snow border-[3px] border-navy rounded-2xl shadow-[4px_4px_0_0_#000] overflow-hidden z-10">
                       <button
                         onClick={() => downloadRegistrants("csv")}
-                        className="w-full px-4 py-2.5 text-left text-xs font-bold text-navy hover:bg-lime-light transition-colors flex items-center gap-2"
+                        className="w-full px-4 py-2.5 text-left text-xs font-bold text-navy hover:bg-ghost-light transition-colors flex items-center gap-2"
                       >
                         <svg className="w-3.5 h-3.5 text-teal shrink-0" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875ZM9.75 14.25a.75.75 0 0 0 0 1.5H15a.75.75 0 0 0 0-1.5H9.75Z" clipRule="evenodd" />
@@ -1083,3 +1146,7 @@ export default function AdminEventsPage() {
       )}
     </>  );
 }
+
+export default withAuth(AdminEventsPage, {
+  anyPermission: ["event:create", "event:edit", "event:view", "event:manage"],
+});
