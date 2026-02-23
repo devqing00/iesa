@@ -67,7 +67,12 @@ export default function StudentLoginPage() {
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="login-password" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Password</label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="login-password" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Password</label>
+                <Link href="/forgot-password" className="font-display font-bold text-xs text-navy/60 hover:text-navy hover:underline transition-colors">
+                  Forgot password?
+                </Link>
+              </div>
               <input
                 id="login-password"
                 type="password"

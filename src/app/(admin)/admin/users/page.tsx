@@ -166,6 +166,33 @@ function AdminUsersPage() {
           <option value="student">Students</option>
           <option value="admin">Admins</option>
         </select>
+
+        <button
+          onClick={() => {
+            const headers = ["Name", "Email", "Role", "Status"];
+            const rows = filteredUsers.map((u) => [
+              `${u.firstName} ${u.lastName}`,
+              u.email,
+              u.role,
+              u.isActive !== false ? "Active" : "Inactive",
+            ]);
+            const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+            const blob = new Blob([csv], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `iesa-users-${new Date().toISOString().split("T")[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          className="px-5 py-3 bg-navy border-[3px] border-navy rounded-2xl text-snow text-sm font-bold flex items-center gap-2 hover:bg-navy-light transition-colors"
+          title="Export filtered users as CSV"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Export CSV
+        </button>
       </div>
 
       {/* ── Table Section ──────────────────────────── */}

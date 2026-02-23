@@ -58,6 +58,7 @@ export default function StudentDashboardPage() {
   const [payments, setPayments] = useState<PaymentItem[]>([]);
   const [classes, setClasses] = useState<ClassSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -111,6 +112,14 @@ export default function StudentDashboardPage() {
     if (user) fetchDashboardData();
   }, [user, fetchDashboardData]);
 
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("iesa_onboarding_dismissed") === "1") {
+        setOnboardingDismissed(true);
+      }
+    } catch { /* SSR or storage error */ }
+  }, []);
+
   const greeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good morning";
@@ -148,11 +157,60 @@ export default function StudentDashboardPage() {
     { bg: "bg-snow", border: "border-navy", text: "text-navy", sub: "text-slate", timeBg: "bg-cloud", timeTxt: "text-navy", tagBg: "bg-cloud", tagTxt: "text-slate" },
   ];
 
+  /* ── Onboarding completeness ── */
+  const profileMissing: string[] = [];
+  if (userProfile) {
+    if (!userProfile.level && !userProfile.currentLevel) profileMissing.push("level");
+    if (!userProfile.matricNumber) profileMissing.push("matric number");
+    if (!userProfile.phone) profileMissing.push("phone number");
+    if (!userProfile.emailVerified) profileMissing.push("email verification");
+  }
+  const showOnboarding = !onboardingDismissed && profileMissing.length > 0;
+
+  const dismissOnboarding = () => {
+    setOnboardingDismissed(true);
+    try { localStorage.setItem("iesa_onboarding_dismissed", "1"); } catch { /* ignore */ }
+  };
+
   return (
     <div className="min-h-screen bg-ghost">
       <DashboardHeader title="Dashboard" />
 
       <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
+
+        {/* ═══ ONBOARDING BANNER ═══ */}
+        {showOnboarding && (
+          <div className="mb-5 bg-sunny border-[4px] border-navy rounded-3xl p-5 md:p-6 shadow-[6px_6px_0_0_#000] relative overflow-hidden">
+            <div className="absolute -top-4 -right-4 w-24 h-24 rounded-full bg-coral/15 pointer-events-none" />
+            <svg className="absolute top-3 right-16 w-5 h-5 text-navy/10 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+            </svg>
+            <button
+              onClick={dismissOnboarding}
+              aria-label="Dismiss onboarding banner"
+              className="absolute top-4 right-4 w-7 h-7 rounded-lg bg-navy/10 hover:bg-navy/20 flex items-center justify-center transition-colors z-10"
+            >
+              <svg className="w-3.5 h-3.5 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 relative z-10">
+              <div className="w-12 h-12 bg-snow border-[3px] border-navy rounded-2xl flex items-center justify-center shrink-0 shadow-[3px_3px_0_0_#000]">
+                <svg className="w-6 h-6 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-display font-black text-lg text-navy leading-tight">Complete your profile</h3>
+                <p className="text-sm text-navy/70 mt-1">
+                  Add your {profileMissing.slice(0, 3).join(", ")}{profileMissing.length > 3 ? ` and ${profileMissing.length - 3} more` : ""} to get the full IESA experience.
+                </p>
+              </div>
+              <Link
+                href="/dashboard/profile"
+                className="bg-navy border-[3px] border-navy px-5 py-2.5 rounded-xl font-display font-bold text-sm text-lime hover:scale-105 transition-all shrink-0 shadow-[3px_3px_0_0_#000]"
+              >
+                Go to Profile
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* ═══════════════════════════════════════════════════════════
             ROW 1 — Hero Bento: Greeting (8 cols) + Classes Today (4 cols)

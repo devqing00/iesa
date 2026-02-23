@@ -61,7 +61,7 @@ async def create_application(
         "userId": user_id,
         "userName": f"{user.get('firstName', '')} {user.get('lastName', '')}".strip(),
         "userEmail": user.get("email", ""),
-        "userLevel": user.get("level"),
+        "userLevel": user.get("currentLevel") or user.get("level"),
         "unit": body.unit.value,
         "motivation": body.motivation,
         "skills": body.skills,

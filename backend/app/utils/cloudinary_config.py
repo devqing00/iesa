@@ -68,3 +68,65 @@ def delete_profile_picture(user_id: str) -> bool:
     except Exception as e:
         print(f"Error deleting from Cloudinary: {str(e)}")
         return False
+
+
+def upload_transfer_receipt(file_data: bytes, transfer_id: str, file_extension: str = "jpg") -> Optional[str]:
+    """
+    Upload a bank transfer receipt image to Cloudinary.
+    
+    Args:
+        file_data: The image file data as bytes
+        transfer_id: The transfer submission ID
+        file_extension: File extension
+    
+    Returns:
+        The secure URL of the uploaded image, or None if upload fails
+    """
+    try:
+        result = cloudinary.uploader.upload(
+            file_data,
+            folder="iesa/transfer_receipts",
+            public_id=f"transfer_{transfer_id}",
+            overwrite=True,
+            resource_type="image",
+            transformation=[
+                {"width": 1200, "height": 1600, "crop": "limit"},
+                {"quality": "auto:good"},
+                {"fetch_format": "auto"}
+            ]
+        )
+        return result.get("secure_url")
+    except Exception as e:
+        print(f"Error uploading transfer receipt to Cloudinary: {str(e)}")
+        return None
+
+
+def upload_press_cover(file_data: bytes, article_id: str, file_extension: str = "jpg") -> Optional[str]:
+    """
+    Upload a press article cover image to Cloudinary.
+    
+    Args:
+        file_data: The image file data as bytes
+        article_id: The press article ID (or a temporary slug)
+        file_extension: File extension
+    
+    Returns:
+        The secure URL of the uploaded image, or None if upload fails
+    """
+    try:
+        result = cloudinary.uploader.upload(
+            file_data,
+            folder="iesa/press_covers",
+            public_id=f"cover_{article_id}",
+            overwrite=True,
+            resource_type="image",
+            transformation=[
+                {"width": 1600, "height": 900, "crop": "limit"},
+                {"quality": "auto:good"},
+                {"fetch_format": "auto"}
+            ]
+        )
+        return result.get("secure_url")
+    except Exception as e:
+        print(f"Error uploading press cover to Cloudinary: {str(e)}")
+        return None

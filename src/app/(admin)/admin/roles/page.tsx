@@ -457,7 +457,7 @@ function RolesPage() {
                     <span className="px-3 py-1 rounded-full bg-lime-light text-teal text-xs font-bold">
                       {getPositionLabel(role.position)}
                     </span>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => openEditPerms(role)}
                         className="p-1.5 rounded-xl hover:bg-lavender-light text-slate hover:text-lavender transition-colors"
@@ -528,7 +528,7 @@ function RolesPage() {
                     <span className="px-3 py-1 rounded-full bg-lavender-light text-lavender text-xs font-bold">
                       {getPositionLabel(role.position)}
                     </span>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => openEditPerms(role)}
                         className="p-1.5 rounded-xl hover:bg-lavender-light text-slate hover:text-lavender transition-colors"

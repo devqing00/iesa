@@ -31,15 +31,19 @@ from app.core.auth import (
     validate_password_strength,
     create_verification_token,
     decode_verification_token,
+    create_reset_token,
+    decode_reset_token,
     TokenPair,
     RegisterRequest,
     LoginRequest,
     ChangePasswordRequest,
+    ResetPasswordRequest,
+    ResetPasswordConfirm,
     ACCESS_TOKEN_EXPIRE_MINUTES,
     REFRESH_TOKEN_EXPIRE_DAYS,
 )
 from app.core.security import get_current_user
-from app.core.email import send_verification_email
+from app.core.email import send_verification_email, send_password_reset_email
 from app.db import get_database
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
@@ -500,6 +504,167 @@ async def verify_email(token: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred during verification. Please try again or contact support."
         )
+
+
+# ──────────────────────────────────────────────
+# FORGOT PASSWORD
+# ──────────────────────────────────────────────
+
+@router.post("/forgot-password")
+@limiter.limit("3/minute")
+async def forgot_password(request: Request, data: ResetPasswordRequest):
+    """
+    Request a password reset email.
+    
+    Always returns success to prevent email enumeration.
+    """
+    db = get_database()
+    users = db["users"]
+
+    user = await users.find_one({"email": data.email})
+    
+    # Always return success to prevent email enumeration
+    if not user:
+        return {"message": "If an account exists with this email, a reset link has been sent."}
+    
+    if not user.get("isActive", True):
+        return {"message": "If an account exists with this email, a reset link has been sent."}
+
+    user_id = str(user["_id"])
+    name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip() or "Student"
+
+    try:
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        reset_token, _ = create_reset_token(user_id, data.email)
+        reset_url = f"{frontend_url}/reset-password?token={reset_token}"
+        await send_password_reset_email(
+            to=data.email,
+            name=name,
+            reset_url=reset_url
+        )
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to send password reset email: {e}")
+
+    return {"message": "If an account exists with this email, a reset link has been sent."}
+
+
+# ──────────────────────────────────────────────
+# RESET PASSWORD
+# ──────────────────────────────────────────────
+
+@router.post("/reset-password")
+@limiter.limit("5/minute")
+async def reset_password(request: Request, data: ResetPasswordConfirm):
+    """
+    Reset password using a token from the reset email.
+    """
+    db = get_database()
+    users = db["users"]
+
+    try:
+        payload = decode_reset_token(data.token)
+        user_id = payload.get("sub")
+        email = payload.get("email")
+        
+        if not user_id or not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid reset token"
+            )
+        
+        if not ObjectId.is_valid(user_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid reset token"
+            )
+        
+        # Validate new password
+        is_valid, err = validate_password_strength(data.newPassword)
+        if not is_valid:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err)
+        
+        # Find user
+        user = await users.find_one({"_id": ObjectId(user_id), "email": email})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Update password
+        await users.update_one(
+            {"_id": ObjectId(user_id)},
+            {
+                "$set": {
+                    "passwordHash": hash_password(data.newPassword),
+                    "updatedAt": datetime.now(timezone.utc)
+                }
+            }
+        )
+
+        # Revoke all refresh tokens for this user (force re-login)
+        await db["refresh_tokens"].update_many(
+            {"userId": user_id},
+            {"$set": {"isRevoked": True}},
+        )
+        
+        return {"message": "Password reset successfully. Please log in with your new password."}
+        
+    except ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reset link has expired. Please request a new one."
+        )
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid reset token"
+        )
+
+
+# ──────────────────────────────────────────────
+# RESEND VERIFICATION EMAIL
+# ──────────────────────────────────────────────
+
+@router.post("/resend-verification")
+@limiter.limit("3/minute")
+async def resend_verification(request: Request, user: dict = Depends(get_current_user)):
+    """
+    Resend email verification for the current user.
+    """
+    db = get_database()
+    users = db["users"]
+
+    user_doc = await users.find_one({"_id": ObjectId(user["_id"])})
+    if not user_doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    if user_doc.get("emailVerified"):
+        return {"message": "Email is already verified"}
+
+    user_id = str(user_doc["_id"])
+    email = user_doc["email"]
+    name = f"{user_doc.get('firstName', '')} {user_doc.get('lastName', '')}".strip() or "Student"
+
+    try:
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        verification_token, _ = create_verification_token(user_id, email)
+        verification_url = f"{frontend_url}/verify-email?token={verification_token}"
+        await send_verification_email(
+            to=email,
+            name=name,
+            verification_url=verification_url
+        )
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to resend verification email: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send verification email. Please try again later."
+        )
+
+    return {"message": "Verification email sent. Please check your inbox."}
 
 
 # ──────────────────────────────────────────────

@@ -437,7 +437,11 @@ function AdminPaymentsPage() {
   const totalPaymentAmount = payments.reduce((sum, p) => sum + p.amount, 0);
   const paidCount = payments.filter((p) => p.paidBy && p.paidBy.length > 0).length;
   const pendingCount = payments.filter((p) => !p.paidBy || p.paidBy.length === 0).length;
-  const overdueCount = 0; // Calculate based on deadline if needed
+  const overdueCount = payments.filter((p) => {
+    if (p.paidBy && p.paidBy.length > 0) return false;
+    if (!p.deadline) return false;
+    return new Date(p.deadline) < new Date();
+  }).length;
   const totalTransactionAmount = transactions
     .filter((t) => t.status === "success")
     .reduce((sum, t) => sum + t.amount, 0);
@@ -632,6 +636,34 @@ function AdminPaymentsPage() {
                 Clear filters
               </button>
             )}
+
+            <button
+              onClick={() => {
+                const headers = ["Title", "Category", "Amount", "Deadline", "Paid By Count"];
+                const rows = filteredPayments.map((p) => [
+                  p.title,
+                  p.category,
+                  p.amount,
+                  p.deadline ? new Date(p.deadline).toLocaleDateString() : "N/A",
+                  p.paidBy?.length || 0,
+                ]);
+                const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+                const blob = new Blob([csv], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `iesa-payments-${new Date().toISOString().split("T")[0]}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="ml-auto px-4 py-2.5 bg-navy border-[3px] border-navy rounded-2xl text-snow text-sm font-bold flex items-center gap-2 hover:bg-navy-light transition-colors"
+              title="Export payments as CSV"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export
+            </button>
           </div>
 
           {/* Table */}
@@ -744,6 +776,35 @@ function AdminPaymentsPage() {
                     Clear
                   </button>
                 )}
+
+                <button
+                  onClick={() => {
+                    const headers = ["Reference", "Student", "Amount", "Status", "Category", "Date"];
+                    const rows = filteredTransactions.map((t) => [
+                      t.reference,
+                      t.user ? `${t.user.firstName} ${t.user.lastName}` : "N/A",
+                      t.amount,
+                      t.status,
+                      t.paymentCategory || "N/A",
+                      t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "N/A",
+                    ]);
+                    const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+                    const blob = new Blob([csv], { type: "text/csv" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `iesa-transactions-${new Date().toISOString().split("T")[0]}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="px-4 py-2.5 bg-navy border-[3px] border-navy rounded-2xl text-snow text-sm font-bold flex items-center gap-2 hover:bg-navy-light transition-colors"
+                  title="Export transactions as CSV"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Export
+                </button>
               </div>
             </div>
           </div>
@@ -981,7 +1042,14 @@ function AdminPaymentsPage() {
                             <span className="font-display font-black text-base text-navy">₦{transfer.amount.toLocaleString()}</span>
                           </td>
                           <td className="p-4">
-                            <span className="font-mono text-xs px-2 py-1 rounded-lg bg-cloud border-[2px] border-navy/20 text-navy">{transfer.transactionReference}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs px-2 py-1 rounded-lg bg-cloud border-[2px] border-navy/20 text-navy">{transfer.transactionReference}</span>
+                              {transfer.receiptImageUrl && (
+                                <a href={transfer.receiptImageUrl} target="_blank" rel="noopener noreferrer" title="View receipt image">
+                                  <svg className="w-4 h-4 text-teal hover:text-teal/80 transition-colors" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+                                </a>
+                              )}
+                            </div>
                           </td>
                           <td className="p-4">
                             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${sCfg.bg} ${sCfg.text}`}>
@@ -1338,6 +1406,18 @@ function AdminPaymentsPage() {
                 <div className="flex justify-between">
                   <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Narration</span>
                   <span className="text-sm text-navy italic">{reviewingTransfer.narration}</span>
+                </div>
+              )}
+              {reviewingTransfer.receiptImageUrl && (
+                <div className="pt-2 border-t-2 border-navy/10 mt-2">
+                  <span className="text-xs text-navy/50 uppercase font-bold tracking-wider block mb-2">Receipt Image</span>
+                  <a href={reviewingTransfer.receiptImageUrl} target="_blank" rel="noopener noreferrer" className="block">
+                    <img
+                      src={reviewingTransfer.receiptImageUrl}
+                      alt="Transfer receipt"
+                      className="w-full max-h-64 object-contain border-[3px] border-navy/10 rounded-xl bg-ghost cursor-pointer hover:border-navy/30 transition-colors"
+                    />
+                  </a>
                 </div>
               )}
             </div>

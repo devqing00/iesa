@@ -446,8 +446,14 @@ function EventsPage() {
         // Refresh data
         await fetchEvents();
         await fetchRegistrations();
+      } else if (data.status === "failed") {
+        toast.error("Payment Declined", "Your payment was declined. Please try again or use a different payment method.");
+        router.push("/dashboard/events");
+      } else if (data.status === "abandoned") {
+        toast.warning("Payment Cancelled", "You cancelled the payment. No charges were made.");
+        router.push("/dashboard/events");
       } else {
-        toast.warning("Payment Status", `Payment status: ${data.status}`);
+        toast.warning("Payment Pending", `Your payment is being processed (status: ${data.status}). Please check back shortly.`);
         router.push("/dashboard/events");
       }
     } catch (err) {

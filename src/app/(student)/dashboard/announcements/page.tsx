@@ -2,7 +2,7 @@
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import Pagination from "@/components/ui/Pagination";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
 import { useSearchParams } from "next/navigation";
@@ -46,6 +46,18 @@ const categoryColors: Record<string, string> = {
 /* ─── Component ─────────────────────────────────────────────────── */
 
 export default function AnnouncementsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-ghost flex items-center justify-center">
+        <div className="animate-pulse text-navy/60 font-medium">Loading announcements...</div>
+      </div>
+    }>
+      <AnnouncementsContent />
+    </Suspense>
+  );
+}
+
+function AnnouncementsContent() {
   const { user, getAccessToken } = useAuth();
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("highlight");

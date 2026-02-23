@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getApiUrl, listBankAccounts, submitTransferProof, getMyTransfers, checkTransactionReference, NIGERIAN_BANKS, TRANSFER_STATUS_STYLES } from "@/lib/api";
@@ -32,25 +32,22 @@ interface PaystackTransaction {
   channel?: string;
 }
 
-declare global {
-  interface Window {
-    PaystackPop?: {
-      setup: (config: {
-        key: string;
-        email: string;
-        amount: number;
-        ref: string;
-        onClose: () => void;
-        callback: (response: { reference: string }) => void;
-      }) => { openIframe: () => void };
-    };
-  }
-}
-
 /* ─── Accent cycle ─── */
 const ACCENT_CYCLE = ["border-l-teal", "border-l-coral", "border-l-lavender", "border-l-sunny"] as const;
 
 export default function PaymentsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-ghost flex items-center justify-center">
+        <div className="animate-pulse text-navy/60 font-medium">Loading payments...</div>
+      </div>
+    }>
+      <PaymentsContent />
+    </Suspense>
+  );
+}
+
+function PaymentsContent() {
   const { user, getAccessToken } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -59,7 +56,9 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [downloadingReceipt, setDownloadingReceipt] = useState<string | null>(null);
+  const [resendingReceipt, setResendingReceipt] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const toast = useToast();
 
   // Bank transfer state
@@ -75,6 +74,7 @@ export default function PaymentsPage() {
     transferDate: new Date().toISOString().split("T")[0],
     narration: "",
   });
+  const [receiptImage, setReceiptImage] = useState<File | null>(null);
   // Platform settings
   const [onlinePaymentEnabled, setOnlinePaymentEnabled] = useState(true);
   // Reference duplicate check
@@ -124,6 +124,7 @@ export default function PaymentsPage() {
       setPayments(await res.json());
     } catch (error) {
       console.error("Error fetching payments:", error);
+      setFetchError("Failed to load payments. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -170,16 +171,12 @@ export default function PaymentsPage() {
       });
       if (!res.ok) { const error = await res.json(); throw new Error(error.detail || "Failed to initialize payment"); }
       const data = await res.json();
-      if (!window.PaystackPop) await loadPaystackScript();
-      const handler = window.PaystackPop!.setup({
-        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || "",
-        email: user?.email || "",
-        amount: Math.round(payment.amount * 100),
-        ref: data.reference,
-        onClose: () => { toast.info("Payment Closed", "Payment window was closed"); setProcessingId(null); },
-        callback: (response) => { router.push(`/dashboard/payments/verify?reference=${response.reference}`); },
-      });
-      handler.openIframe();
+      // Redirect to Paystack payment page (same approach as events page)
+      if (data.authorizationUrl) {
+        window.location.href = data.authorizationUrl;
+      } else {
+        throw new Error("No payment URL returned");
+      }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Failed to initiate payment";
       console.error("Payment error:", error);
@@ -200,8 +197,14 @@ export default function PaymentsPage() {
         router.push("/dashboard/payments");
         fetchPayments();
         fetchTransactions();
+      } else if (data.status === "failed") {
+        toast.error("Payment Declined", "Your payment was declined. Please try again or use a different payment method.");
+        router.push("/dashboard/payments");
+      } else if (data.status === "abandoned") {
+        toast.warning("Payment Cancelled", "You cancelled the payment. No charges were made.");
+        router.push("/dashboard/payments");
       } else {
-        toast.warning("Payment Status", `Payment status: ${data.status}`);
+        toast.warning("Payment Pending", `Your payment is being processed (status: ${data.status}). Please check back shortly.`);
         router.push("/dashboard/payments");
       }
     } catch (error) {
@@ -211,18 +214,6 @@ export default function PaymentsPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const loadPaystackScript = (): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      if (window.PaystackPop) { resolve(); return; }
-      const script = document.createElement("script");
-      script.src = "https://js.paystack.co/v1/inline.js";
-      script.async = true;
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error("Failed to load Paystack script"));
-      document.body.appendChild(script);
-    });
   };
 
   const downloadReceipt = async (reference: string) => {
@@ -250,6 +241,27 @@ export default function PaymentsPage() {
       toast.error("Download Failed", errorMessage);
     } finally {
       setDownloadingReceipt(null);
+    }
+  };
+
+  const resendReceipt = async (reference: string) => {
+    setResendingReceipt(reference);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl(`/api/v1/paystack/receipt/resend?reference=${encodeURIComponent(reference)}`), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ detail: "Failed to resend" }));
+        throw new Error(error.detail || "Failed to resend receipt");
+      }
+      toast.success("Receipt sent to your email!");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to resend receipt";
+      toast.error(errorMessage);
+    } finally {
+      setResendingReceipt(null);
     }
   };
 
@@ -304,7 +316,7 @@ export default function PaymentsPage() {
     setShowConfirmModal(false);
     setTransferSubmitting(true);
     try {
-      await submitTransferProof({
+      const result = await submitTransferProof({
         paymentId: payment.id || payment._id || "",
         bankAccountId: transferForm.bankAccountId,
         amount: payment.amount,
@@ -314,7 +326,26 @@ export default function PaymentsPage() {
         transferDate: transferForm.transferDate,
         narration: transferForm.narration || undefined,
       });
+
+      // Upload receipt image if selected
+      if (receiptImage && result._id) {
+        try {
+          const formData = new FormData();
+          formData.append("file", receiptImage);
+          const token = await getAccessToken();
+          await fetch(getApiUrl(`/api/v1/bank-transfers/${result._id}/upload-receipt`), {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData,
+          });
+        } catch {
+          // Non-critical — transfer was submitted successfully
+          toast.info("Note", "Transfer submitted but receipt image upload failed. You can re-upload later.");
+        }
+      }
+
       toast.success("Transfer Submitted", "Your bank transfer proof has been submitted for admin review.");
+      setReceiptImage(null);
       setShowTransferModal(null);
       fetchMyTransfers();
     } catch (error: unknown) {
@@ -354,6 +385,25 @@ export default function PaymentsPage() {
                   <div key={i} className="h-20 bg-cloud/50 border-[3px] border-navy/10 rounded-[1.5rem] animate-pulse" />
                 ))}
               </div>
+            </div>
+          </div>
+        ) : fetchError ? (
+          /* ── Error State ── */
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="bg-coral-light border-[3px] border-coral rounded-3xl p-8 max-w-md text-center shadow-[6px_6px_0_0_#000]">
+              <svg className="w-12 h-12 text-coral mx-auto mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <h3 className="font-display font-bold text-navy text-lg mb-2">Unable to Load Payments</h3>
+              <p className="text-navy/60 text-sm mb-4">{fetchError}</p>
+              <button
+                onClick={() => { setFetchError(null); fetchPayments(); fetchTransactions(); }}
+                className="bg-lime border-[3px] border-navy shadow-[4px_4px_0_0_#0F0F2D] px-6 py-2.5 rounded-xl font-display font-bold text-sm text-navy hover:shadow-[6px_6px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+              >
+                Try Again
+              </button>
             </div>
           </div>
         ) : (
@@ -585,21 +635,32 @@ export default function PaymentsPage() {
                               <div className="flex flex-col items-end gap-2">
                                 <p className="font-display font-black text-xl text-navy">₦{transfer.amount.toLocaleString()}</p>
                                 {transfer.status === "approved" && (
-                                  <button
-                                    onClick={() => downloadReceipt(transfer.transactionReference)}
-                                    disabled={downloadingReceipt === transfer.transactionReference}
-                                    className="px-4 py-2 bg-lime border-[3px] border-navy rounded-xl font-display font-bold text-xs text-navy uppercase tracking-wider hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed transition-transform flex items-center gap-2"
-                                  >
-                                    {downloadingReceipt === transfer.transactionReference ? (
-                                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                      </svg>
-                                    ) : (
-                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25a.75.75 0 01.75.75v11.69l3.22-3.22a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 111.06-1.06l3.22 3.22V3a.75.75 0 01.75-.75zm-9 13.5a.75.75 0 01.75.75v2.25a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5V16.5a.75.75 0 011.5 0v2.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V16.5a.75.75 0 01.75-.75z" clipRule="evenodd" /></svg>
-                                    )}
-                                    {downloadingReceipt === transfer.transactionReference ? "Downloading..." : "Receipt"}
-                                  </button>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => downloadReceipt(transfer.transactionReference)}
+                                      disabled={downloadingReceipt === transfer.transactionReference}
+                                      className="px-4 py-2 bg-lime border-[3px] border-navy rounded-xl font-display font-bold text-xs text-navy uppercase tracking-wider hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed transition-transform flex items-center gap-2"
+                                    >
+                                      {downloadingReceipt === transfer.transactionReference ? (
+                                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                      ) : (
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25a.75.75 0 01.75.75v11.69l3.22-3.22a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 111.06-1.06l3.22 3.22V3a.75.75 0 01.75-.75zm-9 13.5a.75.75 0 01.75.75v2.25a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5V16.5a.75.75 0 011.5 0v2.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V16.5a.75.75 0 01.75-.75z" clipRule="evenodd" /></svg>
+                                      )}
+                                      {downloadingReceipt === transfer.transactionReference ? "..." : "PDF"}
+                                    </button>
+                                    <button
+                                      onClick={() => resendReceipt(transfer.transactionReference)}
+                                      disabled={resendingReceipt === transfer.transactionReference}
+                                      className="px-4 py-2 bg-lavender/30 border-[3px] border-navy/30 rounded-xl font-display font-bold text-xs text-navy uppercase tracking-wider hover:bg-lavender/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                                      title="Resend receipt to your email"
+                                    >
+                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z" /><path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" /></svg>
+                                      {resendingReceipt === transfer.transactionReference ? "..." : "Email"}
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -660,21 +721,32 @@ export default function PaymentsPage() {
                               <div className="flex items-center gap-3">
                                 <p className="font-display font-black text-xl text-navy">₦{txn.amount.toLocaleString()}</p>
                                 {txn.status === "success" && (
-                                  <button
-                                    onClick={() => downloadReceipt(txn.reference)}
-                                    disabled={downloadingReceipt === txn.reference}
-                                    className="px-4 py-2.5 bg-lime border-[3px] border-navy rounded-xl font-display font-bold text-xs text-navy uppercase tracking-wider hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed transition-transform flex items-center gap-2"
-                                  >
-                                    {downloadingReceipt === txn.reference ? (
-                                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                      </svg>
-                                    ) : (
-                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25a.75.75 0 01.75.75v11.69l3.22-3.22a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 111.06-1.06l3.22 3.22V3a.75.75 0 01.75-.75zm-9 13.5a.75.75 0 01.75.75v2.25a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5V16.5a.75.75 0 011.5 0v2.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V16.5a.75.75 0 01.75-.75z" clipRule="evenodd" /></svg>
-                                    )}
-                                    {downloadingReceipt === txn.reference ? "Downloading..." : "Download Receipt"}
-                                  </button>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => downloadReceipt(txn.reference)}
+                                      disabled={downloadingReceipt === txn.reference}
+                                      className="px-4 py-2.5 bg-lime border-[3px] border-navy rounded-xl font-display font-bold text-xs text-navy uppercase tracking-wider hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed transition-transform flex items-center gap-2"
+                                    >
+                                      {downloadingReceipt === txn.reference ? (
+                                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                      ) : (
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25a.75.75 0 01.75.75v11.69l3.22-3.22a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 111.06-1.06l3.22 3.22V3a.75.75 0 01.75-.75zm-9 13.5a.75.75 0 01.75.75v2.25a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5V16.5a.75.75 0 011.5 0v2.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V16.5a.75.75 0 01.75-.75z" clipRule="evenodd" /></svg>
+                                      )}
+                                      {downloadingReceipt === txn.reference ? "..." : "PDF"}
+                                    </button>
+                                    <button
+                                      onClick={() => resendReceipt(txn.reference)}
+                                      disabled={resendingReceipt === txn.reference}
+                                      className="px-4 py-2.5 bg-lavender/30 border-[3px] border-navy/30 rounded-xl font-display font-bold text-xs text-navy uppercase tracking-wider hover:bg-lavender/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                                      title="Resend receipt to your email"
+                                    >
+                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z" /><path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" /></svg>
+                                      {resendingReceipt === txn.reference ? "..." : "Email"}
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -834,6 +906,50 @@ export default function PaymentsPage() {
                       rows={3}
                       className="w-full bg-ghost border-[3px] border-navy/20 rounded-xl px-4 py-3 font-display font-medium text-sm text-navy placeholder:text-navy/30 focus:border-navy focus:outline-none transition-colors resize-none"
                     />
+                  </div>
+
+                  {/* Receipt Image (Optional) */}
+                  <div className="space-y-2">
+                    <label className="text-label text-navy/60">Receipt Screenshot <span className="text-navy/30">(optional)</span></label>
+                    <div className="relative">
+                      {receiptImage ? (
+                        <div className="flex items-center gap-3 bg-teal-light border-[3px] border-teal/30 rounded-xl px-4 py-3">
+                          <svg className="w-5 h-5 text-teal shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+                          <span className="font-display font-medium text-sm text-navy truncate flex-1">{receiptImage.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setReceiptImage(null)}
+                            aria-label="Remove receipt image"
+                            className="w-6 h-6 rounded-lg bg-coral/20 hover:bg-coral/40 flex items-center justify-center transition-colors shrink-0"
+                          >
+                            <svg className="w-3.5 h-3.5 text-coral" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="flex items-center gap-3 bg-ghost border-[3px] border-dashed border-navy/20 rounded-xl px-4 py-4 cursor-pointer hover:border-navy/40 hover:bg-cloud transition-colors">
+                          <svg className="w-6 h-6 text-navy/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                          <div>
+                            <span className="font-display font-bold text-sm text-navy/60">Upload receipt screenshot</span>
+                            <span className="block font-display text-xs text-navy/30 mt-0.5">JPEG, PNG or WebP — max 5MB</span>
+                          </div>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                if (file.size > 5 * 1024 * 1024) {
+                                  toast.error("File Too Large", "Receipt image must be under 5MB");
+                                  return;
+                                }
+                                setReceiptImage(file);
+                              }
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
                   </div>
 
                   {/* Submit */}

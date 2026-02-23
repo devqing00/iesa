@@ -429,6 +429,10 @@ async def pay_for_event(
     
     amount_kobo = int(amount * 100)
     
+    _ev_first = user.get("firstName", "")
+    _ev_last = user.get("lastName", "")
+    _ev_student_name = f"{_ev_first} {_ev_last}".strip() or user.get("displayName", user.get("email", "Unknown"))
+    
     paystack_data = {
         "email": user.get("email", "student@example.com"),
         "amount": amount_kobo,
@@ -436,12 +440,12 @@ async def pay_for_event(
         "callback_url": f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/dashboard/events?payment_ref={reference}",
         "metadata": {
             "studentId": user["_id"],
-            "studentName": user.get("displayName", user.get("email", "Unknown")),
+            "studentName": _ev_student_name,
             "eventId": event_id,
             "eventTitle": event.get("title", "Event Payment"),
             "type": "event_payment",
             "custom_fields": [
-                {"display_name": "Student Name", "variable_name": "student_name", "value": user.get("displayName", "Unknown")},
+                {"display_name": "Student Name", "variable_name": "student_name", "value": f"{user.get('firstName', '')} {user.get('lastName', '')}".strip() or "Unknown"},
                 {"display_name": "Event", "variable_name": "event_title", "value": event.get("title", "Event")}
             ]
         }
@@ -474,7 +478,8 @@ async def pay_for_event(
             "reference": reference,
             "eventId": event_id,
             "studentId": user["_id"],
-            "studentName": user.get("displayName", user.get("email", "Unknown")),
+            "studentName": _ev_student_name,
+            "studentLevel": user.get("currentLevel") or user.get("level") or "N/A",
             "studentEmail": user.get("email", "student@example.com"),
             "amount": amount,
             "amountKobo": amount_kobo,
@@ -668,7 +673,7 @@ async def submit_event_bank_transfer(
     
     doc = {
         "studentId": user_id,
-        "studentName": user.get("displayName", user.get("email", "Unknown")),
+        "studentName": f"{user.get('firstName', '')} {user.get('lastName', '')}".strip() or user.get("email", "Unknown"),
         "studentEmail": user.get("email", ""),
         "eventId": event_id,
         "eventTitle": event.get("title", "Event Payment"),
@@ -1132,10 +1137,21 @@ async def download_event_ticket(
         
         print(f"[TICKET] User is registered, generating ticket...")
         
-        # Get student level
-        student_level = current_user.get("level", "Unknown")
+        # Get student level — prefer currentLevel from user profile
+        student_level = (
+            current_user.get("currentLevel")
+            or current_user.get("level")
+            or "N/A"
+        )
         if isinstance(student_level, int):
             student_level = str(student_level)
+        
+        # Build student name from profile (firstName + lastName)
+        first = current_user.get("firstName", "")
+        last = current_user.get("lastName", "")
+        student_name = f"{first} {last}".strip()
+        if not student_name:
+            student_name = current_user.get("displayName", "Unknown Student")
         
         # Format event date
         event_date = event.get("date")
@@ -1152,7 +1168,7 @@ async def download_event_ticket(
             event_title=event.get("title", "IESA Event"),
             event_date=event_date,
             event_location=event.get("location", "TBA"),
-            student_name=current_user.get("displayName", "Unknown Student"),
+            student_name=student_name,
             student_email=current_user.get("email", "student@example.com"),
             student_level=student_level,
             reference=reference,

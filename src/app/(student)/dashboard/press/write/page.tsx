@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
@@ -23,6 +23,18 @@ const CATEGORIES = [
 ];
 
 export default function WriteArticlePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-ghost flex items-center justify-center">
+        <div className="animate-pulse text-navy/60 font-medium">Loading editor...</div>
+      </div>
+    }>
+      <WriteArticleContent />
+    </Suspense>
+  );
+}
+
+function WriteArticleContent() {
   const { user, getAccessToken } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -35,6 +47,8 @@ export default function WriteArticlePage() {
   const [category, setCategory] = useState("news");
   const [tags, setTags] = useState("");
   const [coverImageUrl, setCoverImageUrl] = useState("");
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(!!editId);
@@ -69,6 +83,37 @@ export default function WriteArticlePage() {
   useEffect(() => {
     if (user && editId) fetchArticle();
   }, [user, editId, fetchArticle]);
+
+  const handleCoverUpload = async (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File must be under 5MB");
+      return;
+    }
+    setCoverImageFile(file);
+    setUploadingCover(true);
+    try {
+      const token = await getAccessToken();
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(getApiUrl("/api/v1/press/upload-cover"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Upload failed");
+      }
+      const data = await res.json();
+      setCoverImageUrl(data.url);
+      toast.success("Cover image uploaded!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+      setCoverImageFile(null);
+    } finally {
+      setUploadingCover(false);
+    }
+  };
 
   const handleSave = async (andSubmit = false) => {
     if (!title.trim() || !content.trim()) {
@@ -232,16 +277,44 @@ export default function WriteArticlePage() {
           </div>
         </div>
 
-        {/* Cover Image URL */}
+        {/* Cover Image */}
         <div>
-          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate mb-1.5">Cover Image URL (optional)</label>
-          <input
-            type="url"
-            value={coverImageUrl}
-            onChange={(e) => setCoverImageUrl(e.target.value)}
-            placeholder="https://example.com/image.jpg"
-            className="w-full px-4 py-3 bg-snow border-[3px] border-navy rounded-2xl font-display text-sm text-navy placeholder:text-slate/50 focus:outline-none focus:ring-2 focus:ring-lime shadow-[3px_3px_0_0_#000]"
-          />
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate mb-1.5">Cover Image (optional)</label>
+          {coverImageUrl ? (
+            <div className="relative bg-snow border-[3px] border-navy rounded-2xl shadow-[3px_3px_0_0_#000] overflow-hidden">
+              <img src={coverImageUrl} alt="Cover preview" className="w-full h-48 object-cover" />
+              <button
+                type="button"
+                onClick={() => { setCoverImageUrl(""); setCoverImageFile(null); }}
+                aria-label="Remove cover image"
+                className="absolute top-3 right-3 w-8 h-8 rounded-xl bg-navy/70 hover:bg-navy flex items-center justify-center transition-colors"
+              >
+                <svg className="w-4 h-4 text-snow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          ) : (
+            <label className={`flex items-center gap-4 bg-snow border-[3px] border-dashed border-navy/20 rounded-2xl px-6 py-6 shadow-[3px_3px_0_0_#000] cursor-pointer hover:border-navy/40 hover:bg-ghost transition-colors ${uploadingCover ? "opacity-50 pointer-events-none" : ""}`}>
+              {uploadingCover ? (
+                <div className="w-8 h-8 border-3 border-navy border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <svg className="w-8 h-8 text-navy/30 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              )}
+              <div>
+                <span className="font-display font-bold text-sm text-navy/60">{uploadingCover ? "Uploading..." : "Upload a cover image"}</span>
+                <span className="block font-display text-xs text-navy/30 mt-0.5">JPEG, PNG or WebP — max 5MB — 16:9 recommended</span>
+              </div>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                disabled={uploadingCover}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleCoverUpload(file);
+                }}
+              />
+            </label>
+          )}
         </div>
 
         {/* Content */}

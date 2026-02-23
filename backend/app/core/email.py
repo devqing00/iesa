@@ -378,6 +378,30 @@ class EmailService:
             </html>
             """
         
+        elif template == EmailTemplate.PASSWORD_RESET:
+            subject = "Reset your IESA password"
+            html = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #1E4528;">Password Reset Request</h2>
+                <p>Dear {context.get('name', 'Student')},</p>
+                <p>We received a request to reset your IESA account password. Click the button below to set a new password:</p>
+                <p><a href="{context.get('reset_url')}" style="background: #1E4528; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 20px 0;">Reset Password</a></p>
+                <p>Or copy and paste this link into your browser:</p>
+                <p style="background: #f5f5f5; padding: 10px; border-radius: 4px; word-break: break-all; font-size: 12px;">{context.get('reset_url')}</p>
+                <p>This link will expire in <strong>1 hour</strong>.</p>
+                <p style="background: #FFF3CD; padding: 12px; border-radius: 6px; border-left: 4px solid #D97706;">
+                    ⚠️ If you didn't request a password reset, please ignore this email. Your password will remain unchanged.
+                </p>
+                <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+                <p style="color: #666; font-size: 12px;">
+                    Industrial Engineering Students' Association<br>
+                    University of Ibadan
+                </p>
+            </body>
+            </html>
+            """
+        
         elif template == EmailTemplate.ANNOUNCEMENT:
             priority = context.get('priority', 'normal')
             priority_colors = {
@@ -594,5 +618,18 @@ async def send_role_assignment_email(
             "position": position,
             "session": session,
             "permissions": permissions
+        }
+    )
+
+
+async def send_password_reset_email(to: str, name: str, reset_url: str):
+    """Send password reset link email"""
+    service = get_email_service()
+    return await service.send_template_email(
+        to=to,
+        template=EmailTemplate.PASSWORD_RESET,
+        context={
+            "name": name,
+            "reset_url": reset_url
         }
     )

@@ -28,7 +28,7 @@ Like (any authenticated user):
   POST /api/v1/press/{id}/like          — toggle like on published article
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status, Query
+from fastapi import APIRouter, HTTPException, Depends, status, Query, UploadFile, File
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
@@ -289,6 +289,39 @@ async def update_article(
     await articles.update_one({"_id": ObjectId(article_id)}, {"$set": updates})
     updated = await articles.find_one({"_id": ObjectId(article_id)})
     return _article_dict(updated)
+
+
+@router.post("/upload-cover")
+async def upload_cover_image(
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+):
+    """Upload a cover image for a press article. Returns the Cloudinary URL."""
+    from app.utils.cloudinary_config import upload_press_cover
+    import uuid
+
+    # Validate file type
+    allowed_types = {"image/jpeg", "image/png", "image/webp"}
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Only JPEG, PNG and WebP images are allowed")
+
+    # Validate file size (5MB)
+    contents = await file.read()
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File must be under 5MB")
+
+    # Check press membership
+    db = get_database()
+    if not await _check_press_member(user, db):
+        raise HTTPException(status_code=403, detail="Only press unit members can upload cover images")
+
+    ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "jpg"
+    temp_id = str(uuid.uuid4())[:12]
+    image_url = upload_press_cover(contents, temp_id, ext)
+    if not image_url:
+        raise HTTPException(status_code=500, detail="Failed to upload image")
+
+    return {"url": image_url}
 
 
 @router.post("/{article_id}/submit")

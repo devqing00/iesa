@@ -216,6 +216,21 @@ export async function apiRequest<T>(
     return result;
   } catch (error) {
     if (error instanceof ApiRequestError) {
+      // Handle rate limiting (429)
+      if (error.status === 429) {
+        if (showErrorToast) toast.error("Too many requests — please wait a moment and try again.");
+        throw error;
+      }
+      // Handle unauthorized (401) — redirect to login
+      if (error.status === 401 && !options.skipAuth) {
+        // Only redirect if we had a token (expired session), not on login/register
+        const hadToken = !options.skipAuth && tokenGetter;
+        if (hadToken && typeof window !== 'undefined' && !window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/register')) {
+          toast.error("Session expired — please sign in again.");
+          window.location.href = '/login';
+          throw error;
+        }
+      }
       if (showErrorToast) toast.error(error.detail);
       throw error;
     }

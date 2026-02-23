@@ -109,6 +109,10 @@ async def initialize_payment(
         from app.db import get_database
         db = get_database()
         
+        # Validate paymentId format
+        if not ObjectId.is_valid(payment_request.paymentId):
+            raise HTTPException(status_code=400, detail="Invalid payment ID format")
+        
         # Verify payment exists
         payment = await db.payments.find_one({"_id": ObjectId(payment_request.paymentId)})
         if not payment:
@@ -118,21 +122,50 @@ async def initialize_payment(
         if current_user["_id"] in payment.get("paidBy", []):
             raise HTTPException(status_code=400, detail="You have already paid this due")
         
+        # SECURITY: Use the server-side amount from the payment record, NOT the client-supplied amount
+        server_amount = payment.get("amount", 0)
+        if server_amount <= 0:
+            raise HTTPException(status_code=400, detail="Payment amount is not configured")
+        
+        # Check for existing pending transaction to prevent duplicates
+        existing_pending = await db.paystackTransactions.find_one({
+            "studentId": current_user["_id"],
+            "paymentId": payment_request.paymentId,
+            "status": "pending"
+        })
+        if existing_pending:
+            # Return the existing pending transaction's URL
+            existing_url = existing_pending.get("paystackData", {}).get("authorizationUrl")
+            if existing_url:
+                return PaymentResponse(
+                    transactionId=str(existing_pending["_id"]),
+                    reference=existing_pending["reference"],
+                    authorizationUrl=existing_url,
+                    accessCode=existing_pending.get("paystackData", {}).get("accessCode", ""),
+                    amount=server_amount,
+                    status="pending"
+                )
+        
         # Generate unique reference
         reference = generate_payment_reference(current_user["_id"])
         
-        # Convert to kobo (Paystack uses kobo)
-        amount_kobo = int(payment_request.amount * 100)
+        # Convert to kobo (Paystack uses kobo) — use server amount
+        amount_kobo = int(server_amount * 100)
+        
+        # Build student full name from profile
+        _first = current_user.get("firstName", "")
+        _last = current_user.get("lastName", "")
+        _student_name = f"{_first} {_last}".strip() or current_user.get("displayName", current_user.get("email", "Unknown"))
         
         # Prepare Paystack request
         paystack_data = {
             "email": current_user.get("email", "student@example.com"),
             "amount": amount_kobo,
             "reference": reference,
-            "callback_url": f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/dashboard/payments/verify?reference={reference}",
+            "callback_url": f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/dashboard/payments?reference={reference}",
             "metadata": {
                 "studentId": current_user["_id"],
-                "studentName": current_user.get("displayName", current_user.get("email", "Unknown")),
+                "studentName": _student_name,
                 "studentEmail": current_user.get("email", "student@example.com"),
                 "paymentId": payment_request.paymentId,
                 "paymentTitle": payment.get("title", "IESA Payment"),
@@ -140,7 +173,7 @@ async def initialize_payment(
                     {
                         "display_name": "Student Name",
                         "variable_name": "student_name",
-                        "value": current_user.get("displayName", "Unknown")
+                        "value": _student_name
                     },
                     {
                         "display_name": "Payment Type",
@@ -178,9 +211,10 @@ async def initialize_payment(
             "reference": reference,
             "paymentId": payment_request.paymentId,
             "studentId": current_user["_id"],
-            "studentName": current_user.get("displayName", current_user.get("email", "Unknown")),
+            "studentName": _student_name,
+            "studentLevel": current_user.get("currentLevel") or current_user.get("level") or "N/A",
             "studentEmail": current_user.get("email", "student@example.com"),
-            "amount": payment_request.amount,
+            "amount": server_amount,
             "amountKobo": amount_kobo,
             "status": "pending",
             "paystackData": {
@@ -198,7 +232,7 @@ async def initialize_payment(
             reference=reference,
             authorizationUrl=data["authorization_url"],
             accessCode=data["access_code"],
-            amount=payment_request.amount,
+            amount=server_amount,
             status="pending"
         )
         
@@ -288,6 +322,24 @@ async def verify_payment(
             
             update_data["channel"] = data.get("channel")
             update_data["amountPaid"] = data["amount"] / 100  # Convert from kobo
+            
+            # SECURITY: Verify paid amount matches expected amount
+            expected_amount = transaction.get("amount", 0)
+            actual_amount = data["amount"] / 100
+            if expected_amount > 0 and actual_amount < expected_amount:
+                update_data["status"] = "amount_mismatch"
+                update_data["amountMismatch"] = {
+                    "expected": expected_amount,
+                    "actual": actual_amount
+                }
+                await db.paystackTransactions.update_one(
+                    {"reference": reference},
+                    {"$set": update_data}
+                )
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Payment amount mismatch: expected {expected_amount}, got {actual_amount}"
+                )
             
             # Update payment's paidBy array (if linked to a payment)
             payment_id = transaction.get("paymentId")
@@ -409,6 +461,22 @@ async def paystack_webhook(
                 "updatedAt": datetime.utcnow()
             }
             
+            # SECURITY: Verify paid amount matches expected amount
+            expected_amount = transaction.get("amount", 0)
+            actual_amount = data["amount"] / 100
+            if expected_amount > 0 and actual_amount < expected_amount:
+                update_data["status"] = "amount_mismatch"
+                update_data["amountMismatch"] = {
+                    "expected": expected_amount,
+                    "actual": actual_amount
+                }
+                await db.paystackTransactions.update_one(
+                    {"reference": reference},
+                    {"$set": update_data}
+                )
+                print(f"Webhook: Amount mismatch for {reference}: expected {expected_amount}, got {actual_amount}")
+                return {"status": "error", "reason": "Amount mismatch"}
+            
             await db.paystackTransactions.update_one(
                 {"reference": reference},
                 {"$set": update_data}
@@ -451,7 +519,9 @@ async def paystack_webhook(
             
             # Send receipt email asynchronously with PDF attachment
             try:
-                payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+                payment = None
+                if payment_id and ObjectId.is_valid(payment_id):
+                    payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
                 await send_payment_receipt(
                     to=transaction.get("studentEmail", "student@example.com"),
                     student_name=transaction.get("studentName", "Student"),
@@ -471,9 +541,13 @@ async def paystack_webhook(
         
         return {"status": "ignored", "event": event}
         
+    except HTTPException:
+        # Re-raise auth errors (401 for invalid signature)
+        raise
     except Exception as e:
+        # IMPORTANT: Webhooks must always return 200 to prevent Paystack from retrying
         print(f"Webhook error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"status": "error"}
 
 
 @router.get("/transactions")
@@ -680,6 +754,77 @@ async def download_receipt_by_query(
     return await download_receipt(reference, current_user)
 
 
+@router.post("/receipt/resend")
+async def resend_receipt_email(
+    reference: str = Query(..., description="Transaction reference"),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Resend receipt email for a successful payment.
+    """
+    from app.db import get_database
+    from app.core.email import send_payment_receipt
+    
+    db = get_database()
+    
+    # Look up transaction
+    transaction = await db.paystackTransactions.find_one({"reference": reference})
+    if not transaction:
+        transaction = await db.transactions.find_one({"reference": reference})
+    
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    
+    # Verify ownership
+    if transaction["studentId"] != current_user["_id"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Check status
+    if transaction.get("status") not in ["success", "verified"]:
+        raise HTTPException(status_code=400, detail="Receipt only available for successful payments")
+    
+    # Get payment title
+    payment_title = "IESA Payment"
+    payment_id = transaction.get("paymentId")
+    if payment_id and ObjectId.is_valid(str(payment_id)):
+        payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+        if payment:
+            payment_title = payment.get("title", "IESA Payment")
+    else:
+        event_id = transaction.get("eventId")
+        if event_id:
+            event = await db.events.find_one({"_id": ObjectId(event_id)})
+            if event:
+                payment_title = f"Event: {event.get('title', 'IESA Event')}"
+    
+    # Build student info
+    first = current_user.get("firstName", "")
+    last = current_user.get("lastName", "")
+    student_name = f"{first} {last}".strip() or "Student"
+    student_email = current_user.get("email", transaction.get("studentEmail", ""))
+    student_level = current_user.get("currentLevel") or transaction.get("studentLevel", "N/A")
+    if isinstance(student_level, int):
+        student_level = str(student_level)
+    
+    paid_at = transaction.get("paidAt") or transaction.get("createdAt") or datetime.utcnow()
+    
+    try:
+        await send_payment_receipt(
+            to=student_email,
+            student_name=student_name,
+            payment_title=payment_title,
+            amount=transaction["amount"],
+            reference=reference,
+            date=paid_at.strftime("%Y-%m-%d %H:%M:%S") if hasattr(paid_at, 'strftime') else str(paid_at),
+            student_email=student_email,
+            student_level=student_level,
+            transaction_id=str(transaction.get("_id", reference))
+        )
+        return {"message": "Receipt email sent successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send receipt email: {str(e)}")
+
+
 @router.get("/receipt/{reference}")
 async def download_receipt(
     reference: str,
@@ -760,10 +905,22 @@ async def download_receipt(
         
         print(f"[RECEIPT] Generating PDF for: {payment_title}")
         
-        # Get student level
-        student_level = current_user.get("level", "Unknown")
+        # Get student level — prefer currentLevel from user profile, fall back to transaction data
+        student_level = (
+            current_user.get("currentLevel")
+            or current_user.get("level")
+            or transaction.get("studentLevel")
+            or "N/A"
+        )
         if isinstance(student_level, int):
             student_level = str(student_level)
+        
+        # Build student name from profile (firstName + lastName) with fallback
+        first = current_user.get("firstName", "")
+        last = current_user.get("lastName", "")
+        student_name = f"{first} {last}".strip()
+        if not student_name:
+            student_name = current_user.get("displayName", transaction.get("studentName", "Unknown Student"))
         
         # Get payment date
         paid_at = transaction.get("paidAt") or transaction.get("createdAt") or datetime.utcnow()
@@ -773,8 +930,8 @@ async def download_receipt(
         pdf_buffer = generate_payment_receipt(
             transaction_id=str(transaction["_id"]),
             reference=reference,
-            student_name=transaction.get("studentName", current_user.get("displayName", "Unknown Student")),
-            student_email=transaction.get("studentEmail", current_user.get("email", "student@example.com")),
+            student_name=student_name,
+            student_email=current_user.get("email", transaction.get("studentEmail", "student@example.com")),
             student_level=student_level,
             payment_title=payment_title,
             amount=transaction["amount"],

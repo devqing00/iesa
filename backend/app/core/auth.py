@@ -230,6 +230,7 @@ def validate_password_strength(password: str) -> tuple[bool, str]:
 # ──────────────────────────────────────────────
 
 VERIFICATION_TOKEN_EXPIRE_HOURS = int(os.getenv("VERIFICATION_TOKEN_EXPIRE_HOURS", "24"))
+RESET_TOKEN_EXPIRE_HOURS = int(os.getenv("RESET_TOKEN_EXPIRE_HOURS", "1"))
 
 
 def create_verification_token(user_id: str, email: str) -> tuple[str, datetime]:
@@ -262,5 +263,43 @@ def decode_verification_token(token: str) -> dict:
     """
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     if payload.get("type") != "email_verification":
+        raise JWTError("Invalid token type")
+    return payload
+
+
+# ──────────────────────────────────────────────
+# Password Reset Tokens
+# ──────────────────────────────────────────────
+
+def create_reset_token(user_id: str, email: str) -> tuple[str, datetime]:
+    """
+    Create a password reset token.
+    
+    Returns:
+        (jwt_token, expires_at)
+    """
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(hours=RESET_TOKEN_EXPIRE_HOURS)
+    
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "type": "password_reset",
+        "iat": now,
+        "exp": expires_at,
+    }
+    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return token, expires_at
+
+
+def decode_reset_token(token: str) -> dict:
+    """
+    Decode and verify a password reset token.
+    
+    Returns the payload dict.
+    Raises JWTError or ExpiredSignatureError on failure.
+    """
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    if payload.get("type") != "password_reset":
         raise JWTError("Invalid token type")
     return payload

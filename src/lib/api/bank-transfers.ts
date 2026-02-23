@@ -38,6 +38,7 @@ export interface BankTransfer {
   transactionReference: string;
   transferDate: string;
   narration?: string;
+  receiptImageUrl?: string;
   status: 'pending' | 'approved' | 'rejected';
   adminNote?: string;
   reviewedBy?: string;

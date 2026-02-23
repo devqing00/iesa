@@ -2,8 +2,8 @@
 
 import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
-import { getApiUrl, getMyRoles } from "@/lib/api";
-import type { Role } from "@/lib/api";
+import { getApiUrl, getMyRoles, getMyEnrollments } from "@/lib/api";
+import type { Role, Enrollment } from "@/lib/api";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -43,6 +43,8 @@ export default function ProfilePage() {
 
   /* ─── roles state ─── */
   const [myRoles, setMyRoles] = useState<Role[]>([]);
+  /* ─── enrollments state ─── */
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -85,6 +87,13 @@ export default function ProfilePage() {
   useEffect(() => {
     getMyRoles()
       .then((roles) => setMyRoles(roles.filter((r) => r.isActive)))
+      .catch(() => {});
+  }, []);
+
+  /* ─── fetch enrollments ─── */
+  useEffect(() => {
+    getMyEnrollments()
+      .then((data) => setEnrollments(data))
       .catch(() => {});
   }, []);
 
@@ -668,6 +677,30 @@ export default function ProfilePage() {
                   {profileData.emailVerified ? "Verified" : "Unverified"}
                 </span>
               </div>
+              {!profileData.emailVerified && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const token = await getAccessToken();
+                      const res = await fetch(getApiUrl("/api/v1/auth/resend-verification"), {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}` },
+                      });
+                      const data = await res.json();
+                      if (res.ok) {
+                        toast.success(data.message || "Verification email sent!");
+                      } else {
+                        toast.error(data.detail || "Failed to send verification email");
+                      }
+                    } catch {
+                      toast.error("Failed to send verification email");
+                    }
+                  }}
+                  className="w-full py-2 bg-lavender/20 border-[2px] border-navy/30 rounded-xl font-display font-bold text-[11px] text-navy hover:bg-lavender/40 transition-colors"
+                >
+                  Resend Verification Email
+                </button>
+              )}
 
               {/* onboarding status */}
               <div className="flex items-center justify-between p-3 bg-sunny-light border-[3px] border-navy rounded-xl">
@@ -699,6 +732,48 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* ════════════════════════════════════════
+            ENROLLMENT HISTORY
+        ════════════════════════════════════════ */}
+        {enrollments.length > 0 && (
+          <div className="mt-6">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-lavender-light text-navy font-display font-bold text-[10px] uppercase tracking-[0.08em] mb-4">
+              <span className="w-1.5 h-1.5 rounded-full bg-lavender" />
+              Enrollment History
+            </div>
+            <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[6px_6px_0_0_#000] overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b-[3px] border-navy bg-lavender-light">
+                      <th className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Session</th>
+                      <th className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Level</th>
+                      <th className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Enrolled On</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {enrollments.map((e, i) => (
+                      <tr key={e.id || i} className="border-b-[2px] border-navy/10 last:border-b-0 hover:bg-ghost transition-colors">
+                        <td className="p-4">
+                          <span className="font-display font-bold text-sm text-navy">{e.sessionId}</span>
+                        </td>
+                        <td className="p-4">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-lavender-light text-xs font-bold text-navy">
+                            {e.level} Level
+                          </span>
+                        </td>
+                        <td className="p-4 text-sm text-navy/60">
+                          {new Date(e.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ════════════════════════════════════════

@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from typing import List, Optional, AsyncGenerator
 from datetime import datetime, timezone, timedelta, date
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from bson import ObjectId
 import os
 import json
 import logging
@@ -106,7 +107,7 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
     Pulls: profile, payment status, grades, enrollments, timetable, upcoming events.
     """
     users = db.users
-    user = await users.find_one({"_id": user_id})
+    user = await users.find_one({"_id": ObjectId(user_id) if ObjectId.is_valid(user_id) else user_id})
     
     if not user:
         return {}
@@ -128,18 +129,20 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
         
         # ── Payment status ──
         payments = db.payments
-        payment = await payments.find_one({
-            "userId": user_id,
+        # Payments track payers via 'paidBy' array, not 'userId'
+        session_payments = await payments.find({
             "sessionId": session_id
-        })
+        }).to_list(length=50)
         
-        if payment:
-            context["payment_status"] = "Paid" if payment.get("isPaid") else "Owing"
-            context["payment_amount"] = payment.get("amount", 0)
-            if payment.get("paidAt"):
-                context["payment_date"] = payment["paidAt"].strftime("%B %d, %Y") if hasattr(payment["paidAt"], "strftime") else str(payment["paidAt"])
+        paid_payments = [p for p in session_payments if user_id in (p.get("paidBy") or [])]
+        unpaid_payments = [p for p in session_payments if user_id not in (p.get("paidBy") or [])]
+        
+        if session_payments:
+            context["payment_status"] = f"Paid {len(paid_payments)}/{len(session_payments)} dues"
+            context["paid_payments"] = [{"title": p.get("title", ""), "amount": p.get("amount", 0)} for p in paid_payments]
+            context["unpaid_payments"] = [{"title": p.get("title", ""), "amount": p.get("amount", 0)} for p in unpaid_payments]
         else:
-            context["payment_status"] = "No payment record found"
+            context["payment_status"] = "No payment dues found for this session"
         
         # ── Upcoming events (next 14 days) ──
         events = db.events
@@ -165,7 +168,7 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
         grades = db.grades
         try:
             user_grades = await grades.find({
-                "userId": user_id
+                "studentId": user_id
             }).sort("createdAt", -1).limit(20).to_list(length=20)
             
             if user_grades:
