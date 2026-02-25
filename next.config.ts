@@ -24,7 +24,9 @@ const nextConfig: NextConfig = {
   async rewrites() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-    console.log('🔧 Rewrites config loaded! API URL:', apiUrl);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 Rewrites config loaded! API URL:', apiUrl);
+    }
 
     return {
       // Routes evaluated BEFORE Next.js pages. If matched, they never reach

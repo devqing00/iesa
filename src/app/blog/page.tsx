@@ -98,7 +98,7 @@ export default function BlogPage() {
 
       <main className="pt-14 sm:pt-16 pb-12">
         {/* ── Hero ── */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12 pt-12">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12 pt-12 md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
           <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[5rem] leading-[0.9] text-navy mb-4">
             IESA Blog
           </h1>

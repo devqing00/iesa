@@ -70,6 +70,11 @@ async def create_payment(
         session_id=payment_data.sessionId,
         details={"amount": payment_data.amount, "type": payment_data.type}
     )
+    from app.routers.sse import publish
+    from app.core.cache import cache_delete, cache_delete_pattern
+    publish("payment_created", {"id": str(result.inserted_id), "type": payment_data.type})
+    await cache_delete("admin_stats")
+    await cache_delete_pattern("student_dashboard:*")
     return Payment(**created_payment)
 
 

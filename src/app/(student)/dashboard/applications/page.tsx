@@ -245,7 +245,7 @@ export default function ApplicationsPage() {
                     setSkills("");
                   }}
                   className="bg-navy border-[3px] border-navy text-snow px-5 py-2.5 rounded-xl font-display font-bold text-sm
-                    hover:scale-105 transition-all w-full"
+                    press-3 press-navy w-full"
                 >
                   Apply Now
                 </button>

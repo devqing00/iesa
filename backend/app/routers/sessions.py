@@ -96,6 +96,9 @@ async def create_session(
         resource_id=str(result.inserted_id),
         details={"name": session_data.name}
     )
+    from app.core.cache import cache_delete, cache_delete_pattern
+    await cache_delete("admin_stats")
+    await cache_delete_pattern("student_dashboard:*")
     return Session(**created_session)
 
 
@@ -252,6 +255,9 @@ async def update_session(
         resource_id=session_id,
         details={"updated_fields": list(update_data.keys())}
     )
+    from app.core.cache import cache_delete, cache_delete_pattern
+    await cache_delete("admin_stats")
+    await cache_delete_pattern("student_dashboard:*")
     return Session(**updated_session)
 
 
@@ -303,4 +309,7 @@ async def delete_session(
         resource_id=session_id,
         details={"name": session.get("name", "")}
     )
+    from app.core.cache import cache_delete, cache_delete_pattern
+    await cache_delete("admin_stats")
+    await cache_delete_pattern("student_dashboard:*")
     return None

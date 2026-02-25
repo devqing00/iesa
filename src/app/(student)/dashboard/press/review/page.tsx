@@ -7,6 +7,7 @@ import { getApiUrl } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import Pagination from "@/components/ui/Pagination";
+import { ConfirmModal } from "@/components/ui/Modal";
 
 interface FeedbackItem {
   id: string;
@@ -65,6 +66,7 @@ export default function PressReviewPage() {
   const [accessDenied, setAccessDenied] = useState(false);
   const [artPage, setArtPage] = useState(1);
   const ART_PAGE_SIZE = 10;
+  const [actionConfirm, setActionConfirm] = useState<{ isOpen: boolean; id: string; action: string; label: string }>({ isOpen: false, id: "", action: "", label: "" });
 
   // Reset page when view changes
   useEffect(() => { setArtPage(1); }, [activeView]);
@@ -352,7 +354,7 @@ export default function PressReviewPage() {
                       Publish to Blog
                     </button>
                     <button
-                      onClick={() => handleAction(article._id, "archive")}
+                      onClick={() => setActionConfirm({ isOpen: true, id: article._id, action: "archive", label: "Archive" })}
                       disabled={actionLoading === article._id}
                       className="px-4 py-2 bg-snow border-[2px] border-navy/30 rounded-xl text-xs font-display font-bold text-slate hover:text-navy hover:border-navy transition-all disabled:opacity-50"
                     >
@@ -383,14 +385,14 @@ export default function PressReviewPage() {
                         View
                       </Link>
                       <button
-                        onClick={() => handleAction(article._id, "unpublish")}
+                        onClick={() => setActionConfirm({ isOpen: true, id: article._id, action: "unpublish", label: "Unpublish" })}
                         disabled={actionLoading === article._id}
                         className="px-3 py-1.5 bg-snow border-[2px] border-navy/30 rounded-xl text-xs font-display font-bold text-slate hover:text-navy hover:border-navy transition-all disabled:opacity-50"
                       >
                         Unpublish
                       </button>
                       <button
-                        onClick={() => handleAction(article._id, "archive")}
+                        onClick={() => setActionConfirm({ isOpen: true, id: article._id, action: "archive", label: "Archive" })}
                         disabled={actionLoading === article._id}
                         className="px-3 py-1.5 bg-snow border-[2px] border-coral/50 rounded-xl text-xs font-display font-bold text-coral hover:bg-coral-light transition-all disabled:opacity-50"
                       >
@@ -424,6 +426,20 @@ export default function PressReviewPage() {
       <Pagination page={artPage} totalPages={Math.ceil(articles.length / ART_PAGE_SIZE)} onPage={setArtPage} className="mt-4" />
     </div>
     )}
+
+    <ConfirmModal
+      isOpen={actionConfirm.isOpen}
+      onClose={() => !actionLoading && setActionConfirm({ isOpen: false, id: "", action: "", label: "" })}
+      onConfirm={async () => {
+        await handleAction(actionConfirm.id, actionConfirm.action);
+        setActionConfirm({ isOpen: false, id: "", action: "", label: "" });
+      }}
+      title={`${actionConfirm.label} Article`}
+      message={`Are you sure you want to ${actionConfirm.action} this article?`}
+      confirmLabel={actionConfirm.label}
+      variant={actionConfirm.action === "archive" ? "danger" : "warning"}
+      isLoading={actionLoading === actionConfirm.id}
+    />
     </div>
     </div>
   );

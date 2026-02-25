@@ -149,7 +149,7 @@ export function CountBadge({
       className={`
         inline-flex items-center justify-center
         min-w-4.5 h-4.5 px-1
-        text-[10px] font-semibold text-white
+        text-[10px] font-semibold text-snow
         rounded-full
         ${variant === 'success' ? 'bg-teal' : variant === 'error' ? 'bg-coral' : 'bg-slate'}
         ${className}

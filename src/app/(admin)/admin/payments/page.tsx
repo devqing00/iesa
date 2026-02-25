@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { mutate } from "swr";
 import { getApiUrl } from "@/lib/api";
 import {
   listBankAccounts,
@@ -17,6 +18,7 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import Pagination from "@/components/ui/Pagination";
+import { ConfirmModal } from "@/components/ui/Modal";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -110,6 +112,7 @@ function AdminPaymentsPage() {
     isActive: true,
   });
   const [bankAccountSubmitting, setBankAccountSubmitting] = useState(false);
+  const [bankAcctDeleteId, setBankAcctDeleteId] = useState<string | null>(null);
 
   // ── Bank Transfers State ──
   const [bankTransfers, setBankTransfers] = useState<BankTransfer[]>([]);
@@ -260,6 +263,8 @@ function AdminPaymentsPage() {
 
       if (response.ok) {
         toast.success("Payment created successfully!");
+        mutate("/api/v1/admin/stats");
+        await fetchPayments();
         setShowCreateModal(false);
         setFormData({
           title: "",
@@ -270,7 +275,6 @@ function AdminPaymentsPage() {
           deadline: "",
           description: "",
         });
-        fetchPayments();
       } else {
         const error = await response.json();
         toast.error(error.detail || "Failed to create payment");
@@ -342,8 +346,8 @@ function AdminPaymentsPage() {
         });
         toast.success("Bank account created");
       }
+      await fetchBankAccounts();
       setShowBankAccountModal(false);
-      fetchBankAccounts();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save bank account");
     } finally {
@@ -352,7 +356,6 @@ function AdminPaymentsPage() {
   };
 
   const handleDeleteBankAccount = async (id: string) => {
-    if (!confirm("Delete this bank account? Students will no longer see it.")) return;
     try {
       await deleteBankAccount(id);
       toast.success("Bank account deleted");
@@ -459,15 +462,17 @@ function AdminPaymentsPage() {
           </h1>
           <p className="text-sm text-navy/60 mt-1">Manage payment dues and transactions</p>
         </div>
-        <button 
-          onClick={() => setShowCreateModal(true)}
-          className="self-start bg-lime border-[3px] border-navy press-3 press-black px-6 py-2.5 rounded-2xl text-sm font-bold text-navy transition-all flex items-center gap-2"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-            <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
-          </svg>
-          Create Payment Due
-        </button>
+        <PermissionGate permission="payment:create">
+          <button 
+            onClick={() => setShowCreateModal(true)}
+            className="self-start bg-lime border-[3px] border-navy press-3 press-black px-6 py-2.5 rounded-2xl text-sm font-bold text-navy transition-all flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+            </svg>
+            Create Payment Due
+          </button>
+        </PermissionGate>
       </div>
 
       {/* ── Online Payment Toggle ── */}
@@ -933,12 +938,12 @@ function AdminPaymentsPage() {
                         <button
                           onClick={() => openEditBankAccount(account)}
                           title="Edit account"
-                          className="w-8 h-8 rounded-xl bg-ghost border-[2px] border-navy/20 flex items-center justify-center hover:bg-ghost-light transition-colors"
+                          className="w-8 h-8 rounded-xl bg-ghost border-[2px] border-navy/20 flex items-center justify-center hover:bg-cloud transition-colors"
                         >
                           <svg className="w-3.5 h-3.5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                         </button>
                         <button
-                          onClick={() => handleDeleteBankAccount(account._id)}
+                          onClick={() => setBankAcctDeleteId(account._id)}
                           title="Delete account"
                           className="w-8 h-8 rounded-xl bg-ghost border-[2px] border-navy/20 flex items-center justify-center hover:bg-coral-light transition-colors"
                         >
@@ -1060,20 +1065,22 @@ function AdminPaymentsPage() {
                           <td className="p-4 text-navy/60 text-sm">{new Date(transfer.createdAt).toLocaleDateString()}</td>
                           <td className="p-4">
                             {transfer.status === "pending" ? (
-                              <div className="flex gap-1.5">
-                                <button
-                                  onClick={() => openReviewModal(transfer, "approved")}
-                                  className="px-3 py-1.5 bg-teal-light border-[2px] border-teal rounded-xl text-[10px] font-bold uppercase tracking-wider text-teal hover:bg-teal hover:text-snow transition-colors"
-                                >
-                                  Approve
-                                </button>
-                                <button
-                                  onClick={() => openReviewModal(transfer, "rejected")}
-                                  className="px-3 py-1.5 bg-coral-light border-[2px] border-coral rounded-xl text-[10px] font-bold uppercase tracking-wider text-coral hover:bg-coral hover:text-snow transition-colors"
-                                >
-                                  Reject
-                                </button>
-                              </div>
+                              <PermissionGate permission="bank_transfer:review">
+                                <div className="flex gap-1.5">
+                                  <button
+                                    onClick={() => openReviewModal(transfer, "approved")}
+                                    className="px-3 py-1.5 bg-teal-light border-[2px] border-teal rounded-xl text-[10px] font-bold uppercase tracking-wider text-teal hover:bg-teal hover:text-snow transition-colors"
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    onClick={() => openReviewModal(transfer, "rejected")}
+                                    className="px-3 py-1.5 bg-coral-light border-[2px] border-coral rounded-xl text-[10px] font-bold uppercase tracking-wider text-coral hover:bg-coral hover:text-snow transition-colors"
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              </PermissionGate>
                             ) : (
                               <span className="text-xs text-navy/40">
                                 {transfer.adminNote || "—"}
@@ -1461,6 +1468,21 @@ function AdminPaymentsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!bankAcctDeleteId}
+        onClose={() => setBankAcctDeleteId(null)}
+        onConfirm={async () => {
+          if (bankAcctDeleteId) {
+            await handleDeleteBankAccount(bankAcctDeleteId);
+            setBankAcctDeleteId(null);
+          }
+        }}
+        title="Delete Bank Account"
+        message="Delete this bank account? Students will no longer see it."
+        confirmLabel="Delete"
+        variant="danger"
+      />
     </div>
   );
 }

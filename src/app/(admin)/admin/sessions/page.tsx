@@ -7,6 +7,7 @@ import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { getApiUrl } from "@/lib/api";
 import { toast } from "sonner";
 import { SessionSchema, flattenZodErrors, type SessionFormData } from "@/lib/schemas";
+import { ConfirmModal } from "@/components/ui/Modal";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -36,6 +37,8 @@ function AdminSessionsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingSession, setEditingSession] = useState<Session | null>(null);
+  const [activateConfirm, setActivateConfirm] = useState<{ isOpen: boolean; id: string; name: string }>({ isOpen: false, id: "", name: "" });
+  const [activating, setActivating] = useState(false);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof SessionFormData, string>>>({});
   const [formData, setFormData] = useState({
     name: "",
@@ -93,11 +96,11 @@ function AdminSessionsPage() {
         body: JSON.stringify(formData),
       });
       if (response.ok) {
+        await fetchSessions();
+        await refreshSessions();
         setShowCreateModal(false);
         setFormErrors({});
         setFormData({ name: "", semester1StartDate: "", semester1EndDate: "", semester2StartDate: "", semester2EndDate: "", isActive: false });
-        await fetchSessions();
-        await refreshSessions();
         toast.success("Session created successfully");
       } else {
         const err = await response.json().catch(() => null);
@@ -131,12 +134,12 @@ function AdminSessionsPage() {
         body: JSON.stringify(formData),
       });
       if (response.ok) {
+        await fetchSessions();
+        await refreshSessions();
         setShowEditModal(false);
         setEditingSession(null);
         setFormErrors({});
         setFormData({ name: "", semester1StartDate: "", semester1EndDate: "", semester2StartDate: "", semester2EndDate: "", isActive: false });
-        await fetchSessions();
-        await refreshSessions();
         toast.success("Session updated successfully");
       } else {
         const err = await response.json().catch(() => null);
@@ -165,6 +168,7 @@ function AdminSessionsPage() {
 
   const toggleActive = async (sessionId: string) => {
     if (!user) return;
+    setActivating(true);
     try {
       const token = await getAccessToken();
       const response = await fetch(getApiUrl(`/api/v1/sessions/${sessionId}`), {
@@ -184,6 +188,8 @@ function AdminSessionsPage() {
       }
     } catch {
       toast.error("Failed to activate session");
+    } finally {
+      setActivating(false);
     }
   };
 
@@ -367,12 +373,14 @@ function AdminSessionsPage() {
                     </div>
 
                     <div className="flex gap-2.5">
-                      <button
-                        onClick={() => toggleActive(session.id)}
- className="flex-1 bg-lime border-[3px] border-navy text-navy px-4 py-2.5 rounded-2xl text-sm font-bold press-3 press-navy transition-all"
-                      >
-                        Set as Active
-                      </button>
+                      <PermissionGate permission="session:activate">
+                        <button
+                          onClick={() => setActivateConfirm({ isOpen: true, id: session.id, name: session.name })}
+                          className="flex-1 bg-lime border-[3px] border-navy text-navy px-4 py-2.5 rounded-2xl text-sm font-bold press-3 press-navy transition-all"
+                        >
+                          Set as Active
+                        </button>
+                      </PermissionGate>
                       <PermissionGate permission="session:edit">
                         <button
                           onClick={() => openEditModal(session)}
@@ -697,10 +705,24 @@ function AdminSessionsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={activateConfirm.isOpen}
+        onClose={() => !activating && setActivateConfirm({ isOpen: false, id: "", name: "" })}
+        onConfirm={async () => {
+          await toggleActive(activateConfirm.id);
+          setActivateConfirm({ isOpen: false, id: "", name: "" });
+        }}
+        title="Activate Session"
+        message={`Set "${activateConfirm.name}" as the active session? This will deactivate the current active session.`}
+        confirmLabel="Activate"
+        variant="warning"
+        isLoading={activating}
+      />
     </div>
   );
 }
 
 export default withAuth(AdminSessionsPage, {
-  anyPermission: ["session:create", "session:edit"],
+  anyPermission: ["session:create", "session:edit", "session:view"],
 });

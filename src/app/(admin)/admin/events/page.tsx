@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { mutate } from "swr";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { withAuth } from "@/lib/withAuth";
+import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
 import { EventSchemaObject, flattenZodErrors } from "@/lib/schemas";
+import { ConfirmModal } from "@/components/ui/Modal";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -156,6 +158,7 @@ function AdminEventsPage() {
   const [registrantSearch, setRegistrantSearch] = useState("");
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
+  const [removeRegConfirm, setRemoveRegConfirm] = useState<{ isOpen: boolean; eventId: string; userId: string }>({ isOpen: false, eventId: "", userId: "" });
 
   /* ── Fetch ──────────────────────── */
 
@@ -314,10 +317,11 @@ function AdminEventsPage() {
         });
       }
 
+      await fetchEvents();
+      mutate("/api/v1/admin/stats");
       setShowModal(false);
       setEditingEvent(null);
       setForm(emptyForm);
-      await fetchEvents();
       toast.success(editingEvent ? "Event updated" : "Event created");
     } catch {
       toast.error("Failed to save event");
@@ -335,6 +339,7 @@ function AdminEventsPage() {
       });
       setDeleteConfirm(null);
       await fetchEvents();
+      mutate("/api/v1/admin/stats");
     } catch {
       toast.error("Failed to delete event");
     }
@@ -472,6 +477,7 @@ function AdminEventsPage() {
             </h1>
             <p className="text-sm text-navy/60 mt-1">Create, edit and manage all departmental events</p>
           </div>
+          <PermissionGate permission="event:create">
           <button
             onClick={openCreate}
             className="self-start bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
@@ -481,6 +487,7 @@ function AdminEventsPage() {
             </svg>
             Create Event
           </button>
+          </PermissionGate>
         </div>
 
         {/* ── Stats Row ── */}
@@ -587,12 +594,14 @@ function AdminEventsPage() {
                   : "No past events to show."}
               </p>
               {viewMode === "upcoming" && (
+                <PermissionGate permission="event:create">
                 <button
                   onClick={openCreate}
  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy transition-all"
                 >
                   Create Event
                 </button>
+                </PermissionGate>
               )}
             </div>
           ) : (
@@ -681,12 +690,14 @@ function AdminEventsPage() {
 
                       {/* Actions */}
                       <div className="flex items-center gap-2 pt-2">
+                        <PermissionGate permission="event:edit">
                         <button
                           onClick={() => openEdit(event)}
                           className="flex-1 px-4 py-2 rounded-xl bg-ghost border-[3px] border-navy text-sm text-navy font-bold hover:bg-navy hover:text-snow transition-colors"
                         >
                           Edit
                         </button>
+                        </PermissionGate>
                         <button
                           onClick={() => openRegistrants(event)}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-lavender-light border-[3px] border-lavender text-lavender text-sm font-bold hover:bg-lavender hover:text-snow transition-colors"
@@ -697,6 +708,7 @@ function AdminEventsPage() {
                           </svg>
                           <span className="hidden sm:inline">{attendeeCount(event)}</span>
                         </button>
+                        <PermissionGate permission="event:delete">
                         {deleteConfirm === event.id ? (
                           <div className="flex items-center gap-1">
                             <button onClick={() => handleDelete(event.id!)} className="px-3 py-2 rounded-xl bg-coral text-snow text-sm font-bold hover:opacity-90 transition-opacity">Confirm</button>
@@ -713,6 +725,7 @@ function AdminEventsPage() {
                             </svg>
                           </button>
                         )}
+                        </PermissionGate>
                       </div>
                     </div>
                   </div>
@@ -1046,6 +1059,7 @@ function AdminEventsPage() {
                       </div>
 
                       {/* Actions */}
+                      <PermissionGate permission="event:manage">
                       <div className="flex items-center gap-2 shrink-0">
                         {/* Toggle attendance */}
                         <button
@@ -1063,7 +1077,7 @@ function AdminEventsPage() {
                         </button>
                         {/* Remove registration */}
                         <button
-                          onClick={() => removeRegistration(registrantsEvent!.id!, r.id)}
+                          onClick={() => setRemoveRegConfirm({ isOpen: true, eventId: registrantsEvent!.id!, userId: r.id })}
                           title="Remove registration"
                           className="p-1.5 rounded-lg border-2 border-navy/20 text-navy/40 hover:border-coral hover:text-coral hover:bg-coral-light transition-colors"
                         >
@@ -1072,6 +1086,7 @@ function AdminEventsPage() {
                           </svg>
                         </button>
                       </div>
+                      </PermissionGate>
                     </div>
                   ));
                 })()
@@ -1085,6 +1100,7 @@ function AdminEventsPage() {
               </p>
               <div className="flex items-center gap-2">
                 {/* Mark all attended */}
+                <PermissionGate permission="event:manage">
                 <button
                   onClick={markAllAttended}
                   disabled={markingAll || !registrantsData || registrantsData.registrants.every((r) => r.hasAttended)}
@@ -1095,6 +1111,7 @@ function AdminEventsPage() {
                   </svg>
                   {markingAll ? "Marking…" : "Mark all attended"}
                 </button>
+                </PermissionGate>
 
                 {/* Download dropdown */}
                 <div className="relative">
@@ -1112,7 +1129,7 @@ function AdminEventsPage() {
                     <div className="absolute right-0 bottom-full mb-1.5 w-36 bg-snow border-[3px] border-navy rounded-2xl shadow-[4px_4px_0_0_#000] overflow-hidden z-10">
                       <button
                         onClick={() => downloadRegistrants("csv")}
-                        className="w-full px-4 py-2.5 text-left text-xs font-bold text-navy hover:bg-ghost-light transition-colors flex items-center gap-2"
+                        className="w-full px-4 py-2.5 text-left text-xs font-bold text-navy hover:bg-cloud transition-colors flex items-center gap-2"
                       >
                         <svg className="w-3.5 h-3.5 text-teal shrink-0" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875ZM9.75 14.25a.75.75 0 0 0 0 1.5H15a.75.75 0 0 0 0-1.5H9.75Z" clipRule="evenodd" />
@@ -1144,6 +1161,19 @@ function AdminEventsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={removeRegConfirm.isOpen}
+        onClose={() => setRemoveRegConfirm({ isOpen: false, eventId: "", userId: "" })}
+        onConfirm={async () => {
+          await removeRegistration(removeRegConfirm.eventId, removeRegConfirm.userId);
+          setRemoveRegConfirm({ isOpen: false, eventId: "", userId: "" });
+        }}
+        title="Remove Registration"
+        message="Remove this student&apos;s registration from the event?"
+        confirmLabel="Remove"
+        variant="danger"
+      />
     </>  );
 }
 

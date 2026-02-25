@@ -74,7 +74,7 @@ async def _check_press_member(user: dict, db) -> bool:
     user_role = await roles.find_one({
         "userId": user["_id"],
         "$or": [
-            {"permissions": {"$in": ["press:write", "press:review", "press:publish", "press:manage"]}},
+            {"permissions": {"$in": ["press:create", "press:edit", "press:review", "press:publish", "press:manage"]}},
             {"position": {"$regex": "press", "$options": "i"}},
         ]
     })

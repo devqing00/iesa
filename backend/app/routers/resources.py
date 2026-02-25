@@ -250,8 +250,8 @@ async def add_resource(
         "tags": tag_list,
         "downloadCount": 0,
         "viewCount": 0,
-        "isApproved": check_permission(user, "admin:all"),  # Auto-approve for admins
-        "approvedBy": user["_id"] if check_permission(user, "admin:all") else None,
+        "isApproved": check_permission(user, "resource:approve"),  # Auto-approve for admins
+        "approvedBy": user["_id"] if check_permission(user, "resource:approve") else None,
         "feedback": None,
         "createdAt": datetime.utcnow(),
         "updatedAt": datetime.utcnow()
@@ -480,8 +480,8 @@ async def delete_resource(
     if not resource:
         raise HTTPException(status_code=404, detail="Resource not found")
     
-    # Check permissions (owner or admin)
-    if str(resource["uploadedBy"]) != str(user["_id"]) and not check_permission(user, "admin:all"):
+    # Check permissions (owner or admin with resource:delete)
+    if str(resource["uploadedBy"]) != str(user["_id"]) and not check_permission(user, "resource:delete"):
         raise HTTPException(status_code=403, detail="You don't have permission to delete this resource")
     
     # Delete from database (no file deletion needed for Drive/YouTube links)

@@ -18,12 +18,31 @@ export default function RegisterPage() {
   const [lastName, setLastName] = useState("");
   const [matricNumber, setMatricNumber] = useState("");
   const [phone, setPhone] = useState("");
-  const [level, setLevel] = useState("100L");
   const [admissionYear, setAdmissionYear] = useState(
     new Date().getFullYear().toString()
   );
+  const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  /**
+   * Calculate academic level from admission year.
+   * Nigerian universities: Level = (currentSessionStartYear - admissionYear) * 100 + 100
+   * Since we may not have a session yet at registration, we use the current calendar year.
+   */
+  const calculateLevel = (admYear: number): string => {
+    const currentYear = new Date().getFullYear();
+    const yearDiff = currentYear - admYear;
+    const levelNum = Math.max(100, Math.min(500, yearDiff * 100 + 100));
+    return `${levelNum}L`;
+  };
+
+  const calculatedLevel = admissionYear ? calculateLevel(parseInt(admissionYear)) : "";
+
+  // Reset confirmation when admission year changes
+  useEffect(() => {
+    setLevelConfirmed(false);
+  }, [admissionYear]);
 
   useEffect(() => {
     if (!loading && user) {
@@ -38,6 +57,7 @@ export default function RegisterPage() {
     if (!emailRegex.test(email)) { setError("Please enter a valid email address"); return false; }
     if (!password) { setError("Password is required"); return false; }
     if (password.length < 8) { setError("Password must be at least 8 characters with uppercase, lowercase, and a number"); return false; }
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)) { setError("Password must include uppercase, lowercase, and a number"); return false; }
     if (password !== confirmPassword) { setError("Passwords do not match"); return false; }
     if (!firstName.trim()) { setError("First name is required"); return false; }
     if (!lastName.trim()) { setError("Last name is required"); return false; }
@@ -45,6 +65,8 @@ export default function RegisterPage() {
     if (!/^\d{6}$/.test(matricNumber)) { setError("Matric number must be exactly 6 digits"); return false; }
     if (!phone.trim()) { setError("Phone number is required"); return false; }
     if (!/^(\+234|0)[789]\d{9}$/.test(phone)) { setError("Invalid Nigerian phone number"); return false; }
+    if (!admissionYear) { setError("Admission year is required"); return false; }
+    if (!levelConfirmed) { setError("Please confirm your calculated level"); return false; }
     return true;
   };
 
@@ -58,7 +80,7 @@ export default function RegisterPage() {
         lastName: lastName.trim(),
         matricNumber: matricNumber.trim(),
         phone: phone.trim(),
-        level,
+        level: calculatedLevel,
         admissionYear: parseInt(admissionYear),
       });
       toast.success("Account created!", { description: "Verification email sent. Check your inbox." });
@@ -203,22 +225,47 @@ export default function RegisterPage() {
                 <span>Academic Info</span>
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label htmlFor="register-level" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Current Level</label>
-                  <select id="register-level" value={level} onChange={(e) => setLevel(e.target.value)} aria-label="Current Level" className={inputClass}>
-                    <option value="100L">100 Level</option>
-                    <option value="200L">200 Level</option>
-                    <option value="300L">300 Level</option>
-                    <option value="400L">400 Level</option>
-                    <option value="500L">500 Level</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="register-admission-year" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Admission Year</label>
-                  <input id="register-admission-year" type="number" value={admissionYear} onChange={(e) => setAdmissionYear(e.target.value)} min={new Date().getFullYear() - 6} max={new Date().getFullYear()} placeholder="2024" required className={inputClass} />
-                </div>
+              <div className="space-y-2">
+                <label htmlFor="register-admission-year" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Year of Admission</label>
+                <input id="register-admission-year" type="number" value={admissionYear} onChange={(e) => setAdmissionYear(e.target.value)} min={new Date().getFullYear() - 6} max={new Date().getFullYear()} placeholder="2024" required className={inputClass} />
+                <p className="text-xs text-slate">The year you were admitted to the University of Ibadan</p>
               </div>
+
+              {/* Calculated Level Confirmation */}
+              {admissionYear && calculatedLevel && (
+                <div className={`p-4 rounded-2xl border-[3px] transition-all ${
+                  levelConfirmed
+                    ? "bg-teal-light border-teal"
+                    : "bg-sunny-light border-sunny"
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-display font-bold text-sm text-navy">
+                        Your calculated level: <span className="font-black text-base">{calculatedLevel}</span>
+                      </p>
+                      <p className="text-xs text-navy/60 mt-1">
+                        Based on admission year {admissionYear} and current session
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setLevelConfirmed(!levelConfirmed)}
+                      className={`px-4 py-2 rounded-xl border-[2px] text-xs font-bold transition-all ${
+                        levelConfirmed
+                          ? "bg-teal border-navy text-navy"
+                          : "bg-snow border-navy text-navy hover:bg-ghost"
+                      }`}
+                    >
+                      {levelConfirmed ? "Confirmed" : "Confirm"}
+                    </button>
+                  </div>
+                  {!levelConfirmed && (
+                    <p className="text-xs text-navy/50 mt-2">
+                      Please confirm your level is correct before proceeding
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {error && (

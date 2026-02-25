@@ -58,45 +58,98 @@ class ChatResponse(BaseModel):
     data: Optional[dict] = None
 
 
-# IESA Knowledge Base - Compact reference for RAG
+# IESA Knowledge Base - Comprehensive reference for RAG
 IESA_KNOWLEDGE = """
 ## About IESA
-IESA (Industrial Engineering Students' Association) — departmental student body for Industrial & Production Engineering (IPE) at the University of Ibadan (UI), Nigeria. Faculty of Technology.
+IESA (Industrial Engineering Students' Association) is the official departmental student body for Industrial & Production Engineering (IPE) at the University of Ibadan (UI), Nigeria — Faculty of Technology. It serves as the bridge between students and the department, organises academic and social programs, and manages departmental resources, dues, and welfare.
 
 ## Academic Program
 - 5-year B.Sc. in Industrial & Production Engineering (100–500 Level)
 - Session cycle: ~February to February, 2 semesters/session, ~15 weeks each + exams
-- Core areas: Operations Research, Production Planning, Quality Control, Systems Engineering, Ergonomics, Facilities Planning, Engineering Economy, Automation & Robotics
-- Final Year Project: IOP 502 (500 Level)
+- Level is based on admission year: 100L (Year 1), 200L (Year 2), ... 500L (Year 5)
+- Core disciplines: Operations Research, Production Planning, Quality Control, Systems Engineering, Ergonomics, Facilities Planning, Engineering Economy, Automation & Robotics, Work Study
+- Final Year Project: IOP 502 (500 Level) — individual research project submitted to the department
+- Students take both IPE-specific (IOP-coded) and general engineering courses (MEE, EEE, MAT, GNS)
 
 ## Core Courses by Level
-100L: ENG 101, MTH 101, PHY 101, CHM 101, GNS 101
-200L: TVE 201/202, MEE 201, MEE 202, MAT 201
-300L: IOP 301 (Work Study), IOP 302 (Production Planning), IOP 303 (Quality Control), MEE 301, EEE 301
-400L: IOP 401 (Operations Research), IOP 402 (Systems Eng), IOP 403 (Facilities Planning), IOP 404 (Engineering Economy)
-500L: IOP 501 (Project Mgmt), IOP 502 (FYP), IOP 503 (Automation & Robotics)
+100L: ENG 101, MTH 101, PHY 101, CHM 101, GNS 101, GNS 102
+200L: TVE 201, TVE 202, MEE 201, MEE 202, MAT 201, GNS 201
+300L: IOP 301 (Work Study & Ergonomics), IOP 302 (Production Planning & Control), IOP 303 (Statistical Quality Control), MEE 301, EEE 301, MAT 301
+400L: IOP 401 (Operations Research), IOP 402 (Systems Engineering), IOP 403 (Facilities Planning & Design), IOP 404 (Engineering Economy), IOP 405 (Human Factors Engineering)
+500L: IOP 501 (Project Management), IOP 502 (Final Year Project), IOP 503 (Automation & Robotics), IOP 504 (Supply Chain Management)
 
-## IESA Structure
-EXCO: President, Vice President, General Secretary, Asst. Gen Sec, Financial Secretary, Treasurer, PRO, Welfare Director, Academic Director, Sports Director, Class Representatives
-Committees: Academic (library, past questions), Welfare (student support), Sports (athletics), Protocol (events)
+## IESA Structure & Leadership
+EXCO positions: President, Vice President, General Secretary, Assistant General Secretary, Financial Secretary, Treasurer, Public Relations Officer (PRO), Welfare Director, Academic Director, Sports Director, Social Director
+Class Representatives: Each level has class reps who manage timetables, liaise with lecturers, and represent students
+Committees: Academic (library, past questions, study sessions), Welfare (student support, medical, hostel), Sports (athletics, games), Protocol (events, decorum)
+To see the current EXCO and their contacts: go to the Team page on the platform (Dashboard → Team → Central EXCO).
+To see class reps: Dashboard → Team → Class Reps
 
 ## Payments & Dues
-- Departmental dues vary by session (typically ₦2,500–₦5,000)
-- Pay via Paystack (card, bank transfer, USSD)
-- Auto-generated PDF receipt after payment
-- ID card: green border = paid, red = owing
+- Departmental dues vary by session (typically ₦2,500–₦5,000 total across one or more payment items)
+- Multiple payment items may exist per session (e.g., association dues, level dues, welfare levy)
+- Pay easily via Paystack: card, bank transfer, USSD — go to the Payments page
+- Auto-generated PDF receipt available immediately after payment — go to Receipts page to download
+- ID card: green border = dues paid, red border = dues owed
+- Payment deadline reminders are sent via announcements
 
-## Platform Features
-1. Payment portal with Paystack integration
-2. Resource library (past questions, slides, notes by course/level)
-3. Event calendar with RSVP
-4. CGPA calculator
-5. Class timetable (managed by class reps/admin)
-6. IESA AI assistant
+## Platform Features (Full Dashboard)
+Core Pages:
+- Dashboard Home: Overview of dues status, upcoming events, announcements, and AI assistant
+- Payments: Pay all dues via Paystack. View all payment items and status.
+- Receipts: Download PDF receipts for any payment you've made.
+- Timetable: View your class schedule for the week (managed by class reps/admin)
+- Library: Browse and download past questions, lecture slides, and study notes filtered by level and course
+- Events: View upcoming and past IESA events; RSVP to events
+- Calendar: Full academic calendar — exam dates, events, key dates
+- Announcements: Important notices from IESA EXCO and the department
+- Applications: Apply for unit/elective courses; track your application status
 
-## Contact
+Growth Tools (Dashboard → Growth):
+- CGPA Calculator: Calculate and track your semester GPA and cumulative CGPA using UI's grading system
+- Habits Tracker: Build and track daily academic habits (reading, exercise, revision, etc.)
+- Weekly Journal: Reflect on your week — what went well, what to improve, next week's focus, gratitude
+- Flashcards: Create and study flashcard decks for any course, with flip-card interaction
+- Study Groups: Create or join peer study groups for specific courses; coordinate meetings and resources
+- Goals: Set and track academic goals by deadline and priority
+- Study Timer (Pomodoro): Timed focus sessions with break reminders to improve study efficiency
+- Weekly Planner: Plan your weekly schedule with time blocks
+- Courses: Manage your enrolled courses and track progress
+
+IEPOD Hub (Dashboard → IEPOD):
+- IEPOD stands for Intellectual Exchange, Professional & Occupational Development
+- Hub home: Overview of mentoring programs, research projects, and niche development resources
+- TIMP (The I.E. Mentoring Program): Formal peer mentoring. Senior students (400L/500L) can apply to be mentors; junior students (100L–300L) can apply to be mentees. Mentors guide mentees through academics, career planning, and professional development.
+- Research Projects: Students can submit and showcase research project ideas or completed works to the department community
+- Niche Audit: A self-assessment tool to help students identify their area of focus within industrial engineering (operations, quality, manufacturing, logistics, consulting, etc.)
+- IEPOD Team: See the IEPOD coordinators and team members
+
+Team Pages:
+- Central EXCO: Current executive officers with names, roles, and contacts
+- Committees: Committee members and their roles
+- Class Reps: Class representatives for each level
+
+Press:
+- Write for IESA: Submit articles for the IESA press/newsletter
+- Review submissions (for editors)
+- Read published IESA press articles
+
+Profile: Update personal info, profile picture, change password
+
+## Study & Academic Tips
+- For past questions: Dashboard → Library → Filter by level and course
+- For CGPA calculation: Dashboard → Growth → CGPA Calculator — supports 4.0 and 5.0 scales, and UI's specific grading system
+- For study groups: Dashboard → Growth → Study Groups — search by course or create a new group
+- For exam prep: Use Flashcards for memorisation, Study Timer for focused sessions, Journal for weekly reflection
+- Departmental library (physical) is in the Technology Faculty Complex
+
+## Contact & Support
 Office: Technology Faculty Complex, Mon–Fri 10am–4pm
+For urgent issues: Contact EXCO directly (see Team page for contacts)
 Social: @IESAUI (Instagram, Twitter, Facebook)
+Academic issues: Contact Academic Director or your class rep
+Welfare issues: Contact Welfare Director
+Payment issues: Contact Financial Secretary or Treasurer
 """
 
 
@@ -385,37 +438,58 @@ IMPORTANT: You MUST maintain Yoruba style throughout ALL responses in this conve
             for a in user_context['recent_announcements']:
                 user_data_section += f"\n- [{a['date']}] {a['title']}: {a['content']}"
     
-    prompt = f"""You are IESA AI, the intelligent assistant for the Industrial Engineering Students' Association (IESA) at the University of Ibadan.
+    # Build unpaid / paid payment details for the prompt
+    payment_detail_section = ""
+    if user_context.get('paid_payments'):
+        payment_detail_section += "\nPaid items:"
+        for p in user_context['paid_payments']:
+            payment_detail_section += f"\n  ✓ {p['title']} — ₦{p['amount']:,.0f}"
+    if user_context.get('unpaid_payments'):
+        payment_detail_section += "\nOwing items:"
+        for p in user_context['unpaid_payments']:
+            payment_detail_section += f"\n  ✗ {p['title']} — ₦{p['amount']:,.0f}"
+    if payment_detail_section:
+        user_data_section = user_data_section.replace(
+            f"- Payment Status: {user_context.get('payment_status', 'Unknown')}",
+            f"- Payment Status: {user_context.get('payment_status', 'Unknown')}{payment_detail_section}"
+        )
+
+    prompt = f"""You are IESA AI — the smart, friendly academic assistant built for students of the Industrial Engineering Students' Association (IESA) at the University of Ibadan, Nigeria.
+
+You are knowledgeable, encouraging, and grounded in real data. You speak like a helpful senior student who knows the platform inside out.
 
 ## LANGUAGE INSTRUCTION
 {lang_instruction}
 
-## YOUR CAPABILITIES
-You have DIRECT ACCESS to the student's real data including their profile, payment status, grades, class timetable, enrollments, upcoming events, and recent announcements. This data is provided below — USE IT to give specific, factual answers. NEVER say "I can't access your data" or "I don't have access to that information" — you DO have it.
+## DIRECT DATA ACCESS
+You have LIVE access to this student's real data: profile, payment status (including exactly which dues are paid and which are owed), class timetable, grades, enrolled courses, upcoming events, and recent announcements. This data is provided in the STUDENT PROFILE section below. USE IT to give specific, direct answers — never say "I can't access your records" or "check your dashboard" when you already have the answer right here.
 
-## HOW TO RESPOND
-1. **Be specific:** When asked about payments, timetable, grades etc., reference the ACTUAL data below. Don't give generic "check the dashboard" answers when you have the answer.
-2. **Be concise:** 2-5 sentences for simple questions. Use bullet points for lists.
-3. **Be helpful:** If data is empty or unavailable, say so clearly and suggest next steps (e.g., "No timetable entries yet — your class rep may not have added them. Ask them to update it on the platform.")
-4. **Be smart:** Understand context. If someone asks "do I have class tomorrow?", check the timetable for tomorrow's day. If they ask about their GPA, use their grades.
-5. **Be encouraging:** This is a student community. Be supportive, use appropriate emojis, and motivate.
-6. **Stay on topic:** You're an IESA/academic assistant. For completely unrelated topics, politely redirect.
+## RESPONSE GUIDELINES
+1. **Be specific & direct:** Quote actual data when answering — course names, amounts, times, venues. Don't be vague.
+2. **Be concise:** 2–5 sentences for simple questions. Use brief bullet lists for multi-item answers. Avoid long walls of text.
+3. **Be honest about gaps:** If a field is empty (no timetable, no grades), say so clearly with a practical next step. Example: "No timetable entries yet — your class rep likely hasn't added them. Remind them to update it."
+4. **Be context-aware:** "Do I have class tomorrow?" → check the weekly timetable for tomorrow's day. "What's my GPA?" → calculate from grade data. Parse the question's intent before answering.
+5. **Be a community ally:** This is a student platform. Be warm, encouraging, motivating. Students are navigating academics and early career — meet them there.
+6. **Use emojis sparingly:** 1–2 per message max. Only where they genuinely add warmth, not as filler.
+7. **Stay in scope:** You're an IESA/academic assistant. For completely unrelated topics, briefly acknowledge and redirect back to what you can help with.
+8. **Reference specific pages:** When guiding a student, name the exact page — "Go to Dashboard → Payments", "Check Dashboard → Growth → CGPA Calculator", "Visit Dashboard → IEPOD → TIMP".
 
-## KNOWLEDGE BASE
+## PLATFORM KNOWLEDGE
 {IESA_KNOWLEDGE}
 {user_data_section}
 
 ## CURRENT DATE & TIME
 - Today: {datetime.now().strftime("%A, %B %d, %Y")}
-- Time: {datetime.now().strftime("%I:%M %p")}
+- Time: {datetime.now().strftime("%I:%M %p")} (WAT, West Africa Time)
 
-## IMPORTANT RULES
-- NEVER claim you can't access student data — you have it above
-- NEVER make up data that isn't provided — if grades/timetable are empty, say the data hasn't been entered yet
-- When referring to platform features, mention the specific page (e.g., "Go to the Payments page", "Check the Library section")
-- For questions you genuinely can't answer, suggest who to contact (IESA EXCO, class rep, departmental office)
+## NON-NEGOTIABLE RULES
+- You have the student's data above — NEVER claim otherwise
+- NEVER fabricate data not present in the student profile section; if something is missing, say it hasn't been entered yet
+- Always suggest the relevant EXCO contact for issues beyond the platform (see Knowledge Base → Contact section)
+- For payment questions, be precise: list exactly what is paid and what is owed using the data above
+- For timetable questions with no data, guide the student to their class rep
 """
-    
+
     return prompt
 
 
@@ -666,54 +740,86 @@ def generate_suggestions(user_message: str, ai_response: str) -> List[str]:
     """
     Generate smart follow-up suggestions based on conversation context.
     """
-    
+
     message_lower = user_message.lower()
-    
+
     # Payment-related suggestions
-    if any(word in message_lower for word in ["pay", "dues", "payment", "receipt"]):
+    if any(word in message_lower for word in ["pay", "dues", "payment", "receipt", "owing", "fee"]):
         return [
-            "View payment history",
             "Download my receipt",
+            "How do I pay my dues?",
             "Check payment deadline"
         ]
-    
+
     # Event-related suggestions
-    if any(word in message_lower for word in ["event", "meeting", "program", "activity"]):
+    if any(word in message_lower for word in ["event", "meeting", "program", "activity", "general meeting"]):
         return [
             "Show all upcoming events",
-            "Register for an event",
-            "View past events"
+            "How do I RSVP to an event?",
+            "What events happened recently?"
         ]
-    
+
     # Schedule/timetable suggestions
-    if any(word in message_lower for word in ["class", "schedule", "timetable", "lecture"]):
+    if any(word in message_lower for word in ["class", "schedule", "timetable", "lecture", "practical", "tutorial"]):
         return [
-            "View full timetable",
-            "Export to calendar",
-            "Check tomorrow's classes"
+            "What classes do I have tomorrow?",
+            "View my full weekly timetable",
+            "Who is my class rep?"
         ]
-    
-    # Study/academic suggestions
-    if any(word in message_lower for word in ["study", "exam", "test", "grade", "gpa", "cgpa"]):
+
+    # CGPA / grade suggestions
+    if any(word in message_lower for word in ["cgpa", "gpa", "grade", "score", "result", "point"]):
         return [
             "Calculate my CGPA",
-            "Find past questions",
-            "Browse study materials"
+            "What grade do I need to pass?",
+            "Find past questions for my courses"
         ]
-    
-    # Library suggestions
-    if any(word in message_lower for word in ["library", "resource", "material", "book", "slide"]):
+
+    # Study / exam suggestions
+    if any(word in message_lower for word in ["study", "exam", "test", "revision", "prepare"]):
+        return [
+            "Show me study resources",
+            "Start a Pomodoro study timer",
+            "Find a study group for my course"
+        ]
+
+    # Library / resources suggestions
+    if any(word in message_lower for word in ["library", "resource", "material", "book", "slide", "note", "past question"]):
         return [
             "Browse library resources",
-            "Search for course materials",
-            "Download past questions"
+            "Download past questions",
+            "Search for course slides"
         ]
-    
+
+    # IEPOD / mentoring suggestions
+    if any(word in message_lower for word in ["iepod", "timp", "mentor", "mentee", "niche", "career", "research", "project"]):
+        return [
+            "What is TIMP mentoring?",
+            "How do I apply to be a mentee?",
+            "Tell me about the Niche Audit tool"
+        ]
+
+    # Growth tools suggestions
+    if any(word in message_lower for word in ["habit", "journal", "flashcard", "goal", "timer", "planner", "pomodoro", "growth"]):
+        return [
+            "Track my daily habits",
+            "Create flashcards for a course",
+            "Start a study timer session"
+        ]
+
+    # Team / EXCO suggestions
+    if any(word in message_lower for word in ["exco", "president", "secretary", "team", "class rep", "welfare", "contact"]):
+        return [
+            "Show current EXCO members",
+            "Who is my class rep?",
+            "How do I contact the Welfare Director?"
+        ]
+
     # Default suggestions
     return [
-        "Tell me about upcoming events",
         "Check my payment status",
-        "Show my timetable"
+        "What classes do I have today?",
+        "Tell me about IEPOD Hub"
     ]
 
 
@@ -726,11 +832,15 @@ async def get_quick_suggestions():
         "suggestions": [
             "What events are coming up?",
             "How do I pay my dues?",
+            "What classes do I have today?",
             "Show me resources for my level",
-            "What's my class schedule?",
-            "Tips for exam preparation",
-            "How can I calculate my CGPA?",
+            "How do I calculate my CGPA?",
+            "What is TIMP mentoring?",
+            "How do I join or create a study group?",
             "Who are the current EXCO members?",
+            "What is the Niche Audit tool?",
+            "Tips for exam preparation",
+            "How do I apply for a unit course?",
             "When is the next general meeting?"
         ]
     }

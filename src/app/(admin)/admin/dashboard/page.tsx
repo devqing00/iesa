@@ -1,10 +1,7 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { useEffect, useState, useCallback } from "react";
-import { getApiUrl } from "@/lib/api";
 import Link from "next/link";
-import { toast } from "sonner";
 import {
   ResponsiveContainer,
   BarChart,
@@ -17,30 +14,11 @@ import {
   Pie,
   Legend,
 } from "recharts";
+import { getTimeGreeting } from "@/lib/greeting";
+import { useAdminStats } from "@/hooks/useData";
+import { AdminDashboardSkeleton } from "@/components/ui/Skeleton";
 
 /* ─── Types ──────────────────────────────────────── */
-
-interface DashboardStats {
-  totalStudents: number;
-  totalEnrollments: number;
-  totalPayments: number;
-  totalEvents: number;
-  totalAnnouncements: number;
-  activeSession: string | null;
-}
-
-interface ChartData {
-  enrollmentsByLevel: { level: string; count: number }[];
-  paymentsByStatus: { name: string; value: number }[];
-}
-
-interface AuditLogEntry {
-  id: string;
-  action: string;
-  actor: { name?: string; email?: string };
-  resource: { type: string; name?: string };
-  timestamp: string;
-}
 
 const LEVEL_COLORS = ["#6ECFC9", "#9B8AF5", "#FF7B5C", "#6ECFC9", "#F5C842"];
 const PAYMENT_COLORS: Record<string, string> = {
@@ -78,98 +56,27 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 /* ─── Component ──────────────────────────────────── */
 
 export default function AdminDashboardPage() {
-  const { user, getAccessToken } = useAuth();
-  const [stats, setStats] = useState<DashboardStats>({
-    totalStudents: 0,
-    totalEnrollments: 0,
-    totalPayments: 0,
-    totalEvents: 0,
-    totalAnnouncements: 0,
-    activeSession: null,
-  });
-  const [charts, setCharts] = useState<ChartData>({
-    enrollmentsByLevel: [],
-    paymentsByStatus: [],
-  });
-  const [loading, setLoading] = useState(true);
-  const [recentActivity, setRecentActivity] = useState<AuditLogEntry[]>([]);
+  const { user } = useAuth();
+  const { data, isLoading: loading } = useAdminStats(!!user);
 
-  const fetchStats = useCallback(async () => {
-    try {
-      const token = await getAccessToken();
-      const headers = { Authorization: `Bearer ${token}` };
+  // Full-page shimmer skeleton while initial data loads
+  if (loading && !data) return <AdminDashboardSkeleton />;
 
-      const [usersRes, enrollmentsRes, eventsRes, announcementsRes, sessionsRes, paymentsRes, auditRes] = await Promise.allSettled([
-        fetch(getApiUrl("/api/v1/users/"), { headers }),
-        fetch(getApiUrl("/api/v1/enrollments/"), { headers }),
-        fetch(getApiUrl("/api/v1/events/"), { headers }),
-        fetch(getApiUrl("/api/v1/announcements/"), { headers }),
-        fetch(getApiUrl("/api/v1/sessions/"), { headers }),
-        fetch(getApiUrl("/api/v1/payments/"), { headers }),
-        fetch(getApiUrl("/api/v1/audit-logs/?limit=5"), { headers }),
-      ]);
-
-      const users = usersRes.status === "fulfilled" && usersRes.value.ok ? await usersRes.value.json() : [];
-      const enrollments = enrollmentsRes.status === "fulfilled" && enrollmentsRes.value.ok ? await enrollmentsRes.value.json() : [];
-      const events = eventsRes.status === "fulfilled" && eventsRes.value.ok ? await eventsRes.value.json() : [];
-      const announcements = announcementsRes.status === "fulfilled" && announcementsRes.value.ok ? await announcementsRes.value.json() : [];
-      const sessions = sessionsRes.status === "fulfilled" && sessionsRes.value.ok ? await sessionsRes.value.json() : [];
-      const payments = paymentsRes.status === "fulfilled" && paymentsRes.value.ok ? await paymentsRes.value.json() : [];
-      const auditLogs = auditRes.status === "fulfilled" && auditRes.value.ok ? await auditRes.value.json() : [];
-      if (Array.isArray(auditLogs)) setRecentActivity(auditLogs);
-
-      const activeSession = Array.isArray(sessions) ? sessions.find((s: Record<string, unknown>) => s.isActive) : null;
-
-      setStats({
-        totalStudents: Array.isArray(users) ? users.length : 0,
-        totalEnrollments: Array.isArray(enrollments) ? enrollments.length : 0,
-        totalPayments: Array.isArray(payments) ? payments.length : 0,
-        totalEvents: Array.isArray(events) ? events.length : 0,
-        totalAnnouncements: Array.isArray(announcements) ? announcements.length : 0,
-        activeSession: activeSession ? `${activeSession.name}` : null,
-      });
-
-      // ── Build chart data ──────────────────────────────────────
-      if (Array.isArray(enrollments)) {
-        const levelMap: Record<string, number> = {};
-        for (const e of enrollments) {
-          const lvl = e.level ?? "Other";
-          levelMap[lvl] = (levelMap[lvl] ?? 0) + 1;
-        }
-        const orderedLevels = ["100L","200L","300L","400L","500L"];
-        const enrollmentsByLevel = [
-          ...orderedLevels.filter(l => levelMap[l]).map(l => ({ level: l, count: levelMap[l] })),
-          ...Object.entries(levelMap).filter(([k]) => !orderedLevels.includes(k)).map(([k, v]) => ({ level: k, count: v })),
-        ];
-        setCharts(prev => ({ ...prev, enrollmentsByLevel }));
-      }
-
-      if (Array.isArray(payments)) {
-        const statusMap: Record<string, number> = {};
-        for (const p of payments) {
-          const st = (p.status as string) ?? "unknown";
-          statusMap[st] = (statusMap[st] ?? 0) + 1;
-        }
-        const paymentsByStatus = Object.entries(statusMap).map(([name, value]) => ({ name, value }));
-        setCharts(prev => ({ ...prev, paymentsByStatus }));
-      }
-    } catch {
-      toast.error("Failed to load dashboard stats");
-    } finally {
-      setLoading(false);
-    }
-  }, [getAccessToken]);
-
-  useEffect(() => {
-    if (user) fetchStats();
-  }, [user, fetchStats]);
-
-  const greeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
+  const stats = {
+    totalStudents: data?.totalStudents ?? 0,
+    totalEnrollments: data?.totalEnrollments ?? 0,
+    totalPayments: data?.totalPayments ?? 0,
+    totalEvents: data?.totalEvents ?? 0,
+    totalAnnouncements: data?.totalAnnouncements ?? 0,
+    activeSession: data?.activeSession ?? null,
   };
+  const charts = {
+    enrollmentsByLevel: data?.enrollmentsByLevel ?? [],
+    paymentsByStatus: data?.paymentsByStatus ?? [],
+  };
+  const recentActivity = data?.recentActivity ?? [];
+
+  const greeting = getTimeGreeting;
 
   const quickLinks = [
     {

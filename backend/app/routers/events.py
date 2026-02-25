@@ -82,6 +82,11 @@ async def create_event(
         session_id=event_data.sessionId,
         details={"title": event_data.title, "date": str(event_data.date)}
     )
+    from app.routers.sse import publish
+    from app.core.cache import cache_delete, cache_delete_pattern
+    publish("event_created", {"id": str(result.inserted_id), "title": event_data.title})
+    await cache_delete("admin_stats")
+    await cache_delete_pattern("student_dashboard:*")
     return Event(**created_event)
 
 
@@ -796,6 +801,11 @@ async def update_event(
         resource_id=event_id,
         details={"updated_fields": list(update_data.keys())}
     )
+    from app.routers.sse import publish
+    from app.core.cache import cache_delete, cache_delete_pattern
+    publish("event_updated", {"id": event_id})
+    await cache_delete("admin_stats")
+    await cache_delete_pattern("student_dashboard:*")
     return Event(**updated_event)
 
 
@@ -832,6 +842,11 @@ async def delete_event(
         resource_type="event",
         resource_id=event_id,
     )
+    from app.routers.sse import publish
+    from app.core.cache import cache_delete, cache_delete_pattern
+    publish("event_deleted", {"id": event_id})
+    await cache_delete("admin_stats")
+    await cache_delete_pattern("student_dashboard:*")
     return None
 
 

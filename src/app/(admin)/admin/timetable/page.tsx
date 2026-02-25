@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { getApiUrl } from "@/lib/api";
 import { toast } from "sonner";
+import { ConfirmModal } from "@/components/ui/Modal";
 import AcademicCalendarTab from "@/components/admin/AcademicCalendarTab";
 
 /* ─── Types ──────────────────────────────── */
@@ -47,6 +48,7 @@ function AdminTimetablePage() {
   const [showModal, setShowModal] = useState(false);
   const [editingClass, setEditingClass] = useState<ClassSession | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: "" });
   const [formData, setFormData] = useState({
     courseCode: "",
     courseTitle: "",
@@ -117,8 +119,8 @@ function AdminTimetablePage() {
 
       if (res.ok) {
         toast.success(isEdit ? "Class updated" : "Class created");
-        closeModal();
         await fetchClasses();
+        closeModal();
       } else {
         const err = await res.json().catch(() => null);
         toast.error(err?.detail ?? "Failed to save class");
@@ -404,7 +406,7 @@ function AdminTimetablePage() {
                               Edit
                             </button>
                             <button
-                              onClick={() => handleDelete(cls._id)}
+                              onClick={() => setDeleteConfirm({ isOpen: true, id: cls._id })}
                               disabled={deleting === cls._id}
                               className="px-4 py-2 rounded-xl bg-coral-light border-[3px] border-coral text-coral text-xs font-bold hover:bg-coral hover:text-snow transition-all disabled:opacity-50"
                             >
@@ -606,10 +608,24 @@ function AdminTimetablePage() {
       ) : (
         <AcademicCalendarTab />
       )}
+
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        onClose={() => !deleting && setDeleteConfirm({ isOpen: false, id: "" })}
+        onConfirm={async () => {
+          await handleDelete(deleteConfirm.id);
+          setDeleteConfirm({ isOpen: false, id: "" });
+        }}
+        title="Delete Class"
+        message="Are you sure you want to delete this class from the timetable?"
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleting === deleteConfirm.id}
+      />
     </div>
   );
 }
 
 export default withAuth(AdminTimetablePage, {
-  anyPermission: ["timetable:create", "timetable:edit"],
+  anyPermission: ["timetable:create", "timetable:edit", "timetable:view"],
 });

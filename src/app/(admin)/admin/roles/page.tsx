@@ -101,6 +101,7 @@ function RolesPage() {
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: "" });
+  const [roleDeleting, setRoleDeleting] = useState(false);
 
   // Filter
   const [filterSession, setFilterSession] = useState<string>("all");
@@ -121,6 +122,7 @@ function RolesPage() {
   const [customPosition, setCustomPosition] = useState("");
 
   // Permissions edit state
+  const [assigning, setAssigning] = useState(false);
   const [editPermsRole, setEditPermsRole] = useState<Role | null>(null);
   const [permCatalogue, setPermCatalogue] = useState<Record<string, { key: string; description: string }[]>>({});
   const [defaultPermsByPosition, setDefaultPermsByPosition] = useState<Record<string, string[]>>({});
@@ -157,11 +159,28 @@ function RolesPage() {
         sessionsRes.json(),
       ]);
 
-      setRoles(rolesData);
-      setUsers(usersData);
-      setSessions(sessionsData);
+      // Normalise MongoDB _id → id for all three collections so that
+      // comparisons like u.id === formData.userId work correctly.
+      const normRoles: Role[] = rolesData.map((r: Role & { _id?: string }) => ({
+        ...r,
+        id: r.id || r._id || "",
+        user: r.user ? { ...r.user, id: (r.user as User & { _id?: string }).id || (r.user as User & { _id?: string })._id || "" } : r.user,
+        session: r.session ? { ...r.session, id: (r.session as Session & { _id?: string }).id || (r.session as Session & { _id?: string })._id || "" } : r.session,
+      }));
+      const normUsers: User[] = usersData.map((u: User & { _id?: string }) => ({
+        ...u,
+        id: u.id || u._id || "",
+      }));
+      const normSessions: Session[] = sessionsData.map((s: Session & { _id?: string }) => ({
+        ...s,
+        id: s.id || s._id || "",
+      }));
 
-      const activeSession = sessionsData.find((s: Session) => s.isActive);
+      setRoles(normRoles);
+      setUsers(normUsers);
+      setSessions(normSessions);
+
+      const activeSession = normSessions.find((s: Session) => s.isActive);
       if (activeSession) {
         setFilterSession(activeSession.id);
         if (!formData.sessionId) {
@@ -186,6 +205,7 @@ function RolesPage() {
       return;
     }
     const isCustomPosition = useCustomPosition;
+    setAssigning(true);
     try {
       const token = await getAccessToken();
       if (!token) return;
@@ -201,7 +221,11 @@ function RolesPage() {
         throw new Error(errorData.detail || "Failed to assign role");
       }
 
-      const newRole = await response.json();
+      const rawRole = await response.json();
+      // Normalise _id → id so openEditPerms can build the correct PATCH URL
+      const newRole: Role = { ...rawRole, id: rawRole.id || rawRole._id || "" };
+
+      await fetchData();
 
       setFormData({ userId: "", sessionId: formData.sessionId, position: "" });
       setCustomPosition("");
@@ -209,20 +233,19 @@ function RolesPage() {
       setUserSearchQuery("");
       setUserDropdownOpen(false);
       setShowModal(false);
-      await fetchData();
       toast.success("Role assigned successfully");
       
       // Auto-open permissions modal for custom positions
       if (isCustomPosition && newRole) {
-        setTimeout(() => {
-          openEditPerms(newRole);
-          toast.info("Configure permissions for this custom role");
-        }, 300);
+        openEditPerms(newRole);
+        toast.info("Configure permissions for this custom role");
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to assign role";
       setError(msg);
       toast.error(msg);
+    } finally {
+      setAssigning(false);
     }
   };
 
@@ -232,12 +255,13 @@ function RolesPage() {
     setDeleteConfirm({ isOpen: true, id: roleId });
   };
 
-  const confirmDeleteRole = async (roleId: string) => {
+  const confirmDeleteRole = async () => {
+    setRoleDeleting(true);
     try {
       const token = await getAccessToken();
       if (!token) return;
 
-      const response = await fetch(getApiUrl(`/api/v1/roles/${roleId}`), {
+      const response = await fetch(getApiUrl(`/api/v1/roles/${deleteConfirm.id}`), {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -245,10 +269,13 @@ function RolesPage() {
       if (!response.ok) throw new Error("Failed to delete role");
       await fetchData();
       toast.success("Role removed");
+      setDeleteConfirm({ isOpen: false, id: "" });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to delete role";
       setError(msg);
       toast.error(msg);
+    } finally {
+      setRoleDeleting(false);
     }
   };
 
@@ -291,10 +318,16 @@ function RolesPage() {
   const savePermissions = async () => {
     if (!editPermsRole) return;
     setSavingPerms(true);
+    const roleId = editPermsRole.id || (editPermsRole as Role & { _id?: string })._id;
+    if (!roleId) {
+      toast.error("Cannot save permissions: role ID is missing.");
+      setSavingPerms(false);
+      return;
+    }
     try {
       const token = await getAccessToken();
       if (!token) return;
-      const response = await fetch(getApiUrl(`/api/v1/roles/${editPermsRole.id}`), {
+      const response = await fetch(getApiUrl(`/api/v1/roles/${roleId}`), {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ permissions: Array.from(selectedPerms) }),
@@ -303,8 +336,8 @@ function RolesPage() {
         const err = await response.json();
         throw new Error(err.detail || "Failed to update permissions");
       }
-      setEditPermsRole(null);
       await fetchData();
+      setEditPermsRole(null);
       toast.success("Permissions updated");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to save permissions";
@@ -458,26 +491,30 @@ function RolesPage() {
                       {getPositionLabel(role.position)}
                     </span>
                     <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => openEditPerms(role)}
-                        className="p-1.5 rounded-xl hover:bg-lavender-light text-slate hover:text-lavender transition-colors"
-                        title="Edit permissions"
-                        aria-label={`Edit permissions for ${role.user?.firstName || ""} ${role.user?.lastName || ""}`}
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                          <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteRole(role.id)}
-                        className="p-1.5 rounded-xl hover:bg-coral-light text-slate hover:text-coral transition-colors"
-                        title="Remove role"
-                        aria-label={`Remove ${role.user?.firstName || ""} ${role.user?.lastName || ""} from ${getPositionLabel(role.position)}`}
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                          <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
-                        </svg>
-                      </button>
+                      <PermissionGate permission="role:edit">
+                        <button
+                          onClick={() => openEditPerms(role)}
+                          className="p-1.5 rounded-xl hover:bg-lavender-light text-slate hover:text-lavender transition-colors"
+                          title="Edit permissions"
+                          aria-label={`Edit permissions for ${role.user?.firstName || ""} ${role.user?.lastName || ""}`}
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                            <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </PermissionGate>
+                      <PermissionGate permission="role:delete">
+                        <button
+                          onClick={() => handleDeleteRole(role.id)}
+                          className="p-1.5 rounded-xl hover:bg-coral-light text-slate hover:text-coral transition-colors"
+                          title="Remove role"
+                          aria-label={`Remove ${role.user?.firstName || ""} ${role.user?.lastName || ""} from ${getPositionLabel(role.position)}`}
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </PermissionGate>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 mb-3">
@@ -529,26 +566,30 @@ function RolesPage() {
                       {getPositionLabel(role.position)}
                     </span>
                     <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => openEditPerms(role)}
-                        className="p-1.5 rounded-xl hover:bg-lavender-light text-slate hover:text-lavender transition-colors"
-                        title="Edit permissions"
-                        aria-label={`Edit permissions for ${role.user?.firstName || ""} ${role.user?.lastName || ""}`}
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                          <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteRole(role.id)}
-                        className="p-1.5 rounded-xl hover:bg-coral-light text-slate hover:text-coral transition-colors"
-                        title="Remove role"
-                        aria-label={`Remove ${role.user?.firstName || ""} ${role.user?.lastName || ""} from ${getPositionLabel(role.position)}`}
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                          <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
-                        </svg>
-                      </button>
+                      <PermissionGate permission="role:edit">
+                        <button
+                          onClick={() => openEditPerms(role)}
+                          className="p-1.5 rounded-xl hover:bg-lavender-light text-slate hover:text-lavender transition-colors"
+                          title="Edit permissions"
+                          aria-label={`Edit permissions for ${role.user?.firstName || ""} ${role.user?.lastName || ""}`}
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                            <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </PermissionGate>
+                      <PermissionGate permission="role:delete">
+                        <button
+                          onClick={() => handleDeleteRole(role.id)}
+                          className="p-1.5 rounded-xl hover:bg-coral-light text-slate hover:text-coral transition-colors"
+                          title="Remove role"
+                          aria-label={`Remove ${role.user?.firstName || ""} ${role.user?.lastName || ""} from ${getPositionLabel(role.position)}`}
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </PermissionGate>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 mb-3">
@@ -662,7 +703,7 @@ function RolesPage() {
                                   setUserSearchQuery("");
                                   setUserDropdownOpen(false);
                                 }}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-ghost-light text-left transition-colors"
+                                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-cloud text-left transition-colors"
                               >
                                 <div className="w-7 h-7 rounded-lg bg-lavender flex items-center justify-center shrink-0">
                                   <span className="text-snow text-[10px] font-black">{u.firstName[0]}{u.lastName[0]}</span>
@@ -780,10 +821,15 @@ function RolesPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={!formData.userId || !formData.sessionId || (!useCustomPosition ? !formData.position : !customPosition.trim())}
- className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy disabled:opacity-40 transition-all"
+                  disabled={assigning || !formData.userId || !formData.sessionId || (!useCustomPosition ? !formData.position : !customPosition.trim())}
+ className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy disabled:opacity-40 transition-all flex items-center justify-center gap-2"
                 >
-                  Assign
+                  {assigning ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-snow border-t-transparent rounded-full animate-spin" />
+                      Assigning…
+                    </>
+                  ) : "Assign"}
                 </button>
               </div>
             </form>
@@ -793,15 +839,13 @@ function RolesPage() {
 
       <ConfirmModal
         isOpen={deleteConfirm.isOpen}
-        onClose={() => setDeleteConfirm({ isOpen: false, id: "" })}
-        onConfirm={() => {
-          confirmDeleteRole(deleteConfirm.id);
-          setDeleteConfirm({ isOpen: false, id: "" });
-        }}
+        onClose={() => !roleDeleting && setDeleteConfirm({ isOpen: false, id: "" })}
+        onConfirm={confirmDeleteRole}
         title="Remove Role"
         message="Are you sure you want to remove this role assignment?"
         confirmLabel="Remove"
         variant="danger"
+        isLoading={roleDeleting}
       />
 
       {/* ── Edit Permissions Modal ── */}

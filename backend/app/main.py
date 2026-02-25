@@ -5,7 +5,7 @@ import os
 from app.core.security import verify_token
 from app.core.rate_limiting import setup_rate_limiting
 from app.core.error_handling import setup_exception_handlers, setup_logging
-from app.routers import sessions, users, payments, events, announcements, grades, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press, unit_applications, academic_calendar, timp, bank_transfers, settings
+from app.routers import sessions, users, payments, events, announcements, grades, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press, unit_applications, academic_calendar, timp, bank_transfers, settings, contact_messages, iepod, admin_stats, student_dashboard, sse
 from app.db import connect_to_mongo, close_mongo_connection
 
 # Setup logging first
@@ -95,6 +95,11 @@ app.include_router(academic_calendar.router)  # Academic Calendar Events
 app.include_router(timp.router)  # TIMP Mentoring Project
 app.include_router(bank_transfers.router)  # Bank Transfer Payments
 app.include_router(settings.router)        # Platform Settings (admin toggles)
+app.include_router(contact_messages.router) # Public Contact Form Messages
+app.include_router(iepod.router)            # IEPOD Professional Development Hub
+app.include_router(admin_stats.router)       # Admin Dashboard Stats (aggregated)
+app.include_router(student_dashboard.router) # Student Dashboard Stats (aggregated)
+app.include_router(sse.router)               # Real-time SSE notifications
 
 @app.get("/api/protected")
 async def protected_route(user_data: dict = Depends(verify_token)):

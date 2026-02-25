@@ -63,12 +63,15 @@ export function getGreetingMessage(): ChatMessage {
   return {
     role: 'assistant',
     content:
-      "Hello! I'm IESA AI, your academic assistant. I can help you with:\n\n" +
-      '• Your class schedule and timetable\n' +
-      '• Upcoming events and deadlines\n' +
-      '• Payment information\n' +
-      '• General questions about IESA\n\n' +
-      'How can I help you today?',
+      "Hello! I'm IESA AI — your personal assistant right here on the platform. I have access to your real account data, so I can give you direct answers about:\n\n" +
+      '• Your class timetable & schedule\n' +
+      '• Payment status — exactly what you owe & what you\'ve paid\n' +
+      '• Upcoming IESA events\n' +
+      '• Your grades and enrolled courses\n' +
+      '• Growth tools — CGPA calculator, study groups, flashcards, habits & more\n' +
+      '• IEPOD Hub — TIMP mentoring, niche audit, research projects\n' +
+      '• General questions about IESA, courses, and processes\n\n' +
+      'What can I help you with today?',
   };
 }
 
@@ -76,10 +79,12 @@ export function getGreetingMessage(): ChatMessage {
  * Common quick actions for the chat
  */
 export const QUICK_ACTIONS = [
-  { label: 'My classes today', prompt: 'What classes do I have today?' },
+  { label: 'Classes today', prompt: 'What classes do I have today?' },
+  { label: 'Payment status', prompt: 'What dues do I owe and which have I paid?' },
   { label: 'Upcoming events', prompt: 'What events are coming up?' },
-  { label: 'Payment status', prompt: 'What payments do I owe?' },
-  { label: 'Next class', prompt: 'When is my next class?' },
+  { label: 'What is IEPOD?', prompt: 'Tell me about the IEPOD Hub and TIMP mentoring.' },
+  { label: 'Growth tools', prompt: 'What growth tools are available on the platform?' },
+  { label: 'Calculate CGPA', prompt: 'How do I calculate my CGPA on the platform?' },
 ] as const;
 
 /**

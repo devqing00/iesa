@@ -234,7 +234,7 @@ function AdminApplicationsPage() {
                             setReviewFeedback("");
                           }}
                           className="bg-teal border-[3px] border-navy px-4 py-2 rounded-xl font-display font-bold text-sm text-snow
-                            hover:scale-105 transition-all flex-1 sm:flex-none"
+                            press-3 press-navy flex-1 sm:flex-none"
                         >
                           Accept
                         </button>
@@ -245,7 +245,7 @@ function AdminApplicationsPage() {
                             setReviewFeedback("");
                           }}
                           className="bg-coral border-[3px] border-navy px-4 py-2 rounded-xl font-display font-bold text-sm text-snow
-                            hover:scale-105 transition-all flex-1 sm:flex-none"
+                            press-3 press-navy flex-1 sm:flex-none"
                         >
                           Reject
                         </button>

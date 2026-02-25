@@ -77,6 +77,10 @@ async def create_enrollment(
         session_id=enrollment.sessionId,
         details={"student_id": enrollment.studentId, "level": enrollment.level}
     )
+    from app.routers.sse import publish
+    from app.core.cache import cache_delete
+    publish("enrollment_created", {"id": str(result.inserted_id), "level": enrollment.level})
+    await cache_delete("admin_stats")
     return Enrollment(**created_enrollment)
 
 
@@ -305,6 +309,10 @@ async def delete_enrollment(
         resource_type="enrollment",
         resource_id=enrollment_id,
     )
+    from app.routers.sse import publish
+    from app.core.cache import cache_delete
+    publish("enrollment_deleted", {"id": enrollment_id})
+    await cache_delete("admin_stats")
     return {"message": "Enrollment deleted successfully"}
 
 

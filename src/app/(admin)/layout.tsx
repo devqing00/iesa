@@ -6,9 +6,11 @@ import { useAuth } from "@/context/AuthContext";
 import { SidebarProvider, useSidebar } from "@/context/SidebarContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { useSSE } from "@/hooks/useSSE";
 
 function AdminContent({ children }: { children: React.ReactNode }) {
   const { isExpanded } = useSidebar();
+  useSSE();
 
   return (
     <div className="min-h-screen bg-ghost">

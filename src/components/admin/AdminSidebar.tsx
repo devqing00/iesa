@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useSidebar } from "@/context/SidebarContext";
 import { useSession } from "@/context/SessionContext";
 import { usePermissions } from "@/context/PermissionsContext";
+import { prefetchRoute } from "@/hooks/useData";
 
 /* ─── Admin Nav Group Definitions ──────────────────────────────── */
 
@@ -126,7 +127,7 @@ const navGroups: NavGroup[] = [
       {
         name: "Payments",
         href: "/admin/payments",
-        anyPermission: ["payment:view_all", "payment:create", "payment:approve"],
+        anyPermission: ["payment:view_all", "payment:create", "payment:approve", "bank_transfer:review", "bank_transfer:manage_accounts"],
         icon: (
           <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path d="M4.5 3.75a3 3 0 0 0-3 3v.75h21v-.75a3 3 0 0 0-3-3h-15Z" />
@@ -162,6 +163,27 @@ const navGroups: NavGroup[] = [
         icon: (
           <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A18.034 18.034 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" clipRule="evenodd" />
+          </svg>
+        ),
+      },
+      {
+        name: "IEPOD",
+        href: "/admin/iepod",
+        anyPermission: ["iepod:manage", "iepod:view"],
+        icon: (
+          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <path fillRule="evenodd" d="M12.963 2.286a.75.75 0 0 0-1.071-.136 9.742 9.742 0 0 0-3.539 6.176 7.547 7.547 0 0 1-1.705-1.715.75.75 0 0 0-1.152-.082A9 9 0 1 0 15.68 4.534a7.46 7.46 0 0 1-2.717-2.248ZM15.75 14.25a3.75 3.75 0 1 1-7.313-1.172c.628.465 1.35.81 2.133 1a5.99 5.99 0 0 1 1.925-3.546 3.75 3.75 0 0 1 3.255 3.718Z" clipRule="evenodd" />
+          </svg>
+        ),
+      },
+      {
+        name: "Messages",
+        href: "/admin/messages",
+        anyPermission: ["contact:view", "contact:manage"],
+        icon: (
+          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M1.5 8.67v8.58a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3V8.67l-8.928 5.493a3 3 0 0 1-3.144 0L1.5 8.67Z" />
+            <path d="M22.5 6.908V6.75a3 3 0 0 0-3-3h-15a3 3 0 0 0-3 3v.158l9.714 5.978a1.5 1.5 0 0 0 1.572 0L22.5 6.908Z" />
           </svg>
         ),
       },
@@ -264,6 +286,7 @@ export default function AdminSidebar() {
                       key={link.href}
                       href={link.href}
                       title={!isExpanded ? link.name : undefined}
+                      onMouseEnter={() => prefetchRoute(link.href)}
                       className={`flex items-center gap-3 rounded-xl transition-all text-sm ${
                         isExpanded ? "px-3 py-2.5" : "justify-center px-2 py-2.5"
                       } ${

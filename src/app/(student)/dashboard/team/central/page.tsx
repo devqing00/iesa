@@ -113,9 +113,9 @@ export default function CentralExcosPage() {
 
       {!loading && president && (
         /* ── president hero card ── */
-        <div className="bg-navy border-[3px] border-ghost/20 rounded-[2rem] p-6 md:p-8 shadow-[3px_3px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform relative overflow-hidden">
+        <div className="bg-navy border-[3px] border-lime rounded-[2rem] p-6 md:p-8 shadow-[3px_3px_0_0_#C8F31D] rotate-[-0.3deg] hover:rotate-0 transition-transform relative overflow-hidden">
           <div className="flex items-center gap-5">
-            <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-lime flex items-center justify-center flex-shrink-0 border-[3px] border-ghost/20-dark">
+            <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-lime flex items-center justify-center flex-shrink-0 border-[3px] border-ghost/20">
               <span className="font-display font-black text-2xl md:text-3xl text-navy">
                 {president.user.firstName[0]}
               </span>

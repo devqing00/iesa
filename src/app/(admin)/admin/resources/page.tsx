@@ -5,7 +5,8 @@ import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { ResourceSchema, type ResourceFormData, flattenZodErrors } from "@/lib/schemas";
-import { withAuth } from "@/lib/withAuth";
+import { withAuth, PermissionGate } from "@/lib/withAuth";
+import { ConfirmModal } from "@/components/ui/Modal";
 
 /* ─── Types ─────────────────────────────────────── */
 
@@ -60,6 +61,8 @@ function AdminResourcesPage() {
 
   const [approving, setApproving] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: "" });
+  const [revokeConfirm, setRevokeConfirm] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: "" });
 
   // Review modal state
   const [reviewResource, setReviewResource] = useState<Resource | null>(null);
@@ -126,7 +129,6 @@ function AdminResourcesPage() {
   };
 
   const deleteResource = async (id: string) => {
-    if (!confirm("Delete this resource? This cannot be undone.")) return;
     setDeleting(id);
     try {
       const token = await getAccessToken();
@@ -172,9 +174,9 @@ function AdminResourcesPage() {
         throw new Error(err.detail ?? "Failed to add resource");
       }
       toast.success("Resource added successfully");
+      await fetchResources();
       setShowAddForm(false);
       setFormData({});
-      fetchResources();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to add resource");
     } finally {
@@ -200,15 +202,17 @@ function AdminResourcesPage() {
           </h1>
           <p className="text-slate mt-2 font-normal">Manage study materials, past questions, and course resources.</p>
         </div>
-        <button
-          onClick={() => setShowAddForm((v) => !v)}
-          className="shrink-0 bg-lime border-[3px] border-navy press-3 press-navy px-5 py-3 rounded-2xl font-display text-navy text-sm transition-all flex items-center gap-2"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          {showAddForm ? "Cancel" : "Add Resource"}
-        </button>
+        <PermissionGate permission="resource:create">
+          <button
+            onClick={() => setShowAddForm((v) => !v)}
+            className="shrink-0 bg-lime border-[3px] border-navy press-3 press-navy px-5 py-3 rounded-2xl font-display text-navy text-sm transition-all flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            {showAddForm ? "Cancel" : "Add Resource"}
+          </button>
+        </PermissionGate>
       </div>
 
       {/* Add Resource Form */}
@@ -345,7 +349,7 @@ function AdminResourcesPage() {
             className={`px-5 py-2.5 rounded-xl border-[3px] font-display text-sm capitalize transition-all ${
               tab === t
                 ? "bg-navy border-navy text-snow shadow-[3px_3px_0_0_#0F0F2D]"
-                : "bg-ghost border-navy text-navy hover:bg-ghost-light"
+                : "bg-ghost border-navy text-navy hover:bg-cloud"
             }`}
           >
             {t === "pending" ? "Pending Approval" : "Approved"}
@@ -441,12 +445,12 @@ function AdminResourcesPage() {
                             href={r.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="bg-ghost border-[2px] border-navy rounded-lg px-2.5 py-1 text-xs font-display text-navy hover:bg-ghost-light transition-colors"
+                            className="bg-ghost border-[2px] border-navy rounded-lg px-2.5 py-1 text-xs font-display text-navy hover:bg-cloud transition-colors"
                           >
                             View
                           </a>
                           {tab === "pending" ? (
-                            <>
+                            <PermissionGate permission="resource:approve">
                               <button
                                 onClick={() => { setReviewResource(r); setReviewAction(true); setReviewFeedback(""); }}
                                 className="bg-teal-light border-[2px] border-teal rounded-lg px-2.5 py-1 text-xs font-display text-teal hover:bg-teal hover:text-snow transition-colors"
@@ -459,23 +463,25 @@ function AdminResourcesPage() {
                               >
                                 Reject
                               </button>
-                            </>
+                            </PermissionGate>
                           ) : (
                             <button
                               disabled={approving === id}
-                              onClick={() => approveResource(id, false)}
+                              onClick={() => setRevokeConfirm({ isOpen: true, id })}
                               className="bg-sunny-light border-[2px] border-navy rounded-lg px-2.5 py-1 text-xs font-display text-navy hover:bg-sunny transition-colors disabled:opacity-50"
                             >
                               {approving === id ? "…" : "Revoke"}
                             </button>
                           )}
-                          <button
-                            disabled={deleting === id}
-                            onClick={() => deleteResource(id)}
-                            className="bg-coral-light border-[2px] border-coral rounded-lg px-2.5 py-1 text-xs font-display text-coral hover:bg-coral hover:text-snow transition-colors disabled:opacity-50"
-                          >
-                            {deleting === id ? "…" : "Delete"}
-                          </button>
+                          <PermissionGate permission="resource:delete">
+                            <button
+                              disabled={deleting === id}
+                              onClick={() => setDeleteConfirm({ isOpen: true, id })}
+                              className="bg-coral-light border-[2px] border-coral rounded-lg px-2.5 py-1 text-xs font-display text-coral hover:bg-coral hover:text-snow transition-colors disabled:opacity-50"
+                            >
+                              {deleting === id ? "…" : "Delete"}
+                            </button>
+                          </PermissionGate>
                         </div>
                       </td>
                     </tr>
@@ -592,6 +598,34 @@ function AdminResourcesPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        onClose={() => !deleting && setDeleteConfirm({ isOpen: false, id: "" })}
+        onConfirm={async () => {
+          await deleteResource(deleteConfirm.id);
+          setDeleteConfirm({ isOpen: false, id: "" });
+        }}
+        title="Delete Resource"
+        message="Delete this resource? This cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleting === deleteConfirm.id}
+      />
+
+      <ConfirmModal
+        isOpen={revokeConfirm.isOpen}
+        onClose={() => !approving && setRevokeConfirm({ isOpen: false, id: "" })}
+        onConfirm={async () => {
+          await approveResource(revokeConfirm.id, false);
+          setRevokeConfirm({ isOpen: false, id: "" });
+        }}
+        title="Revoke Approval"
+        message="Revoke approval for this resource? It will be moved back to pending."
+        confirmLabel="Revoke"
+        variant="warning"
+        isLoading={approving === revokeConfirm.id}
+      />
     </div>
   );
 }

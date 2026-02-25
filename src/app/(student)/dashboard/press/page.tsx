@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import { ConfirmModal } from "@/components/ui/Modal";
 
 interface Article {
   _id: string;
@@ -42,6 +43,8 @@ export default function PressDashboardPage() {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [accessDenied, setAccessDenied] = useState(false);
   const [isHead, setIsHead] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: "" });
+  const [articleDeleting, setArticleDeleting] = useState(false);
 
   const fetchArticles = useCallback(async () => {
     try {
@@ -95,7 +98,7 @@ export default function PressDashboardPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this article?")) return;
+    setArticleDeleting(true);
     try {
       const token = await getAccessToken();
       const res = await fetch(getApiUrl(`/api/v1/press/${id}`), {
@@ -105,9 +108,12 @@ export default function PressDashboardPage() {
       if (res.ok) {
         toast.success("Article deleted");
         fetchArticles();
+        setDeleteConfirm({ isOpen: false, id: "" });
       }
     } catch {
       toast.error("Failed to delete");
+    } finally {
+      setArticleDeleting(false);
     }
   };
 
@@ -299,7 +305,7 @@ export default function PressDashboardPage() {
                         </Link>
                         <button
                           onClick={() => handleSubmit(article._id)}
-                          className="px-3 py-1.5 bg-lime border-[2px] border-navy rounded-xl text-xs font-display font-bold text-navy hover:bg-ghost-dark transition-all"
+                          className="px-3 py-1.5 bg-lime border-[2px] border-navy rounded-xl text-xs font-display font-bold text-navy hover:bg-cloud transition-all"
                         >
                           Submit
                         </button>
@@ -316,7 +322,7 @@ export default function PressDashboardPage() {
                     )}
                     {(article.status === "draft" || article.status === "rejected") && (
                       <button
-                        onClick={() => handleDelete(article._id)}
+                        onClick={() => setDeleteConfirm({ isOpen: true, id: article._id })}
                         className="px-3 py-1.5 bg-snow border-[2px] border-coral rounded-xl text-xs font-display font-bold text-coral hover:bg-coral-light transition-all"
                       >
                         Delete
@@ -331,6 +337,17 @@ export default function PressDashboardPage() {
       )}
     </div>
     )}
+
+    <ConfirmModal
+      isOpen={deleteConfirm.isOpen}
+      onClose={() => !articleDeleting && setDeleteConfirm({ isOpen: false, id: "" })}
+      onConfirm={() => handleDelete(deleteConfirm.id)}
+      title="Delete Article"
+      message="Are you sure you want to delete this article? This cannot be undone."
+      confirmLabel="Delete"
+      variant="danger"
+      isLoading={articleDeleting}
+    />
     </div>
     </div>
   );

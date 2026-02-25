@@ -99,7 +99,13 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} IESA. All rights reserved.
           </p>
           <p className="text-xs text-ghost/30 font-medium">
-            Built with purpose
+            Built with purpose by <a
+                  href="https://alexqing.tech"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-ghost/50 hover:text-ghost/70 transition-colors duration-200"
+                  aria-label="qing"
+                >Qing</a>
           </p>
         </div>
       </div>
@@ -107,7 +113,7 @@ export default function Footer() {
       {/* Large "IESA" watermark at bottom with gradient fade */}
       <div className="relative w-full overflow-hidden">
         <div className="text-center select-none pb-0 leading-none">
-          <span className="font-display font-black text-[clamp(6rem,30vw,20rem)] tracking-tighter bg-gradient-to-b from-sunny/[0.1] via-sunny/[0.02] to-transparent bg-clip-text text-transparent">
+          <span className="font-display font-black text-[clamp(7.5rem,30vw,28rem)] tracking-tighter bg-gradient-to-b from-ghost/[0.2] via-ghost/[0.02] to-transparent bg-clip-text text-transparent">
             IESAUI
           </span>
         </div>

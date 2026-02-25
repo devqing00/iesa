@@ -27,9 +27,9 @@ export default function Home() {
 
       <Header />
 
-      <main className="relative z-10 pt-14 sm:pt-16">
+      <main id="main-content" className="relative z-10 pt-14 sm:pt-16">
         {/* ═══ HERO ═══ */}
-        <section className="py-12 sm:py-20">
+        <section className="py-12 sm:py-20 md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
               {/* Hero text */}
@@ -44,7 +44,7 @@ export default function Home() {
                   </h1>
                 </div>
 
-                <p className="font-display text-sm sm:text-base lg:text-lg text-navy max-w-xl mb-8 leading-relaxed font-medium">
+                <p className="font-display text-sm sm:text-base lg:text-lg text-navy/60 max-w-xl mb-8 leading-relaxed font-medium">
                   Join <span className="font-black">500+ students</span> at University of Ibadan&apos;s premier engineering association.
                 </p>
 
@@ -76,7 +76,7 @@ export default function Home() {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-navy/50 to-transparent" />
                     <div className="absolute bottom-3 left-3 right-3">
-                      <p className="font-display text-white text-sm sm:text-base font-bold">Community First</p>
+                      <p className="font-display text-snow text-sm sm:text-base font-bold">Community First</p>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">

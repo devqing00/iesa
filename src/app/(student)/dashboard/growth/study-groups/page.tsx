@@ -642,7 +642,7 @@ export default function StudyGroupFinderPage() {
               <select
                 value={formLevel}
                 onChange={(e) => setFormLevel(e.target.value)}
-                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors bg-white"
+                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors bg-snow"
               >
                 <option value="">Any level</option>
                 {LEVELS.map((l) => (
@@ -670,7 +670,7 @@ export default function StudyGroupFinderPage() {
               <select
                 value={formMeetingDay}
                 onChange={(e) => setFormMeetingDay(e.target.value)}
-                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors bg-white"
+                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors bg-snow"
               >
                 <option value="">Select day</option>
                 {DAYS.map((d) => (
@@ -821,7 +821,7 @@ export default function StudyGroupFinderPage() {
               <select
                 value={filterLevel}
                 onChange={(e) => setFilterLevel(e.target.value)}
-                className="px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors bg-white min-w-[140px]"
+                className="px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors bg-snow min-w-[140px]"
               >
                 <option value="">All levels</option>
                 {LEVELS.map((l) => (

@@ -69,7 +69,7 @@ export default function HistoryPage() {
       {/* ============================================
           HERO SECTION
           ============================================ */}
-      <section className="pt-16 sm:pt-20 pb-16 sm:pb-20 relative overflow-hidden bg-ghost">
+      <section className="pt-16 sm:pt-20 pb-16 sm:pb-20 relative overflow-hidden bg-ghost md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
           {/* Hero Content */}

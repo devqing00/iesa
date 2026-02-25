@@ -93,6 +93,8 @@ export {
   SkeletonTable,
   SkeletonList,
   SkeletonPage,
+  AdminDashboardSkeleton,
+  StudentDashboardSkeleton,
 } from './Skeleton';
 
 // Tables

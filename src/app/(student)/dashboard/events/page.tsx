@@ -1,7 +1,7 @@
 "use client";
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -74,6 +74,10 @@ function EventsPage() {
   const searchParams = useSearchParams();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  // Payment verification state — shown while checking with Paystack after redirect
+  const [verifying, setVerifying] = useState(false);
+  // Prevents double-fetch when verifyEventPayment clears the URL via router.replace
+  const skipFetch = useRef(false);
   const [error, setError] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
@@ -176,6 +180,11 @@ function EventsPage() {
       if (paymentRef) {
         verifyEventPayment(paymentRef);
       } else {
+        if (skipFetch.current) {
+          // verifyEventPayment already refreshed data; skip this duplicate effect run
+          skipFetch.current = false;
+          return;
+        }
         fetchEvents();
         fetchRegistrations();
         fetchBankAccounts();
@@ -431,8 +440,8 @@ function EventsPage() {
   };
 
   const verifyEventPayment = async (reference: string) => {
+    setVerifying(true);
     try {
-      setLoading(true);
       const token = await getAccessToken();
       const res = await fetch(getApiUrl(`/api/v1/paystack/verify/${reference}`), {
         headers: { Authorization: `Bearer ${token}` },
@@ -441,32 +450,45 @@ function EventsPage() {
       const data = await res.json();
       if (data.status === "success") {
         toast.success("Payment Verified", "Your event payment was successful! You are now registered.");
-        // Clean up URL params
-        router.push("/dashboard/events");
-        // Refresh data
-        await fetchEvents();
-        await fetchRegistrations();
       } else if (data.status === "failed") {
         toast.error("Payment Declined", "Your payment was declined. Please try again or use a different payment method.");
-        router.push("/dashboard/events");
       } else if (data.status === "abandoned") {
         toast.warning("Payment Cancelled", "You cancelled the payment. No charges were made.");
-        router.push("/dashboard/events");
       } else {
-        toast.warning("Payment Pending", `Your payment is being processed (status: ${data.status}). Please check back shortly.`);
-        router.push("/dashboard/events");
+        toast.warning("Payment Pending", `Your payment is being processed. Please check back shortly.`);
       }
     } catch (err) {
       console.error("Verification error:", err);
-      toast.error("Verification Failed", "Failed to verify event payment");
-      router.push("/dashboard/events");
+      toast.error("Verification Failed", "Could not verify your event payment. Please check your payment history or contact support.");
     } finally {
-      setLoading(false);
+      // Tell the useEffect not to re-fetch when router.replace fires
+      skipFetch.current = true;
+      router.replace("/dashboard/events");
+      setVerifying(false);
       setPaying(null);
+      // Refresh data regardless of outcome
+      await fetchEvents();
+      await fetchRegistrations();
     }
   };
 
   const filteredEvents = activeCategory === "All" ? events : events.filter((e) => e.category === activeCategory);
+
+  /* ── Verifying Payment ── */
+  if (verifying) {
+    return (
+      <div className="min-h-screen bg-ghost">
+        <DashboardHeader title="Events" />
+        <div className="flex-1 flex items-center justify-center min-h-[60vh]">
+          <div className="text-center space-y-4">
+            <div className="w-10 h-10 border-[4px] border-teal border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="font-display font-black text-lg text-navy">Verifying Payment</p>
+            <p className="text-xs font-bold text-slate uppercase tracking-wider">Checking with Paystack…</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   /* ── Loading ── */
   if (loading) {
@@ -610,7 +632,7 @@ function EventsPage() {
                 >
                   {/* Colored Header */}
                   <div className={`${accent.header} p-5 relative overflow-hidden`}>
-                    <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full bg-black/5 pointer-events-none" />
+                    <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full bg-navy/5 pointer-events-none" />
                     <div className="flex items-start justify-between">
                       <div>
                         <div className={`font-display font-black text-5xl leading-none ${accent.dateText}`}>
@@ -1067,7 +1089,7 @@ function EventsPage() {
                 <button
                   onClick={doConfirmedEventTransferSubmit}
                   disabled={transferSubmitting}
-                  className="flex-1 bg-lime border-[3px] border-navy px-5 py-3 rounded-xl font-display font-bold text-sm text-navy shadow-[4px_4px_0_0_#0F0F2D] hover:shadow-[6px_6px_0_0_#0F0F2D] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-lime border-[3px] border-navy px-5 py-3 rounded-xl font-display font-bold text-sm text-navy press-4 press-navy transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {transferSubmitting ? "Submitting..." : "Yes, Submit"}
                 </button>

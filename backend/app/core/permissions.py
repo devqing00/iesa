@@ -83,7 +83,9 @@ PERMISSIONS = {
     "press:access": "Access the IESA Press ecosystem",
     "press:create": "Create press articles",
     "press:edit": "Edit press articles",
+    "press:review": "Review and moderate press articles",
     "press:publish": "Publish / approve press articles",
+    "press:manage": "Full press management (head-level access)",
     
     # Audit log permissions
     "audit:view": "View audit logs (admin only)",
@@ -92,6 +94,17 @@ PERMISSIONS = {
     # Additional permissions
     "user:edit_role": "Change user roles (student/exco/admin)",
     "user:edit_academic": "Edit academic info (admission year, level)",
+    "user:export": "Export user data as CSV",
+
+    # Grade permissions (additional)
+    "grade:delete": "Delete grade records",
+
+    # Contact message permissions
+    "contact:view": "View contact form submissions",
+    "contact:manage": "Reply to, archive, and delete contact messages",
+
+    # Unit application permissions
+    "unit_application:review": "Review unit/committee applications",
 
     # TIMP permissions
     "timp:manage": "Manage TIMP mentoring (review applications, create pairs)",
@@ -104,6 +117,10 @@ PERMISSIONS = {
 
     # Platform settings permissions
     "admin:manage_settings": "Manage platform-wide settings (e.g. toggle online payments)",
+
+    # IEPOD Hub permissions
+    "iepod:manage": "Manage IEPOD program (registrations, quizzes, teams, points)",
+    "iepod:view": "View IEPOD program data",
 }
 
 
@@ -132,6 +149,9 @@ DEFAULT_PERMISSIONS = {
         "timetable:view",
         "event:view",
         "bank_transfer:view_all",
+        "contact:view",
+        "iepod:view",
+        "timp:view",
     ],
 
     # ── Executive Officers ───────────────────────────────────────────
@@ -140,12 +160,17 @@ DEFAULT_PERMISSIONS = {
         "event:create", "event:edit", "event:delete", "event:view", "event:manage",
         "payment:create", "payment:edit", "payment:delete", "payment:approve", "payment:view_all",
         "enrollment:view", "enrollment:edit",
-        "user:view_all", "role:view",
-        "resource:view", "resource:approve",
+        "user:view_all", "user:export", "role:view",
+        "resource:view", "resource:approve", "resource:delete",
         "timetable:create", "timetable:edit", "timetable:cancel", "timetable:view",
-        "press:access", "press:publish",
+        "press:access", "press:create", "press:edit", "press:review", "press:publish", "press:manage",
+        "grade:view_all", "grade:create", "grade:edit", "grade:delete",
         "timp:manage", "timp:view",
         "bank_transfer:manage_accounts", "bank_transfer:review", "bank_transfer:view_all",
+        "iepod:manage", "iepod:view",
+        "contact:view", "contact:manage",
+        "unit_application:review",
+        "audit:view", "audit:export",
     ],
     "vice_president": [
         "announcement:create", "announcement:edit", "announcement:view",
@@ -157,11 +182,16 @@ DEFAULT_PERMISSIONS = {
         "press:access",
         "timp:manage", "timp:view",
         "bank_transfer:review", "bank_transfer:view_all",
+        "iepod:manage", "iepod:view",
+        "contact:view", "contact:manage",
+        "unit_application:review",
     ],
     "general_secretary": [
         "announcement:create", "announcement:edit", "announcement:view",
         "user:view_all", "role:view",
         "timetable:view",
+        "contact:view", "contact:manage",
+        "unit_application:review",
     ],
     "assistant_general_secretary": [
         "announcement:create", "announcement:view",
@@ -181,7 +211,7 @@ DEFAULT_PERMISSIONS = {
     "pro": [
         "announcement:create", "announcement:edit", "announcement:view",
         "event:view", "user:view_all",
-        "press:access", "press:create", "press:edit", "press:publish",
+        "press:access", "press:create", "press:edit", "press:review", "press:publish", "press:manage",
     ],
     "welfare_officer": [
         "announcement:create", "announcement:view",
@@ -302,12 +332,12 @@ DEFAULT_PERMISSIONS = {
         "user:view_all",
     ],
     "press_head": [
-        "press:access", "press:create", "press:edit", "press:publish",
+        "press:access", "press:create", "press:edit", "press:review", "press:publish", "press:manage",
         "announcement:create", "announcement:view",
         "user:view_all",
     ],
     "press_member": [
-        "press:access", "press:create",
+        "press:access", "press:create", "press:edit",
     ],
 }
 

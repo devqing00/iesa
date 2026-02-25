@@ -166,8 +166,8 @@ a, button, [role="button"], input[type="submit"], select, .cursor-pointer { curs
 input[type="text"], input[type="email"], input[type="password"], input[type="search"],
 input[type="tel"], input[type="url"], textarea { cursor: text; }
 
-/* Remove browser default outline from all form elements — use border-based focus instead */
-input, textarea, select, button {
+/* Remove browser default outline from form elements — :focus-visible provides keyboard focus styles */
+input, textarea, select {
   outline: none;
 }
 input:focus, textarea:focus, select:focus {
@@ -717,6 +717,22 @@ select.input-field {
 @keyframes pulse-soft {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    oklch(92% 0.005 280) 25%,
+    oklch(97% 0.003 280) 50%,
+    oklch(92% 0.005 280) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
 }
 
 .animate-fade-in { animation: fadeIn 0.6s ease forwards; }

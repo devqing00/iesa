@@ -224,7 +224,7 @@ export default function GoalsPage() {
                 <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40">Success</div>
                 <div className="font-display font-black text-3xl text-navy">{stats.completionRate}%</div>
               </div>
-              <div className="bg-navy border-[3px] border-navy rounded-[1.5rem] shadow-[3px_3px_0_0_#000] p-4 flex flex-col justify-between">
+              <div className="bg-navy border-[3px] border-lime rounded-[1.5rem] shadow-[3px_3px_0_0_#C8F31D] p-4 flex flex-col justify-between">
                 <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-ghost/40">Urgent</div>
                 <div className="font-display font-black text-3xl text-coral">{stats.highPriority}</div>
               </div>

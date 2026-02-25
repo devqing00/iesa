@@ -26,6 +26,7 @@ export default function StudentLoginPage() {
       const msg = err instanceof Error ? err.message || "Failed to login" : "Failed to login";
       setError(msg);
       toast.error("Login failed", { description: msg });
+    } finally {
       setLoading(false);
     }
   };

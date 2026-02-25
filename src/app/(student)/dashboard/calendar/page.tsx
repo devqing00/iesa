@@ -140,7 +140,7 @@ export default function CalendarPage() {
                   className={`px-4 py-2 rounded-xl border-[3px] font-display text-sm capitalize transition-all ${
                     currentView === v
                       ? "bg-navy border-navy text-snow shadow-[3px_3px_0_0_#0F0F2D]"
-                      : "bg-ghost border-navy text-navy hover:bg-ghost-light"
+                      : "bg-ghost border-navy text-navy hover:bg-cloud"
                   }`}
                 >
                   {v}

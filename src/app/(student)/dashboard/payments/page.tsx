@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getApiUrl, listBankAccounts, submitTransferProof, getMyTransfers, checkTransactionReference, NIGERIAN_BANKS, TRANSFER_STATUS_STYLES } from "@/lib/api";
@@ -82,13 +82,23 @@ function PaymentsContent() {
   const [refExistsError, setRefExistsError] = useState("");
   // Confirmation modal for bank transfer
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  // Payment verification state — shown while checking with Paystack after redirect
+  const [verifying, setVerifying] = useState(false);
+  // Prevents double-fetch when verifyPayment clears the URL via router.replace
+  const skipFetch = useRef(false);
 
   /* ─── Data Fetching ─── */
   useEffect(() => {
+    if (!user) return; // wait for auth to initialise after full-page redirect
     const reference = searchParams.get("reference");
     if (reference) {
       verifyPayment(reference);
     } else {
+      if (skipFetch.current) {
+        // verifyPayment already refreshed data; skip this duplicate effect run
+        skipFetch.current = false;
+        return;
+      }
       fetchPayments();
       fetchTransactions();
       fetchBankAccounts();
@@ -96,7 +106,7 @@ function PaymentsContent() {
       fetchPlatformSettings();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [user, searchParams]);
 
   const fetchPlatformSettings = async () => {
     try {
@@ -186,33 +196,32 @@ function PaymentsContent() {
   };
 
   const verifyPayment = async (reference: string) => {
+    setVerifying(true);
     try {
-      setLoading(true);
       const token = await getAccessToken();
       const res = await fetch(getApiUrl(`/api/v1/paystack/verify/${reference}`), { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed to verify payment");
       const data = await res.json();
       if (data.status === "success") {
         toast.success("Payment Verified", "Your payment has been verified successfully!");
-        router.push("/dashboard/payments");
-        fetchPayments();
-        fetchTransactions();
       } else if (data.status === "failed") {
         toast.error("Payment Declined", "Your payment was declined. Please try again or use a different payment method.");
-        router.push("/dashboard/payments");
       } else if (data.status === "abandoned") {
         toast.warning("Payment Cancelled", "You cancelled the payment. No charges were made.");
-        router.push("/dashboard/payments");
       } else {
-        toast.warning("Payment Pending", `Your payment is being processed (status: ${data.status}). Please check back shortly.`);
-        router.push("/dashboard/payments");
+        toast.warning("Payment Pending", `Your payment is being processed. Please check back shortly.`);
       }
     } catch (error) {
       console.error("Verification error:", error);
-      toast.error("Verification Failed", "Failed to verify payment");
-      router.push("/dashboard/payments");
+      toast.error("Verification Failed", "Could not verify your payment. Please check your payment history or contact support.");
     } finally {
-      setLoading(false);
+      // Tell the useEffect not to re-fetch when router.replace fires
+      skipFetch.current = true;
+      router.replace("/dashboard/payments");
+      setVerifying(false);
+      // Refresh data regardless of outcome
+      fetchPayments();
+      fetchTransactions();
     }
   };
 
@@ -375,7 +384,17 @@ function PaymentsContent() {
         <svg className="fixed bottom-36 right-[12%] w-6 h-6 text-lavender/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
         <svg className="fixed top-[32%] right-[20%] w-4 h-4 text-navy/10 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
 
-        {loading ? (
+        {verifying ? (
+          /* ── Verifying Payment ── */
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="bg-snow border-[4px] border-navy rounded-3xl p-10 max-w-sm text-center shadow-[8px_8px_0_0_#000] relative overflow-hidden">
+              <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-teal/10 pointer-events-none" />
+              <div className="w-12 h-12 border-[4px] border-teal border-t-transparent rounded-full animate-spin mx-auto mb-5" />
+              <h3 className="font-display font-black text-xl text-navy mb-2">Verifying Payment</h3>
+              <p className="text-sm text-slate">Checking your transaction with Paystack…</p>
+            </div>
+          </div>
+        ) : loading ? (
           /* ── Loading Skeleton ── */
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
@@ -400,7 +419,7 @@ function PaymentsContent() {
               <p className="text-navy/60 text-sm mb-4">{fetchError}</p>
               <button
                 onClick={() => { setFetchError(null); fetchPayments(); fetchTransactions(); }}
-                className="bg-lime border-[3px] border-navy shadow-[4px_4px_0_0_#0F0F2D] px-6 py-2.5 rounded-xl font-display font-bold text-sm text-navy hover:shadow-[6px_6px_0_0_#0F0F2D] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+                className="bg-lime border-[3px] border-navy press-4 press-navy px-6 py-2.5 rounded-xl font-display font-bold text-sm text-navy transition-all"
               >
                 Try Again
               </button>
@@ -447,7 +466,7 @@ function PaymentsContent() {
                   </div>
                 </div>
                 {/* Total Paid */}
-                <div className="bg-navy border-[3px] border-ghost/20 rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
+                <div className="bg-navy border-[3px] border-lime rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#C8F31D] rotate-[0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/50">Total Paid</span>
                     <p className="font-display font-black text-2xl text-snow">₦{paidPayments.reduce((s, p) => s + p.amount, 0).toLocaleString()}</p>
@@ -489,7 +508,7 @@ function PaymentsContent() {
             {activeTab === "pending" && (
               <div className="space-y-4">
                 {pendingPayments.length === 0 ? (
-                  <div className="bg-navy border-[3px] border-ghost/20 rounded-[2rem] shadow-[3px_3px_0_0_#000] p-12 text-center">
+                  <div className="bg-navy border-[3px] border-lime rounded-[2rem] shadow-[3px_3px_0_0_#C8F31D] p-12 text-center">
                     <div className="w-14 h-14 bg-teal/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                       <svg className="w-7 h-7 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>
                     </div>
@@ -639,7 +658,7 @@ function PaymentsContent() {
                                     <button
                                       onClick={() => downloadReceipt(transfer.transactionReference)}
                                       disabled={downloadingReceipt === transfer.transactionReference}
-                                      className="px-4 py-2 bg-lime border-[3px] border-navy rounded-xl font-display font-bold text-xs text-navy uppercase tracking-wider hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed transition-transform flex items-center gap-2"
+                                      className="px-4 py-2 bg-lime border-[3px] border-navy rounded-xl font-display font-bold text-xs text-navy uppercase tracking-wider press-2 press-navy disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                     >
                                       {downloadingReceipt === transfer.transactionReference ? (
                                         <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -725,7 +744,7 @@ function PaymentsContent() {
                                     <button
                                       onClick={() => downloadReceipt(txn.reference)}
                                       disabled={downloadingReceipt === txn.reference}
-                                      className="px-4 py-2.5 bg-lime border-[3px] border-navy rounded-xl font-display font-bold text-xs text-navy uppercase tracking-wider hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed transition-transform flex items-center gap-2"
+                                      className="px-4 py-2.5 bg-lime border-[3px] border-navy rounded-xl font-display font-bold text-xs text-navy uppercase tracking-wider press-2 press-navy disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                     >
                                       {downloadingReceipt === txn.reference ? (
                                         <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -759,7 +778,7 @@ function PaymentsContent() {
 
                 {/* Empty state */}
                 {transactions.length === 0 && myTransfers.length === 0 && (
-                  <div className="bg-navy border-[3px] border-ghost/20 rounded-[2rem] shadow-[3px_3px_0_0_#000] p-12 text-center">
+                  <div className="bg-navy border-[3px] border-lime rounded-[2rem] shadow-[3px_3px_0_0_#C8F31D] p-12 text-center">
                     <div className="w-14 h-14 bg-teal/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                       <svg className="w-7 h-7 text-snow" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd" /></svg>
                     </div>
@@ -1017,7 +1036,7 @@ function PaymentsContent() {
                 <button
                   onClick={doConfirmedTransferSubmit}
                   disabled={transferSubmitting}
-                  className="flex-1 bg-lime border-[3px] border-navy px-5 py-3 rounded-xl font-display font-bold text-sm text-navy shadow-[4px_4px_0_0_#0F0F2D] hover:shadow-[6px_6px_0_0_#0F0F2D] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-lime border-[3px] border-navy px-5 py-3 rounded-xl font-display font-bold text-sm text-navy press-4 press-navy transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {transferSubmitting ? "Submitting..." : "Yes, Submit"}
                 </button>

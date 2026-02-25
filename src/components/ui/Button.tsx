@@ -24,9 +24,9 @@ const variantStyles: Record<ButtonVariant, string> = {
   ghost:
     'bg-transparent text-navy/60 border-[3px] border-transparent hover:bg-cloud hover:text-navy',
   coral:
-    'bg-coral text-white border-[3px] border-navy press-3 press-black',
+    'bg-coral text-snow border-[3px] border-navy press-3 press-black',
   lavender:
-    'bg-lavender text-white border-[3px] border-navy press-3 press-black',
+    'bg-lavender text-snow border-[3px] border-navy press-3 press-black',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {

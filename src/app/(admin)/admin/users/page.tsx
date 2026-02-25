@@ -5,7 +5,7 @@ import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
-import { withAuth } from "@/lib/withAuth";
+import { withAuth, PermissionGate } from "@/lib/withAuth";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -167,6 +167,7 @@ function AdminUsersPage() {
           <option value="admin">Admins</option>
         </select>
 
+        <PermissionGate permission="user:export">
         <button
           onClick={() => {
             const headers = ["Name", "Email", "Role", "Status"];
@@ -193,6 +194,7 @@ function AdminUsersPage() {
           </svg>
           Export CSV
         </button>
+        </PermissionGate>
       </div>
 
       {/* ── Table Section ──────────────────────────── */}

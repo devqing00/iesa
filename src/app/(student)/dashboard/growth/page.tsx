@@ -419,7 +419,7 @@ export default function GrowthPage() {
               return (
                 <Link
                   key={tool.id}
-                  href={tool.href}
+                  href={`./growth/${tool.href}`}
                   className={`group bg-snow border-[3px] border-navy rounded-3xl press-4 press-black transition-all overflow-hidden ${rotation}`}
                 >
                   <div className={`${tool.color.bg} px-6 py-4 border-b-[4px] border-navy flex items-center justify-between`}>
@@ -452,7 +452,7 @@ export default function GrowthPage() {
         </div>
 
         {/* ═══ MOTIVATION CARD ═══ */}
-        <div className="bg-navy border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+        <div className="bg-navy border-[3px] border-lime rounded-3xl p-6 shadow-[4px_4px_0_0_#C8F31D]">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-teal/15 flex items-center justify-center shrink-0">
               <svg className="w-6 h-6 text-snow" fill="currentColor" viewBox="0 0 24 24">

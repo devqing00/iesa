@@ -296,7 +296,7 @@ export default function PlannerPage() {
         <div className="space-y-3">
           {filteredTasks.length === 0 ? (
             /* Empty State */
-            <div className="bg-navy border-[3px] border-ghost/20 rounded-[2rem] shadow-[3px_3px_0_0_#000] p-12 text-center">
+            <div className="bg-navy border-[3px] border-lime rounded-[2rem] shadow-[3px_3px_0_0_#C8F31D] p-12 text-center">
               <div className="w-14 h-14 bg-teal/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <svg className="w-7 h-7 text-snow" fill="currentColor" viewBox="0 0 24 24">
                   <path fillRule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0118 9.375v9.375a3 3 0 003-3V6.108c0-1.505-1.125-2.811-2.664-2.94A48.972 48.972 0 0012 3c-2.227 0-4.406.148-6.532.418A2.943 2.943 0 003 6.108V8.25a3 3 0 003-3h1.502zM13.5 8.25a.75.75 0 00-1.5 0v5.25H6.75a.75.75 0 000 1.5H12v5.25a.75.75 0 001.5 0v-5.25h5.25a.75.75 0 000-1.5H13.5V8.25z" clipRule="evenodd" />

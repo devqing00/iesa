@@ -316,7 +316,7 @@ export default function CgpaPage() {
             </div>
 
             {/* Live Result Mini — navy card */}
-            <div className="md:col-span-5 bg-navy border-[3px] border-navy rounded-[2rem] shadow-[3px_3px_0_0_#000] p-7 rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
+            <div className="md:col-span-5 bg-navy border-[3px] border-lime rounded-[2rem] shadow-[3px_3px_0_0_#C8F31D] p-7 rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-ghost/40">
                   Current CGPA

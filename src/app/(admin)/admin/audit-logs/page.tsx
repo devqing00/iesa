@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { withAuth } from "@/lib/withAuth";
+import { withAuth, PermissionGate } from "@/lib/withAuth";
 
 /* ─── Types ────────────────────────────────────── */
 
@@ -169,15 +169,17 @@ function AuditLogsPage() {
             Immutable trail of all administrative actions across the platform.
           </p>
         </div>
-        <button
-          onClick={exportCSV}
-          className="shrink-0 bg-lime border-[3px] border-navy press-3 press-navy px-5 py-3 rounded-2xl font-display text-navy text-sm transition-all flex items-center gap-2"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-          Export CSV
-        </button>
+        <PermissionGate permission="audit:export">
+          <button
+            onClick={exportCSV}
+            className="shrink-0 bg-lime border-[3px] border-navy press-3 press-navy px-5 py-3 rounded-2xl font-display text-navy text-sm transition-all flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export CSV
+          </button>
+        </PermissionGate>
       </div>
 
       {/* Stats strip */}
@@ -294,7 +296,7 @@ function AuditLogsPage() {
                     <React.Fragment key={log.id}>
                       <tr
                         className={`border-b-[2px] border-cloud cursor-pointer transition-colors ${
-                          isExpanded ? "bg-lime-light" : idx % 2 === 0 ? "bg-snow hover:bg-ghost" : "bg-ghost hover:bg-ghost-light/40"
+                          isExpanded ? "bg-lime-light" : idx % 2 === 0 ? "bg-snow hover:bg-ghost" : "bg-ghost hover:bg-cloud/40"
                         }`}
                         onClick={() => setExpandedId(isExpanded ? null : log.id)}
                       >

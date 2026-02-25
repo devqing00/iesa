@@ -208,7 +208,7 @@ export default function ProfilePage() {
     return (
       <div className="min-h-screen bg-ghost p-4 sm:p-6 lg:p-8">
         <div className="max-w-6xl mx-auto flex items-center justify-center min-h-[60vh]">
-          <div className="bg-navy border-[3px] border-ghost/20 rounded-[2rem] p-8 shadow-[3px_3px_0_0_#000] text-center">
+          <div className="bg-navy border-[3px] border-lime rounded-[2rem] p-8 shadow-[3px_3px_0_0_#C8F31D] text-center">
             <p className="font-display font-black text-lg text-snow">Failed to load profile</p>
             <p className="text-sm text-snow/50 mt-2">Please try refreshing the page.</p>
           </div>
@@ -332,7 +332,7 @@ export default function ProfilePage() {
                   )}
                 </div>
                 {/* upload button */}
-                <label className="absolute -bottom-2 -right-2 w-9 h-9 rounded-xl bg-lime border-[3px] border-navy flex items-center justify-center cursor-pointer hover:bg-ghost-light transition-colors shadow-[2px_2px_0_0_#000]">
+                <label className="absolute -bottom-2 -right-2 w-9 h-9 rounded-xl bg-lime border-[3px] border-navy flex items-center justify-center cursor-pointer hover:bg-cloud transition-colors shadow-[2px_2px_0_0_#000]">
                   <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={uploadingImage} />
                   {uploadingImage ? (
                     <div className="w-4 h-4 border-2 border-navy border-t-transparent rounded-full animate-spin" />
@@ -718,7 +718,7 @@ export default function ProfilePage() {
             </div>
 
             {/* quick links */}
-            <div className="bg-navy border-[3px] border-teal rounded-[2rem] p-6 shadow-[3px_3px_0_0_#000]">
+            <div className="bg-navy border-[3px] border-lime rounded-[2rem] p-6 shadow-[3px_3px_0_0_#C8F31D]">
               <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/50 mb-3">Quick Links</div>
               <div className="space-y-2">
 

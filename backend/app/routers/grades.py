@@ -12,7 +12,8 @@ from bson import ObjectId
 
 from app.models.grade import Grade, GradeCreate, CGPAResponse, Course, Semester
 from app.db import get_database
-from app.core.security import get_current_user, require_role
+from app.core.security import get_current_user
+from app.core.permissions import get_user_permissions, get_current_session
 
 router = APIRouter(prefix="/api/v1/grades", tags=["Grades"])
 
@@ -20,28 +21,30 @@ router = APIRouter(prefix="/api/v1/grades", tags=["Grades"])
 @router.post("/", response_model=Grade, status_code=status.HTTP_201_CREATED)
 async def create_or_update_grades(
     grade_data: GradeCreate,
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(get_current_user),
+    session: dict = Depends(get_current_session),
 ):
     """
     Create or update grade record for a session.
     
     Students can only update their own grades.
-    Admins/excos can update anyone's grades.
+    Users with grade:create can update anyone's grades.
     """
     db = get_database()
     grades = db["grades"]
     
     # Verify session exists
     sessions = db["sessions"]
-    session = await sessions.find_one({"_id": ObjectId(grade_data.sessionId)})
-    if not session:
+    session_doc = await sessions.find_one({"_id": ObjectId(grade_data.sessionId)})
+    if not session_doc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Session {grade_data.sessionId} not found"
         )
     
-    # Students can only update their own grades
-    if user.get("role") == "student" and grade_data.studentId != user["_id"]:
+    # Permission check: must have grade:create to edit another student's grades
+    user_perms = await get_user_permissions(user["_id"], str(session["_id"]))
+    if "grade:create" not in user_perms and grade_data.studentId != user["_id"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Students can only update their own grades"
@@ -85,16 +88,20 @@ async def create_or_update_grades(
 async def list_grades(
     session_id: Optional[str] = Query(None, description="Filter by session ID"),
     student_id: Optional[str] = Query(None, description="Filter by student ID"),
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(get_current_user),
+    session: dict = Depends(get_current_session),
 ):
     """
     List grade records.
     
     Students can only see their own grades.
-    Admins/excos can see all grades.
+    Users with grade:view_all can see all grades.
     """
     db = get_database()
     grades = db["grades"]
+    
+    user_perms = await get_user_permissions(user["_id"], str(session["_id"]))
+    has_view_all = "grade:view_all" in user_perms
     
     # Build query
     query = {}
@@ -104,15 +111,15 @@ async def list_grades(
     
     if student_id:
         # Verify permission
-        if user.get("role") == "student" and student_id != user["_id"]:
+        if not has_view_all and student_id != user["_id"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Students can only view their own grades"
             )
         query["studentId"] = student_id
     else:
-        # If no student_id specified and user is student, show their grades only
-        if user.get("role") == "student":
+        # If no student_id specified and user lacks view_all, show their grades only
+        if not has_view_all:
             query["studentId"] = user["_id"]
     
     cursor = grades.find(query).sort("createdAt", -1)
@@ -127,13 +134,14 @@ async def list_grades(
 @router.get("/cgpa", response_model=CGPAResponse)
 async def calculate_cgpa(
     student_id: Optional[str] = Query(None, description="Student ID (defaults to current user)"),
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(get_current_user),
+    session: dict = Depends(get_current_session),
 ):
     """
     Calculate cumulative GPA across all sessions.
     
     Students can only calculate their own CGPA.
-    Admins/excos can calculate for any student.
+    Users with grade:view_all can calculate for any student.
     """
     db = get_database()
     grades = db["grades"]
@@ -143,7 +151,8 @@ async def calculate_cgpa(
     target_student_id = student_id or user["_id"]
     
     # Verify permission
-    if user.get("role") == "student" and target_student_id != user["_id"]:
+    user_perms = await get_user_permissions(user["_id"], str(session["_id"]))
+    if "grade:view_all" not in user_perms and target_student_id != user["_id"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Students can only view their own CGPA"
@@ -209,7 +218,8 @@ async def calculate_cgpa(
 @router.get("/{grade_id}", response_model=Grade)
 async def get_grade(
     grade_id: str,
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(get_current_user),
+    session: dict = Depends(get_current_session),
 ):
     """Get a specific grade record by ID"""
     db = get_database()
@@ -230,7 +240,8 @@ async def get_grade(
         )
     
     # Verify permission
-    if user.get("role") == "student" and grade["studentId"] != user["_id"]:
+    user_perms = await get_user_permissions(user["_id"], str(session["_id"]))
+    if "grade:view_all" not in user_perms and grade["studentId"] != user["_id"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Students can only view their own grades"
@@ -243,11 +254,13 @@ async def get_grade(
 @router.delete("/{grade_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_grade(
     grade_id: str,
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(get_current_user),
+    session: dict = Depends(get_current_session),
 ):
     """
     Delete a grade record.
-    Students can delete their own records, admins can delete any.
+    Students can delete their own records.
+    Users with grade:delete can delete any.
     """
     db = get_database()
     grades = db["grades"]
@@ -267,7 +280,8 @@ async def delete_grade(
         )
     
     # Verify permission
-    if user.get("role") == "student" and grade["studentId"] != user["_id"]:
+    user_perms = await get_user_permissions(user["_id"], str(session["_id"]))
+    if "grade:delete" not in user_perms and grade["studentId"] != user["_id"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Students can only delete their own grades"

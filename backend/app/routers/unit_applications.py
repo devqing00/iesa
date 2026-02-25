@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from bson import ObjectId
 
 from app.core.security import get_current_user
-from app.core.permissions import get_current_session
+from app.core.permissions import get_current_session, require_permission
 from app.db import get_database
 from app.models.unit_application import (
     UnitApplicationCreate,
@@ -101,20 +101,15 @@ async def my_applications(
 async def list_applications(
     unit: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
-    user=Depends(get_current_user),
+    user=Depends(require_permission("unit_application:review")),
     session=Depends(get_current_session),
 ):
-    """List applications. Admins see all; unit heads see their unit only."""
+    """List applications. Requires unit_application:review permission."""
     db = get_database()
     user_id = user.get("_id") or user.get("id")
     session_id = str(session["_id"])
-    role = user.get("role", "student")
 
     query: dict = {"sessionId": session_id}
-
-    # Non-admin users can only see applications for units they head
-    if role not in ("admin", "exco"):
-        raise HTTPException(403, "Not authorized")
 
     if unit:
         query["unit"] = unit
@@ -130,15 +125,11 @@ async def list_applications(
 async def review_application(
     application_id: str,
     body: UnitApplicationReview,
-    user=Depends(get_current_user),
+    user=Depends(require_permission("unit_application:review")),
     session=Depends(get_current_session),
 ):
     db = get_database()
     user_id = user.get("_id") or user.get("id")
-    role = user.get("role", "student")
-
-    if role not in ("admin", "exco"):
-        raise HTTPException(403, "Not authorized to review applications")
 
     if body.status.value == "pending":
         raise HTTPException(400, "Cannot set status back to pending")

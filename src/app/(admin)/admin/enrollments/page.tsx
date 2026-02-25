@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { mutate } from "swr";
 import { useAuth } from "@/context/AuthContext";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { getApiUrl } from "@/lib/api";
@@ -56,6 +57,7 @@ function EnrollmentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: "" });
+  const [enrollmentDeleting, setEnrollmentDeleting] = useState(false);
 
   // Filters
   const [filterSession, setFilterSession] = useState<string>("all");
@@ -138,9 +140,10 @@ function EnrollmentsPage() {
         throw new Error(errorData.detail || "Failed to create enrollment");
       }
 
+      await fetchData();
+      mutate("/api/v1/admin/stats");
       setFormData({ studentId: "", sessionId: formData.sessionId, level: "100L" });
       setShowModal(false);
-      await fetchData();
       toast.success("Enrollment created successfully");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to create enrollment";
@@ -155,23 +158,28 @@ function EnrollmentsPage() {
     setDeleteConfirm({ isOpen: true, id: enrollmentId });
   };
 
-  const confirmDeleteEnrollment = async (enrollmentId: string) => {
+  const confirmDeleteEnrollment = async () => {
+    setEnrollmentDeleting(true);
     try {
       const token = await getAccessToken();
       if (!token) return;
 
-      const response = await fetch(getApiUrl(`/api/v1/enrollments/${enrollmentId}`), {
+      const response = await fetch(getApiUrl(`/api/v1/enrollments/${deleteConfirm.id}`), {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) throw new Error("Failed to delete enrollment");
       await fetchData();
+      mutate("/api/v1/admin/stats");
       toast.success("Enrollment removed");
+      setDeleteConfirm({ isOpen: false, id: "" });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to delete enrollment";
       setError(msg);
       toast.error(msg);
+    } finally {
+      setEnrollmentDeleting(false);
     }
   };
 
@@ -358,16 +366,18 @@ function EnrollmentsPage() {
                             : "N/A"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <button
-                            onClick={() => handleDeleteEnrollment(enrollment.id)}
-                            className="p-2 rounded-xl hover:bg-coral-light transition-colors"
-                            aria-label={`Delete enrollment for ${enrollment.student?.firstName || ""} ${enrollment.student?.lastName || ""}`}
-                            title="Delete enrollment"
-                          >
-                            <svg className="w-4 h-4 text-slate hover:text-coral" viewBox="0 0 24 24" fill="currentColor">
-                              <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
-                            </svg>
-                          </button>
+                          <PermissionGate permission="enrollment:delete">
+                            <button
+                              onClick={() => handleDeleteEnrollment(enrollment.id)}
+                              className="p-2 rounded-xl hover:bg-coral-light transition-colors"
+                              aria-label={`Delete enrollment for ${enrollment.student?.firstName || ""} ${enrollment.student?.lastName || ""}`}
+                              title="Delete enrollment"
+                            >
+                              <svg className="w-4 h-4 text-slate hover:text-coral" viewBox="0 0 24 24" fill="currentColor">
+                                <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          </PermissionGate>
                         </td>
                       </tr>
                     );
@@ -477,15 +487,13 @@ function EnrollmentsPage() {
 
       <ConfirmModal
         isOpen={deleteConfirm.isOpen}
-        onClose={() => setDeleteConfirm({ isOpen: false, id: "" })}
-        onConfirm={() => {
-          confirmDeleteEnrollment(deleteConfirm.id);
-          setDeleteConfirm({ isOpen: false, id: "" });
-        }}
+        onClose={() => !enrollmentDeleting && setDeleteConfirm({ isOpen: false, id: "" })}
+        onConfirm={confirmDeleteEnrollment}
         title="Delete Enrollment"
         message="Are you sure you want to delete this enrollment?"
         confirmLabel="Delete"
         variant="danger"
+        isLoading={enrollmentDeleting}
       />
     </div>
   );

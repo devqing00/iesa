@@ -552,7 +552,7 @@ export default function StudyTimerPage() {
           </div>
 
           {/* Pro Tip Card */}
-          <div className="md:col-span-4 bg-navy border-[3px] border-ghost/20 rounded-[1.5rem] shadow-[3px_3px_0_0_#000] p-6 flex flex-col justify-between">
+          <div className="md:col-span-4 bg-navy border-[3px] border-lime rounded-[1.5rem] shadow-[3px_3px_0_0_#C8F31D] p-6 flex flex-col justify-between">
             <div>
               <div className="w-10 h-10 rounded-xl bg-teal/20 flex items-center justify-center mb-4">
                 <svg className="w-5 h-5 text-snow" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>

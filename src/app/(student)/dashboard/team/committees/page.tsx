@@ -168,7 +168,7 @@ export default function CommitteesPage() {
       )}
 
       {/* ── info notice ── */}
-      <div className="bg-navy border-[3px] border-teal rounded-[2rem] p-6 shadow-[3px_3px_0_0_#000] relative overflow-hidden">
+      <div className="bg-navy border-[3px] border-lime rounded-[2rem] p-6 shadow-[3px_3px_0_0_#C8F31D] relative overflow-hidden">
         <div className="flex items-start gap-4">
           <div className="w-10 h-10 rounded-xl bg-teal/20 flex items-center justify-center flex-shrink-0">
             <svg className="w-5 h-5 text-snow" fill="currentColor" viewBox="0 0 20 20">

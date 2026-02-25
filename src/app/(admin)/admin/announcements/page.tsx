@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { mutate } from "swr";
 import { useAuth } from "@/context/AuthContext";
 import { useSession } from "@/context/SessionContext";
 import { getApiUrl } from "@/lib/api";
 import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
 import { AnnouncementSchema, flattenZodErrors } from "@/lib/schemas";
-import { withAuth } from "@/lib/withAuth";
+import { withAuth, PermissionGate } from "@/lib/withAuth";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -202,10 +203,11 @@ function AdminAnnouncementsPage() {
         );
       }
 
+      await fetchAnnouncements();
+      mutate("/api/v1/admin/stats");
       setModalOpen(false);
       setForm(EMPTY_FORM);
       setEditingId(null);
-      await fetchAnnouncements();
     } catch {
       toast.error("Failed to save announcement");
     } finally {
@@ -226,6 +228,7 @@ function AdminAnnouncementsPage() {
       toast.success("Announcement deleted");
       setDeleteConfirmId(null);
       await fetchAnnouncements();
+      mutate("/api/v1/admin/stats");
     } catch {
       toast.error("Failed to delete announcement");
     }
@@ -295,20 +298,22 @@ function AdminAnnouncementsPage() {
             </h1>
             <p className="text-sm text-navy/60 mt-1">Create and manage announcements for students</p>
           </div>
-          <button
-            onClick={openCreate}
-            disabled={!currentSession}
-            className={`self-start border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm transition-all flex items-center gap-2 ${
+          <PermissionGate permission="announcement:create">
+            <button
+              onClick={openCreate}
+              disabled={!currentSession}
+              className={`self-start border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm transition-all flex items-center gap-2 ${
  currentSession
  ?"bg-lime text-navy cursor-pointer"
  :"bg-slate/30 text-slate/50 cursor-not-allowed"
  }`}
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-              <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
-            </svg>
-            New Announcement
-          </button>
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+              </svg>
+              New Announcement
+            </button>
+          </PermissionGate>
         </div>
 
         {/* ── Stats Bento Row ─────────── */}
@@ -369,12 +374,14 @@ function AdminAnnouncementsPage() {
                 </svg>
               </div>
               <p className="text-sm text-navy/60 font-medium">No announcements found</p>
-              <button
-                onClick={openCreate}
+              <PermissionGate permission="announcement:create">
+                <button
+                  onClick={openCreate}
  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy transition-all"
-              >
-                Create your first announcement
-              </button>
+                >
+                  Create your first announcement
+                </button>
+              </PermissionGate>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -404,32 +411,36 @@ function AdminAnnouncementsPage() {
 
                       {/* Actions — visible on hover */}
                       <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => openEdit(a)}
-                          aria-label="Edit announcement"
-                          className="p-2 rounded-xl hover:bg-cloud transition-colors"
-                        >
-                          <svg className="w-4 h-4 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32l8.4-8.4Z" />
-                            <path d="M5.25 5.25a3 3 0 0 0-3 3v10.5a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3V13.5a.75.75 0 0 0-1.5 0v5.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5V8.25a1.5 1.5 0 0 1 1.5-1.5h5.25a.75.75 0 0 0 0-1.5H5.25Z" />
-                          </svg>
-                        </button>
-                        {deleteConfirmId === id ? (
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => handleDelete(id)} className="px-3 py-1.5 rounded-xl bg-coral text-snow text-xs font-bold hover:opacity-90 transition-opacity">Confirm</button>
-                            <button onClick={() => setDeleteConfirmId(null)} className="px-3 py-1.5 rounded-xl bg-cloud text-navy/60 text-xs font-bold">Cancel</button>
-                          </div>
-                        ) : (
+                        <PermissionGate permission="announcement:edit">
                           <button
-                            onClick={() => setDeleteConfirmId(id)}
-                            aria-label="Delete announcement"
-                            className="p-2 rounded-xl hover:bg-coral-light transition-colors"
+                            onClick={() => openEdit(a)}
+                            aria-label="Edit announcement"
+                            className="p-2 rounded-xl hover:bg-cloud transition-colors"
                           >
-                            <svg className="w-4 h-4 text-navy/60 hover:text-coral" viewBox="0 0 24 24" fill="currentColor">
-                              <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
+                            <svg className="w-4 h-4 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32l8.4-8.4Z" />
+                              <path d="M5.25 5.25a3 3 0 0 0-3 3v10.5a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3V13.5a.75.75 0 0 0-1.5 0v5.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5V8.25a1.5 1.5 0 0 1 1.5-1.5h5.25a.75.75 0 0 0 0-1.5H5.25Z" />
                             </svg>
                           </button>
-                        )}
+                        </PermissionGate>
+                        <PermissionGate permission="announcement:delete">
+                          {deleteConfirmId === id ? (
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => handleDelete(id)} className="px-3 py-1.5 rounded-xl bg-coral text-snow text-xs font-bold hover:opacity-90 transition-opacity">Confirm</button>
+                              <button onClick={() => setDeleteConfirmId(null)} className="px-3 py-1.5 rounded-xl bg-cloud text-navy/60 text-xs font-bold">Cancel</button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setDeleteConfirmId(id)}
+                              aria-label="Delete announcement"
+                              className="p-2 rounded-xl hover:bg-coral-light transition-colors"
+                            >
+                              <svg className="w-4 h-4 text-navy/60 hover:text-coral" viewBox="0 0 24 24" fill="currentColor">
+                                <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          )}
+                        </PermissionGate>
                       </div>
                     </div>
 

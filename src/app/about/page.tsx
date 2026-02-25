@@ -27,7 +27,7 @@ export default function AboutPage() {
       {/* ============================================
           HERO SECTION
           ============================================ */}
-      <section className="pt-16 pb-16 sm:pb-20 relative overflow-hidden">
+      <section className="pt-16 pb-16 sm:pb-20 relative overflow-hidden md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
 
@@ -38,7 +38,7 @@ export default function AboutPage() {
               <br />
               of <span className="inline-block bg-lime border-[2px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[3px_3px_0_0_#000]">Industrial</span> Engineering
             </h1>
-            <p className="font-display text-base sm:text-lg text-navy/60 max-w-2xl leading-relaxed font-medium">
+            <p className="font-display text-base sm:text-lg text-navy/60 max-w-2xl leading-relaxed font-extralight">
               The Industrial Engineering Student Association (IESA) at the
               University of Ibadan is more than just a student organization —
               we&apos;re a community dedicated to academic excellence,

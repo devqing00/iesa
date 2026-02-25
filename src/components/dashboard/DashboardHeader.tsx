@@ -3,6 +3,7 @@
 import { useAuth } from "@/context/AuthContext";
 import NotificationBell from "@/components/dashboard/NotificationBell";
 import UrgentBar from "@/components/dashboard/UrgentBar";
+import { getTimeGreeting } from "@/lib/greeting";
 
 export default function DashboardHeader({ title = "Dashboard" }: { title?: string }) {
   const { userProfile } = useAuth();
@@ -15,7 +16,7 @@ export default function DashboardHeader({ title = "Dashboard" }: { title?: strin
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">{title}</p>
             <h1 className="font-display font-black text-xl sm:text-2xl text-navy">
-              Welcome back{userProfile?.firstName ? `, ${userProfile.firstName}` : ""}
+              {getTimeGreeting()}{userProfile?.firstName ? `, ${userProfile.firstName}` : ""}
             </h1>
           </div>
         </div>

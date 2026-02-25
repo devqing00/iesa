@@ -170,9 +170,9 @@ function AdminTimpPage() {
     setCreatingPair(true);
     try {
       await createPair(newPair);
+      await fetchPairs();
       setShowCreatePair(false);
       setNewPair({ mentorId: "", menteeId: "" });
-      await fetchPairs();
     } catch {
       // handled by api client
     } finally {

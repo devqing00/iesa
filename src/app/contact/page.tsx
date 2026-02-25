@@ -4,6 +4,7 @@ import { useState } from "react";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { useToast } from "@/components/ui/Toast";
+import { getApiUrl } from "@/lib/api";
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -19,11 +20,24 @@ export default function ContactPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    // Simulate form submission
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    toast.success("Message Sent", "We'll get back to you soon.");
-    setFormData({ name: "", email: "", subject: "", message: "" });
-    setIsSubmitting(false);
+    try {
+      const res = await fetch(getApiUrl("/api/v1/contact"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.detail || "Failed to send message");
+      }
+      toast.success("Message Sent", "We'll get back to you soon.");
+      setFormData({ name: "", email: "", subject: "", message: "" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to send message";
+      toast.error("Send Failed", msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -46,7 +60,7 @@ export default function ContactPage() {
       {/* ============================================
           HERO SECTION
           ============================================ */}
-      <section className="pt-16 pb-12 sm:pb-16 relative overflow-hidden">
+      <section className="pt-16 pb-12 sm:pb-16 relative overflow-hidden md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
           {/* Hero Content */}
@@ -86,7 +100,7 @@ export default function ContactPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
                     }
-                    className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-xl font-display font-medium text-sm text-navy placeholder:text-slate focus:outline-none focus:border-coral transition-all"
+                    className="w-full px-4 py-3 bg-ghost border-[2px] border-navy rounded-xl font-display font-medium text-sm text-navy placeholder:text-slate focus:outline-none focus:border-coral transition-all"
                     placeholder="Your full name"
                     required
                   />
@@ -140,7 +154,7 @@ export default function ContactPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full font-display font-black bg-navy border-[2px] border-navy rounded-2xl px-8 py-4 text-sm text-snow uppercase tracking-wide press-3 press-navy transition-all disabled:opacity-50"
+                  className="w-full font-display font-black bg-coral border-[2px] border-navy rounded-2xl px-8 py-4 text-sm text-snow uppercase tracking-wide press-3 press-navy transition-all disabled:opacity-50"
                 >
                   {isSubmitting ? "Sending..." : "Send Message →"}
                 </button>

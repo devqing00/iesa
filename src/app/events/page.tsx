@@ -74,7 +74,7 @@ export default function EventsPage() {
       {/* ============================================
           HERO SECTION
           ============================================ */}
-      <section className="pt-16 pb-12 sm:pb-16 relative overflow-hidden">
+      <section className="pt-16 pb-12 sm:pb-16 relative overflow-hidden md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
           {/* Hero Content */}
@@ -138,7 +138,7 @@ export default function EventsPage() {
                     <div className="shrink-0">
                       <Link
                         href="/register"
-                        className="inline-block font-display font-black bg-navy border-[2px] border-navy rounded-xl px-6 py-3 text-sm text-snow uppercase tracking-wide press-4 press-navy transition-all"
+                        className={`inline-block font-display font-black bg-snow border-[2px] border-navy rounded-xl px-6 py-3 text-sm text-navy uppercase tracking-wide press-4 press-navy transition-all`}
                       >
                         Register →
                       </Link>

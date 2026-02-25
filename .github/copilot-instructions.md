@@ -292,7 +292,7 @@ Bold, vibrant, multi-color design inspired by modern card-based editorial layout
 ### Frontend
 - **Framework:** Next.js 16 (App Router, TypeScript)
 - **Styling:** Tailwind CSS v4 with CSS-first configuration
-- **Theme:** `next-themes` with `attribute="class"`
+- **Theme:** Light mode only — `next-themes` with `defaultTheme="light"`
 - **Auth:** JWT (Argon2id + httpOnly refresh cookies)
 
 ### Backend
@@ -308,6 +308,88 @@ Bold, vibrant, multi-color design inspired by modern card-based editorial layout
 
 ---
 
+## Press Effect System (Interactive Feedback)
+
+**ALL interactive elements** (buttons, links, clickable cards) MUST use the global press effect classes instead of inline shadow hover patterns.
+
+### How it works
+Press classes set a hard shadow at rest, partially sink on hover, and fully press on active (click). They combine a **size** class with a **color** class.
+
+**Size classes:** `press-1` through `press-10` (shadow offset in px)
+**Color classes:** `press-black` (#000), `press-navy` (#0F0F2D), `press-lime` (#C8F31D)
+
+### Usage
+```jsx
+// ✅ CORRECT — Use press classes
+<button className="bg-lime border-[4px] border-navy press-5 press-navy px-8 py-4 rounded-2xl">
+<button className="bg-navy border-[3px] border-lime press-3 press-lime px-5 py-2 rounded-xl">
+<a className="bg-snow border-[3px] border-navy press-3 press-black px-4 py-2 rounded-xl">
+
+// ❌ WRONG — Never use inline shadow hover patterns
+<button className="shadow-[5px_5px_0_0_#0F0F2D] hover:shadow-[8px_8px_0_0_#0F0F2D] hover:translate-x-[-2px]">
+<button className="hover:scale-105 transition-transform">  // For buttons — use press instead
+```
+
+### Color Pairing Rules
+| Element Background | Press Color | Example |
+|-------------------|-------------|---------|
+| Light (snow, ghost, lime, coral, etc.) | `press-navy` or `press-black` | `bg-lime press-5 press-navy` |
+| Dark (navy, navy-light) | `press-lime` | `bg-navy press-5 press-lime` |
+| Any with `border-navy` | `press-navy` or `press-black` | `border-navy press-4 press-navy` |
+| Any with `border-lime` | `press-lime` | `border-lime press-4 press-lime` |
+
+### Exceptions (OK without press classes)
+- **Card system classes** (`.card`, `.card-lime`, etc.) — have built-in hover/active
+- **Button system classes** (`.btn-primary`, `.btn-secondary`, etc.) — have built-in hover/active
+- **Image/icon zoom effects** — `group-hover:scale-105` on images/icons within cards is fine
+- **Footer social links** — small icon links can use subtle scale
+- **Static shadows** — non-interactive elements (cards, badges) with shadow but no hover are fine
+
+---
+
+## Hero Section Pattern
+
+Public page hero sections MUST be full-screen on tablet+ screens:
+
+```jsx
+<section className="pt-16 pb-16 relative overflow-hidden md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    {/* Hero content */}
+  </div>
+</section>
+```
+
+The `5rem` accounts for the header height. This applies to all public pages: home, about, contact, events, blog, history, iepod.
+
+---
+
+## Level System
+
+Student level is auto-calculated from admission year. Never ask users to select their level manually.
+
+**Formula:** `level = Math.max(100, Math.min(500, (currentYear - admissionYear) * 100 + 100))` + "L" suffix
+
+**Registration flow:**
+1. User enters admission year
+2. System calculates level automatically
+3. Shows confirmation: "Based on your admission year X, your level is YL"
+4. User must click "Confirm" before form can be submitted
+
+**Backend:** `currentLevel` stored on user document. IEPOD registration auto-populates level from user profile.
+
+---
+
+## Accessibility Rules
+
+1. **Never remove focus outlines from buttons** — the global CSS removes outlines from form inputs only; buttons retain `:focus-visible` ring
+2. **Decorative SVGs** must have `aria-hidden="true"`
+3. **Mobile menu toggle** must have `aria-expanded={isMenuOpen}`
+4. **Modals** must use the shared `<Modal>` component (has `role="dialog"`, `aria-modal`, Escape handling, focus restoration)
+5. **Use `text-slate` or `text-navy-muted`** for secondary text instead of `text-navy/60` (opacity may fail contrast)
+6. **All `<main>` tags** on pages must have `id="main-content"` for skip-link
+
+---
+
 ## Quick Reference
 
 | Purpose | Pattern |
@@ -319,33 +401,50 @@ Bold, vibrant, multi-color design inspired by modern card-based editorial layout
 | Display heading | `font-display font-black text-4xl text-navy` |
 | Headline with brush | `<span className="brush-highlight">Key Word</span>` |
 | Label/badge | `text-label uppercase tracking-wider text-xs` (no shadow) |
-| Primary button | `bg-lime border-[4px] border-navy shadow-[5px_5px_0_0_#0F0F2D]` |
-| Secondary button | `bg-navy border-[4px] border-lime shadow-[5px_5px_0_0_#000]` |
+| Primary button | `bg-lime border-[4px] border-navy press-5 press-navy` |
+| Secondary button | `bg-navy border-[4px] border-lime press-5 press-lime` |
 | Outline button | `bg-transparent border-[3px] border-navy hover:bg-navy hover:text-lime` |
-| Sparkle decorator | `<svg className="fixed top-16 left-[10%] w-6 h-6 text-lime/20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>` |
+| Small action button | `bg-teal border-[2px] border-navy press-2 press-navy` |
+| Hero section | `md:min-h-[calc(100vh-5rem)] flex flex-col justify-center` |
+| Sparkle decorator | `<svg className="fixed top-16 left-[10%] w-6 h-6 text-lime/20" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>` |
 | Container | `max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12` |
+| Secondary text | `text-slate` or `text-navy-muted` (NOT `text-navy/60`) |
+| White text | `text-snow` (NOT `text-white`) |
+| White background | `bg-snow` (NOT `bg-white`) |
+| Light hover bg | `hover:bg-cloud` (NOT `hover:bg-ghost-light`) |
 
 ### Don'ts
 - ❌ Old tokens: `bg-bg-primary`, `text-text-primary`, `green-accent`, `cream`, `charcoal`
-- ❌ Raw Tailwind: `bg-gray-100`, `text-blue-500`
+- ❌ Raw Tailwind: `bg-gray-100`, `text-blue-500`, `bg-white`, `text-white`, `bg-black`
+- ❌ Non-existent tokens: `bg-ghost-light`, `bg-ghost-dark`, `border-ghost/20-dark`
 - ❌ Emojis in UI (use SVG icons instead)
 - ❌ Lime shadows on light backgrounds
 - ❌ Lime borders paired with black shadows
+- ❌ Navy bg with black shadow (must use lime shadow `#C8F31D`)
+- ❌ Navy bg with non-lime border (must use `border-lime`)
+- ❌ Inline shadow hover patterns (`hover:shadow-[...]`) — use press classes
+- ❌ `hover:scale-105` on buttons — use press classes
 - ❌ 5-point star decorators (use 4-point diamonds)
 - ❌ Soft/blurred shadows (use hard offset shadows only)
-- ❌ Dark mode classes or logic
+- ❌ Dark mode classes or logic (`dark:`, `enableSystem`)
 - ❌ Forgetting `overflow: hidden` on brush highlight parents
 - ❌ Forgetting `overflow-x: hidden` on body when using fixed decorators
+- ❌ Forgetting `aria-hidden="true"` on decorative SVGs
+- ❌ Forgetting `id="main-content"` on `<main>` tags
 
 ### Do's
 - ✅ `font-display font-black` for all headlines
 - ✅ TBJ Endgraph font for everything (display and body)
 - ✅ Brush highlights on key headline words
 - ✅ Context-aware brush colors (`.brush-coral`, `.brush-lime`, `.brush-navy`)
-- ✅ Diamond sparkle decorators with low opacity
+- ✅ Diamond sparkle decorators with low opacity + `aria-hidden="true"`
 - ✅ Mix 2-3 colored cards per grid
 - ✅ 4-8px thick borders on cards and buttons
-- ✅ Pure black or navy hard shadows (5-10px offset)
+- ✅ Pure black or navy hard shadows (5-10px offset) on light backgrounds
+- ✅ Lime hard shadows on navy backgrounds
 - ✅ SVG icons from libraries (no emojis)
-- ✅ Enhanced hover effects (scale, translate)
+- ✅ Press effect classes for all interactive hover/active feedback
+- ✅ Full-screen hero sections on tablet+ with `md:min-h-[calc(100vh-5rem)]`
+- ✅ `text-snow` instead of `text-white`, `bg-snow` instead of `bg-white`
+- ✅ `hover:bg-cloud` for light hover backgrounds
 - ✅ Overflow management on body and containers

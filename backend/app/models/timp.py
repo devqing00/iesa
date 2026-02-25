@@ -42,7 +42,7 @@ class MentorApplicationResponse(BaseModel):
     id: str
     userId: str
     userName: str
-    userLevel: Optional[int] = None
+    userLevel: Optional[str] = None
     motivation: str
     skills: str
     availability: str

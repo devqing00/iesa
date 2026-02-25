@@ -8,7 +8,7 @@ interface SkeletonProps {
 
 export function Skeleton({ className = '' }: SkeletonProps) {
   return (
-    <div className={`bg-cloud rounded-xl animate-pulse ${className}`} aria-hidden="true" />
+    <div className={`bg-cloud rounded-xl animate-shimmer ${className}`} aria-hidden="true" />
   );
 }
 
@@ -133,6 +133,159 @@ export function SkeletonPage({ className = '' }: SkeletonProps) {
         </div>
         <div>
           <SkeletonCard />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Dashboard Skeletons ──────────────────────────────────────── */
+
+/**
+ * Full-page shimmer skeleton for the admin dashboard.
+ * Mimics the stat cards → chart row → activity list layout.
+ */
+export function AdminDashboardSkeleton() {
+  return (
+    <div className="min-h-screen bg-ghost" aria-hidden="true">
+      <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 space-y-5">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-24 rounded" />
+            <Skeleton className="h-9 w-64 rounded-2xl" />
+          </div>
+          <Skeleton className="h-10 w-32 rounded-2xl" />
+        </div>
+
+        {/* Hero row — large greeting card + stat */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div className="lg:col-span-8 bg-cloud rounded-[2rem] border-[3px] border-cloud h-[230px] animate-shimmer" />
+          <div className="lg:col-span-4 bg-cloud rounded-[2rem] border-[3px] border-cloud h-[230px] animate-shimmer" />
+        </div>
+
+        {/* Stat cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-snow border-[3px] border-cloud rounded-3xl p-6 space-y-3">
+              <Skeleton className="h-3 w-20 rounded" />
+              <Skeleton className="h-8 w-16 rounded" />
+            </div>
+          ))}
+        </div>
+
+        {/* Chart + activity row */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div className="lg:col-span-7 bg-snow border-[3px] border-cloud rounded-3xl p-6">
+            <Skeleton className="h-4 w-40 rounded mb-4" />
+            <Skeleton className="h-48 w-full rounded-2xl" />
+          </div>
+          <div className="lg:col-span-5 bg-snow border-[3px] border-cloud rounded-3xl p-6 space-y-4">
+            <Skeleton className="h-4 w-36 rounded" />
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <Skeleton className="w-8 h-8 rounded-xl" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-3.5 w-3/4 rounded" />
+                  <Skeleton className="h-2.5 w-1/2 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Full-page shimmer skeleton for the student dashboard.
+ * Mimics the greeting → schedule → announcements → sidebar layout.
+ */
+export function StudentDashboardSkeleton() {
+  return (
+    <div className="min-h-screen bg-ghost" aria-hidden="true">
+      <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 space-y-5">
+        {/* Hero row — greeting + classes counter */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div className="lg:col-span-8 bg-cloud rounded-[2rem] border-[3px] border-cloud h-[230px] animate-shimmer" />
+          <div className="lg:col-span-4 bg-cloud rounded-[2rem] border-[3px] border-cloud h-[230px] animate-shimmer" />
+        </div>
+
+        {/* Main content row */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* Left column — schedule + announcements */}
+          <div className="lg:col-span-8 space-y-4">
+            {/* Schedule skeleton */}
+            <div className="bg-snow border-[3px] border-cloud rounded-3xl p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <Skeleton className="w-3 h-8 rounded-full" />
+                <Skeleton className="h-5 w-40 rounded" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-4 p-4 rounded-2xl border-[3px] border-cloud">
+                    <Skeleton className="w-12 h-12 rounded-xl" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3.5 w-24 rounded" />
+                      <Skeleton className="h-2.5 w-32 rounded" />
+                    </div>
+                    <Skeleton className="h-5 w-14 rounded-full" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Announcements skeleton */}
+            <div className="bg-snow border-[3px] border-cloud rounded-3xl p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <Skeleton className="w-3 h-8 rounded-full" />
+                <Skeleton className="h-5 w-36 rounded" />
+              </div>
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-4 p-4 rounded-2xl border-[2px] border-cloud">
+                    <Skeleton className="w-8 h-6 rounded" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3.5 w-3/4 rounded" />
+                      <Skeleton className="h-2.5 w-1/3 rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right column — dues + events */}
+          <div className="lg:col-span-4 space-y-4">
+            <div className="bg-snow border-[3px] border-cloud rounded-3xl p-6 space-y-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Skeleton className="w-2.5 h-6 rounded-full" />
+                <Skeleton className="h-4 w-28 rounded" />
+              </div>
+              {Array.from({ length: 2 }).map((_, i) => (
+                <div key={i} className="bg-cloud rounded-2xl p-4 space-y-2">
+                  <Skeleton className="h-2.5 w-20 rounded" />
+                  <Skeleton className="h-6 w-24 rounded" />
+                </div>
+              ))}
+            </div>
+            <div className="bg-snow border-[3px] border-cloud rounded-3xl p-6 space-y-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Skeleton className="w-2.5 h-6 rounded-full" />
+                <Skeleton className="h-4 w-24 rounded" />
+              </div>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-cloud">
+                  <Skeleton className="w-11 h-11 rounded-xl" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-3.5 w-3/4 rounded" />
+                    <Skeleton className="h-2.5 w-1/2 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>

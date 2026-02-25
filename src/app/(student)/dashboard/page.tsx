@@ -1,63 +1,50 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { useEffect, useState, useCallback } from "react";
-import { getApiUrl } from "@/lib/api";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
-
-/* ─── Types ─────────────────────────────────────────────────────── */
-
-interface Announcement {
-  _id?: string;
-  id?: string;
-  title: string;
-  content: string;
-  category: string;
-  priority: string;
-  createdAt: string;
-  authorName?: string;
-  author?: { firstName: string; lastName: string };
-}
-
-interface UpcomingEvent {
-  _id?: string;
-  id?: string;
-  title: string;
-  date: string;
-  location?: string;
-  category?: string;
-}
-
-interface PaymentItem {
-  _id?: string;
-  id?: string;
-  title: string;
-  amount: number;
-  deadline: string;
-  hasPaid: boolean;
-}
-
-interface ClassSession {
-  _id?: string;
-  courseCode: string;
-  courseTitle: string;
-  startTime: string;
-  endTime: string;
-  venue: string;
-  day: string;
-  classType: string;
-}
+import { getTimeGreeting } from "@/lib/greeting";
+import {
+  useStudentDashboard,
+  type Announcement,
+  type UpcomingEvent,
+  type PaymentItem,
+  type ClassSession,
+} from "@/hooks/useData";
+import { StudentDashboardSkeleton } from "@/components/ui/Skeleton";
 
 /* ─── Page Component ────────────────────────────────────────────── */
 
 export default function StudentDashboardPage() {
-  const { user, userProfile, getAccessToken } = useAuth();
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [events, setEvents] = useState<UpcomingEvent[]>([]);
-  const [payments, setPayments] = useState<PaymentItem[]>([]);
-  const [classes, setClasses] = useState<ClassSession[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { user, userProfile } = useAuth();
+  const enabled = !!user;
+
+  const { data, isLoading: loading } = useStudentDashboard(enabled);
+
+  // ── All hooks must be called unconditionally before any early return
+  //    (React Rules of Hooks). Derived values use optional chaining so
+  //    they are safe to compute even when data is undefined.
+  const announcements: Announcement[] = useMemo(
+    () => data?.announcements ?? [],
+    [data],
+  );
+
+  const events: UpcomingEvent[] = useMemo(
+    () => data?.events ?? [],
+    [data],
+  );
+
+  const payments: PaymentItem[] = useMemo(
+    () => data?.payments ?? [],
+    [data],
+  );
+
+  const classes: ClassSession[] = useMemo(
+    () => data?.todayClasses ?? [],
+    [data],
+  );
+
   // Initialise from localStorage to avoid flash-of-banner on dismissed users.
   // Wrapped in try/catch for SSR safety even though this is "use client".
   const [onboardingDismissed, setOnboardingDismissed] = useState<boolean>(() => {
@@ -69,64 +56,42 @@ export default function StudentDashboardPage() {
     }
   });
 
-  const fetchDashboardData = useCallback(async () => {
-    try {
-      const token = await getAccessToken();
-      const headers = { Authorization: `Bearer ${token}` };
+  // Full-page shimmer skeleton while initial data loads (after all hooks)
+  if (loading && !data) return <StudentDashboardSkeleton />;
 
-      const [announcementsRes, eventsRes, paymentsRes, timetableRes] =
-        await Promise.allSettled([
-          fetch(getApiUrl("/api/v1/announcements/"), { headers }),
-          fetch(getApiUrl("/api/v1/events/"), { headers }),
-          fetch(getApiUrl("/api/v1/payments/"), { headers }).catch(() => null),
-          fetch(getApiUrl("/api/v1/timetable/classes"), { headers }).catch(
-            () => null
-          ),
-        ]);
+  const greeting = getTimeGreeting;
 
-      if (announcementsRes.status === "fulfilled" && announcementsRes.value?.ok) {
-        const data = await announcementsRes.value.json();
-        setAnnouncements(Array.isArray(data) ? data.slice(0, 5) : []);
-      }
+  const getContextTagline = () => {
+    if (loading) return "";
+    const day = new Date().getDay();
+    const isWeekend = day === 0 || day === 6;
 
-      if (eventsRes.status === "fulfilled" && eventsRes.value?.ok) {
-        const data = await eventsRes.value.json();
-        const upcoming = (Array.isArray(data) ? data : [])
-          .filter((e: UpcomingEvent) => new Date(e.date) >= new Date())
-          .sort(
-            (a: UpcomingEvent, b: UpcomingEvent) =>
-              new Date(a.date).getTime() - new Date(b.date).getTime()
-          )
-          .slice(0, 4);
-        setEvents(upcoming);
-      }
-
-      if (paymentsRes.status === "fulfilled" && paymentsRes.value?.ok) {
-        const data = await paymentsRes.value.json();
-        setPayments(Array.isArray(data) ? data : []);
-      }
-
-      if (timetableRes.status === "fulfilled" && timetableRes.value?.ok) {
-        const data = await timetableRes.value.json();
-        setClasses(Array.isArray(data) ? data : []);
-      }
-    } catch (err) {
-      console.error("Failed to fetch dashboard data:", err);
-    } finally {
-      setLoading(false);
+    if (isWeekend) {
+      if (pendingPayments.length > 0)
+        return `Weekend mode — but ${pendingPayments.length} pending due${pendingPayments.length > 1 ? "s" : ""} still needs attention.`;
+      return "Weekend — a good time to get ahead or recharge.";
     }
-  }, [getAccessToken]);
 
-  useEffect(() => {
-    if (user) fetchDashboardData();
-  }, [user, fetchDashboardData]);
+    if (pendingPayments.length > 0 && todayClasses.length > 0)
+      return `${todayClasses.length} class${todayClasses.length > 1 ? "es" : ""} on today's schedule · ${pendingPayments.length} pending due${pendingPayments.length > 1 ? "s" : ""}.`;
 
+    if (pendingPayments.length > 0)
+      return `You have ${pendingPayments.length} pending due${pendingPayments.length > 1 ? "s" : ""} — clear ${pendingPayments.length > 1 ? "them" : "it"} today.`;
 
-  const greeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
+    if (todayClasses.length > 0)
+      return `${todayClasses.length === 1 ? "One class" : `${todayClasses.length} classes`} on today's schedule. Stay sharp.`;
+
+    if (events.length > 0) {
+      const next = events[0];
+      const daysUntil = Math.ceil(
+        (new Date(next.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+      );
+      if (daysUntil === 0) return `Event today: ${next.title}.`;
+      if (daysUntil === 1) return `Event tomorrow: ${next.title}.`;
+      if (daysUntil <= 7) return `Coming up in ${daysUntil} days: ${next.title}.`;
+    }
+
+    return "You're all clear — make today count!";
   };
 
   const pendingPayments = payments.filter((p) => !p.hasPaid);
@@ -210,7 +175,7 @@ export default function StudentDashboardPage() {
               </div>
               <Link
                 href="/dashboard/profile"
-                className="bg-navy border-[3px] border-navy px-5 py-2.5 rounded-xl font-display font-bold text-sm text-lime hover:scale-105 transition-all shrink-0 shadow-[3px_3px_0_0_#000]"
+                className="bg-navy border-[3px] border-navy px-5 py-2.5 rounded-xl font-display font-bold text-sm text-lime press-3 press-black shrink-0"
               >
                 Go to Profile
               </Link>
@@ -246,6 +211,11 @@ export default function StudentDashboardPage() {
                 <br />
                 <span className="text-snow">{userProfile?.firstName || user?.email?.split("@")[0]}</span>
               </h1>
+              {!loading && (
+                <p className="text-ghost/55 text-sm font-medium mt-3 leading-snug">
+                  {getContextTagline()}
+                </p>
+              )}
             </div>
             <div className="relative z-10 flex flex-wrap items-center gap-2 mt-6">
               {userProfile?.level && (
@@ -299,7 +269,7 @@ export default function StudentDashboardPage() {
             <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
-                  <div className="w-3 h-8 rounded-full bg-lavender" />
+                  <div className="w-3 h-8 rounded-full bg-teal" />
                   <h3 className="font-display font-black text-xl text-navy">Today&apos;s Schedule</h3>
                 </div>
                 <Link href="/dashboard/timetable" className="text-xs font-bold text-slate hover:text-navy transition-colors flex items-center gap-1">

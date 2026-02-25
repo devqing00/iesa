@@ -159,6 +159,15 @@ async def create_announcement(
         db=db,
     ))
 
+    from app.routers.sse import publish
+    from app.core.cache import cache_delete, cache_delete_pattern
+    publish("announcement_created", {
+        "id": str(result.inserted_id),
+        "title": announcement_data.title,
+        "priority": announcement_data.priority,
+    })
+    await cache_delete("admin_stats")
+    await cache_delete_pattern("student_dashboard:*")
     return Announcement(**created_announcement)
 
 
@@ -427,6 +436,11 @@ async def delete_announcement(
         resource_type="announcement",
         resource_id=announcement_id,
     )
+    from app.routers.sse import publish
+    from app.core.cache import cache_delete, cache_delete_pattern
+    publish("announcement_deleted", {"id": announcement_id})
+    await cache_delete("admin_stats")
+    await cache_delete_pattern("student_dashboard:*")
     return None
 
 

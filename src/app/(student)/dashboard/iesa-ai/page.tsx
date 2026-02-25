@@ -145,7 +145,7 @@ const QUICK_ACTIONS = [
   {
     label: "Check my dues",
     color: "bg-coral",
-    query: "What's my payment status?",
+    query: "What dues do I owe and which have I paid?",
   },
   {
     label: "Today's classes",
@@ -160,7 +160,17 @@ const QUICK_ACTIONS = [
   {
     label: "My timetable",
     color: "bg-lavender",
-    query: "Show my class timetable",
+    query: "Show my full class timetable for the week",
+  },
+  {
+    label: "IEPOD Hub",
+    color: "bg-lime",
+    query: "Tell me about the IEPOD Hub and how TIMP mentoring works",
+  },
+  {
+    label: "Growth tools",
+    color: "bg-ghost",
+    query: "What growth tools are available and what do they do?",
   },
 ];
 
@@ -206,17 +216,23 @@ export default function IESAAIPage() {
   const [conversationSearch, setConversationSearch] = useState("");
 
   const chatRef = useRef<HTMLDivElement | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const speechSynthRef = useRef<SpeechSynthesisUtterance | null>(null);
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Tracks message count so scroll only fires when a new bubble is added,
+  // not on every 30ms typing tick.
+  const messagesLengthRef = useRef(0);
+  // Ref so the save effect always reads current conversations without being in its deps
+  const conversationsRef = useRef(conversations);
   const toast = useToast();
 
   /* ── scroll helper ── */
   const scrollToBottom = useCallback(() => {
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-    }, 80);
+    requestAnimationFrame(() => {
+      if (chatRef.current) {
+        chatRef.current.scrollTop = chatRef.current.scrollHeight;
+      }
+    });
   }, []);
 
   /* ── text-to-speech ── */
@@ -351,9 +367,19 @@ export default function IESAAIPage() {
     URL.revokeObjectURL(url);
   };
 
+  // Keep conversationsRef in sync with state (no side effects, just a mirror)
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
   /* ── data effects ── */
   useEffect(() => {
-    scrollToBottom();
+    // Only scroll to bottom when a new message bubble is added (length grows),
+    // not during the typing animation which updates text in an existing bubble.
+    if (messages.length !== messagesLengthRef.current) {
+      messagesLengthRef.current = messages.length;
+      scrollToBottom();
+    }
   }, [messages, scrollToBottom]);
 
   useEffect(() => {
@@ -387,15 +413,18 @@ export default function IESAAIPage() {
 
   useEffect(() => {
     if (messages.length > 0 && currentConversationId) {
-      const updated = conversations.map((conv) =>
+      // Use the ref so we always have fresh conversations without adding it to deps.
+      // Critically: do NOT call setConversations here — doing so on every messages
+      // change (e.g. every 30ms during typeMessage) causes cascading re-renders
+      // that exceed React's maximum update depth. Conversations state is updated
+      // explicitly in sendMessage / clearChat / loadConversation instead.
+      const updated = conversationsRef.current.map((conv) =>
         conv.id === currentConversationId
           ? { ...conv, messages, updatedAt: new Date().toISOString() }
           : conv,
       );
-      setConversations(updated);
       localStorage.setItem("iesa-ai-conversations", JSON.stringify(updated));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, currentConversationId]);
 
   useEffect(() => {
@@ -458,6 +487,10 @@ export default function IESAAIPage() {
             m.id === messageId ? { ...m, text: currentText } : m
           )
         );
+        // Scroll every tick so the message stays in view as it types
+        if (chatRef.current) {
+          chatRef.current.scrollTop = chatRef.current.scrollHeight;
+        }
       } else {
         clearInterval(interval);
         setIsTyping(false);
@@ -1425,7 +1458,7 @@ export default function IESAAIPage() {
               </div>
             )}
             {/* Scroll anchor */}
-            <div ref={messagesEndRef} className="h-px" />
+            <div className="h-px" />
           </div>
 
           {/* ════════════════════════════════════════
