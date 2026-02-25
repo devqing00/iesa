@@ -19,8 +19,10 @@ from bson import ObjectId
 import re
 import os
 
-from ..core.security import verify_token
+from ..core.security import verify_token, get_current_user
 from ..db import get_database
+from ..core.auth import create_verification_token
+from ..core.email import send_verification_email
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 # Rate limiting
@@ -92,15 +94,20 @@ class CompleteRegistrationRequest(BaseModel):
     
     @validator("level")
     def validate_level_with_year(cls, v, values):
-        """Cross-validate level matches admission year"""
+        """Cross-validate level matches admission year.
+        
+        Uses the formula: level = (sessionStartYear - admissionYear) * 100 + 100
+        Since validators can't do async DB lookups, we use the calendar year
+        but allow ±1 level flexibility to account for session boundary timing.
+        """
         if "admissionYear" in values:
             current_year = datetime.now(timezone.utc).year
             years_since_admission = current_year - values["admissionYear"]
-            expected_level_num = min((years_since_admission + 1) * 100, 500)
+            expected_level_num = min(years_since_admission * 100 + 100, 500)
             
             actual_level_num = int(v.replace("L", ""))
             
-            # Allow some flexibility (±100 level) for students who took breaks
+            # Allow ±100 level flexibility for session boundary timing and breaks
             if abs(actual_level_num - expected_level_num) > 100:
                 raise ValueError(
                     f"Level does not match admission year. "
@@ -361,4 +368,271 @@ async def check_matric_availability(
     return {
         "available": existing is None,
         "matricNumber": matric_number
+    }
+
+
+# ──────────────────────────────────────────────
+# SECONDARY EMAIL MANAGEMENT
+# ──────────────────────────────────────────────
+
+INSTITUTIONAL_DOMAIN = "@stu.ui.edu.ng"
+
+
+def _detect_email_type(email: str) -> str:
+    """Detect whether an email is institutional or personal."""
+    return "institutional" if email.lower().endswith(INSTITUTIONAL_DOMAIN) else "personal"
+
+
+class AddSecondaryEmailRequest(BaseModel):
+    email: EmailStr
+
+
+class NotificationPreferenceRequest(BaseModel):
+    preference: str  # "primary" | "secondary" | "both"
+    
+    @validator("preference")
+    def validate_preference(cls, v):
+        if v not in ("primary", "secondary", "both"):
+            raise ValueError("Preference must be 'primary', 'secondary', or 'both'")
+        return v
+
+
+@router.post("/secondary-email")
+async def add_secondary_email(
+    request: Request,
+    data: AddSecondaryEmailRequest,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """
+    Add a secondary email address.
+    
+    Rules:
+    - Must be opposite type of primary email (institutional ↔ personal)
+    - Cannot be the same as primary email
+    - Cannot already be registered as another user's primary email
+    - Sends verification email to the new address
+    """
+    users = db.users
+    user_id = str(user["_id"])
+    primary_email = user["email"]
+    primary_type = user.get("emailType") or _detect_email_type(primary_email)
+    
+    new_email = data.email.lower().strip()
+    new_type = _detect_email_type(new_email)
+    
+    # Must be opposite type
+    if new_type == primary_type:
+        if primary_type == "institutional":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Your primary email is institutional. Please add a personal email (e.g., gmail.com, yahoo.com)."
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Your primary email is personal. Please add an institutional email (ending in {INSTITUTIONAL_DOMAIN})."
+            )
+    
+    # Cannot be the same as primary
+    if new_email == primary_email.lower():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Secondary email cannot be the same as your primary email."
+        )
+    
+    # Cannot be another user's primary email
+    existing = await users.find_one({"email": new_email, "_id": {"$ne": ObjectId(user_id)}})
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This email is already registered to another account."
+        )
+    
+    # Cannot be another user's secondary email
+    existing_secondary = await users.find_one({
+        "secondaryEmail": new_email,
+        "_id": {"$ne": ObjectId(user_id)}
+    })
+    if existing_secondary:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This email is already used as a secondary email by another account."
+        )
+    
+    # Update user with secondary email
+    await users.update_one(
+        {"_id": ObjectId(user_id)},
+        {
+            "$set": {
+                "secondaryEmail": new_email,
+                "secondaryEmailType": new_type,
+                "secondaryEmailVerified": False,
+                "emailType": primary_type,  # Ensure primary type is set
+                "updatedAt": datetime.now(timezone.utc)
+            }
+        }
+    )
+    
+    # Send verification email
+    try:
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        verification_token, _ = create_verification_token(
+            user_id, new_email, token_type="secondary_email_verification"
+        )
+        verification_url = f"{frontend_url}/verify-secondary-email?token={verification_token}"
+        name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip() or "Student"
+        await send_verification_email(
+            to=new_email,
+            name=name,
+            verification_url=verification_url
+        )
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to send secondary email verification: {e}")
+        # Don't fail — the email was saved, user can resend later
+    
+    return {
+        "message": f"Secondary email added. A verification link has been sent to {new_email}.",
+        "secondaryEmail": new_email,
+        "secondaryEmailType": new_type,
+        "secondaryEmailVerified": False
+    }
+
+
+@router.post("/secondary-email/resend-verification")
+async def resend_secondary_email_verification(
+    request: Request,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """
+    Resend verification email for the secondary email address.
+    """
+    users = db.users
+    user_id = str(user["_id"])
+    
+    user_doc = await users.find_one({"_id": ObjectId(user_id)})
+    if not user_doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    secondary_email = user_doc.get("secondaryEmail")
+    if not secondary_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No secondary email set. Add one first."
+        )
+    
+    if user_doc.get("secondaryEmailVerified"):
+        return {"message": "Secondary email is already verified."}
+    
+    try:
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        verification_token, _ = create_verification_token(
+            user_id, secondary_email, token_type="secondary_email_verification"
+        )
+        verification_url = f"{frontend_url}/verify-secondary-email?token={verification_token}"
+        name = f"{user_doc.get('firstName', '')} {user_doc.get('lastName', '')}".strip() or "Student"
+        await send_verification_email(
+            to=secondary_email,
+            name=name,
+            verification_url=verification_url
+        )
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to resend secondary email verification: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send verification email. Please try again later."
+        )
+    
+    return {"message": f"Verification email resent to {secondary_email}."}
+
+
+@router.delete("/secondary-email")
+async def remove_secondary_email(
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """
+    Remove the secondary email address.
+    Also resets notification preference to 'primary' if it was set to 'secondary'.
+    """
+    users = db.users
+    user_id = str(user["_id"])
+    
+    user_doc = await users.find_one({"_id": ObjectId(user_id)})
+    if not user_doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    if not user_doc.get("secondaryEmail"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No secondary email to remove."
+        )
+    
+    # Reset notification preference if it references the secondary email
+    notification_pref = user_doc.get("notificationEmailPreference", "primary")
+    new_pref = "primary" if notification_pref in ("secondary", "both") else notification_pref
+    
+    await users.update_one(
+        {"_id": ObjectId(user_id)},
+        {
+            "$set": {
+                "secondaryEmail": None,
+                "secondaryEmailType": None,
+                "secondaryEmailVerified": False,
+                "notificationEmailPreference": new_pref,
+                "updatedAt": datetime.now(timezone.utc)
+            }
+        }
+    )
+    
+    return {"message": "Secondary email removed.", "notificationEmailPreference": new_pref}
+
+
+@router.patch("/notification-preference")
+async def update_notification_preference(
+    data: NotificationPreferenceRequest,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """
+    Update which email(s) receive notifications.
+    
+    Rules:
+    - "secondary" or "both" requires a verified secondary email
+    """
+    users = db.users
+    user_id = str(user["_id"])
+    
+    user_doc = await users.find_one({"_id": ObjectId(user_id)})
+    if not user_doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    if data.preference in ("secondary", "both"):
+        if not user_doc.get("secondaryEmail"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You must add a secondary email before selecting this preference."
+            )
+        if not user_doc.get("secondaryEmailVerified"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Your secondary email must be verified before selecting this preference."
+            )
+    
+    await users.update_one(
+        {"_id": ObjectId(user_id)},
+        {
+            "$set": {
+                "notificationEmailPreference": data.preference,
+                "updatedAt": datetime.now(timezone.utc)
+            }
+        }
+    )
+    
+    return {
+        "message": f"Notification preference updated to '{data.preference}'.",
+        "notificationEmailPreference": data.preference
     }

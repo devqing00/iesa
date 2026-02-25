@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
 import { getApiUrl, getMyRoles, getMyEnrollments } from "@/lib/api";
 import type { Role, Enrollment } from "@/lib/api";
+import { isInstitutionalEmail } from "@/lib/emailUtils";
 import Link from "next/link";
 import { toast } from "sonner";
 
@@ -26,6 +27,12 @@ interface UserProfile {
   hasCompletedOnboarding?: boolean;
   emailVerified?: boolean;
   createdAt: string;
+  // Dual Email System
+  emailType?: "institutional" | "personal";
+  secondaryEmail?: string;
+  secondaryEmailType?: "institutional" | "personal";
+  secondaryEmailVerified?: boolean;
+  notificationEmailPreference?: "primary" | "secondary" | "both";
 }
 
 export default function ProfilePage() {
@@ -40,6 +47,15 @@ export default function ProfilePage() {
   const [showImageModal, setShowImageModal] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [resendingVerification, setResendingVerification] = useState(false);
+
+  /* ─── secondary email state ─── */
+  const [secondaryEmailInput, setSecondaryEmailInput] = useState("");
+  const [addingSecondaryEmail, setAddingSecondaryEmail] = useState(false);
+  const [showAddSecondaryForm, setShowAddSecondaryForm] = useState(false);
+  const [removingSecondaryEmail, setRemovingSecondaryEmail] = useState(false);
+  const [resendingSecondaryVerification, setResendingSecondaryVerification] = useState(false);
+  const [savingNotifPref, setSavingNotifPref] = useState(false);
 
   /* ─── roles state ─── */
   const [myRoles, setMyRoles] = useState<Role[]>([]);
@@ -139,6 +155,109 @@ export default function ProfilePage() {
     }
     setIsEditing(false);
     setError("");
+  };
+
+  /* ─── refetch profile helper ─── */
+  const refetchProfile = async () => {
+    if (!user) return;
+    try {
+      const token = await getAccessToken();
+      const response = await fetch(getApiUrl("/api/v1/users/me"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setProfileData(data);
+      }
+    } catch { /* silent */ }
+  };
+
+  /* ─── secondary email: add ─── */
+  const handleAddSecondaryEmail = async () => {
+    if (!secondaryEmailInput.trim()) return;
+    setAddingSecondaryEmail(true);
+    setError("");
+    try {
+      const token = await getAccessToken();
+      const response = await fetch(getApiUrl("/api/v1/students/secondary-email"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ email: secondaryEmailInput.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Failed to add secondary email");
+      toast.success("Secondary email added!", { description: "Check your inbox for a verification link." });
+      setShowAddSecondaryForm(false);
+      setSecondaryEmailInput("");
+      await refetchProfile();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to add secondary email";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setAddingSecondaryEmail(false);
+    }
+  };
+
+  /* ─── secondary email: remove ─── */
+  const handleRemoveSecondaryEmail = async () => {
+    if (!confirm("Remove your secondary email? This action cannot be undone.")) return;
+    setRemovingSecondaryEmail(true);
+    try {
+      const token = await getAccessToken();
+      const response = await fetch(getApiUrl("/api/v1/students/secondary-email"), {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Failed to remove secondary email");
+      toast.success("Secondary email removed.");
+      await refetchProfile();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove secondary email");
+    } finally {
+      setRemovingSecondaryEmail(false);
+    }
+  };
+
+  /* ─── secondary email: resend verification ─── */
+  const handleResendSecondaryVerification = async () => {
+    setResendingSecondaryVerification(true);
+    try {
+      const token = await getAccessToken();
+      const response = await fetch(getApiUrl("/api/v1/students/secondary-email/resend-verification"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Failed to resend verification");
+      toast.success(data.message || "Verification email sent!");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to resend verification");
+    } finally {
+      setResendingSecondaryVerification(false);
+    }
+  };
+
+  /* ─── notification preference ─── */
+  const handleNotificationPrefChange = async (pref: "primary" | "secondary" | "both") => {
+    setSavingNotifPref(true);
+    try {
+      const token = await getAccessToken();
+      const response = await fetch(getApiUrl("/api/v1/students/notification-preference"), {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ preference: pref }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Failed to update preference");
+      toast.success(`Notifications set to: ${pref}`);
+      await refetchProfile();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update preference");
+    } finally {
+      setSavingNotifPref(false);
+    }
   };
 
   /* ─── image upload ─── */
@@ -569,20 +688,119 @@ export default function ProfilePage() {
                   <input id="p-ln" type="text" value={isEditing ? formData.lastName : profileData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} disabled={!isEditing} className={isEditing ? inputEditing : inputDisabled} />
                 </div>
 
-                {/* Institutional Email */}
-                <div className="space-y-1.5">
-                  <label htmlFor="p-ie" className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-coral" />Institutional Email
+                {/* Primary Email */}
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-coral" />Primary Email
+                    {profileData.emailType === "institutional" ? (
+                      <span className="ml-1 px-2 py-0.5 rounded-lg bg-teal-light border border-navy/20 text-[9px] font-bold uppercase tracking-wider text-navy">Institutional</span>
+                    ) : (
+                      <span className="ml-1 px-2 py-0.5 rounded-lg bg-lavender-light border border-navy/20 text-[9px] font-bold uppercase tracking-wider text-navy">Personal</span>
+                    )}
+                    {profileData.emailVerified ? (
+                      <span className="ml-1 px-2 py-0.5 rounded-lg bg-teal/20 text-[9px] font-bold text-navy">Verified</span>
+                    ) : (
+                      <span className="ml-1 px-2 py-0.5 rounded-lg bg-coral/20 text-[9px] font-bold text-navy">Unverified</span>
+                    )}
                   </label>
-                  <input id="p-ie" type="email" value={profileData.institutionalEmail || profileData.email} disabled className={inputDisabled} />
+                  <input type="email" value={profileData.email} disabled className={inputDisabled} title="Primary email address" />
                 </div>
 
-                {/* Personal Email */}
-                <div className="space-y-1.5">
-                  <label htmlFor="p-pe" className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-sunny" />Personal Email
+                {/* Secondary Email Section */}
+                <div className="space-y-3 md:col-span-2">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sunny" />Secondary Email
+                    {profileData.secondaryEmail && (
+                      <>
+                        {profileData.secondaryEmailType === "institutional" ? (
+                          <span className="ml-1 px-2 py-0.5 rounded-lg bg-teal-light border border-navy/20 text-[9px] font-bold uppercase tracking-wider text-navy">Institutional</span>
+                        ) : (
+                          <span className="ml-1 px-2 py-0.5 rounded-lg bg-lavender-light border border-navy/20 text-[9px] font-bold uppercase tracking-wider text-navy">Personal</span>
+                        )}
+                        {profileData.secondaryEmailVerified ? (
+                          <span className="ml-1 px-2 py-0.5 rounded-lg bg-teal/20 text-[9px] font-bold text-navy">Verified</span>
+                        ) : (
+                          <span className="ml-1 px-2 py-0.5 rounded-lg bg-coral/20 text-[9px] font-bold text-navy">Unverified</span>
+                        )}
+                      </>
+                    )}
                   </label>
-                  <input id="p-pe" type="email" value={isEditing ? formData.personalEmail : profileData.personalEmail || ""} onChange={(e) => setFormData({ ...formData, personalEmail: e.target.value })} disabled={!isEditing} placeholder="your.email@example.com" className={isEditing ? inputEditing : inputDisabled} />
+
+                  {profileData.secondaryEmail ? (
+                    <div className="space-y-2">
+                      <input type="email" value={profileData.secondaryEmail} disabled className={inputDisabled} title="Secondary email address" />
+                      <div className="flex flex-wrap gap-2">
+                        {!profileData.secondaryEmailVerified && (
+                          <button
+                            type="button"
+                            onClick={handleResendSecondaryVerification}
+                            disabled={resendingSecondaryVerification}
+                            className="px-3 py-1.5 bg-sunny border-[2px] border-navy press-2 press-navy rounded-xl font-display font-bold text-[11px] text-navy transition-all disabled:opacity-50"
+                          >
+                            {resendingSecondaryVerification ? "Sending..." : "Resend Verification"}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleRemoveSecondaryEmail}
+                          disabled={removingSecondaryEmail}
+                          className="px-3 py-1.5 bg-coral/20 border-[2px] border-navy/30 rounded-xl font-display font-bold text-[11px] text-navy hover:bg-coral/40 transition-all disabled:opacity-50"
+                        >
+                          {removingSecondaryEmail ? "Removing..." : "Remove"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : showAddSecondaryForm ? (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="email"
+                          value={secondaryEmailInput}
+                          onChange={(e) => setSecondaryEmailInput(e.target.value)}
+                          placeholder={profileData.emailType === "institutional" ? "yourname@gmail.com" : "yourname@stu.ui.edu.ng"}
+                          className={inputEditing + " flex-1"}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddSecondaryEmail}
+                          disabled={addingSecondaryEmail || !secondaryEmailInput.trim()}
+                          className="px-4 py-2 bg-lime border-[2px] border-navy press-2 press-navy rounded-xl font-display font-bold text-[11px] text-navy transition-all disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {addingSecondaryEmail ? "Adding..." : "Add"}
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] text-slate">
+                          {profileData.emailType === "institutional"
+                            ? "Add a personal email (e.g., Gmail, Yahoo)"
+                            : "Add your institutional email (@stu.ui.edu.ng)"}
+                        </p>
+                        <button type="button" onClick={() => { setShowAddSecondaryForm(false); setSecondaryEmailInput(""); }} className="text-[10px] text-slate hover:text-navy underline">
+                          Cancel
+                        </button>
+                      </div>
+                      {secondaryEmailInput && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(secondaryEmailInput) && (
+                        <div className="flex items-center gap-1.5">
+                          {isInstitutionalEmail(secondaryEmailInput) ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-teal-light border border-navy/20 text-[9px] font-bold text-navy">Institutional</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-lavender-light border border-navy/20 text-[9px] font-bold text-navy">Personal</span>
+                          )}
+                          {isInstitutionalEmail(secondaryEmailInput) === (profileData.emailType === "institutional") && (
+                            <span className="text-[10px] text-coral font-bold">Must be {profileData.emailType === "institutional" ? "personal" : "institutional"} email</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddSecondaryForm(true)}
+                      className="px-4 py-2 bg-ghost border-[2px] border-navy/30 rounded-xl font-display font-bold text-[11px] text-navy hover:border-navy hover:bg-cloud transition-all"
+                    >
+                      + Add {profileData.emailType === "institutional" ? "Personal" : "Institutional"} Email
+                    </button>
+                  )}
                 </div>
 
                 {/* Matric */}
@@ -637,6 +855,49 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
+
+            {/* Notification Preference Card */}
+            {profileData.secondaryEmail && profileData.secondaryEmailVerified && (
+              <div className="bg-snow border-[3px] border-navy rounded-[2rem] p-6 md:p-8 shadow-[3px_3px_0_0_#000] space-y-4">
+                <div className="space-y-1">
+                  <h3 className="font-display font-black text-lg text-navy flex items-center gap-2">
+                    <svg className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
+                    Notification Email
+                  </h3>
+                  <p className="text-[11px] text-slate">Choose where you receive email notifications</p>
+                </div>
+                <div className="space-y-2">
+                  {(["primary", "secondary", "both"] as const).map((pref) => {
+                    const isActive = (profileData.notificationEmailPreference || "primary") === pref;
+                    const labels: Record<string, string> = {
+                      primary: `Primary (${profileData.email})`,
+                      secondary: `Secondary (${profileData.secondaryEmail})`,
+                      both: "Both emails",
+                    };
+                    return (
+                      <button
+                        key={pref}
+                        type="button"
+                        disabled={savingNotifPref}
+                        onClick={() => handleNotificationPrefChange(pref)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-[2px] transition-all text-left ${
+                          isActive
+                            ? "border-navy bg-lime/30 shadow-[2px_2px_0_0_#000]"
+                            : "border-navy/20 bg-ghost hover:border-navy/40"
+                        } ${savingNotifPref ? "opacity-50" : ""}`}
+                      >
+                        <span className={`w-4 h-4 rounded-full border-[2px] flex items-center justify-center ${isActive ? "border-navy" : "border-navy/30"}`}>
+                          {isActive && <span className="w-2 h-2 rounded-full bg-navy" />}
+                        </span>
+                        <span className={`font-display text-xs ${isActive ? "font-bold text-navy" : "font-medium text-navy/70"}`}>
+                          {labels[pref]}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ════════════════════════════════════════
@@ -679,7 +940,9 @@ export default function ProfilePage() {
               </div>
               {!profileData.emailVerified && (
                 <button
+                  disabled={resendingVerification}
                   onClick={async () => {
+                    setResendingVerification(true);
                     try {
                       const token = await getAccessToken();
                       const res = await fetch(getApiUrl("/api/v1/auth/resend-verification"), {
@@ -694,11 +957,16 @@ export default function ProfilePage() {
                       }
                     } catch {
                       toast.error("Failed to send verification email");
+                    } finally {
+                      setResendingVerification(false);
                     }
                   }}
-                  className="w-full py-2 bg-lavender/20 border-[2px] border-navy/30 rounded-xl font-display font-bold text-[11px] text-navy hover:bg-lavender/40 transition-colors"
+                  className="w-full py-2 bg-lavender/20 border-[2px] border-navy/30 rounded-xl font-display font-bold text-[11px] text-navy hover:bg-lavender/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Resend Verification Email
+                  {resendingVerification && (
+                    <div className="w-3.5 h-3.5 border-2 border-navy border-t-transparent rounded-full animate-spin" />
+                  )}
+                  {resendingVerification ? "Sending..." : "Resend Verification Email"}
                 </button>
               )}
 

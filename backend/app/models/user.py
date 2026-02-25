@@ -44,6 +44,14 @@ class UserBase(BaseModel):
     currentLevel: Optional[Literal["100L", "200L", "300L", "400L", "500L"]] = Field(None, description="Current academic level")
     skills: Optional[list[str]] = Field(default_factory=list, max_length=20, description="Student skills/interests")
 
+    # Dual Email System
+    emailType: Optional[Literal["institutional", "personal"]] = Field(None, description="Type of primary email (auto-detected)")
+    secondaryEmail: Optional[EmailStr] = Field(None, description="Secondary email (opposite type of primary)")
+    secondaryEmailType: Optional[Literal["institutional", "personal"]] = Field(None, description="Type of secondary email")
+    secondaryEmailVerified: bool = Field(default=False, description="Whether secondary email is verified")
+    notificationEmailPreference: Literal["primary", "secondary", "both"] = Field(default="primary", description="Which email receives notifications")
+    notificationChannelPreference: Literal["email", "in_app", "both"] = Field(default="both", description="Channel: email only, in-app only, or both")
+
 
 class UserCreate(UserBase):
     """Model for creating a new user (internal use — password hashed before storage)"""
@@ -66,6 +74,9 @@ class UserUpdate(BaseModel):
     bio: Optional[str] = Field(None, max_length=500)
     # profilePictureUrl intentionally excluded - use /me/profile-picture endpoint
     skills: Optional[list[str]] = Field(None, max_length=20)
+    # Notification preference only — secondary email itself is managed via dedicated endpoints
+    notificationEmailPreference: Optional[Literal["primary", "secondary", "both"]] = None
+    notificationChannelPreference: Optional[Literal["email", "in_app", "both"]] = None
 
 
 class User(UserBase):

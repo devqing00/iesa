@@ -16,6 +16,7 @@ export const metadata: Metadata = {
     "Student Association",
     "Academic Platform",
   ],
+  manifest: "/manifest.json",
   openGraph: {
     title: "IESA | Industrial Engineering Students' Association",
     description:
@@ -33,6 +34,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta name="theme-color" content="#0F0F2D" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <link rel="apple-touch-icon" href="/assets/images/logo.svg" />
+      </head>
       <body
         className="antialiased"
       >

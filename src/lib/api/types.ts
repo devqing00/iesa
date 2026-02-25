@@ -47,6 +47,13 @@ export interface User {
   skills?: string[];
   createdAt: string;
   updatedAt: string;
+  // Dual Email System
+  emailType?: "institutional" | "personal";
+  secondaryEmail?: string;
+  secondaryEmailType?: "institutional" | "personal";
+  secondaryEmailVerified?: boolean;
+  notificationEmailPreference?: "primary" | "secondary" | "both";
+  notificationChannelPreference?: "email" | "in_app" | "both";
 }
 
 export interface UserPermissions {

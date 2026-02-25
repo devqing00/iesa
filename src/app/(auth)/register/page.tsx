@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
+import { getApiUrl } from "@/lib/api";
+import { isInstitutionalEmail } from "@/lib/emailUtils";
 import { toast } from "sonner";
 
 export default function RegisterPage() {
@@ -18,31 +20,79 @@ export default function RegisterPage() {
   const [lastName, setLastName] = useState("");
   const [matricNumber, setMatricNumber] = useState("");
   const [phone, setPhone] = useState("");
-  const [admissionYear, setAdmissionYear] = useState(
-    new Date().getFullYear().toString()
-  );
+  const [admittedSession, setAdmittedSession] = useState("");
   const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentSecondYear, setCurrentSecondYear] = useState<number | null>(null);
+  const [sessionName, setSessionName] = useState("");
+  const [apiSessionNames, setApiSessionNames] = useState<string[]>([]);
+
+  // Fetch sessions to get the active session's second year for level calculation
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const res = await fetch(getApiUrl("/api/v1/sessions/"));
+        if (res.ok) {
+          const sessions: { isActive: boolean; name: string }[] = await res.json();
+          const active = sessions.find((s) => s.isActive);
+          if (active?.name) {
+            setSessionName(active.name);
+            // Extract SECOND year from active session (e.g., "2025/2026" → 2026)
+            const secondYear = parseInt(active.name.split("/")[1]);
+            if (!isNaN(secondYear)) setCurrentSecondYear(secondYear);
+          }
+          // Collect all session names from API for the dropdown
+          setApiSessionNames(sessions.map((s) => s.name));
+        }
+      } catch {
+        // Silently fall back to generated list
+      }
+    };
+    fetchSessions();
+  }, []);
 
   /**
-   * Calculate academic level from admission year.
-   * Nigerian universities: Level = (currentSessionStartYear - admissionYear) * 100 + 100
-   * Since we may not have a session yet at registration, we use the current calendar year.
+   * Build the session options shown in the dropdown.
+   * Always generate 6 sessions ending at currentSecondYear (covering 100L–500L).
+   * Merge in any extra sessions returned by the API.
    */
-  const calculateLevel = (admYear: number): string => {
-    const currentYear = new Date().getFullYear();
-    const yearDiff = currentYear - admYear;
+  const sessionOptions: string[] = (() => {
+    const baseSecondYear = currentSecondYear ?? new Date().getFullYear() + 1;
+    const generated: string[] = [];
+    for (let y = baseSecondYear; y >= baseSecondYear - 5; y--) {
+      generated.push(`${y - 1}/${y}`);
+    }
+    // add any API sessions not already in the generated list
+    for (const name of apiSessionNames) {
+      if (!generated.includes(name)) generated.push(name);
+    }
+    return generated.sort((a, b) => b.localeCompare(a)); // newest first
+  })();
+
+  /**
+   * Calculate academic level from the admitted session.
+   * Formula: level = (currentSecondYear - admittedSecondYear) * 100 + 100
+   * Both values are the SECOND year of their respective sessions.
+   * Clamped between 100L and 500L.
+   */
+  const calculateLevel = (admSession: string): string => {
+    const admSecondYear = parseInt(admSession.split("/")[1]);
+    if (isNaN(admSecondYear)) return "";
+    const baseSecondYear = currentSecondYear ?? (new Date().getFullYear() + 1);
+    const yearDiff = baseSecondYear - admSecondYear;
     const levelNum = Math.max(100, Math.min(500, yearDiff * 100 + 100));
     return `${levelNum}L`;
   };
 
-  const calculatedLevel = admissionYear ? calculateLevel(parseInt(admissionYear)) : "";
+  const calculatedLevel = admittedSession ? calculateLevel(admittedSession) : "";
+  // admissionYear for storage = second year of the admitted session
+  const derivedAdmissionYear = admittedSession ? parseInt(admittedSession.split("/")[1]) : 0;
 
-  // Reset confirmation when admission year changes
+  // Reset confirmation when admitted session changes
   useEffect(() => {
     setLevelConfirmed(false);
-  }, [admissionYear]);
+  }, [admittedSession]);
 
   useEffect(() => {
     if (!loading && user) {
@@ -65,7 +115,8 @@ export default function RegisterPage() {
     if (!/^\d{6}$/.test(matricNumber)) { setError("Matric number must be exactly 6 digits"); return false; }
     if (!phone.trim()) { setError("Phone number is required"); return false; }
     if (!/^(\+234|0)[789]\d{9}$/.test(phone)) { setError("Invalid Nigerian phone number"); return false; }
-    if (!admissionYear) { setError("Admission year is required"); return false; }
+    if (!admittedSession) { setError("Session admitted is required"); return false; }
+    if (!/^\d{4}\/\d{4}$/.test(admittedSession)) { setError("Session must be in format YYYY/YYYY (e.g. 2022/2023)"); return false; }
     if (!levelConfirmed) { setError("Please confirm your calculated level"); return false; }
     return true;
   };
@@ -81,7 +132,7 @@ export default function RegisterPage() {
         matricNumber: matricNumber.trim(),
         phone: phone.trim(),
         level: calculatedLevel,
-        admissionYear: parseInt(admissionYear),
+        admissionYear: derivedAdmissionYear,
       });
       toast.success("Account created!", { description: "Verification email sent. Check your inbox." });
     } catch (err: unknown) {
@@ -172,7 +223,22 @@ export default function RegisterPage() {
               <div className="space-y-2">
                 <label htmlFor="register-email" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Email</label>
                 <input id="register-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@stu.ui.edu.ng/you@gmail.com" required className={inputClass} />
-                <p className="text-xs text-slate">Can use either institutional or personal email</p>
+                {email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && (
+                  <div className="flex items-center gap-2">
+                    {isInstitutionalEmail(email) ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-teal-light border-[2px] border-navy text-navy font-display font-bold text-label-sm">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342" /></svg>
+                        Institutional Email
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-lavender-light border-[2px] border-navy text-navy font-display font-bold text-label-sm">
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+                        Personal Email
+                      </span>
+                    )}
+                    <span className="text-xs text-slate">You can add the other type later in your profile</span>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -226,13 +292,24 @@ export default function RegisterPage() {
               </h2>
 
               <div className="space-y-2">
-                <label htmlFor="register-admission-year" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Year of Admission</label>
-                <input id="register-admission-year" type="number" value={admissionYear} onChange={(e) => setAdmissionYear(e.target.value)} min={new Date().getFullYear() - 6} max={new Date().getFullYear()} placeholder="2024" required className={inputClass} />
-                <p className="text-xs text-slate">The year you were admitted to the University of Ibadan</p>
+                <label htmlFor="register-admitted-session" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Session Admitted</label>
+                <select
+                  id="register-admitted-session"
+                  value={admittedSession}
+                  onChange={(e) => setAdmittedSession(e.target.value)}
+                  required
+                  className={`${inputClass} appearance-none cursor-pointer`}
+                >
+                  <option value="">Select the session you were admitted</option>
+                  {sessionOptions.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate">The academic session you were admitted to UI (e.g. 2022/2023)</p>
               </div>
 
               {/* Calculated Level Confirmation */}
-              {admissionYear && calculatedLevel && (
+              {admittedSession && calculatedLevel && (
                 <div className={`p-4 rounded-2xl border-[3px] transition-all ${
                   levelConfirmed
                     ? "bg-teal-light border-teal"
@@ -244,7 +321,7 @@ export default function RegisterPage() {
                         Your calculated level: <span className="font-black text-base">{calculatedLevel}</span>
                       </p>
                       <p className="text-xs text-navy/60 mt-1">
-                        Based on admission year {admissionYear} and current session
+                        Admitted {admittedSession}{sessionName ? `, current session ${sessionName}` : ""}
                       </p>
                     </div>
                     <button

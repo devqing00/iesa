@@ -365,17 +365,25 @@ The `5rem` accounts for the header height. This applies to all public pages: hom
 
 ## Level System
 
-Student level is auto-calculated from admission year. Never ask users to select their level manually.
+Student level is auto-calculated from the session they were admitted. Never ask users to select their level manually, and never ask for a raw year — always ask for the admitted session.
 
-**Formula:** `level = Math.max(100, Math.min(500, (currentYear - admissionYear) * 100 + 100))` + "L" suffix
+**Formula:** `level = Math.max(100, Math.min(500, (currentSecondYear - admittedSecondYear) * 100 + 100))` + "L" suffix
+
+Where:
+- `currentSecondYear` = second year of the active session (e.g., **2026** from `"2025/2026"`)
+- `admittedSecondYear` = second year of the student's admitted session (e.g., **2023** from `"2022/2023"`)
+- `admissionYear` stored on the user = `admittedSecondYear` (the second year of the admitted session)
+
+Example: active session `2025/2026`, admitted in `2022/2023` → `(2026 − 2023) × 100 + 100 = 400L`
 
 **Registration flow:**
-1. User enters admission year
-2. System calculates level automatically
-3. Shows confirmation: "Based on your admission year X, your level is YL"
-4. User must click "Confirm" before form can be submitted
+1. User selects the **session they were admitted** from a dropdown (e.g. `2022/2023`)
+2. System derives `admissionYear` = second year of that session (e.g. `2023`)
+3. System calculates level automatically using the formula above
+4. Shows confirmation: "Admitted 2022/2023, current session 2025/2026 → your level is 400L"
+5. User must click "Confirm" before form can be submitted
 
-**Backend:** `currentLevel` stored on user document. IEPOD registration auto-populates level from user profile.
+**Backend:** `currentLevel` and `admissionYear` (= second year of admitted session) stored on user document. IEPOD registration auto-populates level from user profile.
 
 ---
 

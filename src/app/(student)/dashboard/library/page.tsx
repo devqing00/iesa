@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { useToast } from "@/components/ui/Toast";
+import Pagination from "@/components/ui/Pagination";
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -81,7 +82,11 @@ export default function LibraryPage() {
   const [uploading, setUploading] = useState(false);
   const [mySubmissions, setMySubmissions] = useState<Resource[]>([]);
   const [showMySubmissions, setShowMySubmissions] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const toast = useToast();
+  const PAGE_SIZE = 24;
 
   const [uploadForm, setUploadForm] = useState({
     title: "",
@@ -99,7 +104,12 @@ export default function LibraryPage() {
       fetchMySubmissions();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, typeFilter, levelFilter]);
+  }, [user, typeFilter, levelFilter, page]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [typeFilter, levelFilter]);
 
   const fetchMySubmissions = async () => {
     if (!user) return;
@@ -126,13 +136,17 @@ export default function LibraryPage() {
       if (typeFilter !== "all") params.append("type", typeFilter);
       if (levelFilter !== "all") params.append("level", levelFilter.toString());
       params.append("approved", "true");
-      params.append("pageSize", "50");
+      params.append("pageSize", PAGE_SIZE.toString());
+      params.append("page", page.toString());
       const response = await fetch(getApiUrl(`/api/v1/resources?${params}`), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (response.ok) {
         const data = await response.json();
         setResources(data.resources);
+        setTotalCount(data.total ?? data.resources.length);
+        const ps = data.pageSize ?? PAGE_SIZE;
+        setTotalPages(Math.max(1, Math.ceil((data.total ?? data.resources.length) / ps)));
       }
     } catch (error) {
       console.error("Error fetching resources:", error);
@@ -245,7 +259,7 @@ export default function LibraryPage() {
                 </svg>
               </div>
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Total Resources</p>
-              <p className="font-display font-black text-3xl text-navy">{resources.length}</p>
+              <p className="font-display font-black text-3xl text-navy">{totalCount}</p>
             </div>
             {/* Submit Resource — available to all students */}
             <button
@@ -507,6 +521,11 @@ export default function LibraryPage() {
               );
             })}
           </div>
+        )}
+
+        {/* Pagination */}
+        {filteredResources.length > 0 && (
+          <Pagination page={page} totalPages={totalPages} onPage={setPage} className="mt-6" />
         )}
       </div>
 

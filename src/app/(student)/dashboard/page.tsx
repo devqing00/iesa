@@ -159,7 +159,7 @@ export default function StudentDashboardPage() {
             <button
               onClick={dismissOnboarding}
               aria-label="Dismiss onboarding banner"
-              className="absolute top-4 right-4 w-7 h-7 rounded-lg bg-navy/10 hover:bg-navy/20 flex items-center justify-center transition-colors z-10"
+              className="absolute md:hidden top-4 right-4 w-7 h-7 rounded-lg bg-navy/10 hover:bg-navy/20 flex items-center justify-center transition-colors z-10"
             >
               <svg className="w-3.5 h-3.5 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
@@ -179,6 +179,13 @@ export default function StudentDashboardPage() {
               >
                 Go to Profile
               </Link>
+              <button
+              onClick={dismissOnboarding}
+              aria-label="Dismiss onboarding banner"
+              className="hidden md:flex w-7 h-7 rounded-lg bg-navy/10 hover:bg-navy/20 flex items-center justify-center transition-colors z-10"
+            >
+              <svg className="w-3.5 h-3.5 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
             </div>
           </div>
         )}

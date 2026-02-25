@@ -5,27 +5,46 @@ import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
 import Link from "next/link";
 
-interface AnnouncementPreview {
-  id: string;
-  _id?: string;
+interface Notification {
+  _id: string;
+  userId: string;
+  type: string;
   title: string;
-  content: string;
-  priority: string;
-  authorName?: string;
+  message: string;
+  link?: string | null;
+  relatedId?: string | null;
+  isRead: boolean;
   createdAt: string;
-  isRead?: boolean;
 }
 
-const PRIORITY_DOT: Record<string, string> = {
-  urgent: "bg-coral",
-  high: "bg-sunny",
-  normal: "bg-lavender",
-  low: "bg-cloud",
+/** Type-based color dot for each notification kind */
+const TYPE_DOT: Record<string, string> = {
+  announcement: "bg-lavender",
+  event: "bg-teal",
+  payment: "bg-sunny",
+  transfer_approved: "bg-teal",
+  transfer_rejected: "bg-coral",
+  role_assigned: "bg-lime",
+  enrollment: "bg-lavender",
+  system: "bg-slate",
+};
+
+/** Human-readable type label */
+const TYPE_LABEL: Record<string, string> = {
+  announcement: "Announcement",
+  event: "Event",
+  payment: "Payment",
+  transfer_approved: "Transfer",
+  transfer_rejected: "Transfer",
+  role_assigned: "Role",
+  enrollment: "Enrollment",
+  system: "System",
 };
 
 function timeAgo(ts: string): string {
   const diff = Date.now() - new Date(ts).getTime();
   const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
@@ -35,24 +54,32 @@ function timeAgo(ts: string): string {
 export default function NotificationBell() {
   const { getAccessToken, user } = useAuth();
   const [open, setOpen] = useState(false);
-  const [announcements, setAnnouncements] = useState<AnnouncementPreview[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchAnnouncements = useCallback(async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!user) return;
     try {
       setLoading(true);
       const token = await getAccessToken();
-      const res = await fetch(getApiUrl("/api/v1/announcements/?limit=10"), {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) return;
-      const data: AnnouncementPreview[] = await res.json();
-      const mapped = data.map((a) => ({ ...a, id: a.id || a._id || "" }));
-      setAnnouncements(mapped);
-      setUnreadCount(mapped.filter((a) => a.isRead === false).length);
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
+      // Fetch notifications and unread count in parallel
+      const [listRes, countRes] = await Promise.all([
+        fetch(getApiUrl("/api/v1/notifications/?limit=20"), { headers }),
+        fetch(getApiUrl("/api/v1/notifications/unread-count"), { headers }),
+      ]);
+
+      if (listRes.ok) {
+        const data: Notification[] = await listRes.json();
+        setNotifications(data);
+      }
+      if (countRes.ok) {
+        const { count } = await countRes.json();
+        setUnreadCount(count);
+      }
     } catch {
       // silently fail — bell is non-critical
     } finally {
@@ -60,12 +87,12 @@ export default function NotificationBell() {
     }
   }, [getAccessToken, user]);
 
-  /* Poll every 2 minutes */
+  /* Poll every 60 seconds */
   useEffect(() => {
-    fetchAnnouncements();
-    const interval = setInterval(fetchAnnouncements, 2 * 60 * 1000);
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 60 * 1000);
     return () => clearInterval(interval);
-  }, [fetchAnnouncements]);
+  }, [fetchNotifications]);
 
   /* Close on outside click */
   useEffect(() => {
@@ -81,13 +108,13 @@ export default function NotificationBell() {
   const markAsRead = useCallback(async (id: string) => {
     try {
       const token = await getAccessToken();
-      const res = await fetch(getApiUrl(`/api/v1/announcements/${id}/read`), {
-        method: "POST",
+      const res = await fetch(getApiUrl(`/api/v1/notifications/${id}/read`), {
+        method: "PATCH",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.ok) {
-        setAnnouncements((prev) =>
-          prev.map((a) => (a.id === id ? { ...a, isRead: true } : a))
+        setNotifications((prev) =>
+          prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
         );
         setUnreadCount((c) => Math.max(0, c - 1));
       }
@@ -97,9 +124,68 @@ export default function NotificationBell() {
   }, [getAccessToken]);
 
   const markAllRead = useCallback(async () => {
-    const unread = announcements.filter((a) => a.isRead === false);
-    await Promise.allSettled(unread.map((a) => markAsRead(a.id)));
-  }, [announcements, markAsRead]);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl("/api/v1/notifications/mark-all-read"), {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+        setUnreadCount(0);
+      }
+    } catch {
+      // ignore
+    }
+  }, [getAccessToken]);
+
+  /** Wrapper: renders Link when notification has a link, div otherwise */
+  const NotificationRow = ({ n }: { n: Notification }) => {
+    const inner = (
+      <div className="flex gap-3 px-4 py-3">
+        {/* Type dot */}
+        <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${TYPE_DOT[n.type] ?? "bg-cloud"}`} />
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <p className={`text-sm leading-snug ${!n.isRead ? "font-display font-black text-navy" : "font-normal text-navy/80"}`}>
+              {n.title}
+            </p>
+            {!n.isRead && (
+              <span className="shrink-0 w-2 h-2 rounded-full bg-coral mt-1.5" />
+            )}
+          </div>
+          <p className="text-slate text-xs mt-0.5 line-clamp-1 font-normal">{n.message}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-[10px] text-slate font-normal">{timeAgo(n.createdAt)}</span>
+            <span className="text-[10px] text-slate font-normal">· {TYPE_LABEL[n.type] ?? n.type}</span>
+          </div>
+        </div>
+      </div>
+    );
+
+    const className = `block border-b-[2px] border-cloud transition-colors cursor-pointer ${
+      !n.isRead ? "bg-lime-light/60 hover:bg-cloud/80" : "bg-snow hover:bg-ghost"
+    }`;
+
+    const handleClick = () => {
+      setOpen(false);
+      if (!n.isRead) markAsRead(n._id);
+    };
+
+    if (n.link) {
+      return (
+        <Link href={n.link} onClick={handleClick} className={className}>
+          {inner}
+        </Link>
+      );
+    }
+    return (
+      <div onClick={handleClick} className={className} role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && handleClick()}>
+        {inner}
+      </div>
+    );
+  };
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -109,7 +195,7 @@ export default function NotificationBell() {
         className="relative w-10 h-10 rounded-xl bg-ghost border-[3px] border-navy flex items-center justify-center hover:bg-cloud hover:border-navy transition-colors"
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
       >
-        <svg className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
+        <svg className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path fillRule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clipRule="evenodd" />
         </svg>
 
@@ -145,8 +231,8 @@ export default function NotificationBell() {
                   Mark all read
                 </button>
               )}
-              <button onClick={() => setOpen(false)} className="text-slate hover:text-navy">
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <button onClick={() => setOpen(false)} className="text-slate hover:text-navy" aria-label="Close notifications">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                 </svg>
               </button>
@@ -159,50 +245,15 @@ export default function NotificationBell() {
               <div className="flex items-center justify-center py-8">
                 <div className="w-6 h-6 border-[3px] border-navy border-t-lime rounded-full animate-spin" />
               </div>
-            ) : announcements.length === 0 ? (
+            ) : notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 gap-2">
-                <svg className="w-8 h-8 text-cloud" viewBox="0 0 24 24" fill="currentColor">
+                <svg className="w-8 h-8 text-cloud" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path fillRule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clipRule="evenodd" />
                 </svg>
-                <p className="text-slate text-sm font-normal">No announcements</p>
+                <p className="text-slate text-sm font-normal">No notifications yet</p>
               </div>
             ) : (
-              announcements.map((a) => (
-                <Link
-                  key={a.id}
-                  href={`/dashboard/announcements?highlight=${a.id}`}
-                  onClick={() => {
-                    setOpen(false);
-                    if (a.isRead === false) markAsRead(a.id);
-                  }}
-                  className={`block border-b-[2px] border-cloud transition-colors cursor-pointer ${
-                    a.isRead === false ? "bg-lime-light/60 hover:bg-cloud/80" : "bg-snow hover:bg-ghost"
-                  }`}
-                >
-                  <div className="flex gap-3 px-4 py-3">
-                    {/* Priority dot */}
-                    <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${PRIORITY_DOT[a.priority] ?? "bg-cloud"}`} />
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className={`text-sm leading-snug ${a.isRead === false ? "font-display font-black text-navy" : "font-normal text-navy/80"}`}>
-                          {a.title}
-                        </p>
-                        {a.isRead === false && (
-                          <span className="shrink-0 w-2 h-2 rounded-full bg-coral mt-1.5" />
-                        )}
-                      </div>
-                      <p className="text-slate text-xs mt-0.5 line-clamp-1 font-normal">{a.content}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] text-slate font-normal">{timeAgo(a.createdAt)}</span>
-                        {a.authorName && (
-                          <span className="text-[10px] text-slate font-normal">· {a.authorName}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              ))
+              notifications.map((n) => <NotificationRow key={n._id} n={n} />)
             )}
           </div>
 
@@ -213,7 +264,7 @@ export default function NotificationBell() {
               onClick={() => setOpen(false)}
               className="text-sm font-display font-black text-navy hover:text-lavender transition-colors"
             >
-              View all announcements →
+              View all notifications →
             </Link>
           </div>
         </div>

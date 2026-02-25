@@ -630,30 +630,62 @@ function EventsPage() {
                   key={event.id}
                   className={`bg-snow border-[3px] ${accent.border} rounded-3xl overflow-hidden press-4 press-black transition-all ${rotation}`}
                 >
-                  {/* Colored Header */}
-                  <div className={`${accent.header} p-5 relative overflow-hidden`}>
-                    <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full bg-navy/5 pointer-events-none" />
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className={`font-display font-black text-5xl leading-none ${accent.dateText}`}>
-                          {new Date(event.date).getDate()}
+                  {/* Card Header — event image or colored accent */}
+                  {event.imageUrl ? (
+                    <div className="relative h-44 overflow-hidden">
+                      <img
+                        src={event.imageUrl}
+                        alt={event.title}
+                        className="w-full h-full object-cover"
+                      />
+                      {/* Overlay badges */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-navy/60 to-transparent" />
+                      <div className="absolute bottom-3 left-4 flex items-end justify-between w-[calc(100%-2rem)]">
+                        <div>
+                          <div className="font-display font-black text-4xl leading-none text-snow drop-shadow-md">
+                            {new Date(event.date).getDate()}
+                          </div>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-snow/80">
+                            {new Date(event.date).toLocaleDateString("en-US", { month: "short" })} {new Date(event.date).getFullYear()}
+                          </p>
                         </div>
-                        <p className={`text-xs font-bold uppercase tracking-wider mt-1 ${accent.dateText} opacity-70`}>
-                          {new Date(event.date).toLocaleDateString("en-US", { month: "short" })} {new Date(event.date).getFullYear()}
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 ${accent.catBg} ${accent.catText}`}>
-                          {event.category}
-                        </span>
-                        {isRegistered && (
-                          <span className="text-[10px] font-bold text-navy bg-lime rounded-full px-2.5 py-1 uppercase tracking-wider">
-                            Going
+                        <div className="flex flex-col items-end gap-1.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 bg-snow/20 text-snow backdrop-blur-sm">
+                            {event.category}
                           </span>
-                        )}
+                          {isRegistered && (
+                            <span className="text-[10px] font-bold text-navy bg-lime rounded-full px-2.5 py-1 uppercase tracking-wider">
+                              Going
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className={`${accent.header} p-5 relative overflow-hidden`}>
+                      <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full bg-navy/5 pointer-events-none" />
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className={`font-display font-black text-5xl leading-none ${accent.dateText}`}>
+                            {new Date(event.date).getDate()}
+                          </div>
+                          <p className={`text-xs font-bold uppercase tracking-wider mt-1 ${accent.dateText} opacity-70`}>
+                            {new Date(event.date).toLocaleDateString("en-US", { month: "short" })} {new Date(event.date).getFullYear()}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <span className={`text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 ${accent.catBg} ${accent.catText}`}>
+                            {event.category}
+                          </span>
+                          {isRegistered && (
+                            <span className="text-[10px] font-bold text-navy bg-lime rounded-full px-2.5 py-1 uppercase tracking-wider">
+                              Going
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Body */}
                   <div className="p-5 space-y-4">

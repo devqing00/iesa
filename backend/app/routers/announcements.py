@@ -21,6 +21,7 @@ from app.core.permissions import require_permission
 from app.core.sanitization import sanitize_html, validate_no_scripts
 from app.core.audit import AuditLogger
 from app.core.email import send_announcement_email
+from app.core.notification_utils import get_notification_emails, should_send_email, should_send_in_app
 
 logger = logging.getLogger(__name__)
 
@@ -60,29 +61,36 @@ async def _notify_students_of_announcement(
 
         students = await users_col.find(
             {"_id": {"$in": [ObjectId(sid) for sid in student_ids]}},
-            {"email": 1, "firstName": 1, "lastName": 1}
+            {"email": 1, "firstName": 1, "lastName": 1,
+             "secondaryEmail": 1, "secondaryEmailVerified": 1,
+             "notificationEmailPreference": 1, "notificationChannelPreference": 1}
         ).to_list(length=None)
 
         sent = 0
         for student in students:
-            email = student.get("email", "")
-            if not email:
+            # Respect channel preference — skip email if user prefers in-app only
+            if not should_send_email(student):
+                continue
+            # Resolve which email(s) to send to based on preference
+            emails = get_notification_emails(student)
+            if not emails:
                 continue
             name = f"{student.get('firstName', '')} {student.get('lastName', '')}".strip() or "Student"
-            try:
-                await send_announcement_email(
-                    to=email,
-                    student_name=name,
-                    title=title,
-                    content=content,
-                    priority=priority,
-                    target_label=target_label,
-                )
-                sent += 1
-            except Exception as e:
-                logger.warning(f"Failed to send announcement email to {email}: {e}")
+            for email_addr in emails:
+                try:
+                    await send_announcement_email(
+                        to=email_addr,
+                        student_name=name,
+                        title=title,
+                        content=content,
+                        priority=priority,
+                        target_label=target_label,
+                    )
+                    sent += 1
+                except Exception as e:
+                    logger.warning(f"Failed to send announcement email to {email_addr}: {e}")
 
-        logger.info(f"Announcement email sent to {sent}/{len(students)} student(s) — '{title}'")
+        logger.info(f"Announcement email sent to {sent}/{len(students)} recipient(s) — '{title}'")
 
     except Exception as e:
         logger.error(f"Announcement email dispatch error: {e}")
@@ -168,6 +176,35 @@ async def create_announcement(
     })
     await cache_delete("admin_stats")
     await cache_delete_pattern("student_dashboard:*")
+
+    # Create in-app notifications for targeted students
+    try:
+        from app.routers.notifications import create_bulk_notifications
+        target_levels = announcement_data.targetLevels or []
+        enrollments_coll = db["enrollments"]
+        if target_levels:
+            enrolled = await enrollments_coll.find(
+                {"sessionId": announcement_data.sessionId, "level": {"$in": [f"{l}L" for l in target_levels]}, "isActive": True}
+            ).to_list(length=None)
+        else:
+            enrolled = await enrollments_coll.find(
+                {"sessionId": announcement_data.sessionId, "isActive": True}
+            ).to_list(length=None)
+        student_ids = list({e["studentId"] for e in enrolled})
+        if student_ids:
+            asyncio.create_task(
+                create_bulk_notifications(
+                    user_ids=student_ids,
+                    type="announcement",
+                    title=f"📢 {announcement_data.title}",
+                    message=announcement_data.content[:200],
+                    link=f"/dashboard/announcements?highlight={result.inserted_id}",
+                    related_id=str(result.inserted_id),
+                )
+            )
+    except Exception as e:
+        logger.error(f"Failed to create announcement notifications: {e}")
+
     return Announcement(**created_announcement)
 
 

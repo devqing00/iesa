@@ -13,6 +13,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from pydantic import BaseModel, Field
 from typing import Optional, List, Literal
 from datetime import datetime
+import logging
+
+from app.core.email import get_email_service, EmailTemplate
+from app.core.notification_utils import get_notification_emails, should_send_email, should_send_in_app
 from bson import ObjectId
 
 from app.core.security import get_current_user
@@ -422,6 +426,85 @@ async def review_transfer(
             "paidAt": datetime.utcnow(),
         })
     
+    # Fetch student for email + in-app notifications
+    student = None
+    try:
+        student = await db.users.find_one({"_id": ObjectId(transfer["studentId"])})
+    except Exception:
+        pass
+
+    # Send email notification to student about the review result
+    try:
+        if student and student.get("email") and should_send_email(student):
+            student_name = f"{student.get('firstName', '')} {student.get('lastName', '')}".strip() or "Student"
+            notification_emails = get_notification_emails(student)
+            status_label = "approved" if data.status == "approved" else "rejected"
+            note_html = f"<p><strong>Admin Note:</strong> {data.adminNote}</p>" if data.adminNote else ""
+            
+            if data.status == "approved":
+                subject = f"✅ Bank Transfer Approved - {transfer.get('paymentTitle', 'Payment')}"
+                html = f"""
+                <html><body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #1E4528;">Transfer Approved!</h2>
+                    <p>Dear {student_name},</p>
+                    <p>Your bank transfer for <strong>{transfer.get('paymentTitle', 'Payment')}</strong> has been approved.</p>
+                    <div style="background: #E8F5E9; padding: 16px; border-radius: 8px; margin: 16px 0;">
+                        <p><strong>Amount:</strong> ₦{transfer['amount']:,.2f}</p>
+                        <p><strong>Reference:</strong> {transfer.get('transactionReference', 'N/A')}</p>
+                        <p><strong>Status:</strong> ✅ Approved</p>
+                    </div>
+                    {note_html}
+                    <p>You can download your receipt from the <a href="https://iesa-ui.vercel.app/dashboard/payments">Payments page</a>.</p>
+                </body></html>
+                """
+            else:
+                subject = f"❌ Bank Transfer Rejected - {transfer.get('paymentTitle', 'Payment')}"
+                html = f"""
+                <html><body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #D32F2F;">Transfer Rejected</h2>
+                    <p>Dear {student_name},</p>
+                    <p>Your bank transfer for <strong>{transfer.get('paymentTitle', 'Payment')}</strong> has been rejected.</p>
+                    <div style="background: #FFEBEE; padding: 16px; border-radius: 8px; margin: 16px 0;">
+                        <p><strong>Amount:</strong> ₦{transfer['amount']:,.2f}</p>
+                        <p><strong>Reference:</strong> {transfer.get('transactionReference', 'N/A')}</p>
+                        <p><strong>Status:</strong> ❌ Rejected</p>
+                    </div>
+                    {note_html}
+                    <p>Please review the admin's note and resubmit if needed from the <a href="https://iesa-ui.vercel.app/dashboard/payments">Payments page</a>.</p>
+                </body></html>
+                """
+            
+            email_service = get_email_service()
+            for email_addr in notification_emails:
+                await email_service.send_email(
+                    to=email_addr,
+                    subject=subject,
+                    html_content=html,
+                )
+    except Exception as e:
+        logging.error(f"Failed to send transfer review email: {e}")
+
+    # Create in-app notification for the student (respect channel preference)
+    try:
+        if should_send_in_app(student or {}):
+            from app.routers.notifications import create_notification
+            if data.status == "approved":
+                notif_title = f"✅ Transfer Approved — {transfer.get('paymentTitle', 'Payment')}"
+                notif_msg = f"Your bank transfer of ₦{transfer['amount']:,.0f} has been approved."
+            else:
+                notif_title = f"❌ Transfer Rejected — {transfer.get('paymentTitle', 'Payment')}"
+                notif_msg = data.adminNote or "Your bank transfer was rejected. Please check and resubmit."
+            await create_notification(
+                user_id=transfer["studentId"],
+                type=f"transfer_{data.status}",
+                title=notif_title,
+                message=notif_msg[:500],
+                link="/dashboard/payments?tab=history",
+                related_id=transfer_id,
+            )
+    except Exception as e:
+        logging.error(f"Failed to create transfer notification: {e}")
+
     updated = await db.bankTransfers.find_one({"_id": ObjectId(transfer_id)})
     updated["_id"] = str(updated["_id"])
     return updated

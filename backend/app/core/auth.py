@@ -233,9 +233,14 @@ VERIFICATION_TOKEN_EXPIRE_HOURS = int(os.getenv("VERIFICATION_TOKEN_EXPIRE_HOURS
 RESET_TOKEN_EXPIRE_HOURS = int(os.getenv("RESET_TOKEN_EXPIRE_HOURS", "1"))
 
 
-def create_verification_token(user_id: str, email: str) -> tuple[str, datetime]:
+def create_verification_token(user_id: str, email: str, token_type: str = "email_verification") -> tuple[str, datetime]:
     """
     Create an email verification token.
+    
+    Args:
+        user_id: The user's ID
+        email: The email address to verify
+        token_type: "email_verification" for primary, "secondary_email_verification" for secondary
     
     Returns:
         (jwt_token, expires_at)
@@ -246,7 +251,7 @@ def create_verification_token(user_id: str, email: str) -> tuple[str, datetime]:
     payload = {
         "sub": user_id,
         "email": email,
-        "type": "email_verification",
+        "type": token_type,
         "iat": now,
         "exp": expires_at,
     }
@@ -254,15 +259,19 @@ def create_verification_token(user_id: str, email: str) -> tuple[str, datetime]:
     return token, expires_at
 
 
-def decode_verification_token(token: str) -> dict:
+def decode_verification_token(token: str, expected_type: str = "email_verification") -> dict:
     """
     Decode and verify an email verification token.
+    
+    Args:
+        token: The JWT token
+        expected_type: "email_verification" or "secondary_email_verification"
     
     Returns the payload dict.
     Raises JWTError or ExpiredSignatureError on failure.
     """
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    if payload.get("type") != "email_verification":
+    if payload.get("type") != expected_type:
         raise JWTError("Invalid token type")
     return payload
 

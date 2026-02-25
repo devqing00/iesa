@@ -84,8 +84,16 @@ class Session(SessionBase):
 
 
 class SessionSummary(BaseModel):
-    """Lightweight session model for dropdowns"""
+    """Lightweight session model for list views and dropdowns"""
     id: str
     name: str
     isActive: bool
     currentSemester: int
+    # Derived overall range (semester1Start → semester2End)
+    startDate: Optional[datetime] = None
+    endDate: Optional[datetime] = None
+    # Individual semester boundaries (needed by the edit modal)
+    semester1StartDate: Optional[datetime] = None
+    semester1EndDate: Optional[datetime] = None
+    semester2StartDate: Optional[datetime] = None
+    semester2EndDate: Optional[datetime] = None

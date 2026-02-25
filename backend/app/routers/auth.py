@@ -143,6 +143,10 @@ async def register(
     # Admin promotion is done via seed script or admin endpoint
     role = "student"
     
+    # Auto-detect email type from domain
+    INSTITUTIONAL_DOMAIN = "@stu.ui.edu.ng"
+    email_type = "institutional" if data.email.lower().endswith(INSTITUTIONAL_DOMAIN) else "personal"
+    
     user_doc = {
         "email": data.email,
         "passwordHash": hash_password(data.password),
@@ -157,6 +161,11 @@ async def register(
         "bio": None,
         "profilePictureUrl": None,
         "skills": [],
+        "emailType": email_type,
+        "secondaryEmail": None,
+        "secondaryEmailType": None,
+        "secondaryEmailVerified": False,
+        "notificationEmailPreference": "primary",
         "emailVerified": False,
         "hasCompletedOnboarding": False,
         "isActive": True,
@@ -500,6 +509,93 @@ async def verify_email(token: str):
         # Log unexpected errors
         import logging
         logging.error(f"Unexpected error during email verification: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred during verification. Please try again or contact support."
+        )
+
+
+# ──────────────────────────────────────────────
+# SECONDARY EMAIL VERIFICATION
+# ──────────────────────────────────────────────
+
+@router.get("/verify-secondary-email")
+async def verify_secondary_email(token: str):
+    """
+    Verify user's secondary email address using token from verification email.
+    
+    - Validates JWT token with type "secondary_email_verification"
+    - Marks secondaryEmailVerified = True
+    - Returns success message
+    """
+    db = get_database()
+    users = db["users"]
+    
+    try:
+        # Decode token with secondary-specific type check
+        payload = decode_verification_token(token, expected_type="secondary_email_verification")
+        user_id = payload.get("sub")
+        email = payload.get("email")
+        
+        if not user_id or not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid verification token: missing user ID or email"
+            )
+        
+        if not ObjectId.is_valid(user_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid verification token: malformed user ID"
+            )
+        
+        # Find user and verify the secondary email still matches
+        user = await users.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found. The account may have been deleted."
+            )
+        
+        # Ensure the token email matches the current secondary email
+        if user.get("secondaryEmail") != email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Secondary email has been changed since this link was generated. Please request a new verification."
+            )
+        
+        # Check if already verified
+        if user.get("secondaryEmailVerified"):
+            return {"message": "Secondary email already verified", "alreadyVerified": True}
+        
+        # Mark secondary email as verified
+        await users.update_one(
+            {"_id": ObjectId(user_id)},
+            {
+                "$set": {
+                    "secondaryEmailVerified": True,
+                    "updatedAt": datetime.now(timezone.utc)
+                }
+            }
+        )
+        
+        return {"message": "Secondary email verified successfully", "alreadyVerified": False}
+        
+    except ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification link has expired. Please request a new one."
+        )
+    except JWTError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid verification token: {str(e)}"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logging.error(f"Unexpected error during secondary email verification: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred during verification. Please try again or contact support."

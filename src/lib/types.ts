@@ -27,6 +27,13 @@ export interface User {
   hasCompletedOnboarding?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  // Dual Email System
+  emailType?: "institutional" | "personal";
+  secondaryEmail?: string;
+  secondaryEmailType?: "institutional" | "personal";
+  secondaryEmailVerified?: boolean;
+  notificationEmailPreference?: "primary" | "secondary" | "both";
+  notificationChannelPreference?: "email" | "in_app" | "both";
 }
 
 /* ─── Sessions ───────────────────────────── */

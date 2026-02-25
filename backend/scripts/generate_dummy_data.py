@@ -35,8 +35,9 @@ from app.core.auth import hash_password
 # CONFIGURATION
 # ============================================================================
 
-CURRENT_SESSION = "2024/2025"
-PREVIOUS_SESSION = "2023/2024"
+CURRENT_SESSION  = "2025/2026"   # active session (second year = 2026)
+PREVIOUS_SESSION = "2024/2025"   # inactive previous session
+ACTIVE_SECOND_YEAR = 2026        # second year of the active session
 
 # Student names pool
 FIRST_NAMES = [
@@ -123,16 +124,25 @@ async def create_users(db, count: int = 50) -> List[Dict]:
     print(f"\n👥 Creating {count} student users...")
     
     levels = ["100L", "200L", "300L", "400L", "500L"]
-    admission_years = [2020, 2021, 2022, 2023, 2024]
+    # admissionYear = second year of the student's admitted session
+    # Formula: level = (ACTIVE_SECOND_YEAR - admissionYear) * 100 + 100
+    admission_years = [
+        ACTIVE_SECOND_YEAR,      # 2026 → 100L
+        ACTIVE_SECOND_YEAR - 1,  # 2025 → 200L
+        ACTIVE_SECOND_YEAR - 2,  # 2024 → 300L
+        ACTIVE_SECOND_YEAR - 3,  # 2023 → 400L
+        ACTIVE_SECOND_YEAR - 4,  # 2022 → 500L
+    ]
     
     for i in range(count):
         first_name = random.choice(FIRST_NAMES)
         last_name = random.choice(LAST_NAMES)
         admission_year = random.choice(admission_years)
         
-        # Calculate current level based on admission year
-        years_since_admission = 2024 - admission_year
-        level_index = min(years_since_admission, 4)  # Cap at 500L
+        # admissionYear is the second year of the student's admitted session;
+        # level = (ACTIVE_SECOND_YEAR - admissionYear) * 100 + 100
+        years_since_admission = ACTIVE_SECOND_YEAR - admission_year
+        level_index = min(max(years_since_admission, 0), 4)  # clamp 0-4 → 100L-500L
         current_level = levels[level_index]
         
         user_data = {
@@ -173,31 +183,31 @@ async def create_sessions(db) -> Dict[str, str]:
     
     sessions_ids = {}
     
-    # Previous session (2023/2024)
+    # Previous session (2024/2025)
     prev_session_data = {
         "name": PREVIOUS_SESSION,
-        "semester1StartDate": datetime(2023, 9, 1, tzinfo=timezone.utc),
-        "semester1EndDate": datetime(2024, 1, 31, tzinfo=timezone.utc),
-        "semester2StartDate": datetime(2024, 2, 1, tzinfo=timezone.utc),
-        "semester2EndDate": datetime(2024, 8, 31, tzinfo=timezone.utc),
+        "semester1StartDate": datetime(2024, 9, 16, tzinfo=timezone.utc),
+        "semester1EndDate":   datetime(2025, 1, 31, tzinfo=timezone.utc),
+        "semester2StartDate": datetime(2025, 2, 10, tzinfo=timezone.utc),
+        "semester2EndDate":   datetime(2025, 7, 31, tzinfo=timezone.utc),
         "isActive": False,
-        "createdAt": datetime(2023, 7, 1, tzinfo=timezone.utc),
-        "updatedAt": datetime(2023, 7, 1, tzinfo=timezone.utc),
+        "createdAt": datetime(2024, 7, 1, tzinfo=timezone.utc),
+        "updatedAt": datetime(2024, 7, 1, tzinfo=timezone.utc),
     }
     result = await sessions_collection.insert_one(prev_session_data)
     sessions_ids[PREVIOUS_SESSION] = str(result.inserted_id)
     print(f"   ✓ Created session: {PREVIOUS_SESSION}")
-    
-    # Current session (2024/2025) - ACTIVE
+
+    # Current session (2025/2026) - ACTIVE
     curr_session_data = {
         "name": CURRENT_SESSION,
-        "semester1StartDate": datetime(2024, 9, 1, tzinfo=timezone.utc),
-        "semester1EndDate": datetime(2025, 1, 31, tzinfo=timezone.utc),
-        "semester2StartDate": datetime(2025, 2, 1, tzinfo=timezone.utc),
-        "semester2EndDate": datetime(2025, 8, 31, tzinfo=timezone.utc),
+        "semester1StartDate": datetime(2025, 9, 15, tzinfo=timezone.utc),
+        "semester1EndDate":   datetime(2026, 1, 30, tzinfo=timezone.utc),
+        "semester2StartDate": datetime(2026, 2,  9, tzinfo=timezone.utc),
+        "semester2EndDate":   datetime(2026, 7, 31, tzinfo=timezone.utc),
         "isActive": True,
-        "createdAt": datetime(2024, 7, 1, tzinfo=timezone.utc),
-        "updatedAt": datetime(2024, 7, 1, tzinfo=timezone.utc),
+        "createdAt": datetime(2025, 7, 1, tzinfo=timezone.utc),
+        "updatedAt": datetime(2025, 7, 1, tzinfo=timezone.utc),
     }
     result = await sessions_collection.insert_one(curr_session_data)
     sessions_ids[CURRENT_SESSION] = str(result.inserted_id)

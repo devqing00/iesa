@@ -136,7 +136,13 @@ async def list_sessions(
             id=str(s["_id"]),
             name=s["name"],
             isActive=s.get("isActive", False),
-            currentSemester=compute_current_semester(normalize_session_doc(s))
+            currentSemester=compute_current_semester(normalize_session_doc(s)),
+            startDate=s.get("semester1StartDate"),
+            endDate=s.get("semester2EndDate"),
+            semester1StartDate=s.get("semester1StartDate"),
+            semester1EndDate=s.get("semester1EndDate"),
+            semester2StartDate=s.get("semester2StartDate"),
+            semester2EndDate=s.get("semester2EndDate"),
         )
         for s in session_list
     ]

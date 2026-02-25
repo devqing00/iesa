@@ -318,24 +318,54 @@ async def clear_data(db):
 
 
 async def ensure_active_session(db):
-    """Ensure an active session exists"""
-    session = await db.sessions.find_one({"isActive": True})
-    
-    if not session:
-        # Create 2024/2025 session
-        session_data = {
+    """Ensure both 2024/2025 and 2025/2026 sessions exist; activate 2025/2026."""
+
+    # Session definitions with correct semester date fields
+    sessions_to_create = [
+        {
             "name": "2024/2025",
-            "startDate": datetime(2024, 9, 1),
-            "endDate": datetime(2025, 7, 31),
-            "currentSemester": 1,
+            "semester1StartDate": datetime(2024, 9, 16, tzinfo=timezone.utc),
+            "semester1EndDate":   datetime(2025, 1, 31, tzinfo=timezone.utc),
+            "semester2StartDate": datetime(2025, 2, 10, tzinfo=timezone.utc),
+            "semester2EndDate":   datetime(2025, 7, 31, tzinfo=timezone.utc),
+            "isActive": False,
+        },
+        {
+            "name": "2025/2026",
+            "semester1StartDate": datetime(2025, 9, 15, tzinfo=timezone.utc),
+            "semester1EndDate":   datetime(2026, 1, 30, tzinfo=timezone.utc),
+            "semester2StartDate": datetime(2026, 2,  9, tzinfo=timezone.utc),
+            "semester2EndDate":   datetime(2026, 7, 31, tzinfo=timezone.utc),
             "isActive": True,
-            "createdAt": datetime.now(timezone.utc),
-            "updatedAt": datetime.now(timezone.utc)
-        }
-        result = await db.sessions.insert_one(session_data)
-        session = await db.sessions.find_one({"_id": result.inserted_id})
-    
-    return session
+        },
+    ]
+
+    for sess in sessions_to_create:
+        existing = await db.sessions.find_one({"name": sess["name"]})
+        if not existing:
+            sess["createdAt"] = datetime.now(timezone.utc)
+            sess["updatedAt"] = datetime.now(timezone.utc)
+            await db.sessions.insert_one(sess)
+        else:
+            # Update existing doc to use correct fields (fix old bad seed data)
+            await db.sessions.update_one(
+                {"name": sess["name"]},
+                {"$set": {
+                    "semester1StartDate": sess["semester1StartDate"],
+                    "semester1EndDate":   sess["semester1EndDate"],
+                    "semester2StartDate": sess["semester2StartDate"],
+                    "semester2EndDate":   sess["semester2EndDate"],
+                    "isActive":           sess["isActive"],
+                    "updatedAt":          datetime.now(timezone.utc),
+                }}
+            )
+
+    # Ensure only 2025/2026 is active (deactivate any others)
+    await db.sessions.update_many({"name": {"$ne": "2025/2026"}}, {"$set": {"isActive": False}})
+    await db.sessions.update_one({"name": "2025/2026"}, {"$set": {"isActive": True}})
+
+    active = await db.sessions.find_one({"name": "2025/2026"})
+    return active
 
 
 async def generate_students(db, session_id):
@@ -352,10 +382,11 @@ async def generate_students(db, session_id):
             last_name = random.choice(LAST_NAMES)
             matric_num = str(matric_base + len(students))
             
-            # Calculate admission year based on level
-            current_year = 2024
-            years_in_school = level // 100
-            admission_year = current_year - years_in_school + 1
+            # admissionYear = second year of the student's admitted session
+            # Formula: level = (ACTIVE_SECOND_YEAR - admissionYear) * 100 + 100
+            # where ACTIVE_SECOND_YEAR is the second year of 2025/2026 = 2026
+            ACTIVE_SECOND_YEAR = 2026
+            admission_year = ACTIVE_SECOND_YEAR - (level // 100 - 1)
             
             student_data = {
                 "passwordHash": hash_password("DummyPass1!"),

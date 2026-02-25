@@ -17,6 +17,7 @@ from app.db import get_database
 from app.core.security import verify_token, get_current_user
 from app.core.permissions import require_permission
 from app.core.audit import audit_user_role_change
+from app.core.auth import verify_password
 
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 limiter = Limiter(key_func=get_remote_address)
@@ -474,3 +475,94 @@ async def update_user_academic_info(
     updated_user["_id"] = str(updated_user["_id"])
     
     return User(**updated_user)
+
+
+# ──────────────────────────────────────────────
+# NOTIFICATION CHANNEL PREFERENCE
+# ──────────────────────────────────────────────
+
+from pydantic import BaseModel as PydanticBaseModel
+from typing import Literal as LiteralType
+
+class NotificationChannelRequest(PydanticBaseModel):
+    preference: LiteralType["email", "in_app", "both"]
+
+@router.patch("/me/notification-channel")
+async def update_notification_channel(
+    data: NotificationChannelRequest,
+    user: dict = Depends(get_current_user),
+):
+    """
+    Update notification delivery channel preference.
+    Options: "email" (email only), "in_app" (in-app only), "both" (both channels).
+    """
+    db = get_database()
+    users = db["users"]
+
+    await users.update_one(
+        {"_id": ObjectId(user["_id"])},
+        {
+            "$set": {
+                "notificationChannelPreference": data.preference,
+                "updatedAt": datetime.utcnow()
+            }
+        }
+    )
+
+    return {
+        "message": f"Notification channel updated to '{data.preference}'.",
+        "notificationChannelPreference": data.preference
+    }
+
+
+# ──────────────────────────────────────────────
+# ACCOUNT DELETION
+# ──────────────────────────────────────────────
+
+class DeleteAccountRequest(PydanticBaseModel):
+    password: str
+
+@router.delete("/me")
+async def delete_account(
+    data: DeleteAccountRequest,
+    user: dict = Depends(get_current_user),
+):
+    """
+    Permanently delete the current user's account and all associated data.
+    Requires password confirmation.
+    
+    Deletes:
+    - User document
+    - All enrollments
+    - All notifications
+    - All refresh tokens
+    - All bank transfers
+    """
+    db = get_database()
+    users = db["users"]
+    user_id = str(user["_id"])
+
+    # Verify password
+    user_doc = await users.find_one({"_id": ObjectId(user_id)})
+    if not user_doc or not user_doc.get("passwordHash"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot verify identity"
+        )
+
+    if not verify_password(data.password, user_doc["passwordHash"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect password"
+        )
+
+    # Delete associated data
+    await db["enrollments"].delete_many({"studentId": user_id})
+    await db["notifications"].delete_many({"userId": user_id})
+    await db["refresh_tokens"].delete_many({"userId": user_id})
+    await db["bankTransfers"].delete_many({"studentId": user_id})
+
+    # Delete the user
+    await users.delete_one({"_id": ObjectId(user_id)})
+
+    return {"message": "Account deleted successfully"}
