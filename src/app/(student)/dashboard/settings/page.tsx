@@ -14,7 +14,7 @@ type ChannelPref = "email" | "in_app" | "both";
 /* ─── Page ───────────────────────────────────────────────── */
 
 export default function SettingsPage() {
-  const { userProfile, refreshUser, signOut } = useAuth();
+  const { userProfile, refreshProfile, signOut } = useAuth();
   const router = useRouter();
 
   /* ── Password Change ──────────────────────── */
@@ -82,7 +82,7 @@ export default function SettingsPage() {
       });
       setEmailPref(pref);
       toast.success(`Email preference updated to "${pref}"`);
-      refreshUser?.();
+      refreshProfile?.();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to update preference";
       toast.error(msg);
@@ -99,7 +99,7 @@ export default function SettingsPage() {
       });
       setChannelPref(pref);
       toast.success(`Notification channel updated to "${pref.replace("_", "-")}"`);
-      refreshUser?.();
+      refreshProfile?.();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to update channel";
       toast.error(msg);

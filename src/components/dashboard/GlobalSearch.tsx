@@ -40,7 +40,7 @@ export default function GlobalSearch() {
   const [total, setTotal] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Keyboard shortcut: Ctrl+K / Cmd+K
   useEffect(() => {
