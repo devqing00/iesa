@@ -27,6 +27,7 @@ export default function RegisterPage() {
   const [currentSecondYear, setCurrentSecondYear] = useState<number | null>(null);
   const [sessionName, setSessionName] = useState("");
   const [apiSessionNames, setApiSessionNames] = useState<string[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
 
   // Fetch sessions to get the active session's second year for level calculation
   useEffect(() => {
@@ -46,7 +47,9 @@ export default function RegisterPage() {
           setApiSessionNames(sessions.map((s) => s.name));
         }
       } catch {
-        // Silently fall back to generated list
+        // API unavailable — level calculation will be blocked
+      } finally {
+        setSessionsLoading(false);
       }
     };
     fetchSessions();
@@ -75,12 +78,13 @@ export default function RegisterPage() {
    * Formula: level = (currentSecondYear - admittedSecondYear) * 100 + 100
    * Both values are the SECOND year of their respective sessions.
    * Clamped between 100L and 500L.
+   * Returns "" if currentSecondYear hasn't loaded yet (prevents wrong calc).
    */
   const calculateLevel = (admSession: string): string => {
+    if (currentSecondYear === null) return "";
     const admSecondYear = parseInt(admSession.split("/")[1]);
     if (isNaN(admSecondYear)) return "";
-    const baseSecondYear = currentSecondYear ?? (new Date().getFullYear() + 1);
-    const yearDiff = baseSecondYear - admSecondYear;
+    const yearDiff = currentSecondYear - admSecondYear;
     const levelNum = Math.max(100, Math.min(500, yearDiff * 100 + 100));
     return `${levelNum}L`;
   };
@@ -293,55 +297,69 @@ export default function RegisterPage() {
 
               <div className="space-y-2">
                 <label htmlFor="register-admitted-session" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Session Admitted</label>
-                <select
-                  id="register-admitted-session"
-                  value={admittedSession}
-                  onChange={(e) => setAdmittedSession(e.target.value)}
-                  required
-                  className={`${inputClass} appearance-none cursor-pointer`}
-                >
-                  <option value="">Select the session you were admitted</option>
-                  {sessionOptions.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+                {sessionsLoading ? (
+                  <div className={`${inputClass} flex items-center gap-2 text-slate`}>
+                    <div className="w-4 h-4 rounded-full border-[2px] border-navy border-t-transparent animate-spin shrink-0" />
+                    Loading sessions...
+                  </div>
+                ) : (
+                  <select
+                    id="register-admitted-session"
+                    value={admittedSession}
+                    onChange={(e) => setAdmittedSession(e.target.value)}
+                    required
+                    className={`${inputClass} appearance-none cursor-pointer`}
+                  >
+                    <option value="">Select the session you were admitted</option>
+                    {sessionOptions.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                )}
                 <p className="text-xs text-slate">The academic session you were admitted to UI (e.g. 2022/2023)</p>
               </div>
 
               {/* Calculated Level Confirmation */}
-              {admittedSession && calculatedLevel && (
-                <div className={`p-4 rounded-2xl border-[3px] transition-all ${
-                  levelConfirmed
-                    ? "bg-teal-light border-teal"
-                    : "bg-sunny-light border-sunny"
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-display font-bold text-sm text-navy">
-                        Your calculated level: <span className="font-black text-base">{calculatedLevel}</span>
-                      </p>
-                      <p className="text-xs text-navy/60 mt-1">
-                        Admitted {admittedSession}{sessionName ? `, current session ${sessionName}` : ""}
-                      </p>
+              {admittedSession && !sessionsLoading && (
+                calculatedLevel ? (
+                  <div className={`p-4 rounded-2xl border-[3px] transition-all ${
+                    levelConfirmed
+                      ? "bg-teal-light border-teal"
+                      : "bg-sunny-light border-sunny"
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-display font-bold text-sm text-navy">
+                          Your calculated level: <span className="font-black text-base">{calculatedLevel}</span>
+                        </p>
+                        <p className="text-xs text-navy/60 mt-1">
+                          Admitted {admittedSession}{sessionName ? `, current session ${sessionName}` : ""}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setLevelConfirmed(!levelConfirmed)}
+                        className={`px-4 py-2 rounded-xl border-[2px] text-xs font-bold transition-all ${
+                          levelConfirmed
+                            ? "bg-teal border-navy text-navy"
+                            : "bg-snow border-navy text-navy hover:bg-ghost"
+                        }`}
+                      >
+                        {levelConfirmed ? "Confirmed" : "Confirm"}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setLevelConfirmed(!levelConfirmed)}
-                      className={`px-4 py-2 rounded-xl border-[2px] text-xs font-bold transition-all ${
-                        levelConfirmed
-                          ? "bg-teal border-navy text-navy"
-                          : "bg-snow border-navy text-navy hover:bg-ghost"
-                      }`}
-                    >
-                      {levelConfirmed ? "Confirmed" : "Confirm"}
-                    </button>
+                    {!levelConfirmed && (
+                      <p className="text-xs text-navy/50 mt-2">
+                        Please confirm your level is correct before proceeding
+                      </p>
+                    )}
                   </div>
-                  {!levelConfirmed && (
-                    <p className="text-xs text-navy/50 mt-2">
-                      Please confirm your level is correct before proceeding
-                    </p>
-                  )}
-                </div>
+                ) : (
+                  <div className="p-4 rounded-2xl border-[3px] bg-coral-light border-coral">
+                    <p className="text-sm font-bold text-navy">Could not calculate level</p>
+                    <p className="text-xs text-navy/60 mt-1">No active academic session found. Please contact an admin.</p>
+                  </div>
+                )
               )}
             </div>
 

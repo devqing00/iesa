@@ -155,7 +155,7 @@ async def seed_announcements(db, session_id: str) -> None:
             "title": "Department Dues Payment Deadline",
             "content": "All students are reminded that department dues for the current session must be paid before the end of November. Visit the payments page to make your payment.",
             "sessionId": session_id,
-            "priority": "medium",
+            "priority": "normal",
             "targetLevels": [100, 200, 300, 400, 500],
             "isPinned": False,
             "expiresAt": None,
@@ -169,7 +169,7 @@ async def seed_announcements(db, session_id: str) -> None:
             "title": "Industrial Visit to Dangote Refinery",
             "content": "An industrial visit to the Dangote Refinery has been scheduled for 300L and 400L students. Registration is open on the events page.",
             "sessionId": session_id,
-            "priority": "medium",
+            "priority": "normal",
             "targetLevels": [300, 400],
             "isPinned": False,
             "expiresAt": None,
@@ -655,8 +655,9 @@ async def main():
 
     args = parser.parse_args()
 
-    # Load environment
-    load_dotenv()
+    # Load environment — resolve .env relative to this script's location (backend/.env)
+    _env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+    load_dotenv(_env_path)
     mongo_url = os.getenv("MONGODB_URL") or os.getenv("MONGO_URL") or "mongodb://localhost:27017"
     db_name = os.getenv("DATABASE_NAME") or os.getenv("DB_NAME") or "iesa"
 

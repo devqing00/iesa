@@ -38,6 +38,9 @@ def compute_current_semester(doc: dict) -> int:
     sem2_start = doc.get("semester2StartDate")
     if sem2_start:
         now = datetime.now(timezone.utc)
+        # MongoDB returns naive datetimes; treat them as UTC for comparison
+        if sem2_start.tzinfo is None:
+            sem2_start = sem2_start.replace(tzinfo=timezone.utc)
         return 1 if now < sem2_start else 2
     return doc.get("currentSemester", 1)
 

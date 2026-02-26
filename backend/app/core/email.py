@@ -191,52 +191,62 @@ class EmailService:
         return success
     
     async def _send_smtp(self, to, subject, html_content, text_content, attachments=None):
-        """Send email via SMTP (Gmail or other providers)"""
+        """Send email via SMTP (Gmail or other providers).
+
+        smtplib is synchronous, so we build the message on the current thread
+        and offload the blocking network I/O to a thread-pool executor so the
+        FastAPI event loop is never stalled.
+        """
+        import asyncio
         import smtplib
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
         from email.mime.application import MIMEApplication
-        
-        try:
-            msg = MIMEMultipart("mixed")
-            msg["Subject"] = subject
-            msg["From"] = f"{self.from_name} <{self.smtp_user}>"  # Use SMTP user as sender
-            msg["To"] = to
-            
-            # Create alternative part for text and HTML
-            msg_alternative = MIMEMultipart("alternative")
-            
-            # Attach plain text and HTML parts
-            if text_content:
-                msg_alternative.attach(MIMEText(text_content, "plain", "utf-8"))
-            msg_alternative.attach(MIMEText(html_content, "html", "utf-8"))
-            
-            msg.attach(msg_alternative)
-            
-            # Attach files (PDF receipts, etc.)
-            if attachments:
-                for attachment in attachments:
-                    part = MIMEApplication(attachment["content"], _subtype=attachment.get("subtype", "pdf"))
-                    part.add_header(
-                        "Content-Disposition",
-                        "attachment",
-                        filename=attachment["filename"]
-                    )
-                    msg.attach(part)
-            
-            # Connect and send
-            with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=10) as server:
-                server.set_debuglevel(0)  # Set to 1 for debugging
-                
-                if self.smtp_use_tls:
+
+        # Build the MIME message (CPU-only, non-blocking)
+        msg = MIMEMultipart("mixed")
+        msg["Subject"] = subject
+        msg["From"] = f"{self.from_name} <{self.smtp_user}>"
+        msg["To"] = to
+
+        msg_alternative = MIMEMultipart("alternative")
+        if text_content:
+            msg_alternative.attach(MIMEText(text_content, "plain", "utf-8"))
+        msg_alternative.attach(MIMEText(html_content, "html", "utf-8"))
+        msg.attach(msg_alternative)
+
+        if attachments:
+            for attachment in attachments:
+                part = MIMEApplication(attachment["content"], _subtype=attachment.get("subtype", "pdf"))
+                part.add_header(
+                    "Content-Disposition",
+                    "attachment",
+                    filename=attachment["filename"]
+                )
+                msg.attach(part)
+
+        # Capture instance vars for use inside the thread
+        smtp_host = self.smtp_host
+        smtp_port = self.smtp_port
+        smtp_use_tls = self.smtp_use_tls
+        smtp_user = self.smtp_user
+        smtp_password = self.smtp_password
+
+        def _do_send():
+            """Synchronous SMTP send — runs in a thread-pool worker."""
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+                server.set_debuglevel(0)
+                if smtp_use_tls:
                     server.starttls()
-                
-                server.login(self.smtp_user, self.smtp_password)
+                server.login(smtp_user, smtp_password)
                 server.send_message(msg)
-            
-            logger.info(f"✅ Email sent to {to} via SMTP ({self.smtp_host})")
+
+        try:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, _do_send)
+            logger.info(f"✅ Email sent to {to} via SMTP ({smtp_host})")
             return True
-            
+
         except smtplib.SMTPAuthenticationError as e:
             logger.error(f"❌ SMTP Authentication failed: {str(e)}")
             logger.error("   Check your SMTP_USER and SMTP_PASSWORD (use App Password for Gmail)")

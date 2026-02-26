@@ -172,12 +172,18 @@ export default function StudentDashboardPage() {
     setShowOnboardingModal(false);
     try { localStorage.setItem("iesa_onboarding_modal_seen", "1"); } catch { /* ignore */ }
     // Mark onboarding complete on the backend so the modal never shows again
-    // (even from a fresh browser / after clearing localStorage)
     try {
       const token = await getAccessToken();
-      const level = (userProfile?.currentLevel || userProfile?.level || "").toString();
       const admissionYear = userProfile?.admissionYear;
       if (admissionYear) {
+        // Recalculate level from admissionYear + active session (prevents stale/wrong stored level)
+        const activeSession = data?.activeSession;
+        const currentSecondYear = activeSession ? parseInt(activeSession.split("/")[1]) : null;
+        const storedLevel = (userProfile?.currentLevel || userProfile?.level || "").toString();
+        const level = currentSecondYear
+          ? `${Math.max(100, Math.min(500, (currentSecondYear - admissionYear) * 100 + 100))}L`
+          : storedLevel;
+
         await fetch(getApiUrl("/api/v1/students/complete-registration"), {
           method: "POST",
           headers: {
@@ -450,6 +456,45 @@ export default function StudentDashboardPage() {
                 </div>
               )}
             </div>
+
+            {/* IESA AI + Growth Tools — side by side on lg+ */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* IESA AI CTA */}
+              <Link href="/dashboard/iesa-ai" className="block bg-navy border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group">
+                <svg className="absolute top-4 right-5 w-5 h-5 text-lavender/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+                </svg>
+                <div className="w-10 h-10 rounded-xl bg-lavender/20 flex items-center justify-center mb-3">
+                  <svg className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5Z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <h3 className="font-display font-black text-lg text-ghost mb-1">IESA AI</h3>
+                <p className="text-ghost/40 text-xs font-medium mb-3">Ask anything about the department</p>
+                <span className="inline-flex items-center gap-1.5 text-lavender text-xs font-bold group-hover:gap-2.5 transition-all">
+                  Start chatting
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                  </svg>
+                </span>
+              </Link>
+
+              {/* Growth CTA */}
+              <Link href="/dashboard/growth" className="block bg-teal border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+                <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full bg-navy/10 pointer-events-none" />
+                <svg className="absolute top-3 right-4 w-4 h-4 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+                </svg>
+                <h3 className="font-display font-black text-xl text-navy mb-1 relative z-10">Growth Tools</h3>
+                <p className="text-navy/60 text-xs font-medium relative z-10 mb-3">CGPA, planner, goals &amp; more</p>
+                <span className="inline-flex items-center gap-1.5 text-navy text-xs font-bold relative z-10 group-hover:gap-2.5 transition-all bg-snow/30 rounded-full px-3 py-1.5">
+                  Explore
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                  </svg>
+                </span>
+              </Link>
+            </div>
           </div>
 
           {/* ── RIGHT: Stacked sidebar cards (4 cols) ── */}
@@ -554,46 +599,6 @@ export default function StudentDashboardPage() {
               )}
             </div>
 
-            {/* Growth CTA + IESA AI — side by side on md+ */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* IESA AI CTA */}
-              <Link href="/dashboard/iesa-ai" className="block bg-navy border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group">
-                <svg className="absolute top-4 right-5 w-5 h-5 text-lavender/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
-                </svg>
-                <div className="w-10 h-10 rounded-xl bg-lavender/20 flex items-center justify-center mb-3">
-                  <svg className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
-                    <path fillRule="evenodd" d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5Z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <h3 className="font-display font-black text-lg text-ghost mb-1">IESA AI</h3>
-                <p className="text-ghost/40 text-xs font-medium mb-3">Ask anything about the department</p>
-                <span className="inline-flex items-center gap-1.5 text-lavender text-xs font-bold group-hover:gap-2.5 transition-all">
-                  Start chatting
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                    <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                  </svg>
-                </span>
-              </Link>
-
-              {/* Growth CTA */}
-              <Link href="/dashboard/growth" className="block bg-teal border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
-                {/* Decorative */}
-                <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full bg-navy/10 pointer-events-none" />
-                <svg className="absolute top-3 right-4 w-4 h-4 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
-                </svg>
-
-                <h3 className="font-display font-black text-xl text-navy mb-1 relative z-10">Growth Tools</h3>
-                <p className="text-navy/60 text-xs font-medium relative z-10 mb-3">CGPA, planner, goals &amp; more</p>
-                <span className="inline-flex items-center gap-1.5 text-navy text-xs font-bold relative z-10 group-hover:gap-2.5 transition-all bg-snow/30 rounded-full px-3 py-1.5">
-                  Explore
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                    <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                  </svg>
-                </span>
-              </Link>
-            </div>
           </div>
         </div>
 

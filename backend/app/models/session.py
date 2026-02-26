@@ -76,7 +76,11 @@ class Session(SessionBase):
         self.startDate = self.semester1StartDate
         self.endDate = self.semester2EndDate
         now = datetime.now(timezone.utc)
-        if now < self.semester2StartDate:
+        # MongoDB returns naive datetimes; treat them as UTC for comparison
+        sem2 = self.semester2StartDate
+        if sem2.tzinfo is None:
+            sem2 = sem2.replace(tzinfo=timezone.utc)
+        if now < sem2:
             self.currentSemester = 1
         else:
             self.currentSemester = 2
