@@ -25,18 +25,9 @@ interface EventItem {
   category?: string;
 }
 
-interface GradeItem {
-  _id: string;
-  courseCode: string;
-  courseTitle: string;
-  grade: string;
-  creditUnits: number;
-}
-
 interface ArchiveData {
   announcements: Announcement[];
   events: EventItem[];
-  grades: GradeItem[];
 }
 
 /* ─── Component ──────────────────────────────────────────── */
@@ -46,7 +37,7 @@ export default function ArchivePage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [data, setData] = useState<ArchiveData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<"announcements" | "events" | "grades">("announcements");
+  const [tab, setTab] = useState<"announcements" | "events">("announcements");
 
   // Fetch all sessions
   useEffect(() => {
@@ -70,14 +61,13 @@ export default function ArchivePage() {
     (async () => {
       setLoading(true);
       try {
-        const [ann, ev, gr] = await Promise.all([
+        const [ann, ev] = await Promise.all([
           api.get<Announcement[]>(`/api/v1/announcements?session_id=${selectedId}&limit=100`).catch(() => []),
           api.get<EventItem[]>(`/api/v1/events?session_id=${selectedId}&limit=100`).catch(() => []),
-          api.get<GradeItem[]>(`/api/v1/grades?session_id=${selectedId}`).catch(() => []),
         ]);
-        if (!cancelled) setData({ announcements: ann, events: ev, grades: gr });
+        if (!cancelled) setData({ announcements: ann, events: ev });
       } catch {
-        if (!cancelled) setData({ announcements: [], events: [], grades: [] });
+        if (!cancelled) setData({ announcements: [], events: [] });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -93,7 +83,7 @@ export default function ArchivePage() {
           Session <span className="brush-highlight">Archive</span>
         </h1>
         <p className="mt-2 text-slate text-body">
-          Browse announcements, events, and grades from past academic sessions.
+          Browse announcements and events from past academic sessions.
         </p>
       </div>
 
@@ -150,7 +140,6 @@ export default function ArchivePage() {
             {([
               { key: "announcements" as const, label: "Announcements", count: data.announcements.length, color: "bg-coral-light text-coral" },
               { key: "events" as const, label: "Events", count: data.events.length, color: "bg-lavender-light text-lavender" },
-              { key: "grades" as const, label: "Grades", count: data.grades.length, color: "bg-teal-light text-teal" },
             ]).map((t) => (
               <button
                 key={t.key}
@@ -219,44 +208,6 @@ export default function ArchivePage() {
               />
             )}
 
-            {tab === "grades" && (
-              data.grades.length === 0 ? (
-                <p className="text-slate text-sm py-8 text-center">No grades recorded for this session</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b-[2px] border-navy/10">
-                        <th className="text-left py-2 font-display font-bold text-navy">Course</th>
-                        <th className="text-left py-2 font-display font-bold text-navy">Title</th>
-                        <th className="text-center py-2 font-display font-bold text-navy">Units</th>
-                        <th className="text-center py-2 font-display font-bold text-navy">Grade</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.grades.map((g) => (
-                        <tr key={g._id} className="border-b border-navy/5">
-                          <td className="py-2 font-bold text-navy">{g.courseCode}</td>
-                          <td className="py-2 text-slate">{g.courseTitle}</td>
-                          <td className="py-2 text-center text-navy">{g.creditUnits}</td>
-                          <td className="py-2 text-center">
-                            <span className={`font-display font-black ${
-                              g.grade === "A" ? "text-teal" :
-                              g.grade === "B" ? "text-lime-dark" :
-                              g.grade === "C" ? "text-sunny" :
-                              g.grade === "D" ? "text-coral" :
-                              "text-coral"
-                            }`}>
-                              {g.grade}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )
-            )}
           </div>
         </div>
       ) : null}

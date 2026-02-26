@@ -51,6 +51,7 @@ class UserBase(BaseModel):
     secondaryEmailVerified: bool = Field(default=False, description="Whether secondary email is verified")
     notificationEmailPreference: Literal["primary", "secondary", "both"] = Field(default="primary", description="Which email receives notifications")
     notificationChannelPreference: Literal["email", "in_app", "both"] = Field(default="both", description="Channel: email only, in-app only, or both")
+    notificationCategories: Optional[dict] = Field(default=None, description="Per-category notification toggles (e.g. {'announcements': True, 'payments': False})")
 
 
 class UserCreate(UserBase):

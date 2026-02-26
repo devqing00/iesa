@@ -2,6 +2,7 @@
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { useGrowthData } from "@/hooks/useGrowthData";
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 
@@ -40,13 +41,7 @@ const STORAGE_KEY = "iesa-planner-tasks";
 export default function PlannerPage() {
   const { showHelp, openHelp, closeHelp } = useToolHelp("planner");
   /* ─── State ─── */
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    }
-    return [];
-  });
+  const [tasks, setTasks] = useGrowthData<Task[]>('planner', STORAGE_KEY, []);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [filter, setFilter] = useState<"all" | "active" | "completed">("active");
@@ -59,10 +54,6 @@ export default function PlannerPage() {
     const interval = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-  }, [tasks]);
 
   /* ─── Computed ─── */
   const stats = useMemo(() => {
@@ -115,11 +106,7 @@ export default function PlannerPage() {
   };
 
   const deleteTask = (id: string) => {
-    setTasks((prev) => {
-      const updated = prev.filter((t) => t.id !== id);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      return updated;
-    });
+    setTasks((prev) => prev.filter((t) => t.id !== id));
   };
 
   const saveTask = (taskData: Partial<Task>) => {
@@ -171,12 +158,12 @@ export default function PlannerPage() {
 
       <div className="px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8 max-w-6xl mx-auto relative">
         {/* Diamond Sparkle Decorators */}
-        <svg className="fixed top-20 left-[8%] w-5 h-5 text-coral/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed top-40 right-[6%] w-7 h-7 text-teal/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed top-[55%] left-[4%] w-4 h-4 text-sunny/18 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed bottom-32 right-[10%] w-6 h-6 text-lavender/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed top-[30%] right-[18%] w-4 h-4 text-navy/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed bottom-48 left-[15%] w-5 h-5 text-coral/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed top-20 left-[8%] w-5 h-5 text-coral/15 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed top-40 right-[6%] w-7 h-7 text-teal/12 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed top-[55%] left-[4%] w-4 h-4 text-sunny/18 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed bottom-32 right-[10%] w-6 h-6 text-lavender/15 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed top-[30%] right-[18%] w-4 h-4 text-navy/12 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed bottom-48 left-[15%] w-5 h-5 text-coral/12 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
 
         {/* Back Link + Help */}
         <div className="flex items-center justify-between mb-6">
@@ -435,10 +422,10 @@ export default function PlannerPage() {
 
         {/* Privacy Note */}
         <p className="mt-6 text-center font-display font-bold text-xs text-slate uppercase tracking-wider flex items-center justify-center gap-1.5">
-          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-            <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" />
+          <svg className="w-3 h-3 text-teal" fill="currentColor" viewBox="0 0 24 24">
+            <path fillRule="evenodd" d="M4.5 9.75a6 6 0 0111.573-2.226 3.75 3.75 0 014.133 4.303A4.5 4.5 0 0118 20.25H6.75a5.25 5.25 0 01-.75-10.5z" clipRule="evenodd" />
           </svg>
-          All data stored locally on your device
+          Synced to your account
         </p>
 
         {/* ═══ TASK MODAL ═══ */}

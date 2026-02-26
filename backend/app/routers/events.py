@@ -8,8 +8,9 @@ Events from different academic sessions are completely separate.
 from fastapi import APIRouter, HTTPException, Depends, status, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+import re
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 import cloudinary
 import cloudinary.uploader
@@ -66,8 +67,8 @@ async def create_event(
     event_dict = event_data.model_dump()
     event_dict["registrations"] = []
     event_dict["attendees"] = []
-    event_dict["createdAt"] = datetime.utcnow()
-    event_dict["updatedAt"] = datetime.utcnow()
+    event_dict["createdAt"] = datetime.now(timezone.utc)
+    event_dict["updatedAt"] = datetime.now(timezone.utc)
     
     result = await events.insert_one(event_dict)
     created_event = await events.find_one({"_id": result.inserted_id})
@@ -90,10 +91,11 @@ async def create_event(
     return Event(**created_event)
 
 
-@router.get("/", response_model=List[EventWithStatus])
+@router.get("/")
 async def list_events(
     session_id: Optional[str] = Query(None, description="Filter by session ID. Defaults to active session."),
     category: Optional[str] = None,
+    search: Optional[str] = Query(None, description="Search in event title or description"),
     upcoming_only: Optional[bool] = Query(None, description="If true, only return events with date >= now"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of events to return"),
     skip: int = Query(0, ge=0, description="Number of events to skip (for pagination)"),
@@ -114,8 +116,8 @@ async def list_events(
     if not session_id:
         active_session = await sessions.find_one({"isActive": True})
         if not active_session:
-            # No active session — return empty list instead of 404
-            return []
+            # No active session — return empty result instead of 404
+            return {"items": [], "total": 0}
         session_id = str(active_session["_id"])
     
     # Verify session exists
@@ -130,8 +132,17 @@ async def list_events(
     query = {"sessionId": session_id}
     if category:
         query["category"] = category
+    if search:
+        escaped = re.escape(search)
+        query["$or"] = [
+            {"title": {"$regex": escaped, "$options": "i"}},
+            {"description": {"$regex": escaped, "$options": "i"}},
+        ]
     if upcoming_only:
-        query["date"] = {"$gte": datetime.utcnow()}
+        query["date"] = {"$gte": datetime.now(timezone.utc)}
+    
+    # Get total count for pagination
+    total = await events.count_documents(query)
     
     # Get events for this session with pagination
     cursor = events.find(query).sort("date", 1).skip(skip).limit(limit)
@@ -176,7 +187,7 @@ async def list_events(
         )
         result.append(event_with_status)
     
-    return result
+    return {"items": result, "total": total}
 
 
 @router.post("/upload-image")
@@ -221,6 +232,89 @@ async def upload_event_image(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Image upload failed: {str(e)}"
         )
+
+
+@router.get("/batch-payment-status")
+async def get_batch_payment_status(
+    event_ids: str = Query(..., description="Comma-separated event IDs"),
+    user: dict = Depends(get_current_user),
+):
+    """Return payment status for multiple events in a single call."""
+    db = get_database()
+    raw_ids = [eid.strip() for eid in event_ids.split(",") if eid.strip()]
+    if not raw_ids or len(raw_ids) > 50:
+        raise HTTPException(status_code=400, detail="Provide 1-50 event IDs")
+
+    valid_ids = [eid for eid in raw_ids if ObjectId.is_valid(eid)]
+    if not valid_ids:
+        return {}
+
+    user_id = user["_id"]
+
+    # Batch-fetch successful Paystack transactions for this user
+    txn_cursor = db.paystackTransactions.find(
+        {"eventId": {"$in": valid_ids}, "studentId": user_id, "status": "success"},
+        {"eventId": 1, "reference": 1},
+    )
+    txn_map: dict[str, str] = {}
+    async for txn in txn_cursor:
+        txn_map[txn["eventId"]] = txn.get("reference", "")
+
+    # Batch-fetch approved bank transfers
+    approved_cursor = db.bankTransfers.find(
+        {"eventId": {"$in": valid_ids}, "studentId": user_id, "status": "approved"},
+        {"eventId": 1, "transactionReference": 1},
+    )
+    approved_map: dict[str, str] = {}
+    async for t in approved_cursor:
+        approved_map[t["eventId"]] = t.get("transactionReference", "")
+
+    # Batch-fetch pending bank transfers
+    pending_cursor = db.bankTransfers.find(
+        {"eventId": {"$in": valid_ids}, "studentId": user_id, "status": "pending"},
+        {"eventId": 1},
+    )
+    pending_set: set[str] = set()
+    async for t in pending_cursor:
+        pending_set.add(t["eventId"])
+
+    # Batch-fetch events to check legacy paymentId → paidBy
+    events_cursor = db.events.find(
+        {"_id": {"$in": [ObjectId(eid) for eid in valid_ids]}, "paymentId": {"$exists": True}},
+        {"paymentId": 1},
+    )
+    payment_doc_ids = []
+    event_payment_map: dict[str, str] = {}
+    async for ev in events_cursor:
+        pid = ev.get("paymentId")
+        if pid:
+            payment_doc_ids.append(ObjectId(pid))
+            event_payment_map[str(ev["_id"])] = str(pid)
+
+    legacy_paid: set[str] = set()
+    if payment_doc_ids:
+        pay_cursor = db.payments.find(
+            {"_id": {"$in": payment_doc_ids}, "paidBy": user_id},
+            {"_id": 1},
+        )
+        paid_payment_ids: set[str] = set()
+        async for p in pay_cursor:
+            paid_payment_ids.add(str(p["_id"]))
+        for eid, pid in event_payment_map.items():
+            if pid in paid_payment_ids:
+                legacy_paid.add(eid)
+
+    # Build response
+    result: dict[str, dict] = {}
+    for eid in valid_ids:
+        has_paid = eid in txn_map or eid in approved_map or eid in legacy_paid
+        ref = txn_map.get(eid) or approved_map.get(eid)
+        result[eid] = {
+            "hasPaid": has_paid,
+            "paymentReference": ref,
+            "hasPendingTransfer": eid in pending_set,
+        }
+    return result
 
 
 @router.get("/{event_id}", response_model=EventWithStatus)
@@ -324,7 +418,7 @@ async def register_for_event(
     
     # Check registration deadline
     if event.get("registrationDeadline"):
-        if datetime.utcnow() > event["registrationDeadline"]:
+        if datetime.now(timezone.utc) > event["registrationDeadline"]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Registration deadline has passed"
@@ -358,7 +452,7 @@ async def register_for_event(
         {"_id": ObjectId(event_id)},
         {
             "$push": {"registrations": user["_id"]},
-            "$set": {"updatedAt": datetime.utcnow()}
+            "$set": {"updatedAt": datetime.now(timezone.utc)}
         }
     )
     
@@ -387,7 +481,7 @@ async def pay_for_event(
     Initialize payment for a paid event via Paystack.
     Returns Paystack authorization URL and reference.
     """
-    import requests as http_requests
+    import httpx
     import os
     
     db = get_database()
@@ -462,21 +556,22 @@ async def pay_for_event(
     }
     
     try:
-        response = http_requests.post(
-            "https://api.paystack.co/transaction/initialize",
-            json=paystack_data,
-            headers=headers,
-            timeout=10
-        )
-        
-        if not response.ok:
-            error_data = response.json()
-            raise HTTPException(
-                status_code=response.status_code,
-                detail=error_data.get("message", "Failed to initialize payment")
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.paystack.co/transaction/initialize",
+                json=paystack_data,
+                headers=headers,
+                timeout=10
             )
         
-        data = response.json()["data"]
+            if not response.is_success:
+                error_data = response.json()
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to initialize payment")
+                )
+        
+            data = response.json()["data"]
         
         # Store transaction record linked to event
         transaction_record = {
@@ -494,8 +589,8 @@ async def pay_for_event(
                 "accessCode": data["access_code"],
                 "authorizationUrl": data["authorization_url"]
             },
-            "createdAt": datetime.utcnow(),
-            "updatedAt": datetime.utcnow()
+            "createdAt": datetime.now(timezone.utc),
+            "updatedAt": datetime.now(timezone.utc)
         }
         
         if payment_id:
@@ -511,7 +606,7 @@ async def pay_for_event(
             "amount": amount,
             "status": "pending"
         }
-    except http_requests.RequestException as e:
+    except httpx.HTTPError as e:
         raise HTTPException(status_code=503, detail=f"Payment service unavailable: {str(e)}")
     except HTTPException:
         raise
@@ -697,8 +792,8 @@ async def submit_event_bank_transfer(
         "adminNote": None,
         "reviewedBy": None,
         "reviewedAt": None,
-        "createdAt": datetime.utcnow(),
-        "updatedAt": datetime.utcnow(),
+        "createdAt": datetime.now(timezone.utc),
+        "updatedAt": datetime.now(timezone.utc),
     }
     result = await db.bankTransfers.insert_one(doc)
     doc["_id"] = str(result.inserted_id)
@@ -725,7 +820,7 @@ async def unregister_from_event(
         {"_id": ObjectId(event_id)},
         {
             "$pull": {"registrations": user["_id"]},
-            "$set": {"updatedAt": datetime.utcnow()}
+            "$set": {"updatedAt": datetime.now(timezone.utc)}
         }
     )
     
@@ -777,7 +872,7 @@ async def update_event(
             detail="No fields to update"
         )
     
-    update_data["updatedAt"] = datetime.utcnow()
+    update_data["updatedAt"] = datetime.now(timezone.utc)
     
     result = await events.update_one(
         {"_id": ObjectId(event_id)},
@@ -940,7 +1035,7 @@ async def admin_remove_registration(
         {"_id": ObjectId(event_id)},
         {
             "$pull": {"registrations": user_id, "attendees": user_id},
-            "$set":  {"updatedAt": datetime.utcnow()},
+            "$set":  {"updatedAt": datetime.now(timezone.utc)},
         }
     )
     if result.matched_count == 0:
@@ -987,7 +1082,7 @@ async def admin_mark_all_attended(
         {"_id": ObjectId(event_id)},
         {
             "$addToSet": {"attendees": {"$each": valid_ids}},
-            "$set": {"updatedAt": datetime.utcnow()},
+            "$set": {"updatedAt": datetime.now(timezone.utc)},
         }
     )
 
@@ -1027,7 +1122,7 @@ async def admin_mark_attended(
         {"_id": ObjectId(event_id)},
         {
             "$addToSet": {"attendees": body.userId},
-            "$set":      {"updatedAt": datetime.utcnow()},
+            "$set":      {"updatedAt": datetime.now(timezone.utc)},
         }
     )
     return {"message": "Attendance marked"}
@@ -1050,7 +1145,7 @@ async def admin_unmark_attended(
         {"_id": ObjectId(event_id)},
         {
             "$pull": {"attendees": user_id},
-            "$set":  {"updatedAt": datetime.utcnow()},
+            "$set":  {"updatedAt": datetime.now(timezone.utc)},
         }
     )
 
@@ -1174,7 +1269,7 @@ async def download_event_ticket(
             from dateutil import parser
             event_date = parser.parse(event_date)
         elif not isinstance(event_date, datetime):
-            event_date = datetime.utcnow()
+            event_date = datetime.now(timezone.utc)
         
         # Generate PDF ticket
         from ..utils.ticket_generator import generate_event_ticket

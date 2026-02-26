@@ -13,7 +13,7 @@ Example:
 import asyncio
 import sys
 from motor.motor_asyncio import AsyncIOMotorClient
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 from dotenv import load_dotenv
 
@@ -59,7 +59,7 @@ async def make_user_admin(email: str):
         {
             "$set": {
                 "role": "admin",
-                "updatedAt": datetime.utcnow()
+                "updatedAt": datetime.now(timezone.utc)
             }
         }
     )

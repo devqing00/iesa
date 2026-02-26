@@ -134,7 +134,7 @@ async def delete_session_with_data(client, session_id: str):
     """
     from bson import ObjectId
     from app.db import get_database
-    from datetime import datetime
+    from datetime import datetime, timezone
     
     async def _delete(session):
         db = get_database()
@@ -177,20 +177,20 @@ async def create_payment_with_transaction(
     Create a payment and optionally an initial transaction atomically.
     """
     from app.db import get_database
-    from datetime import datetime
+    from datetime import datetime, timezone
     
     async def _create(session):
         db = get_database()
         
         # Insert payment
-        payment_data["createdAt"] = datetime.utcnow()
+        payment_data["createdAt"] = datetime.now(timezone.utc)
         result = await db["payments"].insert_one(payment_data, session=session)
         payment_id = str(result.inserted_id)
         
         # Insert transaction if provided
         if transaction_data:
             transaction_data["paymentId"] = payment_id
-            transaction_data["createdAt"] = datetime.utcnow()
+            transaction_data["createdAt"] = datetime.now(timezone.utc)
             await db["transactions"].insert_one(transaction_data, session=session)
         
         return payment_id
@@ -214,7 +214,7 @@ async def assign_role_atomically(
     """
     from bson import ObjectId
     from app.db import get_database
-    from datetime import datetime
+    from datetime import datetime, timezone
     
     async def _assign(session):
         db = get_database()
@@ -239,7 +239,7 @@ async def assign_role_atomically(
             "position": position,
             "permissions": permissions,
             "isActive": True,
-            "assignedAt": datetime.utcnow()
+            "assignedAt": datetime.now(timezone.utc)
         }
         
         result = await roles.insert_one(role_data, session=session)

@@ -2,6 +2,7 @@
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { useGrowthData } from "@/hooks/useGrowthData";
 import Link from "next/link";
 import { useState, useEffect, useCallback, useRef } from "react";
 
@@ -55,7 +56,7 @@ export default function StudyTimerPage() {
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [isRunning, setIsRunning] = useState(false);
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
-  const [settings, setSettings] = useState<TimerSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useGrowthData<TimerSettings>('timer-settings', 'iesa-timer-settings', DEFAULT_SETTINGS);
   const [showSettings, setShowSettings] = useState(false);
   // Draft inputs for duration fields — allows deleting digits without snapping
   const [draftDurations, setDraftDurations] = useState({
@@ -63,7 +64,7 @@ export default function StudyTimerPage() {
     shortBreak: String(DEFAULT_SETTINGS.shortBreakDuration),
     longBreak: String(DEFAULT_SETTINGS.longBreakDuration),
   });
-  const [history, setHistory] = useState<SessionRecord[]>([]);
+  const [history, setHistory] = useGrowthData<SessionRecord[]>('timer-history', 'iesa-timer-history', []);
   const [showHistory, setShowHistory] = useState(false);
   const [todayStats, setTodayStats] = useState({ focusMinutes: 0, sessions: 0 });
   const [streak, setStreak] = useState(0);
@@ -91,26 +92,18 @@ export default function StudyTimerPage() {
   }, []);
 
   useEffect(() => {
-    try {
-      const savedSettings = localStorage.getItem("iesa-timer-settings");
-      if (savedSettings) {
-        const parsed: TimerSettings = JSON.parse(savedSettings);
-        setSettings(parsed);
-        setDraftDurations({
-          focus:      String(parsed.focusDuration),
-          shortBreak: String(parsed.shortBreakDuration),
-          longBreak:  String(parsed.longBreakDuration),
-        });
-      }
-      const savedHistory = localStorage.getItem("iesa-timer-history");
-      if (savedHistory) {
-        const records: SessionRecord[] = JSON.parse(savedHistory);
-        setHistory(records);
-        calculateStats(records);
-      }
-      setQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
-    } catch { console.error("Failed to load timer data"); }
-  }, [calculateStats]);
+    // Initialize draft durations & stats from hook-loaded settings/history
+    setDraftDurations({
+      focus: String(settings.focusDuration),
+      shortBreak: String(settings.shortBreakDuration),
+      longBreak: String(settings.longBreakDuration),
+    });
+  }, [settings.focusDuration, settings.shortBreakDuration, settings.longBreakDuration]);
+
+  useEffect(() => {
+    if (history.length > 0) calculateStats(history);
+    setQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
+  }, [history, calculateStats]);
 
   const getDuration = useCallback((timerMode: TimerMode) => {
     switch (timerMode) {
@@ -150,7 +143,6 @@ export default function StudyTimerPage() {
 
     setHistory((prev) => {
       const updatedHistory = [newRecord, ...prev].slice(0, 100);
-      localStorage.setItem("iesa-timer-history", JSON.stringify(updatedHistory));
       calculateStats(updatedHistory);
       return updatedHistory;
     });
@@ -217,7 +209,6 @@ export default function StudyTimerPage() {
 
   const saveSettings = (newSettings: TimerSettings) => {
     setSettings(newSettings);
-    localStorage.setItem("iesa-timer-settings", JSON.stringify(newSettings));
     switch (mode) {
       case "focus": setTimeLeft(newSettings.focusDuration * 60); break;
       case "shortBreak": setTimeLeft(newSettings.shortBreakDuration * 60); break;
@@ -245,12 +236,12 @@ export default function StudyTimerPage() {
 
       <div className="px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8 max-w-4xl mx-auto relative">
         {/* Diamond Sparkle Decorators */}
-        <svg className="fixed top-24 left-[7%] w-5 h-5 text-lavender/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed top-44 right-[8%] w-7 h-7 text-teal/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed top-[50%] left-[5%] w-4 h-4 text-sunny/18 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed bottom-36 right-[12%] w-6 h-6 text-coral/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed top-[35%] right-[20%] w-4 h-4 text-navy/10 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed bottom-52 left-[14%] w-5 h-5 text-lavender/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed top-24 left-[7%] w-5 h-5 text-lavender/15 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed top-44 right-[8%] w-7 h-7 text-teal/12 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed top-[50%] left-[5%] w-4 h-4 text-sunny/18 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed bottom-36 right-[12%] w-6 h-6 text-coral/15 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed top-[35%] right-[20%] w-4 h-4 text-navy/10 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed bottom-52 left-[14%] w-5 h-5 text-lavender/12 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
 
         {/* Back Link + Help */}
         <div className="flex items-center justify-between mb-6">
@@ -564,8 +555,8 @@ export default function StudyTimerPage() {
             </div>
             <div className="mt-4 pt-4 border-t border-navy/10">
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/30 flex items-center gap-1.5">
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" /></svg>
-                All data stored locally
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M4.5 9.75a6 6 0 0111.573-2.226 3.75 3.75 0 014.133 4.303A4.5 4.5 0 0118 20.25H6.75a5.25 5.25 0 01-.75-10.5z" clipRule="evenodd" /></svg>
+                Synced to your account
               </p>
             </div>
           </div>

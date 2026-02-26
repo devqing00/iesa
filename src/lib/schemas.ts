@@ -84,6 +84,7 @@ export const ResourceSchema = z.object({
   level: z.coerce
     .number()
     .refine((v) => [100, 200, 300, 400, 500].includes(v), "Level must be 100, 200, 300, 400, or 500"),
+  semester: z.enum(["first", "second"]).optional().nullable(),
   url: z.string().url("Must be a valid URL"),
   tags: z.string().optional(),
 });

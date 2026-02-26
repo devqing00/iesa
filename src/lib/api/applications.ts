@@ -99,14 +99,22 @@ export async function getMyApplications(): Promise<UnitApplication[]> {
 interface ListApplicationsParams {
   unit?: string;
   status?: string;
+  search?: string;
+  limit?: number;
+  skip?: number;
+}
+
+export interface PaginatedApplications {
+  items: UnitApplication[];
+  total: number;
 }
 
 /**
  * List applications (admin/exco only)
  */
-export async function listApplications(params: ListApplicationsParams = {}): Promise<UnitApplication[]> {
+export async function listApplications(params: ListApplicationsParams = {}): Promise<PaginatedApplications> {
   const query = buildQueryString(params);
-  return api.get<UnitApplication[]>(`/api/v1/unit-applications/${query}`);
+  return api.get<PaginatedApplications>(`/api/v1/unit-applications/${query}`);
 }
 
 /**

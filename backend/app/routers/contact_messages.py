@@ -7,7 +7,7 @@ Admin endpoints for viewing, managing, and responding to messages.
 
 from fastapi import APIRouter, HTTPException, Depends, status, Query, Request
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 import logging
 
@@ -21,6 +21,7 @@ from app.core.security import get_current_user
 from app.core.permissions import require_permission
 from app.core.sanitization import sanitize_string, validate_no_scripts
 from app.core.rate_limiting import limiter
+from app.core.audit import AuditLogger
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ async def submit_contact_message(request: Request, payload: ContactMessageCreate
     if not validate_no_scripts(name) or not validate_no_scripts(subject) or not validate_no_scripts(message):
         raise HTTPException(status_code=400, detail="Invalid input detected")
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     doc = {
         "name": name,
         "email": str(payload.email).strip().lower(),
@@ -148,7 +149,7 @@ async def get_contact_message(
     if doc.get("status") == "unread":
         await db[COLLECTION].update_one(
             {"_id": oid},
-            {"$set": {"status": "read", "updatedAt": datetime.utcnow()}},
+            {"$set": {"status": "read", "updatedAt": datetime.now(timezone.utc)}},
         )
         doc["status"] = "read"
 
@@ -159,6 +160,7 @@ async def get_contact_message(
 async def update_contact_message(
     message_id: str,
     payload: ContactMessageUpdate,
+    request: Request,
     user=Depends(require_permission("contact:manage")),
 ):
     """Update message status or add admin note."""
@@ -172,12 +174,12 @@ async def update_contact_message(
     if not doc:
         raise HTTPException(status_code=404, detail="Message not found")
 
-    update: dict = {"updatedAt": datetime.utcnow()}
+    update: dict = {"updatedAt": datetime.now(timezone.utc)}
 
     if payload.status is not None:
         update["status"] = payload.status
         if payload.status == "replied":
-            update["repliedAt"] = datetime.utcnow()
+            update["repliedAt"] = datetime.now(timezone.utc)
 
     if payload.adminNote is not None:
         note = sanitize_string(payload.adminNote, max_length=2000)
@@ -186,6 +188,18 @@ async def update_contact_message(
         update["adminNote"] = note
 
     await db[COLLECTION].update_one({"_id": oid}, {"$set": update})
+
+    await AuditLogger.log(
+        action="contact_message.updated",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="contact_message",
+        resource_id=message_id,
+        details={"status": payload.status, "has_note": payload.adminNote is not None},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     updated_doc = await db[COLLECTION].find_one({"_id": oid})
     return _serialize(updated_doc)
 
@@ -193,6 +207,7 @@ async def update_contact_message(
 @router.delete("/{message_id}")
 async def delete_contact_message(
     message_id: str,
+    request: Request,
     user=Depends(require_permission("contact:manage")),
 ):
     """Delete a contact message permanently."""
@@ -202,9 +217,21 @@ async def delete_contact_message(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid message ID")
 
+    doc = await db[COLLECTION].find_one({"_id": oid})
     result = await db[COLLECTION].delete_one({"_id": oid})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Message not found")
+
+    await AuditLogger.log(
+        action="contact_message.deleted",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="contact_message",
+        resource_id=message_id,
+        details={"subject": doc.get("subject") if doc else None},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
 
     logger.info(f"Contact message deleted: {message_id}")
     return {"message": "Message deleted"}

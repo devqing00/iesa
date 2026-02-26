@@ -10,7 +10,7 @@ Usage:
 
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 from dotenv import load_dotenv
 
@@ -28,7 +28,7 @@ async def create_next_session():
     db = client[DATABASE_NAME]
     
     # Safety check: Don't run before March 1, 2026
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     session_start_date = datetime(2026, 3, 9)
     
     if now < datetime(2026, 3, 1):
@@ -71,7 +71,7 @@ async def create_next_session():
         # Deactivate current session
         await sessions.update_one(
             {"_id": current_session["_id"]},
-            {"$set": {"isActive": False, "updatedAt": datetime.utcnow()}}
+            {"$set": {"isActive": False, "updatedAt": datetime.now(timezone.utc)}}
         )
         print("   ✅ Previous session marked inactive")
         print()
@@ -83,8 +83,8 @@ async def create_next_session():
         "endDate": datetime(2027, 2, 28),     # Approx end (before next session)
         "currentSemester": 1,  # First semester
         "isActive": True,
-        "createdAt": datetime.utcnow(),
-        "updatedAt": datetime.utcnow()
+        "createdAt": datetime.now(timezone.utc),
+        "updatedAt": datetime.now(timezone.utc)
     }
     
     result = await sessions.insert_one(new_session_data)

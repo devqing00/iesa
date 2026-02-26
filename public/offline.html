@@ -6,6 +6,7 @@
   <title>Offline — IESA</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
       font-family: system-ui, -apple-system, sans-serif;
       min-height: 100vh;
@@ -14,30 +15,111 @@
       justify-content: center;
       background: #F5F5FA;
       color: #0F0F2D;
+      overflow: hidden;
+      padding: 24px;
     }
+
+    /* Diamond sparkle decorators */
+    .sparkle {
+      position: fixed;
+      pointer-events: none;
+      fill: currentColor;
+    }
+    .sp1 { top: 10%;  left: 8%;   width: 20px; height: 20px; color: rgba(15,15,45,0.07); }
+    .sp2 { top: 18%;  right: 10%; width: 26px; height: 26px; color: rgba(200,243,29,0.18); }
+    .sp3 { bottom: 22%; left: 12%; width: 16px; height: 16px; color: rgba(15,15,45,0.06); }
+    .sp4 { bottom: 14%; right: 16%; width: 22px; height: 22px; color: rgba(200,243,29,0.14); }
+
     .card {
       background: #fff;
       border: 4px solid #0F0F2D;
       border-radius: 24px;
-      padding: 48px 32px;
-      text-align: center;
-      max-width: 420px;
+      max-width: 400px;
+      width: 100%;
       box-shadow: 8px 8px 0 0 #000;
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
     }
-    h1 { font-size: 2rem; font-weight: 900; margin-bottom: 12px; }
-    p { color: #555; margin-bottom: 24px; line-height: 1.5; }
+
+    /* Coral accent header strip */
+    .card-header {
+      background: #F26E6E;
+      border-bottom: 4px solid #0F0F2D;
+      padding: 28px 32px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .icon-wrap {
+      width: 52px;
+      height: 52px;
+      background: #fff;
+      border: 3px solid #0F0F2D;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 3px 3px 0 0 #0F0F2D;
+    }
+
+    .card-header-text .badge {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(15,15,45,0.5);
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .card-header-text h2 {
+      font-size: 1.15rem;
+      font-weight: 900;
+      color: #0F0F2D;
+    }
+
+    /* Body */
+    .card-body {
+      padding: 28px 32px 32px;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 900;
+      color: #0F0F2D;
+      margin-bottom: 10px;
+    }
+
+    p {
+      color: #6B6B8D;
+      line-height: 1.6;
+      margin-bottom: 28px;
+      font-size: 0.9rem;
+    }
+
     button {
       background: #C8F31D;
       border: 4px solid #0F0F2D;
-      border-radius: 16px;
-      padding: 12px 32px;
-      font-size: 1rem;
+      border-radius: 14px;
+      padding: 12px 36px;
+      font-size: 0.95rem;
       font-weight: 900;
       color: #0F0F2D;
       cursor: pointer;
       box-shadow: 5px 5px 0 0 #0F0F2D;
       transition: transform 0.1s, box-shadow 0.1s;
+      display: inline-block;
     }
+
+    button:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 6px 6px 0 0 #0F0F2D;
+    }
+
     button:active {
       transform: translate(5px, 5px);
       box-shadow: 0 0 0 0 #0F0F2D;
@@ -45,10 +127,36 @@
   </style>
 </head>
 <body>
+  <!-- Diamond sparkle decorators -->
+  <svg class="sparkle sp1" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+  <svg class="sparkle sp2" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+  <svg class="sparkle sp3" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+  <svg class="sparkle sp4" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+
   <div class="card">
-    <h1>You&rsquo;re Offline</h1>
-    <p>It looks like you&rsquo;ve lost your internet connection. Some cached content may still be available.</p>
-    <button onclick="window.location.reload()">Try Again</button>
+    <div class="card-header">
+      <div class="icon-wrap">
+        <!-- Wifi-off icon -->
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0F0F2D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="1" y1="1" x2="23" y2="23"/>
+          <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+          <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+          <path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>
+          <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+          <circle cx="12" cy="20" r="1" fill="#0F0F2D"/>
+        </svg>
+      </div>
+      <div class="card-header-text">
+        <span class="badge">IESA Platform</span>
+        <h2>No Connection</h2>
+      </div>
+    </div>
+    <div class="card-body">
+      <h1>You&rsquo;re Offline</h1>
+      <p>It looks like you&rsquo;ve lost your internet connection. Check your network and try again &mdash; some cached pages may still be available.</p>
+      <button onclick="window.location.reload()">Try Again</button>
+    </div>
   </div>
 </body>
 </html>

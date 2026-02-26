@@ -290,21 +290,84 @@ Bold, vibrant, multi-color design inspired by modern card-based editorial layout
 ## Architecture & Key Files
 
 ### Frontend
-- **Framework:** Next.js 16 (App Router, TypeScript)
+- **Framework:** Next.js 16 (App Router, TypeScript, React 19)
 - **Styling:** Tailwind CSS v4 with CSS-first configuration
-- **Theme:** Light mode only — `next-themes` with `defaultTheme="light"`
+- **Theme:** Light mode only — `next-themes` with `defaultTheme="light"` — **no dark mode**
 - **Auth:** JWT (Argon2id + httpOnly refresh cookies)
+- **Data Fetching:** SWR v2.4.0 installed (gradually adopting — most pages still use manual fetch)
+- **Real-time:** WebSocket for study group chat, SSE for cache revalidation
 
 ### Backend
 - **Framework:** FastAPI async
-- **Auth:** JWT verification
-- **Database:** MongoDB + Pydantic V2
+- **Auth:** `verify_token` (JWT payload only) vs `get_current_user` (full user doc from DB)
+- **Database:** MongoDB (Motor async driver) + Pydantic V2
+- **Permissions:** `require_permission("scope:action")` dependency in `app/core/permissions.py`
 
 ### Key Files
-- `src/app/globals.css` — Design tokens and utility classes
+- `src/app/globals.css` — Design tokens, utility classes, press system
 - `src/app/layout.tsx` — Root layout, fonts, providers
-- `src/context/AuthContext.tsx` — JWT auth state
-- `src/components/ui/` — UI component library
+- `src/app/providers.tsx` — ThemeProvider, AuthProvider, SessionProvider, PermissionsProvider, ToastProvider
+- `src/context/AuthContext.tsx` — JWT auth state, `getAccessToken()`, `userProfile`
+- `src/context/SessionContext.tsx` — Active academic session context
+- `src/hooks/useData.ts` — SWR-based hooks: `useStudentDashboard`, `useAdminStats`, `prefetchRoute`
+- `src/hooks/useGrowthData.ts` — Dual localStorage + API persistence for growth tools
+- `src/hooks/useSSE.ts` — Server-Sent Events hook for SWR cache revalidation
+- `src/lib/api/` — Typed API client (`api.get()`, `api.post()`, etc.)
+- `src/components/ui/` — UI component library (Modal, Toast, Table, Button, etc.)
+
+### Platform Features
+- **Student Dashboard:** Announcements, events, timetable, payments, library (resources), profile, press, team pages, applications, receipts, tickets
+- **Admin Dashboard:** User management, announcements, events, sessions, timetable, payments, enrollments, resources, audit logs, messages, IEPOD, TIMP
+- **Growth Hub:** 8 tools — habits tracker, CGPA calculator, Pomodoro timer, flashcards, journal, planner, courses list, goals (all use `useGrowthData` hook)
+- **Study Groups:** Real-time chat (WebSocket), sessions scheduling, resource sharing, pinned notes
+- **IESA AI:** Groq-powered assistant (llama-3.3-70b-versatile) with personalised student context
+- **Press / Blog:** Student article submission, editorial review, public blog
+- **IEPOD:** Departmental orientation programme — registration, phases, quizzes
+- **TIMP:** Technical/Industry Mentorship Programme — applications, matching, pairs
+- **Resource Library:** Student-submitted study materials with admin approval flow
+
+### Removed Features (do not reference)
+- **PWA:** Service worker, manifest.json — fully removed
+- **Grades system:** `grade.py` model, grade router, all grade-related UI — fully removed (CGPA calc in Growth Hub is self-contained, not API-backed grades)
+
+---
+
+## Data Fetching Patterns
+
+### Current State
+SWR v2.4.0 is installed. Only ~2 pages use it. Most pages use manual `useState` + `useEffect` + `fetch()`.
+
+### Preferred Pattern (new pages)
+Use SWR hooks from `src/hooks/useData.ts` or create new ones:
+```tsx
+import useSWR from "swr";
+import { useAuth } from "@/context/AuthContext";
+import { getApiUrl } from "@/lib/api";
+
+function useResources(filters: Filters) {
+  const { getAccessToken } = useAuth();
+  const key = `/api/v1/resources?${new URLSearchParams(filters)}`;
+  return useSWR(key, async () => {
+    const token = await getAccessToken();
+    const res = await fetch(getApiUrl(key), { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error("Failed to fetch");
+    return res.json();
+  });
+}
+```
+
+### Loading State Pattern
+Separate initial loading from subsequent data fetches:
+- `initialLoading` — true until first successful fetch → shows full-page spinner
+- `isFetching` / SWR's `isValidating` — true during re-fetches → shows inline overlay on the data area only
+- **Never** show a full-page spinner when filters/search/sort change after initial load
+
+### Backend Auth in Endpoints
+- **Read-only public endpoints:** No auth
+- **Student endpoints:** `user: dict = Depends(get_current_user)` — returns full user doc
+- **Permission-gated endpoints:** `user: dict = Depends(require_permission("scope:action"))`
+- **JWT-only endpoints (avoid):** `verify_token` returns only JWT payload — no permissions, no profile data
+- **WebSocket auth:** Use query param `?token=...` since browsers can't set WS headers
 
 ---
 

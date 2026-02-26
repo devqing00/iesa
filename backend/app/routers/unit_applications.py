@@ -8,13 +8,14 @@ Endpoints:
   PATCH  /api/v1/unit-applications/{id}/review — Unit head reviews (accept/reject)
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from typing import Optional
 from datetime import datetime, timezone
 from bson import ObjectId
 
 from app.core.security import get_current_user
 from app.core.permissions import get_current_session, require_permission
+from app.core.audit import AuditLogger
 from app.db import get_database
 from app.models.unit_application import (
     UnitApplicationCreate,
@@ -97,10 +98,13 @@ async def my_applications(
     return [UnitApplicationResponse(**_serialize(d)) for d in docs]
 
 
-@router.get("/", response_model=list[UnitApplicationResponse])
+@router.get("/", response_model=None)
 async def list_applications(
     unit: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    search: Optional[str] = Query(None, description="Search by student name or email"),
+    limit: int = Query(20, ge=1, le=100),
+    skip: int = Query(0, ge=0),
     user=Depends(require_permission("unit_application:review")),
     session=Depends(get_current_session),
 ):
@@ -115,16 +119,24 @@ async def list_applications(
         query["unit"] = unit
     if status:
         query["status"] = status
+    if search:
+        search_regex = {"$regex": search, "$options": "i"}
+        query["$or"] = [
+            {"userName": search_regex},
+            {"userEmail": search_regex},
+        ]
 
-    cursor = db["unit_applications"].find(query).sort("createdAt", -1)
-    docs = await cursor.to_list(length=500)
-    return [UnitApplicationResponse(**_serialize(d)) for d in docs]
+    total = await db["unit_applications"].count_documents(query)
+    cursor = db["unit_applications"].find(query).sort("createdAt", -1).skip(skip).limit(limit)
+    docs = await cursor.to_list(length=limit)
+    return {"items": [UnitApplicationResponse(**_serialize(d)) for d in docs], "total": total}
 
 
 @router.patch("/{application_id}/review", response_model=UnitApplicationResponse)
 async def review_application(
     application_id: str,
     body: UnitApplicationReview,
+    request: Request,
     user=Depends(require_permission("unit_application:review")),
     session=Depends(get_current_session),
 ):
@@ -208,4 +220,18 @@ async def review_application(
                 })
 
     updated = await db["unit_applications"].find_one({"_id": oid})
+    
+    # Audit log
+    await AuditLogger.log(
+        action=f"unit_application.{body.status.value}",
+        actor_id=user_id,
+        actor_email=user.get("email", "unknown"),
+        resource_type="unit_application",
+        resource_id=application_id,
+        session_id=app_doc.get("sessionId"),
+        details={"unit": app_doc["unit"], "status": body.status.value, "feedback": body.feedback},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    
     return UnitApplicationResponse(**_serialize(updated))

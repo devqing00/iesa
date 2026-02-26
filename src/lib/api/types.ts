@@ -358,7 +358,7 @@ export interface EnrollmentWithDetails extends Enrollment {
 }
 
 // ============================================
-// Grade Types
+// CGPA Types
 // ============================================
 
 export interface Course {
@@ -376,16 +376,7 @@ export interface Semester {
   gpa?: number;
 }
 
-export interface Grade {
-  id: string;
-  studentId: string;
-  sessionId: string;
-  level: string;
-  semesters: Semester[];
-  sessionGpa?: number;
-  createdAt: string;
-  updatedAt: string;
-}
+
 
 export interface CGPAResponse {
   studentId: string;

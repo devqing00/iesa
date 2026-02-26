@@ -2,8 +2,9 @@
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { useGrowthData } from "@/hooks/useGrowthData";
 import Link from "next/link";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -119,7 +120,7 @@ function getLast30DaysGrid(habit: Habit): { date: string; completed: boolean; tr
 
 export default function HabitTrackerPage() {
   const { showHelp, openHelp, closeHelp } = useToolHelp("habits");
-  const [habits, setHabits] = useState<Habit[]>([]);
+  const [habits, setHabits] = useGrowthData<Habit[]>('habits', STORAGE_KEY, []);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -131,21 +132,9 @@ export default function HabitTrackerPage() {
   const [formFreq, setFormFreq] = useState<Habit["frequency"]>("daily");
   const [formCustomDays, setFormCustomDays] = useState<number[]>([1, 2, 3, 4, 5]);
 
-  // Load from localStorage
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) setHabits(JSON.parse(saved));
-    } catch {
-      console.error("Failed to load habits");
-    }
-  }, []);
-
-  // Save to localStorage
   const persist = useCallback((data: Habit[]) => {
     setHabits(data);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  }, []);
+  }, [setHabits]);
 
   const resetForm = () => {
     setFormName("");
@@ -705,10 +694,10 @@ export default function HabitTrackerPage() {
 
         {/* Privacy */}
         <div className="mt-8 text-center flex items-center justify-center gap-1.5">
-          <svg className="w-3 h-3 text-slate" fill="currentColor" viewBox="0 0 24 24">
-            <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" />
+          <svg className="w-3 h-3 text-teal" fill="currentColor" viewBox="0 0 24 24">
+            <path fillRule="evenodd" d="M4.5 9.75a6 6 0 0111.573-2.226 3.75 3.75 0 014.133 4.303A4.5 4.5 0 0118 20.25H6.75a5.25 5.25 0 01-.75-10.5z" clipRule="evenodd" />
           </svg>
-          <span className="text-[10px] font-bold text-slate uppercase tracking-wider">All data stored locally on your device</span>
+          <span className="text-[10px] font-bold text-teal uppercase tracking-wider">Synced to your account</span>
         </div>
       </div>
     </div>

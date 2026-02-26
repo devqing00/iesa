@@ -7,7 +7,7 @@ for specific courses or topics.
 
 from pydantic import BaseModel, Field
 from typing import Optional, Literal
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class StudyGroupBase(BaseModel):
@@ -48,7 +48,7 @@ class StudyGroupMember(BaseModel):
     firstName: str
     lastName: str
     matricNumber: Optional[str] = None
-    joinedAt: datetime = Field(default_factory=datetime.utcnow)
+    joinedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class StudyGroupInDB(StudyGroupBase):
@@ -56,5 +56,5 @@ class StudyGroupInDB(StudyGroupBase):
     createdBy: str  # user_id
     creatorName: str
     members: list[StudyGroupMember] = Field(default_factory=list)
-    createdAt: datetime = Field(default_factory=datetime.utcnow)
-    updatedAt: datetime = Field(default_factory=datetime.utcnow)
+    createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updatedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

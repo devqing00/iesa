@@ -225,13 +225,11 @@ async def initialize_student_data(db, user: dict, level: str):
     - Enrollment record
     - Payment records (with defaults)
     - Basic role
-    - Empty grade records (placeholders)
     """
     sessions = db.sessions
     enrollments = db.enrollments
     payments = db.payments
     roles = db.roles
-    grades = db.grades
     
     # Get current active session
     active_session = await sessions.find_one({"isActive": True})
@@ -322,27 +320,6 @@ async def initialize_student_data(db, user: dict, level: str):
             "updatedAt": datetime.now(timezone.utc)
         }
         await roles.insert_one(role_data)
-    
-    # 4. Initialize placeholder grade records (empty, to be filled by admin)
-    # This prevents "no grades found" errors
-    existing_grade = await grades.find_one({
-        "studentId": user_id,
-        "sessionId": session_id
-    })
-    
-    if not existing_grade:
-        grade_data = {
-            "studentId": user_id,
-            "sessionId": session_id,
-            "semester": active_session.get("currentSemester", 1),
-            "courses": [],  # Empty, will be populated by admin
-            "cgpa": None,
-            "gpa": None,
-            "remarks": "Grades pending - Contact departmental office",
-            "createdAt": datetime.now(timezone.utc),
-            "updatedAt": datetime.now(timezone.utc)
-        }
-        await grades.insert_one(grade_data)
 
 
 @router.get("/check-matric/{matric_number}")

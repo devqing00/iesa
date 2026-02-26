@@ -1,6 +1,7 @@
 "use client";
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import { getAllGrowthData } from "@/lib/api/growth";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 
@@ -195,29 +196,39 @@ export default function GrowthPage() {
   });
 
   useEffect(() => {
-    try {
-      const cgpaHistory = localStorage.getItem("iesa-cgpa-history");
-      const cgpaRecords: SemesterRecord[] = cgpaHistory ? JSON.parse(cgpaHistory) : [];
+    // Helper to safely parse from a source (API data or localStorage fallback)
+    function parse<T>(apiData: Record<string, { data: unknown }> | null, toolKey: string, lsKey: string): T | null {
+      // Try API data first
+      if (apiData && apiData[toolKey]?.data != null) return apiData[toolKey].data as T;
+      // Fallback to localStorage
+      try {
+        const raw = localStorage.getItem(lsKey);
+        if (raw) return JSON.parse(raw) as T;
+      } catch {}
+      return null;
+    }
 
-      const plannerTasks = localStorage.getItem("iesa-planner-tasks");
-      const tasks: PlannerTask[] = plannerTasks ? JSON.parse(plannerTasks) : [];
+    async function loadStats() {
+      let apiData: Record<string, { data: unknown }> | null = null;
+      try {
+        apiData = await getAllGrowthData() as unknown as Record<string, { data: unknown }>;
+      } catch { /* API unavailable — fall through to localStorage */ }
+
+      const cgpaRecords = parse<SemesterRecord[]>(apiData, "cgpa-history", "iesa-cgpa-history") ?? [];
+      const tasks = parse<PlannerTask[]>(apiData, "planner", "iesa-planner-tasks") ?? [];
       const completed = tasks.filter((t) => t.completed).length;
       const pending = tasks.filter((t) => !t.completed).length;
 
-      const timerHistory = localStorage.getItem("iesa-timer-history");
-      const timerRecords: TimerRecord[] = timerHistory ? JSON.parse(timerHistory) : [];
+      const timerRecords = parse<TimerRecord[]>(apiData, "timer-history", "iesa-timer-history") ?? [];
       const today = new Date().toDateString();
       const todayFocus = timerRecords.filter((r) => r.date === today && r.mode === "focus");
       const focusMinutes = todayFocus.reduce((acc, r) => acc + r.duration, 0);
 
-      const goalsData = localStorage.getItem("iesa-goals");
-      const goals: GoalData[] = goalsData ? JSON.parse(goalsData) : [];
+      const goals = parse<GoalData[]>(apiData, "goals", "iesa-goals") ?? [];
       const goalsCompleted = goals.filter((g) => g.completedAt).length;
       const goalsActive = goals.length - goalsCompleted;
 
-      // New tools
-      const habitsRaw = localStorage.getItem("iesa-habits-data");
-      const habits: HabitData[] = habitsRaw ? JSON.parse(habitsRaw) : [];
+      const habits = parse<HabitData[]>(apiData, "habits", "iesa-habits-data") ?? [];
       const activeHabits = habits.filter((h) => !h.archived);
       let maxStreak = 0;
       activeHabits.forEach((h) => {
@@ -232,16 +243,13 @@ export default function GrowthPage() {
         if (streak > maxStreak) maxStreak = streak;
       });
 
-      const decksRaw = localStorage.getItem("iesa-flashcards-data");
-      const decks: DeckData[] = decksRaw ? JSON.parse(decksRaw) : [];
+      const decks = parse<DeckData[]>(apiData, "flashcards", "iesa-flashcards-data") ?? [];
       const now = new Date().toISOString();
       const dueCards = decks.reduce((acc, d) => acc + d.cards.filter((c) => c.nextReview <= now).length, 0);
 
-      const journalRaw = localStorage.getItem("iesa-journal-entries");
-      const journalEntries: JournalEntry[] = journalRaw ? JSON.parse(journalRaw) : [];
+      const journalEntries = parse<JournalEntry[]>(apiData, "journal", "iesa-journal-entries") ?? [];
 
-      const coursesRaw = localStorage.getItem("iesa-courses-progress");
-      const courses: CourseData[] = coursesRaw ? JSON.parse(coursesRaw) : [];
+      const courses = parse<CourseData[]>(apiData, "courses", "iesa-courses-progress") ?? [];
       const totalTopics = courses.reduce((a, c) => a + c.topics.length, 0);
       const completedTopics = courses.reduce((a, c) => a + c.topics.filter((t) => t.completed).length, 0);
       const coursesPct = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
@@ -263,9 +271,9 @@ export default function GrowthPage() {
         coursesTracked: courses.length,
         coursesProgress: coursesPct,
       });
-    } catch {
-      console.error("Failed to load growth stats");
     }
+
+    loadStats();
   }, []);
 
   const getToolStats = (id: string) => {
@@ -470,10 +478,10 @@ export default function GrowthPage() {
 
         {/* Privacy */}
         <div className="mt-6 text-center flex items-center justify-center gap-1.5">
-          <svg className="w-3 h-3 text-slate" fill="currentColor" viewBox="0 0 24 24">
-            <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" />
+          <svg className="w-3 h-3 text-teal" fill="currentColor" viewBox="0 0 24 24">
+            <path fillRule="evenodd" d="M4.5 9.75a6 6 0 0111.573-2.226 3.75 3.75 0 014.133 4.303A4.5 4.5 0 0118 20.25H6.75a5.25 5.25 0 01-.75-10.5z" clipRule="evenodd" />
           </svg>
-          <span className="text-[10px] font-bold text-slate uppercase tracking-wider">All data stored locally on your device</span>
+          <span className="text-[10px] font-bold text-teal uppercase tracking-wider">Synced to your account</span>
         </div>
       </div>
     </div>

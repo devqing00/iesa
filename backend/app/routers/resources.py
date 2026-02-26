@@ -2,18 +2,21 @@
 Resource Library Router - Google Drive & YouTube integration
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Form, Query
+from fastapi import APIRouter, Depends, HTTPException, Form, Query, Request
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
+from bson import ObjectId
+from pymongo import ReturnDocument
 import os
 import re
 import json
 import base64
 
-from ..core.security import verify_token
+from ..core.security import get_current_user
 from ..core.database import get_database
+from ..core.permissions import get_user_permissions
 
 router = APIRouter(prefix="/api/v1/resources", tags=["resources"])
 
@@ -63,6 +66,7 @@ class ResourceResponse(BaseModel):
     type: str  # "slide", "pastQuestion", "note", "textbook", "video"
     courseCode: str
     level: int
+    semester: Optional[str] = None  # "first" | "second" | None (all)
     url: str  # Google Drive link or YouTube URL
     driveFileId: Optional[str] = None  # For Google Drive files
     youtubeVideoId: Optional[str] = None  # For YouTube videos
@@ -71,7 +75,6 @@ class ResourceResponse(BaseModel):
     uploadedBy: str
     uploaderName: str
     tags: List[str]
-    downloadCount: int
     viewCount: int
     isApproved: bool
     approvedBy: Optional[str] = None
@@ -101,15 +104,21 @@ class AddResourceRequest(BaseModel):
     type: str  # slide, pastQuestion, video, textbook, note
     courseCode: str
     level: int
+    semester: Optional[str] = None  # "first" | "second" | None
     tags: str  # Comma-separated
     url: str  # Google Drive shareable link or YouTube URL
 
 
 # Helper functions
-def check_permission(user: dict, permission: str) -> bool:
-    """Check if user has specific permission"""
-    permissions = user.get("permissions", [])
-    return permission in permissions or "admin:all" in permissions
+async def check_resource_permission(user: dict, permission: str, db: AsyncIOMotorDatabase) -> bool:
+    """Check if user has specific permission using DB-backed role permissions"""
+    user_id = str(user.get("_id", ""))
+    session = await db["sessions"].find_one({"isActive": True})
+    if not session:
+        return False
+    session_id = str(session["_id"])
+    permissions = await get_user_permissions(user_id, session_id)
+    return permission in permissions
 
 
 async def get_current_session(db: AsyncIOMotorDatabase):
@@ -188,7 +197,7 @@ def validate_resource_data(resource_type: str, url: str):
 @router.post("/add", response_model=dict)
 async def add_resource(
     resource_data: AddResourceRequest,
-    user: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """
@@ -226,35 +235,38 @@ async def add_resource(
     # Parse tags
     tag_list = [tag.strip() for tag in resource_data.tags.split(",") if tag.strip()]
     
-    # Get user info
-    users = db["users"]
-    uploader = await users.find_one({"_id": user["_id"]})
-    uploader_name = f"{uploader.get('firstName', 'Unknown')} {uploader.get('lastName', 'User')}"
+    # Get user info (user is full DB doc from get_current_user)
+    user_id = str(user["_id"])
+    uploader_name = f"{user.get('firstName', 'Unknown')} {user.get('lastName', 'User')}"
     
+    # Validate semester
+    if resource_data.semester and resource_data.semester not in ["first", "second"]:
+        raise HTTPException(status_code=400, detail="Semester must be 'first' or 'second'")
+
     # Create resource document
     resources = db["resources"]
     resource_doc = {
-        "sessionId": session["_id"],
+        "sessionId": str(session["_id"]),
         "title": resource_data.title,
         "description": resource_data.description,
         "type": resource_data.type,
         "courseCode": resource_data.courseCode.upper(),
         "level": resource_data.level,
+        "semester": resource_data.semester,  # "first" | "second" | None
         "url": resource_data.url,
         "driveFileId": drive_file_id,
         "youtubeVideoId": youtube_video_id,
         "fileType": file_type,
         "fileSize": None,  # Not available for Drive/YouTube links
-        "uploadedBy": user["_id"],
+        "uploadedBy": user_id,
         "uploaderName": uploader_name,
         "tags": tag_list,
-        "downloadCount": 0,
         "viewCount": 0,
-        "isApproved": check_permission(user, "resource:approve"),  # Auto-approve for admins
-        "approvedBy": user["_id"] if check_permission(user, "resource:approve") else None,
+        "isApproved": await check_resource_permission(user, "resource:approve", db),  # Auto-approve for admins
+        "approvedBy": user_id if await check_resource_permission(user, "resource:approve", db) else None,
         "feedback": None,
-        "createdAt": datetime.utcnow(),
-        "updatedAt": datetime.utcnow()
+        "createdAt": datetime.now(timezone.utc),
+        "updatedAt": datetime.now(timezone.utc)
     }
     
     result = await resources.insert_one(resource_doc)
@@ -272,7 +284,7 @@ async def add_resource(
 
 @router.get("/my", response_model=List[dict])
 async def get_my_submissions(
-    user: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Get current user's resource submissions (including pending/rejected)"""
@@ -280,8 +292,8 @@ async def get_my_submissions(
     session = await get_current_session(db)
 
     cursor = resources.find({
-        "uploadedBy": user["_id"],
-        "sessionId": session["_id"],
+        "uploadedBy": str(user["_id"]),
+        "sessionId": str(session["_id"]),
     }).sort("createdAt", -1)
 
     result = []
@@ -299,46 +311,68 @@ async def get_my_submissions(
 @router.get("", response_model=ResourceListResponse)
 async def list_resources(
     level: Optional[int] = Query(None, description="Filter by level (100-500)"),
-    courseCode: Optional[str] = Query(None, description="Filter by course code"),
+    courseCode: Optional[str] = Query(None, description="Filter by course code (exact)"),
     type: Optional[str] = Query(None, description="Filter by resource type"),
+    semester: Optional[str] = Query(None, description="Filter by semester: first | second"),
     approved: Optional[bool] = Query(True, description="Show only approved resources"),
+    search: Optional[str] = Query(None, description="Search title, courseCode, or tags"),
+    sortBy: Optional[str] = Query("createdAt", description="Sort field: createdAt | viewCount"),
     page: int = Query(1, ge=1),
     pageSize: int = Query(20, ge=1, le=100),
-    user: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
-    """Get list of resources with filters"""
+    """Get list of resources with filters, full-text search, and sort"""
     resources = db["resources"]
-    
+
     # Build query
     query = {}
-    
+
     # Get current session
     session = await get_current_session(db)
-    query["sessionId"] = session["_id"]
-    
+    query["sessionId"] = str(session["_id"])
+
     if level:
         query["level"] = level
-    
+
     if courseCode:
         query["courseCode"] = courseCode.upper()
-    
+
     if type:
         query["type"] = type
-    
+
+    if semester and semester in ["first", "second"]:
+        query["semester"] = semester
+
     # Show unapproved only to admins/academic committee
     if approved is not None:
-        if not check_permission(user, "resource:approve"):
+        if not await check_resource_permission(user, "resource:approve", db):
             query["isApproved"] = True
         else:
             query["isApproved"] = approved
-    
+
+    # Full-text search across title, courseCode, and tags
+    if search and search.strip():
+        escaped = re.escape(search.strip())
+        pattern = re.compile(escaped, re.IGNORECASE)
+        query["$or"] = [
+            {"title": {"$regex": pattern}},
+            {"courseCode": {"$regex": pattern}},
+            {"tags": {"$elemMatch": {"$regex": pattern}}},
+            {"uploaderName": {"$regex": pattern}},
+        ]
+
+    # Sort: default newest first; optionally by most viewed
+    allowed_sort = {"createdAt", "viewCount"}
+    sort_field = sortBy if sortBy in allowed_sort else "createdAt"
+    sort_order = -1  # descending
+
     # Get total count
     total = await resources.count_documents(query)
-    
+
     # Get paginated results
     skip = (page - 1) * pageSize
-    cursor = resources.find(query).sort("createdAt", -1).skip(skip).limit(pageSize)
+    cursor = resources.find(query).sort(sort_field, sort_order).skip(skip).limit(pageSize)
     
     resource_list = []
     async for doc in cursor:
@@ -360,7 +394,7 @@ async def list_resources(
 @router.get("/{resource_id}", response_model=ResourceResponse)
 async def get_resource(
     resource_id: str,
-    user: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Get single resource by ID"""
@@ -377,16 +411,9 @@ async def get_resource(
         raise HTTPException(status_code=404, detail="Resource not found")
     
     # Check if approved (unless user is admin/academic committee)
-    if not resource.get("isApproved") and not check_permission(user, "resource:approve"):
+    if not resource.get("isApproved") and not await check_resource_permission(user, "resource:approve", db):
         raise HTTPException(status_code=404, detail="Resource not found")
-    
-    # Increment view count
-    await resources.update_one(
-        {"_id": ObjectId(resource_id)},
-        {"$inc": {"viewCount": 1}}
-    )
-    resource["viewCount"] += 1
-    
+
     # Convert ObjectIds to strings
     resource["_id"] = str(resource["_id"])
     resource["sessionId"] = str(resource["sessionId"])
@@ -397,44 +424,46 @@ async def get_resource(
     return ResourceResponse(**resource)
 
 
-@router.post("/{resource_id}/download")
-async def track_download(
+@router.post("/{resource_id}/view")
+async def track_view(
     resource_id: str,
-    user: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
-    """Track resource download/view"""
-    from bson import ObjectId
-    
+    """Track resource view — increments viewCount each time the View/Watch button is clicked."""
     resources = db["resources"]
-    
+
     try:
-        result = await resources.update_one(
+        updated = await resources.find_one_and_update(
             {"_id": ObjectId(resource_id), "isApproved": True},
-            {"$inc": {"downloadCount": 1}}
+            {"$inc": {"viewCount": 1}},
+            return_document=ReturnDocument.AFTER,
+            projection={"viewCount": 1},
         )
-    except:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid resource ID")
-    
-    if result.matched_count == 0:
+
+    if not updated:
         raise HTTPException(status_code=404, detail="Resource not found")
-    
-    return {"message": "Download tracked"}
+
+    return {"viewCount": updated["viewCount"]}
 
 
 @router.patch("/{resource_id}/approve", response_model=dict)
 async def approve_resource(
     resource_id: str,
     approve_data: ApproveResourceRequest,
-    user: dict = Depends(verify_token),
+    request: Request,
+    user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Approve or reject a resource (Academic Committee/Admin only)"""
     from bson import ObjectId
     
-    if not check_permission(user, "resource:approve"):
+    if not await check_resource_permission(user, "resource:approve", db):
         raise HTTPException(status_code=403, detail="You don't have permission to approve resources")
     
+    user_id = str(user["_id"])
     resources = db["resources"]
     
     try:
@@ -443,9 +472,9 @@ async def approve_resource(
             {
                 "$set": {
                     "isApproved": approve_data.approved,
-                    "approvedBy": user["_id"] if approve_data.approved else None,
+                    "approvedBy": user_id if approve_data.approved else None,
                     "feedback": approve_data.feedback,
-                    "updatedAt": datetime.utcnow()
+                    "updatedAt": datetime.now(timezone.utc)
                 }
             }
         )
@@ -454,6 +483,19 @@ async def approve_resource(
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Resource not found")
+    
+    # Audit log
+    from app.core.audit import AuditLogger
+    await AuditLogger.log(
+        action="resource.approved" if approve_data.approved else "resource.rejected",
+        actor_id=user_id,
+        actor_email=user.get("email", "unknown"),
+        resource_type="resource",
+        resource_id=resource_id,
+        details={"approved": approve_data.approved, "feedback": approve_data.feedback},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
     
     return {
         "message": f"Resource {'approved' if approve_data.approved else 'rejected'} successfully",
@@ -464,7 +506,8 @@ async def approve_resource(
 @router.delete("/{resource_id}")
 async def delete_resource(
     resource_id: str,
-    user: dict = Depends(verify_token),
+    request: Request,
+    user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Delete a resource"""
@@ -481,10 +524,23 @@ async def delete_resource(
         raise HTTPException(status_code=404, detail="Resource not found")
     
     # Check permissions (owner or admin with resource:delete)
-    if str(resource["uploadedBy"]) != str(user["_id"]) and not check_permission(user, "resource:delete"):
+    if str(resource["uploadedBy"]) != str(user["_id"]) and not await check_resource_permission(user, "resource:delete", db):
         raise HTTPException(status_code=403, detail="You don't have permission to delete this resource")
     
     # Delete from database (no file deletion needed for Drive/YouTube links)
     await resources.delete_one({"_id": ObjectId(resource_id)})
+    
+    # Audit log
+    from app.core.audit import AuditLogger
+    await AuditLogger.log(
+        action="resource.deleted",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="resource",
+        resource_id=resource_id,
+        details={"title": resource.get("title")},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
     
     return {"message": "Resource deleted successfully"}

@@ -12,7 +12,7 @@ Usage:
 import asyncio
 import argparse
 from motor.motor_asyncio import AsyncIOMotorClient
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 from dotenv import load_dotenv
 
@@ -66,7 +66,7 @@ async def update_semester(semester_number: int):
         {
             "$set": {
                 "currentSemester": semester_number,
-                "updatedAt": datetime.utcnow()
+                "updatedAt": datetime.now(timezone.utc)
             }
         }
     )

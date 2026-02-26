@@ -7,7 +7,7 @@ Events from different sessions are completely separate.
 
 from pydantic import BaseModel, Field
 from typing import List, Literal, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 
 
@@ -75,4 +75,4 @@ class EventRegistration(BaseModel):
     """Model for registering for an event"""
     eventId: str
     studentId: str
-    registeredAt: datetime = Field(default_factory=datetime.utcnow)
+    registeredAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

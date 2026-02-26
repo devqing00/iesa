@@ -13,11 +13,11 @@ from fastapi import APIRouter, HTTPException, Depends, Header, Request, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, validator
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import hmac
 import hashlib
-import requests
+import httpx
 from bson import ObjectId
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -73,7 +73,7 @@ class PaymentVerifyResponse(BaseModel):
 # Helper Functions
 def generate_payment_reference(user_id: str) -> str:
     """Generate unique payment reference"""
-    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     return f"IESA-{user_id[:8]}-{timestamp}"
 
 
@@ -190,21 +190,22 @@ async def initialize_payment(
             "Content-Type": "application/json"
         }
         
-        response = requests.post(
-            f"{PAYSTACK_BASE_URL}/transaction/initialize",
-            json=paystack_data,
-            headers=headers,
-            timeout=10
-        )
-        
-        if not response.ok:
-            error_data = response.json()
-            raise HTTPException(
-                status_code=response.status_code,
-                detail=error_data.get("message", "Failed to initialize payment")
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{PAYSTACK_BASE_URL}/transaction/initialize",
+                json=paystack_data,
+                headers=headers,
+                timeout=10
             )
         
-        data = response.json()["data"]
+            if not response.is_success:
+                error_data = response.json()
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to initialize payment")
+                )
+        
+            data = response.json()["data"]
         
         # Store transaction record
         transaction_record = {
@@ -221,8 +222,8 @@ async def initialize_payment(
                 "accessCode": data["access_code"],
                 "authorizationUrl": data["authorization_url"]
             },
-            "createdAt": datetime.utcnow(),
-            "updatedAt": datetime.utcnow()
+            "createdAt": datetime.now(timezone.utc),
+            "updatedAt": datetime.now(timezone.utc)
         }
         
         result = await db.paystackTransactions.insert_one(transaction_record)
@@ -236,7 +237,7 @@ async def initialize_payment(
             status="pending"
         )
         
-    except requests.RequestException as e:
+    except httpx.HTTPError as e:
         raise HTTPException(
             status_code=503,
             detail=f"Payment service unavailable: {str(e)}"
@@ -290,27 +291,29 @@ async def verify_payment(
             "Content-Type": "application/json"
         }
         
-        response = requests.get(
-            f"{PAYSTACK_BASE_URL}/transaction/verify/{reference}",
-            headers=headers,
-            timeout=10
-        )
-        
-        if not response.ok:
-            error_data = response.json()
-            raise HTTPException(
-                status_code=response.status_code,
-                detail=error_data.get("message", "Failed to verify payment")
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{PAYSTACK_BASE_URL}/transaction/verify/{reference}",
+                headers=headers,
+                timeout=10
             )
         
-        data = response.json()["data"]
+            if not response.is_success:
+                error_data = response.json()
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=error_data.get("message", "Failed to verify payment")
+                )
+        
+            data = response.json()["data"]
+        
         status = data["status"]
         
         # Update transaction record
         update_data = {
             "status": status,
             "paystackResponse": data,
-            "updatedAt": datetime.utcnow()
+            "updatedAt": datetime.now(timezone.utc)
         }
         
         if status == "success":
@@ -348,7 +351,7 @@ async def verify_payment(
                     {"_id": ObjectId(payment_id)},
                     {
                         "$addToSet": {"paidBy": current_user["_id"]},
-                        "$set": {"updatedAt": datetime.utcnow()}
+                        "$set": {"updatedAt": datetime.now(timezone.utc)}
                     }
                 )
                 
@@ -360,7 +363,7 @@ async def verify_payment(
                     "method": "paystack",
                     "reference": reference,
                     "status": "verified",
-                    "createdAt": datetime.utcnow()
+                    "createdAt": datetime.now(timezone.utc)
             })
             
             # Handle event payment: auto-register user for the event
@@ -370,7 +373,7 @@ async def verify_payment(
                     {"_id": ObjectId(event_id)},
                     {
                         "$addToSet": {"registrations": current_user["_id"]},
-                        "$set": {"updatedAt": datetime.utcnow()}
+                        "$set": {"updatedAt": datetime.now(timezone.utc)}
                     }
                 )
         
@@ -391,7 +394,7 @@ async def verify_payment(
             channel=transaction.get("channel")
         )
         
-    except requests.RequestException as e:
+    except httpx.HTTPError as e:
         raise HTTPException(
             status_code=503,
             detail=f"Payment verification service unavailable: {str(e)}"
@@ -458,7 +461,7 @@ async def paystack_webhook(
                 "channel": data.get("channel"),
                 "amountPaid": data["amount"] / 100,
                 "paystackResponse": data,
-                "updatedAt": datetime.utcnow()
+                "updatedAt": datetime.now(timezone.utc)
             }
             
             # SECURITY: Verify paid amount matches expected amount
@@ -491,7 +494,7 @@ async def paystack_webhook(
                     {"_id": ObjectId(payment_id)},
                     {
                         "$addToSet": {"paidBy": student_id},
-                        "$set": {"updatedAt": datetime.utcnow()}
+                        "$set": {"updatedAt": datetime.now(timezone.utc)}
                     }
                 )
                 
@@ -503,7 +506,7 @@ async def paystack_webhook(
                     "method": "paystack",
                     "reference": reference,
                     "status": "verified",
-                    "createdAt": datetime.utcnow()
+                    "createdAt": datetime.now(timezone.utc)
                 })
             
             # Handle event payment: auto-register user for the event
@@ -513,7 +516,7 @@ async def paystack_webhook(
                     {"_id": ObjectId(event_id)},
                     {
                         "$addToSet": {"registrations": student_id},
-                        "$set": {"updatedAt": datetime.utcnow()}
+                        "$set": {"updatedAt": datetime.now(timezone.utc)}
                     }
                 )
             
@@ -528,7 +531,7 @@ async def paystack_webhook(
                     payment_title=payment.get("title", "IESA Payment") if payment else "IESA Payment",
                     amount=transaction["amount"],
                     reference=reference,
-                    date=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                    date=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
                     student_email=transaction.get("studentEmail", "student@example.com"),
                     student_level=transaction.get("studentLevel", "N/A"),
                     transaction_id=str(transaction.get("_id", reference))
@@ -806,7 +809,7 @@ async def resend_receipt_email(
     if isinstance(student_level, int):
         student_level = str(student_level)
     
-    paid_at = transaction.get("paidAt") or transaction.get("createdAt") or datetime.utcnow()
+    paid_at = transaction.get("paidAt") or transaction.get("createdAt") or datetime.now(timezone.utc)
     
     try:
         await send_payment_receipt(
@@ -923,7 +926,7 @@ async def download_receipt(
             student_name = current_user.get("displayName", transaction.get("studentName", "Unknown Student"))
         
         # Get payment date
-        paid_at = transaction.get("paidAt") or transaction.get("createdAt") or datetime.utcnow()
+        paid_at = transaction.get("paidAt") or transaction.get("createdAt") or datetime.now(timezone.utc)
         
         # Generate PDF receipt
         from ..utils.receipt_generator import generate_payment_receipt

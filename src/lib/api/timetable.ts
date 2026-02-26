@@ -206,12 +206,12 @@ export function formatTimeRange(startTime: string, endTime: string): string {
 export function getClassTypeColor(type: ClassType): string {
   switch (type) {
     case 'lecture':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+      return 'bg-lavender-light text-lavender';
     case 'practical':
-      return 'bg-lime-light text-teal dark:bg-lime-light dark:text-teal';
+      return 'bg-lime-light text-navy';
     case 'tutorial':
-      return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400';
+      return 'bg-sunny-light text-navy';
     default:
-      return 'bg-surface-sunken text-on-surface-secondary';
+      return 'bg-cloud text-slate';
   }
 }

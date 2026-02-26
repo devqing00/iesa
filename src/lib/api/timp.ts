@@ -106,6 +106,16 @@ export const PAIR_STATUS_STYLES: Record<
   completed: { bg: "bg-lavender-light", text: "text-lavender", label: "Completed" },
 };
 
+export interface PaginatedMentorApplications {
+  items: MentorApplication[];
+  total: number;
+}
+
+export interface PaginatedPairs {
+  items: MentorshipPair[];
+  total: number;
+}
+
 // ── API Functions ────────────────────────────────────────────────────
 
 const BASE = "/api/v1/timp";
@@ -121,9 +131,12 @@ export async function getMyApplication(): Promise<MentorApplication | null> {
 
 export async function listMentorApplications(filters?: {
   status?: string;
-}): Promise<MentorApplication[]> {
+  search?: string;
+  limit?: number;
+  skip?: number;
+}): Promise<PaginatedMentorApplications> {
   const qs = buildQueryString(filters || {});
-  return api.get<MentorApplication[]>(`${BASE}/applications${qs}`);
+  return api.get<PaginatedMentorApplications>(`${BASE}/applications${qs}`);
 }
 
 export async function reviewMentorApplication(
@@ -140,9 +153,12 @@ export async function createPair(data: CreatePairData): Promise<MentorshipPair> 
 
 export async function listPairs(filters?: {
   status?: string;
-}): Promise<MentorshipPair[]> {
+  search?: string;
+  limit?: number;
+  skip?: number;
+}): Promise<PaginatedPairs> {
   const qs = buildQueryString(filters || {});
-  return api.get<MentorshipPair[]>(`${BASE}/pairs${qs}`);
+  return api.get<PaginatedPairs>(`${BASE}/pairs${qs}`);
 }
 
 export async function updatePairStatus(

@@ -16,11 +16,12 @@ Endpoint groups:
   /api/v1/iepod/stats           — Admin dashboard aggregations
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
+import re
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from ..core.permissions import (
     get_current_user,
@@ -75,7 +76,7 @@ async def _award_points(
         "points": pts,
         "description": description,
         "referenceId": ref_id,
-        "awardedAt": datetime.utcnow(),
+        "awardedAt": datetime.now(timezone.utc),
     }
     await db.iepod_points.insert_one(entry)
     await db.iepod_registrations.update_one(
@@ -118,6 +119,7 @@ async def list_societies(
 @router.post("/societies", status_code=201)
 async def create_society(
     data: SocietyCreate,
+    request: Request,
     user: dict = Depends(require_permission("iepod:manage")),
 ):
     """Admin: Create a new society."""
@@ -126,11 +128,23 @@ async def create_society(
         raise HTTPException(400, "Invalid characters detected")
     doc = data.model_dump()
     doc["memberCount"] = 0
-    doc["createdAt"] = datetime.utcnow()
-    doc["updatedAt"] = datetime.utcnow()
+    doc["createdAt"] = datetime.now(timezone.utc)
+    doc["updatedAt"] = datetime.now(timezone.utc)
     result = await db.iepod_societies.insert_one(doc)
     created = await db.iepod_societies.find_one({"_id": result.inserted_id})
     created["_id"] = str(created["_id"])
+
+    await AuditLogger.log(
+        action="iepod.society_created",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="iepod_society",
+        resource_id=str(result.inserted_id),
+        details={"name": data.name},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return created
 
 
@@ -138,29 +152,56 @@ async def create_society(
 async def update_society(
     society_id: str,
     data: SocietyUpdate,
+    request: Request,
     user: dict = Depends(require_permission("iepod:manage")),
 ):
     db = get_database()
     updates = {k: v for k, v in data.model_dump(exclude_unset=True).items()}
     if not updates:
         raise HTTPException(400, "No fields to update")
-    updates["updatedAt"] = datetime.utcnow()
+    updates["updatedAt"] = datetime.now(timezone.utc)
     await db.iepod_societies.update_one({"_id": _oid(society_id)}, {"$set": updates})
     updated = await db.iepod_societies.find_one({"_id": _oid(society_id)})
     if not updated:
         raise HTTPException(404, "Society not found")
     updated["_id"] = str(updated["_id"])
+
+    await AuditLogger.log(
+        action="iepod.society_updated",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="iepod_society",
+        resource_id=society_id,
+        details={"name": updated.get("name"), "fields": list(updates.keys())},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return updated
 
 
 @router.delete("/societies/{society_id}", status_code=204)
 async def delete_society(
     society_id: str,
+    request: Request,
     user: dict = Depends(require_permission("iepod:manage")),
 ):
-    result = await get_database().iepod_societies.delete_one({"_id": _oid(society_id)})
+    db = get_database()
+    doc = await db.iepod_societies.find_one({"_id": _oid(society_id)})
+    result = await db.iepod_societies.delete_one({"_id": _oid(society_id)})
     if result.deleted_count == 0:
         raise HTTPException(404, "Society not found")
+
+    await AuditLogger.log(
+        action="iepod.society_deleted",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="iepod_society",
+        resource_id=society_id,
+        details={"name": doc.get("name") if doc else None},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -200,8 +241,8 @@ async def register_for_iepod(
     doc["societyId"] = None
     doc["nicheAuditId"] = None
     doc["teamId"] = None
-    doc["createdAt"] = datetime.utcnow()
-    doc["updatedAt"] = datetime.utcnow()
+    doc["createdAt"] = datetime.now(timezone.utc)
+    doc["updatedAt"] = datetime.now(timezone.utc)
 
     result = await db.iepod_registrations.insert_one(doc)
     created = await db.iepod_registrations.find_one({"_id": result.inserted_id})
@@ -306,9 +347,10 @@ async def list_registrations(
     if phase:
         query["phase"] = phase
     if search:
+        escaped = re.escape(search)
         query["$or"] = [
-            {"userName": {"$regex": search, "$options": "i"}},
-            {"userEmail": {"$regex": search, "$options": "i"}},
+            {"userName": {"$regex": escaped, "$options": "i"}},
+            {"userEmail": {"$regex": escaped, "$options": "i"}},
         ]
     cursor = db.iepod_registrations.find(query).sort("createdAt", -1).skip(skip).limit(limit)
     items = []
@@ -323,6 +365,7 @@ async def list_registrations(
 async def update_registration(
     reg_id: str,
     data: RegistrationUpdate,
+    request: Request,
     user: dict = Depends(require_permission("iepod:manage")),
 ):
     """Admin: approve/reject registration, update phase, add note."""
@@ -330,12 +373,24 @@ async def update_registration(
     updates = {k: v for k, v in data.model_dump(exclude_unset=True).items()}
     if not updates:
         raise HTTPException(400, "No fields to update")
-    updates["updatedAt"] = datetime.utcnow()
+    updates["updatedAt"] = datetime.now(timezone.utc)
     await db.iepod_registrations.update_one({"_id": _oid(reg_id)}, {"$set": updates})
     updated = await db.iepod_registrations.find_one({"_id": _oid(reg_id)})
     if not updated:
         raise HTTPException(404, "Registration not found")
     updated["_id"] = str(updated["_id"])
+
+    await AuditLogger.log(
+        action=f"iepod.registration_{updates.get('status', 'updated')}",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="iepod_registration",
+        resource_id=reg_id,
+        details={"student": updated.get("userName"), "status": updates.get("status"), "phase": updates.get("phase")},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return updated
 
 
@@ -379,7 +434,7 @@ async def commit_to_society(
 
     await db.iepod_registrations.update_one(
         {"_id": reg["_id"]},
-        {"$set": {"societyId": society_id, "updatedAt": datetime.utcnow()}},
+        {"$set": {"societyId": society_id, "updatedAt": datetime.now(timezone.utc)}},
     )
 
     # Award points for society commitment
@@ -428,8 +483,8 @@ async def create_niche_audit(
     doc["userId"] = user_id
     doc["userName"] = user_name
     doc["sessionId"] = session_id
-    doc["submittedAt"] = datetime.utcnow()
-    doc["updatedAt"] = datetime.utcnow()
+    doc["submittedAt"] = datetime.now(timezone.utc)
+    doc["updatedAt"] = datetime.now(timezone.utc)
 
     result = await db.iepod_niche_audits.insert_one(doc)
     audit_id = str(result.inserted_id)
@@ -437,7 +492,7 @@ async def create_niche_audit(
     # Link to registration
     await db.iepod_registrations.update_one(
         {"_id": reg["_id"]},
-        {"$set": {"nicheAuditId": audit_id, "updatedAt": datetime.utcnow()}},
+        {"$set": {"nicheAuditId": audit_id, "updatedAt": datetime.now(timezone.utc)}},
     )
 
     # Award points
@@ -479,7 +534,7 @@ async def update_my_niche_audit(
     updates = {k: v for k, v in data.model_dump(exclude_unset=True).items()}
     if not updates:
         raise HTTPException(400, "No fields to update")
-    updates["updatedAt"] = datetime.utcnow()
+    updates["updatedAt"] = datetime.now(timezone.utc)
     result = await db.iepod_niche_audits.update_one(
         {"userId": user["_id"], "sessionId": str(session["_id"])},
         {"$set": updates},
@@ -551,14 +606,14 @@ async def create_team(
         "userId": user_id,
         "userName": user_name,
         "role": "lead",
-        "joinedAt": datetime.utcnow(),
+        "joinedAt": datetime.now(timezone.utc),
     }]
     doc["status"] = "forming"
     doc["submissionCount"] = 0
     doc["mentorId"] = None
     doc["mentorName"] = None
-    doc["createdAt"] = datetime.utcnow()
-    doc["updatedAt"] = datetime.utcnow()
+    doc["createdAt"] = datetime.now(timezone.utc)
+    doc["updatedAt"] = datetime.now(timezone.utc)
 
     result = await db.iepod_teams.insert_one(doc)
     team_id = str(result.inserted_id)
@@ -566,7 +621,7 @@ async def create_team(
     # Link to registration
     await db.iepod_registrations.update_one(
         {"_id": reg["_id"]},
-        {"$set": {"teamId": team_id, "updatedAt": datetime.utcnow()}},
+        {"$set": {"teamId": team_id, "updatedAt": datetime.now(timezone.utc)}},
     )
 
     # Award points
@@ -652,16 +707,16 @@ async def join_team(
         "userId": user_id,
         "userName": user_name,
         "role": "member",
-        "joinedAt": datetime.utcnow(),
+        "joinedAt": datetime.now(timezone.utc),
     }
 
     await db.iepod_teams.update_one(
         {"_id": _oid(team_id)},
-        {"$push": {"members": member}, "$set": {"updatedAt": datetime.utcnow()}},
+        {"$push": {"members": member}, "$set": {"updatedAt": datetime.now(timezone.utc)}},
     )
     await db.iepod_registrations.update_one(
         {"_id": reg["_id"]},
-        {"$set": {"teamId": team_id, "updatedAt": datetime.utcnow()}},
+        {"$set": {"teamId": team_id, "updatedAt": datetime.now(timezone.utc)}},
     )
 
     return {"message": f"Joined team '{team['name']}'"}
@@ -688,12 +743,12 @@ async def leave_team(
         {"_id": _oid(team_id)},
         {
             "$pull": {"members": {"userId": user_id}},
-            "$set": {"updatedAt": datetime.utcnow()},
+            "$set": {"updatedAt": datetime.now(timezone.utc)},
         },
     )
     await db.iepod_registrations.update_one(
         {"userId": user_id, "sessionId": session_id},
-        {"$set": {"teamId": None, "updatedAt": datetime.utcnow()}},
+        {"$set": {"teamId": None, "updatedAt": datetime.now(timezone.utc)}},
     )
     return {"message": "Left the team"}
 
@@ -717,7 +772,7 @@ async def update_team(
     updates = {k: v for k, v in data.model_dump(exclude_unset=True).items()}
     if not updates:
         raise HTTPException(400, "No fields to update")
-    updates["updatedAt"] = datetime.utcnow()
+    updates["updatedAt"] = datetime.now(timezone.utc)
     await db.iepod_teams.update_one({"_id": _oid(team_id)}, {"$set": updates})
     updated = await db.iepod_teams.find_one({"_id": _oid(team_id)})
     updated["_id"] = str(updated["_id"])
@@ -728,6 +783,7 @@ async def update_team(
 @router.post("/teams/{team_id}/assign-mentor")
 async def assign_mentor_to_team(
     team_id: str,
+    request: Request,
     mentor_user_id: str = Query(..., description="User ID of the mentor"),
     user: dict = Depends(require_permission("iepod:manage")),
 ):
@@ -744,8 +800,20 @@ async def assign_mentor_to_team(
 
     await db.iepod_teams.update_one(
         {"_id": _oid(team_id)},
-        {"$set": {"mentorId": mentor_user_id, "mentorName": mentor_name, "updatedAt": datetime.utcnow()}},
+        {"$set": {"mentorId": mentor_user_id, "mentorName": mentor_name, "updatedAt": datetime.now(timezone.utc)}},
     )
+
+    await AuditLogger.log(
+        action="iepod.mentor_assigned",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="iepod_team",
+        resource_id=team_id,
+        details={"mentor": mentor_name, "team": team.get("name")},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return {"message": f"Assigned {mentor_name} as mentor"}
 
 
@@ -785,15 +853,15 @@ async def create_submission(
     doc["feedback"] = None
     doc["score"] = None
     doc["reviewedBy"] = None
-    doc["submittedAt"] = datetime.utcnow()
-    doc["updatedAt"] = datetime.utcnow()
+    doc["submittedAt"] = datetime.now(timezone.utc)
+    doc["updatedAt"] = datetime.now(timezone.utc)
 
     result = await db.iepod_submissions.insert_one(doc)
 
     # Increment team submission count
     await db.iepod_teams.update_one(
         {"_id": _oid(team_id)},
-        {"$inc": {"submissionCount": 1}, "$set": {"updatedAt": datetime.utcnow()}},
+        {"$inc": {"submissionCount": 1}, "$set": {"updatedAt": datetime.now(timezone.utc)}},
     )
 
     created = await db.iepod_submissions.find_one({"_id": result.inserted_id})
@@ -839,7 +907,7 @@ async def submit_iteration(
 
     await db.iepod_submissions.update_one(
         {"_id": _oid(sub_id)},
-        {"$set": {"status": "submitted", "updatedAt": datetime.utcnow()}},
+        {"$set": {"status": "submitted", "updatedAt": datetime.now(timezone.utc)}},
     )
 
     # Award points to all team members
@@ -860,6 +928,7 @@ async def submit_iteration(
 async def review_submission(
     sub_id: str,
     data: SubmissionReview,
+    request: Request,
     user: dict = Depends(require_permission("iepod:manage")),
 ):
     db = get_database()
@@ -869,10 +938,22 @@ async def review_submission(
 
     updates = data.model_dump(exclude_unset=True)
     updates["reviewedBy"] = user["_id"]
-    updates["updatedAt"] = datetime.utcnow()
+    updates["updatedAt"] = datetime.now(timezone.utc)
     await db.iepod_submissions.update_one({"_id": _oid(sub_id)}, {"$set": updates})
     updated = await db.iepod_submissions.find_one({"_id": _oid(sub_id)})
     updated["_id"] = str(updated["_id"])
+
+    await AuditLogger.log(
+        action="iepod.submission_reviewed",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="iepod_submission",
+        resource_id=sub_id,
+        details={"status": updates.get("status"), "score": updates.get("score"), "teamId": doc.get("teamId")},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return updated
 
 
@@ -908,6 +989,7 @@ async def list_all_submissions(
 @router.post("/quizzes", status_code=201)
 async def create_quiz(
     data: QuizCreate,
+    request: Request,
     user: dict = Depends(require_permission("iepod:manage")),
     session: dict = Depends(get_current_session),
 ):
@@ -920,12 +1002,24 @@ async def create_quiz(
     doc["sessionId"] = str(session["_id"])
     doc["createdBy"] = user["_id"]
     doc["participantCount"] = 0
-    doc["createdAt"] = datetime.utcnow()
-    doc["updatedAt"] = datetime.utcnow()
+    doc["createdAt"] = datetime.now(timezone.utc)
+    doc["updatedAt"] = datetime.now(timezone.utc)
 
     result = await db.iepod_quizzes.insert_one(doc)
     created = await db.iepod_quizzes.find_one({"_id": result.inserted_id})
     created["_id"] = str(created["_id"])
+
+    await AuditLogger.log(
+        action="iepod.quiz_created",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="iepod_quiz",
+        resource_id=str(result.inserted_id),
+        details={"title": data.title, "type": data.quizType},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return created
 
 
@@ -1057,7 +1151,7 @@ async def submit_quiz_answers(
         "maxScore": max_score,
         "percentage": round(percentage, 1),
         "timeTakenSeconds": None,
-        "submittedAt": datetime.utcnow(),
+        "submittedAt": datetime.now(timezone.utc),
     }
 
     result = await db.iepod_quiz_responses.insert_one(response_doc)
@@ -1087,29 +1181,56 @@ async def submit_quiz_answers(
 async def update_quiz(
     quiz_id: str,
     data: QuizUpdate,
+    request: Request,
     user: dict = Depends(require_permission("iepod:manage")),
 ):
     db = get_database()
     updates = {k: v for k, v in data.model_dump(exclude_unset=True).items()}
     if not updates:
         raise HTTPException(400, "No fields to update")
-    updates["updatedAt"] = datetime.utcnow()
+    updates["updatedAt"] = datetime.now(timezone.utc)
     await db.iepod_quizzes.update_one({"_id": _oid(quiz_id)}, {"$set": updates})
     updated = await db.iepod_quizzes.find_one({"_id": _oid(quiz_id)})
     if not updated:
         raise HTTPException(404, "Quiz not found")
     updated["_id"] = str(updated["_id"])
+
+    await AuditLogger.log(
+        action="iepod.quiz_updated",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="iepod_quiz",
+        resource_id=quiz_id,
+        details={"title": updated.get("title"), "fields": list(updates.keys())},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return updated
 
 
 @router.delete("/quizzes/{quiz_id}", status_code=204)
 async def delete_quiz(
     quiz_id: str,
+    request: Request,
     user: dict = Depends(require_permission("iepod:manage")),
 ):
-    result = await get_database().iepod_quizzes.delete_one({"_id": _oid(quiz_id)})
+    db = get_database()
+    doc = await db.iepod_quizzes.find_one({"_id": _oid(quiz_id)})
+    result = await db.iepod_quizzes.delete_one({"_id": _oid(quiz_id)})
     if result.deleted_count == 0:
         raise HTTPException(404, "Quiz not found")
+
+    await AuditLogger.log(
+        action="iepod.quiz_deleted",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="iepod_quiz",
+        resource_id=quiz_id,
+        details={"title": doc.get("title") if doc else None},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
 
 
 # Admin: quiz results
@@ -1185,6 +1306,7 @@ async def get_leaderboard(
 @router.post("/points/award")
 async def award_bonus_points(
     data: PointAward,
+    request: Request,
     user: dict = Depends(require_permission("iepod:manage")),
     session: dict = Depends(get_current_session),
 ):
@@ -1201,6 +1323,17 @@ async def award_bonus_points(
     await _award_points(
         db, data.userId, student_name, session_id,
         "bonus", data.points, data.description,
+    )
+
+    await AuditLogger.log(
+        action="iepod.bonus_points_awarded",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="iepod_points",
+        resource_id=data.userId,
+        details={"student": student_name, "points": data.points, "description": data.description},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
     )
 
     return {"message": f"Awarded {data.points} points to {student_name}"}

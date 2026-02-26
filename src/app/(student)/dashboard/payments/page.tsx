@@ -94,6 +94,8 @@ function PaymentsContent() {
     if (reference) {
       verifyPayment(reference);
     } else {
+      // User returned without a reference (e.g. cancelled Paystack page) — reset loading state
+      setProcessingId(null);
       if (skipFetch.current) {
         // verifyPayment already refreshed data; skip this duplicate effect run
         skipFetch.current = false;
@@ -131,7 +133,8 @@ function PaymentsContent() {
       const sessionId = session.id || session._id;
       const res = await fetch(getApiUrl(`/api/v1/payments/?session_id=${sessionId}`), { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error("Failed to fetch payments");
-      setPayments(await res.json());
+      const payData = await res.json();
+      setPayments(payData.items ?? payData);
     } catch (error) {
       console.error("Error fetching payments:", error);
       setFetchError("Failed to load payments. Please try again.");
@@ -378,11 +381,11 @@ function PaymentsContent() {
 
       <div className="px-4 md:px-8 py-6 pb-24 md:pb-8 max-w-6xl mx-auto relative">
         {/* Diamond Sparkle Decorators */}
-        <svg className="fixed top-20 left-[6%] w-5 h-5 text-sunny/18 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed top-44 right-[8%] w-7 h-7 text-teal/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed top-[52%] left-[4%] w-4 h-4 text-coral/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed bottom-36 right-[12%] w-6 h-6 text-lavender/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed top-[32%] right-[20%] w-4 h-4 text-navy/10 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed top-20 left-[6%] w-5 h-5 text-sunny/18 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed top-44 right-[8%] w-7 h-7 text-teal/12 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed top-[52%] left-[4%] w-4 h-4 text-coral/15 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed bottom-36 right-[12%] w-6 h-6 text-lavender/15 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed top-[32%] right-[20%] w-4 h-4 text-navy/10 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
 
         {verifying ? (
           /* ── Verifying Payment ── */

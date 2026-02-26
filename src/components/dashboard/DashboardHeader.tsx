@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import NotificationBell from "@/components/dashboard/NotificationBell";
+import GlobalSearch from "@/components/dashboard/GlobalSearch";
 import UrgentBar from "@/components/dashboard/UrgentBar";
 import { getTimeGreeting } from "@/lib/greeting";
 
@@ -21,13 +23,25 @@ export default function DashboardHeader({ title = "Dashboard" }: { title?: strin
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <GlobalSearch />
           <NotificationBell />
           {userProfile && (
-            <div className="hidden sm:flex items-center gap-3 pl-4 border-l-[3px] border-navy/10">
-              <div className="w-10 h-10 rounded-xl bg-lavender-light border-[3px] border-navy flex items-center justify-center">
-                <span className="text-navy font-black text-xs">
-                  {userProfile.firstName?.[0]}{userProfile.lastName?.[0]}
-                </span>
+            <Link
+              href="/dashboard/profile"
+              className="hidden sm:flex items-center gap-3 pl-4 border-l-[3px] border-navy/10 hover:opacity-80 transition-opacity"
+            >
+              <div className="w-10 h-10 rounded-xl bg-lavender-light border-[3px] border-navy flex items-center justify-center overflow-hidden">
+                {userProfile.profilePictureUrl ? (
+                  <img
+                    src={userProfile.profilePictureUrl}
+                    alt={`${userProfile.firstName} ${userProfile.lastName}`}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-navy font-black text-xs">
+                    {userProfile.firstName?.[0]}{userProfile.lastName?.[0]}
+                  </span>
+                )}
               </div>
               <div>
                 <p className="font-bold text-sm text-navy">{userProfile.firstName} {userProfile.lastName}</p>
@@ -35,7 +49,7 @@ export default function DashboardHeader({ title = "Dashboard" }: { title?: strin
                   {(userProfile.level || userProfile.currentLevel) ? `${userProfile.level || userProfile.currentLevel} Level` : "Student"}
                 </p>
               </div>
-            </div>
+            </Link>
           )}
         </div>
       </div>

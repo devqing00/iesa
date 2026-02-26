@@ -7,7 +7,7 @@ The session_id filter is automatically applied based on user's current session.
 
 from fastapi import APIRouter, HTTPException, Depends, status, Query, Request
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -54,8 +54,8 @@ async def create_payment(
     # Create payment document
     payment_dict = payment_data.model_dump()
     payment_dict["paidBy"] = []
-    payment_dict["createdAt"] = datetime.utcnow()
-    payment_dict["updatedAt"] = datetime.utcnow()
+    payment_dict["createdAt"] = datetime.now(timezone.utc)
+    payment_dict["updatedAt"] = datetime.now(timezone.utc)
     
     result = await payments.insert_one(payment_dict)
     created_payment = await payments.find_one({"_id": result.inserted_id})
@@ -78,7 +78,7 @@ async def create_payment(
     return Payment(**created_payment)
 
 
-@router.get("/", response_model=List[PaymentWithStatus])
+@router.get("/")
 async def list_payments(
     session_id: Optional[str] = Query(None, description="Filter by session ID. Defaults to active session."),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of payments to return"),
@@ -117,6 +117,9 @@ async def list_payments(
             detail=f"Session {session_id} not found"
         )
     
+    # Get total count for pagination
+    total = await payments.count_documents({"sessionId": session_id})
+    
     # Get payments for this session
     cursor = payments.find({"sessionId": session_id}).sort("deadline", 1).skip(skip).limit(limit)
     payment_list = await cursor.to_list(length=limit)
@@ -149,7 +152,7 @@ async def list_payments(
         )
         result.append(payment_with_status)
     
-    return result
+    return {"items": result, "total": total}
 
 
 @router.get("/{payment_id}", response_model=PaymentWithStatus)
@@ -241,7 +244,7 @@ async def record_payment(
     
     # Create transaction
     transaction_dict = transaction_data.model_dump()
-    transaction_dict["createdAt"] = datetime.utcnow()
+    transaction_dict["createdAt"] = datetime.now(timezone.utc)
     
     result = await transactions.insert_one(transaction_dict)
     
@@ -250,7 +253,7 @@ async def record_payment(
         {"_id": ObjectId(payment_id)},
         {
             "$push": {"paidBy": transaction_data.studentId},
-            "$set": {"updatedAt": datetime.utcnow()}
+            "$set": {"updatedAt": datetime.now(timezone.utc)}
         }
     )
     
@@ -286,7 +289,7 @@ async def update_payment(
             detail="No fields to update"
         )
     
-    update_data["updatedAt"] = datetime.utcnow()
+    update_data["updatedAt"] = datetime.now(timezone.utc)
     
     result = await payments.update_one(
         {"_id": ObjectId(payment_id)},

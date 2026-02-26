@@ -12,7 +12,7 @@ Press unit head reviews, gives feedback, approves/rejects.
 
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 
 
@@ -49,7 +49,7 @@ class Feedback(BaseModel):
     reviewerId: str
     reviewerName: str
     message: str = Field(..., min_length=1, max_length=2000)
-    createdAt: datetime = Field(default_factory=datetime.utcnow)
+    createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # ─── Article Models ─────────────────────────────────────
@@ -93,8 +93,8 @@ class Article(ArticleBase):
     publishedAt: Optional[datetime] = None
     submittedAt: Optional[datetime] = None
     reviewedAt: Optional[datetime] = None
-    createdAt: datetime = Field(default_factory=datetime.utcnow)
-    updatedAt: datetime = Field(default_factory=datetime.utcnow)
+    createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updatedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Config:
         populate_by_name = True

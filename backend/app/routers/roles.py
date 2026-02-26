@@ -5,13 +5,14 @@ Handles assignment of executive positions to students for specific sessions.
 Admins can create, view, update, and delete role assignments.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from typing import List, Optional
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.core.security import get_current_user
 from app.core.permissions import require_permission, PERMISSIONS, DEFAULT_PERMISSIONS
+from app.core.audit import AuditLogger
 from app.models.role import Role, RoleCreate, RoleUpdate
 from app.models.user import User
 from app.db import get_database
@@ -48,6 +49,7 @@ async def list_default_permissions():
 @router.post("/", response_model=Role, dependencies=[Depends(require_permission("role:create"))])
 async def create_role(
     role: RoleCreate,
+    request: Request,
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -85,17 +87,30 @@ async def create_role(
     
     # Create role assignment
     role_data = role.model_dump()
-    role_data["assignedAt"] = datetime.utcnow()
+    role_data["assignedAt"] = datetime.now(timezone.utc)
     role_data["assignedBy"] = current_user.get("_id") or str(current_user.get("id", ""))
     role_data["isActive"] = True
-    role_data["createdAt"] = datetime.utcnow()
-    role_data["updatedAt"] = datetime.utcnow()
+    role_data["createdAt"] = datetime.now(timezone.utc)
+    role_data["updatedAt"] = datetime.now(timezone.utc)
     
     result = await roles.insert_one(role_data)
     created_role = await roles.find_one({"_id": result.inserted_id})
     
     # Convert ObjectId to string
     created_role["id"] = str(created_role.pop("_id"))
+    
+    # Audit log
+    await AuditLogger.log(
+        action=AuditLogger.ROLE_ASSIGNED,
+        actor_id=current_user.get("_id") or str(current_user.get("id", "")),
+        actor_email=current_user.get("email", "unknown"),
+        resource_type="role",
+        resource_id=created_role["id"],
+        session_id=role.sessionId,
+        details={"position": role.position, "userId": role.userId},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
     
     return Role(**created_role)
 
@@ -335,6 +350,7 @@ async def get_role(
 async def update_role(
     role_id: str,
     role_update: RoleUpdate,
+    request: Request,
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -370,7 +386,7 @@ async def update_role(
                 detail=f"Position '{update_data['position']}' is already filled"
             )
     
-    update_data["updatedAt"] = datetime.utcnow()
+    update_data["updatedAt"] = datetime.now(timezone.utc)
     
     await roles.update_one(
         {"_id": ObjectId(role_id)},
@@ -380,12 +396,25 @@ async def update_role(
     updated_role = await roles.find_one({"_id": ObjectId(role_id)})
     updated_role["id"] = str(updated_role.pop("_id"))
     
+    # Audit log
+    await AuditLogger.log(
+        action="role.updated",
+        actor_id=current_user.get("_id") or str(current_user.get("id", "")),
+        actor_email=current_user.get("email", "unknown"),
+        resource_type="role",
+        resource_id=role_id,
+        details={"changes": role_update.model_dump(exclude_unset=True)},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    
     return Role(**updated_role)
 
 
 @router.delete("/{role_id}", dependencies=[Depends(require_permission("role:delete"))])
 async def delete_role(
     role_id: str,
+    request: Request,
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -402,6 +431,17 @@ async def delete_role(
     
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Role not found")
+    
+    # Audit log
+    await AuditLogger.log(
+        action=AuditLogger.ROLE_REVOKED,
+        actor_id=current_user.get("_id") or str(current_user.get("id", "")),
+        actor_email=current_user.get("email", "unknown"),
+        resource_type="role",
+        resource_id=role_id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
     
     return {"message": "Role assignment deleted successfully"}
 
@@ -435,4 +475,126 @@ async def get_my_roles(current_user: User = Depends(get_current_user)):
         
         result.append(role)
     
+    return result
+
+
+# ─── Public endpoints (no auth required) ──────────────────────────
+
+
+@router.get("/public/executives")
+async def get_public_executives():
+    """
+    Public endpoint: Get executive team for the active session.
+    Returns name and email only (no matric numbers).
+    """
+    db = get_database()
+    roles_collection = db["roles"]
+    users = db["users"]
+    sessions = db["sessions"]
+
+    active_session = await sessions.find_one({"isActive": True})
+    if not active_session:
+        return []
+    session_id = str(active_session["_id"])
+
+    exec_positions = [
+        "president", "vice_president", "general_secretary",
+        "assistant_general_secretary", "financial_secretary",
+        "treasurer", "director_of_socials", "director_of_sports", "pro"
+    ]
+
+    cursor = roles_collection.find({"sessionId": session_id})
+    roles_list = await cursor.to_list(length=None)
+
+    executives = {}
+    for role in roles_list:
+        if role["position"] in exec_positions:
+            user = await users.find_one({"_id": ObjectId(role["userId"])})
+            if user:
+                executives[role["position"]] = {
+                    "position": role["position"],
+                    "user": {
+                        "firstName": user.get("firstName", ""),
+                        "lastName": user.get("lastName", ""),
+                        "email": user.get("email", ""),
+                    },
+                }
+
+    return [executives[p] for p in exec_positions if p in executives]
+
+
+@router.get("/public/committees")
+async def get_public_committees():
+    """
+    Public endpoint: Get committee heads for the active session.
+    Returns name and email only.
+    """
+    db = get_database()
+    roles_collection = db["roles"]
+    users = db["users"]
+    sessions = db["sessions"]
+
+    active_session = await sessions.find_one({"isActive": True})
+    if not active_session:
+        return []
+    session_id = str(active_session["_id"])
+
+    committee_positions = [
+        "committee_academic", "committee_welfare",
+        "committee_sports", "committee_socials",
+    ]
+
+    cursor = roles_collection.find({"sessionId": session_id})
+    roles_list = await cursor.to_list(length=None)
+
+    committees = {}
+    for role in roles_list:
+        if role["position"] in committee_positions:
+            user = await users.find_one({"_id": ObjectId(role["userId"])})
+            if user:
+                committees[role["position"]] = {
+                    "position": role["position"],
+                    "user": {
+                        "firstName": user.get("firstName", ""),
+                        "lastName": user.get("lastName", ""),
+                        "email": user.get("email", ""),
+                    },
+                }
+
+    return [committees[p] for p in committee_positions if p in committees]
+
+
+@router.get("/public/class-reps")
+async def get_public_class_reps():
+    """
+    Public endpoint: Get class reps for the active session.
+    Returns name and email only.
+    """
+    db = get_database()
+    roles_collection = db["roles"]
+    users = db["users"]
+    sessions = db["sessions"]
+
+    active_session = await sessions.find_one({"isActive": True})
+    if not active_session:
+        return []
+    session_id = str(active_session["_id"])
+
+    cursor = roles_collection.find({"sessionId": session_id})
+    roles_list = await cursor.to_list(length=None)
+
+    result = []
+    for role in roles_list:
+        if role.get("position", "").startswith("class_rep_"):
+            user = await users.find_one({"_id": ObjectId(role["userId"])})
+            if user:
+                result.append({
+                    "position": role["position"],
+                    "user": {
+                        "firstName": user.get("firstName", ""),
+                        "lastName": user.get("lastName", ""),
+                        "email": user.get("email", ""),
+                    },
+                })
+
     return result

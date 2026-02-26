@@ -12,6 +12,7 @@ from bson import ObjectId
 import logging
 
 from app.core.security import get_current_user
+from app.core.notification_utils import should_notify_category
 from app.db import get_database
 
 logger = logging.getLogger("iesa_backend")
@@ -28,14 +29,29 @@ async def create_notification(
     message: str,
     link: str | None = None,
     related_id: str | None = None,
-) -> str:
+    category: str | None = None,
+) -> str | None:
     """
     Create an in-app notification for a user.
     
+    If `category` is provided, checks the user's notificationCategories
+    preference first. Skips creation if the category is disabled.
+
     Called from other routers (announcements, payments, events, etc.)
-    Returns the inserted notification ID.
+    Returns the inserted notification ID, or None if skipped.
     """
     db = get_database()
+
+    # Check category preference if a category was specified
+    if category:
+        user_doc = await db.users.find_one(
+            {"_id": ObjectId(user_id)},
+            {"notificationCategories": 1},
+        )
+        if user_doc and not should_notify_category(user_doc, category):
+            logger.debug(f"Skipping notification for user {user_id}: category '{category}' disabled")
+            return None
+
     doc = {
         "userId": user_id,
         "type": type,
@@ -43,6 +59,7 @@ async def create_notification(
         "message": message,
         "link": link,
         "relatedId": related_id,
+        "category": category,
         "isRead": False,
         "createdAt": datetime.now(timezone.utc),
     }
@@ -57,14 +74,35 @@ async def create_bulk_notifications(
     message: str,
     link: str | None = None,
     related_id: str | None = None,
+    category: str | None = None,
 ) -> int:
     """
     Create notifications for multiple users at once.
+
+    If `category` is provided, filters out users who have disabled that
+    category in their notificationCategories preferences.
+
     Returns the count of inserted notifications.
     """
     if not user_ids:
         return 0
     db = get_database()
+
+    # Filter by category preference if specified
+    if category:
+        users_cursor = db.users.find(
+            {"_id": {"$in": [ObjectId(uid) for uid in user_ids]}},
+            {"notificationCategories": 1},
+        )
+        allowed_ids = []
+        async for u in users_cursor:
+            if should_notify_category(u, category):
+                allowed_ids.append(str(u["_id"]))
+        if not allowed_ids:
+            logger.debug(f"Bulk notification skipped entirely: all {len(user_ids)} users disabled category '{category}'")
+            return 0
+        user_ids = allowed_ids
+
     now = datetime.now(timezone.utc)
     docs = [
         {
@@ -74,6 +112,7 @@ async def create_bulk_notifications(
             "message": message,
             "link": link,
             "relatedId": related_id,
+            "category": category,
             "isRead": False,
             "createdAt": now,
         }

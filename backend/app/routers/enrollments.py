@@ -8,7 +8,7 @@ Admins can view, create, update, and delete enrollments.
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.core.security import get_current_user
 from app.core.permissions import require_permission
@@ -57,10 +57,10 @@ async def create_enrollment(
     
     # Create enrollment
     enrollment_data = enrollment.model_dump()
-    enrollment_data["enrollmentDate"] = datetime.utcnow()
+    enrollment_data["enrollmentDate"] = datetime.now(timezone.utc)
     enrollment_data["isActive"] = True
-    enrollment_data["createdAt"] = datetime.utcnow()
-    enrollment_data["updatedAt"] = datetime.utcnow()
+    enrollment_data["createdAt"] = datetime.now(timezone.utc)
+    enrollment_data["updatedAt"] = datetime.now(timezone.utc)
     
     result = await enrollments.insert_one(enrollment_data)
     created_enrollment = await enrollments.find_one({"_id": result.inserted_id})
@@ -89,6 +89,9 @@ async def list_enrollments(
     session_id: Optional[str] = Query(None, description="Filter by session ID"),
     student_id: Optional[str] = Query(None, description="Filter by student ID"),
     level: Optional[str] = Query(None, description="Filter by level (100L-500L)"),
+    search: Optional[str] = Query(None, description="Search by student name, email or matric"),
+    limit: int = Query(20, ge=1, le=100),
+    skip: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -110,9 +113,27 @@ async def list_enrollments(
     if level:
         query["level"] = level
     
-    # Fetch enrollments
-    cursor = enrollments.find(query).sort("createdAt", -1)
-    enrollments_list = await cursor.to_list(length=None)
+    # If search is provided, we need to match against student names/email —
+    # first find matching user IDs, then filter enrollments.
+    matching_student_ids = None
+    if search:
+        search_regex = {"$regex": search, "$options": "i"}
+        user_query = {"$or": [
+            {"firstName": search_regex},
+            {"lastName": search_regex},
+            {"email": search_regex},
+            {"matricNumber": search_regex},
+        ]}
+        matching_users = await users.find(user_query, {"_id": 1}).to_list(length=5000)
+        matching_student_ids = [str(u["_id"]) for u in matching_users]
+        query["studentId"] = {"$in": matching_student_ids}
+
+    # Get total count first
+    total = await enrollments.count_documents(query)
+    
+    # Fetch paginated enrollments
+    cursor = enrollments.find(query).sort("createdAt", -1).skip(skip).limit(limit)
+    enrollments_list = await cursor.to_list(length=limit)
     
     # Populate student and session details
     result = []
@@ -153,7 +174,7 @@ async def list_enrollments(
             print(f"Error processing enrollment {enrollment.get('_id')}: {str(e)}")
             continue
     
-    return result
+    return {"items": result, "total": total}
 
 
 @router.get("/my-enrollments")
@@ -259,7 +280,7 @@ async def update_enrollment(
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
     
-    update_data["updatedAt"] = datetime.utcnow()
+    update_data["updatedAt"] = datetime.now(timezone.utc)
     
     await enrollments.update_one(
         {"_id": ObjectId(enrollment_id)},
@@ -358,8 +379,8 @@ async def bulk_enroll_students(
             
             # Create enrollment
             enrollment_data = enrollment.model_dump()
-            enrollment_data["createdAt"] = datetime.utcnow()
-            enrollment_data["updatedAt"] = datetime.utcnow()
+            enrollment_data["createdAt"] = datetime.now(timezone.utc)
+            enrollment_data["updatedAt"] = datetime.now(timezone.utc)
             
             result = await enrollments_collection.insert_one(enrollment_data)
             created.append(str(result.inserted_id))

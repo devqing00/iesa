@@ -66,22 +66,22 @@ export default function IepodLandingPage() {
   return (
     <div className="min-h-screen bg-ghost text-navy overflow-x-hidden">
       {/* Diamond sparkle decorators */}
-      <svg className="fixed top-20 left-[8%] w-6 h-6 text-teal/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed top-20 left-[8%] w-6 h-6 text-teal/15 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
-      <svg className="fixed top-[35%] right-[10%] w-7 h-7 text-coral/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed top-[35%] right-[10%] w-7 h-7 text-coral/12 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
-      <svg className="fixed bottom-[40%] left-[15%] w-5 h-5 text-lavender/18 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed bottom-[40%] left-[15%] w-5 h-5 text-lavender/18 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
-      <svg className="fixed bottom-[20%] right-[20%] w-8 h-8 text-sunny/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed bottom-[20%] right-[20%] w-8 h-8 text-sunny/12 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
-      <svg className="fixed top-[60%] left-[5%] w-4 h-4 text-lime/20 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed top-[60%] left-[5%] w-4 h-4 text-lime/20 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
-      <svg className="fixed top-[12%] right-[30%] w-5 h-5 text-navy/10 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed top-[12%] right-[30%] w-5 h-5 text-navy/10 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
 
@@ -281,7 +281,7 @@ export default function IepodLandingPage() {
                   { icon: "M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99", title: "Embrace Iteration", sub: "Fail forward, document it" },
                   { icon: "M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z", title: "Show the How", sub: "Process is the product" },
                 ].map((item) => (
-                  <div key={item.title} className="bg-navy-light border-[3px] border-lime/30 rounded-2xl p-6">
+                  <div key={item.title} className="flex flex-col items-center bg-navy-light border-[3px] border-lime/30 rounded-2xl p-6">
                     <svg className="w-8 h-8 text-lime mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
                     </svg>

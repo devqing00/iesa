@@ -2,6 +2,7 @@
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { useGrowthData } from "@/hooks/useGrowthData";
 import Link from "next/link";
 import { useState, useMemo, useEffect } from "react";
 
@@ -21,6 +22,10 @@ interface SemesterRecord {
   courses: Course[];
   timestamp: string;
   gradingSystem?: "4.0" | "5.0";
+  semesterGPA?: number;
+  previousCGPA?: string;
+  previousCredits?: string;
+  targetCGPA?: string;
 }
 
 type GradingSystem = "4.0" | "5.0";
@@ -77,14 +82,14 @@ const GRADE_COLORS: Record<string, string> = {
 
 /* ─── Component ───────────────────────────────────────────── */
 export default function CgpaPage() {
-  const [gradingSystem, setGradingSystem] = useState<GradingSystem>("5.0");
+  const [gradingSystem, setGradingSystem] = useGrowthData<GradingSystem>('cgpa-grading', 'iesa-grading-system', '5.0');
   const [courses, setCourses] = useState<Course[]>([
     { id: "1", name: "", credits: 3, grade: "A" },
   ]);
   const [previousCGPA, setPreviousCGPA] = useState("");
   const [previousCredits, setPreviousCredits] = useState("");
   const [targetCGPA, setTargetCGPA] = useState("");
-  const [history, setHistory] = useState<SemesterRecord[]>([]);
+  const [history, setHistory] = useGrowthData<SemesterRecord[]>('cgpa-history', 'iesa-cgpa-history', []);
   const [showHistory, setShowHistory] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [motivationIndex, setMotivationIndex] = useState(0);
@@ -94,20 +99,11 @@ export default function CgpaPage() {
   const currentGrading = GRADING_SYSTEMS[gradingSystem];
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("iesa-cgpa-history");
-      if (saved) setHistory(JSON.parse(saved));
-      const savedSystem = localStorage.getItem("iesa-grading-system") as GradingSystem;
-      if (savedSystem && GRADING_SYSTEMS[savedSystem]) setGradingSystem(savedSystem);
-    } catch {
-      console.error("Failed to load CGPA data");
-    }
     setMotivationIndex(Math.floor(Math.random() * 3));
   }, []);
 
   const handleGradingSystemChange = (system: GradingSystem) => {
     setGradingSystem(system);
-    localStorage.setItem("iesa-grading-system", system);
     setCourses(courses.map((c) => ({ ...c, grade: "A" })));
     if (hasInteracted) setHasInteracted(false);
   };
@@ -211,18 +207,30 @@ export default function CgpaPage() {
       courses: [...courses],
       timestamp: new Date().toISOString(),
       gradingSystem,
+      semesterGPA: parseFloat(result.semesterGPA),
+      previousCGPA: previousCGPA || undefined,
+      previousCredits: previousCredits || undefined,
+      targetCGPA: targetCGPA || undefined,
     };
     const updated = [newRecord, ...history].slice(0, 20);
     setHistory(updated);
-    localStorage.setItem("iesa-cgpa-history", JSON.stringify(updated));
     setShowConfetti(true);
     setTimeout(() => setShowConfetti(false), 2000);
+  };
+
+  const loadFromHistory = (record: SemesterRecord) => {
+    setCourses(record.courses.length > 0 ? record.courses : [{ id: "1", name: "", credits: 3, grade: "A" }]);
+    if (record.gradingSystem) setGradingSystem(record.gradingSystem);
+    setPreviousCGPA(record.previousCGPA ?? "");
+    setPreviousCredits(record.previousCredits ?? "");
+    setTargetCGPA(record.targetCGPA ?? "");
+    setHasInteracted(true);
+    setShowHistory(false);
   };
 
   const deleteFromHistory = (id: string) => {
     const updated = history.filter((h) => h.id !== id);
     setHistory(updated);
-    localStorage.setItem("iesa-cgpa-history", JSON.stringify(updated));
   };
 
   /**
@@ -260,10 +268,10 @@ export default function CgpaPage() {
       <ToolHelpModal toolId="cgpa" isOpen={showHelp} onClose={closeHelp} />
 
       {/* Diamond sparkle decorators */}
-      <svg className="fixed top-20 left-[8%] w-5 h-5 text-teal/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-      <svg className="fixed top-40 right-[6%] w-4 h-4 text-lavender/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-      <svg className="fixed bottom-32 left-[15%] w-6 h-6 text-sunny/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-      <svg className="fixed top-60 right-[20%] w-3 h-3 text-coral/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+      <svg className="fixed top-20 left-[8%] w-5 h-5 text-teal/15 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+      <svg className="fixed top-40 right-[6%] w-4 h-4 text-lavender/12 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+      <svg className="fixed bottom-32 left-[15%] w-6 h-6 text-sunny/12 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+      <svg className="fixed top-60 right-[20%] w-3 h-3 text-coral/15 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
 
       <div className="px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8 relative z-10">
         <div className="max-w-6xl mx-auto">
@@ -676,7 +684,11 @@ export default function CgpaPage() {
                           return (
                             <div
                               key={record.id}
-                              className={`flex items-center justify-between p-3 ${histColors[index % histColors.length]} border-[2px] border-navy/15 rounded-xl group`}
+                              className={`flex items-center justify-between p-3 ${histColors[index % histColors.length]} border-[2px] border-navy/15 rounded-xl group cursor-pointer hover:border-navy/30 transition-all`}
+                              onClick={() => loadFromHistory(record)}
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") loadFromHistory(record); }}
                             >
                               <div>
                                 <div className="flex items-center gap-2 mb-0.5">
@@ -690,12 +702,17 @@ export default function CgpaPage() {
                                     <span className="px-1.5 py-0.5 rounded-md bg-navy text-ghost text-[9px] font-bold uppercase">Latest</span>
                                   )}
                                 </div>
-                                <span className="text-[10px] font-bold text-navy/40">
-                                  {new Date(record.timestamp).toLocaleDateString()} · {record.credits} credits
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-bold text-navy/40">
+                                    {new Date(record.timestamp).toLocaleDateString()} · {record.credits} credits · {record.courses.length} courses
+                                  </span>
+                                  <span className="text-[9px] font-bold text-teal/70 uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+                                    Click to load
+                                  </span>
+                                </div>
                               </div>
                               <button
-                                onClick={() => deleteFromHistory(record.id)}
+                                onClick={(e) => { e.stopPropagation(); deleteFromHistory(record.id); }}
                                 className="p-1.5 text-slate hover:text-coral opacity-0 group-hover:opacity-100 transition-all"
                                 aria-label="Delete record"
                               >
@@ -712,8 +729,8 @@ export default function CgpaPage() {
 
               {/* Privacy note */}
               <div className="flex items-center justify-center gap-2 py-2">
-                <svg className="w-3 h-3 text-slate" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd"/></svg>
-                <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate">Stored locally on your device</span>
+                <svg className="w-3 h-3 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M4.5 9.75a6 6 0 0111.573-2.226 3.75 3.75 0 014.133 4.303A4.5 4.5 0 0118 20.25H6.75a5.25 5.25 0 01-.75-10.5z" clipRule="evenodd"/></svg>
+                <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-teal">Synced to your account</span>
               </div>
             </div>
           </div>

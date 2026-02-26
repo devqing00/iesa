@@ -84,19 +84,19 @@ export default function BlogPage() {
   return (
     <div className="min-h-screen bg-ghost text-navy overflow-x-hidden">
       {/* Diamond sparkle decorators */}
-      <svg className="fixed top-20 left-[8%] w-6 h-6 text-navy/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed top-20 left-[8%] w-6 h-6 text-navy/12 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
-      <svg className="fixed top-[40%] right-[12%] w-7 h-7 text-coral/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed top-[40%] right-[12%] w-7 h-7 text-coral/15 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
-      <svg className="fixed bottom-[30%] left-[18%] w-5 h-5 text-lavender/20 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed bottom-[30%] left-[18%] w-5 h-5 text-lavender/20 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
 
       <Header />
 
-      <main className="pt-14 sm:pt-16 pb-12">
+      <main id="main-content" className="pt-14 sm:pt-16 pb-12">
         {/* ── Hero ── */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12 pt-12 md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
           <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[5rem] leading-[0.9] text-navy mb-4">

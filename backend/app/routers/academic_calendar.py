@@ -1,11 +1,12 @@
 """Academic calendar event routes — CRUD for semester milestones, exams, holidays, etc."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ..core.permissions import get_current_user, get_current_session, require_permission
+from ..core.audit import AuditLogger
 from ..db import get_database
 from ..models.academic_calendar import (
     AcademicEventCreate,
@@ -36,6 +37,7 @@ def _doc_to_response(doc: dict) -> AcademicEventResponse:
 @router.post("/", response_model=AcademicEventResponse, status_code=201)
 async def create_academic_event(
     event_data: AcademicEventCreate,
+    request: Request,
     user: dict = Depends(get_current_user),
     session: dict = Depends(get_current_session),
     _perm=Depends(require_permission("timetable:create")),
@@ -51,11 +53,23 @@ async def create_academic_event(
         "sessionId": str(session["_id"]),
         "description": event_data.description,
         "createdBy": str(user["_id"]),
-        "createdAt": datetime.utcnow(),
+        "createdAt": datetime.now(timezone.utc),
         "updatedAt": None,
     }
     result = await db.academicEvents.insert_one(doc)
     doc["_id"] = result.inserted_id
+
+    await AuditLogger.log(
+        action="academic_event.created",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="academic_event",
+        resource_id=str(result.inserted_id),
+        details={"title": event_data.title, "type": event_data.eventType.value},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return _doc_to_response(doc)
 
 
@@ -98,6 +112,7 @@ async def get_academic_event(
 async def update_academic_event(
     event_id: str,
     event_data: AcademicEventUpdate,
+    request: Request,
     user: dict = Depends(get_current_user),
     _perm=Depends(require_permission("timetable:edit")),
 ):
@@ -112,7 +127,7 @@ async def update_academic_event(
     }
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
-    updates["updatedAt"] = datetime.utcnow()
+    updates["updatedAt"] = datetime.now(timezone.utc)
 
     result = await db.academicEvents.find_one_and_update(
         {"_id": ObjectId(event_id)},
@@ -121,12 +136,25 @@ async def update_academic_event(
     )
     if not result:
         raise HTTPException(status_code=404, detail="Event not found")
+
+    await AuditLogger.log(
+        action="academic_event.updated",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="academic_event",
+        resource_id=event_id,
+        details={"title": result.get("title"), "fields": list(updates.keys())},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return _doc_to_response(result)
 
 
 @router.delete("/{event_id}", status_code=204)
 async def delete_academic_event(
     event_id: str,
+    request: Request,
     user: dict = Depends(get_current_user),
     _perm=Depends(require_permission("timetable:edit")),
 ):
@@ -134,7 +162,20 @@ async def delete_academic_event(
     db = get_database()
     if not ObjectId.is_valid(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID")
+    doc = await db.academicEvents.find_one({"_id": ObjectId(event_id)})
     result = await db.academicEvents.delete_one({"_id": ObjectId(event_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Event not found")
+
+    await AuditLogger.log(
+        action="academic_event.deleted",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="academic_event",
+        resource_id=event_id,
+        details={"title": doc.get("title") if doc else None},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return None

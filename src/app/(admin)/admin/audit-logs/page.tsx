@@ -51,7 +51,7 @@ function formatTimestamp(ts: string): { date: string; time: string } {
   };
 }
 
-const RESOURCE_TYPES = ["", "user", "session", "payment", "enrollment", "event", "announcement", "grade", "role"];
+const RESOURCE_TYPES = ["", "user", "session", "payment", "enrollment", "event", "announcement", "role"];
 
 const ACTION_TYPES = [
   "",
@@ -61,7 +61,6 @@ const ACTION_TYPES = [
   "enrollment.created", "enrollment.updated", "enrollment.deleted",
   "event.created", "event.updated", "event.deleted",
   "announcement.created", "announcement.updated", "announcement.deleted",
-  "grade.created", "grade.updated", "grade.deleted",
   "role.assigned", "role.revoked",
 ];
 

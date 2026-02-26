@@ -87,11 +87,19 @@ export default function NotificationBell() {
     }
   }, [getAccessToken, user]);
 
-  /* Poll every 60 seconds */
+  /* Poll every 60 seconds + listen for SSE push events */
   useEffect(() => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 60 * 1000);
-    return () => clearInterval(interval);
+
+    // Instant refresh when SSE dispatches a notification event
+    const handleSSE = () => fetchNotifications();
+    window.addEventListener("sse:notification", handleSSE);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("sse:notification", handleSSE);
+    };
   }, [fetchNotifications]);
 
   /* Close on outside click */

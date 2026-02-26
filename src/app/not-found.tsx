@@ -7,14 +7,14 @@ export default function NotFound() {
     <div className="min-h-screen bg-ghost text-navy overflow-x-hidden flex flex-col">
       <Header />
 
-      {/* ✦ Decorators */}
-      <span className="fixed top-32 left-[8%] text-navy/10 text-3xl font-black pointer-events-none z-0 select-none">✦</span>
-      <span className="fixed top-48 right-[12%] text-coral/12 text-2xl font-black pointer-events-none z-0 select-none">✦</span>
-      <span className="fixed bottom-36 left-[15%] text-lavender/15 text-xl font-black pointer-events-none z-0 select-none">✦</span>
-      <svg className="fixed top-24 right-[6%] w-5 h-5 text-sunny/18 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" /></svg>
-      <svg className="fixed bottom-[25%] right-[8%] w-4 h-4 text-navy/8 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" /></svg>
+      {/* ✦ Decorators — SVG diamonds */}
+      <svg className="fixed top-32 left-[8%] w-5 h-5 text-navy/10 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" /></svg>
+      <svg className="fixed top-48 right-[12%] w-6 h-6 text-coral/15 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" /></svg>
+      <svg className="fixed bottom-36 left-[15%] w-4 h-4 text-lavender/20 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" /></svg>
+      <svg className="fixed top-24 right-[6%] w-5 h-5 text-sunny/18 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" /></svg>
+      <svg className="fixed bottom-[25%] right-[8%] w-4 h-4 text-navy/8 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" /></svg>
 
-      <main className="flex-1 flex items-center justify-center p-8 pt-24">
+      <main id="main-content" className="flex-1 flex items-center justify-center p-8 pt-24">
         <div className="max-w-lg w-full text-center space-y-8">
           {/* Tag */}
           <div className="inline-block bg-coral border-[3px] border-navy rounded-full px-4 py-1.5">
@@ -35,7 +35,7 @@ export default function NotFound() {
           {/* Decorative Line */}
           <div className="flex items-center justify-center gap-4">
             <div className="w-16 h-[3px] bg-navy/15 rounded-full" />
-            <span className="text-snow text-xl font-black">✦</span>
+            <svg className="w-3 h-3 text-navy/25" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" /></svg>
             <div className="w-16 h-[3px] bg-navy/15 rounded-full" />
           </div>
 

@@ -16,7 +16,7 @@ Collections:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -191,7 +191,7 @@ class TeamMember(BaseModel):
     userId: str
     userName: str
     role: str = Field(default="member", description="E.g. 'lead', 'member'")
-    joinedAt: datetime = Field(default_factory=datetime.utcnow)
+    joinedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class TeamBase(BaseModel):

@@ -3,7 +3,7 @@ Press Router — Association Blog / Press Unit
 
 Public endpoints (no auth):
   GET  /api/v1/press/published          — published articles list
-  GET  /api/v1/press/published/{slug}   — single published article
+  GET  /api/v1/press/published/{slug}   — single published article (deduped views, optional auth for like state)
 
 Author endpoints (press unit member):
   GET  /api/v1/press/my-articles        — author's own articles
@@ -28,10 +28,11 @@ Like (any authenticated user):
   POST /api/v1/press/{id}/like          — toggle like on published article
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status, Query, UploadFile, File
+from fastapi import APIRouter, HTTPException, Depends, status, Query, UploadFile, File, Request
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from bson import ObjectId
+import hashlib
 import re
 
 from app.models.press import (
@@ -40,7 +41,9 @@ from app.models.press import (
 )
 from app.db import get_database
 from app.core.security import get_current_user, verify_token
+from app.core.auth import decode_access_token
 from app.core.sanitization import sanitize_html, validate_no_scripts
+from app.core.audit import AuditLogger
 
 router = APIRouter(prefix="/api/v1/press", tags=["Press"])
 
@@ -131,10 +134,11 @@ async def list_published_articles(
     if tag:
         query["tags"] = tag
     if search:
+        escaped = re.escape(search)
         query["$or"] = [
-            {"title": {"$regex": search, "$options": "i"}},
-            {"excerpt": {"$regex": search, "$options": "i"}},
-            {"tags": {"$regex": search, "$options": "i"}},
+            {"title": {"$regex": escaped, "$options": "i"}},
+            {"excerpt": {"$regex": escaped, "$options": "i"}},
+            {"tags": {"$regex": escaped, "$options": "i"}},
         ]
 
     cursor = articles.find(query).sort("publishedAt", -1).skip(skip).limit(limit)
@@ -143,8 +147,8 @@ async def list_published_articles(
 
 
 @router.get("/published/{slug}")
-async def get_published_article(slug: str):
-    """Get a single published article by slug (public, no auth). Increments view count."""
+async def get_published_article(slug: str, request: Request):
+    """Get a single published article by slug (public, no auth). Increments view count once per visitor per hour."""
     db = get_database()
     articles = db["press_articles"]
 
@@ -152,13 +156,43 @@ async def get_published_article(slug: str):
     if not doc:
         raise HTTPException(status_code=404, detail="Article not found")
 
-    # Increment view count
-    await articles.update_one({"_id": doc["_id"]}, {"$inc": {"viewCount": 1}})
-    doc["viewCount"] = doc.get("viewCount", 0) + 1
+    # ── View-count dedup: one view per IP+UA per article per hour ──
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "")
+    fingerprint = hashlib.sha256(f"{client_ip}:{user_agent}".encode()).hexdigest()[:16]
 
-    # Strip sensitive fields from public response
+    article_views = db["article_views"]
+    one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
+    recent = await article_views.find_one({
+        "articleId": doc["_id"],
+        "fingerprint": fingerprint,
+        "viewedAt": {"$gte": one_hour_ago},
+    })
+
+    if not recent:
+        await articles.update_one({"_id": doc["_id"]}, {"$inc": {"viewCount": 1}})
+        doc["viewCount"] = doc.get("viewCount", 0) + 1
+        await article_views.insert_one({
+            "articleId": doc["_id"],
+            "fingerprint": fingerprint,
+            "viewedAt": datetime.now(timezone.utc),
+        })
+
+    # ── Build response ──
     result = _article_dict(doc)
-    result.pop("likedBy", None)
+    liked_by = result.pop("likedBy", []) or []
+
+    # If caller is authenticated, include their like state
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        try:
+            token_data = decode_access_token(auth_header.split(" ", 1)[1])
+            user_id = token_data.get("sub")
+            if user_id:
+                result["userHasLiked"] = ObjectId(user_id) in liked_by
+        except Exception:
+            pass  # Invalid token — serve as unauthenticated
+
     return result
 
 
@@ -214,7 +248,7 @@ async def create_article(
         slug = f"{base_slug}-{counter}"
         counter += 1
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     author_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip() or user.get("email", "Author")
 
     doc = {
@@ -262,7 +296,7 @@ async def update_article(
     if doc["status"] not in ("draft", "revision_requested"):
         raise HTTPException(400, f"Cannot edit article in '{doc['status']}' status")
 
-    updates: dict = {"updatedAt": datetime.utcnow()}
+    updates: dict = {"updatedAt": datetime.now(timezone.utc)}
     for field in ("title", "content", "excerpt", "category", "tags", "coverImageUrl"):
         val = getattr(payload, field, None)
         if val is not None:
@@ -340,7 +374,7 @@ async def submit_article(article_id: str, user: dict = Depends(get_current_user)
 
     await articles.update_one(
         {"_id": ObjectId(article_id)},
-        {"$set": {"status": "submitted", "submittedAt": datetime.utcnow(), "updatedAt": datetime.utcnow()}},
+        {"$set": {"status": "submitted", "submittedAt": datetime.now(timezone.utc), "updatedAt": datetime.now(timezone.utc)}},
     )
     return {"message": "Article submitted for review", "status": "submitted"}
 
@@ -473,13 +507,13 @@ async def start_review(article_id: str, user: dict = Depends(get_current_user)):
 
     await articles.update_one(
         {"_id": ObjectId(article_id)},
-        {"$set": {"status": "in_review", "updatedAt": datetime.utcnow()}},
+        {"$set": {"status": "in_review", "updatedAt": datetime.now(timezone.utc)}},
     )
     return {"message": "Article is now in review", "status": "in_review"}
 
 
 @router.post("/{article_id}/approve")
-async def approve_article(article_id: str, user: dict = Depends(get_current_user)):
+async def approve_article(article_id: str, request: Request, user: dict = Depends(get_current_user)):
     """Approve article (submitted/in_review → approved)."""
     db = get_database()
     is_head = await _check_press_head(user, db)
@@ -496,7 +530,18 @@ async def approve_article(article_id: str, user: dict = Depends(get_current_user
     reviewer_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip() or "Reviewer"
     await articles.update_one(
         {"_id": ObjectId(article_id)},
-        {"$set": {"status": "approved", "reviewedAt": datetime.utcnow(), "updatedAt": datetime.utcnow()}},
+        {"$set": {"status": "approved", "reviewedAt": datetime.now(timezone.utc), "updatedAt": datetime.now(timezone.utc)}},
+    )
+    
+    await AuditLogger.log(
+        action="press.approved",
+        actor_id=user["_id"],
+        actor_email=user.get("email", "unknown"),
+        resource_type="press_article",
+        resource_id=article_id,
+        details={"title": doc.get("title")},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
     )
     return {"message": "Article approved", "status": "approved"}
 
@@ -505,6 +550,7 @@ async def approve_article(article_id: str, user: dict = Depends(get_current_user
 async def reject_article(
     article_id: str,
     payload: FeedbackCreate,
+    request: Request,
     user: dict = Depends(get_current_user),
 ):
     """Reject article with reason."""
@@ -530,9 +576,20 @@ async def reject_article(
     await articles.update_one(
         {"_id": ObjectId(article_id)},
         {
-            "$set": {"status": "rejected", "reviewedAt": datetime.utcnow(), "updatedAt": datetime.utcnow()},
+            "$set": {"status": "rejected", "reviewedAt": datetime.now(timezone.utc), "updatedAt": datetime.now(timezone.utc)},
             "$push": {"feedback": fb.model_dump()},
         },
+    )
+    
+    await AuditLogger.log(
+        action="press.rejected",
+        actor_id=user["_id"],
+        actor_email=user.get("email", "unknown"),
+        resource_type="press_article",
+        resource_id=article_id,
+        details={"title": doc.get("title"), "reason": payload.message},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
     )
     return {"message": "Article rejected", "status": "rejected"}
 
@@ -566,7 +623,7 @@ async def request_revision(
     await articles.update_one(
         {"_id": ObjectId(article_id)},
         {
-            "$set": {"status": "revision_requested", "updatedAt": datetime.utcnow()},
+            "$set": {"status": "revision_requested", "updatedAt": datetime.now(timezone.utc)},
             "$push": {"feedback": fb.model_dump()},
         },
     )
@@ -601,14 +658,14 @@ async def add_feedback(
         {"_id": ObjectId(article_id)},
         {
             "$push": {"feedback": fb.model_dump()},
-            "$set": {"updatedAt": datetime.utcnow()},
+            "$set": {"updatedAt": datetime.now(timezone.utc)},
         },
     )
     return {"message": "Feedback added"}
 
 
 @router.post("/{article_id}/publish")
-async def publish_article(article_id: str, user: dict = Depends(get_current_user)):
+async def publish_article(article_id: str, request: Request, user: dict = Depends(get_current_user)):
     """Publish an approved article to the public blog."""
     db = get_database()
     is_head = await _check_press_head(user, db)
@@ -624,13 +681,24 @@ async def publish_article(article_id: str, user: dict = Depends(get_current_user
 
     await articles.update_one(
         {"_id": ObjectId(article_id)},
-        {"$set": {"status": "published", "publishedAt": datetime.utcnow(), "updatedAt": datetime.utcnow()}},
+        {"$set": {"status": "published", "publishedAt": datetime.now(timezone.utc), "updatedAt": datetime.now(timezone.utc)}},
+    )
+    
+    await AuditLogger.log(
+        action="press.published",
+        actor_id=user["_id"],
+        actor_email=user.get("email", "unknown"),
+        resource_type="press_article",
+        resource_id=article_id,
+        details={"title": doc.get("title")},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
     )
     return {"message": "Article is now live!", "status": "published"}
 
 
 @router.post("/{article_id}/unpublish")
-async def unpublish_article(article_id: str, user: dict = Depends(get_current_user)):
+async def unpublish_article(article_id: str, request: Request, user: dict = Depends(get_current_user)):
     """Take article off public blog (back to approved)."""
     db = get_database()
     is_head = await _check_press_head(user, db)
@@ -646,13 +714,24 @@ async def unpublish_article(article_id: str, user: dict = Depends(get_current_us
 
     await articles.update_one(
         {"_id": ObjectId(article_id)},
-        {"$set": {"status": "approved", "updatedAt": datetime.utcnow()}},
+        {"$set": {"status": "approved", "updatedAt": datetime.now(timezone.utc)}},
+    )
+
+    await AuditLogger.log(
+        action="press.unpublished",
+        actor_id=user["_id"],
+        actor_email=user.get("email", "unknown"),
+        resource_type="press_article",
+        resource_id=article_id,
+        details={"title": doc.get("title")},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
     )
     return {"message": "Article unpublished", "status": "approved"}
 
 
 @router.post("/{article_id}/archive")
-async def archive_article(article_id: str, user: dict = Depends(get_current_user)):
+async def archive_article(article_id: str, request: Request, user: dict = Depends(get_current_user)):
     """Archive an article."""
     db = get_database()
     is_head = await _check_press_head(user, db)
@@ -666,7 +745,18 @@ async def archive_article(article_id: str, user: dict = Depends(get_current_user
 
     await articles.update_one(
         {"_id": ObjectId(article_id)},
-        {"$set": {"status": "archived", "updatedAt": datetime.utcnow()}},
+        {"$set": {"status": "archived", "updatedAt": datetime.now(timezone.utc)}},
+    )
+    
+    await AuditLogger.log(
+        action="press.archived",
+        actor_id=user["_id"],
+        actor_email=user.get("email", "unknown"),
+        resource_type="press_article",
+        resource_id=article_id,
+        details={"title": doc.get("title")},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
     )
     return {"message": "Article archived", "status": "archived"}
 

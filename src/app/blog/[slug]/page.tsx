@@ -23,7 +23,7 @@ interface ArticleFull {
   authorProfilePicture?: string;
   viewCount: number;
   likeCount: number;
-  likedBy?: string[];
+  userHasLiked?: boolean;
   publishedAt?: string;
   createdAt: string;
 }
@@ -54,12 +54,22 @@ export default function BlogArticlePage() {
   const fetchArticle = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(getApiUrl(`/api/v1/press/published/${slug}`));
+      const headers: Record<string, string> = {};
+
+      // Pass auth token if available so backend returns userHasLiked
+      if (user) {
+        try {
+          const token = await getAccessToken();
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+        } catch { /* serve as unauthenticated */ }
+      }
+
+      const res = await fetch(getApiUrl(`/api/v1/press/published/${slug}`), { headers });
       if (res.ok) {
         const data = await res.json();
         setArticle(data);
         setLikeCount(data.likeCount || 0);
-        if (user && data.likedBy?.includes(user.id)) {
+        if (data.userHasLiked) {
           setLiked(true);
         }
       }
@@ -68,14 +78,18 @@ export default function BlogArticlePage() {
     } finally {
       setLoading(false);
     }
-  }, [slug, user]);
+  }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (slug) fetchArticle();
   }, [slug, fetchArticle]);
 
   const handleLike = async () => {
-    if (!user || !article) return;
+    if (!user) {
+      toast.info("Log in to like this article");
+      return;
+    }
+    if (!article) return;
     try {
       const token = await getAccessToken();
       const res = await fetch(getApiUrl(`/api/v1/press/${article._id}/like`), {
@@ -95,16 +109,16 @@ export default function BlogArticlePage() {
   return (
     <div className="min-h-screen bg-ghost text-navy overflow-x-hidden">
       {/* Sparkle decorators */}
-      <svg className="fixed top-24 left-[6%] w-5 h-5 text-navy/10 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed top-24 left-[6%] w-5 h-5 text-navy/10 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
-      <svg className="fixed top-[50%] right-[8%] w-6 h-6 text-coral/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed top-[50%] right-[8%] w-6 h-6 text-coral/12 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
 
       <Header />
 
-      <main className="pt-14 sm:pt-16 pb-20">
+      <main id="main-content" className="pt-14 sm:pt-16 pb-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-12">
           {/* Back link */}
           <Link href="/blog" className="inline-flex items-center gap-2 text-sm font-display font-bold text-navy/60 hover:text-navy transition-colors mb-8">

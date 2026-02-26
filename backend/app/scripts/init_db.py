@@ -12,7 +12,7 @@ Run this script once after deploying the application:
 
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 from dotenv import load_dotenv
 from app.core.auth import hash_password
@@ -179,7 +179,7 @@ async def create_default_session(db):
     # Current session: 2024/2025 (Started Feb 2025, ends Feb 2026)
     # Next session: 2025/2026 (Starts Mar 9, 2026)
     
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     current_month = now.month
     current_year = now.year
     
@@ -242,9 +242,9 @@ async def create_admin_user(db):
         "currentLevel": None,
         "skills": [],
         "isActive": True,
-        "createdAt": datetime.utcnow(),
-        "updatedAt": datetime.utcnow(),
-        "lastLogin": datetime.utcnow()
+        "createdAt": datetime.now(timezone.utc),
+        "updatedAt": datetime.now(timezone.utc),
+        "lastLogin": datetime.now(timezone.utc)
     }
     
     result = await users.insert_one(admin_data)

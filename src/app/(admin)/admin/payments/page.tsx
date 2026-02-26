@@ -208,7 +208,8 @@ function AdminPaymentsPage() {
       });
       if (response.ok) {
         const data = await response.json();
-        setPayments(data.map((item: Payment & { _id?: string }) => ({ ...item, id: item.id || item._id })));
+        const items = data.items ?? data;
+        setPayments(items.map((item: Payment & { _id?: string }) => ({ ...item, id: item.id || item._id })));
       }
     } catch (error) {
       toast.error("Failed to load payments");

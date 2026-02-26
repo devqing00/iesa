@@ -5,7 +5,7 @@ import os
 from app.core.security import verify_token
 from app.core.rate_limiting import setup_rate_limiting
 from app.core.error_handling import setup_exception_handlers, setup_logging
-from app.routers import sessions, users, payments, events, announcements, grades, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press, unit_applications, academic_calendar, timp, bank_transfers, settings, contact_messages, iepod, admin_stats, student_dashboard, sse, notifications, search
+from app.routers import sessions, users, payments, events, announcements, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press, unit_applications, academic_calendar, timp, bank_transfers, settings, contact_messages, iepod, admin_stats, student_dashboard, sse, notifications, search, growth
 from app.db import connect_to_mongo, close_mongo_connection
 
 # Setup logging first
@@ -17,6 +17,14 @@ async def lifespan(app: FastAPI):
     """Handle startup and shutdown events"""
     # Startup
     await connect_to_mongo()
+
+    # Ensure TTL index on article_views for automatic cleanup (24h)
+    from app.db import get_database
+    db = get_database()
+    await db["article_views"].create_index(
+        "viewedAt", expireAfterSeconds=86400, background=True
+    )
+
     yield
     # Shutdown
     await close_mongo_connection()
@@ -82,7 +90,6 @@ app.include_router(roles.router)
 app.include_router(payments.router)
 app.include_router(events.router)
 app.include_router(announcements.router)
-app.include_router(grades.router)
 app.include_router(iesa_ai.router)  # IESA AI Assistant
 app.include_router(resources.router)  # Resource Library
 app.include_router(timetable.router)  # Timetable System
@@ -102,6 +109,7 @@ app.include_router(student_dashboard.router) # Student Dashboard Stats (aggregat
 app.include_router(sse.router)               # Real-time SSE notifications
 app.include_router(notifications.router)     # In-app Notification System
 app.include_router(search.router)              # Global Search
+app.include_router(growth.router)              # Growth Hub Tools (personal data)
 
 @app.get("/api/protected")
 async def protected_route(user_data: dict = Depends(verify_token)):

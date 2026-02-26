@@ -5,7 +5,7 @@ Tracks all administrative actions for security and compliance.
 Creates an immutable audit trail of who did what and when.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from bson import ObjectId
 from app.db import get_database
@@ -95,7 +95,7 @@ class AuditLogger:
                 "ipAddress": ip_address,
                 "userAgent": user_agent
             },
-            "timestamp": datetime.utcnow()
+            "timestamp": datetime.now(timezone.utc)
         }
         
         await audit_logs.insert_one(log_entry)

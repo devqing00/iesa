@@ -18,12 +18,12 @@ interface Resource {
   type: string;
   courseCode: string;
   level: number;
+  semester?: string | null;
   url: string;
   fileType?: string;
   fileSize?: number;
   uploaderName: string;
   tags: string[];
-  downloadCount: number;
   viewCount: number;
   isApproved: boolean;
   createdAt: string;
@@ -279,6 +279,27 @@ function AdminResourcesPage() {
                 {fieldErrors.level && <p className="text-coral text-xs mt-1 font-normal">{fieldErrors.level}</p>}
               </div>
 
+              {/* Semester */}
+              <div>
+                <label className="text-label uppercase tracking-wider text-xs text-slate block mb-2">Semester</label>
+                <div className="flex gap-2">
+                  {(["first", "second"] as const).map((sem) => (
+                    <button
+                      key={sem}
+                      type="button"
+                      onClick={() => updateField("semester", formData.semester === sem ? null : sem)}
+                      className={`flex-1 py-2.5 rounded-xl font-display text-sm border-[3px] transition-all ${
+                        formData.semester === sem
+                          ? "bg-coral text-snow border-navy shadow-[3px_3px_0_0_#000]"
+                          : "bg-ghost border-navy/30 text-slate hover:border-navy hover:text-navy"
+                      }`}
+                    >
+                      {sem === "first" ? "1st Semester" : "2nd Semester"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Course Code */}
               <div>
                 <label className="text-label uppercase tracking-wider text-xs text-slate block mb-2">Course Code *</label>
@@ -434,8 +455,12 @@ function AdminResourcesPage() {
 
                       {/* Stats */}
                       <td className="px-5 py-3 whitespace-nowrap">
-                        <p className="text-slate text-xs font-normal">{r.downloadCount} downloads</p>
                         <p className="text-slate text-xs font-normal">{r.viewCount} views</p>
+                        {r.semester && (
+                          <p className="text-[10px] font-bold text-coral uppercase tracking-wider mt-0.5">
+                            {r.semester === "first" ? "1st Sem" : "2nd Sem"}
+                          </p>
+                        )}
                       </td>
 
                       {/* Actions */}

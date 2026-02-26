@@ -7,7 +7,7 @@ This is the core of the time-travel feature.
 
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 from typing import Literal, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 
 
@@ -75,7 +75,7 @@ class Session(SessionBase):
         """Compute startDate, endDate, currentSemester from semester dates"""
         self.startDate = self.semester1StartDate
         self.endDate = self.semester2EndDate
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if now < self.semester2StartDate:
             self.currentSemester = 1
         else:

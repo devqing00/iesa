@@ -2,7 +2,6 @@
 
 import Sidebar from "@/components/dashboard/Sidebar";
 import MobileNav from "@/components/dashboard/MobileNav";
-import GlobalSearch from "@/components/dashboard/GlobalSearch";
 import { useAuth } from "@/context/AuthContext";
 import { SidebarProvider, useSidebar } from "@/context/SidebarContext";
 import { useRouter } from "next/navigation";
@@ -22,12 +21,6 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           isExpanded ? "lg:ml-[260px]" : ""
         }`}
       >
-        {/* Search bar — fixed top-right */}
-        <div className="sticky top-0 z-30 flex justify-end px-4 pt-3 pb-1 pointer-events-none">
-          <div className="pointer-events-auto">
-            <GlobalSearch />
-          </div>
-        </div>
         {/* Subtle dot pattern */}
         <div className="absolute inset-0 -z-10 bg-dots opacity-30 pointer-events-none" />
         {children}

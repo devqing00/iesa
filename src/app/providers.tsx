@@ -6,7 +6,6 @@ import { SessionProvider } from "@/context/SessionContext";
 import { PermissionsProvider } from "@/context/PermissionsContext";
 import { ToastProvider } from "@/components/ui";
 import { Toaster } from "sonner";
-import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import * as React from "react";
 
 export function ThemeProvider({
@@ -44,7 +43,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
           </PermissionsProvider>
         </SessionProvider>
       </AuthProvider>
-      <ServiceWorkerRegistrar />
     </ThemeProvider>
   );
 }

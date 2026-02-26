@@ -59,6 +59,7 @@ function AdminTimpPage() {
 
   /* ── Applications ── */
   const [applications, setApplications] = useState<MentorApplication[]>([]);
+  const [totalApps, setTotalApps] = useState(0);
   const [appSubTab, setAppSubTab] = useState<string>("pending");
   const [loadingApps, setLoadingApps] = useState(true);
 
@@ -69,6 +70,7 @@ function AdminTimpPage() {
 
   /* ── Pairs ── */
   const [pairs, setPairs] = useState<MentorshipPair[]>([]);
+  const [totalPairs, setTotalPairs] = useState(0);
   const [pairSubTab, setPairSubTab] = useState<string>("active");
   const [loadingPairs, setLoadingPairs] = useState(true);
 
@@ -117,26 +119,36 @@ function AdminTimpPage() {
   const fetchApps = useCallback(async () => {
     setLoadingApps(true);
     try {
-      const data = await listMentorApplications({ status: appSubTab });
-      setApplications(data);
+      const data = await listMentorApplications({
+        status: appSubTab,
+        limit: TIMP_PAGE_SIZE,
+        skip: (appPage - 1) * TIMP_PAGE_SIZE,
+      });
+      setApplications(data.items ?? []);
+      setTotalApps(data.total ?? 0);
     } catch {
       // handled by api client
     } finally {
       setLoadingApps(false);
     }
-  }, [appSubTab]);
+  }, [appSubTab, appPage]);
 
   const fetchPairs = useCallback(async () => {
     setLoadingPairs(true);
     try {
-      const data = await listPairs({ status: pairSubTab });
-      setPairs(data);
+      const data = await listPairs({
+        status: pairSubTab,
+        limit: TIMP_PAGE_SIZE,
+        skip: (pairPage - 1) * TIMP_PAGE_SIZE,
+      });
+      setPairs(data.items ?? []);
+      setTotalPairs(data.total ?? 0);
     } catch {
       // handled by api client
     } finally {
       setLoadingPairs(false);
     }
-  }, [pairSubTab]);
+  }, [pairSubTab, pairPage]);
 
   useEffect(() => {
     if (tab === "applications") fetchApps();
@@ -206,12 +218,12 @@ function AdminTimpPage() {
   const openCreatePair = async () => {
     setShowCreatePair(true);
     try {
-      const [mentors, allStudents] = await Promise.all([
-        listMentorApplications({ status: "approved" }),
+      const [mentorsData, studentsData] = await Promise.all([
+        listMentorApplications({ status: "approved", limit: 500 }),
         listUsers({ limit: 500 }),
       ]);
-      setApprovedMentors(mentors);
-      setStudents(allStudents);
+      setApprovedMentors(mentorsData.items ?? []);
+      setStudents(studentsData.items ?? []);
     } catch {
       // handled
     }
@@ -220,14 +232,12 @@ function AdminTimpPage() {
   /* ── Stats ── */
   const statCards = tab === "applications"
     ? [
-        { label: "Pending", count: applications.filter((a) => a.status === "pending").length, bg: "bg-sunny-light" },
-        { label: "Approved", count: applications.filter((a) => a.status === "approved").length, bg: "bg-teal-light" },
-        { label: "Rejected", count: applications.filter((a) => a.status === "rejected").length, bg: "bg-coral-light" },
+        { label: "Showing", count: applications.length, bg: "bg-sunny-light" },
+        { label: "Total Matching", count: totalApps, bg: "bg-teal-light" },
       ]
     : [
-        { label: "Active", count: pairs.filter((p) => p.status === "active").length, bg: "bg-teal-light" },
-        { label: "Paused", count: pairs.filter((p) => p.status === "paused").length, bg: "bg-sunny-light" },
-        { label: "Completed", count: pairs.filter((p) => p.status === "completed").length, bg: "bg-lavender-light" },
+        { label: "Showing", count: pairs.length, bg: "bg-teal-light" },
+        { label: "Total Matching", count: totalPairs, bg: "bg-lavender-light" },
       ];
 
   return (
@@ -335,7 +345,7 @@ function AdminTimpPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {applications.slice((appPage - 1) * TIMP_PAGE_SIZE, appPage * TIMP_PAGE_SIZE).map((app) => {
+              {applications.map((app) => {
                 const style = APPLICATION_STATUS_STYLES[app.status];
                 return (
                   <div
@@ -415,7 +425,7 @@ function AdminTimpPage() {
             </div>
           )}
 
-          <Pagination page={appPage} totalPages={Math.ceil(applications.length / TIMP_PAGE_SIZE)} onPage={setAppPage} className="mt-4" />
+          <Pagination page={appPage} totalPages={Math.ceil(totalApps / TIMP_PAGE_SIZE)} onPage={setAppPage} className="mt-4" />
         </>
       )}
 
@@ -448,7 +458,7 @@ function AdminTimpPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {pairs.slice((pairPage - 1) * TIMP_PAGE_SIZE, pairPage * TIMP_PAGE_SIZE).map((pair) => {
+              {pairs.map((pair) => {
                 const style = PAIR_STATUS_STYLES[pair.status];
                 return (
                   <div key={pair.id} className="bg-snow border-4 border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
@@ -556,7 +566,7 @@ function AdminTimpPage() {
             </div>
           )}
 
-          <Pagination page={pairPage} totalPages={Math.ceil(pairs.length / TIMP_PAGE_SIZE)} onPage={setPairPage} className="mt-4" />
+          <Pagination page={pairPage} totalPages={Math.ceil(totalPairs / TIMP_PAGE_SIZE)} onPage={setPairPage} className="mt-4" />
         </>
       )}
 

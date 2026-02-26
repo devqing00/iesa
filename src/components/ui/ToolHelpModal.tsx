@@ -1,7 +1,35 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+
+/* ─── Step icon SVGs (stroke-based, 24×24 viewBox) ──── */
+const STEP_ICONS: Record<string, ReactNode> = {
+  gear: <><circle cx="12" cy="12" r="3" /><path d="M12 1v3m0 16v3m11-11h-3M4 12H1m17.36-7.36l-2.12 2.12M6.76 17.24l-2.12 2.12m0-14.72l2.12 2.12m10.48 10.48l2.12 2.12" /></>,
+  pencil: <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />,
+  chart: <path d="M3 20h18M5 20V10m4 10V4m4 16v-8m4 8V8" />,
+  target: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" /></>,
+  save: <path d="M19 14v4a2 2 0 01-2 2H7a2 2 0 01-2-2v-4m7-8v12m0-12L8 10m4-4l4 4" />,
+  clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></>,
+  play: <path d="M6.5 4.5v15l12-7.5z" />,
+  pause: <path d="M10 5v14M14 5v14" />,
+  trending: <path d="M3 17l6-6 4 4 8-8m0 0h-6m6 0v6" />,
+  plus: <path d="M12 5v14M5 12h14" />,
+  check: <path d="M5 13l4 4L19 7" />,
+  fire: <path d="M17.66 11.2C17.43 10.9 14 7 12 5c-2 2-5.43 5.9-5.66 6.2C5.14 12.7 4 14.4 4 16.5 4 20.08 7.58 23 12 23s8-2.92 8-6.5c0-2.1-1.14-3.8-2.34-5.3z" />,
+  calendar: <><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></>,
+  search: <><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" /></>,
+  users: <path d="M17 20c0-2.76-2.24-4-5-4s-5 1.24-5 4m5-7a3 3 0 100-6 3 3 0 000 6zm7.5 7c0-1.38-1.12-2.5-2.5-2.5m0-4a2 2 0 100-4M2 20c0-1.38 1.12-2.5 2.5-2.5m0-4a2 2 0 110-4" />,
+  pin: <><path d="M12 21c-4-4-7-7.5-7-11a7 7 0 0114 0c0 3.5-3 7-7 11z" /><circle cx="12" cy="10" r="2.5" /></>,
+  list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
+  book: <path d="M12 6.5a8.5 8.5 0 00-6-2.5C4.5 4 3 4.5 3 4.5v14s1.5-.5 3-.5a8.5 8.5 0 016 2.5m0-14.5a8.5 8.5 0 016-2.5c1.5 0 3 .5 3 .5v14s-1.5-.5-3-.5a8.5 8.5 0 00-6 2.5m0-14.5v14.5" />,
+  sparkle: <path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5z" />,
+  heart: <path d="M12 21s-9-5.5-9-12a5.5 5.5 0 0110-3 5.5 5.5 0 0110 3c0 6.5-9 12-9 12z" />,
+  filter: <path d="M3 4h18l-7 8v5l-4 2V12z" />,
+  cube: <path d="M21 16V8l-9-5-9 5v8l9 5zm-9-3l8.7-5M3.3 8L12 13m0 0v9.5" />,
+  bulb: <><path d="M12 2a7 7 0 00-4 12.7V17a1 1 0 001 1h6a1 1 0 001-1v-2.3A7 7 0 0012 2z" /><path d="M9 21h6" /></>,
+  star: <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z" />,
+};
 
 /* ─── Help content definitions per tool ──────────────── */
 export interface ToolHelpContent {
@@ -20,11 +48,11 @@ export const TOOL_HELP: Record<string, ToolHelpContent> = {
     subtitle: "Calculate your cumulative GPA semester by semester",
     accentColor: "bg-teal",
     steps: [
-      { icon: "⚙", title: "Choose Grading System", desc: "Select 5-point (Nigerian) or 4-point (US) scale" },
-      { icon: "📝", title: "Add Your Courses", desc: "Enter course names, credit units, and select your grade for each" },
-      { icon: "📊", title: "Previous Record (Optional)", desc: "Enter your previous CGPA and total credits to calculate cumulative" },
-      { icon: "🎯", title: "Set a Target", desc: "Set a target CGPA to track your progress toward your goal" },
-      { icon: "💾", title: "Save to History", desc: "Save your semester result to track your progress over time" },
+      { icon: "gear", title: "Choose Grading System", desc: "Select 5-point (Nigerian) or 4-point (US) scale" },
+      { icon: "pencil", title: "Add Your Courses", desc: "Enter course names, credit units, and select your grade for each" },
+      { icon: "chart", title: "Previous Record (Optional)", desc: "Enter your previous CGPA and total credits to calculate cumulative" },
+      { icon: "target", title: "Set a Target", desc: "Set a target CGPA to track your progress toward your goal" },
+      { icon: "save", title: "Save to History", desc: "Save your semester result to track your progress over time" },
     ],
     tips: [
       "All data is stored locally on your device — private and secure",
@@ -38,10 +66,10 @@ export const TOOL_HELP: Record<string, ToolHelpContent> = {
     subtitle: "Focus with timed study sessions and structured breaks",
     accentColor: "bg-coral",
     steps: [
-      { icon: "⏰", title: "Set Durations", desc: "Customize focus, short break, and long break lengths" },
-      { icon: "▶", title: "Start Focusing", desc: "Hit play to start a focus session — stay off distractions!" },
-      { icon: "☕", title: "Take Breaks", desc: "Short breaks after each session, long break after every 4" },
-      { icon: "📈", title: "Track Sessions", desc: "Your completed focus sessions are logged automatically" },
+      { icon: "clock", title: "Set Durations", desc: "Customize focus, short break, and long break lengths" },
+      { icon: "play", title: "Start Focusing", desc: "Hit play to start a focus session — stay off distractions!" },
+      { icon: "pause", title: "Take Breaks", desc: "Short breaks after each session, long break after every 4" },
+      { icon: "trending", title: "Track Sessions", desc: "Your completed focus sessions are logged automatically" },
     ],
     tips: [
       "A standard Pomodoro is 25 min focus + 5 min break",
@@ -55,10 +83,10 @@ export const TOOL_HELP: Record<string, ToolHelpContent> = {
     subtitle: "Build positive routines with daily habit tracking",
     accentColor: "bg-lavender",
     steps: [
-      { icon: "➕", title: "Create a Habit", desc: "Name it, pick a color and icon, and set how often (daily, weekdays, custom)" },
-      { icon: "✓", title: "Check Off Daily", desc: "Tap a habit to mark it complete for today" },
-      { icon: "🔥", title: "Build Streaks", desc: "Consecutive days form streaks — don't break the chain!" },
-      { icon: "📅", title: "Review Progress", desc: "See your completion history and consistency over time" },
+      { icon: "plus", title: "Create a Habit", desc: "Name it, pick a color and icon, and set how often (daily, weekdays, custom)" },
+      { icon: "check", title: "Check Off Daily", desc: "Tap a habit to mark it complete for today" },
+      { icon: "fire", title: "Build Streaks", desc: "Consecutive days form streaks — don't break the chain!" },
+      { icon: "calendar", title: "Review Progress", desc: "See your completion history and consistency over time" },
     ],
     tips: [
       "Start small — 2-3 habits is easier to maintain than 10",
@@ -71,10 +99,10 @@ export const TOOL_HELP: Record<string, ToolHelpContent> = {
     subtitle: "Find and organize study sessions with classmates",
     accentColor: "bg-teal",
     steps: [
-      { icon: "🔍", title: "Browse Groups", desc: "See existing study groups for your courses" },
-      { icon: "➕", title: "Create a Group", desc: "Start a new group with a course code, description, and schedule" },
-      { icon: "🤝", title: "Join Groups", desc: "Join groups to connect with other students in your course" },
-      { icon: "📍", title: "Set Meetings", desc: "Add meeting times and locations so everyone stays in sync" },
+      { icon: "search", title: "Browse Groups", desc: "See existing study groups for your courses" },
+      { icon: "plus", title: "Create a Group", desc: "Start a new group with a course code, description, and schedule" },
+      { icon: "users", title: "Join Groups", desc: "Join groups to connect with other students in your course" },
+      { icon: "pin", title: "Set Meetings", desc: "Add meeting times and locations so everyone stays in sync" },
     ],
     tips: [
       "This tool syncs with the server — your groups are visible to others",
@@ -87,10 +115,10 @@ export const TOOL_HELP: Record<string, ToolHelpContent> = {
     subtitle: "Set academic and personal goals with milestones",
     accentColor: "bg-sunny",
     steps: [
-      { icon: "🎯", title: "Create a Goal", desc: "Set a clear title, category (academic, career, personal, skill), and priority" },
-      { icon: "🪜", title: "Add Milestones", desc: "Break your goal into smaller, checkable milestones" },
-      { icon: "📅", title: "Set Deadlines", desc: "Add an optional deadline to stay accountable" },
-      { icon: "✓", title: "Track Progress", desc: "Check off milestones as you complete them" },
+      { icon: "target", title: "Create a Goal", desc: "Set a clear title, category (academic, career, personal, skill), and priority" },
+      { icon: "list", title: "Add Milestones", desc: "Break your goal into smaller, checkable milestones" },
+      { icon: "calendar", title: "Set Deadlines", desc: "Add an optional deadline to stay accountable" },
+      { icon: "check", title: "Track Progress", desc: "Check off milestones as you complete them" },
     ],
     tips: [
       "Use milestones to break large goals into actionable steps",
@@ -103,11 +131,11 @@ export const TOOL_HELP: Record<string, ToolHelpContent> = {
     subtitle: "Reflect on your week with structured prompts",
     accentColor: "bg-lavender",
     steps: [
-      { icon: "📖", title: "Start a New Entry", desc: "Create a journal entry for the current week" },
-      { icon: "✨", title: "What Went Well", desc: "Note your wins and positive moments" },
-      { icon: "📈", title: "Areas to Improve", desc: "Identify what you can do better next week" },
-      { icon: "🎯", title: "Next Week's Focus", desc: "Set intentions for the upcoming week" },
-      { icon: "🙏", title: "Gratitude", desc: "Write something you're grateful for" },
+      { icon: "book", title: "Start a New Entry", desc: "Create a journal entry for the current week" },
+      { icon: "sparkle", title: "What Went Well", desc: "Note your wins and positive moments" },
+      { icon: "trending", title: "Areas to Improve", desc: "Identify what you can do better next week" },
+      { icon: "target", title: "Next Week's Focus", desc: "Set intentions for the upcoming week" },
+      { icon: "heart", title: "Gratitude", desc: "Write something you're grateful for" },
     ],
     tips: [
       "Journal at the end of each week for the best reflection",
@@ -121,10 +149,10 @@ export const TOOL_HELP: Record<string, ToolHelpContent> = {
     subtitle: "Organize your assignments, projects, and to-dos",
     accentColor: "bg-lime",
     steps: [
-      { icon: "➕", title: "Create a Task", desc: "Add a title, category (study, assignment, exam, etc.), and priority" },
-      { icon: "📅", title: "Set Due Dates", desc: "Add deadlines to keep track of when things are due" },
-      { icon: "✓", title: "Mark Complete", desc: "Check off tasks as you finish them" },
-      { icon: "🗂", title: "Filter & Organize", desc: "Filter by category, priority, or status" },
+      { icon: "plus", title: "Create a Task", desc: "Add a title, category (study, assignment, exam, etc.), and priority" },
+      { icon: "calendar", title: "Set Due Dates", desc: "Add deadlines to keep track of when things are due" },
+      { icon: "check", title: "Mark Complete", desc: "Check off tasks as you finish them" },
+      { icon: "filter", title: "Filter & Organize", desc: "Filter by category, priority, or status" },
     ],
     tips: [
       "Use categories to separate coursework from personal tasks",
@@ -137,10 +165,10 @@ export const TOOL_HELP: Record<string, ToolHelpContent> = {
     subtitle: "Track topic-by-topic progress through your courses",
     accentColor: "bg-teal",
     steps: [
-      { icon: "📚", title: "Add a Course", desc: "Enter the course code, name, and credit units" },
-      { icon: "📋", title: "List Topics", desc: "Add all topics or chapters covered in the course" },
-      { icon: "✓", title: "Check Topics Off", desc: "Mark topics as done when you've studied them" },
-      { icon: "📊", title: "See Progress", desc: "View your completion percentage for each course" },
+      { icon: "book", title: "Add a Course", desc: "Enter the course code, name, and credit units" },
+      { icon: "list", title: "List Topics", desc: "Add all topics or chapters covered in the course" },
+      { icon: "check", title: "Check Topics Off", desc: "Mark topics as done when you've studied them" },
+      { icon: "chart", title: "See Progress", desc: "View your completion percentage for each course" },
     ],
     tips: [
       "Add topics from your course outline at the start of the semester",
@@ -153,10 +181,10 @@ export const TOOL_HELP: Record<string, ToolHelpContent> = {
     subtitle: "Study with spaced repetition for long-term retention",
     accentColor: "bg-sunny",
     steps: [
-      { icon: "📦", title: "Create a Deck", desc: "Organize flashcards by subject or topic" },
-      { icon: "➕", title: "Add Cards", desc: "Write a question on the front and answer on the back" },
-      { icon: "🧠", title: "Study Mode", desc: "Cards appear based on the SM-2 spaced repetition schedule" },
-      { icon: "⭐", title: "Rate Recall", desc: "After each card, rate how well you remembered (0-5)" },
+      { icon: "cube", title: "Create a Deck", desc: "Organize flashcards by subject or topic" },
+      { icon: "plus", title: "Add Cards", desc: "Write a question on the front and answer on the back" },
+      { icon: "bulb", title: "Study Mode", desc: "Cards appear based on the SM-2 spaced repetition schedule" },
+      { icon: "star", title: "Rate Recall", desc: "After each card, rate how well you remembered (0-5)" },
     ],
     tips: [
       "SM-2 spaces out reviews — cards you know well appear less often",
@@ -231,8 +259,10 @@ export function ToolHelpModal({ toolId, isOpen, onClose }: ToolHelpModalProps) {
         <div className="flex-1 overflow-y-auto p-6 space-y-3">
           {content.steps.map((step, i) => (
             <div key={i} className="flex items-start gap-3 p-3 bg-ghost border-[2px] border-navy/10 rounded-2xl">
-              <div className="w-8 h-8 rounded-xl bg-snow border-[2px] border-navy/15 flex items-center justify-center text-base shrink-0">
-                {step.icon}
+              <div className="w-8 h-8 rounded-xl bg-snow border-[2px] border-navy/15 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-navy/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  {STEP_ICONS[step.icon] ?? <circle cx="12" cy="12" r="4" />}
+                </svg>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">

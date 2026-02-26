@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
@@ -16,6 +16,7 @@ interface Resource {
   type: string;
   courseCode: string;
   level: number;
+  semester?: string | null;
   url: string;
   driveFileId?: string;
   youtubeVideoId?: string;
@@ -24,7 +25,6 @@ interface Resource {
   uploadedBy: string;
   uploaderName: string;
   tags: string[];
-  downloadCount: number;
   viewCount: number;
   isApproved: boolean;
   feedback?: string;
@@ -40,6 +40,12 @@ const RESOURCE_TYPES = [
   { value: "note", label: "Notes" },
   { value: "textbook", label: "Textbooks" },
   { value: "video", label: "Videos" },
+];
+
+const SEMESTERS = [
+  { value: "all", label: "All Semesters" },
+  { value: "first", label: "1st Semester" },
+  { value: "second", label: "2nd Semester" },
 ];
 
 const LEVELS: Array<{ value: "all" | number; label: string }> = [
@@ -72,12 +78,20 @@ const formatFileSize = (bytes: number) => {
 /* ─── Component ─────────────────────────────────────────────────── */
 
 export default function LibraryPage() {
-  const { user, getAccessToken } = useAuth();
+  const { user, userProfile, getAccessToken } = useAuth();
+
+  // Parse student's own level (e.g. "300L" → 300 or numeric)
+  const studentLevel = parseInt(String(userProfile?.level || userProfile?.currentLevel || "0")) || null;
+
   const [resources, setResources] = useState<Resource[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [levelFilter, setLevelFilter] = useState<number | "all">("all");
+  const [semesterFilter, setSemesterFilter] = useState<"all" | "first" | "second">("all");
+  const [courseCodeFilter, setCourseCodeFilter] = useState("");
+  const [sortBy, setSortBy] = useState<"createdAt" | "viewCount">("createdAt");
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [mySubmissions, setMySubmissions] = useState<Resource[]>([]);
@@ -86,30 +100,64 @@ export default function LibraryPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const toast = useToast();
-  const PAGE_SIZE = 24;
+  const PAGE_SIZE = 12;
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [debouncedCourseCode, setDebouncedCourseCode] = useState("");
 
+  // Default upload form level to student's own level
   const [uploadForm, setUploadForm] = useState({
     title: "",
     description: "",
     type: "note",
     courseCode: "",
     level: 300,
+    semester: "first" as "first" | "second",
     tags: "",
     url: "",
   });
 
+  // Once profile loads, set the default level filter and upload form level
   useEffect(() => {
-    if (user) {
-      fetchResources();
-      fetchMySubmissions();
+    if (studentLevel && levelFilter === "all") {
+      setLevelFilter(studentLevel);
+    }
+    if (studentLevel) {
+      setUploadForm((f) => ({ ...f, level: studentLevel }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, typeFilter, levelFilter, page]);
+  }, [studentLevel]);
 
-  // Reset page when filters change
+  // Debounce search query (400ms)
   useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 400);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Debounce course code filter (300ms)
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedCourseCode(courseCodeFilter), 300);
+    return () => clearTimeout(t);
+  }, [courseCodeFilter]);
+
+  // Fetch on filter / sort changes — always resets to page 1
+  useEffect(() => {
+    if (!user) return;
     setPage(1);
-  }, [typeFilter, levelFilter]);
+    fetchResources(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, typeFilter, levelFilter, semesterFilter, sortBy, debouncedSearch, debouncedCourseCode]);
+
+  // Fetch on pagination (page > 1 only; page 1 handled above)
+  useEffect(() => {
+    if (user && page > 1) fetchResources(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+
+  // Load my submissions once
+  useEffect(() => {
+    if (user) fetchMySubmissions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const fetchMySubmissions = async () => {
     if (!user) return;
@@ -118,26 +166,27 @@ export default function LibraryPage() {
       const response = await fetch(getApiUrl("/api/v1/resources/my"), {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (response.ok) {
-        const data = await response.json();
-        setMySubmissions(data);
-      }
+      if (response.ok) setMySubmissions(await response.json());
     } catch (error) {
       console.error("Error fetching my submissions:", error);
     }
   };
 
-  const fetchResources = async () => {
+  const fetchResources = useCallback(async (p: number = page) => {
     if (!user) return;
     try {
-      setLoading(true);
+      setIsFetching(true);
       const token = await getAccessToken();
       const params = new URLSearchParams();
       if (typeFilter !== "all") params.append("type", typeFilter);
       if (levelFilter !== "all") params.append("level", levelFilter.toString());
+      if (semesterFilter !== "all") params.append("semester", semesterFilter);
+      if (debouncedCourseCode.trim()) params.append("courseCode", debouncedCourseCode.trim().toUpperCase());
+      if (debouncedSearch.trim()) params.append("search", debouncedSearch.trim());
+      params.append("sortBy", sortBy);
       params.append("approved", "true");
       params.append("pageSize", PAGE_SIZE.toString());
-      params.append("page", page.toString());
+      params.append("page", p.toString());
       const response = await fetch(getApiUrl(`/api/v1/resources?${params}`), {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -151,9 +200,11 @@ export default function LibraryPage() {
     } catch (error) {
       console.error("Error fetching resources:", error);
     } finally {
-      setLoading(false);
+      setIsFetching(false);
+      setInitialLoading(false);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, typeFilter, levelFilter, semesterFilter, debouncedCourseCode, sortBy, debouncedSearch]);
 
   const handleAddResource = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,8 +220,8 @@ export default function LibraryPage() {
       if (response.ok) {
         toast.success("Resource Added", "Resource added successfully! It will appear after approval.");
         setShowUploadModal(false);
-        setUploadForm({ title: "", description: "", type: "note", courseCode: "", level: 300, tags: "", url: "" });
-        fetchResources();
+        setUploadForm({ title: "", description: "", type: "note", courseCode: "", level: studentLevel ?? 300, semester: "first", tags: "", url: "" });
+        fetchResources(1);
         fetchMySubmissions();
       } else {
         const error = await response.json();
@@ -186,29 +237,31 @@ export default function LibraryPage() {
 
   const handleViewResource = async (resourceId: string, url: string) => {
     if (!user) return;
+    // Open the resource immediately — don't block on the API call
+    window.open(url, "_blank");
+    // Optimistically increment viewCount in UI
+    setResources((prev) =>
+      prev.map((r) => r._id === resourceId ? { ...r, viewCount: r.viewCount + 1 } : r)
+    );
+    // Fire & forget the view tracking call
     try {
       const token = await getAccessToken();
-      await fetch(getApiUrl(`/api/v1/resources/${resourceId}/download`), {
+      const res = await fetch(getApiUrl(`/api/v1/resources/${resourceId}/view`), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-      window.open(url, "_blank");
-    } catch (error) {
-      console.error("Error tracking view:", error);
-    }
+      if (res.ok) {
+        const data = await res.json();
+        // Reconcile with real server count
+        setResources((prev) =>
+          prev.map((r) => r._id === resourceId ? { ...r, viewCount: data.viewCount } : r)
+        );
+      }
+    } catch { /* non-critical */ }
   };
 
-  const filteredResources = resources.filter((resource) => {
-    const q = searchQuery.toLowerCase();
-    return (
-      resource.title.toLowerCase().includes(q) ||
-      resource.courseCode.toLowerCase().includes(q) ||
-      resource.tags.some((tag) => tag.toLowerCase().includes(q))
-    );
-  });
-
-  /* ── Loading ── */
-  if (loading && resources.length === 0) {
+  /* ── Initial loading ── */
+  if (initialLoading) {
     return (
       <div className="min-h-screen bg-ghost">
         <DashboardHeader title="Resource Library" />
@@ -258,7 +311,9 @@ export default function LibraryPage() {
                   <path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
                 </svg>
               </div>
-              <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Total Resources</p>
+              <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">
+                {levelFilter !== "all" ? `${levelFilter}L Resources` : "All Resources"}
+              </p>
               <p className="font-display font-black text-3xl text-navy">{totalCount}</p>
             </div>
             {/* Submit Resource — available to all students */}
@@ -317,9 +372,39 @@ export default function LibraryPage() {
             </div>
           </div>
 
+          {/* Semester filters */}
+          <div className="mb-3">
+            <p className="text-[10px] font-bold text-slate uppercase tracking-[0.12em] mb-2">Semester</p>
+            <div className="flex flex-wrap gap-2">
+              {SEMESTERS.map((s) => (
+                <button
+                  key={s.value}
+                  onClick={() => setSemesterFilter(s.value as "all" | "first" | "second")}
+                  className={`px-4 py-2 font-bold text-xs uppercase tracking-wider transition-all rounded-xl border-[3px] ${
+                    semesterFilter === s.value
+                      ? "bg-coral text-snow border-navy shadow-[3px_3px_0_0_#000]"
+                      : "border-navy/20 text-slate hover:text-navy hover:border-navy bg-snow"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Level filters */}
-          <div>
-            <p className="text-[10px] font-bold text-slate uppercase tracking-[0.12em] mb-2">Level</p>
+          <div className="mb-3">
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">Level</p>
+              {studentLevel && levelFilter !== studentLevel && (
+                <button
+                  onClick={() => setLevelFilter(studentLevel)}
+                  className="text-[10px] font-bold text-teal uppercase tracking-wider hover:underline"
+                >
+                  Back to my level ({studentLevel}L)
+                </button>
+              )}
+            </div>
             <div className="flex flex-wrap gap-2">
               {LEVELS.map((level) => (
                 <button
@@ -331,7 +416,49 @@ export default function LibraryPage() {
                       : "border-navy/20 text-slate hover:text-navy hover:border-navy bg-snow"
                   }`}
                 >
-                  {level.label}
+                  {level.label}{level.value === studentLevel ? " ★" : ""}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Course code filter */}
+          <div className="mb-3">
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">Course</p>
+              {courseCodeFilter && (
+                <button
+                  onClick={() => setCourseCodeFilter("")}
+                  className="text-[10px] font-bold text-coral uppercase tracking-wider hover:underline"
+                >
+                  Clear ({courseCodeFilter.toUpperCase()})
+                </button>
+              )}
+            </div>
+            <input
+              type="text"
+              value={courseCodeFilter}
+              onChange={(e) => setCourseCodeFilter(e.target.value)}
+              placeholder="e.g. MEE 301 — or click a course badge on any card"
+              className="w-full px-4 py-3 rounded-2xl bg-ghost border-[3px] border-navy text-sm text-navy placeholder:text-slate focus:outline-none focus:border-teal transition-all"
+            />
+          </div>
+
+          {/* Sort */}
+          <div>
+            <p className="text-[10px] font-bold text-slate uppercase tracking-[0.12em] mb-2">Sort by</p>
+            <div className="flex gap-2">
+              {(["createdAt", "viewCount"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSortBy(s)}
+                  className={`px-4 py-2 font-bold text-xs uppercase tracking-wider transition-all rounded-xl border-[3px] ${
+                    sortBy === s
+                      ? "bg-sunny text-navy border-navy shadow-[3px_3px_0_0_#000]"
+                      : "border-navy/20 text-slate hover:text-navy hover:border-navy bg-snow"
+                  }`}
+                >
+                  {s === "createdAt" ? "Newest" : "Most Viewed"}
                 </button>
               ))}
             </div>
@@ -407,7 +534,17 @@ export default function LibraryPage() {
         {/* ═══════════════════════════════════════════════════════
             RESOURCES GRID
             ═══════════════════════════════════════════════════════ */}
-        {filteredResources.length === 0 ? (
+        <div className="relative">
+          {isFetching && (
+            <div className="absolute inset-0 bg-ghost/70 z-10 flex items-center justify-center rounded-3xl pointer-events-none">
+              <div className="bg-snow border-[3px] border-navy rounded-2xl px-5 py-3 shadow-[4px_4px_0_0_#000] flex items-center gap-3">
+                <div className="w-5 h-5 border-[3px] border-teal border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs font-bold text-navy uppercase tracking-wider">Updating…</span>
+              </div>
+            </div>
+          )}
+
+        {resources.length === 0 ? (
           <div className="bg-snow border-[3px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-teal-light flex items-center justify-center">
               <svg className="w-8 h-8 text-teal" viewBox="0 0 24 24" fill="currentColor">
@@ -419,7 +556,7 @@ export default function LibraryPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredResources.map((resource, index) => {
+            {resources.map((resource, index) => {
               const accent = typeAccents[resource.type] || { bg: "bg-navy", text: "text-snow" };
               const rotation = cardRotations[index % cardRotations.length];
 
@@ -446,12 +583,6 @@ export default function LibraryPage() {
                         </svg>
                         {resource.viewCount}
                       </span>
-                      <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider">
-                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-                          <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
-                        </svg>
-                        {resource.downloadCount}
-                      </span>
                     </div>
                   </div>
 
@@ -466,12 +597,21 @@ export default function LibraryPage() {
 
                     {/* Tags row */}
                     <div className="flex flex-wrap gap-1.5">
-                      <span className="px-2.5 py-1 rounded-lg bg-cloud text-[10px] font-bold text-navy uppercase tracking-wider">
+                      <button
+                        onClick={() => setCourseCodeFilter(resource.courseCode)}
+                        className="px-2.5 py-1 rounded-lg bg-cloud text-[10px] font-bold text-navy uppercase tracking-wider hover:bg-navy hover:text-snow transition-colors"
+                        title={`Filter by ${resource.courseCode}`}
+                      >
                         {resource.courseCode}
-                      </span>
+                      </button>
                       <span className="px-2.5 py-1 rounded-lg bg-cloud text-[10px] font-bold text-navy/60 uppercase tracking-wider">
                         {resource.level}L
                       </span>
+                      {resource.semester && (
+                        <span className="px-2.5 py-1 rounded-lg bg-coral-light text-[10px] font-bold text-coral uppercase tracking-wider border border-coral/30">
+                          {resource.semester === "first" ? "1st Sem" : "2nd Sem"}
+                        </span>
+                      )}
                       {resource.fileSize && (
                         <span className="px-2.5 py-1 rounded-lg bg-cloud text-[10px] font-bold text-slate uppercase tracking-wider">
                           {formatFileSize(resource.fileSize)}
@@ -524,9 +664,10 @@ export default function LibraryPage() {
         )}
 
         {/* Pagination */}
-        {filteredResources.length > 0 && (
+        {resources.length > 0 && (
           <Pagination page={page} totalPages={totalPages} onPage={setPage} className="mt-6" />
         )}
+        </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════
@@ -579,7 +720,9 @@ export default function LibraryPage() {
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="resource-level" className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">Level</label>
+                  <label htmlFor="resource-level" className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">
+                    Level{studentLevel ? <span className="text-teal normal-case font-medium tracking-normal"> (defaulted to your level)</span> : ""}
+                  </label>
                   <select id="resource-level" value={uploadForm.level} onChange={(e) => setUploadForm({ ...uploadForm, level: parseInt(e.target.value) })} className="w-full px-4 py-3 rounded-xl bg-ghost border-[3px] border-navy text-sm text-navy focus:outline-none focus:border-teal transition-all" title="Academic level">
                     <option value={100}>100 Level</option>
                     <option value={200}>200 Level</option>
@@ -587,6 +730,26 @@ export default function LibraryPage() {
                     <option value={400}>400 Level</option>
                     <option value={500}>500 Level</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="resource-semester" className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">Semester</label>
+                <div className="flex gap-3">
+                  {(["first", "second"] as const).map((sem) => (
+                    <button
+                      key={sem}
+                      type="button"
+                      onClick={() => setUploadForm({ ...uploadForm, semester: sem })}
+                      className={`flex-1 py-3 rounded-xl text-sm font-bold border-[3px] transition-all ${
+                        uploadForm.semester === sem
+                          ? "bg-coral text-snow border-navy shadow-[3px_3px_0_0_#000]"
+                          : "bg-ghost border-navy text-navy hover:bg-cloud"
+                      }`}
+                    >
+                      {sem === "first" ? "1st Semester" : "2nd Semester"}
+                    </button>
+                  ))}
                 </div>
               </div>
 

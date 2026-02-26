@@ -138,6 +138,7 @@ function AdminEventsPage() {
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState<EventCategory | "All">("All");
   const [page, setPage] = useState(1);
+  const [totalEventCount, setTotalEventCount] = useState(0);
   const ITEMS_PER_PAGE = 9;
 
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -163,29 +164,39 @@ function AdminEventsPage() {
   /* ── Fetch ──────────────────────── */
 
   const fetchEvents = useCallback(async () => {
+    setLoading(true);
     try {
       const token = await getAccessToken();
-      const res = await fetch(getApiUrl("/api/v1/events/"), {
+      const params = new URLSearchParams();
+      params.set("limit", String(ITEMS_PER_PAGE));
+      params.set("skip", String((page - 1) * ITEMS_PER_PAGE));
+      if (search.trim()) params.set("search", search.trim());
+      if (catFilter !== "All") params.set("category", catFilter);
+      if (viewMode === "upcoming") params.set("upcoming_only", "true");
+
+      const res = await fetch(getApiUrl(`/api/v1/events/?${params}`), {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.ok) {
         const data = await res.json();
+        const items = data.items ?? data;
         setEvents(
-          data.map((e: Event & { _id?: string }) => ({
+          items.map((e: Event & { _id?: string }) => ({
             ...e,
             id: e.id || e._id,
           }))
         );
+        setTotalEventCount(data.total ?? items.length);
       }
     } catch {
       toast.error("Failed to load events");
     } finally {
       setLoading(false);
     }
-  }, [getAccessToken]);
+  }, [getAccessToken, page, search, catFilter, viewMode]);
 
   useEffect(() => {
-    fetchEvents();
+    const debounce = setTimeout(() => fetchEvents(), search ? 300 : 0);
     // Fetch active session ID so we can use it when creating events
     const fetchActiveSession = async () => {
       try {
@@ -203,24 +214,12 @@ function AdminEventsPage() {
       }
     };
     fetchActiveSession();
-  }, [fetchEvents, getAccessToken]);
+    return () => clearTimeout(debounce);
+  }, [fetchEvents, getAccessToken, search]);
 
-  /* ── Filter ─────────────────────── */
+  /* ── Filter (now server-side) ──── */
 
-  const now = new Date();
-  const filteredEvents = events.filter((e) => {
-    const d = new Date(e.date);
-    const timeMatch = viewMode === "upcoming" ? d >= now : d < now;
-    const searchMatch =
-      !search ||
-      e.title.toLowerCase().includes(search.toLowerCase()) ||
-      e.location.toLowerCase().includes(search.toLowerCase());
-    const catMatch = catFilter === "All" || e.category === catFilter;
-    return timeMatch && searchMatch && catMatch;
-  });
-
-  const totalEventPages = Math.ceil(filteredEvents.length / ITEMS_PER_PAGE);
-  const paginatedEvents = filteredEvents.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+  const totalEventPages = Math.ceil(totalEventCount / ITEMS_PER_PAGE);
   const handleEventSearch = (v: string) => { setSearch(v); setPage(1); };
   const handleCatFilter = (c: EventCategory | "All") => { setCatFilter(c); setPage(1); };
 
@@ -459,8 +458,9 @@ function AdminEventsPage() {
 
   /* ── Stats ──────────────────────── */
 
-  const totalUpcoming = events.filter((e) => new Date(e.date) >= now).length;
-  const totalPast = events.filter((e) => new Date(e.date) < now).length;
+  const statsNow = new Date();
+  const totalUpcoming = events.filter((e) => new Date(e.date) >= statsNow).length;
+  const totalPast = events.filter((e) => new Date(e.date) < statsNow).length;
   const totalAttendees = events.reduce((s, e) => s + attendeeCount(e), 0);
 
   /* ── Render ─────────────────────── */
@@ -577,7 +577,7 @@ function AdminEventsPage() {
                 </div>
               ))}
             </div>
-          ) : filteredEvents.length === 0 ? (
+          ) : events.length === 0 ? (
             <div className="bg-snow rounded-3xl border-[3px] border-navy p-16 text-center shadow-[4px_4px_0_0_#000] space-y-4">
               <div className="w-16 h-16 mx-auto rounded-2xl bg-coral-light flex items-center justify-center">
                 <svg className="w-8 h-8 text-coral" viewBox="0 0 24 24" fill="currentColor">
@@ -606,7 +606,7 @@ function AdminEventsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {paginatedEvents.map((event, idx) => {
+              {events.map((event, idx) => {
                 const isLarge = idx % 5 === 0;
                 return (
                   <div

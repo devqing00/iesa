@@ -7,7 +7,7 @@ Users are persistent across sessions.
 
 from fastapi import APIRouter, HTTPException, Depends, status, Request, File, UploadFile
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -16,7 +16,7 @@ from app.models.user import User, UserCreate, UserUpdate, UserInDB
 from app.db import get_database
 from app.core.security import verify_token, get_current_user
 from app.core.permissions import require_permission
-from app.core.audit import audit_user_role_change
+from app.core.audit import audit_user_role_change, AuditLogger
 from app.core.auth import verify_password
 
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
@@ -49,8 +49,8 @@ async def create_or_update_user_profile(
     if existing_user:
         # Update existing user profile
         update_data = user_data.model_dump(exclude={"password", "firebaseUid"}, exclude_none=True)
-        update_data["updatedAt"] = datetime.utcnow()
-        update_data["lastLogin"] = datetime.utcnow()
+        update_data["updatedAt"] = datetime.now(timezone.utc)
+        update_data["lastLogin"] = datetime.now(timezone.utc)
         
         await users.update_one(
             {"_id": ObjectId(user_id)},
@@ -92,7 +92,7 @@ async def auto_enroll_in_active_session(user_id: str, db):
             "studentId": user_id,
             "sessionId": str(active_session["_id"]),
             "level": "100L",  # Default level, can be updated later
-            "enrollmentDate": datetime.utcnow(),
+            "enrollmentDate": datetime.now(timezone.utc),
             "isActive": True
         }
         
@@ -180,7 +180,7 @@ async def update_my_profile(
             detail="No fields to update"
         )
     
-    update_data["updatedAt"] = datetime.utcnow()
+    update_data["updatedAt"] = datetime.now(timezone.utc)
     
     await users.update_one(
         {"_id": ObjectId(user["_id"])},
@@ -248,7 +248,7 @@ async def upload_profile_picture(
             {
                 "$set": {
                     "profilePictureUrl": image_url,
-                    "updatedAt": datetime.utcnow()
+                    "updatedAt": datetime.now(timezone.utc)
                 }
             }
         )
@@ -274,31 +274,43 @@ async def upload_profile_picture(
         )
 
 
-@router.get("/", response_model=List[User])
+@router.get("/")
 async def list_users(
     role: Optional[str] = None,
+    search: Optional[str] = None,
     limit: int = 100,
     skip: int = 0,
     user: dict = Depends(require_permission("user:view_all"))
 ):
     """
-    List all users with optional filtering.
+    List all users with optional filtering and search.
     Only admins and excos can view user lists.
+    Returns {items, total} for server-side pagination.
     """
     db = get_database()
     users = db["users"]
     
     query = {}
-    if role:
+    if role and role != "all":
         query["role"] = role
+    if search:
+        query["$or"] = [
+            {"firstName": {"$regex": search, "$options": "i"}},
+            {"lastName": {"$regex": search, "$options": "i"}},
+            {"email": {"$regex": search, "$options": "i"}},
+        ]
     
+    total = await users.count_documents(query)
     cursor = users.find(query).skip(skip).limit(limit)
     user_list = await cursor.to_list(length=limit)
     
-    return [
-        User(**{**u, "_id": str(u["_id"])})
-        for u in user_list
-    ]
+    return {
+        "items": [
+            User(**{**u, "_id": str(u["_id"])})
+            for u in user_list
+        ],
+        "total": total
+    }
 
 
 @router.get("/{user_id}", response_model=User)
@@ -372,7 +384,7 @@ async def update_user_role(
     # Update role
     update_data = {
         "role": new_role,
-        "updatedAt": datetime.utcnow()
+        "updatedAt": datetime.now(timezone.utc)
     }
     
     result = await users.update_one(
@@ -410,6 +422,7 @@ async def update_user_role(
 @router.patch("/{user_id}/academic-info", response_model=User)
 async def update_user_academic_info(
     user_id: str,
+    request: Request,
     admission_year: Optional[int] = None,
     current_level: Optional[str] = None,
     admin_user: dict = Depends(require_permission("user:edit_academic"))
@@ -419,6 +432,7 @@ async def update_user_academic_info(
     Requires user:edit_academic permission.
     
     This is separate from profile updates to prevent students from changing their level.
+    This action is audited for security compliance.
     """
     db = get_database()
     users = db["users"]
@@ -429,7 +443,15 @@ async def update_user_academic_info(
             detail="Invalid user ID format"
         )
     
+    target_user = await users.find_one({"_id": ObjectId(user_id)})
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User {user_id} not found"
+        )
+    
     update_data = {}
+    old_values = {}
     
     if admission_year is not None:
         if admission_year < 2000 or admission_year > 2030:
@@ -437,6 +459,7 @@ async def update_user_academic_info(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Admission year must be between 2000 and 2030"
             )
+        old_values["admissionYear"] = target_user.get("admissionYear")
         update_data["admissionYear"] = admission_year
     
     if current_level is not None:
@@ -445,6 +468,7 @@ async def update_user_academic_info(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Current level must be one of: 100L, 200L, 300L, 400L, 500L"
             )
+        old_values["currentLevel"] = target_user.get("currentLevel")
         update_data["currentLevel"] = current_level
     
     if not update_data:
@@ -453,7 +477,7 @@ async def update_user_academic_info(
             detail="No fields to update"
         )
     
-    update_data["updatedAt"] = datetime.utcnow()
+    update_data["updatedAt"] = datetime.now(timezone.utc)
     
     result = await users.update_one(
         {"_id": ObjectId(user_id)},
@@ -465,6 +489,92 @@ async def update_user_academic_info(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User {user_id} not found"
         )
+    
+    # Audit log
+    await AuditLogger.log(
+        action="user.academic_info_updated",
+        actor_id=admin_user["_id"],
+        actor_email=admin_user.get("email", "unknown"),
+        resource_type="user",
+        resource_id=user_id,
+        details={
+            "target_email": target_user.get("email"),
+            "old_values": old_values,
+            "new_values": {k: v for k, v in update_data.items() if k != "updatedAt"},
+        },
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    
+    updated_user = await users.find_one({"_id": ObjectId(user_id)})
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve updated user"
+        )
+    updated_user["_id"] = str(updated_user["_id"])
+    
+    return User(**updated_user)
+
+
+@router.patch("/{user_id}/status", response_model=User)
+async def toggle_user_status(
+    user_id: str,
+    is_active: bool,
+    request: Request,
+    admin_user: dict = Depends(require_permission("user:edit"))
+):
+    """
+    Toggle a user's active/inactive status.
+    Requires user:edit permission.
+    
+    This action is audited for security compliance.
+    """
+    db = get_database()
+    users = db["users"]
+    
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user ID format"
+        )
+    
+    target_user = await users.find_one({"_id": ObjectId(user_id)})
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User {user_id} not found"
+        )
+    
+    # Prevent deactivating yourself
+    if str(target_user["_id"]) == str(admin_user["_id"]):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot change your own active status"
+        )
+    
+    old_status = target_user.get("isActive", True)
+    
+    await users.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"isActive": is_active, "updatedAt": datetime.now(timezone.utc)}}
+    )
+    
+    # Audit log
+    await AuditLogger.log(
+        action="user.status_changed",
+        actor_id=admin_user["_id"],
+        actor_email=admin_user.get("email", "unknown"),
+        resource_type="user",
+        resource_id=user_id,
+        details={
+            "target_email": target_user.get("email"),
+            "old_status": old_status,
+            "new_status": is_active,
+        },
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
     
     updated_user = await users.find_one({"_id": ObjectId(user_id)})
     if not updated_user:
@@ -504,7 +614,7 @@ async def update_notification_channel(
         {
             "$set": {
                 "notificationChannelPreference": data.preference,
-                "updatedAt": datetime.utcnow()
+                "updatedAt": datetime.now(timezone.utc)
             }
         }
     )
@@ -513,6 +623,86 @@ async def update_notification_channel(
         "message": f"Notification channel updated to '{data.preference}'.",
         "notificationChannelPreference": data.preference
     }
+
+
+# ──────────────────────────────────────────────
+# NOTIFICATION CATEGORY PREFERENCES
+# ──────────────────────────────────────────────
+
+from app.core.notification_utils import VALID_NOTIFICATION_CATEGORIES, DEFAULT_NOTIFICATION_CATEGORIES
+
+class NotificationCategoryRequest(PydanticBaseModel):
+    category: str
+    enabled: bool
+
+class NotificationCategoriesBulkRequest(PydanticBaseModel):
+    categories: dict  # {"announcements": True, "payments": False, ...}
+
+@router.patch("/me/notification-categories")
+async def update_notification_category(
+    data: NotificationCategoryRequest,
+    user: dict = Depends(get_current_user),
+):
+    """
+    Toggle a single notification category on or off.
+    Valid categories: announcements, payments, events, timetable, academic, mentoring.
+    """
+    if data.category not in VALID_NOTIFICATION_CATEGORIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid category '{data.category}'. Valid: {sorted(VALID_NOTIFICATION_CATEGORIES)}",
+        )
+
+    db = get_database()
+    user_doc = await db.users.find_one({"_id": ObjectId(user["_id"])}, {"notificationCategories": 1})
+    current = user_doc.get("notificationCategories") or dict(DEFAULT_NOTIFICATION_CATEGORIES)
+    current[data.category] = data.enabled
+
+    await db.users.update_one(
+        {"_id": ObjectId(user["_id"])},
+        {"$set": {"notificationCategories": current, "updatedAt": datetime.now(timezone.utc)}},
+    )
+
+    return {"message": f"Category '{data.category}' set to {data.enabled}", "notificationCategories": current}
+
+
+@router.put("/me/notification-categories")
+async def set_all_notification_categories(
+    data: NotificationCategoriesBulkRequest,
+    user: dict = Depends(get_current_user),
+):
+    """
+    Set all notification category preferences at once.
+    Accepts a dict of {category: bool} pairs.
+    """
+    for cat in data.categories:
+        if cat not in VALID_NOTIFICATION_CATEGORIES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid category '{cat}'. Valid: {sorted(VALID_NOTIFICATION_CATEGORIES)}",
+            )
+    # Merge with defaults so missing categories remain True
+    merged = dict(DEFAULT_NOTIFICATION_CATEGORIES)
+    merged.update(data.categories)
+
+    db = get_database()
+    await db.users.update_one(
+        {"_id": ObjectId(user["_id"])},
+        {"$set": {"notificationCategories": merged, "updatedAt": datetime.now(timezone.utc)}},
+    )
+
+    return {"message": "Notification categories updated", "notificationCategories": merged}
+
+
+@router.get("/me/notification-categories")
+async def get_notification_categories(
+    user: dict = Depends(get_current_user),
+):
+    """Get the user's current notification category preferences."""
+    db = get_database()
+    user_doc = await db.users.find_one({"_id": ObjectId(user["_id"])}, {"notificationCategories": 1})
+    cats = user_doc.get("notificationCategories") if user_doc else None
+    return {"notificationCategories": cats or dict(DEFAULT_NOTIFICATION_CATEGORIES)}
 
 
 # ──────────────────────────────────────────────

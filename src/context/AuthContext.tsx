@@ -33,6 +33,7 @@ export interface UserProfile {
   secondaryEmailVerified?: boolean;
   notificationEmailPreference?: "primary" | "secondary" | "both";
   notificationChannelPreference?: "email" | "in_app" | "both";
+  notificationCategories?: Record<string, boolean>;
 }
 
 interface AuthContextType {

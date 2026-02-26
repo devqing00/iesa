@@ -51,6 +51,7 @@ const LEVELS = ["100L", "200L", "300L", "400L", "500L"];
 function EnrollmentsPage() {
   const { user, userProfile, loading: authLoading, getAccessToken } = useAuth();
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [totalEnrollments, setTotalEnrollments] = useState(0);
   const [students, setStudents] = useState<Student[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +63,8 @@ function EnrollmentsPage() {
   // Filters
   const [filterSession, setFilterSession] = useState<string>("all");
   const [filterLevel, setFilterLevel] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [enrPage, setEnrPage] = useState(1);
   const ENR_PAGE_SIZE = 20;
 
@@ -72,37 +75,47 @@ function EnrollmentsPage() {
     level: "100L",
   });
 
+  /* ── Debounce search ──────────── */
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   /* ── Fetch ──────────────────────── */
 
   useEffect(() => {
     if (user && userProfile) {
-      fetchData();
+      fetchDropdowns();
     }
   }, [user, userProfile]);
 
-  const fetchData = async () => {
+  // Re-fetch enrollments when page/filters/search change
+  useEffect(() => {
+    if (user && userProfile) {
+      fetchEnrollments();
+    }
+  }, [user, userProfile, enrPage, filterSession, filterLevel, debouncedSearch]);
+
+  const fetchDropdowns = async () => {
     try {
       const token = await getAccessToken();
       if (!token) return;
 
-      const [enrollmentsRes, studentsRes, sessionsRes] = await Promise.all([
-        fetch(getApiUrl("/api/v1/enrollments/"), { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(getApiUrl("/api/v1/users/"), { headers: { Authorization: `Bearer ${token}` } }),
+      const [studentsRes, sessionsRes] = await Promise.all([
+        fetch(getApiUrl("/api/v1/users/?limit=5000"), { headers: { Authorization: `Bearer ${token}` } }),
         fetch(getApiUrl("/api/v1/sessions/"), { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
-      if (!enrollmentsRes.ok || !studentsRes.ok || !sessionsRes.ok) {
-        throw new Error("Failed to fetch data");
-      }
+      if (!studentsRes.ok || !sessionsRes.ok) throw new Error("Failed to fetch data");
 
-      const [enrollmentsData, studentsData, sessionsData] = await Promise.all([
-        enrollmentsRes.json(),
+      const [studentsData, sessionsData] = await Promise.all([
         studentsRes.json(),
         sessionsRes.json(),
       ]);
 
-      setEnrollments(enrollmentsData);
-      const users = studentsData as UserDTO[];
+      const usersItems = studentsData.items ?? studentsData;
+      const users = usersItems as UserDTO[];
       const studentUsers: Student[] = users
         .filter((u) => u.role === "student")
         .map(({ role: _unused, ...rest }) => rest as Student);
@@ -115,6 +128,31 @@ function EnrollmentsPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch data");
+    }
+  };
+
+  const fetchEnrollments = async () => {
+    setLoading(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+
+      const params = new URLSearchParams();
+      params.set("limit", String(ENR_PAGE_SIZE));
+      params.set("skip", String((enrPage - 1) * ENR_PAGE_SIZE));
+      if (filterSession !== "all") params.set("session_id", filterSession);
+      if (filterLevel !== "all") params.set("level", filterLevel);
+      if (debouncedSearch) params.set("search", debouncedSearch);
+
+      const res = await fetch(getApiUrl(`/api/v1/enrollments/?${params.toString()}`), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to fetch enrollments");
+      const data = await res.json();
+      setEnrollments(data.items ?? data);
+      setTotalEnrollments(data.total ?? (data.items ?? data).length);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch enrollments");
     } finally {
       setLoading(false);
     }
@@ -140,7 +178,7 @@ function EnrollmentsPage() {
         throw new Error(errorData.detail || "Failed to create enrollment");
       }
 
-      await fetchData();
+      await fetchEnrollments();
       mutate("/api/v1/admin/stats");
       setFormData({ studentId: "", sessionId: formData.sessionId, level: "100L" });
       setShowModal(false);
@@ -170,7 +208,7 @@ function EnrollmentsPage() {
       });
 
       if (!response.ok) throw new Error("Failed to delete enrollment");
-      await fetchData();
+      await fetchEnrollments();
       mutate("/api/v1/admin/stats");
       toast.success("Enrollment removed");
       setDeleteConfirm({ isOpen: false, id: "" });
@@ -185,17 +223,10 @@ function EnrollmentsPage() {
 
   /* ── Filter ─────────────────────── */
 
-  const filteredEnrollments = enrollments.filter((enrollment) => {
-    if (filterSession !== "all" && enrollment.sessionId !== filterSession) return false;
-    if (filterLevel !== "all" && enrollment.level !== filterLevel) return false;
-    return true;
-  });
-
   // Reset page when filters change
-  useEffect(() => { setEnrPage(1); }, [filterSession, filterLevel]);
+  useEffect(() => { setEnrPage(1); }, [filterSession, filterLevel, debouncedSearch]);
 
-  const enrTotalPages = Math.ceil(filteredEnrollments.length / ENR_PAGE_SIZE);
-  const paginatedEnrollments = filteredEnrollments.slice((enrPage - 1) * ENR_PAGE_SIZE, enrPage * ENR_PAGE_SIZE);
+  const enrTotalPages = Math.ceil(totalEnrollments / ENR_PAGE_SIZE);
 
   if (authLoading || loading) {
     return (
@@ -243,7 +274,7 @@ function EnrollmentsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Total</p>
-          <p className="font-display font-black text-3xl text-navy">{enrollments.length}</p>
+          <p className="font-display font-black text-3xl text-navy">{totalEnrollments}</p>
           <p className="text-xs text-navy/40 mt-1">Enrollments</p>
         </div>
         <div className="bg-teal border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
@@ -252,8 +283,8 @@ function EnrollmentsPage() {
           <p className="text-xs text-snow/40 mt-1">Registered</p>
         </div>
         <div className="bg-lavender border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform" aria-live="polite">
-          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Filtered</p>
-          <p className="font-display font-black text-3xl text-snow">{filteredEnrollments.length}</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Current Page</p>
+          <p className="font-display font-black text-3xl text-snow">{enrollments.length}</p>
           <p className="text-xs text-snow/40 mt-1">Results</p>
         </div>
       </div>
@@ -262,6 +293,17 @@ function EnrollmentsPage() {
       <div className="bg-snow border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]">
         <p className="text-sm font-bold text-navy mb-4">Filters</p>
         <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1 space-y-1.5">
+            <label htmlFor="filter-search" className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Search</label>
+            <input
+              id="filter-search"
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by name, email or matric..."
+              className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm transition-all"
+            />
+          </div>
           <div className="flex-1 space-y-1.5">
             <label htmlFor="filter-session" className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Session</label>
             <select
@@ -299,7 +341,7 @@ function EnrollmentsPage() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display font-bold text-lg text-navy">Enrollment Records</h2>
-          <span className="px-3 py-1 bg-cloud text-slate text-xs font-bold rounded-full">{filteredEnrollments.length} records</span>
+          <span className="px-3 py-1 bg-cloud text-slate text-xs font-bold rounded-full">{totalEnrollments} records</span>
         </div>
         <div className="bg-snow border-[3px] border-navy rounded-3xl overflow-hidden shadow-[4px_4px_0_0_#000]">
           <div className="overflow-x-auto">
@@ -315,7 +357,7 @@ function EnrollmentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredEnrollments.length === 0 ? (
+                {enrollments.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-16 text-center">
                       <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-sunny-light flex items-center justify-center">
@@ -328,7 +370,7 @@ function EnrollmentsPage() {
                     </td>
                   </tr>
                 ) : (
-                  paginatedEnrollments.map((enrollment, idx) => {
+                  enrollments.map((enrollment, idx) => {
                     const accentBgs = ["bg-lavender-light", "bg-teal-light", "bg-coral-light", "bg-sunny-light"];
                     const accentTexts = ["text-lavender", "text-teal", "text-coral", "text-sunny"];
                     return (

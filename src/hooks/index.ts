@@ -5,15 +5,6 @@
  */
 
 export {
-  useQuery,
-  useMutation,
-  formatApiError,
-  clearQueryCache,
-  type QueryResult,
-  type MutationResult,
-} from './useQuery';
-
-export {
   useAdminStats,
   useAnnouncements,
   useEvents,
@@ -25,3 +16,5 @@ export {
   type PaymentItem,
   type ClassSession,
 } from './useData';
+
+export { useGrowthData } from './useGrowthData';

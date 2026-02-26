@@ -7,7 +7,7 @@ This is the core of the "time travel" feature.
 
 from fastapi import APIRouter, HTTPException, Depends, status
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 
 from app.models.session import Session, SessionCreate, SessionUpdate, SessionSummary
@@ -37,7 +37,7 @@ def compute_current_semester(doc: dict) -> int:
     """Compute currentSemester from semester dates for a raw MongoDB doc."""
     sem2_start = doc.get("semester2StartDate")
     if sem2_start:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return 1 if now < sem2_start else 2
     return doc.get("currentSemester", 1)
 
@@ -66,8 +66,8 @@ async def create_session(
     
     # Create session document first (inactive)
     session_dict = session_data.model_dump()
-    session_dict["createdAt"] = datetime.utcnow()
-    session_dict["updatedAt"] = datetime.utcnow()
+    session_dict["createdAt"] = datetime.now(timezone.utc)
+    session_dict["updatedAt"] = datetime.now(timezone.utc)
     
     # Always create as inactive first to prevent race conditions
     original_active_state = session_dict.get("isActive", False)
@@ -241,7 +241,7 @@ async def update_session(
         update_data["isActive"] = True
     
     # Update session
-    update_data["updatedAt"] = datetime.utcnow()
+    update_data["updatedAt"] = datetime.now(timezone.utc)
     await sessions.update_one(
         {"_id": ObjectId(session_id)},
         {"$set": update_data}

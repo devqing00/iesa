@@ -191,7 +191,7 @@ export default function IESAAIPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [userContext, setUserContext] = useState<UserContext | null>(null);
+  const [, setUserContext] = useState<UserContext | null>(null);
   const [quickSuggestions, setQuickSuggestions] = useState<string[]>([]);
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<
@@ -590,7 +590,7 @@ export default function IESAAIPage() {
       // Start typing animation
       typeMessage(data.reply, aiMessageId, data.suggestions);
       
-    } catch (error: unknown) {
+    } catch {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === aiMessageId
@@ -1092,6 +1092,7 @@ export default function IESAAIPage() {
                   {conversationSearch && (
                     <button
                       onClick={() => setConversationSearch("")}
+                      title="Clear search"
                       className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center hover:bg-cloud rounded transition-colors"
                     >
                       <svg

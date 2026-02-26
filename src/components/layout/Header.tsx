@@ -27,6 +27,7 @@ export default function Header() {
     { label: "About", href: "/about" },
     { label: "Blog", href: "/blog" },
     { label: "Events", href: "/events" },
+    { label: "Team", href: "/team" },
     { label: "IEPOD", href: "/iepod" },
     { label: "History", href: "/history" },
     { label: "Contact", href: "/contact" },

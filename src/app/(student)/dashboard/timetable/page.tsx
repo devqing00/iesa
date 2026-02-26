@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
+import { Modal } from "@/components/ui/Modal";
 import { Calendar, dateFnsLocalizer, View } from "react-big-calendar";
 import { format } from "date-fns/format";
 import { parse } from "date-fns/parse";
@@ -79,7 +80,7 @@ const todayCardColors = [
 /* ─── Component ─────────────────────────────────────────────────── */
 
 export default function TimetablePage() {
-  const { user, getAccessToken } = useAuth();
+  const { user, userProfile, getAccessToken } = useAuth();
   const [classes, setClasses] = useState<ClassSession[]>([]);
   const [cancellations, setCancellations] = useState<ClassCancellation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,10 +92,12 @@ export default function TimetablePage() {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [screenSize, setScreenSize] = useState<"mobile" | "tablet" | "desktop">("desktop");
+  const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
 
-  const userLevel = (user as { level?: number })?.level || 300;
+  // Parse level from userProfile (stored as "200L", "300L", etc.)
+  const userLevel = parseInt(String(userProfile?.level || userProfile?.currentLevel || "300")) || 300;
   const canCancelClasses = (user as { permissions?: string[] })?.permissions?.includes("timetable:cancel") || false;
 
   /* ── Responsive ── */
@@ -358,7 +361,7 @@ export default function TimetablePage() {
                 const card = todayCardColors[i % todayCardColors.length];
 
                 return (
-                  <div key={event.id} className={`${card.bg} border-[3px] ${card.border} rounded-3xl p-5 ${card.shadow} ${isCancelled ? "opacity-50" : ""} transition-all`}>
+                  <button key={event.id} onClick={() => setDetailEvent(event)} className={`text-left w-full ${card.bg} border-[3px] ${card.border} rounded-3xl p-5 ${card.shadow} ${isCancelled ? "opacity-50" : ""} transition-all hover:translate-y-[-1px] cursor-pointer`}>
                     <div className="flex items-center justify-between mb-3">
                       <h3 className={`font-display font-black text-lg ${isCancelled ? "line-through text-slate" : card.text}`}>
                         {classSession.courseCode}
@@ -396,7 +399,7 @@ export default function TimetablePage() {
                     {isCancelled && cancellationReason && (
                       <p className="text-xs font-bold text-coral mt-2">Reason: {cancellationReason}</p>
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -419,7 +422,7 @@ export default function TimetablePage() {
                 const rotation = i % 3 === 1 ? "rotate-[0.5deg] hover:rotate-0" : i % 3 === 2 ? "rotate-[-0.5deg] hover:rotate-0" : "";
 
                 return (
-                  <div key={event.id} className={`bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000] transition-all ${isCancelled ? "opacity-50" : ""} ${rotation}`}>
+                  <button key={event.id} onClick={() => setDetailEvent(event)} className={`text-left w-full bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000] transition-all hover:translate-y-[-1px] cursor-pointer ${isCancelled ? "opacity-50" : ""} ${rotation}`}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-display font-black text-base text-navy">{classSession.courseCode}</span>
                       <span className="text-[10px] font-bold text-slate uppercase tracking-wider bg-cloud rounded-full px-2 py-0.5">
@@ -431,7 +434,7 @@ export default function TimetablePage() {
                       <p>{format(event.start, "h:mm a")}</p>
                       <p className="truncate">{classSession.venue}</p>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -458,6 +461,7 @@ export default function TimetablePage() {
               onView={setView}
               date={date}
               onNavigate={setDate}
+              onSelectEvent={(event: CalendarEvent) => setDetailEvent(event)}
               eventPropGetter={eventStyleGetter}
               components={{ event: EventComponent }}
               views={screenSize === "mobile" ? ["day"] : screenSize === "tablet" ? ["day", "week"] : ["day", "week", "month", "agenda"]}
@@ -484,6 +488,113 @@ export default function TimetablePage() {
             ))}
           </div>
         </div>
+
+        {/* ═══════════════════════════════════════════════════════
+            CLASS DETAIL MODAL
+            ═══════════════════════════════════════════════════════ */}
+        <Modal isOpen={!!detailEvent} onClose={() => setDetailEvent(null)} title="" size="md">
+          {detailEvent && (() => {
+            const { classSession, isCancelled, cancellationReason } = detailEvent.resource;
+            const style = typeStyles[classSession.classType] || typeStyles.lecture;
+            return (
+              <div className="space-y-5">
+                {/* Header */}
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="font-display font-black text-2xl text-navy leading-tight">
+                      {classSession.courseCode}
+                    </h2>
+                    <p className="text-sm text-slate mt-1">{classSession.courseTitle}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider rounded-full px-3 py-1.5 ${style.bg} ${style.text}`}>
+                      {classSession.classType}
+                    </span>
+                    {isCancelled && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-3 py-1.5 bg-coral text-snow">
+                        Cancelled
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Info Grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    {
+                      label: "Time",
+                      value: `${format(detailEvent.start, "h:mm a")} – ${format(detailEvent.end, "h:mm a")}`,
+                      icon: (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      label: "Day",
+                      value: `${classSession.day} · ${format(detailEvent.start, "MMM d, yyyy")}`,
+                      icon: (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      label: "Venue",
+                      value: classSession.venue,
+                      icon: (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 2.682 2.282 16.975 16.975 0 0 0 1.145.742ZM12 13.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      label: "Lecturer",
+                      value: classSession.lecturer,
+                      icon: (
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clipRule="evenodd" />
+                        </svg>
+                      ),
+                    },
+                  ].map((item) => (
+                    <div key={item.label} className="bg-ghost rounded-2xl p-4 border-[2px] border-cloud">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-slate">{item.icon}</span>
+                        <span className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">{item.label}</span>
+                      </div>
+                      <p className="text-sm font-bold text-navy">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Extra details */}
+                <div className="flex flex-wrap gap-2">
+                  <span className="bg-cloud rounded-full px-3 py-1.5 text-[10px] font-bold text-navy uppercase tracking-wider">
+                    Level {classSession.level}
+                  </span>
+                  {classSession.recurring && (
+                    <span className="bg-teal-light rounded-full px-3 py-1.5 text-[10px] font-bold text-teal uppercase tracking-wider">
+                      Recurring Weekly
+                    </span>
+                  )}
+                </div>
+
+                {/* Cancellation notice */}
+                {isCancelled && (
+                  <div className="bg-coral-light border-[2px] border-coral/30 rounded-2xl p-4">
+                    <p className="text-xs font-bold text-coral uppercase tracking-wider mb-1">
+                      Class Cancelled
+                    </p>
+                    {cancellationReason && (
+                      <p className="text-sm text-navy">{cancellationReason}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </Modal>
 
         {/* ═══════════════════════════════════════════════════════
             CANCEL MODAL

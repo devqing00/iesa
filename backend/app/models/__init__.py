@@ -11,7 +11,6 @@ from .enrollment import Enrollment, EnrollmentCreate
 from .payment import Payment, PaymentCreate, PaymentUpdate, Transaction, TransactionCreate
 from .event import Event, EventCreate, EventUpdate, EventRegistration
 from .announcement import Announcement, AnnouncementCreate, AnnouncementUpdate
-from .grade import Grade, GradeCreate, Course, Semester
 from .role import Role, RoleCreate, PositionType
 
 __all__ = [
@@ -42,11 +41,6 @@ __all__ = [
     "Announcement",
     "AnnouncementCreate",
     "AnnouncementUpdate",
-    # Grade models
-    "Grade",
-    "GradeCreate",
-    "Course",
-    "Semester",
     # Role models
     "Role",
     "RoleCreate",

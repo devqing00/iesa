@@ -57,13 +57,13 @@ export default function EventsPage() {
   return (
     <div className="min-h-screen bg-ghost text-navy overflow-x-hidden">
       {/* Diamond decorators */}
-      <svg className="fixed top-24 right-[12%] w-7 h-7 text-lavender/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed top-24 right-[12%] w-7 h-7 text-lavender/15 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
-      <svg className="fixed top-[55%] left-[10%] w-6 h-6 text-teal/20 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed top-[55%] left-[10%] w-6 h-6 text-teal/20 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
-      <svg className="fixed bottom-[20%] right-[18%] w-5 h-5 text-coral/20 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed bottom-[20%] right-[18%] w-5 h-5 text-coral/20 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
 

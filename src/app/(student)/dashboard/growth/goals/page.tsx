@@ -2,6 +2,7 @@
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { useGrowthData } from "@/hooks/useGrowthData";
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 
@@ -50,13 +51,7 @@ const STORAGE_KEY = "iesa-goals";
 /* ─── Component ───────────────────────────────────────────── */
 export default function GoalsPage() {
   const { showHelp, openHelp, closeHelp } = useToolHelp("goals");
-  const [goals, setGoals] = useState<Goal[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    }
-    return [];
-  });
+  const [goals, setGoals] = useGrowthData<Goal[]>('goals', STORAGE_KEY, []);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [expandedGoals, setExpandedGoals] = useState<Set<string>>(new Set());
@@ -69,10 +64,6 @@ export default function GoalsPage() {
     const interval = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
-  }, [goals]);
 
   const stats = useMemo(() => {
     const total = goals.length;
@@ -122,11 +113,7 @@ export default function GoalsPage() {
   };
 
   const deleteGoal = (id: string) => {
-    setGoals((prev) => {
-      const updated = prev.filter((g) => g.id !== id);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      return updated;
-    });
+    setGoals((prev) => prev.filter((g) => g.id !== id));
   };
 
   const getProgress = (goal: Goal) => {
@@ -180,10 +167,10 @@ export default function GoalsPage() {
       <ToolHelpModal toolId="goals" isOpen={showHelp} onClose={closeHelp} />
 
       {/* Diamond sparkle decorators */}
-      <svg className="fixed top-24 left-[6%] w-5 h-5 text-lavender/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-      <svg className="fixed top-44 right-[8%] w-4 h-4 text-coral/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-      <svg className="fixed bottom-28 left-[12%] w-6 h-6 text-teal/12 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-      <svg className="fixed top-72 right-[22%] w-3 h-3 text-sunny/15 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+      <svg className="fixed top-24 left-[6%] w-5 h-5 text-lavender/15 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+      <svg className="fixed top-44 right-[8%] w-4 h-4 text-coral/12 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+      <svg className="fixed bottom-28 left-[12%] w-6 h-6 text-teal/12 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+      <svg className="fixed top-72 right-[22%] w-3 h-3 text-sunny/15 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
 
       <div className="px-4 md:px-8 py-6 md:py-8 pb-24 md:pb-8 relative z-10">
         <div className="max-w-6xl mx-auto">

@@ -85,6 +85,7 @@ function AdminAnnouncementsPage() {
   const [selectedLevel, setSelectedLevel] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const ITEMS_PER_PAGE = 8;
 
   // Modal
@@ -99,29 +100,39 @@ function AdminAnnouncementsPage() {
 
   const fetchAnnouncements = useCallback(async () => {
     if (!user) return;
+    setLoading(true);
     try {
       const token = await getAccessToken();
-      const response = await fetch(getApiUrl("/api/v1/announcements/"), {
+      const params = new URLSearchParams();
+      params.set("limit", String(ITEMS_PER_PAGE));
+      params.set("skip", String((page - 1) * ITEMS_PER_PAGE));
+      if (searchQuery.trim()) params.set("search", searchQuery.trim());
+      if (selectedLevel !== "all") params.set("target_level", selectedLevel);
+
+      const response = await fetch(getApiUrl(`/api/v1/announcements/?${params}`), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (response.ok) {
         const data = await response.json();
-        const mapped = data.map((item: Announcement & { _id?: string }) => ({
+        const items = data.items ?? data;
+        const mapped = items.map((item: Announcement & { _id?: string }) => ({
           ...item,
           id: item.id || item._id,
         }));
         setAnnouncements(mapped);
+        setTotalCount(data.total ?? items.length);
       }
     } catch {
       toast.error("Failed to load announcements");
     } finally {
       setLoading(false);
     }
-  }, [user, getAccessToken]);
+  }, [user, getAccessToken, page, searchQuery, selectedLevel]);
 
   useEffect(() => {
-    fetchAnnouncements();
-  }, [fetchAnnouncements]);
+    const debounce = setTimeout(() => fetchAnnouncements(), searchQuery ? 300 : 0);
+    return () => clearTimeout(debounce);
+  }, [fetchAnnouncements, searchQuery]);
 
   /* ── Create / Update ────────────── */
 
@@ -236,20 +247,12 @@ function AdminAnnouncementsPage() {
 
   /* ── Filter ─────────────────────── */
 
-  const filteredAnnouncements = announcements.filter((a) => {
-    const matchesLevel = selectedLevel === "all" || (a.targetLevels && a.targetLevels.includes(selectedLevel));
-    const matchesSearch = !searchQuery || a.title.toLowerCase().includes(searchQuery.toLowerCase()) || a.content.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesLevel && matchesSearch;
-  });
-
-  const totalPages = Math.ceil(filteredAnnouncements.length / ITEMS_PER_PAGE);
-  const paginatedAnnouncements = filteredAnnouncements.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
   const handleSearch = (v: string) => { setSearchQuery(v); setPage(1); };
   const handleLevelFilter = (v: string) => { setSelectedLevel(v); setPage(1); };
 
   /* ── Stats ──────────────────────── */
 
-  const totalCount = announcements.length;
   const highCount = announcements.filter((a) => a.priority === "high" || a.priority === "urgent").length;
   const pinnedCount = announcements.filter((a) => a.isPinned).length;
 
@@ -366,7 +369,7 @@ function AdminAnnouncementsPage() {
               <div className="inline-block w-10 h-10 border-[3px] border-navy border-t-transparent rounded-full animate-spin mb-4" />
               <p className="text-sm text-navy/60">Loading announcements...</p>
             </div>
-          ) : filteredAnnouncements.length === 0 ? (
+          ) : announcements.length === 0 ? (
             <div className="bg-snow rounded-3xl border-[3px] border-navy p-16 text-center shadow-[4px_4px_0_0_#000] space-y-4">
               <div className="w-16 h-16 mx-auto rounded-2xl bg-sunny-light flex items-center justify-center">
                 <svg className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
@@ -385,7 +388,7 @@ function AdminAnnouncementsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {paginatedAnnouncements.map((a, idx) => {
+              {announcements.map((a, idx) => {
                 const id = a.id || a._id;
                 const accentBorders = ["border-l-teal", "border-l-coral", "border-l-lavender", "border-l-sunny"];
                 return (

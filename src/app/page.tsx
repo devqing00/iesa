@@ -4,24 +4,22 @@ import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { useAuth } from "@/context/AuthContext";
 
 export default function Home() {
-  const { user } = useAuth();
 
   return (
     <div className="min-h-screen bg-snow overflow-x-hidden">
       {/* Subtle diamond sparkle decorators */}
-      <svg className="fixed top-16 left-[10%] w-5 h-5 text-navy/8 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed top-16 left-[10%] w-5 h-5 text-navy/8 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
-      <svg className="fixed top-32 right-[12%] w-6 h-6 text-navy/6 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed top-32 right-[12%] w-6 h-6 text-navy/6 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
-      <svg className="fixed top-[45%] left-[8%] w-5 h-5 text-navy/6 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed top-[45%] left-[8%] w-5 h-5 text-navy/6 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
-      <svg className="fixed top-[60%] right-[20%] w-4 h-4 text-navy/8 pointer-events-none z-0" viewBox="0 0 24 24" fill="currentColor">
+      <svg className="fixed top-[60%] right-[20%] w-4 h-4 text-navy/8 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
 

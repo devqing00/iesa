@@ -1,12 +1,14 @@
 """TIMP — The IESA Mentoring Project routes."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
+import re
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ..core.permissions import get_current_user, get_current_session, require_permission
+from ..core.audit import AuditLogger
 from ..db import get_database
 from ..models.timp import (
     MentorApplicationCreate,
@@ -95,6 +97,7 @@ async def get_timp_settings(
 
 @router.patch("/settings", dependencies=[Depends(require_permission("timp:manage"))])
 async def update_timp_settings(
+    request: Request,
     user: dict = Depends(get_current_user),
     session: dict = Depends(get_current_session),
     formOpen: bool = Query(..., description="Whether the TIMP application form is open"),
@@ -104,9 +107,21 @@ async def update_timp_settings(
     sid = str(session["_id"])
     await db.timpSettings.update_one(
         {"sessionId": sid},
-        {"$set": {"formOpen": formOpen, "updatedAt": datetime.utcnow()}},
+        {"$set": {"formOpen": formOpen, "updatedAt": datetime.now(timezone.utc)}},
         upsert=True,
     )
+
+    await AuditLogger.log(
+        action="timp.settings_updated",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="timp_settings",
+        resource_id=sid,
+        details={"formOpen": formOpen},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return {"formOpen": formOpen}
 
 
@@ -173,7 +188,7 @@ async def apply_as_mentor(
         "feedback": None,
         "sessionId": sid,
         "reviewedBy": None,
-        "createdAt": datetime.utcnow(),
+        "createdAt": datetime.now(timezone.utc),
         "updatedAt": None,
     }
     result = await db.timpApplications.insert_one(doc)
@@ -181,9 +196,12 @@ async def apply_as_mentor(
     return _app_to_response(doc)
 
 
-@router.get("/applications", response_model=list[MentorApplicationResponse])
+@router.get("/applications")
 async def list_mentor_applications(
     status: Optional[str] = Query(None),
+    search: Optional[str] = Query(None, description="Search by applicant name"),
+    limit: int = Query(20, ge=1, le=100),
+    skip: int = Query(0, ge=0),
     user: dict = Depends(get_current_user),
     session: dict = Depends(get_current_session),
     _perm=Depends(require_permission("timp:manage")),
@@ -193,15 +211,19 @@ async def list_mentor_applications(
     query: dict = {"sessionId": str(session["_id"])}
     if status:
         query["status"] = status
-    cursor = db.timpApplications.find(query).sort("createdAt", -1)
-    docs = await cursor.to_list(length=200)
-    return [_app_to_response(d) for d in docs]
+    if search:
+        query["userName"] = {"$regex": re.escape(search), "$options": "i"}
+    total = await db.timpApplications.count_documents(query)
+    cursor = db.timpApplications.find(query).sort("createdAt", -1).skip(skip).limit(limit)
+    docs = await cursor.to_list(length=limit)
+    return {"items": [_app_to_response(d) for d in docs], "total": total}
 
 
 @router.patch("/applications/{app_id}/review", response_model=MentorApplicationResponse)
 async def review_mentor_application(
     app_id: str,
     data: MentorApplicationReview,
+    request: Request,
     user: dict = Depends(get_current_user),
     _perm=Depends(require_permission("timp:manage")),
 ):
@@ -217,13 +239,25 @@ async def review_mentor_application(
                 "status": data.status.value,
                 "feedback": data.feedback,
                 "reviewedBy": str(user["_id"]),
-                "updatedAt": datetime.utcnow(),
+                "updatedAt": datetime.now(timezone.utc),
             }
         },
         return_document=True,
     )
     if not result:
         raise HTTPException(status_code=404, detail="Application not found")
+
+    await AuditLogger.log(
+        action=f"timp.application_{data.status.value}",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="timp_application",
+        resource_id=app_id,
+        details={"status": data.status.value, "applicant": result.get("userName"), "feedback": data.feedback},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return _app_to_response(result)
 
 
@@ -251,6 +285,7 @@ async def get_my_application(
 @router.post("/pairs", response_model=PairResponse, status_code=201)
 async def create_pair(
     data: CreatePairRequest,
+    request: Request,
     user: dict = Depends(get_current_user),
     session: dict = Depends(get_current_session),
     _perm=Depends(require_permission("timp:manage")),
@@ -305,17 +340,32 @@ async def create_pair(
         "sessionId": sid,
         "feedbackCount": 0,
         "createdBy": str(user["_id"]),
-        "createdAt": datetime.utcnow(),
+        "createdAt": datetime.now(timezone.utc),
         "updatedAt": None,
     }
     result = await db.timpPairs.insert_one(doc)
     doc["_id"] = result.inserted_id
+
+    await AuditLogger.log(
+        action="timp.pair_created",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="timp_pair",
+        resource_id=str(result.inserted_id),
+        details={"mentor": doc["mentorName"], "mentee": doc["menteeName"]},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return _pair_to_response(doc)
 
 
-@router.get("/pairs", response_model=list[PairResponse])
+@router.get("/pairs")
 async def list_pairs(
     status: Optional[str] = Query(None),
+    search: Optional[str] = Query(None, description="Search by mentor or mentee name"),
+    limit: int = Query(20, ge=1, le=100),
+    skip: int = Query(0, ge=0),
     user: dict = Depends(get_current_user),
     session: dict = Depends(get_current_session),
 ):
@@ -328,20 +378,25 @@ async def list_pairs(
     query: dict = {"sessionId": sid}
     if status:
         query["status"] = status
+    if search:
+        search_regex = {"$regex": re.escape(search), "$options": "i"}
+        query["$or"] = [{"mentorName": search_regex}, {"menteeName": search_regex}]
 
     # Non-admin/exco users only see pairs they're part of
     if role not in ("admin", "exco"):
         query["$or"] = [{"mentorId": uid}, {"menteeId": uid}]
 
-    cursor = db.timpPairs.find(query).sort("createdAt", -1)
-    docs = await cursor.to_list(length=200)
-    return [_pair_to_response(d) for d in docs]
+    total = await db.timpPairs.count_documents(query)
+    cursor = db.timpPairs.find(query).sort("createdAt", -1).skip(skip).limit(limit)
+    docs = await cursor.to_list(length=limit)
+    return {"items": [_pair_to_response(d) for d in docs], "total": total}
 
 
 @router.patch("/pairs/{pair_id}/status")
 async def update_pair_status(
     pair_id: str,
     status: PairStatus,
+    request: Request,
     user: dict = Depends(get_current_user),
     _perm=Depends(require_permission("timp:manage")),
 ):
@@ -352,11 +407,23 @@ async def update_pair_status(
 
     result = await db.timpPairs.find_one_and_update(
         {"_id": ObjectId(pair_id)},
-        {"$set": {"status": status.value, "updatedAt": datetime.utcnow()}},
+        {"$set": {"status": status.value, "updatedAt": datetime.now(timezone.utc)}},
         return_document=True,
     )
     if not result:
         raise HTTPException(status_code=404, detail="Pair not found")
+
+    await AuditLogger.log(
+        action=f"timp.pair_{status.value}",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="timp_pair",
+        resource_id=pair_id,
+        details={"status": status.value, "mentor": result.get("mentorName"), "mentee": result.get("menteeName")},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return _pair_to_response(result)
 
 
@@ -392,7 +459,7 @@ async def submit_feedback(
         raise HTTPException(status_code=400, detail="This pair is not currently active")
 
     # Calculate week number since pair creation
-    days_since = (datetime.utcnow() - pair["createdAt"]).days
+    days_since = (datetime.now(timezone.utc) - pair["createdAt"]).days
     week_number = (days_since // 7) + 1
 
     # Check if already submitted this week
@@ -414,7 +481,7 @@ async def submit_feedback(
         "concerns": data.concerns,
         "topicsCovered": data.topicsCovered,
         "weekNumber": week_number,
-        "createdAt": datetime.utcnow(),
+        "createdAt": datetime.now(timezone.utc),
     }
     result = await db.timpFeedback.insert_one(doc)
     doc["_id"] = result.inserted_id

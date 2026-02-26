@@ -105,14 +105,14 @@ export default function GlobalSearch() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 bg-ghost border-[3px] border-navy/20 rounded-xl px-4 py-2 text-sm text-slate hover:border-navy/40 hover:bg-cloud transition-all"
+        className="flex items-center gap-2 bg-ghost border-[3px] border-navy/20 rounded-xl px-2.5 lg:px-3 py-2.5 text-sm text-slate hover:border-navy/40 hover:bg-cloud transition-all"
         aria-label="Open search"
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z" clipRule="evenodd" />
         </svg>
-        <span className="hidden sm:inline">Search...</span>
-        <kbd className="hidden sm:inline-flex items-center text-[10px] font-bold text-navy/30 bg-snow border border-navy/15 rounded px-1.5 py-0.5 ml-4">
+        <span className="hidden lg:inline">Search...</span>
+        <kbd className="hidden lg:inline-flex items-center text-[10px] font-bold text-navy/30 bg-snow border border-navy/15 rounded px-1.5 py-0.5 ml-4">
           {typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent) ? "⌘" : "Ctrl"}K
         </kbd>
       </button>
@@ -129,7 +129,7 @@ export default function GlobalSearch() {
       />
 
       {/* Search Dialog */}
-      <div className="fixed inset-x-4 top-[10%] sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-xl z-50">
+      <div className="fixed inset-x-4 top-[10%] sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-xl z-200">
         <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[10px_10px_0_0_#000] overflow-hidden">
           {/* Input */}
           <div className="flex items-center gap-3 px-5 py-4 border-b-[3px] border-navy/10">

@@ -72,10 +72,9 @@ export type {
   // Enrollment
   Enrollment,
   EnrollmentWithDetails,
-  // Grade
+  // CGPA
   Course,
   Semester,
-  Grade,
   CGPAResponse,
   // Chat
   ChatMessage,
@@ -256,6 +255,7 @@ export type {
   ApplicationStatus,
   CreateApplicationData,
   ReviewApplicationData,
+  PaginatedApplications,
 } from './applications';
 
 // Academic Calendar
@@ -306,6 +306,8 @@ export type {
   ReviewMentorData,
   CreatePairData,
   SubmitFeedbackData,
+  PaginatedMentorApplications,
+  PaginatedPairs,
 } from './timp';
 
 // Bank Transfers
@@ -423,3 +425,13 @@ export type {
   MyIepodProfile,
   IepodStats,
 } from './iepod';
+
+// Growth Hub Tools
+export {
+  getGrowthData,
+  saveGrowthData,
+  deleteGrowthData,
+  getAllGrowthData,
+} from './growth';
+
+export type { GrowthTool } from './growth';

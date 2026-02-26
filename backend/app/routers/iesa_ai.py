@@ -99,22 +99,25 @@ Core Pages:
 - Payments: Pay all dues via Paystack. View all payment items and status.
 - Receipts: Download PDF receipts for any payment you've made.
 - Timetable: View your class schedule for the week (managed by class reps/admin)
-- Library: Browse and download past questions, lecture slides, and study notes filtered by level and course
+- Resource Library: Browse and download past questions, lecture slides, study notes, and YouTube tutorials filtered by level and course. Resources are uploaded and managed by admin/EXCO.
 - Events: View upcoming and past IESA events; RSVP to events
-- Calendar: Full academic calendar — exam dates, events, key dates
+- Calendar: Full academic calendar — exam dates, events, key dates. Navigate between months and switch between month/week views.
 - Announcements: Important notices from IESA EXCO and the department
 - Applications: Apply for unit/elective courses; track your application status
+- Archive: Browse announcements and events from past academic sessions. Select any session to see its historical data.
+- Settings: Manage notification preferences by category (events, schedule, academic, mentoring, community, admin). Update personal details.
+- Profile: Update personal info, profile picture, change password
 
 Growth Tools (Dashboard → Growth):
-- CGPA Calculator: Calculate and track your semester GPA and cumulative CGPA using UI's grading system
+- CGPA Calculator: Calculate and track your semester GPA and cumulative CGPA using UI's grading system (supports both 5.0 Nigerian and 4.0 US scales). Includes NUC classification. Save progress to history and load previous calculations to auto-fill the calculator.
 - Habits Tracker: Build and track daily academic habits (reading, exercise, revision, etc.)
 - Weekly Journal: Reflect on your week — what went well, what to improve, next week's focus, gratitude
 - Flashcards: Create and study flashcard decks for any course, with flip-card interaction
-- Study Groups: Create or join peer study groups for specific courses; coordinate meetings and resources
-- Goals: Set and track academic goals by deadline and priority
+- Study Groups: Create or join peer study groups for specific courses; coordinate meetings, share resources, and collaborate with classmates
 - Study Timer (Pomodoro): Timed focus sessions with break reminders to improve study efficiency
 - Weekly Planner: Plan your weekly schedule with time blocks
 - Courses: Manage your enrolled courses and track progress
+- All growth data is synced to your account — accessible from any device
 
 IEPOD Hub (Dashboard → IEPOD):
 - IEPOD stands for Intellectual Exchange, Professional & Occupational Development
@@ -129,18 +132,37 @@ Team Pages:
 - Committees: Committee members and their roles
 - Class Reps: Class representatives for each level
 
+Resource Library:
+- Past Questions: Previous exam papers organized by course and level
+- Lecture Notes: Slides and notes uploaded by class reps or EXCO
+- YouTube Tutorials: Curated educational videos for courses
+- Study Materials: General study resources and reference materials
+- All resources are approved by admin before becoming visible to students
+
 Press:
 - Write for IESA: Submit articles for the IESA press/newsletter
 - Review submissions (for editors)
 - Read published IESA press articles
 
+Admin Features (for EXCO & authorized roles):
+- User management: View, edit, approve, and manage student accounts
+- Session management: Create and manage academic sessions
+- Payment management: Create payment items, track who has paid
+- Timetable management: Add/edit class sessions for each level
+- Resource management: Upload, approve, and organize study resources
+- Announcement management: Create and publish announcements
+- Event management: Create and manage events
+- Audit logs: View all administrative actions for transparency
+- Role management: Assign roles and permissions to users
+
 Profile: Update personal info, profile picture, change password
 
 ## Study & Academic Tips
-- For past questions: Dashboard → Library → Filter by level and course
-- For CGPA calculation: Dashboard → Growth → CGPA Calculator — supports 4.0 and 5.0 scales, and UI's specific grading system
+- For past questions: Dashboard → Resource Library → Filter by level and course
+- For CGPA calculation: Dashboard → Growth → CGPA Calculator — supports 4.0 and 5.0 scales, with NUC classification. You can save calculations and load them later to continue tracking progress.
 - For study groups: Dashboard → Growth → Study Groups — search by course or create a new group
 - For exam prep: Use Flashcards for memorisation, Study Timer for focused sessions, Journal for weekly reflection
+- For habit building: Dashboard → Growth → Habits — track daily academic habits and build consistency
 - Departmental library (physical) is in the Technology Faculty Complex
 
 ## Contact & Support
@@ -170,6 +192,8 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
         "level": level,
         "name": f"{user.get('firstName', '')} {user.get('lastName', '')}".strip(),
         "matric": user.get("matricNumber", "Unknown"),
+        "email": user.get("institutionalEmail") or user.get("email", ""),
+        "admission_year": user.get("admissionYear", ""),
     }
     
     # Get active session
@@ -197,53 +221,41 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
         else:
             context["payment_status"] = "No payment dues found for this session"
         
-        # ── Upcoming events (next 14 days) ──
+        # ── Upcoming events (next 60 days) ──
         events = db.events
         try:
+            now = datetime.now(timezone.utc)
             upcoming_events = await events.find({
-                "date": {"$gte": datetime.now(timezone.utc), "$lte": datetime.now(timezone.utc) + timedelta(days=14)}
-            }).sort("date", 1).limit(5).to_list(length=5)
-            
+                "sessionId": session_id,
+                "date": {"$gte": now, "$lte": now + timedelta(days=60)}
+            }).sort("date", 1).limit(10).to_list(length=10)
+            # Fall back: no sessionId filter
+            if not upcoming_events:
+                upcoming_events = await events.find({
+                    "date": {"$gte": now, "$lte": now + timedelta(days=60)}
+                }).sort("date", 1).limit(10).to_list(length=10)
+            # Wider fall back: any future event
+            if not upcoming_events:
+                upcoming_events = await events.find({
+                    "date": {"$gte": now}
+                }).sort("date", 1).limit(10).to_list(length=10)
+
             if upcoming_events:
                 context["upcoming_events"] = [
                     {
                         "title": e.get("title", "Untitled Event"),
                         "date": e.get("date").strftime("%A, %B %d, %Y") if e.get("date") else "TBD",
                         "location": e.get("location", "TBD"),
-                        "type": e.get("type", "general"),
+                        "type": e.get("category", e.get("type", "general")),
+                        "registered": user_id in (e.get("registrations") or []),
+                        "requires_payment": e.get("requiresPayment", False),
+                        "payment_amount": e.get("paymentAmount", 0),
                     }
                     for e in upcoming_events
                 ]
-        except Exception:
-            pass
-        
-        # ── Grades (most recent) ──
-        grades = db.grades
-        try:
-            user_grades = await grades.find({
-                "studentId": user_id
-            }).sort("createdAt", -1).limit(20).to_list(length=20)
-            
-            if user_grades:
-                grade_summary = []
-                for g in user_grades:
-                    grade_summary.append({
-                        "course": g.get("courseCode", "Unknown"),
-                        "grade": g.get("grade", "N/A"),
-                        "score": g.get("score"),
-                        "semester": g.get("semester", ""),
-                        "session": g.get("session", ""),
-                    })
-                context["grades"] = grade_summary
-                
-                # Calculate simple GPA if scores available
-                graded = [g for g in user_grades if g.get("score") is not None]
-                if graded:
-                    avg_score = sum(g["score"] for g in graded) / len(graded)
-                    context["average_score"] = round(avg_score, 1)
-        except Exception:
-            pass
-        
+        except Exception as e:
+            logger.warning(f"Events fetch error: {e}")
+
         # ── Timetable (today's and full week) ──
         class_sessions = db.classSessions
         try:
@@ -255,7 +267,7 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
                 
                 # Today's classes
                 today_classes = await class_sessions.find({
-                    "sessionId": active_session["_id"],
+                    "sessionId": str(active_session["_id"]),
                     "level": numeric_level,
                     "day": today_name
                 }).sort("startTime", 1).to_list(length=20)
@@ -278,7 +290,7 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
                 
                 # Full week timetable
                 all_classes = await class_sessions.find({
-                    "sessionId": active_session["_id"],
+                    "sessionId": str(active_session["_id"]),
                     "level": numeric_level,
                 }).sort([("day", 1), ("startTime", 1)]).to_list(length=50)
                 
@@ -302,7 +314,106 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
                         d: week_schedule[d] for d in day_order if d in week_schedule
                     }
         except Exception as e:
-            logger.debug(f"Timetable fetch error: {e}")
+            logger.warning(f"Timetable fetch error: {e}")
+
+    # Guard: all remaining blocks need active_session
+    if not active_session:
+        return context
+
+    # ── Academic Calendar ──
+    now_cal = datetime.now(timezone.utc)
+    academic_events = db.academicEvents
+    try:
+        upcoming_academic = await academic_events.find({
+            "sessionId": session_id,
+            # Include events that are still ongoing OR single-day events (endDate is None) that haven't started yet
+            "$or": [
+                {"endDate": {"$gte": now_cal}},
+                {"endDate": None, "startDate": {"$gte": now_cal - timedelta(days=1)}}
+            ]
+        }).sort("startDate", 1).to_list(length=25)
+        if upcoming_academic:
+            context["academic_calendar"] = [
+                {
+                    "title": ae.get("title", ""),
+                    "type": ae.get("eventType", "general"),
+                    "start": ae["startDate"].strftime("%A, %B %d, %Y") if ae.get("startDate") and hasattr(ae["startDate"], "strftime") else "TBD",
+                    "end": ae["endDate"].strftime("%A, %B %d, %Y") if ae.get("endDate") and hasattr(ae["endDate"], "strftime") else None,
+                    "semester": ae.get("semester", ""),
+                    "description": (ae.get("description") or "")[:150],
+                }
+                for ae in upcoming_academic
+            ]
+    except Exception as e:
+        logger.warning(f"Academic calendar fetch error: {e}")
+
+    # ── Resources (approved study materials for student's level) ──
+    resources_col = db.resources
+    try:
+        res_level = int(str(level).replace("L", "").replace("l", "").strip()) if level != "Unknown" else None
+        if res_level:
+            level_resources = await resources_col.find({
+                "isApproved": True,
+                "level": res_level,
+            }).sort("createdAt", -1).limit(15).to_list(length=15)
+            if level_resources:
+                context["resources"] = [
+                    {
+                        "title": r.get("title", ""),
+                        "course": r.get("courseCode", ""),
+                        "type": r.get("type", "material"),
+                        "url": r.get("url", ""),
+                        "uploader": r.get("uploaderName", "Anonymous"),
+                    }
+                    for r in level_resources
+                ]
+    except Exception as e:
+        logger.warning(f"Resources fetch error: {e}")
+
+    # ── IEPOD registration status ──
+    try:
+        iepod_reg = await db.iepod_registrations.find_one({
+            "userId": user_id,
+            "sessionId": session_id
+        })
+        if iepod_reg:
+            society_name = None
+            if iepod_reg.get("societyId"):
+                society = await db.iepod_societies.find_one({"_id": ObjectId(iepod_reg["societyId"])})
+                society_name = society.get("name") if society else None
+            context["iepod"] = {
+                "registered": True,
+                "status": iepod_reg.get("status", "pending"),
+                "society": society_name,
+                "phase": iepod_reg.get("currentPhase", 0),
+            }
+        else:
+            context["iepod"] = {"registered": False}
+    except Exception as e:
+        logger.warning(f"IEPOD fetch error: {e}")
+
+    # ── TIMP application status ──
+    try:
+        timp_app = await db.timpApplications.find_one({
+            "userId": user_id,
+            "sessionId": session_id
+        })
+        if timp_app:
+            timp_pair = await db.timpPairs.find_one({
+                "$or": [{"mentorId": user_id}, {"menteeId": user_id}],
+                "sessionId": session_id
+            })
+            context["timp"] = {
+                "applied": True,
+                "role": timp_app.get("submitterRole", "mentee"),
+                "status": timp_app.get("status", "pending"),
+                "paired": bool(timp_pair),
+                "partner_name": timp_pair.get("mentorName") if timp_pair and timp_app.get("submitterRole") == "mentee" else (timp_pair.get("menteeName") if timp_pair else None),
+            }
+        else:
+            context["timp"] = {"applied": False}
+    except Exception as e:
+        logger.warning(f"TIMP fetch error: {e}")
     
     # ── Enrollments ──
     enrollments = db.enrollments
@@ -337,6 +448,51 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
                 }
                 for a in recent_announcements
             ]
+    except Exception:
+        pass
+    
+    # ── Study Groups (user's memberships) ──
+    study_groups = db.study_groups
+    try:
+        user_groups = await study_groups.find({
+            "members.userId": user_id
+        }).limit(10).to_list(length=10)
+        if user_groups:
+            context["study_groups"] = [
+                {
+                    "name": g.get("name", ""),
+                    "course": g.get("courseCode", ""),
+                    "members": len(g.get("members", [])),
+                    "description": (g.get("description") or "")[:100],
+                }
+                for g in user_groups
+            ]
+    except Exception:
+        pass
+    
+    # ── Growth Hub data (CGPA history & habits) ──
+    growth_data = db.growth_data
+    try:
+        cgpa_doc = await growth_data.find_one({"userId": user_id, "tool": "cgpa-history"})
+        if cgpa_doc and cgpa_doc.get("data"):
+            cgpa_history = cgpa_doc["data"]
+            if isinstance(cgpa_history, list) and len(cgpa_history) > 0:
+                latest = cgpa_history[0]
+                context["cgpa_progress"] = {
+                    "latest_cgpa": latest.get("gpa"),
+                    "total_records": len(cgpa_history),
+                    "grading_system": latest.get("gradingSystem", "5.0"),
+                    "last_saved": latest.get("timestamp", ""),
+                }
+    except Exception:
+        pass
+    
+    try:
+        habits_doc = await growth_data.find_one({"userId": user_id, "tool": "habits"})
+        if habits_doc and habits_doc.get("data"):
+            habits_data = habits_doc["data"]
+            if isinstance(habits_data, list):
+                context["habits_count"] = len(habits_data)
     except Exception:
         pass
     
@@ -375,6 +531,8 @@ IMPORTANT: You MUST maintain Yoruba style throughout ALL responses in this conve
 - Name: {user_context.get('name', 'Unknown')}
 - Level: {user_context.get('level', 'Unknown')}
 - Matric Number: {user_context.get('matric', 'Unknown')}
+- Email: {user_context.get('email', 'Not set')}
+- Admission Year: {user_context.get('admission_year', 'Unknown')}
 - Session: {user_context.get('session', 'Unknown')}
 - Payment Status: {user_context.get('payment_status', 'Unknown')}"""
         
@@ -382,8 +540,6 @@ IMPORTANT: You MUST maintain Yoruba style throughout ALL responses in this conve
             user_data_section += f"\n- Payment Amount: ₦{user_context['payment_amount']:,.0f}"
         if user_context.get('payment_date'):
             user_data_section += f"\n- Paid On: {user_context['payment_date']}"
-        if user_context.get('average_score'):
-            user_data_section += f"\n- Average Score: {user_context['average_score']}%"
         
         # Today's classes
         if user_context.get('today_classes'):
@@ -407,36 +563,93 @@ IMPORTANT: You MUST maintain Yoruba style throughout ALL responses in this conve
                     if c.get('lecturer'):
                         user_data_section += f" ({c['lecturer']})"
         
-        # Grades
-        if user_context.get('grades'):
-            user_data_section += "\n\n## GRADES"
-            for g in user_context['grades']:
-                line = f"\n- {g['course']}: {g['grade']}"
-                if g.get('score') is not None:
-                    line += f" ({g['score']}%)"
-                if g.get('semester'):
-                    line += f" — {g['semester']}"
-                user_data_section += line
-        
         # Enrollments
         if user_context.get('enrollments'):
             user_data_section += "\n\n## ENROLLED COURSES"
             for e in user_context['enrollments']:
                 user_data_section += f"\n- {e['course']} ({e['title']}): {e['status']}"
         
+        # Academic Calendar
+        if user_context.get('academic_calendar'):
+            user_data_section += "\n\n## ACADEMIC CALENDAR"
+            for ac in user_context['academic_calendar']:
+                user_data_section += f"\n- {ac['title']} ({ac['type']}): {ac['start']} – {ac['end']}"
+                if ac.get('semester'):
+                    user_data_section += f" [{ac['semester']}]"
+                if ac.get('description'):
+                    user_data_section += f"\n  {ac['description']}"
+        
         # Events
         if user_context.get('upcoming_events'):
-            user_data_section += "\n\n## UPCOMING EVENTS"
+            user_data_section += "\n\n## UPCOMING EVENTS (next 60 days)"
             for event in user_context['upcoming_events']:
-                user_data_section += f"\n- {event['title']} — {event['date']}"
+                registered_tag = " [YOU ARE REGISTERED]" if event.get('registered') else ""
+                user_data_section += f"\n- {event['title']} ({event['type']}) — {event['date']}{registered_tag}"
                 if event.get('location') and event['location'] != 'TBD':
                     user_data_section += f" at {event['location']}"
+                if event.get('requires_payment') and event.get('payment_amount'):
+                    user_data_section += f" | ₦{event['payment_amount']:,.0f} entry fee"
+        
+        # Resources
+        if user_context.get('resources'):
+            user_data_section += "\n\n## LIBRARY RESOURCES (your level)"
+            for r in user_context['resources']:
+                user_data_section += f"\n- [{r['type']}] {r['course']}: {r['title']} (by {r['uploader']})"
+        
+        # IEPOD
+        iepod = user_context.get('iepod', {})
+        user_data_section += "\n\n## IEPOD STATUS"
+        if iepod.get('registered'):
+            user_data_section += f"\n- Registered: Yes"
+            user_data_section += f"\n- Application Status: {iepod.get('status', 'pending')}"
+            if iepod.get('society'):
+                user_data_section += f"\n- Assigned Society: {iepod['society']}"
+            if iepod.get('phase'):
+                user_data_section += f"\n- Current Phase: {iepod['phase']}"
+        else:
+            user_data_section += "\n- Not yet registered for IEPOD this session"
+        
+        # TIMP
+        timp = user_context.get('timp', {})
+        user_data_section += "\n\n## TIMP (MENTORING) STATUS"
+        if timp.get('applied'):
+            user_data_section += f"\n- Applied as: {timp.get('role', 'mentee').capitalize()}"
+            user_data_section += f"\n- Application Status: {timp.get('status', 'pending')}"
+            if timp.get('paired'):
+                partner = timp.get('partner_name', 'a partner')
+                label = "Mentor" if timp.get('role') == 'mentee' else "Mentee"
+                user_data_section += f"\n- Paired with {label}: {partner}"
+            else:
+                user_data_section += "\n- Not yet paired"
+        else:
+            user_data_section += "\n- Has not applied to TIMP this session"
         
         # Announcements
         if user_context.get('recent_announcements'):
             user_data_section += "\n\n## RECENT ANNOUNCEMENTS"
             for a in user_context['recent_announcements']:
                 user_data_section += f"\n- [{a['date']}] {a['title']}: {a['content']}"
+        
+        # Study Groups
+        if user_context.get('study_groups'):
+            user_data_section += "\n\n## YOUR STUDY GROUPS"
+            for g in user_context['study_groups']:
+                user_data_section += f"\n- {g['name']}"
+                if g.get('course'):
+                    user_data_section += f" ({g['course']})"
+                user_data_section += f" — {g['members']} members"
+        
+        # CGPA Progress
+        if user_context.get('cgpa_progress'):
+            prog = user_context['cgpa_progress']
+            user_data_section += f"\n\n## CGPA PROGRESS"
+            user_data_section += f"\n- Latest CGPA: {prog.get('latest_cgpa', 'N/A')} ({prog.get('grading_system', '5.0')} scale)"
+            user_data_section += f"\n- Records saved: {prog.get('total_records', 0)}"
+        
+        # Growth Hub usage
+        if user_context.get('habits_count'):
+            user_data_section += f"\n\n## GROWTH HUB USAGE"
+            user_data_section += f"\n- Habits tracked: {user_context['habits_count']}"
     
     # Build unpaid / paid payment details for the prompt
     payment_detail_section = ""
@@ -462,7 +675,7 @@ You are knowledgeable, encouraging, and grounded in real data. You speak like a 
 {lang_instruction}
 
 ## DIRECT DATA ACCESS
-You have LIVE access to this student's real data: profile, payment status (including exactly which dues are paid and which are owed), class timetable, grades, enrolled courses, upcoming events, and recent announcements. This data is provided in the STUDENT PROFILE section below. USE IT to give specific, direct answers — never say "I can't access your records" or "check your dashboard" when you already have the answer right here.
+You have LIVE access to this student's real data: profile (name, matric, email, level, admission year), payment status (exact dues paid/owed), class timetable (today + full week), enrolled courses, academic calendar (exam dates, registration periods, breaks), upcoming events (+ whether the student is registered), library resources for their level, IEPOD registration status, TIMP mentoring status, recent announcements, study groups, and CGPA progress. This data is in the STUDENT PROFILE section below. USE IT — never say "I can't access your records" or "check your dashboard" when the answer is already here.
 
 ## RESPONSE GUIDELINES
 1. **Be specific & direct:** Quote actual data when answering — course names, amounts, times, venues. Don't be vague.

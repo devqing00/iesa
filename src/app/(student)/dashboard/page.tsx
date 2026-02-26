@@ -13,11 +13,14 @@ import {
   type ClassSession,
 } from "@/hooks/useData";
 import { StudentDashboardSkeleton } from "@/components/ui/Skeleton";
+import { OnboardingModal } from "@/components/ui/OnboardingModal";
+import { getQuoteOfTheDay } from "@/lib/quotes";
+import { getApiUrl } from "@/lib/api";
 
 /* ─── Page Component ────────────────────────────────────────────── */
 
 export default function StudentDashboardPage() {
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, getAccessToken, refreshProfile } = useAuth();
   const enabled = !!user;
 
   const { data, isLoading: loading } = useStudentDashboard(enabled);
@@ -56,10 +59,21 @@ export default function StudentDashboardPage() {
     }
   });
 
+  // Onboarding modal: show once per browser unless completed or explicitly skipped
+  const [showOnboardingModal, setShowOnboardingModal] = useState<boolean>(() => {
+    try {
+      return typeof window !== "undefined" &&
+        localStorage.getItem("iesa_onboarding_modal_seen") !== "1";
+    } catch {
+      return true;
+    }
+  });
+
   // Full-page shimmer skeleton while initial data loads (after all hooks)
   if (loading && !data) return <StudentDashboardSkeleton />;
 
   const greeting = getTimeGreeting;
+  const quoteOfTheDay = getQuoteOfTheDay();
 
   const getContextTagline = () => {
     if (loading) return "";
@@ -138,9 +152,52 @@ export default function StudentDashboardPage() {
     !userProfile?.hasCompletedOnboarding &&
     profileMissing.length > 0;
 
+  // Show modal when onboarding is incomplete and hasn't been seen/skipped
+  const shouldShowModal =
+    !userProfile?.hasCompletedOnboarding &&
+    showOnboardingModal &&
+    !!userProfile;
+
   const dismissOnboarding = () => {
     setOnboardingDismissed(true);
     try { localStorage.setItem("iesa_onboarding_dismissed", "1"); } catch { /* ignore */ }
+  };
+
+  const handleOnboardingSkip = () => {
+    setShowOnboardingModal(false);
+    try { localStorage.setItem("iesa_onboarding_modal_seen", "1"); } catch { /* ignore */ }
+  };
+
+  const handleOnboardingComplete = async () => {
+    setShowOnboardingModal(false);
+    try { localStorage.setItem("iesa_onboarding_modal_seen", "1"); } catch { /* ignore */ }
+    // Mark onboarding complete on the backend so the modal never shows again
+    // (even from a fresh browser / after clearing localStorage)
+    try {
+      const token = await getAccessToken();
+      const level = (userProfile?.currentLevel || userProfile?.level || "").toString();
+      const admissionYear = userProfile?.admissionYear;
+      if (admissionYear) {
+        await fetch(getApiUrl("/api/v1/students/complete-registration"), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            firstName: userProfile?.firstName || "",
+            lastName: userProfile?.lastName || "",
+            matricNumber: userProfile?.matricNumber || "",
+            phone: userProfile?.phone || undefined,
+            level,
+            admissionYear,
+          }),
+        });
+        await refreshProfile();
+      }
+    } catch {
+      // Silently ignore — localStorage still prevents the modal re-appearing locally
+    }
   };
 
   return (
@@ -148,6 +205,14 @@ export default function StudentDashboardPage() {
       <DashboardHeader title="Dashboard" />
 
       <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
+
+        {/* ═══ ONBOARDING MODAL ═══ */}
+        {shouldShowModal && (
+          <OnboardingModal
+            onComplete={handleOnboardingComplete}
+            onSkip={handleOnboardingSkip}
+          />
+        )}
 
         {/* ═══ ONBOARDING BANNER ═══ */}
         {showOnboarding && (
@@ -182,7 +247,7 @@ export default function StudentDashboardPage() {
               <button
               onClick={dismissOnboarding}
               aria-label="Dismiss onboarding banner"
-              className="hidden md:flex w-7 h-7 rounded-lg bg-navy/10 hover:bg-navy/20 flex items-center justify-center transition-colors z-10"
+              className="hidden md:flex w-7 h-7 rounded-lg bg-navy/10 hover:bg-navy/20 items-center justify-center transition-colors z-10"
             >
               <svg className="w-3.5 h-3.5 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
@@ -270,7 +335,7 @@ export default function StudentDashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-5">
 
           {/* ── LEFT: Schedule + Announcements stacked (8 cols) ── */}
-          <div className="lg:col-span-8 space-y-4">
+          <div className="lg:col-span-8 flex flex-col gap-4">
 
             {/* Today's Schedule Card */}
             <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
@@ -332,7 +397,7 @@ export default function StudentDashboardPage() {
             </div>
 
             {/* Announcements Card */}
-            <div className="bg-sunny-light border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform">
+            <div className="flex-1 bg-sunny-light border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-8 rounded-full bg-sunny" />
@@ -489,43 +554,69 @@ export default function StudentDashboardPage() {
               )}
             </div>
 
-            {/* Growth CTA */}
-            <Link href="/dashboard/growth" className="block bg-teal border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
-              {/* Decorative */}
-              <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full bg-navy/10 pointer-events-none" />
-              <svg className="absolute top-3 right-4 w-4 h-4 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
-              </svg>
+            {/* Growth CTA + IESA AI — side by side on md+ */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* IESA AI CTA */}
+              <Link href="/dashboard/iesa-ai" className="block bg-navy border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group">
+                <svg className="absolute top-4 right-5 w-5 h-5 text-lavender/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+                </svg>
+                <div className="w-10 h-10 rounded-xl bg-lavender/20 flex items-center justify-center mb-3">
+                  <svg className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5Z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <h3 className="font-display font-black text-lg text-ghost mb-1">IESA AI</h3>
+                <p className="text-ghost/40 text-xs font-medium mb-3">Ask anything about the department</p>
+                <span className="inline-flex items-center gap-1.5 text-lavender text-xs font-bold group-hover:gap-2.5 transition-all">
+                  Start chatting
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                  </svg>
+                </span>
+              </Link>
 
-              <h3 className="font-display font-black text-xl text-navy mb-1 relative z-10">Growth Tools</h3>
-              <p className="text-navy/60 text-xs font-medium relative z-10 mb-3">CGPA, planner, goals &amp; more</p>
-              <span className="inline-flex items-center gap-1.5 text-navy text-xs font-bold relative z-10 group-hover:gap-2.5 transition-all bg-snow/30 rounded-full px-3 py-1.5">
-                Explore
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                  <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+              {/* Growth CTA */}
+              <Link href="/dashboard/growth" className="block bg-teal border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+                {/* Decorative */}
+                <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full bg-navy/10 pointer-events-none" />
+                <svg className="absolute top-3 right-4 w-4 h-4 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
                 </svg>
-              </span>
-            </Link>
 
-            {/* IESA AI CTA */}
-            <Link href="/dashboard/iesa-ai" className="block bg-navy border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group">
-              <svg className="absolute top-4 right-5 w-5 h-5 text-lavender/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+                <h3 className="font-display font-black text-xl text-navy mb-1 relative z-10">Growth Tools</h3>
+                <p className="text-navy/60 text-xs font-medium relative z-10 mb-3">CGPA, planner, goals &amp; more</p>
+                <span className="inline-flex items-center gap-1.5 text-navy text-xs font-bold relative z-10 group-hover:gap-2.5 transition-all bg-snow/30 rounded-full px-3 py-1.5">
+                  Explore
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                  </svg>
+                </span>
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════
+            QUOTE OF THE DAY
+            ═══════════════════════════════════════════════════════════ */}
+        <div className="mt-5 bg-ghost border-[3px] border-navy/10 rounded-3xl px-6 py-5 md:px-8 md:py-6 relative overflow-hidden">
+          <svg className="absolute top-3 left-4 w-4 h-4 text-lavender/20 pointer-events-none" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+          </svg>
+          <svg className="absolute bottom-4 right-6 w-3 h-3 text-coral/15 pointer-events-none" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+          </svg>
+          <div className="flex items-start gap-3 md:gap-4">
+            <div className="shrink-0 w-8 h-8 rounded-xl bg-lavender/15 flex items-center justify-center mt-0.5">
+              <svg className="w-4 h-4 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M4.583 17.321C3.553 16.227 3 15 3 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311C9.591 11.69 11 13.2 11 15c0 1.866-1.567 3.5-3.5 3.5-.924 0-1.88-.378-2.917-1.179zM14.583 17.321C13.553 16.227 13 15 13 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311C19.591 11.69 21 13.2 21 15c0 1.866-1.567 3.5-3.5 3.5-.924 0-1.88-.378-2.917-1.179z" />
               </svg>
-              <div className="w-10 h-10 rounded-xl bg-lavender/20 flex items-center justify-center mb-3">
-                <svg className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
-                  <path fillRule="evenodd" d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5Z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <h3 className="font-display font-black text-lg text-ghost mb-1">IESA AI</h3>
-              <p className="text-ghost/40 text-xs font-medium mb-3">Ask anything about the department</p>
-              <span className="inline-flex items-center gap-1.5 text-lavender text-xs font-bold group-hover:gap-2.5 transition-all">
-                Start chatting
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                  <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                </svg>
-              </span>
-            </Link>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm md:text-base text-navy font-medium leading-relaxed italic">&ldquo;{quoteOfTheDay.text}&rdquo;</p>
+              <p className="text-xs text-slate mt-2 font-medium">&mdash; {quoteOfTheDay.author}</p>
+            </div>
           </div>
         </div>
       </div>

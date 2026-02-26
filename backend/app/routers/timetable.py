@@ -2,15 +2,17 @@
 Timetable Router - Dynamic class schedule management
 """
 
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
 from bson import ObjectId
 
-from ..core.security import verify_token
+from ..core.security import get_current_user
+from ..core.permissions import require_permission
 from ..core.database import get_database
+from ..core.audit import AuditLogger
 
 router = APIRouter(prefix="/api/v1/timetable", tags=["timetable"])
 
@@ -75,12 +77,6 @@ class WeeklyScheduleResponse(BaseModel):
 
 
 # Helper functions
-def check_permission(user: dict, permission: str) -> bool:
-    """Check if user has specific permission"""
-    permissions = user.get("permissions", [])
-    return permission in permissions or "admin:all" in permissions
-
-
 async def get_current_session(db: AsyncIOMotorDatabase):
     """Get the current active session"""
     sessions = db["sessions"]
@@ -124,15 +120,13 @@ def get_week_dates(week_start: Optional[date] = None):
 @router.post("/classes", response_model=ClassSessionResponse)
 async def create_class_session(
     class_data: ClassSessionCreate,
-    user: dict = Depends(verify_token),
+    user: dict = Depends(require_permission("timetable:create")),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """
     Create a new class session.
     Requires 'timetable:create' permission (Class Rep or Admin).
     """
-    if not check_permission(user, "timetable:create"):
-        raise HTTPException(status_code=403, detail="You don't have permission to create timetable entries")
     
     # Validate
     if class_data.level not in [100, 200, 300, 400, 500]:
@@ -151,7 +145,7 @@ async def create_class_session(
     # Create class session
     class_sessions = db["classSessions"]
     class_doc = {
-        "sessionId": session["_id"],
+        "sessionId": str(session["_id"]),
         "courseCode": class_data.courseCode.upper(),
         "courseTitle": class_data.courseTitle,
         "level": class_data.level,
@@ -162,9 +156,9 @@ async def create_class_session(
         "lecturer": class_data.lecturer,
         "type": class_data.type,
         "recurring": class_data.recurring,
-        "createdBy": user["_id"],
-        "createdAt": datetime.utcnow(),
-        "updatedAt": datetime.utcnow()
+        "createdBy": str(user["_id"]),
+        "createdAt": datetime.now(timezone.utc),
+        "updatedAt": datetime.now(timezone.utc)
     }
     
     result = await class_sessions.insert_one(class_doc)
@@ -180,7 +174,7 @@ async def list_class_sessions(
     level: Optional[int] = Query(None, description="Filter by level"),
     day: Optional[str] = Query(None, description="Filter by day"),
     courseCode: Optional[str] = Query(None, description="Filter by course code"),
-    user: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Get list of class sessions"""
@@ -190,7 +184,7 @@ async def list_class_sessions(
     session = await get_current_session(db)
     
     # Build query
-    query = {"sessionId": session["_id"]}
+    query = {"sessionId": str(session["_id"])}
     
     if level:
         query["level"] = level
@@ -218,7 +212,7 @@ async def list_class_sessions(
 async def get_weekly_schedule(
     level: int = Query(..., description="Student level"),
     week_start: Optional[str] = Query(None, description="Week start date (YYYY-MM-DD)"),
-    user: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Get weekly timetable view with cancellations"""
@@ -241,7 +235,7 @@ async def get_weekly_schedule(
     
     # Fetch classes for the level
     cursor = class_sessions.find({
-        "sessionId": session["_id"],
+        "sessionId": str(session["_id"]),
         "level": level
     }).sort([("day", 1), ("startTime", 1)])
     
@@ -278,7 +272,7 @@ async def get_weekly_schedule(
 @router.get("/today", response_model=List[dict])
 async def get_today_classes(
     level: int = Query(..., description="Student level"),
-    user: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Get today's classes"""
@@ -294,7 +288,7 @@ async def get_today_classes(
     
     # Fetch classes
     cursor = class_sessions.find({
-        "sessionId": session["_id"],
+        "sessionId": str(session["_id"]),
         "level": level,
         "day": day_name
     }).sort("startTime", 1)
@@ -324,15 +318,14 @@ async def get_today_classes(
 async def cancel_class(
     class_id: str,
     cancellation_data: ClassCancellationCreate,
-    user: dict = Depends(verify_token),
+    request: Request,
+    user: dict = Depends(require_permission("timetable:cancel")),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """
     Cancel a specific occurrence of a class.
     Requires 'timetable:cancel' permission (Class Rep only).
     """
-    if not check_permission(user, "timetable:cancel"):
-        raise HTTPException(status_code=403, detail="You don't have permission to cancel classes")
     
     # Validate class exists
     class_sessions = db["classSessions"]
@@ -365,15 +358,26 @@ async def cancel_class(
         "classSessionId": ObjectId(class_id),
         "date": cancellation_data.date,
         "reason": cancellation_data.reason,
-        "cancelledBy": user["_id"],
-        "cancelledAt": datetime.utcnow()
+        "cancelledBy": str(user["_id"]),
+        "cancelledAt": datetime.now(timezone.utc)
     }
     
     result = await cancellations.insert_one(cancellation_doc)
     cancellation_doc["_id"] = str(result.inserted_id)
     cancellation_doc["classSessionId"] = class_id
     cancellation_doc["cancelledBy"] = str(cancellation_doc["cancelledBy"])
-    
+
+    await AuditLogger.log(
+        action="timetable.class_cancelled",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="class_session",
+        resource_id=class_id,
+        details={"date": cancellation_data.date, "reason": cancellation_data.reason, "course": class_session.get("courseCode")},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return CancellationResponse(**cancellation_doc)
 
 
@@ -381,12 +385,11 @@ async def cancel_class(
 async def update_class_session(
     class_id: str,
     class_data: ClassSessionCreate,
-    user: dict = Depends(verify_token),
+    request: Request,
+    user: dict = Depends(require_permission("timetable:edit")),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Update a class session"""
-    if not check_permission(user, "timetable:edit"):
-        raise HTTPException(status_code=403, detail="You don't have permission to edit timetable")
     
     class_sessions = db["classSessions"]
     
@@ -405,7 +408,7 @@ async def update_class_session(
                     "lecturer": class_data.lecturer,
                     "type": class_data.type,
                     "recurring": class_data.recurring,
-                    "updatedAt": datetime.utcnow()
+                    "updatedAt": datetime.now(timezone.utc)
                 }
             }
         )
@@ -414,21 +417,34 @@ async def update_class_session(
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Class not found")
-    
+
+    await AuditLogger.log(
+        action="timetable.class_updated",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="class_session",
+        resource_id=class_id,
+        details={"courseCode": class_data.courseCode, "day": class_data.day, "startTime": class_data.startTime},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return {"message": "Class updated successfully"}
 
 
 @router.delete("/classes/{class_id}")
 async def delete_class_session(
     class_id: str,
-    user: dict = Depends(verify_token),
+    request: Request,
+    user: dict = Depends(require_permission("timetable:edit")),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Delete a class session"""
-    if not check_permission(user, "timetable:edit"):
-        raise HTTPException(status_code=403, detail="You don't have permission to delete timetable entries")
     
     class_sessions = db["classSessions"]
+
+    # Fetch before deleting for audit
+    session_doc = await class_sessions.find_one({"_id": ObjectId(class_id)})
     
     try:
         result = await class_sessions.delete_one({"_id": ObjectId(class_id)})
@@ -437,5 +453,16 @@ async def delete_class_session(
     
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Class not found")
-    
+
+    await AuditLogger.log(
+        action="timetable.class_deleted",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="class_session",
+        resource_id=class_id,
+        details={"courseCode": session_doc.get("courseCode") if session_doc else None},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return {"message": "Class deleted successfully"}

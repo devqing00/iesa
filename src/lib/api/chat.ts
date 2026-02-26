@@ -67,7 +67,7 @@ export function getGreetingMessage(): ChatMessage {
       '• Your class timetable & schedule\n' +
       '• Payment status — exactly what you owe & what you\'ve paid\n' +
       '• Upcoming IESA events\n' +
-      '• Your grades and enrolled courses\n' +
+      '• Your enrolled courses\n' +
       '• Growth tools — CGPA calculator, study groups, flashcards, habits & more\n' +
       '• IEPOD Hub — TIMP mentoring, niche audit, research projects\n' +
       '• General questions about IESA, courses, and processes\n\n' +

@@ -9,14 +9,15 @@ Collections:
   - bankTransfers: Student transfer proof submissions
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List, Literal
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from app.core.email import get_email_service, EmailTemplate
 from app.core.notification_utils import get_notification_emails, should_send_email, should_send_in_app
+from app.core.audit import AuditLogger
 from bson import ObjectId
 
 from app.core.security import get_current_user
@@ -100,8 +101,8 @@ async def create_bank_account(
     doc = {
         **data.model_dump(),
         "createdBy": current_user.get("uid") or current_user.get("_id"),
-        "createdAt": datetime.utcnow(),
-        "updatedAt": datetime.utcnow(),
+        "createdAt": datetime.now(timezone.utc),
+        "updatedAt": datetime.now(timezone.utc),
     }
     result = await db.bankAccounts.insert_one(doc)
     doc["_id"] = str(result.inserted_id)
@@ -122,7 +123,7 @@ async def update_bank_account(
     if not updates:
         raise HTTPException(status_code=400, detail="No updates provided")
     
-    updates["updatedAt"] = datetime.utcnow()
+    updates["updatedAt"] = datetime.now(timezone.utc)
     result = await db.bankAccounts.update_one(
         {"_id": ObjectId(account_id)},
         {"$set": updates},
@@ -248,8 +249,8 @@ async def submit_transfer_proof(
         "adminNote": None,
         "reviewedBy": None,
         "reviewedAt": None,
-        "createdAt": datetime.utcnow(),
-        "updatedAt": datetime.utcnow(),
+        "createdAt": datetime.now(timezone.utc),
+        "updatedAt": datetime.now(timezone.utc),
     }
     result = await db.bankTransfers.insert_one(doc)
     doc["_id"] = str(result.inserted_id)
@@ -297,7 +298,7 @@ async def upload_receipt_image(
     # Update transfer with image URL
     await db.bankTransfers.update_one(
         {"_id": ObjectId(transfer_id)},
-        {"$set": {"receiptImageUrl": image_url, "updatedAt": datetime.utcnow()}}
+        {"$set": {"receiptImageUrl": image_url, "updatedAt": datetime.now(timezone.utc)}}
     )
     
     return {"receiptImageUrl": image_url, "message": "Receipt image uploaded successfully"}
@@ -352,6 +353,7 @@ async def list_all_transfers(
 async def review_transfer(
     transfer_id: str,
     data: TransferReviewData,
+    request: Request,
     current_user: dict = Depends(get_current_user),
 ):
     """
@@ -375,8 +377,8 @@ async def review_transfer(
         "status": data.status,
         "adminNote": data.adminNote,
         "reviewedBy": admin_id,
-        "reviewedAt": datetime.utcnow(),
-        "updatedAt": datetime.utcnow(),
+        "reviewedAt": datetime.now(timezone.utc),
+        "updatedAt": datetime.now(timezone.utc),
     }
     await db.bankTransfers.update_one(
         {"_id": ObjectId(transfer_id)},
@@ -396,7 +398,7 @@ async def review_transfer(
                 {"_id": ObjectId(event_id)},
                 {
                     "$addToSet": {"registrations": student_id},
-                    "$set": {"updatedAt": datetime.utcnow()},
+                    "$set": {"updatedAt": datetime.now(timezone.utc)},
                 },
             )
         else:
@@ -407,7 +409,7 @@ async def review_transfer(
                 {"_id": ObjectId(payment_id)},
                 {
                     "$addToSet": {"paidBy": student_id},
-                    "$set": {"updatedAt": datetime.utcnow()},
+                    "$set": {"updatedAt": datetime.now(timezone.utc)},
                 },
             )
         
@@ -422,8 +424,8 @@ async def review_transfer(
             "reference": transfer.get("transactionReference", ""),
             "status": "verified",
             "bankTransferId": transfer_id,
-            "createdAt": datetime.utcnow(),
-            "paidAt": datetime.utcnow(),
+            "createdAt": datetime.now(timezone.utc),
+            "paidAt": datetime.now(timezone.utc),
         })
     
     # Fetch student for email + in-app notifications
@@ -501,12 +503,31 @@ async def review_transfer(
                 message=notif_msg[:500],
                 link="/dashboard/payments?tab=history",
                 related_id=transfer_id,
+                category="payments",
             )
     except Exception as e:
         logging.error(f"Failed to create transfer notification: {e}")
 
     updated = await db.bankTransfers.find_one({"_id": ObjectId(transfer_id)})
     updated["_id"] = str(updated["_id"])
+    
+    # Audit log
+    await AuditLogger.log(
+        action=f"bank_transfer.{data.status}",
+        actor_id=admin_id,
+        actor_email=current_user.get("email", "unknown"),
+        resource_type="bank_transfer",
+        resource_id=transfer_id,
+        details={
+            "student_id": transfer["studentId"],
+            "amount": transfer["amount"],
+            "status": data.status,
+            "admin_note": data.adminNote,
+        },
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    
     return updated
 
 

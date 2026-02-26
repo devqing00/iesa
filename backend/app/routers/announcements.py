@@ -7,10 +7,11 @@ Announcements are specific to an academic session and can be targeted to specifi
 
 from fastapi import APIRouter, HTTPException, Depends, status, Query
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 import asyncio
 import logging
+import re
 
 from app.models.announcement import (
     Announcement, AnnouncementCreate, AnnouncementUpdate, AnnouncementWithStatus
@@ -140,8 +141,8 @@ async def create_announcement(
     announcement_dict = announcement_data.model_dump()
     announcement_dict["authorName"] = author_name
     announcement_dict["readBy"] = []
-    announcement_dict["createdAt"] = datetime.utcnow()
-    announcement_dict["updatedAt"] = datetime.utcnow()
+    announcement_dict["createdAt"] = datetime.now(timezone.utc)
+    announcement_dict["updatedAt"] = datetime.now(timezone.utc)
     
     result = await announcements.insert_one(announcement_dict)
     created_announcement = await announcements.find_one({"_id": result.inserted_id})
@@ -200,6 +201,7 @@ async def create_announcement(
                     message=announcement_data.content[:200],
                     link=f"/dashboard/announcements?highlight={result.inserted_id}",
                     related_id=str(result.inserted_id),
+                    category="announcements",
                 )
             )
     except Exception as e:
@@ -208,10 +210,12 @@ async def create_announcement(
     return Announcement(**created_announcement)
 
 
-@router.get("/", response_model=List[AnnouncementWithStatus])
+@router.get("/")
 async def list_announcements(
     session_id: Optional[str] = Query(None, description="Filter by session ID. Defaults to active session."),
     priority: Optional[str] = None,
+    search: Optional[str] = Query(None, description="Search in title or content"),
+    target_level: Optional[str] = Query(None, description="Filter by target level (e.g. 100L)"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of announcements to return"),
     skip: int = Query(0, ge=0, description="Number of announcements to skip"),
     user: dict = Depends(get_current_user)
@@ -257,10 +261,24 @@ async def list_announcements(
     if priority:
         query["priority"] = priority
     
+    # Search in title/content
+    if search:
+        escaped = re.escape(search)
+        query["$and"] = query.get("$and", []) + [{
+            "$or": [
+                {"title": {"$regex": escaped, "$options": "i"}},
+                {"content": {"$regex": escaped, "$options": "i"}},
+            ]
+        }]
+    
+    # Filter by target level (for admin filtering)
+    if target_level and target_level != "all":
+        query["targetLevels"] = target_level
+    
     # Hide expired announcements
     query["$or"] = [
         {"expiresAt": None},
-        {"expiresAt": {"$gt": datetime.utcnow()}}
+        {"expiresAt": {"$gt": datetime.now(timezone.utc)}}
     ]
     
     # Get user's level for this session (if student)
@@ -273,6 +291,9 @@ async def list_announcements(
         })
         if enrollment:
             user_level = enrollment.get("level")
+    
+    # Get total count for pagination
+    total = await announcements.count_documents(query)
     
     # Get announcements
     cursor = announcements.find(query).sort([
@@ -307,7 +328,7 @@ async def list_announcements(
         )
         result.append(announcement_with_status)
     
-    return result
+    return {"items": result, "total": total}
 
 
 @router.get("/{announcement_id}", response_model=AnnouncementWithStatus)
@@ -366,7 +387,7 @@ async def mark_announcement_as_read(
         {"_id": ObjectId(announcement_id)},
         {
             "$addToSet": {"readBy": user["_id"]},  # addToSet prevents duplicates
-            "$set": {"updatedAt": datetime.utcnow()}
+            "$set": {"updatedAt": datetime.now(timezone.utc)}
         }
     )
     
@@ -413,7 +434,7 @@ async def update_announcement(
             detail="No fields to update"
         )
     
-    update_data["updatedAt"] = datetime.utcnow()
+    update_data["updatedAt"] = datetime.now(timezone.utc)
     
     result = await announcements.update_one(
         {"_id": ObjectId(announcement_id)},

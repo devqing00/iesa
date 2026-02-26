@@ -5,6 +5,7 @@ import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
+import { Modal } from "@/components/ui/Modal";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 
 /* ─── Types ──────────────────────────────── */
@@ -17,6 +18,8 @@ interface User {
   email: string;
   role: string;
   level?: number;
+  currentLevel?: string;
+  admissionYear?: number;
   department?: string;
   isActive?: boolean;
 }
@@ -30,52 +33,123 @@ function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
   const ITEMS_PER_PAGE = 15;
 
+  /* ── Edit modal state ─── */
+  const [editUser, setEditUser] = useState<User | null>(null);
+  const [editLevel, setEditLevel] = useState("");
+  const [editAdmissionYear, setEditAdmissionYear] = useState("");
+  const [editIsActive, setEditIsActive] = useState(true);
+  const [saving, setSaving] = useState(false);
+
   const fetchUsers = useCallback(async () => {
+    setLoading(true);
     try {
       const token = await getAccessToken();
-      const response = await fetch(getApiUrl("/api/v1/users/"), {
+      const params = new URLSearchParams();
+      params.set("limit", String(ITEMS_PER_PAGE));
+      params.set("skip", String((page - 1) * ITEMS_PER_PAGE));
+      if (roleFilter !== "all") params.set("role", roleFilter);
+      if (searchQuery.trim()) params.set("search", searchQuery.trim());
+
+      const response = await fetch(getApiUrl(`/api/v1/users/?${params}`), {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (response.ok) {
         const data = await response.json();
-        const mappedData = data.map((item: User & { _id?: string }) => ({
+        const items = data.items ?? data;
+        const total = data.total ?? items.length;
+        const mappedData = items.map((item: User & { _id?: string }) => ({
           ...item,
           id: item.id || item._id,
         }));
         setUsers(mappedData);
+        setTotalUsers(total);
       }
     } catch {
       toast.error("Failed to load users");
     } finally {
       setLoading(false);
     }
-  }, [getAccessToken]);
+  }, [getAccessToken, page, roleFilter, searchQuery]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    const debounce = setTimeout(() => fetchUsers(), searchQuery ? 300 : 0);
+    return () => clearTimeout(debounce);
+  }, [fetchUsers, searchQuery]);
 
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch =
-      user.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = roleFilter === "all" || user.role === roleFilter;
-    return matchesSearch && matchesRole;
-  });
-
-  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
-  const paginatedUsers = filteredUsers.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(totalUsers / ITEMS_PER_PAGE);
 
   // Reset to page 1 when filter/search changes
   const handleSearch = (v: string) => { setSearchQuery(v); setPage(1); };
   const handleRoleFilter = (v: string) => { setRoleFilter(v); setPage(1); };
 
-  const totalUsers = users.length;
   const activeUsers = users.filter((u) => u.isActive !== false).length;
   const adminCount = users.filter((u) => u.role === "admin").length;
+
+  /* ── Edit modal handlers ─── */
+  const openEdit = (user: User) => {
+    setEditUser(user);
+    setEditLevel(user.currentLevel || "");
+    setEditAdmissionYear(user.admissionYear ? String(user.admissionYear) : "");
+    setEditIsActive(user.isActive !== false);
+  };
+
+  const closeEdit = () => {
+    setEditUser(null);
+    setSaving(false);
+  };
+
+  const handleSave = async () => {
+    if (!editUser) return;
+    setSaving(true);
+    const token = await getAccessToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    try {
+      // 1. Update academic info if changed
+      const academicChanged =
+        editLevel !== (editUser.currentLevel || "") ||
+        editAdmissionYear !== (editUser.admissionYear ? String(editUser.admissionYear) : "");
+
+      if (academicChanged) {
+        const params = new URLSearchParams();
+        if (editLevel) params.set("current_level", editLevel);
+        if (editAdmissionYear) params.set("admission_year", editAdmissionYear);
+        const res = await fetch(
+          getApiUrl(`/api/v1/users/${editUser._id}/academic-info?${params}`),
+          { method: "PATCH", headers }
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || "Failed to update academic info");
+        }
+      }
+
+      // 2. Toggle status if changed
+      const statusChanged = editIsActive !== (editUser.isActive !== false);
+      if (statusChanged) {
+        const res = await fetch(
+          getApiUrl(`/api/v1/users/${editUser._id}/status?is_active=${editIsActive}`),
+          { method: "PATCH", headers }
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || "Failed to update status");
+        }
+      }
+
+      toast.success("User updated successfully");
+      closeEdit();
+      fetchUsers();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -171,7 +245,7 @@ function AdminUsersPage() {
         <button
           onClick={() => {
             const headers = ["Name", "Email", "Role", "Status"];
-            const rows = filteredUsers.map((u) => [
+            const rows = users.map((u) => [
               `${u.firstName} ${u.lastName}`,
               u.email,
               u.role,
@@ -202,7 +276,7 @@ function AdminUsersPage() {
         <div className="flex justify-between items-center mb-4">
           <h2 className="font-display font-black text-lg text-navy">User Directory</h2>
           <span className="px-3 py-1 rounded-full bg-cloud text-navy/60 text-xs font-bold">
-            {filteredUsers.length} of {totalUsers} {totalPages > 1 && `· page ${page}/${totalPages}`}
+            {totalUsers} total {totalPages > 1 && `· page ${page}/${totalPages}`}
           </span>
         </div>
 
@@ -228,7 +302,7 @@ function AdminUsersPage() {
                       </div>
                     </td>
                   </tr>
-                ) : filteredUsers.length === 0 ? (
+                ) : users.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="p-12 text-center">
                       <div className="w-14 h-14 mx-auto rounded-2xl bg-cloud flex items-center justify-center mb-3">
@@ -240,8 +314,8 @@ function AdminUsersPage() {
                     </td>
                   </tr>
                 ) : (
-                  paginatedUsers.map((user) => (
-                    <tr key={user.id} className="border-b-[2px] border-cloud last:border-b-0 hover:bg-ghost/50 transition-colors">
+                  users.map((user) => (
+                    <tr key={user.id || user._id} className="border-b-[2px] border-cloud last:border-b-0 hover:bg-ghost/50 transition-colors">
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-xl bg-lime-light border-[2px] border-navy/10 flex items-center justify-center text-xs font-bold text-navy shrink-0">
@@ -251,8 +325,8 @@ function AdminUsersPage() {
                             <div className="font-bold text-navy text-sm">
                               {user.firstName} {user.lastName}
                             </div>
-                            {user.level && (
-                              <div className="text-xs text-slate mt-0.5">{user.level} Level</div>
+                            {(user.currentLevel || user.level) && (
+                              <div className="text-xs text-slate mt-0.5">{user.currentLevel || `${user.level} Level`}</div>
                             )}
                             <div className="text-xs text-slate mt-0.5 md:hidden truncate max-w-[150px]">
                               {user.email}
@@ -282,9 +356,14 @@ function AdminUsersPage() {
                         </span>
                       </td>
                       <td className="p-4">
-                        <button className="px-4 py-1.5 rounded-xl text-xs font-bold text-navy/60 hover:text-navy hover:bg-cloud border-[2px] border-transparent hover:border-navy/10 transition-all">
-                          Edit
-                        </button>
+                        <PermissionGate permission="user:edit">
+                          <button
+                            onClick={() => openEdit(user)}
+                            className="px-4 py-1.5 rounded-xl text-xs font-bold text-navy/60 hover:text-navy hover:bg-cloud border-[2px] border-transparent hover:border-navy/10 transition-all"
+                          >
+                            Edit
+                          </button>
+                        </PermissionGate>
                       </td>
                     </tr>
                   ))
@@ -295,6 +374,98 @@ function AdminUsersPage() {
         </div>
         <Pagination page={page} totalPages={totalPages} onPage={setPage} className="mt-5" />
       </div>
+
+      {/* ── Edit User Modal ──────────────────────── */}
+      <Modal
+        isOpen={!!editUser}
+        onClose={closeEdit}
+        title="Edit User"
+        description={editUser ? `${editUser.firstName} ${editUser.lastName} · ${editUser.email}` : ""}
+        size="md"
+        footer={
+          <>
+            <button
+              onClick={closeEdit}
+              className="px-5 py-2.5 rounded-xl text-sm font-bold text-navy border-[2px] border-navy/20 hover:bg-cloud transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-5 py-2.5 bg-lime border-[3px] border-navy rounded-xl text-sm font-bold text-navy press-3 press-navy disabled:opacity-50"
+            >
+              {saving ? "Saving…" : "Save Changes"}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-6">
+          {/* Academic Info */}
+          <div>
+            <h3 className="font-display text-sm text-navy mb-3">Academic Information</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="edit-level" className="block text-xs font-bold text-slate mb-1.5">Current Level</label>
+                <select
+                  id="edit-level"
+                  value={editLevel}
+                  onChange={(e) => setEditLevel(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm"
+                >
+                  <option value="">Not set</option>
+                  <option value="100L">100L</option>
+                  <option value="200L">200L</option>
+                  <option value="300L">300L</option>
+                  <option value="400L">400L</option>
+                  <option value="500L">500L</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="edit-admission" className="block text-xs font-bold text-slate mb-1.5">Admission Year</label>
+                <input
+                  id="edit-admission"
+                  type="number"
+                  min={2000}
+                  max={2030}
+                  placeholder="e.g. 2023"
+                  value={editAdmissionYear}
+                  onChange={(e) => setEditAdmissionYear(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm placeholder:text-slate"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Status Toggle */}
+          <div>
+            <h3 className="font-display text-sm text-navy mb-3">Account Status</h3>
+            <button
+              type="button"
+              onClick={() => setEditIsActive(!editIsActive)}
+              className={`flex items-center gap-3 w-full p-4 rounded-2xl border-[2px] transition-colors ${
+                editIsActive
+                  ? "bg-teal-light border-teal"
+                  : "bg-cloud border-navy/20"
+              }`}
+            >
+              <div className={`w-10 h-6 rounded-full relative transition-colors ${
+                editIsActive ? "bg-teal" : "bg-slate/30"
+              }`}>
+                <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-snow shadow transition-transform ${
+                  editIsActive ? "left-[18px]" : "left-0.5"
+                }`} />
+              </div>
+              <span className="text-sm font-bold text-navy">
+                {editIsActive ? "Active" : "Inactive"}
+              </span>
+              <span className="text-xs text-slate ml-auto">
+                {editIsActive ? "User can sign in" : "User is locked out"}
+              </span>
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

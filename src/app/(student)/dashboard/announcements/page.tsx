@@ -114,7 +114,8 @@ function AnnouncementsContent() {
         throw new Error(`Failed to fetch announcements: ${response.status} - ${errorText}`);
       }
       const data = await response.json();
-      const mappedData = data.map((item: Announcement & { _id?: string }) => ({
+      const items = data.items ?? data;
+      const mappedData = items.map((item: Announcement & { _id?: string }) => ({
         ...item,
         id: item.id || item._id,
       }));

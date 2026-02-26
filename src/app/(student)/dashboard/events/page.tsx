@@ -13,6 +13,16 @@ import {
   BankAccount,
 } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
+import dynamic from "next/dynamic";
+
+const EventCalendarView = dynamic(() => import("@/components/dashboard/EventCalendarView"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-[400px]">
+      <div className="w-8 h-8 border-[3px] border-navy border-t-lime rounded-full animate-spin" />
+    </div>
+  ),
+});
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -80,6 +90,7 @@ function EventsPage() {
   const skipFetch = useRef(false);
   const [error, setError] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
   const [paidEvents, setPaidEvents] = useState<Set<string>>(new Set());
   const [paymentRefs, setPaymentRefs] = useState<Record<string, string>>({});
@@ -226,35 +237,41 @@ function EventsPage() {
       });
       if (!response.ok) throw new Error("Failed to fetch events");
       const data = await response.json();
-      const mappedData = data.map((item: Event & { _id?: string }) => ({
+      const items = data.items ?? data;
+      const mappedData = items.map((item: Event & { _id?: string }) => ({
         ...item,
         id: item.id || item._id,
       }));
       setEvents(mappedData);
-      // Track which paid events user has paid for
+      // Batch-fetch payment status for all paid events in one call
+      const paidEventIds = mappedData
+        .filter((e: Event) => e.requiresPayment)
+        .map((e: Event) => e.id);
+
       const paidSet = new Set<string>();
       const pendingSet = new Set<string>();
       const refs: Record<string, string> = {};
-      
-      // Check payment status for each paid event
+
+      // Seed with inline hasPaid flags from list response
       for (const e of mappedData) {
-        if (e.requiresPayment) {
-          if (e.hasPaid) {
-            paidSet.add(e.id);
-          }
-          // Fetch detailed payment status (references, pending transfers)
-          try {
-            const statusRes = await fetch(getApiUrl(`/api/v1/events/${e.id}/payment-status`), {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            if (statusRes.ok) {
-              const status = await statusRes.json();
-              if (status.hasPaid) paidSet.add(e.id);
-              if (status.paymentReference) refs[e.id] = status.paymentReference;
-              if (status.hasPendingTransfer) pendingSet.add(e.id);
+        if (e.requiresPayment && e.hasPaid) paidSet.add(e.id);
+      }
+
+      if (paidEventIds.length > 0) {
+        try {
+          const batchRes = await fetch(
+            getApiUrl(`/api/v1/events/batch-payment-status?event_ids=${paidEventIds.join(",")}`),
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (batchRes.ok) {
+            const statusMap = await batchRes.json();
+            for (const [eid, s] of Object.entries(statusMap) as [string, { hasPaid: boolean; paymentReference?: string; hasPendingTransfer: boolean }][]) {
+              if (s.hasPaid) paidSet.add(eid);
+              if (s.paymentReference) refs[eid] = s.paymentReference;
+              if (s.hasPendingTransfer) pendingSet.add(eid);
             }
-          } catch { /* non-critical */ }
-        }
+          }
+        } catch { /* non-critical */ }
       }
       
       setPaidEvents(paidSet);
@@ -579,27 +596,59 @@ function EventsPage() {
         )}
 
         {/* ═══════════════════════════════════════════════════════
-            CATEGORY FILTERS
+            CATEGORY FILTERS + VIEW TOGGLE
             ═══════════════════════════════════════════════════════ */}
-        <div className="flex gap-2 overflow-x-auto pb-1 mb-6">
-          {CATEGORIES.map((cat) => {
-            const pill = categoryPills[cat] || categoryPills.General;
-            const isActive = activeCategory === cat;
-            return (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`px-5 py-2.5 font-bold text-xs uppercase tracking-wider rounded-xl border-[3px] transition-all whitespace-nowrap ${
-                  isActive
-                    ? `${pill.active} shadow-[3px_3px_0_0_#000]`
-                    : "text-slate hover:text-navy bg-snow border-navy/20 hover:border-navy"
-                }`}
-              >
-                {cat}
-              </button>
-            );
-          })}
+        <div className="flex items-center gap-2 mb-6">
+          <div className="flex gap-2 overflow-x-auto pb-1 flex-1">
+            {CATEGORIES.map((cat) => {
+              const pill = categoryPills[cat] || categoryPills.General;
+              const isActive = activeCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className={`px-5 py-2.5 font-bold text-xs uppercase tracking-wider rounded-xl border-[3px] transition-all whitespace-nowrap ${
+                    isActive
+                      ? `${pill.active} shadow-[3px_3px_0_0_#000]`
+                      : "text-slate hover:text-navy bg-snow border-navy/20 hover:border-navy"
+                  }`}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
+          {/* List / Calendar toggle */}
+          <div className="flex shrink-0 gap-1 bg-ghost border-[3px] border-navy/20 rounded-xl p-1">
+            <button
+              onClick={() => setViewMode("list")}
+              className={`p-2 rounded-lg transition-all ${viewMode === "list" ? "bg-navy text-snow shadow-[2px_2px_0_0_#000]" : "text-slate hover:text-navy"}`}
+              aria-label="List view"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" d="M2.625 6.75a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875 0A.75.75 0 0 1 8.25 6h12a.75.75 0 0 1 0 1.5h-12a.75.75 0 0 1-.75-.75ZM2.625 12a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0ZM7.5 12a.75.75 0 0 1 .75-.75h12a.75.75 0 0 1 0 1.5h-12A.75.75 0 0 1 7.5 12Zm-4.875 5.25a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875 0a.75.75 0 0 1 .75-.75h12a.75.75 0 0 1 0 1.5h-12a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setViewMode("calendar")}
+              className={`p-2 rounded-lg transition-all ${viewMode === "calendar" ? "bg-navy text-snow shadow-[2px_2px_0_0_#000]" : "text-slate hover:text-navy"}`}
+              aria-label="Calendar view"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M12.75 12.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM7.5 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM8.25 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM9.75 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM10.5 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM12.75 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM14.25 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM15 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM15.75 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM16.5 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
         </div>
+
+        {/* ═══════════════════════════════════════════════════════
+            CALENDAR VIEW
+            ═══════════════════════════════════════════════════════ */}
+        {viewMode === "calendar" ? (
+          <EventCalendarView />
+        ) : (
+        <>
 
         {/* ═══════════════════════════════════════════════════════
             EVENT CARDS
@@ -864,6 +913,8 @@ function EventsPage() {
               );
             })}
           </div>
+        )}
+        </>
         )}
       </div>
 

@@ -64,12 +64,17 @@ interface ListUsersParams {
   limit?: number;
 }
 
+export interface PaginatedUsers {
+  items: User[];
+  total: number;
+}
+
 /**
  * List all users (admin only)
  */
-export async function listUsers(params: ListUsersParams = {}): Promise<User[]> {
+export async function listUsers(params: ListUsersParams = {}): Promise<PaginatedUsers> {
   const query = buildQueryString(params);
-  return api.get<User[]>(`/api/v1/users${query}`);
+  return api.get<PaginatedUsers>(`/api/v1/users${query}`);
 }
 
 /**
@@ -101,9 +106,14 @@ export async function updateUserAcademicInfo(
 // ============================================
 
 interface CompleteRegistrationData {
+  firstName: string;
+  lastName: string;
   matricNumber: string;
-  level: string;
+  institutionalEmail?: string;
+  personalEmail?: string;
   phone?: string;
+  level: string;
+  admissionYear: number;
 }
 
 /**

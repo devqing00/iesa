@@ -6,12 +6,28 @@ based on each user's `notificationEmailPreference` field.
 
 Also provides a helper that determines whether to send email,
 in-app notification, or both based on `notificationChannelPreference`.
+
+Provides per-category notification toggles via `notificationCategories`.
 """
 
 from typing import List
 import logging
 
 logger = logging.getLogger("iesa_backend")
+
+
+# ─── Valid notification categories ────────────────────────────
+
+VALID_NOTIFICATION_CATEGORIES = {
+    "announcements",
+    "payments",
+    "events",
+    "timetable",
+    "academic",
+    "mentoring",
+}
+
+DEFAULT_NOTIFICATION_CATEGORIES = {cat: True for cat in VALID_NOTIFICATION_CATEGORIES}
 
 
 def get_notification_emails(user_doc: dict) -> List[str]:
@@ -73,3 +89,24 @@ def should_send_in_app(user_doc: dict) -> bool:
     """
     pref = user_doc.get("notificationChannelPreference", "both")
     return pref in ("in_app", "both")
+
+
+def should_notify_category(user_doc: dict, category: str) -> bool:
+    """
+    Check if the user has the given notification category enabled.
+
+    If `notificationCategories` is not set on the user document,
+    all categories default to True (opt-out model).
+
+    Args:
+        user_doc: The user document from the database
+        category: One of VALID_NOTIFICATION_CATEGORIES
+
+    Returns:
+        True if the user should receive notifications for this category.
+    """
+    cats = user_doc.get("notificationCategories")
+    if cats is None:
+        # No preferences set → all categories enabled by default
+        return True
+    return cats.get(category, True)
