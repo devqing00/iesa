@@ -24,6 +24,7 @@ export default function RegisterPage() {
   const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const submittingRef = useRef(false); // synchronous guard against double-submission
   const [currentSecondYear, setCurrentSecondYear] = useState<number | null>(null);
   const [sessionName, setSessionName] = useState("");
@@ -141,16 +142,20 @@ export default function RegisterPage() {
         level: calculatedLevel,
         admissionYear: derivedAdmissionYear,
       });
+      // Lock the form immediately — navigation may be slow on cold starts.
+      // setIsSubmitting stays true; we show a success screen instead.
+      setRegistrationSuccess(true);
       toast.success("Account created!", { description: "Verification email sent. Check your inbox." });
     } catch (err: unknown) {
       console.error("Registration error:", err);
       const msg = err instanceof Error ? err.message || "Registration failed. Please try again." : "An unexpected error occurred. Please try again.";
       setError(msg);
       toast.error("Registration failed", { description: msg });
-    } finally {
+      // Only re-enable on failure
       submittingRef.current = false;
       setIsSubmitting(false);
     }
+    // No finally — on success we intentionally keep isSubmitting true to lock the button
   };
 
   if (loading) {
@@ -202,7 +207,7 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      {/* Right - Form Section */}
+      {/* Right - Form / Success Section */}
       <main id="main-content" className="flex-1 flex items-center justify-center p-8 overflow-y-auto">
         <div className="w-full max-w-xl space-y-8 py-8">
           {/* Logo */}
@@ -213,6 +218,27 @@ export default function RegisterPage() {
             <span className="font-display font-black text-xl text-navy">IESA</span>
           </Link>
 
+          {/* Success screen — shown after registration completes, while navigation is in progress */}
+          {registrationSuccess ? (
+            <div className="bg-teal-light border-[4px] border-navy rounded-3xl p-10 shadow-[8px_8px_0_0_#000] text-center space-y-6">
+              <div className="w-16 h-16 mx-auto bg-teal border-[3px] border-navy rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-navy" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              </div>
+              <div className="space-y-2">
+                <h2 className="font-display font-black text-2xl text-navy">Account Created!</h2>
+                <p className="font-display font-normal text-navy/70">
+                  Taking you to your dashboard&hellip;
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-2 text-navy/50 text-sm">
+                <div className="w-4 h-4 rounded-full border-[2px] border-navy border-t-transparent animate-spin" />
+                <span className="font-display">Loading dashboard</span>
+              </div>
+            </div>
+          ) : (
+          <>
           {/* Header */}
           <div className="space-y-2">
             <h1 className="font-display font-black text-2xl md:text-3xl text-navy">Create Account</h1>
@@ -396,6 +422,8 @@ export default function RegisterPage() {
               </p>
             </div>
           </div>
+          </>
+          )}
         </div>
       </main>
     </div>

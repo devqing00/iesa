@@ -229,9 +229,9 @@ async def upload_profile_picture(
     try:
         from app.utils.cloudinary_config import upload_profile_picture
         
-        # Upload to Cloudinary
+        # Upload to Cloudinary (async — does not block the event loop)
         file_extension = file.filename.split('.')[-1] if file.filename and '.' in file.filename else 'jpg'
-        image_url = upload_profile_picture(content, user["_id"], file_extension)
+        image_url = await upload_profile_picture(content, user["_id"], file_extension)
         
         if not image_url:
             raise HTTPException(

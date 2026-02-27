@@ -148,35 +148,62 @@ async def list_events(
     cursor = events.find(query).sort("date", 1).skip(skip).limit(limit)
     event_list = await cursor.to_list(length=limit)
     
-    # Enrich with user's status
+    # ── Batch-prefetch payment data to avoid N+1 queries ──
+    user_id = user["_id"]
+
+    # Collect IDs for paid events
+    paid_event_ids = []          # event _id strings for events requiring payment
+    payment_doc_ids = []         # ObjectIds of linked payment documents
+    event_to_payment: dict[str, str] = {}  # event_id -> paymentId mapping
+
+    for ev in event_list:
+        eid = str(ev["_id"])
+        if ev.get("requiresPayment"):
+            paid_event_ids.append(eid)
+            pid = ev.get("paymentId")
+            if pid:
+                payment_doc_ids.append(ObjectId(pid))
+                event_to_payment[eid] = pid
+
+    # Batch query 1: legacy payment docs where user is in paidBy
+    legacy_paid: set[str] = set()
+    if payment_doc_ids:
+        pay_cursor = db.payments.find(
+            {"_id": {"$in": payment_doc_ids}, "paidBy": user_id},
+            {"_id": 1},
+        )
+        paid_pids: set[str] = set()
+        async for p in pay_cursor:
+            paid_pids.add(str(p["_id"]))
+        for eid, pid in event_to_payment.items():
+            if pid in paid_pids:
+                legacy_paid.add(eid)
+
+    # Batch query 2: successful Paystack transactions for remaining paid events
+    direct_event_ids = [eid for eid in paid_event_ids if eid not in legacy_paid]
+    txn_paid: set[str] = set()
+    if direct_event_ids:
+        txn_cursor = db.paystackTransactions.find(
+            {"eventId": {"$in": direct_event_ids}, "studentId": user_id, "status": "success"},
+            {"eventId": 1},
+        )
+        async for txn in txn_cursor:
+            txn_paid.add(txn["eventId"])
+
+    # Enrich with user's status (no per-event DB queries)
     result = []
     for event in event_list:
         event["_id"] = str(event["_id"])
+        eid = event["_id"]
         
-        is_registered = user["_id"] in event.get("registrations", [])
-        has_attended = user["_id"] in event.get("attendees", [])
+        is_registered = user_id in event.get("registrations", [])
+        has_attended = user_id in event.get("attendees", [])
         is_full = False
         
         if event.get("maxAttendees"):
             is_full = len(event.get("registrations", [])) >= event["maxAttendees"]
         
-        # Check payment status for paid events
-        has_paid = False
-        if event.get("requiresPayment"):
-            payment_id = event.get("paymentId")
-            if payment_id:
-                payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
-                if payment and user["_id"] in payment.get("paidBy", []):
-                    has_paid = True
-            else:
-                # Check if there's a direct event payment transaction
-                txn = await db.paystackTransactions.find_one({
-                    "eventId": event["_id"],
-                    "studentId": user["_id"],
-                    "status": "success"
-                })
-                if txn:
-                    has_paid = True
+        has_paid = eid in legacy_paid or eid in txn_paid
         
         event_with_status = EventWithStatus(
             **event,
@@ -216,7 +243,9 @@ async def upload_event_image(
         )
 
     try:
-        result = cloudinary.uploader.upload(
+        import asyncio as _aio
+        loop = _aio.get_running_loop()
+        result = await loop.run_in_executor(None, lambda: cloudinary.uploader.upload(
             file_bytes,
             folder="iesa/events",
             resource_type="image",
@@ -225,7 +254,7 @@ async def upload_event_image(
                 {"quality": "auto:good"},
                 {"fetch_format": "auto"}
             ]
-        )
+        ))
         return {"url": result["secure_url"]}
     except Exception as e:
         raise HTTPException(

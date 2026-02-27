@@ -96,6 +96,10 @@ async def create_role(
     result = await roles.insert_one(role_data)
     created_role = await roles.find_one({"_id": result.inserted_id})
     
+    # Bust permissions cache for this user
+    from app.core.permissions import invalidate_permissions_cache
+    invalidate_permissions_cache(role.userId)
+    
     # Convert ObjectId to string
     created_role["id"] = str(created_role.pop("_id"))
     
@@ -396,6 +400,10 @@ async def update_role(
     updated_role = await roles.find_one({"_id": ObjectId(role_id)})
     updated_role["id"] = str(updated_role.pop("_id"))
     
+    # Bust permissions cache for the affected user
+    from app.core.permissions import invalidate_permissions_cache
+    invalidate_permissions_cache(updated_role.get("userId") or existing.get("userId"))
+    
     # Audit log
     await AuditLogger.log(
         action="role.updated",
@@ -425,12 +433,18 @@ async def delete_role(
     roles = db["roles"]
     
     try:
+        role_doc = await roles.find_one({"_id": ObjectId(role_id)})
         result = await roles.delete_one({"_id": ObjectId(role_id)})
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid role ID")
     
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Role not found")
+    
+    # Bust permissions cache for the affected user
+    if role_doc:
+        from app.core.permissions import invalidate_permissions_cache
+        invalidate_permissions_cache(role_doc.get("userId"))
     
     # Audit log
     await AuditLogger.log(

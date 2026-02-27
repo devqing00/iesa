@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 // Google OAuth removed
 import { getApiUrl, setTokenGetter } from "@/lib/api";
@@ -347,19 +347,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (profile) setUser(profile);
   };
 
+  const contextValue = useMemo(
+    () => ({
+      user,
+      userProfile: user,
+      loading,
+      signInWithEmail,
+      signUpWithEmail,
+      signOut,
+      refreshProfile,
+      getAccessToken,
+    }),
+    [user, loading, signInWithEmail, signUpWithEmail, signOut, refreshProfile, getAccessToken]
+  );
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        userProfile: user, // backward compat alias
-        loading,
-        signInWithEmail,
-        signUpWithEmail,
-        signOut,
-        refreshProfile,
-        getAccessToken,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

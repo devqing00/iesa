@@ -83,16 +83,36 @@ class ResetPasswordConfirm(BaseModel):
 # ──────────────────────────────────────────────
 # Password Hashing
 # ──────────────────────────────────────────────
+# Password Hashing — async wrappers to avoid blocking the event loop.
+# Argon2id (64 MB, 3 iterations) takes 200–500 ms per call.
+# ──────────────────────────────────────────────
+
+import asyncio
 
 def hash_password(password: str) -> str:
-    """Hash a password using Argon2id."""
+    """Hash a password using Argon2id (SYNC — prefer async_hash_password)."""
     return ph.hash(password)
 
 
+async def async_hash_password(password: str) -> str:
+    """Hash a password using Argon2id without blocking the event loop."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, ph.hash, password)
+
+
 def verify_password(password: str, hashed: str) -> bool:
-    """Verify a password against its Argon2id hash."""
+    """Verify a password against its Argon2id hash (SYNC — prefer async_verify_password)."""
     try:
         return ph.verify(hashed, password)
+    except (VerifyMismatchError, VerificationError, InvalidHashError):
+        return False
+
+
+async def async_verify_password(password: str, hashed: str) -> bool:
+    """Verify a password without blocking the event loop."""
+    loop = asyncio.get_running_loop()
+    try:
+        return await loop.run_in_executor(None, ph.verify, hashed, password)
     except (VerifyMismatchError, VerificationError, InvalidHashError):
         return False
 

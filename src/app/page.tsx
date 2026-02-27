@@ -1,5 +1,3 @@
-"use client";
-
 import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
@@ -70,6 +68,8 @@ export default function Home() {
                       src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=600"
                       alt="IESA Community"
                       fill
+                      priority
+                      sizes="(max-width: 1024px) 100vw, 33vw"
                       className="object-cover mix-blend-multiply"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-navy/50 to-transparent" />
@@ -130,6 +130,7 @@ export default function Home() {
                     src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=600"
                     alt="Community"
                     fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     className="object-cover mix-blend-multiply"
                   />
                 </div>
@@ -219,7 +220,7 @@ export default function Home() {
                   className={`${item.bg} border-[3px] border-navy rounded-3xl p-6 press-3 press-black transition-all`}
                 >
                   <div className="aspect-video bg-gradient-to-br from-ghost to-lavender-light border-[2px] border-navy rounded-2xl overflow-hidden relative mb-4">
-                    <Image src={item.img} alt={item.title} fill className="object-cover mix-blend-multiply" />
+                    <Image src={item.img} alt={item.title} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover mix-blend-multiply" />
                   </div>
                   <h3 className={`font-display text-xl sm:text-2xl ${item.light === false ? "text-snow" : "text-navy"} mb-2 font-black`}>
                     {item.title}

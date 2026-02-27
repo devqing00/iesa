@@ -242,6 +242,10 @@ async def update_session(
         
         # Then activate only this one
         update_data["isActive"] = True
+
+        # Bust cached active session so permission checks pick up the change
+        from app.core.permissions import invalidate_session_cache
+        invalidate_session_cache()
     
     # Update session
     update_data["updatedAt"] = datetime.now(timezone.utc)

@@ -2,30 +2,14 @@
 
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Cell,
-  PieChart,
-  Pie,
-  Legend,
-} from "recharts";
+import dynamic from "next/dynamic";
 import { getTimeGreeting } from "@/lib/greeting";
 import { useAdminStats } from "@/hooks/useData";
 import { AdminDashboardSkeleton } from "@/components/ui/Skeleton";
 
-/* ─── Types ──────────────────────────────────────── */
+const AdminCharts = dynamic(() => import("./AdminCharts"), { ssr: false });
 
-const LEVEL_COLORS = ["#6ECFC9", "#9B8AF5", "#FF7B5C", "#6ECFC9", "#F5C842"];
-const PAYMENT_COLORS: Record<string, string> = {
-  successful: "#6ECFC9",
-  pending: "#F5C842",
-  failed: "#FF7B5C",
-};
+/* ─── Helpers ────────────────────────────────────── */
 
 function formatTimeAgo(timestamp: string): string {
   const diff = Date.now() - new Date(timestamp).getTime();
@@ -38,20 +22,6 @@ function formatTimeAgo(timestamp: string): string {
   if (days < 7) return `${days}d ago`;
   return new Date(timestamp).toLocaleDateString();
 }
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-snow border-[3px] border-navy rounded-2xl px-4 py-3 shadow-[3px_3px_0_0_#000]">
-        <p className="font-display font-black text-navy text-sm">{label}</p>
-        <p className="text-navy/70 font-bold text-sm">{payload[0].value}</p>
-      </div>
-    );
-  }
-  return null;
-};
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 /* ─── Component ──────────────────────────────────── */
 
@@ -245,18 +215,7 @@ export default function AdminDashboardPage() {
           ) : charts.enrollmentsByLevel.length === 0 ? (
             <div className="h-48 flex items-center justify-center text-slate text-sm font-medium">No enrollments yet</div>
           ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={charts.enrollmentsByLevel} barSize={36}>
-                <XAxis dataKey="level" tick={{ fontFamily: "inherit", fontSize: 11, fontWeight: 700, fill: "#3F3F5C" }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontFamily: "inherit", fontSize: 11, fill: "#3F3F5C" }} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(200,243,29,0.08)" }} />
-                <Bar dataKey="count" radius={[8, 8, 0, 0]}>
-                  {charts.enrollmentsByLevel.map((_, i) => (
-                    <Cell key={i} fill={LEVEL_COLORS[i % LEVEL_COLORS.length]} stroke="#0F0F2D" strokeWidth={2} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <AdminCharts type="bar" data={charts.enrollmentsByLevel} />
           )}
         </div>
 
@@ -274,32 +233,7 @@ export default function AdminDashboardPage() {
           ) : charts.paymentsByStatus.length === 0 ? (
             <div className="h-48 flex items-center justify-center text-slate text-sm font-medium">No payments yet</div>
           ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={charts.paymentsByStatus}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={70}
-                  strokeWidth={2}
-                  stroke="#0F0F2D"
-                >
-                  {charts.paymentsByStatus.map((entry, i) => (
-                    <Cell key={i} fill={PAYMENT_COLORS[entry.name] ?? LEVEL_COLORS[i % LEVEL_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-<Legend
-                  formatter={(value) => (
-                    <span className="font-display font-black text-xs capitalize text-navy">
-                      {value}
-                    </span>
-                  )}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            <AdminCharts type="pie" data={charts.paymentsByStatus} />
           )}
         </div>
       </div>

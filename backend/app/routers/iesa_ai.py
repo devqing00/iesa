@@ -179,7 +179,8 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
     """
     Fetch comprehensive user context for personalized AI responses.
     
-    Pulls: profile, payment status, grades, enrollments, timetable, upcoming events.
+    Uses asyncio.gather() to parallelize independent DB queries, reducing
+    total wall-clock time from ~15 sequential round-trips to ~3 batches.
     """
     users = db.users
     user = await users.find_one({"_id": ObjectId(user_id) if ObjectId.is_valid(user_id) else user_id})
@@ -196,306 +197,341 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
         "admission_year": user.get("admissionYear", ""),
     }
     
-    # Get active session
+    # Get active session (needed by most subsequent queries)
     sessions = db.sessions
     active_session = await sessions.find_one({"isActive": True})
     
-    if active_session:
-        session_id = str(active_session["_id"])
-        context["session"] = active_session.get("name", "Current session")
-        
-        # ── Payment status ──
-        payments = db.payments
-        # Payments track payers via 'paidBy' array, not 'userId'
-        session_payments = await payments.find({
-            "sessionId": session_id
-        }).to_list(length=50)
-        
-        paid_payments = [p for p in session_payments if user_id in (p.get("paidBy") or [])]
-        unpaid_payments = [p for p in session_payments if user_id not in (p.get("paidBy") or [])]
-        
-        if session_payments:
-            context["payment_status"] = f"Paid {len(paid_payments)}/{len(session_payments)} dues"
-            context["paid_payments"] = [{"title": p.get("title", ""), "amount": p.get("amount", 0)} for p in paid_payments]
-            context["unpaid_payments"] = [{"title": p.get("title", ""), "amount": p.get("amount", 0)} for p in unpaid_payments]
-        else:
-            context["payment_status"] = "No payment dues found for this session"
-        
-        # ── Upcoming events (next 60 days) ──
-        events = db.events
-        try:
-            now = datetime.now(timezone.utc)
-            upcoming_events = await events.find({
-                "sessionId": session_id,
-                "date": {"$gte": now, "$lte": now + timedelta(days=60)}
-            }).sort("date", 1).limit(10).to_list(length=10)
-            # Fall back: no sessionId filter
-            if not upcoming_events:
-                upcoming_events = await events.find({
-                    "date": {"$gte": now, "$lte": now + timedelta(days=60)}
-                }).sort("date", 1).limit(10).to_list(length=10)
-            # Wider fall back: any future event
-            if not upcoming_events:
-                upcoming_events = await events.find({
-                    "date": {"$gte": now}
-                }).sort("date", 1).limit(10).to_list(length=10)
-
-            if upcoming_events:
-                context["upcoming_events"] = [
-                    {
-                        "title": e.get("title", "Untitled Event"),
-                        "date": e.get("date").strftime("%A, %B %d, %Y") if e.get("date") else "TBD",
-                        "location": e.get("location", "TBD"),
-                        "type": e.get("category", e.get("type", "general")),
-                        "registered": user_id in (e.get("registrations") or []),
-                        "requires_payment": e.get("requiresPayment", False),
-                        "payment_amount": e.get("paymentAmount", 0),
-                    }
-                    for e in upcoming_events
-                ]
-        except Exception as e:
-            logger.warning(f"Events fetch error: {e}")
-
-        # ── Timetable (today's and full week) ──
-        class_sessions = db.classSessions
-        try:
-            # Try to get numeric level
-            numeric_level = int(str(level).replace("L", "").replace("l", "").strip()) if level != "Unknown" else None
-            
-            if numeric_level:
-                today_name = date.today().strftime("%A")
-                
-                # Today's classes
-                today_classes = await class_sessions.find({
-                    "sessionId": str(active_session["_id"]),
-                    "level": numeric_level,
-                    "day": today_name
-                }).sort("startTime", 1).to_list(length=20)
-                
-                if today_classes:
-                    context["today_classes"] = [
-                        {
-                            "course": c.get("courseCode", ""),
-                            "title": c.get("courseTitle", ""),
-                            "time": f"{c.get('startTime', '')} - {c.get('endTime', '')}",
-                            "venue": c.get("venue", "TBD"),
-                            "type": c.get("type", "lecture"),
-                            "lecturer": c.get("lecturer", ""),
-                        }
-                        for c in today_classes
-                    ]
-                else:
-                    context["today_classes"] = []
-                    context["today_note"] = f"No classes scheduled for {today_name}"
-                
-                # Full week timetable
-                all_classes = await class_sessions.find({
-                    "sessionId": str(active_session["_id"]),
-                    "level": numeric_level,
-                }).sort([("day", 1), ("startTime", 1)]).to_list(length=50)
-                
-                if all_classes:
-                    week_schedule = {}
-                    day_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-                    for c in all_classes:
-                        day = c.get("day", "Unknown")
-                        if day not in week_schedule:
-                            week_schedule[day] = []
-                        week_schedule[day].append({
-                            "course": c.get("courseCode", ""),
-                            "title": c.get("courseTitle", ""),
-                            "time": f"{c.get('startTime', '')} - {c.get('endTime', '')}",
-                            "venue": c.get("venue", "TBD"),
-                            "type": c.get("type", "lecture"),
-                            "lecturer": c.get("lecturer", ""),
-                        })
-                    # Order by day
-                    context["weekly_timetable"] = {
-                        d: week_schedule[d] for d in day_order if d in week_schedule
-                    }
-        except Exception as e:
-            logger.warning(f"Timetable fetch error: {e}")
-
-    # Guard: all remaining blocks need active_session
     if not active_session:
         return context
 
-    # ── Academic Calendar ──
-    now_cal = datetime.now(timezone.utc)
-    academic_events = db.academicEvents
-    try:
-        upcoming_academic = await academic_events.find({
-            "sessionId": session_id,
-            # Include events that are still ongoing OR single-day events (endDate is None) that haven't started yet
-            "$or": [
-                {"endDate": {"$gte": now_cal}},
-                {"endDate": None, "startDate": {"$gte": now_cal - timedelta(days=1)}}
-            ]
-        }).sort("startDate", 1).to_list(length=25)
-        if upcoming_academic:
-            context["academic_calendar"] = [
-                {
-                    "title": ae.get("title", ""),
-                    "type": ae.get("eventType", "general"),
-                    "start": ae["startDate"].strftime("%A, %B %d, %Y") if ae.get("startDate") and hasattr(ae["startDate"], "strftime") else "TBD",
-                    "end": ae["endDate"].strftime("%A, %B %d, %Y") if ae.get("endDate") and hasattr(ae["endDate"], "strftime") else None,
-                    "semester": ae.get("semester", ""),
-                    "description": (ae.get("description") or "")[:150],
-                }
-                for ae in upcoming_academic
-            ]
-    except Exception as e:
-        logger.warning(f"Academic calendar fetch error: {e}")
+    session_id = str(active_session["_id"])
+    context["session"] = active_session.get("name", "Current session")
 
-    # ── Resources (approved study materials for student's level) ──
-    resources_col = db.resources
+    # ── Derive numeric level once ──
+    numeric_level = None
     try:
-        res_level = int(str(level).replace("L", "").replace("l", "").strip()) if level != "Unknown" else None
-        if res_level:
-            level_resources = await resources_col.find({
-                "isApproved": True,
-                "level": res_level,
-            }).sort("createdAt", -1).limit(15).to_list(length=15)
-            if level_resources:
-                context["resources"] = [
-                    {
-                        "title": r.get("title", ""),
-                        "course": r.get("courseCode", ""),
-                        "type": r.get("type", "material"),
-                        "url": r.get("url", ""),
-                        "uploader": r.get("uploaderName", "Anonymous"),
-                    }
-                    for r in level_resources
+        numeric_level = int(str(level).replace("L", "").replace("l", "").strip()) if level != "Unknown" else None
+    except (ValueError, TypeError):
+        pass
+
+    now = datetime.now(timezone.utc)
+    today_name = date.today().strftime("%A")
+
+    # ── BATCH 1: All independent queries that only need session_id / user_id ──
+    async def _fetch_payments():
+        return await db.payments.find({"sessionId": session_id}).to_list(length=50)
+
+    async def _fetch_events():
+        try:
+            results = await db.events.find({
+                "sessionId": session_id,
+                "date": {"$gte": now, "$lte": now + timedelta(days=60)}
+            }).sort("date", 1).limit(10).to_list(length=10)
+            if not results:
+                results = await db.events.find({
+                    "date": {"$gte": now, "$lte": now + timedelta(days=60)}
+                }).sort("date", 1).limit(10).to_list(length=10)
+            if not results:
+                results = await db.events.find({
+                    "date": {"$gte": now}
+                }).sort("date", 1).limit(10).to_list(length=10)
+            return results
+        except Exception as e:
+            logger.warning(f"Events fetch error: {e}")
+            return []
+
+    async def _fetch_timetable():
+        try:
+            if not numeric_level:
+                return [], []
+            today = await db.classSessions.find({
+                "sessionId": session_id, "level": numeric_level, "day": today_name
+            }).sort("startTime", 1).to_list(length=20)
+            week = await db.classSessions.find({
+                "sessionId": session_id, "level": numeric_level,
+            }).sort([("day", 1), ("startTime", 1)]).to_list(length=50)
+            return today, week
+        except Exception as e:
+            logger.warning(f"Timetable fetch error: {e}")
+            return [], []
+
+    async def _fetch_academic_calendar():
+        try:
+            now_cal = datetime.now(timezone.utc)
+            return await db.academicEvents.find({
+                "sessionId": session_id,
+                "$or": [
+                    {"endDate": {"$gte": now_cal}},
+                    {"endDate": None, "startDate": {"$gte": now_cal - timedelta(days=1)}}
                 ]
-    except Exception as e:
-        logger.warning(f"Resources fetch error: {e}")
+            }).sort("startDate", 1).to_list(length=25)
+        except Exception as e:
+            logger.warning(f"Academic calendar fetch error: {e}")
+            return []
 
-    # ── IEPOD registration status ──
-    try:
-        iepod_reg = await db.iepod_registrations.find_one({
-            "userId": user_id,
-            "sessionId": session_id
-        })
-        if iepod_reg:
-            society_name = None
-            if iepod_reg.get("societyId"):
+    async def _fetch_resources():
+        try:
+            if not numeric_level:
+                return []
+            return await db.resources.find({
+                "isApproved": True, "level": numeric_level,
+            }).sort("createdAt", -1).limit(15).to_list(length=15)
+        except Exception as e:
+            logger.warning(f"Resources fetch error: {e}")
+            return []
+
+    async def _fetch_iepod():
+        try:
+            return await db.iepod_registrations.find_one({
+                "userId": user_id, "sessionId": session_id
+            })
+        except Exception as e:
+            logger.warning(f"IEPOD fetch error: {e}")
+            return None
+
+    async def _fetch_timp():
+        try:
+            app = await db.timpApplications.find_one({
+                "userId": user_id, "sessionId": session_id
+            })
+            pair = None
+            if app:
+                pair = await db.timpPairs.find_one({
+                    "$or": [{"mentorId": user_id}, {"menteeId": user_id}],
+                    "sessionId": session_id
+                })
+            return app, pair
+        except Exception as e:
+            logger.warning(f"TIMP fetch error: {e}")
+            return None, None
+
+    async def _fetch_enrollments():
+        try:
+            return await db.enrollments.find({
+                "userId": user_id
+            }).sort("createdAt", -1).limit(10).to_list(length=10)
+        except Exception:
+            return []
+
+    async def _fetch_announcements():
+        try:
+            return await db.announcements.find({}).sort("createdAt", -1).limit(3).to_list(length=3)
+        except Exception:
+            return []
+
+    async def _fetch_study_groups():
+        try:
+            return await db.study_groups.find({
+                "members.userId": user_id
+            }).limit(10).to_list(length=10)
+        except Exception:
+            return []
+
+    async def _fetch_growth():
+        try:
+            cgpa_doc = await db.growth_data.find_one({"userId": user_id, "tool": "cgpa-history"})
+            habits_doc = await db.growth_data.find_one({"userId": user_id, "tool": "habits"})
+            return cgpa_doc, habits_doc
+        except Exception:
+            return None, None
+
+    # Fire all independent queries concurrently
+    (
+        session_payments,
+        upcoming_events,
+        timetable_result,
+        academic_events_list,
+        level_resources,
+        iepod_reg,
+        timp_result,
+        user_enrollments,
+        recent_announcements,
+        user_groups,
+        growth_result,
+    ) = await asyncio.gather(
+        _fetch_payments(),
+        _fetch_events(),
+        _fetch_timetable(),
+        _fetch_academic_calendar(),
+        _fetch_resources(),
+        _fetch_iepod(),
+        _fetch_timp(),
+        _fetch_enrollments(),
+        _fetch_announcements(),
+        _fetch_study_groups(),
+        _fetch_growth(),
+    )
+
+    # ── Process payment results ──
+    paid_payments = [p for p in session_payments if user_id in (p.get("paidBy") or [])]
+    unpaid_payments = [p for p in session_payments if user_id not in (p.get("paidBy") or [])]
+    if session_payments:
+        context["payment_status"] = f"Paid {len(paid_payments)}/{len(session_payments)} dues"
+        context["paid_payments"] = [{"title": p.get("title", ""), "amount": p.get("amount", 0)} for p in paid_payments]
+        context["unpaid_payments"] = [{"title": p.get("title", ""), "amount": p.get("amount", 0)} for p in unpaid_payments]
+    else:
+        context["payment_status"] = "No payment dues found for this session"
+
+    # ── Process events ──
+    if upcoming_events:
+        context["upcoming_events"] = [
+            {
+                "title": e.get("title", "Untitled Event"),
+                "date": e.get("date").strftime("%A, %B %d, %Y") if e.get("date") else "TBD",
+                "location": e.get("location", "TBD"),
+                "type": e.get("category", e.get("type", "general")),
+                "registered": user_id in (e.get("registrations") or []),
+                "requires_payment": e.get("requiresPayment", False),
+                "payment_amount": e.get("paymentAmount", 0),
+            }
+            for e in upcoming_events
+        ]
+
+    # ── Process timetable ──
+    today_classes, all_classes = timetable_result
+    if today_classes:
+        context["today_classes"] = [
+            {
+                "course": c.get("courseCode", ""),
+                "title": c.get("courseTitle", ""),
+                "time": f"{c.get('startTime', '')} - {c.get('endTime', '')}",
+                "venue": c.get("venue", "TBD"),
+                "type": c.get("type", "lecture"),
+                "lecturer": c.get("lecturer", ""),
+            }
+            for c in today_classes
+        ]
+    elif numeric_level:
+        context["today_classes"] = []
+        context["today_note"] = f"No classes scheduled for {today_name}"
+
+    if all_classes:
+        week_schedule: dict[str, list] = {}
+        day_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+        for c in all_classes:
+            day = c.get("day", "Unknown")
+            if day not in week_schedule:
+                week_schedule[day] = []
+            week_schedule[day].append({
+                "course": c.get("courseCode", ""),
+                "title": c.get("courseTitle", ""),
+                "time": f"{c.get('startTime', '')} - {c.get('endTime', '')}",
+                "venue": c.get("venue", "TBD"),
+                "type": c.get("type", "lecture"),
+                "lecturer": c.get("lecturer", ""),
+            })
+        context["weekly_timetable"] = {d: week_schedule[d] for d in day_order if d in week_schedule}
+
+    # ── Process academic calendar ──
+    if academic_events_list:
+        context["academic_calendar"] = [
+            {
+                "title": ae.get("title", ""),
+                "type": ae.get("eventType", "general"),
+                "start": ae["startDate"].strftime("%A, %B %d, %Y") if ae.get("startDate") and hasattr(ae["startDate"], "strftime") else "TBD",
+                "end": ae["endDate"].strftime("%A, %B %d, %Y") if ae.get("endDate") and hasattr(ae["endDate"], "strftime") else None,
+                "semester": ae.get("semester", ""),
+                "description": (ae.get("description") or "")[:150],
+            }
+            for ae in academic_events_list
+        ]
+
+    # ── Process resources ──
+    if level_resources:
+        context["resources"] = [
+            {
+                "title": r.get("title", ""),
+                "course": r.get("courseCode", ""),
+                "type": r.get("type", "material"),
+                "url": r.get("url", ""),
+                "uploader": r.get("uploaderName", "Anonymous"),
+            }
+            for r in level_resources
+        ]
+
+    # ── Process IEPOD (may need one follow-up query for society name) ──
+    if iepod_reg:
+        society_name = None
+        if iepod_reg.get("societyId"):
+            try:
                 society = await db.iepod_societies.find_one({"_id": ObjectId(iepod_reg["societyId"])})
                 society_name = society.get("name") if society else None
-            context["iepod"] = {
-                "registered": True,
-                "status": iepod_reg.get("status", "pending"),
-                "society": society_name,
-                "phase": iepod_reg.get("currentPhase", 0),
-            }
-        else:
-            context["iepod"] = {"registered": False}
-    except Exception as e:
-        logger.warning(f"IEPOD fetch error: {e}")
+            except Exception:
+                pass
+        context["iepod"] = {
+            "registered": True,
+            "status": iepod_reg.get("status", "pending"),
+            "society": society_name,
+            "phase": iepod_reg.get("currentPhase", 0),
+        }
+    else:
+        context["iepod"] = {"registered": False}
 
-    # ── TIMP application status ──
-    try:
-        timp_app = await db.timpApplications.find_one({
-            "userId": user_id,
-            "sessionId": session_id
-        })
-        if timp_app:
-            timp_pair = await db.timpPairs.find_one({
-                "$or": [{"mentorId": user_id}, {"menteeId": user_id}],
-                "sessionId": session_id
-            })
-            context["timp"] = {
-                "applied": True,
-                "role": timp_app.get("submitterRole", "mentee"),
-                "status": timp_app.get("status", "pending"),
-                "paired": bool(timp_pair),
-                "partner_name": timp_pair.get("mentorName") if timp_pair and timp_app.get("submitterRole") == "mentee" else (timp_pair.get("menteeName") if timp_pair else None),
+    # ── Process TIMP ──
+    timp_app, timp_pair = timp_result
+    if timp_app:
+        context["timp"] = {
+            "applied": True,
+            "role": timp_app.get("submitterRole", "mentee"),
+            "status": timp_app.get("status", "pending"),
+            "paired": bool(timp_pair),
+            "partner_name": timp_pair.get("mentorName") if timp_pair and timp_app.get("submitterRole") == "mentee" else (timp_pair.get("menteeName") if timp_pair else None),
+        }
+    else:
+        context["timp"] = {"applied": False}
+
+    # ── Process enrollments ──
+    if user_enrollments:
+        context["enrollments"] = [
+            {
+                "course": e.get("courseCode", ""),
+                "title": e.get("courseTitle", ""),
+                "status": e.get("status", "active"),
+                "semester": e.get("semester", ""),
             }
-        else:
-            context["timp"] = {"applied": False}
-    except Exception as e:
-        logger.warning(f"TIMP fetch error: {e}")
-    
-    # ── Enrollments ──
-    enrollments = db.enrollments
-    try:
-        user_enrollments = await enrollments.find({
-            "userId": user_id
-        }).sort("createdAt", -1).limit(10).to_list(length=10)
-        
-        if user_enrollments:
-            context["enrollments"] = [
-                {
-                    "course": e.get("courseCode", ""),
-                    "title": e.get("courseTitle", ""),
-                    "status": e.get("status", "active"),
-                    "semester": e.get("semester", ""),
-                }
-                for e in user_enrollments
-            ]
-    except Exception:
-        pass
-    
-    # ── Announcements (recent) ──
-    announcements = db.announcements
-    try:
-        recent_announcements = await announcements.find({}).sort("createdAt", -1).limit(3).to_list(length=3)
-        if recent_announcements:
-            context["recent_announcements"] = [
-                {
-                    "title": a.get("title", ""),
-                    "content": a.get("content", "")[:150],  # Truncate to save tokens
-                    "date": a.get("createdAt").strftime("%B %d, %Y") if a.get("createdAt") and hasattr(a["createdAt"], "strftime") else "Recent",
-                }
-                for a in recent_announcements
-            ]
-    except Exception:
-        pass
-    
-    # ── Study Groups (user's memberships) ──
-    study_groups = db.study_groups
-    try:
-        user_groups = await study_groups.find({
-            "members.userId": user_id
-        }).limit(10).to_list(length=10)
-        if user_groups:
-            context["study_groups"] = [
-                {
-                    "name": g.get("name", ""),
-                    "course": g.get("courseCode", ""),
-                    "members": len(g.get("members", [])),
-                    "description": (g.get("description") or "")[:100],
-                }
-                for g in user_groups
-            ]
-    except Exception:
-        pass
-    
-    # ── Growth Hub data (CGPA history & habits) ──
-    growth_data = db.growth_data
-    try:
-        cgpa_doc = await growth_data.find_one({"userId": user_id, "tool": "cgpa-history"})
-        if cgpa_doc and cgpa_doc.get("data"):
-            cgpa_history = cgpa_doc["data"]
-            if isinstance(cgpa_history, list) and len(cgpa_history) > 0:
-                latest = cgpa_history[0]
-                context["cgpa_progress"] = {
-                    "latest_cgpa": latest.get("gpa"),
-                    "total_records": len(cgpa_history),
-                    "grading_system": latest.get("gradingSystem", "5.0"),
-                    "last_saved": latest.get("timestamp", ""),
-                }
-    except Exception:
-        pass
-    
-    try:
-        habits_doc = await growth_data.find_one({"userId": user_id, "tool": "habits"})
-        if habits_doc and habits_doc.get("data"):
-            habits_data = habits_doc["data"]
-            if isinstance(habits_data, list):
-                context["habits_count"] = len(habits_data)
-    except Exception:
-        pass
-    
+            for e in user_enrollments
+        ]
+
+    # ── Process announcements ──
+    if recent_announcements:
+        context["recent_announcements"] = [
+            {
+                "title": a.get("title", ""),
+                "content": a.get("content", "")[:150],
+                "date": a.get("createdAt").strftime("%B %d, %Y") if a.get("createdAt") and hasattr(a["createdAt"], "strftime") else "Recent",
+            }
+            for a in recent_announcements
+        ]
+
+    # ── Process study groups ──
+    if user_groups:
+        context["study_groups"] = [
+            {
+                "name": g.get("name", ""),
+                "course": g.get("courseCode", ""),
+                "members": len(g.get("members", [])),
+                "description": (g.get("description") or "")[:100],
+            }
+            for g in user_groups
+        ]
+
+    # ── Process growth data ──
+    cgpa_doc, habits_doc = growth_result
+    if cgpa_doc and cgpa_doc.get("data"):
+        cgpa_history = cgpa_doc["data"]
+        if isinstance(cgpa_history, list) and len(cgpa_history) > 0:
+            latest = cgpa_history[0]
+            context["cgpa_progress"] = {
+                "latest_cgpa": latest.get("gpa"),
+                "total_records": len(cgpa_history),
+                "grading_system": latest.get("gradingSystem", "5.0"),
+                "last_saved": latest.get("timestamp", ""),
+            }
+    if habits_doc and habits_doc.get("data"):
+        habits_data = habits_doc["data"]
+        if isinstance(habits_data, list):
+            context["habits_count"] = len(habits_data)
+
     return context
 
 
@@ -724,12 +760,13 @@ async def summarize_conversation_history(history: List[dict]) -> str:
             role = "Student" if msg.get("role") == "user" else "AI"
             summary_prompt += f"{role}: {msg.get('content', '')[:150]}\n"
         
-        completion = groq_client.chat.completions.create(
+        loop = asyncio.get_running_loop()
+        completion = await loop.run_in_executor(None, lambda: groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": summary_prompt}],
             temperature=0.4,
             max_tokens=200,
-        )
+        ))
         
         summary = completion.choices[0].message.content or ""
         return summary
@@ -795,23 +832,28 @@ async def chat_with_iesa_ai_stream(
             # Add current message
             messages.append({"role": "user", "content": chat_data.message})
             
-            # Stream from Groq
-            stream = groq_client.chat.completions.create(
+            # Stream from Groq (offload sync iterator to executor)
+            loop = asyncio.get_running_loop()
+            stream = await loop.run_in_executor(None, lambda: groq_client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=messages,  # type: ignore
                 temperature=0.6,
                 max_tokens=800,
                 top_p=0.85,
                 stream=True
-            )
+            ))
             
             full_response = ""
-            for chunk in stream:
+            _sentinel = object()
+            stream_iter = iter(stream)
+            while True:
+                chunk = await loop.run_in_executor(None, lambda: next(stream_iter, _sentinel))
+                if chunk is _sentinel:
+                    break
                 if chunk.choices[0].delta.content:
                     token = chunk.choices[0].delta.content
                     full_response += token
                     yield f"data: {json.dumps({'token': token})}\n\n"
-                    await asyncio.sleep(0)  # Allow other tasks to run
             
             # Generate suggestions
             suggestions = generate_suggestions(chat_data.message, full_response)
@@ -912,14 +954,15 @@ async def chat_with_iesa_ai(
         # Add current user message
         messages.append({"role": "user", "content": chat_data.message})
         
-        # Call Groq API
-        completion = groq_client.chat.completions.create(
+        # Call Groq API (offload sync SDK call to executor)
+        loop = asyncio.get_running_loop()
+        completion = await loop.run_in_executor(None, lambda: groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=messages,  # type: ignore
             temperature=0.6,
             max_tokens=800,
             top_p=0.85,
-        )
+        ))
         
         ai_response = completion.choices[0].message.content or "I couldn't generate a response. Please try again."
         

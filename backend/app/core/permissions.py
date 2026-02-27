@@ -5,12 +5,40 @@ Instead of checking "Is user President?", check "Does user have 'announcement:cr
 This allows flexible role management across sessions.
 """
 
-from typing import List, Optional
+import time
+from typing import List, Optional, Tuple
 from fastapi import Depends, HTTPException, Header
 from bson import ObjectId
 from app.core.security import get_current_user
 from app.models.user import User
 from app.db import get_database
+
+
+# ──────────────────────────────────────────────
+# In-memory TTL caches — eliminates 2-3 DB round-trips per request.
+# Active session changes ~twice per year; permissions change rarely.
+# ──────────────────────────────────────────────
+
+_active_session_cache: Tuple[Optional[dict], float] = (None, 0.0)
+_ACTIVE_SESSION_TTL = 60  # seconds
+
+_permissions_cache: dict[str, Tuple[List[str], float]] = {}
+_PERMISSIONS_TTL = 120  # seconds
+
+
+def invalidate_session_cache():
+    """Call after session activate/deactivate to bust the cache."""
+    global _active_session_cache
+    _active_session_cache = (None, 0.0)
+
+
+def invalidate_permissions_cache(user_id: str | None = None):
+    """Call after role assign/revoke. Pass user_id for targeted bust, or None for all."""
+    global _permissions_cache
+    if user_id:
+        _permissions_cache.pop(user_id, None)
+    else:
+        _permissions_cache.clear()
 
 
 # Permission definitions - centralized permission registry
@@ -368,14 +396,20 @@ async def get_current_session(
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid session ID format")
     
-    # Otherwise, get active session
+    # Otherwise, get active session (cached — changes ~twice per year)
+    global _active_session_cache
+    cached, cached_at = _active_session_cache
+    if cached and (time.monotonic() - cached_at) < _ACTIVE_SESSION_TTL:
+        return cached
+
     session = await sessions.find_one({"isActive": True})
     if not session:
         raise HTTPException(
             status_code=404,
             detail="No active session found. Please create and activate a session."
         )
-    
+
+    _active_session_cache = (session, time.monotonic())
     return session
 
 
@@ -385,10 +419,19 @@ async def get_user_permissions(
 ) -> List[str]:
     """
     Get all permissions for a user in a specific session.
+    Cached for 120s to avoid repeated DB lookups on every request.
     
     Returns:
         List of permission strings (e.g., ['announcement:create', 'event:manage'])
     """
+    global _permissions_cache
+    cache_key = f"{user_id}:{session_id}"
+    cached = _permissions_cache.get(cache_key)
+    if cached:
+        perms, cached_at = cached
+        if (time.monotonic() - cached_at) < _PERMISSIONS_TTL:
+            return perms
+
     db = get_database()
     roles_collection = db["roles"]
     
@@ -399,7 +442,9 @@ async def get_user_permissions(
         "isActive": True
     })
     if super_admin_role:
-        return list(PERMISSIONS.keys())
+        result = list(PERMISSIONS.keys())
+        _permissions_cache[cache_key] = (result, time.monotonic())
+        return result
     
     # Get user's roles for this session
     cursor = roles_collection.find({
@@ -425,7 +470,9 @@ async def get_user_permissions(
                 # All class_rep/asst_class_rep variants inherit base class_rep permissions
                 all_permissions.update(DEFAULT_PERMISSIONS.get("class_rep", []))
     
-    return list(all_permissions)
+    result = list(all_permissions)
+    _permissions_cache[cache_key] = (result, time.monotonic())
+    return result
 
 
 async def check_permission(

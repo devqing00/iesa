@@ -7,6 +7,7 @@ import {
   useEffect,
   ReactNode,
   useCallback,
+  useMemo,
 } from "react";
 import { useAuth } from "./AuthContext";
 import { getApiUrl } from "@/lib/api";
@@ -103,17 +104,20 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     return perms.every((p) => permissions.includes(p));
   }, [permissions]);
 
+  const contextValue = useMemo(
+    () => ({
+      permissions,
+      hasPermission,
+      hasAnyPermission,
+      hasAllPermissions,
+      loading,
+      refetch: fetchPermissions,
+    }),
+    [permissions, hasPermission, hasAnyPermission, hasAllPermissions, loading, fetchPermissions]
+  );
+
   return (
-    <PermissionsContext.Provider
-      value={{
-        permissions,
-        hasPermission,
-        hasAnyPermission,
-        hasAllPermissions,
-        loading,
-        refetch: fetchPermissions,
-      }}
-    >
+    <PermissionsContext.Provider value={contextValue}>
       {children}
     </PermissionsContext.Provider>
   );

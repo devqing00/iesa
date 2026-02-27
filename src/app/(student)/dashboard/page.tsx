@@ -13,7 +13,11 @@ import {
   type ClassSession,
 } from "@/hooks/useData";
 import { StudentDashboardSkeleton } from "@/components/ui/Skeleton";
-import { OnboardingModal } from "@/components/ui/OnboardingModal";
+import dynamic from "next/dynamic";
+const OnboardingModal = dynamic(
+  () => import("@/components/ui/OnboardingModal").then((m) => m.OnboardingModal),
+  { ssr: false }
+);
 import { getQuoteOfTheDay } from "@/lib/quotes";
 import { getApiUrl } from "@/lib/api";
 

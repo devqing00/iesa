@@ -58,8 +58,11 @@ async def get_current_user(token_data: dict = Depends(verify_token)) -> dict:
             detail="Invalid token: missing or invalid user ID",
         )
     
-    # Find user by MongoDB _id
-    user = await users.find_one({"_id": ObjectId(user_id)})
+    # Find user by MongoDB _id (exclude passwordHash — never needed downstream)
+    user = await users.find_one(
+        {"_id": ObjectId(user_id)},
+        {"passwordHash": 0}
+    )
     
     if not user:
         raise HTTPException(

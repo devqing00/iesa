@@ -351,7 +351,7 @@ async def upload_cover_image(
 
     ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "jpg"
     temp_id = str(uuid.uuid4())[:12]
-    image_url = upload_press_cover(contents, temp_id, ext)
+    image_url = await upload_press_cover(contents, temp_id, ext)
     if not image_url:
         raise HTTPException(status_code=500, detail="Failed to upload image")
 

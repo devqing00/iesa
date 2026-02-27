@@ -287,10 +287,10 @@ async def upload_receipt_image(
     if len(file_data) > 5 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File too large. Maximum size is 5MB.")
     
-    # Upload to Cloudinary
+    # Upload to Cloudinary (async — does not block the event loop)
     from app.utils.cloudinary_config import upload_transfer_receipt
     ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "jpg"
-    image_url = upload_transfer_receipt(file_data, transfer_id, ext)
+    image_url = await upload_transfer_receipt(file_data, transfer_id, ext)
     
     if not image_url:
         raise HTTPException(status_code=500, detail="Failed to upload image")

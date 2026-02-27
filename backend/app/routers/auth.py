@@ -21,8 +21,8 @@ from jose import JWTError, ExpiredSignatureError
 from pydantic import BaseModel
 
 from app.core.auth import (
-    hash_password,
-    verify_password,
+    async_hash_password,
+    async_verify_password,
     check_needs_rehash,
     create_access_token,
     create_refresh_token,
@@ -149,7 +149,7 @@ async def register(
     
     user_doc = {
         "email": data.email,
-        "passwordHash": hash_password(data.password),
+        "passwordHash": await async_hash_password(data.password),
         "firstName": data.firstName,
         "lastName": data.lastName,
         "matricNumber": data.matricNumber,
@@ -242,7 +242,7 @@ async def login(
             detail="Account is deactivated. Contact admin.",
         )
 
-    if not verify_password(data.password, user["passwordHash"]):
+    if not await async_verify_password(data.password, user["passwordHash"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
@@ -250,7 +250,7 @@ async def login(
 
     # Re-hash if argon2 params changed
     if check_needs_rehash(user["passwordHash"]):
-        new_hash = hash_password(data.password)
+        new_hash = await async_hash_password(data.password)
         await users.update_one(
             {"_id": user["_id"]},
             {"$set": {"passwordHash": new_hash}},
@@ -259,11 +259,12 @@ async def login(
     user_id = str(user["_id"])
     role = user.get("role", "student")
 
-    # Update last login
-    await users.update_one(
+    # Update last login (fire-and-forget — don't block the response)
+    import asyncio
+    asyncio.create_task(users.update_one(
         {"_id": user["_id"]},
         {"$set": {"lastLogin": datetime.now(timezone.utc)}},
-    )
+    ))
 
     # Issue tokens
     access = create_access_token(user_id, user["email"], role)
@@ -418,7 +419,7 @@ async def change_password(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot change password")
 
     # Verify current password
-    if not verify_password(data.currentPassword, user_doc["passwordHash"]):
+    if not await async_verify_password(data.currentPassword, user_doc["passwordHash"]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Current password is incorrect")
 
     # Validate new password
@@ -429,7 +430,7 @@ async def change_password(
     # Hash and save
     await users.update_one(
         {"_id": ObjectId(user["_id"])},
-        {"$set": {"passwordHash": hash_password(data.newPassword), "updatedAt": datetime.now(timezone.utc)}},
+        {"$set": {"passwordHash": await async_hash_password(data.newPassword), "updatedAt": datetime.now(timezone.utc)}},
     )
 
     return {"message": "Password changed successfully"}
@@ -693,7 +694,7 @@ async def reset_password(request: Request, data: ResetPasswordConfirm):
             {"_id": ObjectId(user_id)},
             {
                 "$set": {
-                    "passwordHash": hash_password(data.newPassword),
+                    "passwordHash": await async_hash_password(data.newPassword),
                     "updatedAt": datetime.now(timezone.utc)
                 }
             }

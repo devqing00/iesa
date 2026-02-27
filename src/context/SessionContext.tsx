@@ -19,6 +19,7 @@ import React, {
   useEffect,
   ReactNode,
   useCallback,
+  useMemo,
 } from "react";
 import { useAuth } from "./AuthContext";
 import { getApiUrl, setSessionIdGetter } from "@/lib/api";
@@ -300,14 +301,17 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
     setSessionIdGetter(() => currentSession?.id ?? null);
   }, [currentSession]);
 
-  const value: SessionContextType = {
-    currentSession,
-    allSessions,
-    isLoading,
-    error,
-    switchSession,
-    refreshSessions,
-  };
+  const value: SessionContextType = useMemo(
+    () => ({
+      currentSession,
+      allSessions,
+      isLoading,
+      error,
+      switchSession,
+      refreshSessions,
+    }),
+    [currentSession, allSessions, isLoading, error, switchSession, refreshSessions]
+  );
 
   return (
     <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

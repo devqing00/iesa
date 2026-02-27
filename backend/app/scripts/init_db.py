@@ -154,6 +154,7 @@ async def create_indexes(db):
     await db.refresh_tokens.create_index("token", unique=True)
     await db.refresh_tokens.create_index("userId")
     await db.refresh_tokens.create_index("expiresAt")
+    await db.refresh_tokens.create_index("family")  # For token rotation family revocation
     await db.refresh_tokens.create_index([("userId", 1), ("isRevoked", 1)])  # For active tokens per user
     
     # Unit Applications collection indexes
@@ -161,6 +162,57 @@ async def create_indexes(db):
     await db.unit_applications.create_index("sessionId")
     await db.unit_applications.create_index("status")
     await db.unit_applications.create_index([("sessionId", 1), ("status", 1)])  # For filtering applications
+    
+    # Paystack + Bank Transfers compound indexes for event payment lookups
+    await db.paystackTransactions.create_index([("eventId", 1), ("studentId", 1), ("status", 1)])
+    await db.bankTransfers.create_index([("eventId", 1), ("studentId", 1), ("status", 1)])
+    
+    # Text indexes for search endpoints
+    await db.announcements.create_index([("title", "text"), ("content", "text")])
+    await db.events.create_index([("title", "text"), ("description", "text")])
+    await db.resources.create_index([("title", "text"), ("description", "text"), ("tags", "text")])
+    
+    # Audit Logs collection indexes
+    await db.audit_logs.create_index("userId")
+    await db.audit_logs.create_index("action")
+    await db.audit_logs.create_index("createdAt")
+    await db.audit_logs.create_index([("userId", 1), ("createdAt", -1)])
+    
+    # Press / Articles collection indexes
+    await db.press_articles.create_index("authorId")
+    await db.press_articles.create_index("status")
+    await db.press_articles.create_index("slug", unique=True, sparse=True)
+    await db.press_articles.create_index("publishedAt")
+    await db.press_articles.create_index([("status", 1), ("publishedAt", -1)])
+    await db.article_views.create_index([("articleId", 1), ("viewerIp", 1)], unique=True)
+    
+    # Study Groups collection indexes
+    await db.study_groups.create_index("members")
+    await db.study_groups.create_index("createdBy")
+    await db.study_groups.create_index("isActive")
+    
+    # Resources collection indexes
+    await db.resources.create_index("uploadedBy")
+    await db.resources.create_index("status")
+    await db.resources.create_index("courseCode")
+    await db.resources.create_index([("status", 1), ("createdAt", -1)])
+    
+    # IEPOD collection indexes
+    await db.iepod_registrations.create_index("studentId")
+    await db.iepod_registrations.create_index("sessionId")
+    await db.iepod_registrations.create_index([("studentId", 1), ("sessionId", 1)], unique=True)
+    await db.iepod_societies.create_index("sessionId")
+    await db.iepod_points.create_index([("registrationId", 1), ("phase", 1)])
+    await db.iepod_quiz_responses.create_index([("registrationId", 1), ("quizId", 1)])
+    
+    # TIMP collection indexes
+    await db.timpApplications.create_index("sessionId")
+    await db.timpApplications.create_index("userId")
+    await db.timpApplications.create_index([("sessionId", 1), ("userId", 1)], unique=True)
+    await db.timpPairs.create_index("sessionId")
+    await db.timpPairs.create_index("mentorId")
+    await db.timpPairs.create_index("menteeId")
+    await db.timpPairs.create_index([("sessionId", 1), ("status", 1)])
 
 
 async def create_default_session(db):
