@@ -261,10 +261,13 @@ async def login(
 
     # Update last login (fire-and-forget — don't block the response)
     import asyncio
-    asyncio.create_task(users.update_one(
-        {"_id": user["_id"]},
-        {"$set": {"lastLogin": datetime.now(timezone.utc)}},
-    ))
+    _user_id_for_update = user["_id"]
+    async def _update_last_login():
+        await users.update_one(
+            {"_id": _user_id_for_update},
+            {"$set": {"lastLogin": datetime.now(timezone.utc)}},
+        )
+    asyncio.create_task(_update_last_login())
 
     # Issue tokens
     access = create_access_token(user_id, user["email"], role)

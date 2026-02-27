@@ -23,6 +23,22 @@ import os
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
+from argon2 import PasswordHasher
+
+# Argon2id hasher — must match settings in app/core/auth.py
+_ph = PasswordHasher(
+    time_cost=3,
+    memory_cost=65536,
+    parallelism=4,
+    hash_len=32,
+    salt_len=16,
+)
+
+
+def _hash(password: str) -> str:
+    """Hash a password for seeding (synchronous — fine outside the event loop)."""
+    return _ph.hash(password)
+
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -132,6 +148,151 @@ async def create_session(db, session_name: str, is_active: bool = True) -> str:
     status = "active" if is_active else "inactive"
     print(f"   ✓ Created {status} session: '{session_name}' (ID: {session_id[:8]}...)")
     return session_id
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Default seed credentials (printed at the end for convenience)
+# ─────────────────────────────────────────────────────────────────────────────
+ADMIN_EMAIL    = "admin@iesa.ui.edu.ng"
+ADMIN_PASSWORD = "Admin@1234!"
+STUDENT_PASSWORD = "Student@1234!"
+
+
+async def seed_users(db, session_id: str) -> dict:
+    """
+    Seed dummy users — admin, exco, and students at each level.
+    Returns a {email: uid_string} map so other seeders can use real UIDs.
+    """
+    now = datetime.now(timezone.utc)
+    users_col = db["users"]
+    enrollments_col = db["enrollments"]
+
+    # ── Define users ─────────────────────────────────────────────────
+    # Each entry: (email, password, firstName, lastName, role, level, admissionYear, matric, bio)
+    # admissionYear = second year of admitted session (e.g. admitted 2023/2024 → 2024)
+    _users = [
+        # Admin account
+        (
+            ADMIN_EMAIL, ADMIN_PASSWORD,
+            "IESA", "Admin", "admin",
+            None, None, None,
+            "Platform administrator for IESA.",
+        ),
+        # Exco — President, 400L
+        (
+            "chike.okafor@stu.ui.edu.ng", STUDENT_PASSWORD,
+            "Chike", "Okafor", "exco",
+            "400L", 2023, "20/22IPE001",
+            "IESA President, 400L Industrial Engineering student.",
+        ),
+        # Students — one per level + extras to populate transactions / transfers
+        (
+            "adewale.okonkwo@stu.ui.edu.ng", STUDENT_PASSWORD,
+            "Adewale", "Okonkwo", "student",
+            "300L", 2024, "21/23IPE001",
+            "300L student interested in operations research.",
+        ),
+        (
+            "ngozi.obi@stu.ui.edu.ng", STUDENT_PASSWORD,
+            "Ngozi", "Obi", "student",
+            "200L", 2025, "22/24IPE001",
+            "200L student passionate about data and process engineering.",
+        ),
+        (
+            "tunde.fashola@stu.ui.edu.ng", STUDENT_PASSWORD,
+            "Tunde", "Fashola", "student",
+            "400L", 2023, "20/22IPE002",
+            "400L student and aspiring supply chain engineer.",
+        ),
+        (
+            "amaka.eze@stu.ui.edu.ng", STUDENT_PASSWORD,
+            "Amaka", "Eze", "student",
+            "100L", 2026, "24/25IPE001",
+            "Fresh 100L student eager to learn.",
+        ),
+        (
+            "ibrahim.musa@stu.ui.edu.ng", STUDENT_PASSWORD,
+            "Ibrahim", "Musa", "student",
+            "500L", 2022, "18/21IPE001",
+            "500L student working on his final year project.",
+        ),
+        (
+            "emeka.anozie@stu.ui.edu.ng", STUDENT_PASSWORD,
+            "Chukwuemeka", "Anozie", "student",
+            "300L", 2024, "21/23IPE002",
+            "300L student and tech enthusiast.",
+        ),
+        (
+            "funmi.adeyemi@stu.ui.edu.ng", STUDENT_PASSWORD,
+            "Funmilayo", "Adeyemi", "student",
+            "200L", 2025, "22/24IPE002",
+            "200L student interested in quality engineering.",
+        ),
+        (
+            "yusuf.abdullahi@stu.ui.edu.ng", STUDENT_PASSWORD,
+            "Yusuf", "Abdullahi", "student",
+            "400L", 2023, "20/22IPE003",
+            "400L student and robotics club member.",
+        ),
+    ]
+
+    user_map: dict = {}  # email → uid_string
+    inserted = 0
+
+    for (email, password, first, last, role, level, admission_yr, matric, bio) in _users:
+        existing = await users_col.find_one({"email": email})
+        if existing:
+            user_map[email] = str(existing["_id"])
+            continue
+
+        email_type = "institutional" if email.endswith("@stu.ui.edu.ng") else "personal"
+        doc = {
+            "email": email,
+            "passwordHash": _hash(password),
+            "firstName": first,
+            "lastName": last,
+            "matricNumber": matric,
+            "phone": None,
+            "currentLevel": level,
+            "admissionYear": admission_yr,
+            "department": "Industrial Engineering",
+            "role": role,
+            "bio": bio,
+            "profilePictureUrl": None,
+            "skills": [],
+            "emailType": email_type,
+            "secondaryEmail": None,
+            "secondaryEmailType": None,
+            "secondaryEmailVerified": False,
+            "notificationEmailPreference": "primary",
+            "notificationChannelPreference": "both",
+            "notificationCategories": None,
+            "emailVerified": True,          # skip email verification for seed users
+            "hasCompletedOnboarding": True,
+            "isActive": True,
+            "lastLogin": None,
+            "firebaseUid": None,
+            "createdAt": now,
+            "updatedAt": now,
+        }
+        result = await users_col.insert_one(doc)
+        uid = str(result.inserted_id)
+        user_map[email] = uid
+        inserted += 1
+
+        # Create enrollment for student/exco users
+        if level:
+            await enrollments_col.insert_one({
+                "studentId": uid,
+                "sessionId": session_id,
+                "level": level,
+                "enrollmentDate": now,
+                "createdAt": now,
+                "isActive": True,
+            })
+
+    print(f"   ✓ Seeded {inserted} users ({len(user_map)} total incl. existing)")
+    return user_map
 
 
 async def seed_announcements(db, session_id: str) -> None:
@@ -313,9 +474,27 @@ async def seed_events(db, session_id: str) -> None:
     print(f"   ✓ Seeded {len(events)} events")
 
 
-async def seed_payments(db, session_id: str) -> None:
-    """Seed sample payment items and linked Paystack transactions / bank transfers."""
+async def seed_payments(db, session_id: str, user_map: dict) -> None:
+    """
+    Seed sample payment dues + linked Paystack transactions and bank transfers.
+    user_map: {email: uid_string} from seed_users() — used to populate real IDs.
+    """
     now = datetime.now(timezone.utc)
+
+    # Resolve UIDs for students who appear in transactions / transfers
+    uid_adewale  = user_map.get("adewale.okonkwo@stu.ui.edu.ng", "")
+    uid_ngozi    = user_map.get("ngozi.obi@stu.ui.edu.ng", "")
+    uid_tunde    = user_map.get("tunde.fashola@stu.ui.edu.ng", "")
+    uid_amaka    = user_map.get("amaka.eze@stu.ui.edu.ng", "")
+    uid_ibrahim  = user_map.get("ibrahim.musa@stu.ui.edu.ng", "")
+    uid_emeka    = user_map.get("emeka.anozie@stu.ui.edu.ng", "")
+    uid_funmi    = user_map.get("funmi.adeyemi@stu.ui.edu.ng", "")
+    uid_yusuf    = user_map.get("yusuf.abdullahi@stu.ui.edu.ng", "")
+
+    # ── Payment Dues ─────────────────────────────────────────────────
+    # paidBy is pre-populated with UIDs of students whose transactions succeeded.
+    # Dues paid: adewale + ngozi (Paystack), emeka (bank transfer approved)
+    # Lab Coat paid: tunde (Paystack), funmi (bank transfer approved)
     payments = [
         {
             "title": "Department Dues",
@@ -325,9 +504,9 @@ async def seed_payments(db, session_id: str) -> None:
             "deadline": now + timedelta(days=60),
             "description": "Mandatory department association dues for the current session.",
             "category": "dues",
-            "paidBy": [],
+            "paidBy": [uid for uid in [uid_adewale, uid_ngozi, uid_emeka] if uid],
             "createdAt": now - timedelta(days=10),
-            "updatedAt": now - timedelta(days=10),
+            "updatedAt": now - timedelta(days=1),
         },
         {
             "title": "Lab Coat",
@@ -337,9 +516,9 @@ async def seed_payments(db, session_id: str) -> None:
             "deadline": now + timedelta(days=45),
             "description": "Official IESA lab coat for practicals and industrial visits.",
             "category": "other",
-            "paidBy": [],
+            "paidBy": [uid for uid in [uid_tunde, uid_funmi] if uid],
             "createdAt": now - timedelta(days=8),
-            "updatedAt": now - timedelta(days=8),
+            "updatedAt": now - timedelta(days=1),
         },
         {
             "title": "IESA Week Dinner",
@@ -370,75 +549,109 @@ async def seed_payments(db, session_id: str) -> None:
     payment_ids = [str(pid) for pid in result.inserted_ids]
     print(f"   ✓ Seeded {len(payments)} payment dues")
 
-    # ── Sample Paystack Transactions ──────────────────────────────────
-    # Uses real payment IDs so the admin enrichment (category/title) works.
+    # ── Paystack Transactions ─────────────────────────────────────────
+    # Matches exact document shape produced by paystack.py's initialize + verify flow.
+    # Fields: reference, paymentId, studentId (real UID), studentName, studentLevel,
+    #         studentEmail, amount, amountKobo, status, paystackData, channel,
+    #         paidAt, amountPaid, createdAt, updatedAt
     txns = [
         {
             "reference": "IESA-TXN-2026-001",
-            "amount": 3000,
-            "status": "success",
-            "paymentId": payment_ids[0],  # Department Dues
+            "paymentId": payment_ids[0],          # Department Dues
+            "studentId": uid_adewale,
             "studentName": "Adewale Okonkwo",
+            "studentLevel": "300L",
             "studentEmail": "adewale.okonkwo@stu.ui.edu.ng",
+            "amount": 3000,
+            "amountKobo": 300000,
+            "status": "success",
             "channel": "card",
-            "createdAt": now - timedelta(days=6),
             "paidAt": now - timedelta(days=6),
+            "amountPaid": 3000,
+            "paystackData": {"accessCode": "seed_access_001", "authorizationUrl": "https://checkout.paystack.com/seed001"},
+            "createdAt": now - timedelta(days=6),
+            "updatedAt": now - timedelta(days=6),
         },
         {
             "reference": "IESA-TXN-2026-002",
-            "amount": 3000,
-            "status": "success",
-            "paymentId": payment_ids[0],  # Department Dues
+            "paymentId": payment_ids[0],          # Department Dues
+            "studentId": uid_ngozi,
             "studentName": "Ngozi Obi",
+            "studentLevel": "200L",
             "studentEmail": "ngozi.obi@stu.ui.edu.ng",
+            "amount": 3000,
+            "amountKobo": 300000,
+            "status": "success",
             "channel": "bank",
-            "createdAt": now - timedelta(days=4),
             "paidAt": now - timedelta(days=4),
+            "amountPaid": 3000,
+            "paystackData": {"accessCode": "seed_access_002", "authorizationUrl": "https://checkout.paystack.com/seed002"},
+            "createdAt": now - timedelta(days=4),
+            "updatedAt": now - timedelta(days=4),
         },
         {
             "reference": "IESA-TXN-2026-003",
-            "amount": 5000,
-            "status": "success",
-            "paymentId": payment_ids[1],  # Lab Coat
+            "paymentId": payment_ids[1],          # Lab Coat
+            "studentId": uid_tunde,
             "studentName": "Tunde Fashola",
+            "studentLevel": "400L",
             "studentEmail": "tunde.fashola@stu.ui.edu.ng",
+            "amount": 5000,
+            "amountKobo": 500000,
+            "status": "success",
             "channel": "ussd",
-            "createdAt": now - timedelta(days=3),
             "paidAt": now - timedelta(days=3),
+            "amountPaid": 5000,
+            "paystackData": {"accessCode": "seed_access_003", "authorizationUrl": "https://checkout.paystack.com/seed003"},
+            "createdAt": now - timedelta(days=3),
+            "updatedAt": now - timedelta(days=3),
         },
         {
             "reference": "IESA-TXN-2026-004",
-            "amount": 3000,
-            "status": "failed",
-            "paymentId": payment_ids[0],  # Department Dues
+            "paymentId": payment_ids[0],          # Department Dues — failed
+            "studentId": uid_amaka,
             "studentName": "Amaka Eze",
+            "studentLevel": "100L",
             "studentEmail": "amaka.eze@stu.ui.edu.ng",
+            "amount": 3000,
+            "amountKobo": 300000,
+            "status": "failed",
             "channel": "card",
-            "createdAt": now - timedelta(days=2),
             "paidAt": None,
+            "amountPaid": None,
+            "paystackData": {"accessCode": "seed_access_004", "authorizationUrl": "https://checkout.paystack.com/seed004"},
+            "createdAt": now - timedelta(days=2),
+            "updatedAt": now - timedelta(days=2),
         },
         {
             "reference": "IESA-TXN-2026-005",
-            "amount": 7500,
-            "status": "pending",
-            "paymentId": payment_ids[2],  # IESA Week Dinner
+            "paymentId": payment_ids[2],          # IESA Week Dinner — pending
+            "studentId": uid_ibrahim,
             "studentName": "Ibrahim Musa",
+            "studentLevel": "500L",
             "studentEmail": "ibrahim.musa@stu.ui.edu.ng",
-            "channel": "card",
-            "createdAt": now - timedelta(hours=5),
+            "amount": 7500,
+            "amountKobo": 750000,
+            "status": "pending",
+            "channel": None,
             "paidAt": None,
+            "amountPaid": None,
+            "paystackData": {"accessCode": "seed_access_005", "authorizationUrl": "https://checkout.paystack.com/seed005"},
+            "createdAt": now - timedelta(hours=5),
+            "updatedAt": now - timedelta(hours=5),
         },
     ]
     await db["paystackTransactions"].insert_many(txns)
-    print(f"   ✓ Seeded {len(txns)} sample Paystack transactions")
+    print(f"   ✓ Seeded {len(txns)} Paystack transactions")
 
-    # ── Sample Bank Transfers ─────────────────────────────────────────
+    # ── Bank Transfers ────────────────────────────────────────────────
+    # Matches document shape from bank_transfers.py: studentId (real UID), etc.
     transfers = [
         {
-            "studentId": "dummy-student-001",
+            "studentId": uid_emeka,
             "studentName": "Chukwuemeka Anozie",
             "studentEmail": "emeka.anozie@stu.ui.edu.ng",
-            "paymentId": payment_ids[0],  # Department Dues
+            "paymentId": payment_ids[0],          # Department Dues — approved
             "paymentTitle": "Department Dues",
             "sessionId": session_id,
             "bankAccountId": "dummy-acct",
@@ -452,18 +665,18 @@ async def seed_payments(db, session_id: str) -> None:
             "transferDate": (now - timedelta(days=5)).isoformat(),
             "narration": "Department dues 2025/2026",
             "receiptImageUrl": None,
-            "status": "pending",
-            "adminNote": None,
-            "reviewedBy": None,
-            "reviewedAt": None,
+            "status": "approved",
+            "adminNote": "Confirmed — teller slip verified.",
+            "reviewedBy": user_map.get(ADMIN_EMAIL, "admin"),
+            "reviewedAt": now - timedelta(days=4),
             "createdAt": now - timedelta(days=5),
-            "updatedAt": now - timedelta(days=5),
+            "updatedAt": now - timedelta(days=4),
         },
         {
-            "studentId": "dummy-student-002",
+            "studentId": uid_funmi,
             "studentName": "Funmilayo Adeyemi",
             "studentEmail": "funmi.adeyemi@stu.ui.edu.ng",
-            "paymentId": payment_ids[1],  # Lab Coat
+            "paymentId": payment_ids[1],          # Lab Coat — approved
             "paymentTitle": "Lab Coat",
             "sessionId": session_id,
             "bankAccountId": "dummy-acct",
@@ -475,20 +688,20 @@ async def seed_payments(db, session_id: str) -> None:
             "senderBank": "Zenith Bank",
             "transactionReference": "ZEN-20260219-00871",
             "transferDate": (now - timedelta(days=8)).isoformat(),
-            "narration": None,
+            "narration": "Lab coat payment",
             "receiptImageUrl": None,
             "status": "approved",
-            "adminNote": "Confirmed — bank statement verified.",
-            "reviewedBy": "admin",
+            "adminNote": "Bank statement verified.",
+            "reviewedBy": user_map.get(ADMIN_EMAIL, "admin"),
             "reviewedAt": now - timedelta(days=7),
             "createdAt": now - timedelta(days=8),
             "updatedAt": now - timedelta(days=7),
         },
         {
-            "studentId": "dummy-student-003",
+            "studentId": uid_yusuf,
             "studentName": "Yusuf Abdullahi",
             "studentEmail": "yusuf.abdullahi@stu.ui.edu.ng",
-            "paymentId": payment_ids[0],  # Department Dues
+            "paymentId": payment_ids[0],          # Department Dues — rejected
             "paymentTitle": "Department Dues",
             "sessionId": session_id,
             "bankAccountId": "dummy-acct",
@@ -503,15 +716,40 @@ async def seed_payments(db, session_id: str) -> None:
             "narration": "IESA dues — Yusuf",
             "receiptImageUrl": None,
             "status": "rejected",
-            "adminNote": "Amount transferred (₦2,500) does not match required amount.",
-            "reviewedBy": "admin",
+            "adminNote": "Amount transferred (₦2,500) does not match the required ₦3,000.",
+            "reviewedBy": user_map.get(ADMIN_EMAIL, "admin"),
             "reviewedAt": now - timedelta(days=11),
             "createdAt": now - timedelta(days=12),
             "updatedAt": now - timedelta(days=11),
         },
+        {
+            "studentId": uid_yusuf,
+            "studentName": "Yusuf Abdullahi",
+            "studentEmail": "yusuf.abdullahi@stu.ui.edu.ng",
+            "paymentId": payment_ids[0],          # Department Dues — pending retry
+            "paymentTitle": "Department Dues",
+            "sessionId": session_id,
+            "bankAccountId": "dummy-acct",
+            "bankAccountName": "IESA University of Ibadan",
+            "bankAccountBank": "GTBank",
+            "bankAccountNumber": "0123456789",
+            "amount": 3000,
+            "senderName": "Yusuf Abdullahi",
+            "senderBank": "First Bank",
+            "transactionReference": "FBN-20260226-01102",
+            "transferDate": (now - timedelta(days=1)).isoformat(),
+            "narration": "IESA dues retry — full amount",
+            "receiptImageUrl": None,
+            "status": "pending",
+            "adminNote": None,
+            "reviewedBy": None,
+            "reviewedAt": None,
+            "createdAt": now - timedelta(days=1),
+            "updatedAt": now - timedelta(days=1),
+        },
     ]
     await db["bankTransfers"].insert_many(transfers)
-    print(f"   ✓ Seeded {len(transfers)} sample bank transfers")
+    print(f"   ✓ Seeded {len(transfers)} bank transfers")
 
 
 async def seed_timetable(db, session_id: str) -> None:
@@ -867,9 +1105,11 @@ async def main():
         # Step 3: Seed data
         if args.all:
             print(f"\n📦 Seeding development data...")
+            # seed_users MUST run first — other seeders use the returned UID map
+            user_map = await seed_users(db, session_id)
             await seed_announcements(db, session_id)
             await seed_events(db, session_id)
-            await seed_payments(db, session_id)
+            await seed_payments(db, session_id, user_map)
             await seed_timetable(db, session_id)
             await seed_academic_calendar(db, session_id)
             await seed_iepod_societies(db)
@@ -884,11 +1124,18 @@ async def main():
             await promote_user_to_admin(db, args.admin)
 
         print(f"\n✅ Database setup complete!")
-        print(f"\nNext steps:")
-        print(f"  1. Register a new user at /register")
-        if not args.admin:
-            print(f"  2. Promote to admin: python scripts/clear_and_seed.py --admin <email>")
-        print(f"  3. Log in at /login")
+        if args.all:
+            print(f"\n{'─'*55}")
+            print(f"  Seed credentials")
+            print(f"{'─'*55}")
+            print(f"  Admin    → {ADMIN_EMAIL}")
+            print(f"             password: {ADMIN_PASSWORD}")
+            print(f"  Students → <name>@stu.ui.edu.ng")
+            print(f"             password: {STUDENT_PASSWORD}")
+            print(f"  Examples: adewale.okonkwo, ngozi.obi, tunde.fashola,")
+            print(f"            amaka.eze, ibrahim.musa, emeka.anozie,")
+            print(f"            funmi.adeyemi, yusuf.abdullahi, chike.okafor")
+            print(f"{'─'*55}")
 
     except Exception as e:
         print(f"\n❌ Error: {str(e)}")
