@@ -17,7 +17,7 @@ Example:
 import asyncio
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -76,8 +76,8 @@ async def verify_email(email: str) -> None:
         {
             "$set": {
                 "isEmailVerified": True,
-                "emailVerifiedAt": datetime.utcnow(),
-                "updatedAt": datetime.utcnow()
+                "emailVerifiedAt": datetime.now(timezone.utc),
+                "updatedAt": datetime.now(timezone.utc)
             }
         }
     )

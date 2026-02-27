@@ -23,7 +23,7 @@ Super Admin Powers:
 import asyncio
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 
 # Add parent directory to path
@@ -82,7 +82,7 @@ async def make_super_admin(email: str) -> None:
             {
                 "$set": {
                     "role": "admin",
-                    "updatedAt": datetime.utcnow()
+                    "updatedAt": datetime.now(timezone.utc)
                 }
             }
         )
@@ -121,9 +121,9 @@ async def make_super_admin(email: str) -> None:
         "isActive": True,
         "permissions": [],  # Empty - super_admin bypass check grants ALL
         "assignedBy": user_id,  # Self-assigned
-        "assignedAt": datetime.utcnow(),
-        "createdAt": datetime.utcnow(),
-        "updatedAt": datetime.utcnow()
+        "assignedAt": datetime.now(timezone.utc),
+        "createdAt": datetime.now(timezone.utc),
+        "updatedAt": datetime.now(timezone.utc)
     }
     
     result = await roles.insert_one(super_admin_role)

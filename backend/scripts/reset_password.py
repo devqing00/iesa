@@ -15,7 +15,7 @@ for administrative purposes or emergency recovery.
 import asyncio
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -76,7 +76,7 @@ async def reset_password(email: str, new_password: str) -> None:
         {
             "$set": {
                 "passwordHash": hashed_password,
-                "updatedAt": datetime.utcnow()
+                "updatedAt": datetime.now(timezone.utc)
             }
         }
     )
