@@ -7,6 +7,7 @@ import type { Role, Enrollment } from "@/lib/api";
 import { isInstitutionalEmail } from "@/lib/emailUtils";
 import Link from "next/link";
 import { toast } from "sonner";
+import { OnboardingModal } from "@/components/ui/OnboardingModal";
 
 /* ─── types ─── */
 interface UserProfile {
@@ -48,6 +49,7 @@ export default function ProfilePage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [resendingVerification, setResendingVerification] = useState(false);
+  const [showOnboardingFlow, setShowOnboardingFlow] = useState(false);
 
   /* ─── secondary email state ─── */
   const [secondaryEmailInput, setSecondaryEmailInput] = useState("");
@@ -155,6 +157,53 @@ export default function ProfilePage() {
     }
     setIsEditing(false);
     setError("");
+  };
+
+  /* ─── complete onboarding from profile page ─── */
+  const handleOnboardingComplete = async () => {
+    setShowOnboardingFlow(false);
+    if (!profileData?.admissionYear) {
+      toast.error("Admission year missing — please edit your profile first.");
+      setIsEditing(true);
+      return;
+    }
+    if (!profileData.matricNumber) {
+      toast.error("Matric number missing — please edit your profile first.");
+      setIsEditing(true);
+      return;
+    }
+    if (!profileData.phone) {
+      toast.error("Phone number missing — please edit your profile first.");
+      setIsEditing(true);
+      return;
+    }
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl("/api/v1/students/complete-registration"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: profileData.firstName,
+          lastName: profileData.lastName,
+          matricNumber: profileData.matricNumber,
+          phone: profileData.phone,
+          level: profileData.currentLevel || "100L",
+          admissionYear: profileData.admissionYear,
+        }),
+      });
+      const responseData = await res.json();
+      if (res.ok) {
+        await refetchProfile();
+        toast.success("Onboarding complete! Welcome to IESA.");
+      } else if (res.status === 409) {
+        await refetchProfile();
+      } else {
+        toast.error(responseData.detail || "Could not complete onboarding. Please check your profile details.");
+        setIsEditing(true);
+      }
+    } catch {
+      toast.error("Failed to complete onboarding. Please try again.");
+    }
   };
 
   /* ─── refetch profile helper ─── */
@@ -380,6 +429,13 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-ghost p-4 sm:p-6 lg:p-8 pb-24 md:pb-8 overflow-x-hidden relative">
+      {/* ── onboarding modal (portal) ── */}
+      {showOnboardingFlow && (
+        <OnboardingModal
+          onComplete={handleOnboardingComplete}
+          onSkip={() => setShowOnboardingFlow(false)}
+        />
+      )}
       {/* ── diamond sparkles ── */}
       {[
         "top-12 left-[7%] w-5 h-5 text-coral/15",
@@ -983,6 +1039,34 @@ export default function ProfilePage() {
                   {profileData.hasCompletedOnboarding ? "Done" : "Pending"}
                 </span>
               </div>
+
+              {/* onboarding CTA — only shown when pending */}
+              {!profileData.hasCompletedOnboarding && (
+                <div className="space-y-2">
+                  {(!profileData.matricNumber || !profileData.phone || !profileData.admissionYear) ? (
+                    <div className="p-3 bg-coral-light border-[2px] border-coral/30 rounded-xl">
+                      <p className="text-[11px] font-display font-bold text-navy">Complete your profile first</p>
+                      <p className="text-[10px] text-navy/60 mt-0.5 leading-relaxed">Add your matric number, phone number, and admission year, then return here to finish onboarding.</p>
+                      <button
+                        onClick={() => { setIsEditing(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                        className="mt-2 text-[11px] font-display font-bold text-coral hover:underline"
+                      >
+                        Edit Profile →
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowOnboardingFlow(true)}
+                      className="w-full py-2.5 bg-lime border-[2px] border-navy press-2 press-navy rounded-xl font-display font-bold text-xs text-navy flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M5 13l4 4L19 7" />
+                      </svg>
+                      Complete Onboarding
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* quick links */}

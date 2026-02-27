@@ -747,11 +747,18 @@ async def resend_verification(request: Request, user: dict = Depends(get_current
         frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
         verification_token, _ = create_verification_token(user_id, email)
         verification_url = f"{frontend_url}/verify-email?token={verification_token}"
-        await send_verification_email(
+        email_sent = await send_verification_email(
             to=email,
             name=name,
             verification_url=verification_url
         )
+        if not email_sent:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to send verification email. Please try again later."
+            )
+    except HTTPException:
+        raise
     except Exception as e:
         import logging
         logging.error(f"Failed to resend verification email: {e}")

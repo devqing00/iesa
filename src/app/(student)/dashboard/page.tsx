@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { getTimeGreeting } from "@/lib/greeting";
@@ -48,26 +48,34 @@ export default function StudentDashboardPage() {
     [data],
   );
 
-  // Initialise from localStorage to avoid flash-of-banner on dismissed users.
-  // Wrapped in try/catch for SSR safety even though this is "use client".
-  const [onboardingDismissed, setOnboardingDismissed] = useState<boolean>(() => {
-    try {
-      return typeof window !== "undefined" &&
-        localStorage.getItem("iesa_onboarding_dismissed") === "1";
-    } catch {
-      return false;
-    }
-  });
+  // ── Onboarding localStorage keys scoped to the logged-in user so that
+  //    other users / dev testing on the same browser never prevent the
+  //    modal from appearing for a freshly-registered account.
+  const uidKey = user?.id ?? "anon";
+  const modalSeenKey = `iesa_onboarding_seen_${uidKey}`;
+  const bannerDismissedKey = `iesa_onboarding_dismissed_${uidKey}`;
 
-  // Onboarding modal: show once per browser unless completed or explicitly skipped
-  const [showOnboardingModal, setShowOnboardingModal] = useState<boolean>(() => {
+  // Banner dismissed: start as false, read from localStorage after we have uid
+  const [onboardingDismissed, setOnboardingDismissed] = useState<boolean>(false);
+
+  // Modal: start as false, then enable once we confirm it hasn't been seen
+  // for THIS user. Starting as false avoids a brief flash if the user already
+  // dismissed it in a previous session.
+  const [showOnboardingModal, setShowOnboardingModal] = useState<boolean>(false);
+
+  // Sync both flags from user-keyed localStorage once uid is known.
+  useEffect(() => {
+    if (!user?.id) return;
     try {
-      return typeof window !== "undefined" &&
-        localStorage.getItem("iesa_onboarding_modal_seen") !== "1";
-    } catch {
-      return true;
-    }
-  });
+      if (localStorage.getItem(bannerDismissedKey) === "1") {
+        setOnboardingDismissed(true);
+      }
+      if (localStorage.getItem(modalSeenKey) !== "1") {
+        setShowOnboardingModal(true);
+      }
+    } catch { /* localStorage unavailable */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Full-page shimmer skeleton while initial data loads (after all hooks)
   if (loading && !data) return <StudentDashboardSkeleton />;
@@ -160,17 +168,17 @@ export default function StudentDashboardPage() {
 
   const dismissOnboarding = () => {
     setOnboardingDismissed(true);
-    try { localStorage.setItem("iesa_onboarding_dismissed", "1"); } catch { /* ignore */ }
+    try { localStorage.setItem(bannerDismissedKey, "1"); } catch { /* ignore */ }
   };
 
   const handleOnboardingSkip = () => {
     setShowOnboardingModal(false);
-    try { localStorage.setItem("iesa_onboarding_modal_seen", "1"); } catch { /* ignore */ }
+    try { localStorage.setItem(modalSeenKey, "1"); } catch { /* ignore */ }
   };
 
   const handleOnboardingComplete = async () => {
     setShowOnboardingModal(false);
-    try { localStorage.setItem("iesa_onboarding_modal_seen", "1"); } catch { /* ignore */ }
+    try { localStorage.setItem(modalSeenKey, "1"); } catch { /* ignore */ }
     // Mark onboarding complete on the backend so the modal never shows again
     try {
       const token = await getAccessToken();
