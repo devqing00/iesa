@@ -179,38 +179,57 @@ export default function StudentDashboardPage() {
   const handleOnboardingComplete = async () => {
     setShowOnboardingModal(false);
     try { localStorage.setItem(modalSeenKey, "1"); } catch { /* ignore */ }
-    // Mark onboarding complete on the backend so the modal never shows again
+
+    // Mark onboarding complete on the backend so the banner / profile badge update too.
+    // Only attempt if we have the minimum required fields; if anything is missing the
+    // user will still be prompted on the profile page (which gives richer error messages).
+    const admissionYear = userProfile?.admissionYear;
+    const matricNumber  = userProfile?.matricNumber || "";
+    const phone         = userProfile?.phone        || "";
+
+    if (!admissionYear || !matricNumber || !phone) {
+      // Profile is incomplete — skip the backend call. The profile page will guide
+      // the user through completing their details when they visit it.
+      return;
+    }
+
     try {
       const token = await getAccessToken();
-      const admissionYear = userProfile?.admissionYear;
-      if (admissionYear) {
-        // Recalculate level from admissionYear + active session (prevents stale/wrong stored level)
-        const activeSession = data?.activeSession;
-        const currentSecondYear = activeSession ? parseInt(activeSession.split("/")[1]) : null;
-        const storedLevel = (userProfile?.currentLevel || userProfile?.level || "").toString();
-        const level = currentSecondYear
-          ? `${Math.max(100, Math.min(500, (currentSecondYear - admissionYear) * 100 + 100))}L`
-          : storedLevel;
 
-        await fetch(getApiUrl("/api/v1/students/complete-registration"), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            firstName: userProfile?.firstName || "",
-            lastName: userProfile?.lastName || "",
-            matricNumber: userProfile?.matricNumber || "",
-            phone: userProfile?.phone || undefined,
-            level,
-            admissionYear,
-          }),
-        });
+      // Recalculate level from admissionYear + active session (prevents stale/wrong level).
+      // Fall back to stored level, then to a safe default so the validator never receives "".
+      const activeSession     = data?.activeSession;
+      const currentSecondYear = activeSession ? parseInt(activeSession.split("/")[1]) : null;
+      const storedLevel       = (userProfile?.currentLevel || userProfile?.level || "").toString();
+      const level             = currentSecondYear
+        ? `${Math.max(100, Math.min(500, (currentSecondYear - admissionYear) * 100 + 100))}L`
+        : storedLevel || "100L";
+
+      const res = await fetch(getApiUrl("/api/v1/students/complete-registration"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          firstName:    userProfile?.firstName || "",
+          lastName:     userProfile?.lastName  || "",
+          matricNumber,
+          phone,
+          level,
+          admissionYear,
+        }),
+      });
+
+      // 409 = already completed (e.g. double-call) — treat as success.
+      // Any other non-ok status means the update failed; skip refreshProfile so
+      // hasCompletedOnboarding stays consistent with the actual DB state.
+      if (res.ok || res.status === 409) {
         await refreshProfile();
       }
     } catch {
-      // Silently ignore — localStorage still prevents the modal re-appearing locally
+      // Network error — localStorage still prevents the modal re-appearing locally,
+      // but hasCompletedOnboarding stays false until the user completes via profile page.
     }
   };
 

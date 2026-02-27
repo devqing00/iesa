@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -24,6 +24,7 @@ export default function RegisterPage() {
   const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false); // synchronous guard against double-submission
   const [currentSecondYear, setCurrentSecondYear] = useState<number | null>(null);
   const [sessionName, setSessionName] = useState("");
   const [apiSessionNames, setApiSessionNames] = useState<string[]>([]);
@@ -127,7 +128,9 @@ export default function RegisterPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current) return; // synchronous guard — state updates are async
     if (!validateForm()) return;
+    submittingRef.current = true;
     setIsSubmitting(true);
     try {
       await signUpWithEmail(email, password, {
@@ -145,6 +148,7 @@ export default function RegisterPage() {
       setError(msg);
       toast.error("Registration failed", { description: msg });
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };
