@@ -87,6 +87,18 @@ function PaymentsContent() {
   // Prevents double-fetch when verifyPayment clears the URL via router.replace
   const skipFetch = useRef(false);
 
+  /* ─── Reset on bfcache restore (user pressed browser back from Paystack) ─── */
+  useEffect(() => {
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        // Page restored from bfcache — clear stale processing state
+        setProcessingId(null);
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
   /* ─── Data Fetching ─── */
   useEffect(() => {
     if (!user) return; // wait for auth to initialise after full-page redirect
@@ -222,9 +234,13 @@ function PaymentsContent() {
       skipFetch.current = true;
       router.replace("/dashboard/payments");
       setVerifying(false);
-      // Refresh data regardless of outcome
+      setProcessingId(null);
+      // Refresh ALL data regardless of outcome (page re-mounts fresh after redirect)
       fetchPayments();
       fetchTransactions();
+      fetchBankAccounts();
+      fetchMyTransfers();
+      fetchPlatformSettings();
     }
   };
 

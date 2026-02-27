@@ -314,7 +314,7 @@ async def seed_events(db, session_id: str) -> None:
 
 
 async def seed_payments(db, session_id: str) -> None:
-    """Seed sample payment items."""
+    """Seed sample payment items and linked Paystack transactions / bank transfers."""
     now = datetime.now(timezone.utc)
     payments = [
         {
@@ -336,14 +336,182 @@ async def seed_payments(db, session_id: str) -> None:
             "mandatory": False,
             "deadline": now + timedelta(days=45),
             "description": "Official IESA lab coat for practicals and industrial visits.",
-            "category": "merchandise",
+            "category": "other",
             "paidBy": [],
             "createdAt": now - timedelta(days=8),
             "updatedAt": now - timedelta(days=8),
         },
+        {
+            "title": "IESA Week Dinner",
+            "amount": 7500,
+            "sessionId": session_id,
+            "mandatory": False,
+            "deadline": now + timedelta(days=20),
+            "description": "Gala dinner ticket for the annual IESA week celebration.",
+            "category": "event",
+            "paidBy": [],
+            "createdAt": now - timedelta(days=5),
+            "updatedAt": now - timedelta(days=5),
+        },
+        {
+            "title": "Excursion Fee",
+            "amount": 15000,
+            "sessionId": session_id,
+            "mandatory": False,
+            "deadline": now - timedelta(days=7),
+            "description": "Industrial excursion to Dangote Refinery — now overdue.",
+            "category": "other",
+            "paidBy": [],
+            "createdAt": now - timedelta(days=30),
+            "updatedAt": now - timedelta(days=30),
+        },
     ]
-    await db["payments"].insert_many(payments)
-    print(f"   ✓ Seeded {len(payments)} payment items")
+    result = await db["payments"].insert_many(payments)
+    payment_ids = [str(pid) for pid in result.inserted_ids]
+    print(f"   ✓ Seeded {len(payments)} payment dues")
+
+    # ── Sample Paystack Transactions ──────────────────────────────────
+    # Uses real payment IDs so the admin enrichment (category/title) works.
+    txns = [
+        {
+            "reference": "IESA-TXN-2026-001",
+            "amount": 3000,
+            "status": "success",
+            "paymentId": payment_ids[0],  # Department Dues
+            "studentName": "Adewale Okonkwo",
+            "studentEmail": "adewale.okonkwo@stu.ui.edu.ng",
+            "channel": "card",
+            "createdAt": now - timedelta(days=6),
+            "paidAt": now - timedelta(days=6),
+        },
+        {
+            "reference": "IESA-TXN-2026-002",
+            "amount": 3000,
+            "status": "success",
+            "paymentId": payment_ids[0],  # Department Dues
+            "studentName": "Ngozi Obi",
+            "studentEmail": "ngozi.obi@stu.ui.edu.ng",
+            "channel": "bank",
+            "createdAt": now - timedelta(days=4),
+            "paidAt": now - timedelta(days=4),
+        },
+        {
+            "reference": "IESA-TXN-2026-003",
+            "amount": 5000,
+            "status": "success",
+            "paymentId": payment_ids[1],  # Lab Coat
+            "studentName": "Tunde Fashola",
+            "studentEmail": "tunde.fashola@stu.ui.edu.ng",
+            "channel": "ussd",
+            "createdAt": now - timedelta(days=3),
+            "paidAt": now - timedelta(days=3),
+        },
+        {
+            "reference": "IESA-TXN-2026-004",
+            "amount": 3000,
+            "status": "failed",
+            "paymentId": payment_ids[0],  # Department Dues
+            "studentName": "Amaka Eze",
+            "studentEmail": "amaka.eze@stu.ui.edu.ng",
+            "channel": "card",
+            "createdAt": now - timedelta(days=2),
+            "paidAt": None,
+        },
+        {
+            "reference": "IESA-TXN-2026-005",
+            "amount": 7500,
+            "status": "pending",
+            "paymentId": payment_ids[2],  # IESA Week Dinner
+            "studentName": "Ibrahim Musa",
+            "studentEmail": "ibrahim.musa@stu.ui.edu.ng",
+            "channel": "card",
+            "createdAt": now - timedelta(hours=5),
+            "paidAt": None,
+        },
+    ]
+    await db["paystackTransactions"].insert_many(txns)
+    print(f"   ✓ Seeded {len(txns)} sample Paystack transactions")
+
+    # ── Sample Bank Transfers ─────────────────────────────────────────
+    transfers = [
+        {
+            "studentId": "dummy-student-001",
+            "studentName": "Chukwuemeka Anozie",
+            "studentEmail": "emeka.anozie@stu.ui.edu.ng",
+            "paymentId": payment_ids[0],  # Department Dues
+            "paymentTitle": "Department Dues",
+            "sessionId": session_id,
+            "bankAccountId": "dummy-acct",
+            "bankAccountName": "IESA University of Ibadan",
+            "bankAccountBank": "GTBank",
+            "bankAccountNumber": "0123456789",
+            "amount": 3000,
+            "senderName": "Chukwuemeka Anozie",
+            "senderBank": "Access Bank",
+            "transactionReference": "GT-20260221-00312",
+            "transferDate": (now - timedelta(days=5)).isoformat(),
+            "narration": "Department dues 2025/2026",
+            "receiptImageUrl": None,
+            "status": "pending",
+            "adminNote": None,
+            "reviewedBy": None,
+            "reviewedAt": None,
+            "createdAt": now - timedelta(days=5),
+            "updatedAt": now - timedelta(days=5),
+        },
+        {
+            "studentId": "dummy-student-002",
+            "studentName": "Funmilayo Adeyemi",
+            "studentEmail": "funmi.adeyemi@stu.ui.edu.ng",
+            "paymentId": payment_ids[1],  # Lab Coat
+            "paymentTitle": "Lab Coat",
+            "sessionId": session_id,
+            "bankAccountId": "dummy-acct",
+            "bankAccountName": "IESA University of Ibadan",
+            "bankAccountBank": "GTBank",
+            "bankAccountNumber": "0123456789",
+            "amount": 5000,
+            "senderName": "Funmilayo Adeyemi",
+            "senderBank": "Zenith Bank",
+            "transactionReference": "ZEN-20260219-00871",
+            "transferDate": (now - timedelta(days=8)).isoformat(),
+            "narration": None,
+            "receiptImageUrl": None,
+            "status": "approved",
+            "adminNote": "Confirmed — bank statement verified.",
+            "reviewedBy": "admin",
+            "reviewedAt": now - timedelta(days=7),
+            "createdAt": now - timedelta(days=8),
+            "updatedAt": now - timedelta(days=7),
+        },
+        {
+            "studentId": "dummy-student-003",
+            "studentName": "Yusuf Abdullahi",
+            "studentEmail": "yusuf.abdullahi@stu.ui.edu.ng",
+            "paymentId": payment_ids[0],  # Department Dues
+            "paymentTitle": "Department Dues",
+            "sessionId": session_id,
+            "bankAccountId": "dummy-acct",
+            "bankAccountName": "IESA University of Ibadan",
+            "bankAccountBank": "GTBank",
+            "bankAccountNumber": "0123456789",
+            "amount": 3000,
+            "senderName": "Yusuf Abdullahi",
+            "senderBank": "First Bank",
+            "transactionReference": "FBN-20260215-00554",
+            "transferDate": (now - timedelta(days=12)).isoformat(),
+            "narration": "IESA dues — Yusuf",
+            "receiptImageUrl": None,
+            "status": "rejected",
+            "adminNote": "Amount transferred (₦2,500) does not match required amount.",
+            "reviewedBy": "admin",
+            "reviewedAt": now - timedelta(days=11),
+            "createdAt": now - timedelta(days=12),
+            "updatedAt": now - timedelta(days=11),
+        },
+    ]
+    await db["bankTransfers"].insert_many(transfers)
+    print(f"   ✓ Seeded {len(transfers)} sample bank transfers")
 
 
 async def seed_timetable(db, session_id: str) -> None:

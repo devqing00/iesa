@@ -300,8 +300,11 @@ Bold, vibrant, multi-color design inspired by modern card-based editorial layout
 ### Backend
 - **Framework:** FastAPI async
 - **Auth:** `verify_token` (JWT payload only) vs `get_current_user` (full user doc from DB)
+- **Auth hashing:** Argon2id via `run_in_executor` (async-safe, no thread blocking)
 - **Database:** MongoDB (Motor async driver) + Pydantic V2
-- **Permissions:** `require_permission("scope:action")` dependency in `app/core/permissions.py`
+- **Permissions:** `require_permission("scope:action")` dependency in `app/core/permissions.py` — cached in-memory with TTL
+- **DB Indexes:** Compound indexes on hot collections (paystackTransactions, bankTransfers, payments) — created at startup via `init_db()`
+- **Blocking I/O:** Groq SDK and Cloudinary calls wrapped in `run_in_executor` — never block the event loop
 
 ### Key Files
 - `src/app/globals.css` — Design tokens, utility classes, press system
@@ -368,6 +371,83 @@ Separate initial loading from subsequent data fetches:
 - **Permission-gated endpoints:** `user: dict = Depends(require_permission("scope:action"))`
 - **JWT-only endpoints (avoid):** `verify_token` returns only JWT payload — no permissions, no profile data
 - **WebSocket auth:** Use query param `?token=...` since browsers can't set WS headers
+
+---
+
+## Performance Patterns
+
+### Backend Performance
+- **Async hashing:** Use `run_in_executor` for Argon2id `hash()` and `verify()` — keeps event loop free
+- **Permissions caching:** In-memory LRU with 5-minute TTL in `app/core/permissions.py` — avoids DB hit per request
+- **User projection:** Pass `{"projection": {...}}` to MongoDB queries to fetch only needed fields
+- **Fire-and-forget writes:** Non-critical updates (e.g. `lastLogin`) use `asyncio.create_task()` — don't block response
+- **CORS max_age:** Set to `86400` (24h) so preflight requests cache in browser
+- **N+1 prevention:** Use batch `$in` queries instead of per-item DB lookups (e.g. enriching admin transactions)
+- **Parallel context:** Use `asyncio.gather()` when fetching multiple independent data sources (e.g. AI context)
+- **Blocking SDKs:** Groq and Cloudinary calls must use `loop.run_in_executor(None, fn)` — they are sync libraries
+
+### Frontend Performance
+- **Context memoization:** All context providers (`AuthContext`, `SessionContext`, `PermissionsContext`) must `useMemo` their value objects to prevent re-renders
+- **Dynamic imports:** Use `next/dynamic` with `ssr: false` for heavy dashboard components (Timetable, StudyGroups, GrowthHub, Admin pages)
+- **Server Components:** Public pages (home, about, contact, history, events, blog) should be Server Components where possible — avoid `"use client"` at the top level
+- **Image optimization:** Use `next/image` with `priority` on hero images and proper `sizes` attribute for responsive images
+- **Bundle splitting:** Keep client components small; extract sub-components into separate files to enable tree-shaking
+- **SSE revalidation:** `useSSE` hook listens for server events and calls `mutate()` to revalidate specific SWR keys — avoids polling
+
+---
+
+## Payment System Architecture
+
+### Overview
+Three payment-related backend routers:
+- `app/routers/payments.py` — CRUD for payment dues (amount, deadline, category, session)
+- `app/routers/paystack.py` — Paystack integration (initialize, verify, webhook, transactions)
+- `app/routers/bank_transfers.py` — Bank transfer submission/review workflow
+
+### Payment Flow (Paystack)
+1. Student clicks "Pay" → frontend calls `POST /api/v1/paystack/initialize` with `paymentId`
+2. Backend creates Paystack transaction, stores in `paystackTransactions` collection
+3. Backend returns `authorization_url` → frontend does `window.location.href = url` (full-page redirect)
+4. After payment, Paystack redirects back with `?reference=XXX` in the callback URL
+5. Frontend detects `reference` param → calls `POST /api/v1/paystack/verify/{reference}`
+6. Backend verifies with Paystack API, adds student UID to payment's `paidBy` array
+7. Frontend refreshes **all** payment data (payments, transactions, bankAccounts, transfers, settings)
+
+### Payment Flow (Bank Transfer)
+1. Student fills sender details + receipt image → `POST /api/v1/bank-transfers/`
+2. Transfer stored with `status: "pending"` in `bankTransfers` collection
+3. Admin reviews in Bank Transfers tab → `PATCH /api/v1/bank-transfers/{id}/review`
+4. On approval: backend adds student UID to payment's `paidBy` array
+
+### Key Frontend Files
+- `src/lib/api/payments.ts` — Payment API functions + types
+- `src/lib/api/bank-transfers.ts` — Bank transfer API + `BankTransfer`/`BankAccount` types + `TRANSFER_STATUS_STYLES`
+- `src/app/(student)/dashboard/payments/page.tsx` — Student payment page (Paystack + bank transfer)
+- `src/app/(admin)/admin/payments/page.tsx` — Admin payment management (4 tabs: Dues, Transactions, Bank Accounts, Transfers)
+- `src/app/(student)/dashboard/events/page.tsx` — Event payment (Paystack for paid events)
+
+### BFCache Handling
+When students return from Paystack via browser back (cancel), the page restores from bfcache with stale state. Use `pageshow` event to reset payment-in-progress state:
+```tsx
+useEffect(() => {
+  const handler = (e: PageTransitionEvent) => {
+    if (e.persisted) setProcessingId(null);
+  };
+  window.addEventListener("pageshow", handler);
+  return () => window.removeEventListener("pageshow", handler);
+}, []);
+```
+
+### Admin Transactions Enrichment
+The `GET /api/v1/paystack/transactions` endpoint enriches data for admin users:
+- Batch-fetches payment docs to add `paymentCategory` and `paymentTitle`
+- Parses `studentName`/`studentEmail` into structured `user` object `{firstName, lastName, email}`
+- Student view returns raw documents (no enrichment needed)
+
+### Paid Students Endpoint
+`GET /api/v1/payments/{payment_id}/paid-students` — requires `payment:view_all` permission:
+- Batch-fetches users (from `paidBy` array), Paystack transactions, and bank transfers
+- Returns array with `{uid, firstName, lastName, email, matricNumber, level, paidAt, method, reference}`
 
 ---
 

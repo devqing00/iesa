@@ -122,6 +122,18 @@ function EventsPage() {
   // Confirmation modal for event bank transfer
   const [showConfirmTransfer, setShowConfirmTransfer] = useState(false);
 
+  /* ─── Reset on bfcache restore (user pressed browser back from Paystack) ─── */
+  useEffect(() => {
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        // Page restored from bfcache — clear stale processing state
+        setPaying(null);
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
   // Download receipt PDF
   const downloadReceipt = async (reference: string) => {
     try {
@@ -483,9 +495,11 @@ function EventsPage() {
       router.replace("/dashboard/events");
       setVerifying(false);
       setPaying(null);
-      // Refresh data regardless of outcome
+      // Refresh ALL data regardless of outcome (page re-mounts fresh after redirect)
       await fetchEvents();
       await fetchRegistrations();
+      fetchBankAccounts();
+      fetchPlatformSettings();
     }
   };
 

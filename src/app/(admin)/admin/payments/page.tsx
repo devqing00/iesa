@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import Image from "next/image";
 import { mutate } from "swr";
 import { getApiUrl } from "@/lib/api";
 import {
@@ -52,13 +53,34 @@ interface Transaction {
   amount: number;
   status: string;
   createdAt: string;
+  paidAt?: string;
+  channel?: string;
   paymentCategory: string;
+  paymentTitle?: string;
+  studentName?: string;
+  studentEmail?: string;
+  studentLevel?: string;
   user?: {
     firstName: string;
     lastName: string;
     email: string;
   };
 }
+
+interface PaidStudent {
+  uid: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  matricNumber: string;
+  level: string;
+  paidAt: string | null;
+  method: string;
+  reference: string;
+}
+
+type SortKey = "date" | "name" | "amount";
+type SortDir = "asc" | "desc";
 
 /* ─── Helpers ────────────────────────────── */
 
@@ -127,6 +149,21 @@ function AdminPaymentsPage() {
   // ── Platform Settings State ──
   const [onlinePaymentEnabled, setOnlinePaymentEnabled] = useState(true);
   const [togglingPayment, setTogglingPayment] = useState(false);
+
+  // ── Detail / Sort State ──
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [selectedTransfer, setSelectedTransfer] = useState<BankTransfer | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [paidStudents, setPaidStudents] = useState<PaidStudent[]>([]);
+  const [paidStudentsLoading, setPaidStudentsLoading] = useState(false);
+  const [editingPayment, setEditingPayment] = useState(false);
+  const [editForm, setEditForm] = useState({ title: "", amount: "", deadline: "", description: "", mandatory: true });
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [txnSortKey, setTxnSortKey] = useState<SortKey>("date");
+  const [txnSortDir, setTxnSortDir] = useState<SortDir>("desc");
+  const [btSortKey, setBtSortKey] = useState<SortKey>("date");
+  const [btSortDir, setBtSortDir] = useState<SortDir>("desc");
 
   useEffect(() => {
     fetchSessions();
@@ -407,6 +444,71 @@ function AdminPaymentsPage() {
     }
   };
 
+  /* ─── Payment Due Detail ──────────────────────────── */
+
+  const openPaymentDetail = async (payment: Payment) => {
+    setSelectedPayment(payment);
+    setEditingPayment(false);
+    setEditForm({
+      title: payment.title || "",
+      amount: String(payment.amount),
+      deadline: payment.deadline ? new Date(payment.deadline).toISOString().slice(0, 16) : "",
+      description: payment.description || "",
+      mandatory: payment.mandatory ?? true,
+    });
+    // Fetch paid students
+    setPaidStudentsLoading(true);
+    setPaidStudents([]);
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      const res = await fetch(getApiUrl(`/api/v1/payments/${payment._id}/paid-students`), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setPaidStudents(await res.json());
+      }
+    } catch {
+      toast.error("Failed to load paid students");
+    } finally {
+      setPaidStudentsLoading(false);
+    }
+  };
+
+  const handleEditPayment = async () => {
+    if (!selectedPayment) return;
+    setEditSubmitting(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      const body: Record<string, unknown> = {};
+      if (editForm.title) body.title = editForm.title;
+      if (editForm.amount) body.amount = parseFloat(editForm.amount);
+      if (editForm.deadline) body.deadline = new Date(editForm.deadline).toISOString();
+      body.description = editForm.description || null;
+      body.mandatory = editForm.mandatory;
+      const res = await fetch(getApiUrl(`/api/v1/payments/${selectedPayment._id}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Failed to update");
+      }
+      toast.success("Payment updated");
+      setEditingPayment(false);
+      fetchPayments();
+      // Refresh the selected payment data
+      const updated = await res.json();
+      setSelectedPayment((prev) => prev ? { ...prev, ...updated } : prev);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update payment");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
   /* ─── Filtering Logic ──────────────────────────── */
 
   const filteredPayments = payments.filter((p) => {
@@ -423,6 +525,37 @@ function AdminPaymentsPage() {
     return statusFilter === "all" || t.status === statusFilter;
   });
 
+  // ── Sort helpers ──
+  const sortCompare = useCallback((a: string | number | undefined | null, b: string | number | undefined | null, dir: SortDir) => {
+    const va = a ?? "";
+    const vb = b ?? "";
+    if (va < vb) return dir === "asc" ? -1 : 1;
+    if (va > vb) return dir === "asc" ? 1 : -1;
+    return 0;
+  }, []);
+
+  const sortedTransactions = useMemo(() => {
+    const list = [...filteredTransactions];
+    list.sort((a, b) => {
+      if (txnSortKey === "date") return sortCompare(a.createdAt, b.createdAt, txnSortDir);
+      if (txnSortKey === "name") return sortCompare(a.user ? `${a.user.firstName} ${a.user.lastName}` : a.studentName, b.user ? `${b.user.firstName} ${b.user.lastName}` : b.studentName, txnSortDir);
+      if (txnSortKey === "amount") return sortCompare(a.amount, b.amount, txnSortDir);
+      return 0;
+    });
+    return list;
+  }, [filteredTransactions, txnSortKey, txnSortDir, sortCompare]);
+
+  const sortedBankTransfers = useMemo(() => {
+    const list = [...bankTransfers];
+    list.sort((a, b) => {
+      if (btSortKey === "date") return sortCompare(a.createdAt, b.createdAt, btSortDir);
+      if (btSortKey === "name") return sortCompare(a.studentName, b.studentName, btSortDir);
+      if (btSortKey === "amount") return sortCompare(a.amount, b.amount, btSortDir);
+      return 0;
+    });
+    return list;
+  }, [bankTransfers, btSortKey, btSortDir, sortCompare]);
+
   // Reset pages when filters/tab change
   useEffect(() => { setPayPage(1); }, [categoryFilter, statusFilter]);
   useEffect(() => { setTxnPage(1); }, [statusFilter]);
@@ -430,10 +563,10 @@ function AdminPaymentsPage() {
 
   const payTotalPages = Math.ceil(filteredPayments.length / PAGE_SIZE);
   const paginatedPayments = filteredPayments.slice((payPage - 1) * PAGE_SIZE, payPage * PAGE_SIZE);
-  const txnTotalPages = Math.ceil(filteredTransactions.length / PAGE_SIZE);
-  const paginatedTransactions = filteredTransactions.slice((txnPage - 1) * PAGE_SIZE, txnPage * PAGE_SIZE);
-  const btTotalPages = Math.ceil(bankTransfers.length / PAGE_SIZE);
-  const paginatedBankTransfers = bankTransfers.slice((transferPage - 1) * PAGE_SIZE, transferPage * PAGE_SIZE);
+  const txnTotalPages = Math.ceil(sortedTransactions.length / PAGE_SIZE);
+  const paginatedTransactions = sortedTransactions.slice((txnPage - 1) * PAGE_SIZE, txnPage * PAGE_SIZE);
+  const btTotalPages = Math.ceil(sortedBankTransfers.length / PAGE_SIZE);
+  const paginatedBankTransfers = sortedBankTransfers.slice((transferPage - 1) * PAGE_SIZE, transferPage * PAGE_SIZE);
   const pendingTransferCount = bankTransfers.filter(t => t.status === "pending").length;
 
   /* ── Stats ──────────────────────── */
@@ -708,7 +841,7 @@ function AdminPaymentsPage() {
                     </tr>
                   ) : (
                     paginatedPayments.map((payment) => (
-                      <tr key={payment.id} className="border-b-[3px] border-navy/10 last:border-b-0 hover:bg-ghost transition-colors">
+                      <tr key={payment.id} className="border-b-[3px] border-navy/10 last:border-b-0 hover:bg-ghost transition-colors cursor-pointer" onClick={() => openPaymentDetail(payment)}>
                         <td className="p-4">
                           <div className="font-bold text-navy text-sm">{payment.title}</div>
                           {payment.description && (
@@ -762,7 +895,7 @@ function AdminPaymentsPage() {
                   ₦{totalTransactionAmount.toLocaleString()}
                 </p>
               </div>
-              <div className="flex gap-3 items-center">
+              <div className="flex flex-wrap gap-3 items-center">
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
@@ -774,6 +907,28 @@ function AdminPaymentsPage() {
                   <option value="pending">Pending</option>
                   <option value="failed">Failed</option>
                 </select>
+                <select
+                  value={txnSortKey}
+                  onChange={(e) => setTxnSortKey(e.target.value as SortKey)}
+                  aria-label="Sort transactions by"
+                  className="px-4 py-2.5 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
+                >
+                  <option value="date">Sort: Date</option>
+                  <option value="name">Sort: Name</option>
+                  <option value="amount">Sort: Amount</option>
+                </select>
+                <button
+                  onClick={() => setTxnSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+                  className="px-3 py-2.5 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm font-bold hover:bg-cloud transition-all flex items-center gap-1"
+                  title={txnSortDir === "asc" ? "Ascending" : "Descending"}
+                  aria-label={`Sort direction: ${txnSortDir}`}
+                >
+                  {txnSortDir === "asc" ? (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h5.25m5.25-.75L17.25 9m0 0L21 12.75M17.25 9v12" /></svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h9.75m4.5-4.5v12m0 0l-3.75-3.75M17.25 21L21 17.25" /></svg>
+                  )}
+                </button>
                 {statusFilter !== "all" && (
                   <button
                     onClick={() => setStatusFilter("all")}
@@ -850,7 +1005,7 @@ function AdminPaymentsPage() {
                     </tr>
                   ) : (
                     paginatedTransactions.map((transaction) => (
-                      <tr key={transaction.id} className="border-b-[3px] border-navy/10 last:border-b-0 hover:bg-ghost transition-colors">
+                      <tr key={transaction.id} className="border-b-[3px] border-navy/10 last:border-b-0 hover:bg-ghost transition-colors cursor-pointer" onClick={() => setSelectedTransaction(transaction)}>
                         <td className="p-4">
                           <span className="font-mono text-xs px-2.5 py-1 rounded-xl bg-cloud border-[2px] border-navy/20 text-navy">{transaction.reference}</span>
                         </td>
@@ -982,6 +1137,28 @@ function AdminPaymentsPage() {
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
             </select>
+            <select
+              value={btSortKey}
+              onChange={(e) => setBtSortKey(e.target.value as SortKey)}
+              aria-label="Sort transfers by"
+              className="px-4 py-2.5 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
+            >
+              <option value="date">Sort: Date</option>
+              <option value="name">Sort: Name</option>
+              <option value="amount">Sort: Amount</option>
+            </select>
+            <button
+              onClick={() => setBtSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+              className="px-3 py-2.5 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm font-bold hover:bg-cloud transition-all flex items-center gap-1"
+              title={btSortDir === "asc" ? "Ascending" : "Descending"}
+              aria-label={`Sort direction: ${btSortDir}`}
+            >
+              {btSortDir === "asc" ? (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h5.25m5.25-.75L17.25 9m0 0L21 12.75M17.25 9v12" /></svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h9.75m4.5-4.5v12m0 0l-3.75-3.75M17.25 21L21 17.25" /></svg>
+              )}
+            </button>
             {transferStatusFilter !== "all" && (
               <button
                 onClick={() => { setTransferStatusFilter("all"); setTransferPage(1); }}
@@ -1029,7 +1206,7 @@ function AdminPaymentsPage() {
                     paginatedBankTransfers.map((transfer) => {
                       const sCfg = TRANSFER_STATUS_STYLES[transfer.status];
                       return (
-                        <tr key={transfer._id} className="border-b-[3px] border-navy/10 last:border-b-0 hover:bg-ghost transition-colors">
+                        <tr key={transfer._id} className="border-b-[3px] border-navy/10 last:border-b-0 hover:bg-ghost transition-colors cursor-pointer" onClick={() => setSelectedTransfer(transfer)}>
                           <td className="p-4">
                             <div className="flex items-center gap-3">
                               <div className="w-8 h-8 rounded-xl bg-lavender-light flex items-center justify-center text-xs font-bold text-lavender shrink-0">
@@ -1051,9 +1228,9 @@ function AdminPaymentsPage() {
                             <div className="flex items-center gap-2">
                               <span className="font-mono text-xs px-2 py-1 rounded-lg bg-cloud border-[2px] border-navy/20 text-navy">{transfer.transactionReference}</span>
                               {transfer.receiptImageUrl && (
-                                <a href={transfer.receiptImageUrl} target="_blank" rel="noopener noreferrer" title="View receipt image">
-                                  <svg className="w-4 h-4 text-teal hover:text-teal/80 transition-colors" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
-                                </a>
+                                <button onClick={(e) => { e.stopPropagation(); setPreviewImage(transfer.receiptImageUrl!); }} title="View receipt image" className="hover:opacity-70 transition-opacity">
+                                  <svg className="w-4 h-4 text-teal" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+                                </button>
                               )}
                             </div>
                           </td>
@@ -1069,13 +1246,13 @@ function AdminPaymentsPage() {
                               <PermissionGate permission="bank_transfer:review">
                                 <div className="flex gap-1.5">
                                   <button
-                                    onClick={() => openReviewModal(transfer, "approved")}
+                                    onClick={(e) => { e.stopPropagation(); openReviewModal(transfer, "approved"); }}
                                     className="px-3 py-1.5 bg-teal-light border-[2px] border-teal rounded-xl text-[10px] font-bold uppercase tracking-wider text-teal hover:bg-teal hover:text-snow transition-colors"
                                   >
                                     Approve
                                   </button>
                                   <button
-                                    onClick={() => openReviewModal(transfer, "rejected")}
+                                    onClick={(e) => { e.stopPropagation(); openReviewModal(transfer, "rejected"); }}
                                     className="px-3 py-1.5 bg-coral-light border-[2px] border-coral rounded-xl text-[10px] font-bold uppercase tracking-wider text-coral hover:bg-coral hover:text-snow transition-colors"
                                   >
                                     Reject
@@ -1419,13 +1596,13 @@ function AdminPaymentsPage() {
               {reviewingTransfer.receiptImageUrl && (
                 <div className="pt-2 border-t-2 border-navy/10 mt-2">
                   <span className="text-xs text-navy/50 uppercase font-bold tracking-wider block mb-2">Receipt Image</span>
-                  <a href={reviewingTransfer.receiptImageUrl} target="_blank" rel="noopener noreferrer" className="block">
+                  <button onClick={() => setPreviewImage(reviewingTransfer.receiptImageUrl!)} className="block w-full">
                     <img
                       src={reviewingTransfer.receiptImageUrl}
                       alt="Transfer receipt"
                       className="w-full max-h-64 object-contain border-[3px] border-navy/10 rounded-xl bg-ghost cursor-pointer hover:border-navy/30 transition-colors"
                     />
-                  </a>
+                  </button>
                 </div>
               )}
             </div>
@@ -1465,6 +1642,436 @@ function AdminPaymentsPage() {
               >
                 {reviewSubmitting ? "Processing..." : reviewAction === "approved" ? "Confirm Approval" : "Confirm Rejection"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Transaction Detail Modal ── */}
+      {selectedTransaction && (
+        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setSelectedTransaction(null)}>
+          <div className="bg-snow border-[3px] border-navy rounded-3xl p-8 shadow-[10px_10px_0_0_#000] max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-display font-black text-2xl text-navy">Transaction Details</h3>
+              <button
+                onClick={() => setSelectedTransaction(null)}
+                className="w-8 h-8 rounded-xl bg-cloud hover:bg-navy/10 flex items-center justify-center transition-colors"
+                aria-label="Close modal"
+              >
+                <svg className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="bg-ghost border-[3px] border-navy/10 rounded-2xl p-5 space-y-3">
+              <div className="flex justify-between">
+                <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Reference</span>
+                <span className="text-sm font-mono font-bold text-navy">{selectedTransaction.reference}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Student</span>
+                <span className="text-sm font-bold text-navy">
+                  {selectedTransaction.user ? `${selectedTransaction.user.firstName} ${selectedTransaction.user.lastName}` : selectedTransaction.studentName || "N/A"}
+                </span>
+              </div>
+              {(selectedTransaction.user?.email || selectedTransaction.studentEmail) && (
+                <div className="flex justify-between">
+                  <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Email</span>
+                  <span className="text-sm text-navy">{selectedTransaction.user?.email || selectedTransaction.studentEmail}</span>
+                </div>
+              )}
+              {selectedTransaction.paymentTitle && (
+                <div className="flex justify-between">
+                  <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Payment</span>
+                  <span className="text-sm font-bold text-navy">{selectedTransaction.paymentTitle}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Category</span>
+                <span className="text-sm text-navy">{selectedTransaction.paymentCategory || "N/A"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Amount</span>
+                <span className="text-sm font-display font-black text-navy">₦{selectedTransaction.amount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Status</span>
+                <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${transactionStatusBadge(selectedTransaction.status)}`}>
+                  {selectedTransaction.status}
+                </span>
+              </div>
+              {selectedTransaction.channel && (
+                <div className="flex justify-between">
+                  <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Channel</span>
+                  <span className="text-sm text-navy capitalize">{selectedTransaction.channel}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Initiated</span>
+                <span className="text-sm text-navy">{new Date(selectedTransaction.createdAt).toLocaleString()}</span>
+              </div>
+              {selectedTransaction.paidAt && (
+                <div className="flex justify-between">
+                  <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Paid At</span>
+                  <span className="text-sm text-navy">{new Date(selectedTransaction.paidAt).toLocaleString()}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6">
+              <button
+                onClick={() => setSelectedTransaction(null)}
+                className="w-full px-6 py-3 bg-transparent border-[3px] border-navy rounded-2xl font-display font-black text-navy hover:bg-navy hover:text-snow transition-all"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Transfer Detail Modal ── */}
+      {selectedTransfer && (
+        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setSelectedTransfer(null)}>
+          <div className="bg-snow border-[3px] border-navy rounded-3xl p-8 shadow-[10px_10px_0_0_#000] max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-display font-black text-2xl text-navy">Transfer Details</h3>
+              <button
+                onClick={() => setSelectedTransfer(null)}
+                className="w-8 h-8 rounded-xl bg-cloud hover:bg-navy/10 flex items-center justify-center transition-colors"
+                aria-label="Close modal"
+              >
+                <svg className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="bg-ghost border-[3px] border-navy/10 rounded-2xl p-5 space-y-3">
+              <div className="flex justify-between">
+                <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Student</span>
+                <span className="text-sm font-bold text-navy">{selectedTransfer.studentName || "Unknown"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Email</span>
+                <span className="text-sm text-navy">{selectedTransfer.studentEmail}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Payment</span>
+                <span className="text-sm font-bold text-navy">{selectedTransfer.paymentTitle}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Amount</span>
+                <span className="text-sm font-display font-black text-navy">₦{selectedTransfer.amount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Reference</span>
+                <span className="text-sm font-mono text-navy">{selectedTransfer.transactionReference}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Sender</span>
+                <span className="text-sm text-navy">{selectedTransfer.senderName} ({selectedTransfer.senderBank})</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">To Account</span>
+                <span className="text-sm text-navy">{selectedTransfer.bankAccountBank} &middot; {selectedTransfer.bankAccountNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Transfer Date</span>
+                <span className="text-sm text-navy">{new Date(selectedTransfer.transferDate).toLocaleDateString()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Status</span>
+                {(() => { const sCfg = TRANSFER_STATUS_STYLES[selectedTransfer.status]; return (
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${sCfg.bg} ${sCfg.text}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${sCfg.dot}`} />
+                    {sCfg.label}
+                  </span>
+                ); })()}
+              </div>
+              {selectedTransfer.narration && (
+                <div className="flex justify-between">
+                  <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Narration</span>
+                  <span className="text-sm text-navy italic">{selectedTransfer.narration}</span>
+                </div>
+              )}
+              {selectedTransfer.adminNote && (
+                <div className="flex justify-between">
+                  <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Admin Note</span>
+                  <span className="text-sm text-navy">{selectedTransfer.adminNote}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Submitted</span>
+                <span className="text-sm text-navy">{new Date(selectedTransfer.createdAt).toLocaleString()}</span>
+              </div>
+              {selectedTransfer.reviewedAt && (
+                <div className="flex justify-between">
+                  <span className="text-xs text-navy/50 uppercase font-bold tracking-wider">Reviewed At</span>
+                  <span className="text-sm text-navy">{new Date(selectedTransfer.reviewedAt).toLocaleString()}</span>
+                </div>
+              )}
+              {selectedTransfer.receiptImageUrl && (
+                <div className="pt-2 border-t-2 border-navy/10 mt-2">
+                  <span className="text-xs text-navy/50 uppercase font-bold tracking-wider block mb-2">Receipt Image</span>
+                  <button onClick={() => setPreviewImage(selectedTransfer.receiptImageUrl!)} className="block w-full">
+                    <img
+                      src={selectedTransfer.receiptImageUrl}
+                      alt="Transfer receipt"
+                      className="w-full max-h-64 object-contain border-[3px] border-navy/10 rounded-xl bg-snow cursor-pointer hover:border-navy/30 transition-colors"
+                    />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              {selectedTransfer.status === "pending" && (
+                <PermissionGate permission="bank_transfer:review">
+                  <button
+                    onClick={() => { setSelectedTransfer(null); openReviewModal(selectedTransfer, "approved"); }}
+                    className="flex-1 px-6 py-3 bg-teal border-[3px] border-navy rounded-2xl font-display font-black text-snow press-3 press-navy transition-all"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => { setSelectedTransfer(null); openReviewModal(selectedTransfer, "rejected"); }}
+                    className="flex-1 px-6 py-3 bg-coral border-[3px] border-navy rounded-2xl font-display font-black text-snow press-3 press-navy transition-all"
+                  >
+                    Reject
+                  </button>
+                </PermissionGate>
+              )}
+              <button
+                onClick={() => setSelectedTransfer(null)}
+                className={`${selectedTransfer.status === "pending" ? "" : "w-full "}px-6 py-3 bg-transparent border-[3px] border-navy rounded-2xl font-display font-black text-navy hover:bg-navy hover:text-snow transition-all`}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Image Preview Modal ── */}
+      {previewImage && (
+        <div className="fixed inset-0 bg-navy/90 backdrop-blur-md flex items-center justify-center p-4 z-[60]" onClick={() => setPreviewImage(null)}>
+          <div className="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute -top-2 -right-2 z-10 w-10 h-10 bg-snow border-[3px] border-navy rounded-full flex items-center justify-center shadow-[3px_3px_0_0_#000] hover:bg-cloud transition-colors"
+              aria-label="Close preview"
+            >
+              <svg className="w-5 h-5 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <img
+              src={previewImage}
+              alt="Receipt preview"
+              className="max-w-full max-h-[80vh] object-contain rounded-2xl border-[4px] border-snow shadow-[10px_10px_0_0_#000]"
+            />
+            <a
+              href={previewImage}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 px-6 py-2.5 bg-snow border-[3px] border-navy rounded-2xl font-bold text-navy text-sm hover:bg-cloud transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+              Open in New Tab
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* ── Payment Due Detail Modal ── */}
+      {selectedPayment && (
+        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setSelectedPayment(null)}>
+          <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[10px_10px_0_0_#000] max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between p-8 pb-0">
+              <h3 className="font-display font-black text-2xl text-navy">Payment Due Details</h3>
+              <button
+                onClick={() => setSelectedPayment(null)}
+                className="w-8 h-8 rounded-xl bg-cloud hover:bg-navy/10 flex items-center justify-center transition-colors"
+                aria-label="Close modal"
+              >
+                <svg className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="p-8 space-y-6">
+              {/* Payment Info */}
+              {!editingPayment ? (
+                <div className="bg-ghost border-[3px] border-navy/10 rounded-2xl p-5 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-display font-black text-xl text-navy">{selectedPayment.title}</h4>
+                      {selectedPayment.description && (
+                        <p className="text-sm text-navy/60 mt-1">{selectedPayment.description}</p>
+                      )}
+                    </div>
+                    <PermissionGate permission="payment:create">
+                      <button
+                        onClick={() => setEditingPayment(true)}
+                        className="px-4 py-2 bg-sunny-light border-[2px] border-navy/20 rounded-xl text-xs font-bold text-navy hover:border-navy transition-colors flex items-center gap-1.5"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                        Edit
+                      </button>
+                    </PermissionGate>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div>
+                      <span className="text-[10px] text-navy/50 uppercase font-bold tracking-wider">Amount</span>
+                      <p className="font-display font-black text-lg text-navy">₦{selectedPayment.amount.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-navy/50 uppercase font-bold tracking-wider">Category</span>
+                      <p className="text-sm font-bold text-navy">{selectedPayment.category}</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-navy/50 uppercase font-bold tracking-wider">Deadline</span>
+                      <p className="text-sm text-navy">{selectedPayment.deadline ? new Date(selectedPayment.deadline).toLocaleString() : "None"}</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-navy/50 uppercase font-bold tracking-wider">Mandatory</span>
+                      <p className="text-sm text-navy">{selectedPayment.mandatory ? "Yes" : "No"}</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-navy/50 uppercase font-bold tracking-wider">Paid By</span>
+                      <p className="text-sm font-bold text-teal">{selectedPayment.paidBy?.length || 0} student(s)</p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-navy/50 uppercase font-bold tracking-wider">Created</span>
+                      <p className="text-sm text-navy">{selectedPayment.createdAt ? new Date(selectedPayment.createdAt).toLocaleDateString() : "N/A"}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Edit Form */
+                <div className="bg-sunny-light border-[3px] border-navy/10 rounded-2xl p-5 space-y-4">
+                  <h4 className="font-display font-black text-lg text-navy">Edit Payment</h4>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate mb-1">Title</label>
+                    <input
+                      type="text"
+                      value={editForm.title}
+                      onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                      aria-label="Payment title"
+                      className="w-full px-4 py-2.5 bg-snow border-[3px] border-navy rounded-2xl text-navy text-sm focus:outline-none focus:ring-4 focus:ring-lime/30"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate mb-1">Amount (₦)</label>
+                      <input
+                        type="number"
+                        value={editForm.amount}
+                        onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+                        min="0"
+                        step="0.01"
+                        aria-label="Payment amount"
+                        className="w-full px-4 py-2.5 bg-snow border-[3px] border-navy rounded-2xl text-navy text-sm focus:outline-none focus:ring-4 focus:ring-lime/30"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate mb-1">Deadline</label>
+                      <input
+                        type="datetime-local"
+                        value={editForm.deadline}
+                        onChange={(e) => setEditForm({ ...editForm, deadline: e.target.value })}
+                        aria-label="Payment deadline"
+                        className="w-full px-4 py-2.5 bg-snow border-[3px] border-navy rounded-2xl text-navy text-sm focus:outline-none focus:ring-4 focus:ring-lime/30"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate mb-1">Description</label>
+                    <textarea
+                      value={editForm.description}
+                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                      rows={2}
+                      aria-label="Payment description"
+                      className="w-full px-4 py-2.5 bg-snow border-[3px] border-navy rounded-2xl text-navy text-sm focus:outline-none focus:ring-4 focus:ring-lime/30 resize-none"
+                    />
+                  </div>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editForm.mandatory}
+                      onChange={(e) => setEditForm({ ...editForm, mandatory: e.target.checked })}
+                      className="w-5 h-5 rounded-lg border-[3px] border-navy checked:bg-lime checked:border-navy focus:ring-4 focus:ring-lime/30 cursor-pointer"
+                    />
+                    <span className="text-sm font-bold text-navy">Mandatory</span>
+                  </label>
+                  <div className="flex gap-3 pt-1">
+                    <button
+                      onClick={() => setEditingPayment(false)}
+                      disabled={editSubmitting}
+                      className="flex-1 px-5 py-2.5 bg-transparent border-[3px] border-navy rounded-2xl font-bold text-navy text-sm hover:bg-navy hover:text-snow transition-all disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleEditPayment}
+                      disabled={editSubmitting}
+                      className="flex-1 px-5 py-2.5 bg-lime border-[3px] border-navy rounded-2xl font-bold text-navy text-sm press-3 press-navy transition-all disabled:opacity-50"
+                    >
+                      {editSubmitting ? "Saving..." : "Save Changes"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Paid Students Section */}
+              <div>
+                <h4 className="font-display font-black text-lg text-navy mb-3">
+                  Students Who Paid
+                  <span className="ml-2 text-sm font-normal text-navy/40">({paidStudents.length})</span>
+                </h4>
+                {paidStudentsLoading ? (
+                  <div className="text-center py-8">
+                    <div className="inline-block w-6 h-6 border-[3px] border-navy border-t-transparent rounded-full animate-spin mb-2" />
+                    <p className="text-xs text-navy/60">Loading paid students...</p>
+                  </div>
+                ) : paidStudents.length === 0 ? (
+                  <div className="bg-ghost rounded-2xl p-6 text-center">
+                    <p className="text-sm text-navy/50">No students have paid this due yet.</p>
+                  </div>
+                ) : (
+                  <div className="bg-snow border-[3px] border-navy/10 rounded-2xl overflow-hidden">
+                    <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                      <table className="w-full">
+                        <thead className="sticky top-0">
+                          <tr className="bg-navy">
+                            <th className="text-left p-3 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Name</th>
+                            <th className="text-left p-3 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Matric No.</th>
+                            <th className="text-left p-3 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Level</th>
+                            <th className="text-left p-3 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Method</th>
+                            <th className="text-left p-3 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Paid At</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paidStudents.map((s) => (
+                            <tr key={s.uid} className="border-b border-navy/5 last:border-b-0">
+                              <td className="p-3">
+                                <div className="font-bold text-navy text-xs">{s.firstName} {s.lastName}</div>
+                                <div className="text-[10px] text-slate">{s.email}</div>
+                              </td>
+                              <td className="p-3 text-xs text-navy font-mono">{s.matricNumber || "—"}</td>
+                              <td className="p-3 text-xs text-navy">{s.level || "—"}</td>
+                              <td className="p-3">
+                                <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold ${
+                                  s.method === "paystack" ? "bg-teal-light text-teal" : s.method === "bank_transfer" ? "bg-lavender-light text-lavender" : "bg-cloud text-navy/60"
+                                }`}>
+                                  {s.method === "paystack" ? "Paystack" : s.method === "bank_transfer" ? "Transfer" : s.method || "—"}
+                                </span>
+                              </td>
+                              <td className="p-3 text-xs text-navy/60">{s.paidAt ? new Date(s.paidAt).toLocaleDateString() : "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

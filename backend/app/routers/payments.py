@@ -200,6 +200,110 @@ async def get_payment(
     )
 
 
+@router.get("/{payment_id}/paid-students")
+async def get_paid_students(
+    payment_id: str,
+    user: dict = Depends(require_permission("payment:view_all")),
+):
+    """Return enriched list of students who paid a specific due, with txn details."""
+    db = get_database()
+
+    if not ObjectId.is_valid(payment_id):
+        raise HTTPException(status_code=400, detail="Invalid payment ID format")
+
+    payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+
+    paid_uids: list = payment.get("paidBy", [])
+    if not paid_uids:
+        return []
+
+    # Batch-fetch user documents
+    users_cursor = db.users.find(
+        {"uid": {"$in": paid_uids}},
+        {
+            "uid": 1,
+            "firstName": 1,
+            "lastName": 1,
+            "email": 1,
+            "matricNumber": 1,
+            "currentLevel": 1,
+            "level": 1,
+            "admissionYear": 1,
+        },
+    )
+    user_map = {}
+    async for u in users_cursor:
+        user_map[u["uid"]] = u
+
+    # Batch-fetch Paystack transactions for this payment
+    paystack_cursor = db.paystackTransactions.find(
+        {"paymentId": payment_id, "status": "success"},
+        {"studentId": 1, "reference": 1, "paidAt": 1, "channel": 1, "amount": 1, "createdAt": 1},
+    )
+    paystack_map: dict = {}
+    async for t in paystack_cursor:
+        paystack_map[t["studentId"]] = t
+
+    # Batch-fetch bank transfers for this payment
+    bt_cursor = db.bankTransfers.find(
+        {"paymentId": payment_id, "status": "approved"},
+        {
+            "studentId": 1,
+            "transactionReference": 1,
+            "reviewedAt": 1,
+            "senderBank": 1,
+            "amount": 1,
+            "createdAt": 1,
+        },
+    )
+    bt_map: dict = {}
+    async for t in bt_cursor:
+        bt_map[t["studentId"]] = t
+
+    # Assemble results
+    results = []
+    for uid in paid_uids:
+        u = user_map.get(uid, {})
+        first = u.get("firstName", "")
+        last = u.get("lastName", "")
+        level = u.get("currentLevel") or u.get("level") or "N/A"
+        if isinstance(level, int):
+            level = str(level)
+
+        # Check Paystack first, then bank transfer
+        ps = paystack_map.get(uid)
+        bt = bt_map.get(uid)
+
+        if ps:
+            paid_at = ps.get("paidAt") or ps.get("createdAt")
+            method = "Online (Paystack)"
+            reference = ps.get("reference", "")
+        elif bt:
+            paid_at = bt.get("reviewedAt") or bt.get("createdAt")
+            method = f"Bank Transfer ({bt.get('senderBank', '')})"
+            reference = bt.get("transactionReference", "")
+        else:
+            paid_at = None
+            method = "Unknown"
+            reference = ""
+
+        results.append({
+            "uid": uid,
+            "firstName": first,
+            "lastName": last,
+            "email": u.get("email", ""),
+            "matricNumber": u.get("matricNumber", ""),
+            "level": level,
+            "paidAt": paid_at.isoformat() if hasattr(paid_at, "isoformat") else str(paid_at) if paid_at else None,
+            "method": method,
+            "reference": reference,
+        })
+
+    return results
+
+
 @router.post("/{payment_id}/pay", response_model=Transaction)
 async def record_payment(
     payment_id: str,

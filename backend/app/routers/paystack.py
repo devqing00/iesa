@@ -580,19 +580,72 @@ async def get_transactions(
         is_admin = "payment:create" in user_permissions
         
         # Fetch transactions based on role
-        transactions = []
+        raw_transactions = []
         if is_admin:
-            # Admin sees all transactions
             cursor = db.paystackTransactions.find({}).sort("createdAt", -1).limit(limit)
         else:
-            # Students see only their transactions
             cursor = db.paystackTransactions.find({"studentId": user_id}).sort("createdAt", -1).limit(limit)
         
         async for txn in cursor:
             txn["_id"] = str(txn["_id"])
-            transactions.append(txn)
+            raw_transactions.append(txn)
         
-        return transactions
+        if not is_admin:
+            return raw_transactions
+        
+        # ── Admin enrichment: add user object + paymentCategory ──
+        # Batch-fetch linked payment docs for category info
+        payment_ids = list({
+            txn["paymentId"] for txn in raw_transactions
+            if txn.get("paymentId") and ObjectId.is_valid(txn["paymentId"])
+        })
+        payment_map: dict = {}
+        if payment_ids:
+            pay_cursor = db.payments.find(
+                {"_id": {"$in": [ObjectId(pid) for pid in payment_ids]}},
+                {"title": 1, "category": 1},
+            )
+            async for pay in pay_cursor:
+                payment_map[str(pay["_id"])] = pay
+        
+        # Batch-fetch event docs for event payment titles
+        event_ids = list({
+            txn["eventId"] for txn in raw_transactions
+            if txn.get("eventId") and ObjectId.is_valid(txn["eventId"])
+        })
+        event_map: dict = {}
+        if event_ids:
+            ev_cursor = db.events.find(
+                {"_id": {"$in": [ObjectId(eid) for eid in event_ids]}},
+                {"title": 1, "category": 1},
+            )
+            async for ev in ev_cursor:
+                event_map[str(ev["_id"])] = ev
+        
+        # Enrich each transaction
+        for txn in raw_transactions:
+            # Structured user object for the frontend
+            first = txn.get("studentName", "").split(" ")[0] if txn.get("studentName") else ""
+            last = " ".join(txn.get("studentName", "").split(" ")[1:]) if txn.get("studentName") else ""
+            txn["user"] = {
+                "firstName": first or "Unknown",
+                "lastName": last or "",
+                "email": txn.get("studentEmail", ""),
+            }
+            # Payment category / title
+            pid = txn.get("paymentId")
+            eid = txn.get("eventId")
+            if pid and pid in payment_map:
+                txn["paymentCategory"] = payment_map[pid].get("category", "General")
+                txn["paymentTitle"] = payment_map[pid].get("title", "Payment")
+            elif eid and eid in event_map:
+                txn["paymentCategory"] = "Event"
+                txn["paymentTitle"] = event_map[eid].get("title", "Event")
+            else:
+                txn["paymentCategory"] = txn.get("paymentCategory") or "General"
+                txn["paymentTitle"] = txn.get("paymentTitle") or "Payment"
+        
+        return raw_transactions
         
     except Exception as e:
         raise HTTPException(
