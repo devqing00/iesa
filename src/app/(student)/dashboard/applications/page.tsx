@@ -317,9 +317,9 @@ export default function ApplicationsPage() {
 
       {/* ─── Application Modal ──────────────── */}
       {selectedUnit && (
-        <div className="fixed inset-0 bg-navy/60 z-50 flex items-center justify-center p-4" onClick={() => setSelectedUnit(null)}>
+        <div className="fixed inset-0 bg-navy/60 z-[70] flex items-center justify-center p-4" onClick={() => setSelectedUnit(null)}>
           <div
-            className="bg-snow border-[3px] border-navy rounded-3xl shadow-[10px_10px_0_0_#000] w-full max-w-lg max-h-[90vh] overflow-y-auto"
+            className="bg-snow border-[3px] border-navy rounded-3xl shadow-[10px_10px_0_0_#000] w-full max-w-lg max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -349,7 +349,7 @@ export default function ApplicationsPage() {
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-5 flex-1 overflow-y-auto">
               {/* Motivation */}
               <div>
                 <label className="block font-display font-bold text-sm text-navy mb-2">

@@ -42,7 +42,6 @@ function VerifySecondaryEmailContent() {
           setStatus("success");
         }
       } catch (error: unknown) {
-        console.error("Secondary email verification error:", error);
         setStatus("error");
         if (error instanceof Error) {
           setErrorMessage(error.message);

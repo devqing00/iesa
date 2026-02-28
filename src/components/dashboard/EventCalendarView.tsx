@@ -356,11 +356,11 @@ export default function EventCalendarView() {
       {/* Event detail modal */}
       {selectedEvent && (
         <div
-          className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center px-4 pt-4 pb-20 md:p-6"
+          className="fixed inset-0 z-[70] bg-navy/60 flex items-center justify-center px-4 py-4 sm:p-6"
           onClick={() => setSelectedEvent(null)}
         >
           <div
-            className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] w-full max-w-lg"
+            className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] w-full max-w-lg max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {isAcademicResource(selectedEvent) ? (
@@ -389,7 +389,7 @@ export default function EventCalendarView() {
                     </svg>
                   </button>
                 </div>
-                <div className="px-6 py-5 space-y-4">
+                <div className="px-6 py-5 space-y-4 flex-1 overflow-y-auto">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-ghost rounded-2xl border-[3px] border-navy p-3">
                       <p className="text-label text-slate uppercase text-xs tracking-wider mb-1">Start Date</p>
@@ -451,7 +451,7 @@ export default function EventCalendarView() {
                   </button>
                 </div>
 
-                <div className="px-6 py-5 space-y-4">
+                <div className="px-6 py-5 space-y-4 flex-1 overflow-y-auto">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-ghost rounded-2xl border-[3px] border-navy p-3">
                       <p className="text-label text-slate uppercase text-xs tracking-wider mb-1">Date</p>

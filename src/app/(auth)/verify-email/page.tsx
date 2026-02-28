@@ -22,11 +22,8 @@ function VerifyEmailContent() {
 
     const verifyEmail = async () => {
       try {
-        console.log("🔐 Verifying email with token:", token.substring(0, 50) + "...");
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-        console.log("📡 API URL:", apiUrl);
         const fullUrl = `${apiUrl}/api/v1/auth/verify-email?token=${token}`;
-        console.log("🌐 Request URL:", fullUrl.substring(0, 100) + "...");
         
         const response = await fetch(fullUrl, {
           method: "GET",
@@ -36,7 +33,6 @@ function VerifyEmailContent() {
         });
 
         const data = await response.json();
-        console.log("📦 Response:", { status: response.status, data });
 
         if (!response.ok) {
           throw new Error(data.detail || "Verification failed");
@@ -48,7 +44,6 @@ function VerifyEmailContent() {
           setStatus("success");
         }
       } catch (error: unknown) {
-        console.error("Verification error:", error);
         setStatus("error");
         if (error instanceof Error) {
           setErrorMessage(error.message);

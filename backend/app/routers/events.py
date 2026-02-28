@@ -1192,9 +1192,6 @@ async def download_event_ticket(
     try:
         db = get_database()
         
-        print(f"[TICKET] Event ID: {event_id}, Reference: {reference}")
-        print(f"[TICKET] User ID: {current_user.get('_id')}")
-        
         # Validate event ID
         if not ObjectId.is_valid(event_id):
             raise HTTPException(status_code=400, detail="Invalid event ID")
@@ -1202,10 +1199,7 @@ async def download_event_ticket(
         # Fetch event
         event = await db.events.find_one({"_id": ObjectId(event_id)})
         if not event:
-            print(f"[TICKET] Event not found: {event_id}")
             raise HTTPException(status_code=404, detail="Event not found")
-        
-        print(f"[TICKET] Event found: {event.get('title')}")
         
         # Try paystackTransactions first (online payments)
         transaction = await db.paystackTransactions.find_one({"reference": reference})
@@ -1213,32 +1207,14 @@ async def download_event_ticket(
         
         # If not found, check transactions collection (bank transfers)
         if not transaction:
-            print(f"[TICKET] Not found in paystackTransactions, checking transactions...")
             transaction = await db.transactions.find_one({"reference": reference})
             payment_method = "Bank Transfer"
         
         if not transaction:
-            print(f"[TICKET] Transaction not found in any collection for reference: {reference}")
-            # Debug: Show user's recent transactions
-            paystack_txns = await db.paystackTransactions.find(
-                {"studentId": current_user["_id"]}
-            ).limit(3).to_list(length=3)
-            other_txns = await db.transactions.find(
-                {"studentId": current_user["_id"]}
-            ).limit(3).to_list(length=3)
-            print(f"[TICKET] Paystack transactions: {len(paystack_txns)}")
-            print(f"[TICKET] Other transactions: {len(other_txns)}")
-            if paystack_txns:
-                print(f"[TICKET] Sample Paystack refs: {[t.get('reference') for t in paystack_txns]}")
-            if other_txns:
-                print(f"[TICKET] Sample other refs: {[t.get('reference') for t in other_txns]}")
             raise HTTPException(status_code=404, detail=f"Transaction not found with reference: {reference}")
-        
-        print(f"[TICKET] Transaction found via {payment_method}: {transaction.get('_id')}, status: {transaction.get('status')}")
         
         # Verify ownership
         if transaction["studentId"] != current_user["_id"]:
-            print(f"[TICKET] Ownership mismatch")
             raise HTTPException(status_code=403, detail="Not authorized to access this ticket")
         
         # Check if payment was successful/verified
@@ -1248,8 +1224,6 @@ async def download_event_ticket(
                 status_code=400,
                 detail=f"Ticket not available. Payment status: {status}"
             )
-        
-        print(f"[TICKET] Payment verified, checking event registration...")
         
         # Check if user is registered for the event
         user_id = current_user["_id"]
@@ -1268,13 +1242,9 @@ async def download_event_ticket(
                     break
             
             if not is_registered:
-                print(f"[TICKET] User not registered for event")
                 raise HTTPException(status_code=403, detail="You are not registered for this event")
         else:
-            print(f"[TICKET] Event has no registrations")
             raise HTTPException(status_code=403, detail="You are not registered for this event")
-        
-        print(f"[TICKET] User is registered, generating ticket...")
         
         # Get student level — prefer currentLevel from user profile
         student_level = (
@@ -1315,8 +1285,6 @@ async def download_event_ticket(
             event_category=event.get("category", "Event")
         )
         
-        print(f"[TICKET] PDF generated successfully")
-        
         # Return PDF as downloadable file
         return StreamingResponse(
             pdf_buffer,
@@ -1329,9 +1297,6 @@ async def download_event_ticket(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[TICKET] Error generating ticket: {str(e)}")
-        import traceback
-        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate ticket: {str(e)}"

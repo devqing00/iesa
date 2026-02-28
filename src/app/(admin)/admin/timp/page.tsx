@@ -21,7 +21,7 @@ import type {
   PairStatus,
   User,
 } from "@/lib/api";
-import { withAuth } from "@/lib/withAuth";
+import { withAuth, PermissionGate } from "@/lib/withAuth";
 import Pagination from "@/components/ui/Pagination";
 
 /* ─── Tabs ─────────────────────────────────────── */
@@ -395,28 +395,30 @@ function AdminTimpPage() {
                       </div>
 
                       {app.status === "pending" && (
-                        <div className="flex gap-2 self-start">
-                          <button
-                            onClick={() => {
-                              setReviewApp(app);
-                              setReviewAction("approved");
-                              setReviewFeedback("");
-                            }}
-                            className="bg-teal border-[3px] border-navy px-4 py-2 rounded-xl text-snow text-xs font-bold hover:ring-2 hover:ring-teal/30 transition-all"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => {
-                              setReviewApp(app);
-                              setReviewAction("rejected");
-                              setReviewFeedback("");
-                            }}
-                            className="bg-coral border-[3px] border-navy px-4 py-2 rounded-xl text-snow text-xs font-bold hover:ring-2 hover:ring-coral/30 transition-all"
-                          >
-                            Reject
-                          </button>
-                        </div>
+                        <PermissionGate permission="timp:manage">
+                          <div className="flex gap-2 self-start">
+                            <button
+                              onClick={() => {
+                                setReviewApp(app);
+                                setReviewAction("approved");
+                                setReviewFeedback("");
+                              }}
+                              className="bg-teal border-[3px] border-navy px-4 py-2 rounded-xl text-snow text-xs font-bold hover:ring-2 hover:ring-teal/30 transition-all"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => {
+                                setReviewApp(app);
+                                setReviewAction("rejected");
+                                setReviewFeedback("");
+                              }}
+                              className="bg-coral border-[3px] border-navy px-4 py-2 rounded-xl text-snow text-xs font-bold hover:ring-2 hover:ring-coral/30 transition-all"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </PermissionGate>
                       )}
                     </div>
                   </div>
@@ -572,9 +574,9 @@ function AdminTimpPage() {
 
       {/* ─── Review Modal ─── */}
       {reviewApp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-navy/50" onClick={() => setReviewApp(null)} />
-          <div className="relative bg-snow border-4 border-navy rounded-3xl p-8 w-full max-w-lg shadow-[6px_6px_0_0_#000]">
+          <div className="relative bg-snow border-4 border-navy rounded-3xl p-8 w-full max-w-lg shadow-[6px_6px_0_0_#000] max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-y-auto">
             <div
               className={`-mx-8 -mt-8 px-8 py-5 rounded-t-3xl border-b-4 border-navy ${
                 reviewAction === "approved" ? "bg-teal" : "bg-coral"
@@ -648,9 +650,9 @@ function AdminTimpPage() {
 
       {/* ─── Create Pair Modal ─── */}
       {showCreatePair && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-navy/50" onClick={() => setShowCreatePair(false)} />
-          <div className="relative bg-snow border-4 border-navy rounded-3xl p-8 w-full max-w-lg shadow-[6px_6px_0_0_#000]">
+          <div className="relative bg-snow border-4 border-navy rounded-3xl p-8 w-full max-w-lg shadow-[6px_6px_0_0_#000] max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-y-auto">
             <div className="-mx-8 -mt-8 px-8 py-5 rounded-t-3xl border-b-4 border-navy bg-teal">
               <h3 className="font-display font-black text-xl text-snow">Create Mentorship Pair</h3>
               <p className="text-snow/70 text-sm mt-1">Match an approved mentor with a student</p>

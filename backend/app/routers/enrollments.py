@@ -171,7 +171,6 @@ async def list_enrollments(
             result.append(enrollment)
         except Exception as e:
             # Log error but continue processing other enrollments
-            print(f"Error processing enrollment {enrollment.get('_id')}: {str(e)}")
             continue
     
     return {"items": result, "total": total}

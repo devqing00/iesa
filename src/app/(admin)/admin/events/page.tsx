@@ -739,10 +739,10 @@ function AdminEventsPage() {
 
       {/* ── Create / Edit Modal ── */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-navy/50" onClick={() => { setShowModal(false); setEditingEvent(null); setFormErrors({}); }} />
 
-          <div className="relative w-full max-w-lg bg-snow rounded-3xl border-[3px] border-navy shadow-[4px_4px_0_0_#000] overflow-hidden">
+          <div className="relative w-full max-w-lg bg-snow rounded-3xl border-[3px] border-navy shadow-[4px_4px_0_0_#000] overflow-hidden max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col">
             {/* Modal header */}
             <div className="flex items-center justify-between p-6 border-b-[4px] border-navy">
               <h2 className="font-display font-black text-xl text-navy">
@@ -760,7 +760,7 @@ function AdminEventsPage() {
             </div>
 
             {/* Form */}
-            <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
+            <div className="p-6 space-y-5 flex-1 overflow-y-auto">
               <div className="space-y-1.5">
                 <label className="text-sm font-bold text-navy">Title</label>
                 <input
@@ -948,10 +948,10 @@ function AdminEventsPage() {
 
       {/* ── Registrants Panel ─────────────────────────────────────────── */}
       {registrantsEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-navy/60 backdrop-blur-sm" onClick={() => setRegistrantsEvent(null)} />
 
-          <div className="relative bg-snow border-[3px] border-navy rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-[6px_6px_0_0_#000]">
+          <div className="relative bg-snow border-[3px] border-navy rounded-3xl w-full max-w-2xl max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-hidden shadow-[6px_6px_0_0_#000]">
             {/* Header */}
             <div className="flex items-start justify-between p-6 border-b-[4px] border-navy">
               <div>

@@ -75,7 +75,6 @@ export default function ClassRepsPage() {
           setClassReps(reps);
         }
       } catch (err) {
-        console.error("Failed to fetch class reps:", err);
       } finally {
         setLoading(false);
       }

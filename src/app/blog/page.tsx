@@ -68,7 +68,6 @@ export default function BlogPage() {
         setArticles(data);
       }
     } catch {
-      console.error("Failed to fetch articles");
     } finally {
       setLoading(false);
     }

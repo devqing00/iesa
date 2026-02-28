@@ -428,15 +428,17 @@ function AdminMessagesPage() {
                 </PermissionGate>
 
                 {/* Save note only */}
-                {adminNote !== (selected.adminNote || "") && (
-                  <button
-                    onClick={() => updateMessage(selected._id, { adminNote })}
-                    disabled={saving}
-                    className="w-full px-4 py-2 bg-lime border-[3px] border-navy rounded-xl text-xs font-display font-bold text-navy press-3 press-navy transition-all disabled:opacity-50"
-                  >
-                    {saving ? "Saving..." : "Save Note"}
-                  </button>
-                )}
+                <PermissionGate permission="contact:manage">
+                  {adminNote !== (selected.adminNote || "") && (
+                    <button
+                      onClick={() => updateMessage(selected._id, { adminNote })}
+                      disabled={saving}
+                      className="w-full px-4 py-2 bg-lime border-[3px] border-navy rounded-xl text-xs font-display font-bold text-navy press-3 press-navy transition-all disabled:opacity-50"
+                    >
+                      {saving ? "Saving..." : "Save Note"}
+                    </button>
+                  )}
+                </PermissionGate>
 
                 {/* Reply via email link */}
                 <PermissionGate permission="contact:manage">

@@ -490,13 +490,15 @@ function AdminResourcesPage() {
                               </button>
                             </PermissionGate>
                           ) : (
-                            <button
-                              disabled={approving === id}
-                              onClick={() => setRevokeConfirm({ isOpen: true, id })}
-                              className="bg-sunny-light border-[2px] border-navy rounded-lg px-2.5 py-1 text-xs font-display text-navy hover:bg-sunny transition-colors disabled:opacity-50"
-                            >
-                              {approving === id ? "…" : "Revoke"}
-                            </button>
+                            <PermissionGate permission="resource:approve">
+                              <button
+                                disabled={approving === id}
+                                onClick={() => setRevokeConfirm({ isOpen: true, id })}
+                                className="bg-sunny-light border-[2px] border-navy rounded-lg px-2.5 py-1 text-xs font-display text-navy hover:bg-sunny transition-colors disabled:opacity-50"
+                              >
+                                {approving === id ? "…" : "Revoke"}
+                              </button>
+                            </PermissionGate>
                           )}
                           <PermissionGate permission="resource:delete">
                             <button
@@ -544,8 +546,8 @@ function AdminResourcesPage() {
       )}
       {/* Review Modal */}
       {reviewResource && (
-        <div className="fixed inset-0 bg-navy/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[8px_8px_0_0_#000] w-full max-w-lg">
+        <div className="fixed inset-0 bg-navy/60 flex items-center justify-center z-[70] p-4">
+          <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[8px_8px_0_0_#000] w-full max-w-lg max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-hidden">
             {/* Header */}
             <div className={`${reviewAction ? 'bg-teal' : 'bg-coral'} border-b-[4px] border-navy rounded-t-[20px] px-6 py-4`}>
               <h3 className="font-display font-black text-xl text-navy">
@@ -553,7 +555,7 @@ function AdminResourcesPage() {
               </h3>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 flex-1 overflow-y-auto">
               {/* Resource info */}
               <div>
                 <p className="font-display font-bold text-navy">{reviewResource.title}</p>

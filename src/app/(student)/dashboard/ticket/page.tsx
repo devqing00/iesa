@@ -87,7 +87,6 @@ function TicketContent() {
               });
             }
           } catch (err) {
-            console.error("Event fetch error:", err);
           }
         }
 
@@ -106,7 +105,6 @@ function TicketContent() {
               });
             }
           } catch (err) {
-            console.error("Receipt fetch error:", err);
           }
         }
 
@@ -114,7 +112,6 @@ function TicketContent() {
           setError("Missing event or reference parameters");
         }
       } catch (err) {
-        console.error("Ticket data error:", err);
         setError("Failed to load ticket information");
       } finally {
         setLoading(false);

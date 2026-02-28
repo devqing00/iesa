@@ -219,23 +219,22 @@ async def get_paid_students(
     if not paid_uids:
         return []
 
-    # Batch-fetch user documents
+    # Batch-fetch user documents — paidBy stores string _ids
+    oid_list = [ObjectId(uid) for uid in paid_uids if ObjectId.is_valid(uid)]
     users_cursor = db.users.find(
-        {"uid": {"$in": paid_uids}},
+        {"_id": {"$in": oid_list}},
         {
-            "uid": 1,
             "firstName": 1,
             "lastName": 1,
             "email": 1,
             "matricNumber": 1,
             "currentLevel": 1,
-            "level": 1,
             "admissionYear": 1,
         },
     )
     user_map = {}
     async for u in users_cursor:
-        user_map[u["uid"]] = u
+        user_map[str(u["_id"])] = u
 
     # Batch-fetch Paystack transactions for this payment
     paystack_cursor = db.paystackTransactions.find(
@@ -268,7 +267,7 @@ async def get_paid_students(
         u = user_map.get(uid, {})
         first = u.get("firstName", "")
         last = u.get("lastName", "")
-        level = u.get("currentLevel") or u.get("level") or "N/A"
+        level = u.get("currentLevel") or "N/A"
         if isinstance(level, int):
             level = str(level)
 
@@ -278,11 +277,11 @@ async def get_paid_students(
 
         if ps:
             paid_at = ps.get("paidAt") or ps.get("createdAt")
-            method = "Online (Paystack)"
+            method = "paystack"
             reference = ps.get("reference", "")
         elif bt:
             paid_at = bt.get("reviewedAt") or bt.get("createdAt")
-            method = f"Bank Transfer ({bt.get('senderBank', '')})"
+            method = "bank_transfer"
             reference = bt.get("transactionReference", "")
         else:
             paid_at = None

@@ -121,7 +121,6 @@ function AnnouncementsContent() {
       }));
       setAnnouncements(mappedData);
     } catch (err) {
-      console.error("Error fetching announcements:", err);
       setError("Failed to load announcements. Please try again.");
     } finally {
       setLoading(false);
@@ -140,7 +139,6 @@ function AnnouncementsContent() {
         setReadAnnouncements(new Set(readIds));
       }
     } catch (err) {
-      console.error("Error fetching read status:", err);
     }
   };
 
@@ -154,7 +152,6 @@ function AnnouncementsContent() {
       });
       setReadAnnouncements((prev) => new Set([...prev, id]));
     } catch (err) {
-      console.error("Error marking announcement as read:", err);
     }
   };
 

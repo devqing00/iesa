@@ -626,8 +626,8 @@ export default function FlashcardsPage() {
 
         {/* ═══ DECK FORM MODAL ═══ */}
         {showDeckForm && (
-          <div className="fixed inset-0 bg-navy/40 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6" onClick={resetDeckForm}>
-            <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-navy/40 z-[70] flex items-center justify-center px-4 py-4 sm:p-6" onClick={resetDeckForm}>
+            <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <div className="border-b-[3px] border-navy px-6 py-4 flex items-center justify-between bg-ghost rounded-t-[1.25rem]">
                 <h3 className="font-display font-black text-lg text-navy">
                   {editDeckId ? "Edit Deck" : "New Deck"}
@@ -638,7 +638,7 @@ export default function FlashcardsPage() {
                   </svg>
                 </button>
               </div>
-              <div className="p-6 space-y-5">
+              <div className="p-6 space-y-5 flex-1 overflow-y-auto">
                 <div>
                   <label className="text-[10px] font-bold text-slate uppercase tracking-wider block mb-2">Deck Name</label>
                   <input
@@ -702,8 +702,8 @@ export default function FlashcardsPage() {
 
         {/* ═══ CARD FORM MODAL ═══ */}
         {showCardForm && (
-          <div className="fixed inset-0 bg-navy/40 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6" onClick={resetCardForm}>
-            <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-navy/40 z-[70] flex items-center justify-center px-4 py-4 sm:p-6" onClick={resetCardForm}>
+            <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <div className="border-b-[3px] border-navy px-6 py-4 flex items-center justify-between bg-ghost rounded-t-[1.25rem]">
                 <h3 className="font-display font-black text-lg text-navy">
                   {editCardId ? "Edit Card" : "Add Card"}
@@ -714,7 +714,7 @@ export default function FlashcardsPage() {
                   </svg>
                 </button>
               </div>
-              <div className="p-6 space-y-5">
+              <div className="p-6 space-y-5 flex-1 overflow-y-auto">
                 <div>
                   <label className="text-[10px] font-bold text-slate uppercase tracking-wider block mb-2">Front (Question)</label>
                   <textarea

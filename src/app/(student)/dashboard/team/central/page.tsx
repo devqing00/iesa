@@ -60,7 +60,6 @@ export default function CentralExcosPage() {
           setExecutives(Array.isArray(data) ? data : []);
         }
       } catch (err) {
-        console.error("Failed to fetch executives:", err);
       } finally {
         setLoading(false);
       }

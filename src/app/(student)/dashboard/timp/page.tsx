@@ -441,9 +441,9 @@ export default function TimpPage() {
 
         {/* ── Feedback Modal ── */}
         {feedbackPair && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
             <div className="absolute inset-0 bg-navy/50" onClick={() => setFeedbackPair(null)} />
-            <div className="relative bg-snow border-4 border-navy rounded-3xl p-8 w-full max-w-lg shadow-[6px_6px_0_0_#000]">
+            <div className="relative bg-snow border-4 border-navy rounded-3xl p-8 w-full max-w-lg shadow-[6px_6px_0_0_#000] max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Weekly Check-in</p>

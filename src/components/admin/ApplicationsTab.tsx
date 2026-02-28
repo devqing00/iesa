@@ -8,6 +8,7 @@ import {
   UNIT_COLORS,
 } from "@/lib/api";
 import type { UnitApplication, UnitType } from "@/lib/api";
+import { PermissionGate } from "@/lib/withAuth";
 import Pagination from "@/components/ui/Pagination";
 
 /* ─── Constants ─────────────────────────────────── */
@@ -210,30 +211,32 @@ export default function ApplicationsTab() {
 
                     {/* Action buttons (only for pending) */}
                     {app.status === "pending" && (
-                      <div className="flex sm:flex-col gap-2 shrink-0">
-                        <button
-                          onClick={() => {
-                            setReviewingApp(app);
-                            setReviewAction("accepted");
-                            setReviewFeedback("");
-                          }}
-                          className="bg-teal border-[3px] border-navy px-4 py-2 rounded-xl font-display font-bold text-sm text-snow
-                            press-3 press-navy flex-1 sm:flex-none"
-                        >
-                          Accept
-                        </button>
-                        <button
-                          onClick={() => {
-                            setReviewingApp(app);
-                            setReviewAction("rejected");
-                            setReviewFeedback("");
-                          }}
-                          className="bg-coral border-[3px] border-navy px-4 py-2 rounded-xl font-display font-bold text-sm text-snow
-                            press-3 press-navy flex-1 sm:flex-none"
-                        >
-                          Reject
-                        </button>
-                      </div>
+                      <PermissionGate permission="unit_application:review">
+                        <div className="flex sm:flex-col gap-2 shrink-0">
+                          <button
+                            onClick={() => {
+                              setReviewingApp(app);
+                              setReviewAction("accepted");
+                              setReviewFeedback("");
+                            }}
+                            className="bg-teal border-[3px] border-navy px-4 py-2 rounded-xl font-display font-bold text-sm text-snow
+                              press-3 press-navy flex-1 sm:flex-none"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            onClick={() => {
+                              setReviewingApp(app);
+                              setReviewAction("rejected");
+                              setReviewFeedback("");
+                            }}
+                            className="bg-coral border-[3px] border-navy px-4 py-2 rounded-xl font-display font-bold text-sm text-snow
+                              press-3 press-navy flex-1 sm:flex-none"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </PermissionGate>
                     )}
                   </div>
                 </div>
@@ -247,9 +250,9 @@ export default function ApplicationsTab() {
 
       {/* ─── Review Modal ──────────────── */}
       {reviewingApp && (
-        <div className="fixed inset-0 bg-navy/60 z-50 flex items-center justify-center p-4" onClick={() => setReviewingApp(null)}>
+        <div className="fixed inset-0 bg-navy/60 z-[70] flex items-center justify-center p-4" onClick={() => setReviewingApp(null)}>
           <div
-            className="bg-snow border-[3px] border-navy rounded-3xl shadow-[10px_10px_0_0_#000] w-full max-w-md"
+            className="bg-snow border-[3px] border-navy rounded-3xl shadow-[10px_10px_0_0_#000] w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -263,7 +266,7 @@ export default function ApplicationsTab() {
             </div>
 
             {/* Modal Body */}
-            <div className="p-5">
+            <div className="p-5 flex-1 overflow-y-auto">
               {/* Action toggle */}
               <div className="flex gap-2 mb-4">
                 <button

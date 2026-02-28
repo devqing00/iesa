@@ -158,7 +158,6 @@ function EventsPage() {
       toast.success("Receipt Downloaded", "Your payment receipt has been downloaded successfully.");
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Failed to download receipt";
-      console.error("Download error:", error);
       toast.error("Download Failed", errorMessage);
     } finally {
       setDownloadingReceipt(null);
@@ -189,7 +188,6 @@ function EventsPage() {
       toast.success("Ticket Downloaded", "Your event ticket has been downloaded successfully.");
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Failed to download ticket";
-      console.error("Download error:", error);
       toast.error("Download Failed", errorMessage);
     } finally {
       setDownloadingTicket(null);
@@ -290,7 +288,6 @@ function EventsPage() {
       setPaymentRefs(refs);
       setPendingTransfers(pendingSet);
     } catch (err) {
-      console.error("Error fetching events:", err);
       setError("Failed to load events. Please try again.");
     } finally {
       setLoading(false);
@@ -309,7 +306,6 @@ function EventsPage() {
         setRegisteredEvents(new Set(eventIds));
       }
     } catch (err) {
-      console.error("Error fetching registrations:", err);
     }
   };
 
@@ -330,7 +326,6 @@ function EventsPage() {
       setEvents((prev) => prev.map((e) => (e.id === eventId ? { ...e, attendeeCount: e.attendeeCount + 1 } : e)));
       toast.success("Registered!", "You've been registered for this event");
     } catch (err: unknown) {
-      console.error("Error registering:", err);
       const message = err instanceof Error ? err.message : "Failed to register for event";
       toast.error("Registration Failed", message);
     } finally {
@@ -356,7 +351,6 @@ function EventsPage() {
       setEvents((prev) => prev.map((e) => (e.id === eventId ? { ...e, attendeeCount: Math.max(0, e.attendeeCount - 1) } : e)));
       toast.success("Unregistered", "You've been removed from this event");
     } catch (err) {
-      console.error("Error unregistering:", err);
       toast.error("Unregister Failed", "Failed to unregister from event");
     } finally {
       setRegistering(null);
@@ -387,7 +381,6 @@ function EventsPage() {
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to initiate payment";
-      console.error("Event payment error:", err);
       toast.error("Payment Error", message);
       setPaying(null);
     }
@@ -487,7 +480,6 @@ function EventsPage() {
         toast.warning("Payment Pending", `Your payment is being processed. Please check back shortly.`);
       }
     } catch (err) {
-      console.error("Verification error:", err);
       toast.error("Verification Failed", "Could not verify your event payment. Please check your payment history or contact support.");
     } finally {
       // Tell the useEffect not to re-fetch when router.replace fires
@@ -936,8 +928,8 @@ function EventsPage() {
           PAYMENT METHOD MODAL
           ═══════════════════════════════════════════════════════ */}
       {payModalEvent && (
-        <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4" onClick={() => setPayModalEvent(null)}>
-          <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[12px_12px_0_0_#000] max-w-md w-full overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[70] bg-navy/60 flex items-center justify-center p-4" onClick={() => setPayModalEvent(null)}>
+          <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[12px_12px_0_0_#000] max-w-md w-full overflow-hidden max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="bg-sunny p-6 border-b-[4px] border-navy">
               <h2 className="font-display font-black text-xl text-navy">Choose Payment Method</h2>
               <p className="text-sm text-navy/70 mt-1">{payModalEvent.title} — ₦{(payModalEvent.paymentAmount || 0).toLocaleString()}</p>
@@ -1004,13 +996,13 @@ function EventsPage() {
           BANK TRANSFER MODAL
           ═══════════════════════════════════════════════════════ */}
       {bankTransferEvent && (
-        <div className="fixed inset-0 z-50 bg-navy/60 flex items-center justify-center p-4" onClick={() => setBankTransferEvent(null)}>
-          <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[12px_12px_0_0_#000] max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[70] bg-navy/60 flex items-center justify-center p-4" onClick={() => setBankTransferEvent(null)}>
+          <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[12px_12px_0_0_#000] max-w-lg w-full max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="bg-navy p-6 border-b-[4px] border-ghost/20 sticky top-0 z-10">
               <h2 className="font-display font-black text-xl text-snow">Bank Transfer</h2>
               <p className="text-sm text-snow/70 mt-1">{bankTransferEvent.title} — ₦{(bankTransferEvent.paymentAmount || 0).toLocaleString()}</p>
             </div>
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-5 flex-1 overflow-y-auto">
               {/* Bank Account to Transfer To */}
               {bankAccounts.length > 0 ? (
                 <div>
@@ -1147,8 +1139,8 @@ function EventsPage() {
           CONFIRM EVENT TRANSFER MODAL
           ═══════════════════════════════════════════════════════ */}
       {showConfirmTransfer && bankTransferEvent && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-navy/70 backdrop-blur-sm">
-          <div className="bg-snow border-4 border-navy rounded-3xl shadow-[10px_10px_0_0_#000] w-full max-w-md">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-sm">
+          <div className="bg-snow border-4 border-navy rounded-3xl shadow-[10px_10px_0_0_#000] w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-y-auto">
             <div className="px-6 pt-6 pb-4 border-b-[3px] border-navy/10">
               <div className="flex items-center gap-3 mb-1">
                 <div className="w-10 h-10 bg-sunny-light border-[3px] border-navy rounded-xl flex items-center justify-center">

@@ -317,9 +317,9 @@ export default function AcademicCalendarTab() {
 
       {/* ── Create / Edit Modal ── */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center px-4 py-4 sm:p-6">
           <div className="absolute inset-0 bg-navy/50" onClick={closeModal} />
-          <div className="relative bg-snow border-4 border-navy rounded-3xl p-8 w-full max-w-lg max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]">
+          <div className="relative bg-snow border-4 border-navy rounded-3xl p-8 w-full max-w-lg max-h-[calc(100vh-2rem)] sm:max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000] flex flex-col">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">

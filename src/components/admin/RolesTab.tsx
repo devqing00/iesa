@@ -605,14 +605,14 @@ export default function RolesTab() {
 
       {/* ── Assign Role Modal ── */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center px-4 py-4 sm:p-6">
           <div className="absolute inset-0 bg-navy/50" onClick={() => {
             setShowModal(false);
             setUserSearchQuery("");
             setUserDropdownOpen(false);
           }} />
 
-          <div className="relative bg-snow border-[3px] border-navy rounded-3xl p-8 w-full max-w-md max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]">
+          <div className="relative bg-snow border-[3px] border-navy rounded-3xl p-8 w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000] flex flex-col">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">New Assignment</p>
@@ -836,9 +836,9 @@ export default function RolesTab() {
 
       {/* ── Edit Permissions Modal ── */}
       {editPermsRole && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-navy/60" onClick={() => setEditPermsRole(null)} />
-          <div className="relative bg-snow border-[3px] border-navy rounded-3xl w-full max-w-2xl shadow-[4px_4px_0_0_#000] max-h-[90vh] flex flex-col">
+          <div className="relative bg-snow border-[3px] border-navy rounded-3xl w-full max-w-2xl shadow-[4px_4px_0_0_#000] max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-hidden">
             {/* Header */}
             <div className="flex items-start justify-between p-7 pb-5 border-b-[3px] border-navy/10">
               <div>

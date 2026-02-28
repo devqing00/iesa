@@ -1137,8 +1137,8 @@ export default function ProfilePage() {
           IMAGE MODAL
       ════════════════════════════════════════ */}
       {showImageModal && (
-        <div className="fixed inset-0 bg-navy/80 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6">
-          <div className="bg-ghost border-[3px] border-navy rounded-[2rem] max-w-lg w-full shadow-[4px_4px_0_0_#000] overflow-hidden">
+        <div className="fixed inset-0 bg-navy/80 z-[70] flex items-center justify-center px-4 py-4 sm:p-6">
+          <div className="bg-ghost border-[3px] border-navy rounded-[2rem] max-w-lg w-full shadow-[4px_4px_0_0_#000] overflow-hidden max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col">
             {/* header */}
             <div className="bg-coral-light border-b-[4px] border-navy p-5 flex items-center justify-between">
               <h2 className="font-display font-black text-lg text-navy">
@@ -1151,7 +1151,7 @@ export default function ProfilePage() {
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-4 flex-1 overflow-y-auto">
               {/* preview */}
               <div className="w-full aspect-square max-w-xs mx-auto border-[3px] border-navy rounded-2xl overflow-hidden bg-cloud">
                 <img

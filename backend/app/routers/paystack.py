@@ -477,7 +477,6 @@ async def paystack_webhook(
                     {"reference": reference},
                     {"$set": update_data}
                 )
-                print(f"Webhook: Amount mismatch for {reference}: expected {expected_amount}, got {actual_amount}")
                 return {"status": "error", "reason": "Amount mismatch"}
             
             await db.paystackTransactions.update_one(
@@ -536,9 +535,9 @@ async def paystack_webhook(
                     student_level=transaction.get("studentLevel", "N/A"),
                     transaction_id=str(transaction.get("_id", reference))
                 )
-            except Exception as email_error:
+            except Exception:
                 # Log error but don't fail the payment
-                print(f"Failed to send receipt email: {str(email_error)}")
+                pass
             
             return {"status": "success", "message": "Payment verified"}
         
@@ -549,7 +548,6 @@ async def paystack_webhook(
         raise
     except Exception as e:
         # IMPORTANT: Webhooks must always return 200 to prevent Paystack from retrying
-        print(f"Webhook error: {str(e)}")
         return {"status": "error"}
 
 
@@ -894,41 +892,20 @@ async def download_receipt(
         from app.db import get_database
         db = get_database()
         
-        print(f"[RECEIPT] Looking for transaction with reference: {reference}")
-        print(f"[RECEIPT] User ID: {current_user.get('_id')}")
-        
         # Try paystackTransactions first (online payments)
         transaction = await db.paystackTransactions.find_one({"reference": reference})
         payment_method = "Paystack"
         
         # If not found, check transactions collection (bank transfers)
         if not transaction:
-            print(f"[RECEIPT] Not found in paystackTransactions, checking transactions...")
             transaction = await db.transactions.find_one({"reference": reference})
             payment_method = "Bank Transfer"
         
         if not transaction:
-            print(f"[RECEIPT] Transaction not found in any collection for reference: {reference}")
-            # Debug: Show user's recent transactions
-            paystack_txns = await db.paystackTransactions.find(
-                {"studentId": current_user["_id"]}
-            ).limit(3).to_list(length=3)
-            other_txns = await db.transactions.find(
-                {"studentId": current_user["_id"]}
-            ).limit(3).to_list(length=3)
-            print(f"[RECEIPT] Paystack transactions: {len(paystack_txns)}")
-            print(f"[RECEIPT] Other transactions: {len(other_txns)}")
-            if paystack_txns:
-                print(f"[RECEIPT] Sample Paystack refs: {[t.get('reference') for t in paystack_txns]}")
-            if other_txns:
-                print(f"[RECEIPT] Sample other refs: {[t.get('reference') for t in other_txns]}")
             raise HTTPException(status_code=404, detail=f"Transaction not found with reference: {reference}")
-        
-        print(f"[RECEIPT] Transaction found in {payment_method}: {transaction.get('_id')}, status: {transaction.get('status')}")
         
         # Verify ownership
         if transaction["studentId"] != current_user["_id"]:
-            print(f"[RECEIPT] Ownership mismatch")
             raise HTTPException(status_code=403, detail="Not authorized to access this receipt")
         
         # Check if payment was successful/verified
@@ -944,7 +921,6 @@ async def download_receipt(
         if payment_id:
             payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
             if not payment:
-                print(f"[RECEIPT] Payment record not found: {payment_id}")
                 raise HTTPException(status_code=404, detail="Payment record not found")
             payment_title = payment.get("title", "IESA Payment")
             payment_category = payment.get("category", "Departmental Dues")
@@ -958,8 +934,6 @@ async def download_receipt(
             else:
                 payment_title = "IESA Payment"
                 payment_category = "Payment"
-        
-        print(f"[RECEIPT] Generating PDF for: {payment_title}")
         
         # Get student level — prefer currentLevel from user profile, fall back to transaction data
         student_level = (
@@ -996,8 +970,6 @@ async def download_receipt(
             payment_type=payment_category
         )
         
-        print(f"[RECEIPT] PDF generated successfully")
-        
         # Return PDF as downloadable file
         return StreamingResponse(
             pdf_buffer,
@@ -1010,9 +982,6 @@ async def download_receipt(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[RECEIPT] Error generating receipt: {str(e)}")
-        import traceback
-        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate receipt: {str(e)}"

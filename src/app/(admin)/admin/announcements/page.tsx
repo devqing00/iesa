@@ -477,10 +477,10 @@ function AdminAnnouncementsPage() {
 
       {/* ── Create / Edit Modal ───────── */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-navy/50" onClick={() => { setModalOpen(false); setEditingId(null); setForm(EMPTY_FORM); setFormErrors({}); }} />
 
-          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-snow rounded-3xl border-[3px] border-navy shadow-[4px_4px_0_0_#000] p-6 sm:p-8 space-y-6">
+          <div className="relative w-full max-w-lg max-h-[calc(100vh-2rem)] sm:max-h-[85vh] overflow-y-auto bg-snow rounded-3xl border-[3px] border-navy shadow-[4px_4px_0_0_#000] p-6 sm:p-8 space-y-6 flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between">
               <h2 className="font-display font-black text-xl text-navy">

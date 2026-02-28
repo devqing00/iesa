@@ -148,7 +148,6 @@ function PaymentsContent() {
       const payData = await res.json();
       setPayments(payData.items ?? payData);
     } catch (error) {
-      console.error("Error fetching payments:", error);
       setFetchError("Failed to load payments. Please try again.");
     } finally {
       setLoading(false);
@@ -162,7 +161,6 @@ function PaymentsContent() {
       if (!res.ok) throw new Error("Failed to fetch transactions");
       setTransactions(await res.json());
     } catch (error) {
-      console.error("Error fetching transactions:", error);
     }
   };
 
@@ -171,7 +169,6 @@ function PaymentsContent() {
       const accounts = await listBankAccounts(true);
       setBankAccounts(accounts);
     } catch (error) {
-      console.error("Error fetching bank accounts:", error);
     }
   };
 
@@ -180,7 +177,6 @@ function PaymentsContent() {
       const transfers = await getMyTransfers();
       setMyTransfers(transfers);
     } catch (error) {
-      console.error("Error fetching transfers:", error);
     }
   };
 
@@ -204,7 +200,6 @@ function PaymentsContent() {
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Failed to initiate payment";
-      console.error("Payment error:", error);
       toast.error("Payment Error", errorMessage);
       setProcessingId(null);
     }
@@ -227,7 +222,6 @@ function PaymentsContent() {
         toast.warning("Payment Pending", `Your payment is being processed. Please check back shortly.`);
       }
     } catch (error) {
-      console.error("Verification error:", error);
       toast.error("Verification Failed", "Could not verify your payment. Please check your payment history or contact support.");
     } finally {
       // Tell the useEffect not to re-fetch when router.replace fires
@@ -265,7 +259,6 @@ function PaymentsContent() {
       toast.success("Download Complete", "Receipt downloaded successfully");
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Failed to download receipt";
-      console.error("Download error:", error);
       toast.error("Download Failed", errorMessage);
     } finally {
       setDownloadingReceipt(null);
@@ -813,8 +806,8 @@ function PaymentsContent() {
 
       {/* ═══ BANK TRANSFER MODAL ═══ */}
       {showTransferModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm">
-          <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[10px_10px_0_0_#000] w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-navy/60 backdrop-blur-sm">
+          <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[10px_10px_0_0_#000] w-full max-w-lg max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-hidden">
             {/* Modal Header */}
             <div className="px-6 py-5 border-b-[3px] border-navy/10 flex items-center justify-between">
               <div>
@@ -831,7 +824,7 @@ function PaymentsContent() {
             </div>
 
             {/* Bank Account Selection */}
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-5 flex-1 overflow-y-auto">
               {bankAccounts.length === 0 ? (
                 <div className="bg-coral-light border-[3px] border-coral rounded-2xl p-5 text-center">
                   <p className="font-display font-bold text-sm text-coral">No bank accounts available.</p>
@@ -1015,8 +1008,8 @@ function PaymentsContent() {
 
       {/* ═══ CONFIRM TRANSFER MODAL ═══ */}
       {showConfirmModal && showTransferModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-navy/70 backdrop-blur-sm">
-          <div className="bg-snow border-4 border-navy rounded-3xl shadow-[10px_10px_0_0_#000] w-full max-w-md">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-navy/70 backdrop-blur-sm">
+          <div className="bg-snow border-4 border-navy rounded-3xl shadow-[10px_10px_0_0_#000] w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-y-auto">
             <div className="px-6 pt-6 pb-4 border-b-[3px] border-navy/10">
               <div className="flex items-center gap-3 mb-1">
                 <div className="w-10 h-10 bg-sunny-light border-[3px] border-navy rounded-xl flex items-center justify-center">

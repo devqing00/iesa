@@ -74,7 +74,6 @@ export default function BlogArticlePage() {
         }
       }
     } catch {
-      console.error("Failed to fetch article");
     } finally {
       setLoading(false);
     }

@@ -147,7 +147,6 @@ export default function RegisterPage() {
       setRegistrationSuccess(true);
       toast.success("Account created!", { description: "Verification email sent. Check your inbox." });
     } catch (err: unknown) {
-      console.error("Registration error:", err);
       const msg = err instanceof Error ? err.message || "Registration failed. Please try again." : "An unexpected error occurred. Please try again.";
       setError(msg);
       toast.error("Registration failed", { description: msg });

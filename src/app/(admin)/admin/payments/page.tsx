@@ -231,7 +231,6 @@ function AdminPaymentsPage() {
         }
       }
     } catch (error) {
-      console.error("Failed to load sessions", error);
     }
   };
 
@@ -319,7 +318,6 @@ function AdminPaymentsPage() {
       }
     } catch (error) {
       toast.error("Failed to create payment");
-      console.error(error);
     } finally {
       setSubmitting(false);
     }
@@ -1280,8 +1278,8 @@ function AdminPaymentsPage() {
 
       {/* ── Create Payment Modal ── */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setShowCreateModal(false)}>
-          <div className="bg-snow border-[3px] border-navy rounded-3xl p-8 shadow-[10px_10px_0_0_#000] max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4 z-[70]" onClick={() => setShowCreateModal(false)}>
+          <div className="bg-snow border-[3px] border-navy rounded-3xl p-8 shadow-[10px_10px_0_0_#000] max-w-2xl w-full max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-display font-black text-2xl text-navy">Create Payment Due</h3>
               <button
@@ -1441,8 +1439,8 @@ function AdminPaymentsPage() {
 
       {/* ── Bank Account Modal ── */}
       {showBankAccountModal && (
-        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setShowBankAccountModal(false)}>
-          <div className="bg-snow border-[3px] border-navy rounded-3xl p-8 shadow-[10px_10px_0_0_#000] max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4 z-[70]" onClick={() => setShowBankAccountModal(false)}>
+          <div className="bg-snow border-[3px] border-navy rounded-3xl p-8 shadow-[10px_10px_0_0_#000] max-w-lg w-full max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-display font-black text-2xl text-navy">
                 {editingBankAccount ? "Edit Bank Account" : "Add Bank Account"}
@@ -1542,8 +1540,8 @@ function AdminPaymentsPage() {
 
       {/* ── Transfer Review Modal ── */}
       {reviewingTransfer && (
-        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setReviewingTransfer(null)}>
-          <div className="bg-snow border-[3px] border-navy rounded-3xl p-8 shadow-[10px_10px_0_0_#000] max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4 z-[70]" onClick={() => setReviewingTransfer(null)}>
+          <div className="bg-snow border-[3px] border-navy rounded-3xl p-8 shadow-[10px_10px_0_0_#000] max-w-lg w-full max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-display font-black text-2xl text-navy">
                 {reviewAction === "approved" ? "Approve Transfer" : "Reject Transfer"}
@@ -1649,8 +1647,8 @@ function AdminPaymentsPage() {
 
       {/* ── Transaction Detail Modal ── */}
       {selectedTransaction && (
-        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setSelectedTransaction(null)}>
-          <div className="bg-snow border-[3px] border-navy rounded-3xl p-8 shadow-[10px_10px_0_0_#000] max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4 z-[70]" onClick={() => setSelectedTransaction(null)}>
+          <div className="bg-snow border-[3px] border-navy rounded-3xl p-8 shadow-[10px_10px_0_0_#000] max-w-lg w-full max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-display font-black text-2xl text-navy">Transaction Details</h3>
               <button
@@ -1731,8 +1729,8 @@ function AdminPaymentsPage() {
 
       {/* ── Transfer Detail Modal ── */}
       {selectedTransfer && (
-        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setSelectedTransfer(null)}>
-          <div className="bg-snow border-[3px] border-navy rounded-3xl p-8 shadow-[10px_10px_0_0_#000] max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4 z-[70]" onClick={() => setSelectedTransfer(null)}>
+          <div className="bg-snow border-[3px] border-navy rounded-3xl p-8 shadow-[10px_10px_0_0_#000] max-w-lg w-full max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-display font-black text-2xl text-navy">Transfer Details</h3>
               <button
@@ -1852,8 +1850,8 @@ function AdminPaymentsPage() {
 
       {/* ── Image Preview Modal ── */}
       {previewImage && (
-        <div className="fixed inset-0 bg-navy/90 backdrop-blur-md flex items-center justify-center p-4 z-[60]" onClick={() => setPreviewImage(null)}>
-          <div className="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-navy/90 backdrop-blur-md flex items-center justify-center p-4 z-[80]" onClick={() => setPreviewImage(null)}>
+          <div className="relative max-w-4xl w-full max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setPreviewImage(null)}
               className="absolute -top-2 -right-2 z-10 w-10 h-10 bg-snow border-[3px] border-navy rounded-full flex items-center justify-center shadow-[3px_3px_0_0_#000] hover:bg-cloud transition-colors"
@@ -1881,8 +1879,8 @@ function AdminPaymentsPage() {
 
       {/* ── Payment Due Detail Modal ── */}
       {selectedPayment && (
-        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setSelectedPayment(null)}>
-          <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[10px_10px_0_0_#000] max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4 z-[70]" onClick={() => setSelectedPayment(null)}>
+          <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[10px_10px_0_0_#000] max-w-3xl w-full max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-center justify-between p-8 pb-0">
               <h3 className="font-display font-black text-2xl text-navy">Payment Due Details</h3>
@@ -1895,7 +1893,7 @@ function AdminPaymentsPage() {
               </button>
             </div>
 
-            <div className="p-8 space-y-6">
+            <div className="p-8 space-y-6 flex-1 overflow-y-auto">
               {/* Payment Info */}
               {!editingPayment ? (
                 <div className="bg-ghost border-[3px] border-navy/10 rounded-2xl p-5 space-y-3">
@@ -1906,7 +1904,7 @@ function AdminPaymentsPage() {
                         <p className="text-sm text-navy/60 mt-1">{selectedPayment.description}</p>
                       )}
                     </div>
-                    <PermissionGate permission="payment:create">
+                    <PermissionGate permission="payment:edit">
                       <button
                         onClick={() => setEditingPayment(true)}
                         className="px-4 py-2 bg-sunny-light border-[2px] border-navy/20 rounded-xl text-xs font-bold text-navy hover:border-navy transition-colors flex items-center gap-1.5"
@@ -2008,13 +2006,15 @@ function AdminPaymentsPage() {
                     >
                       Cancel
                     </button>
-                    <button
-                      onClick={handleEditPayment}
-                      disabled={editSubmitting}
-                      className="flex-1 px-5 py-2.5 bg-lime border-[3px] border-navy rounded-2xl font-bold text-navy text-sm press-3 press-navy transition-all disabled:opacity-50"
-                    >
-                      {editSubmitting ? "Saving..." : "Save Changes"}
-                    </button>
+                    <PermissionGate permission="payment:edit">
+                      <button
+                        onClick={handleEditPayment}
+                        disabled={editSubmitting}
+                        className="flex-1 px-5 py-2.5 bg-lime border-[3px] border-navy rounded-2xl font-bold text-navy text-sm press-3 press-navy transition-all disabled:opacity-50"
+                      >
+                        {editSubmitting ? "Saving..." : "Save Changes"}
+                      </button>
+                    </PermissionGate>
                   </div>
                 </div>
               )}

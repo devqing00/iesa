@@ -853,10 +853,10 @@ export default function IESAAIPage() {
                 {showLanguageMenu && !languageLocked && (
                   <>
                     <div
-                      className="fixed inset-0 z-40"
+                      className="fixed inset-0 z-[70]"
                       onClick={() => setShowLanguageMenu(false)}
                     />
-                    <div className="absolute right-0 top-full mt-2 bg-snow border-[3px] border-navy rounded-xl z-50 min-w-40 shadow-[4px_4px_0_0_#000] overflow-hidden">
+                    <div className="absolute right-0 top-full mt-2 bg-snow border-[3px] border-navy rounded-xl z-[70] min-w-40 shadow-[4px_4px_0_0_#000] overflow-hidden">
                       <div className="px-3 py-2 border-b-[3px] border-navy bg-lavender-light">
                         <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-navy/60">
                           Locked after first message
@@ -937,10 +937,10 @@ export default function IESAAIPage() {
                 {showMobileMenu && (
                   <>
                     <div
-                      className="fixed inset-0 z-40"
+                      className="fixed inset-0 z-[70]"
                       onClick={() => setShowMobileMenu(false)}
                     />
-                    <div className="absolute right-0 top-full mt-2 bg-snow border-[3px] border-navy rounded-xl z-50 w-56 shadow-[4px_4px_0_0_#000] overflow-hidden">
+                    <div className="absolute right-0 top-full mt-2 bg-snow border-[3px] border-navy rounded-xl z-[70] w-56 shadow-[4px_4px_0_0_#000] overflow-hidden">
                       <button
                         onClick={() => {
                           setShowConversations(!showConversations);
@@ -1043,10 +1043,10 @@ export default function IESAAIPage() {
       {showConversations && (
         <>
           <div
-            className="fixed inset-0 bg-navy/50 z-40"
+            className="fixed inset-0 bg-navy/50 z-[70]"
             onClick={() => setShowConversations(false)}
           />
-          <div className="fixed top-0 right-0 h-full w-full sm:w-80 bg-ghost border-l-[4px] border-navy z-50 flex flex-col">
+          <div className="fixed top-0 right-0 h-full w-full sm:w-80 bg-ghost border-l-[4px] border-navy z-[70] flex flex-col">
             {/* sidebar header */}
             <div className="p-4 border-b-[4px] border-navy bg-lavender-light flex items-center justify-between">
               <h2 className="font-display font-black text-lg text-navy">

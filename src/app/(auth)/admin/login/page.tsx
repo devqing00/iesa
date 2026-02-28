@@ -22,7 +22,6 @@ export default function AdminLoginPage() {
       await signInWithEmail(email, password);
       toast.success("Welcome, Admin!", { description: "Redirecting to admin dashboard..." });
     } catch (err: unknown) {
-      console.error("Admin login error:", err);
       const msg = err instanceof Error ? err.message || "Failed to login" : "Failed to login";
       setError(msg);
       toast.error("Login failed", { description: msg });

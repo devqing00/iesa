@@ -267,7 +267,6 @@ async def upload_profile_picture(
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
-        print(f"Error uploading profile picture: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to upload profile picture: {str(e)}"

@@ -26,7 +26,6 @@ function ReceiptContent() {
         const data = await getReceiptData(reference);
         setReceipt(data);
       } catch (err) {
-        console.error("Receipt fetch error:", err);
         setError(err instanceof Error ? err.message : "Failed to load receipt");
       } finally {
         setLoading(false);

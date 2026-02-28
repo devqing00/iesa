@@ -128,7 +128,6 @@ export default function TimetablePage() {
       const weekData = await cancellationsRes.json();
       setCancellations(weekData.cancellations || []);
     } catch (error) {
-      console.error("Error fetching timetable:", error);
     } finally {
       setLoading(false);
     }
@@ -612,8 +611,8 @@ export default function TimetablePage() {
         )}
 
         {showCancelModal && (
-          <div className="fixed inset-0 bg-navy/80 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6" onClick={() => { setShowCancelModal(false); setSelectedClass(null); setCancelDate(""); setCancelReason(""); }}>
-            <div className="bg-snow border-[3px] border-navy rounded-3xl w-full max-w-md max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-navy/80 z-[70] flex items-center justify-center px-4 py-4 sm:p-6" onClick={() => { setShowCancelModal(false); setSelectedClass(null); setCancelDate(""); setCancelReason(""); }}>
+            <div className="bg-snow border-[3px] border-navy rounded-3xl w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-hidden shadow-[4px_4px_0_0_#000]" onClick={(e) => e.stopPropagation()}>
               {/* Header */}
               <div className="p-6 border-b-[3px] border-navy/10 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -635,7 +634,7 @@ export default function TimetablePage() {
               </div>
 
               {/* Form */}
-              <div className="p-6 space-y-4">
+              <div className="p-6 space-y-4 flex-1 overflow-y-auto">
                 <div className="space-y-1.5">
                   <label htmlFor="class-select" className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">Select Class</label>
                   <select id="class-select" value={selectedClass?._id || ""} onChange={(e) => setSelectedClass(classes.find((c) => c._id === e.target.value) || null)} className="w-full px-4 py-3 bg-ghost border-[3px] border-navy text-sm text-navy rounded-xl focus:outline-none focus:border-coral transition-all">

@@ -77,7 +77,6 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch (error) {
-      console.error("Error fetching permissions:", error);
       setPermissions([]);
     } finally {
       setLoading(false);

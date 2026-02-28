@@ -69,7 +69,6 @@ export default function CommitteesPage() {
           setCommittees(Array.isArray(data) ? data : []);
         }
       } catch (err) {
-        console.error("Failed to fetch committees:", err);
       } finally {
         setLoading(false);
       }

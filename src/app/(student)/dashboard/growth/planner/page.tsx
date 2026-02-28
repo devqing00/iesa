@@ -457,8 +457,8 @@ function TaskModal({ task, onSave, onClose }: { task: Task | null; onSave: (data
   };
 
   return (
-    <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm flex items-center justify-center z-50 px-4 pt-4 pb-20 md:p-6">
-      <div className="bg-ghost border-[3px] border-navy rounded-[2rem] shadow-[4px_4px_0_0_#000] w-full max-w-lg max-h-[80vh] md:max-h-[85vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm flex items-center justify-center z-[70] px-4 py-4 sm:p-6">
+      <div className="bg-ghost border-[3px] border-navy rounded-[2rem] shadow-[4px_4px_0_0_#000] w-full max-w-lg max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="p-6 border-b-[3px] border-navy flex items-center justify-between">
           <div>
@@ -474,7 +474,7 @@ function TaskModal({ task, onSave, onClose }: { task: Task | null; onSave: (data
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-5 flex-1 overflow-y-auto">
           {/* Title */}
           <div>
             <label htmlFor="task-title" className="block text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50 mb-2">Title</label>

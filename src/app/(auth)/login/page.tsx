@@ -22,7 +22,6 @@ export default function StudentLoginPage() {
       await signInWithEmail(email, password);
       toast.success("Welcome back!", { description: "Redirecting to your dashboard..." });
     } catch (err: unknown) {
-      console.error("Login error:", err);
       const msg = err instanceof Error ? err.message || "Failed to login" : "Failed to login";
       setError(msg);
       toast.error("Login failed", { description: msg });

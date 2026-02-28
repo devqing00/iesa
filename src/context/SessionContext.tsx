@@ -86,14 +86,12 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`Sessions fetch failed with status ${response.status}:`, errorText);
         throw new Error(`Failed to fetch sessions: ${response.status} ${response.statusText}`);
       }
 
       const sessions: SessionSummary[] = await response.json();
       setAllSessions(sessions);
     } catch (err) {
-      console.error("Error fetching sessions:", err);
       setError("Failed to load academic sessions");
     }
   }, []);
@@ -111,7 +109,6 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`Failed to fetch active session. Status: ${response.status}`, errorText);
         throw new Error(`Failed to fetch active session: ${response.status} ${response.statusText}`);
       }
 
@@ -128,7 +125,6 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
       // Store in localStorage for persistence
       localStorage.setItem("currentSessionId", normalizedSession.id);
     } catch (err) {
-      console.error("Error fetching active session:", err);
       setError("No active academic session found. Please create and activate a session in the Sessions page.");
     } finally {
       setIsLoading(false);
@@ -176,7 +172,6 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
         localStorage.setItem("currentSessionId", normalizedSession.id);
         return true;
       } catch (err) {
-        console.error("Error switching session:", err);
         localStorage.removeItem("currentSessionId");
         return false;
       } finally {
@@ -220,7 +215,6 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
             localStorage.setItem("currentSessionId", normalizedSession.id);
           }
         } catch (err) {
-          console.error("Error refetching active session during refresh:", err);
         }
       } else if (currentSession?.id) {
         // If viewing a non-active session, refetch that specific session
@@ -241,11 +235,9 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
             localStorage.setItem("currentSessionId", normalizedSession.id);
           }
         } catch (err) {
-          console.error("Error refetching session during refresh:", err);
         }
       }
     } catch (err) {
-      console.error("Error refreshing sessions:", err);
     }
   }, [user, getAccessToken, fetchSessions, currentSession]);
 
@@ -287,7 +279,6 @@ export const SessionProvider: React.FC<SessionProviderProps> = ({
         // Load all sessions for dropdown
         await fetchSessions(token);
       } catch (err) {
-        console.error("Error initializing sessions:", err);
         setError("Failed to initialize sessions");
         setIsLoading(false);
       }

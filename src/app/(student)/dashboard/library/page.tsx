@@ -168,7 +168,6 @@ export default function LibraryPage() {
       });
       if (response.ok) setMySubmissions(await response.json());
     } catch (error) {
-      console.error("Error fetching my submissions:", error);
     }
   };
 
@@ -198,7 +197,6 @@ export default function LibraryPage() {
         setTotalPages(Math.max(1, Math.ceil((data.total ?? data.resources.length) / ps)));
       }
     } catch (error) {
-      console.error("Error fetching resources:", error);
     } finally {
       setIsFetching(false);
       setInitialLoading(false);
@@ -228,7 +226,6 @@ export default function LibraryPage() {
         toast.error("Upload Failed", `Failed to add resource: ${error.detail}`);
       }
     } catch (error) {
-      console.error("Error adding resource:", error);
       toast.error("Upload Failed", "Failed to add resource");
     } finally {
       setUploading(false);
@@ -674,9 +671,9 @@ export default function LibraryPage() {
           UPLOAD MODAL
           ═══════════════════════════════════════════════════════ */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-navy/80 z-50 flex items-center justify-center px-4 pt-4 pb-20 md:p-6" onClick={() => setShowUploadModal(false)}>
+        <div className="fixed inset-0 bg-navy/80 z-[70] flex items-center justify-center px-4 py-4 sm:p-6" onClick={() => setShowUploadModal(false)}>
           <div
-            className="bg-snow border-[3px] border-navy rounded-3xl max-w-2xl w-full max-h-[80vh] md:max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000]"
+            className="bg-snow border-[3px] border-navy rounded-3xl max-w-2xl w-full max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-hidden shadow-[4px_4px_0_0_#000]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -697,7 +694,7 @@ export default function LibraryPage() {
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleAddResource} className="p-6 space-y-4">
+            <form onSubmit={handleAddResource} className="p-6 space-y-4 flex-1 overflow-y-auto">
               <div className="space-y-1.5">
                 <label htmlFor="resource-title" className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">Title</label>
                 <input id="resource-title" type="text" required value={uploadForm.title} onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })} className="w-full px-4 py-3 rounded-xl bg-ghost border-[3px] border-navy text-sm text-navy placeholder:text-slate focus:outline-none focus:border-teal transition-all" placeholder="e.g., Thermodynamics Lecture Notes" />
