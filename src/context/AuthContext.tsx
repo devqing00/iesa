@@ -53,6 +53,7 @@ interface AuthContextType {
       level?: string;
       admissionYear?: number;
       role?: string;
+      department?: string;
     }
   ) => Promise<void>;
   signOut: () => Promise<void>;
@@ -283,6 +284,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       level?: string;
       admissionYear?: number;
       role?: string;
+      department?: string;
     }
   ) => {
     const res = await fetch(getApiUrl("/api/v1/auth/register"), {
@@ -299,6 +301,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         level: extra?.level || null,
         admissionYear: extra?.admissionYear || null,
         role: extra?.role || null,
+        department: extra?.department || null,
       }),
     });
 

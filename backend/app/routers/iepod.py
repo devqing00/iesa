@@ -234,6 +234,9 @@ async def register_for_iepod(
     doc["userEmail"] = user.get("email", "")
     doc["sessionId"] = session_id
     doc["level"] = user.get("currentLevel") or user.get("level") or "N/A"
+    doc["department"] = user.get("department", "Industrial Engineering")
+    doc["isExternalStudent"] = doc["department"] != "Industrial Engineering"
+    doc["externalFaculty"] = None
     doc["status"] = "pending"
     doc["phase"] = "stimulate"
     doc["points"] = 0
@@ -333,6 +336,7 @@ async def get_my_iepod_profile(
 async def list_registrations(
     status_filter: Optional[str] = Query(None, alias="status"),
     phase: Optional[str] = None,
+    department: Optional[str] = Query(None, description="Filter by department: 'ipe' for Industrial Engineering, 'external' for non-IPE"),
     search: Optional[str] = None,
     limit: int = Query(50, ge=1, le=200),
     skip: int = Query(0, ge=0),
@@ -346,6 +350,10 @@ async def list_registrations(
         query["status"] = status_filter
     if phase:
         query["phase"] = phase
+    if department == "ipe":
+        query["isExternalStudent"] = {"$ne": True}
+    elif department == "external":
+        query["isExternalStudent"] = True
     if search:
         escaped = re.escape(search)
         query["$or"] = [
@@ -467,6 +475,10 @@ async def create_niche_audit(
     reg = await _get_registration(db, user_id, session_id)
     if not reg:
         raise HTTPException(400, "You must register for IEPOD first")
+
+    # External students cannot create niche audits (IPE-only feature)
+    if reg.get("isExternalStudent"):
+        raise HTTPException(403, "Niche Audit is restricted to Industrial & Production Engineering students. External participants can join teams and attend sessions.")
 
     # Check if already exists
     existing = await db.iepod_niche_audits.find_one(
@@ -594,6 +606,10 @@ async def create_team(
         raise HTTPException(400, "You must register for IEPOD first")
     if reg.get("teamId"):
         raise HTTPException(400, "You are already on a team")
+
+    # External students cannot create teams (they can only join existing teams)
+    if reg.get("isExternalStudent"):
+        raise HTTPException(403, "Team creation is restricted to IPE students. You can join existing teams instead.")
 
     if not validate_no_scripts(data.name) or not validate_no_scripts(data.problemStatement):
         raise HTTPException(400, "Invalid characters detected")
@@ -841,6 +857,11 @@ async def create_submission(
     is_member = any(m["userId"] == user_id for m in team.get("members", []))
     if not is_member:
         raise HTTPException(403, "You are not a member of this team")
+
+    # External students cannot create submissions
+    reg = await _get_registration(db, user_id, session_id)
+    if reg and reg.get("isExternalStudent"):
+        raise HTTPException(403, "Submission creation is restricted to IPE students")
 
     if not validate_no_scripts(data.title) or not validate_no_scripts(data.description):
         raise HTTPException(400, "Invalid characters detected")

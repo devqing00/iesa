@@ -53,6 +53,9 @@ export interface IepodRegistration {
   priorExperience?: string | null;
   preferredSocietyId?: string | null;
   level: string;
+  department?: string;
+  isExternalStudent?: boolean;
+  externalFaculty?: string | null;
   status: RegistrationStatus;
   phase: IepodPhase;
   adminNote?: string | null;
@@ -448,7 +451,7 @@ export async function getLeaderboard(limit = 50): Promise<LeaderboardEntry[]> {
 // ── Admin ───────────────────────────────────────────────────────────
 
 export async function listRegistrations(filters?: {
-  status?: string; phase?: string; search?: string; limit?: number; skip?: number;
+  status?: string; phase?: string; department?: string; search?: string; limit?: number; skip?: number;
 }): Promise<{ registrations: IepodRegistration[]; total: number }> {
   const qs = buildQueryString(filters || {});
   return api.get(`${BASE}/registrations${qs}`);

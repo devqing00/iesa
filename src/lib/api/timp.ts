@@ -193,3 +193,64 @@ export async function getTimpSettings(): Promise<{ formOpen: boolean }> {
 export async function updateTimpSettings(formOpen: boolean): Promise<{ formOpen: boolean }> {
   return api.patch<{ formOpen: boolean }>(`${BASE}/settings?formOpen=${formOpen}`, {});
 }
+
+
+// ── Admin enriched data ──────────────────────────────────────────
+
+export interface EnrichedMentor {
+  applicationId: string;
+  userId: string;
+  userName: string;
+  email: string;
+  matricNumber: string;
+  level: string | null;
+  phone: string | null;
+  skills: string;
+  availability: string;
+  motivation: string;
+  maxMentees: number;
+  activePairs: number;
+  isFull: boolean;
+  profilePictureUrl: string | null;
+}
+
+export interface MenteeCandidate {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  matricNumber: string;
+  level: string;
+  phone: string | null;
+  profilePictureUrl: string | null;
+  alreadyPaired: boolean;
+}
+
+export interface TimpUserDetails {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  matricNumber: string;
+  level: string | null;
+  phone: string | null;
+  bio: string | null;
+  skills: string[];
+  profilePictureUrl: string | null;
+  application: MentorApplication | null;
+  pairs: MentorshipPair[];
+}
+
+export async function getEnrichedMentors(search?: string): Promise<{ items: EnrichedMentor[]; total: number }> {
+  const qs = search ? buildQueryString({ search }) : "";
+  return api.get<{ items: EnrichedMentor[]; total: number }>(`${BASE}/admin/mentors${qs}`);
+}
+
+export async function getMenteeCandidates(search?: string): Promise<{ items: MenteeCandidate[]; total: number }> {
+  const qs = search ? buildQueryString({ search }) : "";
+  return api.get<{ items: MenteeCandidate[]; total: number }>(`${BASE}/admin/mentee-candidates${qs}`);
+}
+
+export async function getTimpUserDetails(userId: string): Promise<TimpUserDetails> {
+  return api.get<TimpUserDetails>(`${BASE}/admin/user/${userId}`);
+}

@@ -162,7 +162,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { signOut, userProfile } = useAuth();
   const { isExpanded, toggleSidebar, closeSidebar } = useSidebar();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, permissions } = usePermissions();
 
   /** Check if a nav link should be visible based on permissions */
   const isLinkVisible = (link: NavLink) => {
@@ -260,8 +260,8 @@ export default function Sidebar() {
           ); })}
         </nav>
 
-        {/* Ecosystem Switch — show only for admin/exco users */}
-        {userProfile && (userProfile.role === "admin" || userProfile.role === "exco") && (
+        {/* Ecosystem Switch — show for users with admin access (role or permissions) */}
+        {userProfile && (userProfile.role === "admin" || userProfile.role === "exco" || permissions.length > 0) && (
           <div className="p-2.5">
             <Link
               href="/admin/dashboard"

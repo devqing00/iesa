@@ -376,6 +376,22 @@ export default function IepodStudentPage() {
         {/* ── Registered — approved (main dashboard) ──────────── */}
         {isRegistered && reg?.status === "approved" && (
           <div className="space-y-8">
+            {/* External student banner */}
+            {reg.isExternalStudent && (
+              <div className="bg-sunny-light border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000] flex items-start gap-4">
+                <svg className="w-6 h-6 text-sunny shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
+                </svg>
+                <div>
+                  <h4 className="font-display font-black text-sm text-navy">External Participant</h4>
+                  <p className="text-navy-muted text-xs mt-1">
+                    Welcome from <strong>{reg.department}</strong>! As a cross-department participant, you can attend sessions, join teams, and earn points.
+                    Niche Audit, team creation, and submissions are exclusive to IPE students.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Phase timeline */}
             <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] overflow-x-auto">
               <div className="flex items-center justify-between mb-4">
@@ -424,7 +440,16 @@ export default function IepodStudentPage() {
               {/* Niche Audit card */}
               <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000]">
                 <h4 className="font-display font-black text-sm text-navy mb-3">Niche Audit</h4>
-                {profile?.nicheAudit ? (
+                {reg.isExternalStudent ? (
+                  <div>
+                    <div className="bg-cloud rounded-xl px-3 py-1 inline-block mb-2">
+                      <span className="text-slate font-bold text-xs">IPE Only</span>
+                    </div>
+                    <p className="text-slate text-xs">
+                      The Niche Audit is exclusive to Industrial &amp; Production Engineering students.
+                    </p>
+                  </div>
+                ) : profile?.nicheAudit ? (
                   <div>
                     <div className="bg-teal-light rounded-xl px-3 py-1 inline-block mb-2">
                       <span className="text-teal font-bold text-xs">Completed</span>
@@ -476,13 +501,15 @@ export default function IepodStudentPage() {
                 ) : (
                   <div>
                     <p className="text-navy/70 text-sm mb-3">
-                      Form or join a team for the hackathon finale.
+                      {reg.isExternalStudent
+                        ? "Browse and join an existing team for the hackathon."
+                        : "Form or join a team for the hackathon finale."}
                     </p>
                     <Link
                       href="/dashboard/iepod/team"
                       className="bg-navy border-[2px] border-navy text-coral font-bold text-xs px-4 py-2 rounded-xl press-2 press-navy inline-block"
                     >
-                      Find a Team
+                      {reg.isExternalStudent ? "Join a Team" : "Find a Team"}
                     </Link>
                   </div>
                 )}

@@ -121,6 +121,9 @@ class Registration(RegistrationBase):
     userEmail: str
     sessionId: str
     level: Optional[str] = Field(None, description="Academic level at time of registration (populated from user profile)")
+    department: str = Field(default="Industrial Engineering", description="Student's department at time of registration")
+    isExternalStudent: bool = Field(default=False, description="True if student is not from the Industrial Engineering department")
+    externalFaculty: Optional[str] = Field(None, max_length=200, description="Faculty name for external students")
     status: RegistrationStatus = Field(default="pending")
     phase: IepodPhase = Field(default="stimulate")
     adminNote: Optional[str] = None

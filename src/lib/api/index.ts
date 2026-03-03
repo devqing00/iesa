@@ -291,6 +291,9 @@ export {
   getMyTimpInfo,
   getTimpSettings,
   updateTimpSettings,
+  getEnrichedMentors,
+  getMenteeCandidates,
+  getTimpUserDetails,
   APPLICATION_STATUS_STYLES,
   PAIR_STATUS_STYLES,
 } from './timp';
@@ -308,6 +311,9 @@ export type {
   SubmitFeedbackData,
   PaginatedMentorApplications,
   PaginatedPairs,
+  EnrichedMentor,
+  MenteeCandidate,
+  TimpUserDetails,
 } from './timp';
 
 // Bank Transfers

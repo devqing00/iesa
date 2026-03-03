@@ -19,7 +19,7 @@ export default function MobileNav() {
   const pathname = usePathname();
   const { signOut, userProfile } = useAuth();
   const { currentSession, allSessions } = useSession();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, permissions } = usePermissions();
   const [showMore, setShowMore] = useState(false);
   const activeSession = allSessions.find(s => s.isActive) ?? currentSession;
 
@@ -211,8 +211,8 @@ export default function MobileNav() {
                 </div>
               </div>
 
-              {/* Switch to Admin — only admin/exco users */}
-              {userProfile && (userProfile.role === "admin" || userProfile.role === "exco") && (
+              {/* Switch to Admin — users with admin access (role or permissions) */}
+              {userProfile && (userProfile.role === "admin" || userProfile.role === "exco" || permissions.length > 0) && (
                 <Link
                   href="/admin/dashboard"
                   className="w-full flex items-center gap-2.5 px-3 py-3 rounded-2xl text-sm font-bold text-lavender hover:bg-lavender-light transition-all"

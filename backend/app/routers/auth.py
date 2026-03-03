@@ -156,7 +156,7 @@ async def register(
         "phone": data.phone,
         "currentLevel": data.level,
         "admissionYear": data.admissionYear,
-        "department": "Industrial Engineering",
+        "department": data.department or "Industrial Engineering",
         "role": role,
         "bio": None,
         "profilePictureUrl": None,

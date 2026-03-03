@@ -71,19 +71,34 @@ async def create_role(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    # Check if position already filled for this session
-    existing = await roles.find_one({
-        "sessionId": role.sessionId,
-        "position": role.position
-    })
-    if existing:
-        # Get current holder's name for error message
-        current_holder = await users.find_one({"_id": ObjectId(existing["userId"])})
-        holder_name = f"{current_holder.get('firstName', '')} {current_holder.get('lastName', '')}" if current_holder else "Unknown"
-        raise HTTPException(
-            status_code=400,
-            detail=f"Position '{role.position}' is already held by {holder_name} in session {session['name']}"
-        )
+    # Positions that allow multiple holders (admin roles)
+    MULTI_HOLDER_POSITIONS = {"super_admin", "admin"}
+    
+    if role.position not in MULTI_HOLDER_POSITIONS:
+        # Check if position already filled for this session
+        existing = await roles.find_one({
+            "sessionId": role.sessionId,
+            "position": role.position
+        })
+        if existing:
+            current_holder = await users.find_one({"_id": ObjectId(existing["userId"])})
+            holder_name = f"{current_holder.get('firstName', '')} {current_holder.get('lastName', '')}" if current_holder else "Unknown"
+            raise HTTPException(
+                status_code=400,
+                detail=f"Position '{role.position}' is already held by {holder_name} in session {session['name']}"
+            )
+    else:
+        # For multi-holder positions, prevent duplicate assignment to same user
+        existing = await roles.find_one({
+            "userId": role.userId,
+            "position": role.position,
+            "isActive": True
+        })
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail=f"User already has the '{role.position}' position"
+            )
     
     # Create role assignment
     role_data = role.model_dump()
@@ -95,6 +110,23 @@ async def create_role(
     
     result = await roles.insert_one(role_data)
     created_role = await roles.find_one({"_id": result.inserted_id})
+    
+    # ── Auto-sync user document role field ──
+    # This ensures the "Switch to Admin" button and admin layout access work
+    ADMIN_POSITIONS = {"super_admin", "admin"}
+    if role.position in ADMIN_POSITIONS:
+        target_role = "admin"
+    else:
+        target_role = "exco"
+    
+    current_user_role = user.get("role", "student")
+    # Only escalate role, never downgrade (admin > exco > student)
+    ROLE_PRIORITY = {"student": 0, "exco": 1, "admin": 2}
+    if ROLE_PRIORITY.get(target_role, 0) > ROLE_PRIORITY.get(current_user_role, 0):
+        await users.update_one(
+            {"_id": ObjectId(role.userId)},
+            {"$set": {"role": target_role, "updatedAt": datetime.now(timezone.utc)}}
+        )
     
     # Bust permissions cache for this user
     from app.core.permissions import invalidate_permissions_cache
@@ -445,6 +477,30 @@ async def delete_role(
     if role_doc:
         from app.core.permissions import invalidate_permissions_cache
         invalidate_permissions_cache(role_doc.get("userId"))
+        
+        # ── Auto-sync: revert user role if no remaining roles ──
+        affected_user_id = role_doc.get("userId")
+        remaining = await roles.find_one({
+            "userId": affected_user_id,
+            "isActive": True
+        })
+        if not remaining:
+            await db["users"].update_one(
+                {"_id": ObjectId(affected_user_id)},
+                {"$set": {"role": "student", "updatedAt": datetime.now(timezone.utc)}}
+            )
+        else:
+            # Recalculate: if any remaining role is admin-level, keep admin; else exco
+            admin_positions = {"super_admin", "admin"}
+            remaining_roles = await roles.find(
+                {"userId": affected_user_id, "isActive": True}
+            ).to_list(length=100)
+            has_admin = any(r.get("position") in admin_positions for r in remaining_roles)
+            new_role = "admin" if has_admin else "exco"
+            await db["users"].update_one(
+                {"_id": ObjectId(affected_user_id)},
+                {"$set": {"role": new_role, "updatedAt": datetime.now(timezone.utc)}}
+            )
     
     # Audit log
     await AuditLogger.log(

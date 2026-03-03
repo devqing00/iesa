@@ -10,6 +10,7 @@ import {
   createNicheAudit,
   updateNicheAudit,
   listSocieties,
+  getMyIepodProfile,
 } from "@/lib/api";
 import type { NicheAudit, Society } from "@/lib/api";
 
@@ -49,18 +50,23 @@ export default function NicheAuditPage() {
   const [inspirations, setInspirations] = useState("");
 
   const [editMode, setEditMode] = useState(false);
+  const [isExternal, setIsExternal] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
-      const [auditData, societyData] = await Promise.allSettled([
+      const [auditData, societyData, profileData] = await Promise.allSettled([
         getMyNicheAudit(),
         listSocieties(),
+        getMyIepodProfile(),
       ]);
       if (auditData.status === "fulfilled" && auditData.value) {
         setAudit(auditData.value);
         populateForm(auditData.value);
       }
       if (societyData.status === "fulfilled") setSocieties(societyData.value);
+      if (profileData.status === "fulfilled" && profileData.value.registration?.isExternalStudent) {
+        setIsExternal(true);
+      }
     } catch {
       toast.error("Failed to load data");
     } finally {
@@ -141,6 +147,36 @@ export default function NicheAuditPage() {
             <div className="h-6 bg-cloud rounded w-1/3 mb-6" />
             <div className="h-4 bg-cloud rounded w-full mb-3" />
             <div className="h-4 bg-cloud rounded w-3/4" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── External student restriction ────────────────── */
+  if (isExternal) {
+    return (
+      <div className="min-h-screen">
+        <DashboardHeader title="Niche Audit" />
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+          <Link href="/dashboard/iepod" className="text-lavender font-bold text-sm hover:underline">
+            &larr; Back to IEPOD
+          </Link>
+          <div className="bg-sunny-light border-[4px] border-navy rounded-3xl p-8 shadow-[8px_8px_0_0_#000] text-center space-y-4">
+            <svg className="w-12 h-12 text-sunny mx-auto" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
+            </svg>
+            <h2 className="font-display font-black text-2xl text-navy">IPE Students Only</h2>
+            <p className="text-navy-muted font-medium max-w-md mx-auto">
+              The Niche Audit is an exclusive reflective tool for Industrial &amp; Production Engineering students.
+              As a cross-department participant, you can still attend all sessions, join teams, and earn IEPOD points.
+            </p>
+            <Link
+              href="/dashboard/iepod"
+              className="bg-navy border-[3px] border-navy text-lime font-display font-black text-sm px-6 py-3 rounded-xl press-4 press-navy inline-block transition-all mt-2"
+            >
+              Back to Dashboard
+            </Link>
           </div>
         </div>
       </div>

@@ -184,6 +184,7 @@ export default function TeamPage() {
 
   const hasTeam = !!myTeam;
   const isLeader = myTeam?.leaderId === user?.id;
+  const isExternal = profile?.registration?.isExternalStudent || false;
 
   if (loading) {
     return (
@@ -253,7 +254,7 @@ export default function TeamPage() {
                   <option key={s} value={s}>{TEAM_STATUS_STYLES[s].label}</option>
                 ))}
               </select>
-              {!hasTeam && (
+              {!hasTeam && !isExternal && (
                 <button
                   onClick={() => setShowCreateForm(!showCreateForm)}
                   className="bg-lime border-[3px] border-navy press-4 press-navy px-5 py-2 rounded-xl font-display font-black text-sm text-navy transition-all whitespace-nowrap"
@@ -423,12 +424,14 @@ export default function TeamPage() {
           <div className="space-y-5">
             <div className="flex items-center justify-between">
               <h3 className="font-display font-black text-lg text-navy">Submissions</h3>
-              <button
-                onClick={() => setShowSubForm(!showSubForm)}
-                className="bg-lime border-[3px] border-navy press-4 press-navy px-5 py-2 rounded-xl font-display font-black text-sm text-navy transition-all"
-              >
-                {showSubForm ? "Cancel" : "New Submission"}
-              </button>
+              {!isExternal && (
+                <button
+                  onClick={() => setShowSubForm(!showSubForm)}
+                  className="bg-lime border-[3px] border-navy press-4 press-navy px-5 py-2 rounded-xl font-display font-black text-sm text-navy transition-all"
+                >
+                  {showSubForm ? "Cancel" : "New Submission"}
+                </button>
+              )}
             </div>
 
             {/* New submission form */}

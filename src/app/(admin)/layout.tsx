@@ -3,6 +3,7 @@
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminMobileNav from "@/components/admin/AdminMobileNav";
 import { useAuth } from "@/context/AuthContext";
+import { usePermissions } from "@/context/PermissionsContext";
 import { SidebarProvider, useSidebar } from "@/context/SidebarContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -38,19 +39,30 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const { user, userProfile, loading } = useAuth();
+  const { permissions, loading: permissionsLoading } = usePermissions();
   const router = useRouter();
 
+  // User has admin access if their role is admin/exco OR they have any permissions from roles
+  const hasAdminAccess = userProfile && (
+    userProfile.role === "admin" ||
+    userProfile.role === "exco" ||
+    permissions.length > 0
+  );
+
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading || permissionsLoading) return;
+
+    if (!user) {
       router.push("/login");
+      return;
     }
-    // Redirect non-admin users
-    if (!loading && user && userProfile && userProfile.role !== "admin" && userProfile.role !== "exco") {
+    // Redirect users with no admin access
+    if (userProfile && !hasAdminAccess) {
       router.push("/dashboard");
     }
-  }, [user, userProfile, loading, router]);
+  }, [user, userProfile, loading, permissionsLoading, hasAdminAccess, router]);
 
-  if (loading) {
+  if (loading || permissionsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-ghost">
         <div className="animate-spin rounded-full h-12 w-12 border-[3px] border-navy border-t-transparent"></div>
@@ -60,8 +72,8 @@ export default function AdminLayout({
 
   if (!user) return null;
 
-  // Block access for non-admin/exco users while redirect is pending
-  if (userProfile && userProfile.role !== "admin" && userProfile.role !== "exco") {
+  // Block access for users without admin access while redirect is pending
+  if (userProfile && !hasAdminAccess) {
     return null;
   }
 

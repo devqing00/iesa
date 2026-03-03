@@ -59,6 +59,7 @@ class RegisterRequest(BaseModel):
     level: Optional[str] = Field(None, pattern=r"^\d{3}L$")
     admissionYear: Optional[int] = Field(None, ge=2000, le=2040)
     role: Optional[str] = Field(None, pattern=r"^(student|admin)$")
+    department: Optional[str] = Field(None, max_length=200, description="Student's department (defaults to Industrial Engineering)")
 
 
 class LoginRequest(BaseModel):

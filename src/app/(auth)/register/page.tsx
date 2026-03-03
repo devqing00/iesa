@@ -22,6 +22,8 @@ export default function RegisterPage() {
   const [phone, setPhone] = useState("");
   const [admittedSession, setAdmittedSession] = useState("");
   const [levelConfirmed, setLevelConfirmed] = useState(false);
+  const [isExternalStudent, setIsExternalStudent] = useState(false);
+  const [department, setDepartment] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
@@ -141,6 +143,7 @@ export default function RegisterPage() {
         phone: phone.trim(),
         level: calculatedLevel,
         admissionYear: derivedAdmissionYear,
+        department: isExternalStudent && department.trim() ? department.trim() : "Industrial Engineering",
       });
       // Lock the form immediately — navigation may be slow on cold starts.
       // setIsSubmitting stays true; we show a success screen instead.
@@ -320,9 +323,46 @@ export default function RegisterPage() {
             {/* Academic Info Section */}
             <div className="space-y-4 pt-4 border-t-[3px] border-cloud">
               <h2 className="font-display font-bold text-xs text-slate uppercase tracking-wider flex items-center gap-2">
-                <span className="w-6 h-6 rounded-lg bg-teal border-[2px] border-navy flex items-center justify-center text-xs font-bold text-navy">3</span>
+                <span className="w-6 h-6 rounded-lg bg-teal border-2 border-navy flex items-center justify-center text-xs font-bold text-navy">3</span>
                 <span>Academic Info</span>
               </h2>
+
+              {/* External student toggle */}
+              <div className="flex items-center justify-between bg-ghost border-2 border-cloud rounded-2xl px-4 py-3">
+                <div>
+                  <p className="font-display font-bold text-xs text-navy">Not from Industrial Engineering?</p>
+                  <p className="text-[11px] text-slate mt-0.5">Toggle if you&apos;re from a different department</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setIsExternalStudent(!isExternalStudent); setDepartment(""); }}
+                  className={`relative w-12 h-6 rounded-full border-2 transition-all ${
+                    isExternalStudent ? "bg-lime border-navy" : "bg-cloud border-cloud"
+                  }`}
+                  title={isExternalStudent ? "Currently: External student" : "Currently: IPE student"}
+                >
+                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-navy transition-all ${
+                    isExternalStudent ? "left-6" : "left-0.5"
+                  }`} />
+                </button>
+              </div>
+
+              {isExternalStudent && (
+                <div className="space-y-2">
+                  <label htmlFor="register-department" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Your Department</label>
+                  <input
+                    id="register-department"
+                    type="text"
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    placeholder="e.g. Electrical Engineering"
+                    required={isExternalStudent}
+                    maxLength={200}
+                    className={inputClass}
+                  />
+                  <p className="text-xs text-slate">You&apos;ll be able to join IEPOD but some features are IPE-exclusive</p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <label htmlFor="register-admitted-session" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Session Admitted</label>

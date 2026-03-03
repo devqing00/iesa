@@ -278,6 +278,167 @@ async def get_my_application(
 
 
 # ═══════════════════════════════════════════════════════════════════
+# ADMIN: ENRICHED MENTOR & MENTEE CANDIDATE DATA
+# ═══════════════════════════════════════════════════════════════════
+
+
+@router.get("/admin/mentors")
+async def get_enriched_mentors(
+    search: Optional[str] = Query(None, description="Search by name"),
+    user: dict = Depends(get_current_user),
+    session: dict = Depends(get_current_session),
+    _perm=Depends(require_permission("timp:manage")),
+):
+    """
+    Get approved mentors with full user details + active pair counts.
+    Used by the TIMP admin assignment page.
+    """
+    db = get_database()
+    sid = str(session["_id"])
+
+    query: dict = {"sessionId": sid, "status": "approved"}
+    if search:
+        query["userName"] = {"$regex": re.escape(search), "$options": "i"}
+
+    apps = await db.timpApplications.find(query).sort("userName", 1).to_list(length=500)
+
+    # Batch-fetch user docs and pair counts
+    user_ids = [a["userId"] for a in apps]
+    user_oids = [ObjectId(uid) for uid in user_ids if ObjectId.is_valid(uid)]
+    users_cursor = db.users.find({"_id": {"$in": user_oids}})
+    users_map = {str(u["_id"]): u async for u in users_cursor}
+
+    # Count active pairs per mentor
+    pipeline = [
+        {"$match": {"mentorId": {"$in": user_ids}, "sessionId": sid, "status": "active"}},
+        {"$group": {"_id": "$mentorId", "count": {"$sum": 1}}},
+    ]
+    pair_counts = {doc["_id"]: doc["count"] async for doc in db.timpPairs.aggregate(pipeline)}
+
+    result = []
+    for a in apps:
+        u = users_map.get(a["userId"], {})
+        result.append({
+            "applicationId": str(a["_id"]),
+            "userId": a["userId"],
+            "userName": a["userName"],
+            "email": u.get("email", ""),
+            "matricNumber": u.get("matricNumber", ""),
+            "level": u.get("currentLevel") or a.get("userLevel"),
+            "phone": u.get("phone"),
+            "skills": a["skills"],
+            "availability": a["availability"],
+            "motivation": a["motivation"],
+            "maxMentees": a["maxMentees"],
+            "activePairs": pair_counts.get(a["userId"], 0),
+            "isFull": pair_counts.get(a["userId"], 0) >= a["maxMentees"],
+            "profilePictureUrl": u.get("profilePictureUrl"),
+        })
+
+    return {"items": result, "total": len(result)}
+
+
+@router.get("/admin/mentee-candidates")
+async def get_mentee_candidates(
+    search: Optional[str] = Query(None, description="Search by name or matric"),
+    user: dict = Depends(get_current_user),
+    session: dict = Depends(get_current_session),
+    _perm=Depends(require_permission("timp:manage")),
+):
+    """
+    Get 100L freshmen who are potential mentees.
+    Excludes students already paired as mentees in the current session.
+    """
+    db = get_database()
+    sid = str(session["_id"])
+
+    # Get all 100L students
+    user_query: dict = {"currentLevel": "100L"}
+    if search:
+        search_regex = {"$regex": re.escape(search), "$options": "i"}
+        user_query["$or"] = [
+            {"firstName": search_regex},
+            {"lastName": search_regex},
+            {"matricNumber": search_regex},
+            {"email": search_regex},
+        ]
+
+    freshmen = await db.users.find(
+        user_query,
+        {"_id": 1, "firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1,
+         "currentLevel": 1, "phone": 1, "profilePictureUrl": 1}
+    ).sort("firstName", 1).to_list(length=1000)
+
+    # Get IDs of students already paired as mentees this session
+    paired_cursor = db.timpPairs.find(
+        {"sessionId": sid, "status": {"$in": ["active", "paused"]}},
+        {"menteeId": 1}
+    )
+    paired_ids = {doc["menteeId"] async for doc in paired_cursor}
+
+    result = []
+    for f in freshmen:
+        uid = str(f["_id"])
+        result.append({
+            "userId": uid,
+            "firstName": f.get("firstName", ""),
+            "lastName": f.get("lastName", ""),
+            "email": f.get("email", ""),
+            "matricNumber": f.get("matricNumber", ""),
+            "level": f.get("currentLevel", "100L"),
+            "phone": f.get("phone"),
+            "profilePictureUrl": f.get("profilePictureUrl"),
+            "alreadyPaired": uid in paired_ids,
+        })
+
+    return {"items": result, "total": len(result)}
+
+
+@router.get("/admin/user/{user_id}")
+async def get_timp_user_details(
+    user_id: str,
+    user: dict = Depends(get_current_user),
+    session: dict = Depends(get_current_session),
+    _perm=Depends(require_permission("timp:manage")),
+):
+    """Get detailed info about a student for the TIMP admin view."""
+    db = get_database()
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+
+    target = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    sid = str(session["_id"])
+
+    # Get TIMP application if exists
+    app_doc = await db.timpApplications.find_one({"userId": user_id, "sessionId": sid})
+
+    # Get active pairs
+    pairs_cursor = db.timpPairs.find({
+        "$or": [{"mentorId": user_id}, {"menteeId": user_id}],
+        "sessionId": sid,
+    })
+    pairs = await pairs_cursor.to_list(length=20)
+
+    return {
+        "userId": user_id,
+        "firstName": target.get("firstName", ""),
+        "lastName": target.get("lastName", ""),
+        "email": target.get("email", ""),
+        "matricNumber": target.get("matricNumber", ""),
+        "level": target.get("currentLevel"),
+        "phone": target.get("phone"),
+        "bio": target.get("bio"),
+        "skills": target.get("skills", []),
+        "profilePictureUrl": target.get("profilePictureUrl"),
+        "application": _app_to_response(app_doc) if app_doc else None,
+        "pairs": [_pair_to_response(p) for p in pairs],
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════
 # MENTORSHIP PAIRS
 # ═══════════════════════════════════════════════════════════════════
 
