@@ -6,8 +6,9 @@ The session_id filter is automatically applied based on user's current session.
 """
 
 from fastapi import APIRouter, HTTPException, Depends, status, Query, Request
+from fastapi.responses import StreamingResponse
 from typing import List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from bson import ObjectId
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -310,6 +311,104 @@ async def get_paid_students(
     return results
 
 
+@router.get("/{payment_id}/paid-students/pdf")
+async def download_paid_students_pdf(
+    payment_id: str,
+    user: dict = Depends(require_permission("payment:view_all")),
+):
+    """Download a PDF report of students who paid a specific due."""
+    from ..utils.paid_students_report import generate_paid_students_pdf
+
+    db = get_database()
+
+    if not ObjectId.is_valid(payment_id):
+        raise HTTPException(status_code=400, detail="Invalid payment ID format")
+
+    payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+
+    paid_uids: list = payment.get("paidBy", [])
+    if not paid_uids:
+        raise HTTPException(status_code=404, detail="No students have paid this due yet.")
+
+    # Batch-fetch users
+    oid_list = [ObjectId(uid) for uid in paid_uids if ObjectId.is_valid(uid)]
+    users_cursor = db.users.find(
+        {"_id": {"$in": oid_list}},
+        {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1, "currentLevel": 1},
+    )
+    user_map = {}
+    async for u in users_cursor:
+        user_map[str(u["_id"])] = u
+
+    # Batch-fetch Paystack and bank transfers
+    ps_cursor = db.paystackTransactions.find(
+        {"paymentId": payment_id, "status": "success"},
+        {"studentId": 1, "reference": 1, "paidAt": 1, "createdAt": 1},
+    )
+    ps_map = {}
+    async for t in ps_cursor:
+        ps_map[t["studentId"]] = t
+
+    bt_cursor = db.bankTransfers.find(
+        {"paymentId": payment_id, "status": "approved"},
+        {"studentId": 1, "transactionReference": 1, "reviewedAt": 1, "createdAt": 1},
+    )
+    bt_map = {}
+    async for t in bt_cursor:
+        bt_map[t["studentId"]] = t
+
+    # Assemble rows
+    rows = []
+    for uid in paid_uids:
+        u = user_map.get(uid, {})
+        ps = ps_map.get(uid)
+        bt = bt_map.get(uid)
+        if ps:
+            paid_at = ps.get("paidAt") or ps.get("createdAt")
+            method = "Paystack"
+            ref = ps.get("reference", "")
+        elif bt:
+            paid_at = bt.get("reviewedAt") or bt.get("createdAt")
+            method = "Bank Transfer"
+            ref = bt.get("transactionReference", "")
+        else:
+            paid_at = None
+            method = "Unknown"
+            ref = ""
+
+        level = u.get("currentLevel", "N/A")
+        if isinstance(level, int):
+            level = str(level)
+
+        rows.append({
+            "name": f"{u.get('firstName', '')} {u.get('lastName', '')}".strip() or "N/A",
+            "matricNumber": u.get("matricNumber", "N/A"),
+            "email": u.get("email", ""),
+            "level": level,
+            "method": method,
+            "reference": ref,
+            "paidAt": paid_at,
+        })
+
+    pdf_buffer = generate_paid_students_pdf(
+        payment_title=payment.get("title", "Payment"),
+        payment_amount=payment.get("amount", 0),
+        payment_category=payment.get("category", ""),
+        rows=rows,
+    )
+
+    safe_title = payment.get("title", "Payment").replace(" ", "_")[:30]
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=PaidStudents_{safe_title}.pdf"
+        },
+    )
+
+
 @router.post("/{payment_id}/pay", response_model=Transaction)
 async def record_payment(
     payment_id: str,
@@ -475,3 +574,73 @@ async def delete_payment(
         resource_id=payment_id,
     )
     return None
+
+
+# ── Payment Reminders ────────────────────────────────────────────
+
+@router.post("/{payment_id}/remind")
+@limiter.limit("5/minute")
+async def send_payment_reminder(
+    request: Request,
+    payment_id: str,
+    user: dict = Depends(require_permission("payment:create")),
+):
+    """
+    Send in-app notifications to all enrolled students who haven't paid.
+
+    Rate limited to 5/minute to prevent spam.
+    """
+    from app.routers.notifications import create_bulk_notifications
+
+    db = get_database()
+
+    if not ObjectId.is_valid(payment_id):
+        raise HTTPException(400, "Invalid payment ID format")
+
+    payment = await db["payments"].find_one({"_id": ObjectId(payment_id)})
+    if not payment:
+        raise HTTPException(404, "Payment not found")
+
+    session_id = payment.get("sessionId")
+    paid_set = set(payment.get("paidBy", []))
+
+    # Get all enrolled students for this session
+    enrollments = await db["enrollments"].find(
+        {"sessionId": session_id, "status": "active"},
+        {"userId": 1},
+    ).to_list(length=5000)
+
+    unpaid_ids = [
+        e["userId"] for e in enrollments
+        if e.get("userId") and e["userId"] not in paid_set
+    ]
+
+    if not unpaid_ids:
+        return {"sent": 0, "message": "All enrolled students have paid"}
+
+    title_text = payment.get("title", "Payment")
+    deadline = payment.get("deadline")
+    deadline_str = (
+        deadline.strftime("%d %b %Y") if hasattr(deadline, "strftime") else str(deadline)
+    )
+
+    count = await create_bulk_notifications(
+        user_ids=unpaid_ids,
+        type="payment_reminder",
+        title=f"Payment Reminder: {title_text}",
+        message=f"You have an unpaid due — {title_text} (₦{payment.get('amount', 0):,.0f}). Deadline: {deadline_str}.",
+        link="/dashboard/payments",
+        related_id=payment_id,
+        category="payments",
+    )
+
+    await AuditLogger.log(
+        action="payment_reminder_sent",
+        actor_id=user.get("_id", ""),
+        actor_email=user.get("email", ""),
+        resource_type="payment",
+        resource_id=payment_id,
+        details={"unpaid_count": len(unpaid_ids), "notified": count},
+    )
+
+    return {"sent": count, "unpaid": len(unpaid_ids)}

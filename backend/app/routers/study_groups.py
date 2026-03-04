@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field, field_validator
 from bson import ObjectId
 import re
 
-from ..core.security import verify_token
+from ..core.security import verify_token, get_current_user
 from ..core.sanitization import sanitize_html
 from ..core.auth import decode_access_token
 from ..core.database import get_database
@@ -172,7 +172,7 @@ async def list_study_groups(
     open_only: bool = Query(True, description="Only show groups accepting members"),
     limit: int = Query(20, ge=1, le=50),
     skip: int = Query(0, ge=0),
-    user_data: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
 ):
     """List study groups with optional filters"""
     db = get_database()
@@ -206,11 +206,11 @@ async def list_study_groups(
 
 @router.get("/my-groups")
 async def my_groups(
-    user_data: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
 ):
     """List groups I created or am a member of"""
     db = get_database()
-    user_id = user_data["sub"]
+    user_id = user["_id"]
 
     query = {
         "$or": [
@@ -230,7 +230,7 @@ async def my_groups(
 @router.get("/{group_id}")
 async def get_study_group(
     group_id: str,
-    user_data: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
 ):
     """Get a single study group by ID"""
     db = get_database()
@@ -248,11 +248,11 @@ async def get_study_group(
 @router.post("/", status_code=201)
 async def create_study_group(
     body: StudyGroupCreate,
-    user_data: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
 ):
     """Create a new study group"""
     db = get_database()
-    user_id = user_data["sub"]
+    user_id = user["_id"]
 
     # Look up creator's name
     user = await db["users"].find_one({"_id": ObjectId(user_id)})
@@ -300,11 +300,11 @@ async def create_study_group(
 async def update_study_group(
     group_id: str,
     body: StudyGroupUpdate,
-    user_data: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
 ):
     """Update a study group (creator only)"""
     db = get_database()
-    user_id = user_data["sub"]
+    user_id = user["_id"]
 
     if not ObjectId.is_valid(group_id):
         raise HTTPException(status_code=400, detail="Invalid group ID")
@@ -329,11 +329,11 @@ async def update_study_group(
 @router.post("/{group_id}/join")
 async def join_study_group(
     group_id: str,
-    user_data: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
 ):
     """Join a study group"""
     db = get_database()
-    user_id = user_data["sub"]
+    user_id = user["_id"]
 
     if not ObjectId.is_valid(group_id):
         raise HTTPException(status_code=400, detail="Invalid group ID")
@@ -389,11 +389,11 @@ async def join_study_group(
 @router.post("/{group_id}/leave")
 async def leave_study_group(
     group_id: str,
-    user_data: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
 ):
     """Leave a study group"""
     db = get_database()
-    user_id = user_data["sub"]
+    user_id = user["_id"]
 
     if not ObjectId.is_valid(group_id):
         raise HTTPException(status_code=400, detail="Invalid group ID")
@@ -432,11 +432,11 @@ async def leave_study_group(
 @router.delete("/{group_id}")
 async def delete_study_group(
     group_id: str,
-    user_data: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
 ):
     """Delete a study group (creator only)"""
     db = get_database()
-    user_id = user_data["sub"]
+    user_id = user["_id"]
 
     if not ObjectId.is_valid(group_id):
         raise HTTPException(status_code=400, detail="Invalid group ID")
@@ -465,11 +465,11 @@ async def delete_study_group(
 async def add_message(
     group_id: str,
     body: MessageCreate,
-    user_data: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
 ):
     """Add a message to the group activity feed (members only, max 100)"""
     db = get_database()
-    user_id = user_data["sub"]
+    user_id = user["_id"]
 
     if not ObjectId.is_valid(group_id):
         raise HTTPException(status_code=400, detail="Invalid group ID")
@@ -507,11 +507,11 @@ async def add_message(
 @router.get("/{group_id}/messages")
 async def get_messages(
     group_id: str,
-    user_data: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
 ):
     """Get messages for a study group (members only)"""
     db = get_database()
-    user_id = user_data["sub"]
+    user_id = user["_id"]
 
     if not ObjectId.is_valid(group_id):
         raise HTTPException(status_code=400, detail="Invalid group ID")
@@ -622,11 +622,11 @@ async def websocket_chat(
 async def add_session(
     group_id: str,
     body: SessionCreate,
-    user_data: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
 ):
     """Schedule a study session (members only, max 20 upcoming)"""
     db = get_database()
-    user_id = user_data["sub"]
+    user_id = user["_id"]
 
     if not ObjectId.is_valid(group_id):
         raise HTTPException(status_code=400, detail="Invalid group ID")
@@ -669,11 +669,11 @@ async def add_session(
 async def delete_session(
     group_id: str,
     session_id: str,
-    user_data: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
 ):
     """Cancel a study session (creator of session or group creator only)"""
     db = get_database()
-    user_id = user_data["sub"]
+    user_id = user["_id"]
 
     if not ObjectId.is_valid(group_id):
         raise HTTPException(status_code=400, detail="Invalid group ID")
@@ -703,11 +703,11 @@ async def delete_session(
 async def rsvp_session(
     group_id: str,
     session_id: str,
-    user_data: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
 ):
     """Toggle RSVP for a study session (members only)"""
     db = get_database()
-    user_id = user_data["sub"]
+    user_id = user["_id"]
 
     if not ObjectId.is_valid(group_id):
         raise HTTPException(status_code=400, detail="Invalid group ID")
@@ -746,11 +746,11 @@ async def rsvp_session(
 async def add_resource(
     group_id: str,
     body: ResourceCreate,
-    user_data: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
 ):
     """Share a resource link in the group (members only, max 30)"""
     db = get_database()
-    user_id = user_data["sub"]
+    user_id = user["_id"]
 
     if not ObjectId.is_valid(group_id):
         raise HTTPException(status_code=400, detail="Invalid group ID")
@@ -788,11 +788,11 @@ async def add_resource(
 async def delete_resource(
     group_id: str,
     resource_id: str,
-    user_data: dict = Depends(verify_token),
+    user: dict = Depends(get_current_user),
 ):
     """Remove a shared resource (adder or group creator only)"""
     db = get_database()
-    user_id = user_data["sub"]
+    user_id = user["_id"]
 
     if not ObjectId.is_valid(group_id):
         raise HTTPException(status_code=400, detail="Invalid group ID")

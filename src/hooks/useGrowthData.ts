@@ -23,6 +23,22 @@ import { getGrowthData, saveGrowthData, type GrowthTool } from '@/lib/api/growth
 
 const DEBOUNCE_MS = 800;
 
+/* ─── Offline retry queue ─────────────────────────────────────── */
+const pendingSaves = new Map<GrowthTool, unknown>();
+
+function _flushPending() {
+  if (pendingSaves.size === 0) return;
+  for (const [tool, value] of pendingSaves) {
+    saveGrowthData(tool, value)
+      .then(() => pendingSaves.delete(tool))
+      .catch(() => {}); // will retry next online event
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', _flushPending);
+}
+
 function readLS<T>(key: string): T | undefined {
   if (typeof window === 'undefined') return undefined;
   try {
@@ -101,7 +117,10 @@ export function useGrowthData<T>(
     (value: T) => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
-        saveGrowthData(tool, value).catch(() => {});
+        saveGrowthData(tool, value).catch(() => {
+          // Queue for retry when back online
+          pendingSaves.set(tool, value);
+        });
       }, DEBOUNCE_MS);
     },
     [tool],

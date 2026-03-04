@@ -5,6 +5,8 @@ Handles user profile CRUD operations.
 Users are persistent across sessions.
 """
 
+import re
+
 from fastapi import APIRouter, HTTPException, Depends, status, Request, File, UploadFile
 from typing import List, Optional
 from datetime import datetime, timezone
@@ -52,6 +54,10 @@ async def create_or_update_user_profile(
         update_data = user_data.model_dump(exclude={"password", "firebaseUid"}, exclude_none=True)
         update_data["updatedAt"] = datetime.now(timezone.utc)
         update_data["lastLogin"] = datetime.now(timezone.utc)
+        
+        # Sync isExternalStudent when department changes
+        if "department" in update_data:
+            update_data["isExternalStudent"] = update_data["department"] != "Industrial Engineering"
         
         await users.update_one(
             {"_id": ObjectId(user_id)},
@@ -183,6 +189,10 @@ async def update_my_profile(
     
     update_data["updatedAt"] = datetime.now(timezone.utc)
     
+    # Sync isExternalStudent when department changes
+    if "department" in update_data:
+        update_data["isExternalStudent"] = update_data["department"] != "Industrial Engineering"
+    
     await users.update_one(
         {"_id": ObjectId(user["_id"])},
         {"$set": update_data}
@@ -302,14 +312,15 @@ async def list_users(
         else:
             query["department"] = department
     if search:
+        escaped = re.escape(search)
         query["$or"] = [
-            {"firstName": {"$regex": search, "$options": "i"}},
-            {"lastName": {"$regex": search, "$options": "i"}},
-            {"email": {"$regex": search, "$options": "i"}},
+            {"firstName": {"$regex": escaped, "$options": "i"}},
+            {"lastName": {"$regex": escaped, "$options": "i"}},
+            {"email": {"$regex": escaped, "$options": "i"}},
         ]
     
     total = await users.count_documents(query)
-    cursor = users.find(query).skip(skip).limit(limit)
+    cursor = users.find(query, {"passwordHash": 0}).skip(skip).limit(limit)
     user_list = await cursor.to_list(length=limit)
     
     return {
@@ -339,7 +350,7 @@ async def get_user(
             detail="Invalid user ID format"
         )
     
-    user = await users.find_one({"_id": ObjectId(user_id)})
+    user = await users.find_one({"_id": ObjectId(user_id)}, {"passwordHash": 0})
     
     if not user:
         raise HTTPException(

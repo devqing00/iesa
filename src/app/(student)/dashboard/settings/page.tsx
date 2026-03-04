@@ -119,6 +119,14 @@ export default function SettingsPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showDeleteZone, setShowDeleteZone] = useState(false);
 
+  /* ── Two-Factor Auth ──────────────────────── */
+  const [twoFaEnabled, setTwoFaEnabled] = useState(false);
+  const [twoFaLoading, setTwoFaLoading] = useState(false);
+  const [twoFaSetup, setTwoFaSetup] = useState<{ secret: string; qrCodeDataUrl: string } | null>(null);
+  const [twoFaCode, setTwoFaCode] = useState("");
+  const [twoFaBackupCodes, setTwoFaBackupCodes] = useState<string[]>([]);
+  const [twoFaStep, setTwoFaStep] = useState<"idle" | "setup" | "backup" | "disable">("idle");
+
   // Sync prefs from user profile
   useEffect(() => {
     if (userProfile) {
@@ -131,7 +139,66 @@ export default function SettingsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userProfile]);
 
+  // Fetch 2FA status on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.get("/api/v1/2fa/status");
+        setTwoFaEnabled(res.enabled ?? false);
+      } catch { /* silent */ }
+    })();
+  }, []);
+
   /* ─── Handlers ─────────────────────────────────────────── */
+
+  /* ── 2FA Handlers ── */
+  const handle2FASetup = async () => {
+    setTwoFaLoading(true);
+    try {
+      const res = await api.post("/api/v1/2fa/setup");
+      setTwoFaSetup({ secret: res.secret, qrCodeDataUrl: res.qrCodeDataUrl });
+      setTwoFaStep("setup");
+      setTwoFaCode("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to set up 2FA");
+    } finally {
+      setTwoFaLoading(false);
+    }
+  };
+
+  const handle2FAVerify = async () => {
+    if (twoFaCode.length !== 6) return;
+    setTwoFaLoading(true);
+    try {
+      const res = await api.post("/api/v1/2fa/verify", { body: { code: twoFaCode } });
+      setTwoFaEnabled(true);
+      setTwoFaBackupCodes(res.backupCodes || []);
+      setTwoFaStep("backup");
+      setTwoFaCode("");
+      toast.success("2FA enabled successfully!");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Invalid code");
+    } finally {
+      setTwoFaLoading(false);
+    }
+  };
+
+  const handle2FADisable = async () => {
+    if (twoFaCode.length !== 6) return;
+    setTwoFaLoading(true);
+    try {
+      await api.post("/api/v1/2fa/disable", { body: { code: twoFaCode } });
+      setTwoFaEnabled(false);
+      setTwoFaStep("idle");
+      setTwoFaCode("");
+      setTwoFaSetup(null);
+      toast.success("2FA disabled");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Invalid code");
+    } finally {
+      setTwoFaLoading(false);
+    }
+  };
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -335,6 +402,165 @@ export default function SettingsPage() {
             {pwLoading ? "Changing..." : "Change Password"}
           </button>
         </form>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════
+          SECTION 1.5: TWO-FACTOR AUTHENTICATION
+          ═══════════════════════════════════════════════════════ */}
+      <section className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[8px_8px_0_0_#000] mb-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 bg-lavender-light rounded-xl flex items-center justify-center">
+            <svg className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="font-display font-black text-xl text-navy">Two-Factor Authentication</h2>
+            <p className="text-sm text-slate">Add an extra layer of security with a TOTP authenticator app</p>
+          </div>
+          {twoFaEnabled && (
+            <span className="ml-auto inline-flex items-center gap-1 px-3 py-1 rounded-full bg-teal-light text-teal text-xs font-bold border-[2px] border-teal">
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
+              </svg>
+              Enabled
+            </span>
+          )}
+        </div>
+
+        {/* Idle state — not enabled */}
+        {twoFaStep === "idle" && !twoFaEnabled && (
+          <div className="bg-ghost rounded-2xl p-6 text-center">
+            <p className="text-sm text-navy mb-4">
+              Use an authenticator app (Google Authenticator, Authy, etc.) to generate time-based one-time passwords for extra security.
+            </p>
+            <button
+              onClick={handle2FASetup}
+              disabled={twoFaLoading}
+              className="bg-lavender border-[3px] border-navy press-4 press-navy px-6 py-3 rounded-2xl font-display font-black text-snow disabled:opacity-50 transition-all"
+            >
+              {twoFaLoading ? "Setting up..." : "Enable 2FA"}
+            </button>
+          </div>
+        )}
+
+        {/* Idle state — enabled */}
+        {twoFaStep === "idle" && twoFaEnabled && (
+          <div className="bg-teal-light rounded-2xl p-6">
+            <p className="text-sm text-navy mb-4">
+              Two-factor authentication is active. You&apos;ll need your authenticator app to verify logins.
+            </p>
+            <button
+              onClick={() => { setTwoFaStep("disable"); setTwoFaCode(""); }}
+              className="bg-coral border-[3px] border-navy press-3 press-navy px-5 py-2.5 rounded-xl font-display font-black text-snow text-sm transition-all"
+            >
+              Disable 2FA
+            </button>
+          </div>
+        )}
+
+        {/* Setup step — scan QR */}
+        {twoFaStep === "setup" && twoFaSetup && (
+          <div className="space-y-5">
+            <div className="bg-ghost rounded-2xl p-6 text-center">
+              <p className="text-sm text-navy font-bold mb-3">
+                1. Scan this QR code with your authenticator app
+              </p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={twoFaSetup.qrCodeDataUrl}
+                alt="2FA QR Code"
+                className="mx-auto w-48 h-48 rounded-xl border-[3px] border-navy"
+              />
+              <p className="text-xs text-slate mt-3">
+                Or enter this key manually: <code className="bg-snow px-2 py-1 rounded text-navy font-mono text-xs border border-cloud">{twoFaSetup.secret}</code>
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-navy font-bold mb-2">2. Enter the 6-digit code from your app</p>
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={twoFaCode}
+                  onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="000000"
+                  className="w-40 text-center text-2xl font-mono tracking-[0.3em] px-4 py-3 bg-ghost border-[3px] border-navy rounded-xl focus:outline-none focus:border-lavender"
+                />
+                <button
+                  onClick={handle2FAVerify}
+                  disabled={twoFaLoading || twoFaCode.length !== 6}
+                  className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-3 rounded-xl font-display font-black text-navy disabled:opacity-50 transition-all"
+                >
+                  {twoFaLoading ? "Verifying..." : "Verify & Enable"}
+                </button>
+                <button
+                  onClick={() => { setTwoFaStep("idle"); setTwoFaSetup(null); }}
+                  className="text-sm text-slate hover:text-navy transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Backup codes step */}
+        {twoFaStep === "backup" && twoFaBackupCodes.length > 0 && (
+          <div className="space-y-4">
+            <div className="bg-sunny-light border-[3px] border-sunny rounded-2xl p-5">
+              <p className="text-sm font-bold text-navy mb-2">Save your backup codes</p>
+              <p className="text-xs text-slate mb-4">
+                Each code can only be used once. Store them in a safe place — you&apos;ll need them if you lose access to your authenticator app.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {twoFaBackupCodes.map((code) => (
+                  <div key={code} className="bg-snow rounded-lg px-3 py-2 text-center font-mono text-sm text-navy border border-cloud">
+                    {code}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <button
+              onClick={() => { setTwoFaStep("idle"); setTwoFaBackupCodes([]); }}
+              className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-3 rounded-xl font-display font-black text-navy transition-all"
+            >
+              I&apos;ve saved my codes
+            </button>
+          </div>
+        )}
+
+        {/* Disable step */}
+        {twoFaStep === "disable" && (
+          <div className="bg-coral-light rounded-2xl p-6 space-y-4">
+            <p className="text-sm text-navy font-bold">Enter a code from your authenticator app to disable 2FA</p>
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={twoFaCode}
+                onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="000000"
+                className="w-40 text-center text-2xl font-mono tracking-[0.3em] px-4 py-3 bg-snow border-[3px] border-navy rounded-xl focus:outline-none focus:border-coral"
+              />
+              <button
+                onClick={handle2FADisable}
+                disabled={twoFaLoading || twoFaCode.length !== 6}
+                className="bg-coral border-[3px] border-navy press-3 press-navy px-6 py-3 rounded-xl font-display font-black text-snow disabled:opacity-50 transition-all"
+              >
+                {twoFaLoading ? "Disabling..." : "Disable 2FA"}
+              </button>
+              <button
+                onClick={() => { setTwoFaStep("idle"); setTwoFaCode(""); }}
+                className="text-sm text-slate hover:text-navy transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ═══════════════════════════════════════════════════════

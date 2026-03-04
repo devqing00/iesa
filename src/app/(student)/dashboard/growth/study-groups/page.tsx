@@ -5,7 +5,7 @@ import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelp
 import Link from "next/link";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getApiUrl } from "@/lib/api";
+import { getApiUrl, getWsUrl } from "@/lib/api";
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -107,8 +107,7 @@ function GroupChatPanel({ groupId, userId, getAccessToken }: ChatPanelProps) {
       if (!token || cancelledRef.current) return;
 
       const wsUrl =
-        (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/^http/, "ws") +
-        `/api/v1/study-groups/${groupId}/ws?token=${token}`;
+        getWsUrl(`/api/v1/study-groups/${groupId}/ws?token=${token}`);
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
@@ -142,8 +141,7 @@ function GroupChatPanel({ groupId, userId, getAccessToken }: ChatPanelProps) {
       if (!token || cancelledRef.current) return;
       try {
         const res = await fetch(
-          (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000") +
-            `/api/v1/study-groups/${groupId}/messages`,
+          getApiUrl(`/api/v1/study-groups/${groupId}/messages`),
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (res.ok && !cancelledRef.current) setMessages(await res.json());

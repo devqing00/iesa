@@ -39,6 +39,9 @@ async def get_admin_stats(
 
     # --- Run all lightweight count / aggregation queries in parallel ---
     import asyncio
+    from datetime import datetime, timedelta, timezone
+
+    seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
 
     (
         total_students,
@@ -53,6 +56,13 @@ async def get_admin_stats(
         external_students_count,
         ipe_students_count,
         announcements_by_audience,
+        # ── Engagement metrics ──
+        total_study_groups,
+        total_resources,
+        total_press_articles,
+        total_ai_chats,
+        total_growth_entries,
+        registrations_7d,
     ) = await asyncio.gather(
         # Counts
         db["users"].count_documents({}),
@@ -91,6 +101,21 @@ async def get_admin_stats(
         # Announcements by target audience
         db["announcements"].aggregate([
             {"$group": {"_id": {"$ifNull": ["$targetAudience", "all"]}, "count": {"$sum": 1}}},
+        ]).to_list(length=10),
+        # ── Engagement metrics ────────────────────────────────────
+        db["study_groups"].count_documents({}),
+        db["resources"].count_documents({}),
+        db["press_articles"].count_documents({}),
+        db["ai_rate_limits"].count_documents({}),
+        db["growth_data"].count_documents({}),
+        # Registrations in last 7 days (grouped by day)
+        db["users"].aggregate([
+            {"$match": {"createdAt": {"$gte": seven_days_ago}}},
+            {"$group": {
+                "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$createdAt"}},
+                "count": {"$sum": 1},
+            }},
+            {"$sort": {"_id": 1}},
         ]).to_list(length=10),
     )
 
@@ -154,6 +179,18 @@ async def get_admin_stats(
             "all": audience_map.get("all", 0),
             "ipe": audience_map.get("ipe", 0),
             "external": audience_map.get("external", 0),
+        },
+        # ── Engagement metrics ──
+        "engagement": {
+            "studyGroups": total_study_groups,
+            "resources": total_resources,
+            "pressArticles": total_press_articles,
+            "aiChats": total_ai_chats,
+            "growthEntries": total_growth_entries,
+            "registrations7d": [
+                {"date": doc["_id"], "count": doc["count"]}
+                for doc in registrations_7d
+            ],
         },
     }
 

@@ -14,6 +14,7 @@ import type { UnitApplication, UnitType, CreateApplicationData } from "@/lib/api
 /* ─── Unit-to-role position mapping ────────────── */
 const UNIT_ROLE_POSITIONS: Record<UnitType, string[]> = {
   press: ["press_member", "press_head"],
+  ics: ["ics_member", "ics_head"],
   committee_academic: ["committee_academic_member", "committee_head_academic"],
   committee_welfare: ["committee_welfare_member", "committee_head_welfare"],
   committee_sports: ["committee_sports_member", "committee_head_sports"],
@@ -24,6 +25,7 @@ const UNIT_ROLE_POSITIONS: Record<UnitType, string[]> = {
 
 const ALL_UNITS: UnitType[] = [
   "press",
+  "ics",
   "committee_academic",
   "committee_welfare",
   "committee_sports",
@@ -45,6 +47,12 @@ function UnitIcon({ unit, className = "w-8 h-8" }: { unit: UnitType; className?:
         <svg className={className} viewBox="0 0 24 24" fill="currentColor">
           <path fillRule="evenodd" d="M4.125 3C3.089 3 2.25 3.84 2.25 4.875V18a3 3 0 0 0 3 3h15a3 3 0 0 1-3-3V4.875C17.25 3.839 16.41 3 15.375 3H4.125ZM12 9.75a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5H12Zm-.75-2.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5H12a.75.75 0 0 1-.75-.75ZM6 12.75a.75.75 0 0 0 0 1.5h7.5a.75.75 0 0 0 0-1.5H6Zm-.75 3.75a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H6a.75.75 0 0 1-.75-.75ZM6 6.75a.75.75 0 0 0-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 0 0 .75-.75v-3A.75.75 0 0 0 9 6.75H6Z" clipRule="evenodd" />
           <path d="M18.75 6.75h1.875c.621 0 1.125.504 1.125 1.125V18a1.5 1.5 0 0 1-3 0V6.75Z" />
+        </svg>
+      );
+    case "ics":
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+          <path fillRule="evenodd" d="M20.599 1.5c-.376 0-.743.111-1.055.32l-5.08 3.385a18.747 18.747 0 0 0-3.471 2.987 10.04 10.04 0 0 1 4.815 4.815 18.748 18.748 0 0 0 2.987-3.472l3.386-5.079A1.902 1.902 0 0 0 20.599 1.5Zm-8.3 6.7a18.79 18.79 0 0 0-3.949 5.049 15.04 15.04 0 0 1-2.4-2.418A18.792 18.792 0 0 0 .96 14.834 18.05 18.05 0 0 0 5.07 19.13a18.05 18.05 0 0 0 4.297 4.11 18.792 18.792 0 0 0 4.503-5.35 15.04 15.04 0 0 1-2.418-2.4 18.79 18.79 0 0 0 5.049-3.949 10.04 10.04 0 0 0-4.202-3.341Z" clipRule="evenodd" />
         </svg>
       );
     case "committee_academic":

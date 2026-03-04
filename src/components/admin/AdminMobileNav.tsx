@@ -97,7 +97,7 @@ export default function AdminMobileNav() {
       ),
     },
     {
-      name: "Roles & Apps",
+      name: "Roles",
       href: "/admin/roles",
       color: "bg-coral-light",
       anyPermission: ["role:view", "role:create", "role:edit", "user:edit"],

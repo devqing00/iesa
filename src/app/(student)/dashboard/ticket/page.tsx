@@ -46,7 +46,7 @@ function generateTicketId(reference: string) {
 function TicketContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, getAccessToken } = useAuth();
 
   const eventId = searchParams.get("event");
   const reference = searchParams.get("ref");
@@ -70,7 +70,7 @@ function TicketContent() {
         // Fetch event details
         if (eventId) {
           try {
-            const token = localStorage.getItem("iesa_access_token");
+            const token = await getAccessToken();
             const res = await fetch(getApiUrl(`/api/v1/events/${eventId}`), {
               headers: { Authorization: `Bearer ${token}` },
             });

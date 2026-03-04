@@ -13,7 +13,10 @@ Endpoints:
 """
 
 import asyncio
+import re
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from app.core.error_handling import fire_and_forget
 from typing import Optional
 from datetime import datetime, timezone
 from bson import ObjectId
@@ -194,7 +197,7 @@ async def create_application(
     doc["_id"] = result.inserted_id
 
     # Notify reviewers (fire-and-forget)
-    asyncio.create_task(
+    fire_and_forget(
         _notify_reviewers_bg(body.unit.value, session_id, student_name, str(result.inserted_id))
     )
 
@@ -430,7 +433,7 @@ async def list_applications(
     if status:
         query["status"] = status
     if search:
-        search_regex = {"$regex": search, "$options": "i"}
+        search_regex = {"$regex": re.escape(search), "$options": "i"}
         query["$or"] = [
             {"userName": search_regex},
             {"userEmail": search_regex},
@@ -532,7 +535,7 @@ async def review_application(
     status_text = "accepted into" if body.status.value == "accepted" else "not accepted into"
     feedback_text = f" — {body.feedback}" if body.feedback else ""
 
-    asyncio.create_task(create_notification(
+    fire_and_forget(create_notification(
         user_id=app_doc["userId"],
         type="unit_application",
         title=f"Application {'Accepted' if body.status.value == 'accepted' else 'Rejected'}",
@@ -617,7 +620,7 @@ async def revoke_membership(
 
     # Notify student
     unit_label = UNIT_LABELS.get(app_doc["unit"], app_doc["unit"])
-    asyncio.create_task(create_notification(
+    fire_and_forget(create_notification(
         user_id=app_doc["userId"],
         type="unit_application",
         title="Membership Revoked",

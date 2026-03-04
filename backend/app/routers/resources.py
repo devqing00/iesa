@@ -16,7 +16,7 @@ import base64
 
 from ..core.security import get_current_user, require_ipe_student
 from ..core.database import get_database
-from ..core.permissions import get_user_permissions
+from ..core.permissions import get_user_permissions, require_permission
 
 router = APIRouter(prefix="/api/v1/resources", tags=["resources"])
 
@@ -79,6 +79,8 @@ class ResourceResponse(BaseModel):
     isApproved: bool
     approvedBy: Optional[str] = None
     feedback: Optional[str] = None  # Approval/rejection feedback from reviewer
+    averageRating: float = 0
+    ratingCount: int = 0
     createdAt: datetime
     updatedAt: datetime
 
@@ -316,7 +318,7 @@ async def list_resources(
     semester: Optional[str] = Query(None, description="Filter by semester: first | second"),
     approved: Optional[bool] = Query(True, description="Show only approved resources"),
     search: Optional[str] = Query(None, description="Search title, courseCode, or tags"),
-    sortBy: Optional[str] = Query("createdAt", description="Sort field: createdAt | viewCount"),
+    sortBy: Optional[str] = Query("createdAt", description="Sort field: createdAt | viewCount | rating"),
     page: int = Query(1, ge=1),
     pageSize: int = Query(20, ge=1, le=100),
     user: dict = Depends(require_ipe_student),
@@ -362,9 +364,9 @@ async def list_resources(
             {"uploaderName": {"$regex": pattern}},
         ]
 
-    # Sort: default newest first; optionally by most viewed
-    allowed_sort = {"createdAt", "viewCount"}
-    sort_field = sortBy if sortBy in allowed_sort else "createdAt"
+    # Sort: default newest first; optionally by most viewed or top rated
+    allowed_sort = {"createdAt", "viewCount", "rating"}
+    sort_field = "averageRating" if sortBy == "rating" else (sortBy if sortBy in allowed_sort else "createdAt")
     sort_order = -1  # descending
 
     # Get total count
@@ -503,6 +505,56 @@ async def approve_resource(
     }
 
 
+class BulkApproveBody(BaseModel):
+    resource_ids: list[str]
+    approved: bool
+    feedback: Optional[str] = None
+
+
+@router.post("/bulk-approve")
+async def bulk_approve_resources(
+    body: BulkApproveBody,
+    request: Request,
+    user: dict = Depends(require_permission("resource:approve")),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Bulk approve or reject multiple resources at once."""
+    from bson import ObjectId
+
+    if not body.resource_ids or len(body.resource_ids) > 100:
+        raise HTTPException(status_code=400, detail="Provide 1-100 resource IDs")
+
+    valid_ids = [ObjectId(rid) for rid in body.resource_ids if ObjectId.is_valid(rid)]
+    if not valid_ids:
+        raise HTTPException(status_code=400, detail="No valid resource IDs")
+
+    resources = db["resources"]
+    update_fields: dict = {"isApproved": body.approved}
+    if body.feedback:
+        update_fields["feedback"] = body.feedback
+
+    result = await resources.update_many(
+        {"_id": {"$in": valid_ids}},
+        {"$set": update_fields},
+    )
+
+    user_id = user.get("sub") or str(user.get("_id", ""))
+    from app.core.audit import AuditLogger
+    await AuditLogger.log(
+        action="resource.bulk_approved" if body.approved else "resource.bulk_rejected",
+        actor_id=user_id,
+        actor_email=user.get("email", "unknown"),
+        resource_type="resource",
+        resource_id=",".join(body.resource_ids[:10]),
+        details={"count": result.modified_count, "approved": body.approved},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    return {"message": f"{result.modified_count} resource(s) {'approved' if body.approved else 'rejected'}",
+            "modifiedCount": result.modified_count}
+
+
 @router.delete("/{resource_id}")
 async def delete_resource(
     resource_id: str,
@@ -544,3 +596,106 @@ async def delete_resource(
     )
     
     return {"message": "Resource deleted successfully"}
+
+
+# ── Ratings & Bookmarks ─────────────────────────────────────────
+
+class RatingBody(BaseModel):
+    rating: int = Field(..., ge=1, le=5, description="1–5 star rating")
+
+
+@router.post("/{resource_id}/rate")
+async def rate_resource(
+    resource_id: str,
+    body: RatingBody,
+    user: dict = Depends(require_ipe_student),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Rate a resource (1-5 stars). Re-rating updates the previous score."""
+    if not ObjectId.is_valid(resource_id):
+        raise HTTPException(400, "Invalid resource ID")
+
+    resources = db["resources"]
+    resource = await resources.find_one({"_id": ObjectId(resource_id)})
+    if not resource:
+        raise HTTPException(404, "Resource not found")
+
+    user_id = str(user["_id"])
+    ratings_coll = db["resource_ratings"]
+
+    # Upsert the user's rating
+    await ratings_coll.update_one(
+        {"resourceId": resource_id, "userId": user_id},
+        {"$set": {"rating": body.rating, "updatedAt": datetime.now(timezone.utc)}},
+        upsert=True,
+    )
+
+    # Recalculate average
+    pipeline = [
+        {"$match": {"resourceId": resource_id}},
+        {"$group": {"_id": None, "avg": {"$avg": "$rating"}, "count": {"$sum": 1}}},
+    ]
+    agg = await ratings_coll.aggregate(pipeline).to_list(length=1)
+    avg = round(agg[0]["avg"], 2) if agg else 0
+    count = agg[0]["count"] if agg else 0
+
+    await resources.update_one(
+        {"_id": ObjectId(resource_id)},
+        {"$set": {"averageRating": avg, "ratingCount": count}},
+    )
+
+    return {"averageRating": avg, "ratingCount": count, "userRating": body.rating}
+
+
+@router.post("/{resource_id}/bookmark")
+async def toggle_bookmark(
+    resource_id: str,
+    user: dict = Depends(require_ipe_student),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Toggle bookmark on a resource. Returns the new bookmarked state."""
+    if not ObjectId.is_valid(resource_id):
+        raise HTTPException(400, "Invalid resource ID")
+
+    resources = db["resources"]
+    resource = await resources.find_one({"_id": ObjectId(resource_id)}, {"bookmarkedBy": 1})
+    if not resource:
+        raise HTTPException(404, "Resource not found")
+
+    user_id = str(user["_id"])
+    bookmarked_by: list = resource.get("bookmarkedBy", [])
+
+    if user_id in bookmarked_by:
+        # Remove bookmark
+        await resources.update_one(
+            {"_id": ObjectId(resource_id)},
+            {"$pull": {"bookmarkedBy": user_id}},
+        )
+        return {"bookmarked": False}
+    else:
+        # Add bookmark
+        await resources.update_one(
+            {"_id": ObjectId(resource_id)},
+            {"$addToSet": {"bookmarkedBy": user_id}},
+        )
+        return {"bookmarked": True}
+
+
+@router.get("/bookmarked", response_model=List[dict])
+async def get_bookmarked_resources(
+    user: dict = Depends(require_ipe_student),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Get all resources bookmarked by the current user."""
+    user_id = str(user["_id"])
+    resources = db["resources"]
+    cursor = resources.find(
+        {"bookmarkedBy": user_id, "status": "approved"},
+    ).sort("title", 1)
+    results = []
+    async for doc in cursor:
+        doc["_id"] = str(doc["_id"])
+        doc["id"] = doc["_id"]
+        doc["uploadedBy"] = str(doc.get("uploadedBy", ""))
+        results.append(doc)
+    return results

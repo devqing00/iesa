@@ -21,6 +21,7 @@ const OnboardingModal = dynamic(
 import { getQuoteOfTheDay } from "@/lib/quotes";
 import { getApiUrl } from "@/lib/api";
 import { isExternalStudent } from "@/lib/studentAccess";
+import DeadlineWidget from "@/components/dashboard/DeadlineWidget";
 
 /* ─── Page Component ────────────────────────────────────────────── */
 
@@ -617,6 +618,9 @@ export default function StudentDashboardPage() {
           {/* ── RIGHT: Stacked sidebar cards (4 cols) — IPE students only ── */}
           {!external && (
           <div className="lg:col-span-4 space-y-4">
+
+            {/* Smart Deadline Widget */}
+            {!loading && <DeadlineWidget payments={payments} events={events} />}
 
             {/* Pending Dues Card */}
             <div className="bg-coral-light border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">

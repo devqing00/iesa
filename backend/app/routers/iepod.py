@@ -572,9 +572,10 @@ async def list_niche_audits(
     db = get_database()
     query: dict = {"sessionId": str(session["_id"])}
     if search:
+        escaped = re.escape(search)
         query["$or"] = [
-            {"userName": {"$regex": search, "$options": "i"}},
-            {"focusProblem": {"$regex": search, "$options": "i"}},
+            {"userName": {"$regex": escaped, "$options": "i"}},
+            {"focusProblem": {"$regex": escaped, "$options": "i"}},
         ]
     cursor = db.iepod_niche_audits.find(query).sort("submittedAt", -1).skip(skip).limit(limit)
     items = []
@@ -667,9 +668,10 @@ async def list_teams(
     if status_filter:
         query["status"] = status_filter
     if search:
+        escaped = re.escape(search)
         query["$or"] = [
-            {"name": {"$regex": search, "$options": "i"}},
-            {"problemStatement": {"$regex": search, "$options": "i"}},
+            {"name": {"$regex": escaped, "$options": "i"}},
+            {"problemStatement": {"$regex": escaped, "$options": "i"}},
         ]
     cursor = db.iepod_teams.find(query).sort("createdAt", -1).skip(skip).limit(limit)
     items = []

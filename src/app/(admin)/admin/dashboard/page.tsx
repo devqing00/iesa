@@ -45,6 +45,7 @@ export default function AdminDashboardPage() {
     paymentsByStatus: data?.paymentsByStatus ?? [],
   };
   const recentActivity = data?.recentActivity ?? [];
+  const engagement = data?.engagement;
 
   const greeting = getTimeGreeting;
 
@@ -237,6 +238,62 @@ export default function AdminDashboardPage() {
           )}
         </div>
       </div>
+
+      {/* ── Engagement Row ──────────────────────── */}
+      {engagement && (
+        <div className="space-y-4">
+          <h2 className="font-display font-black text-xl text-navy">
+            Platform <span className="brush-highlight">Engagement</span>
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {[
+              { label: "Study Groups", value: engagement.studyGroups, color: "bg-teal-light", accent: "text-teal" },
+              { label: "Resources", value: engagement.resources, color: "bg-lavender-light", accent: "text-lavender" },
+              { label: "Press Articles", value: engagement.pressArticles, color: "bg-coral-light", accent: "text-coral" },
+              { label: "AI Conversations", value: engagement.aiChats, color: "bg-sunny-light", accent: "text-sunny" },
+              { label: "Growth Entries", value: engagement.growthEntries, color: "bg-lime-light", accent: "text-lime-dark" },
+            ].map((m) => (
+              <div key={m.label} className={`${m.color} border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]`}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50 mb-1">{m.label}</p>
+                <p className={`font-display font-black text-2xl ${m.accent}`}>{m.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Registrations 7-day sparkline */}
+          {engagement.registrations7d.length > 0 && (
+            <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-0.5">Last 7 Days</p>
+                  <h3 className="font-display font-black text-lg text-navy">New Registrations</h3>
+                </div>
+                <span className="text-2xl font-display font-black text-teal">
+                  {engagement.registrations7d.reduce((s, d) => s + d.count, 0)}
+                </span>
+              </div>
+              <div className="flex items-end gap-2 h-24">
+                {engagement.registrations7d.map((d) => {
+                  const max = Math.max(...engagement.registrations7d.map((r) => r.count), 1);
+                  const pct = (d.count / max) * 100;
+                  return (
+                    <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
+                      <span className="text-[10px] font-bold text-navy">{d.count}</span>
+                      <div
+                        className="w-full bg-teal rounded-t-lg min-h-[4px]"
+                        style={{ height: `${Math.max(pct, 5)}%` }}
+                      />
+                      <span className="text-[8px] text-slate font-bold">
+                        {new Date(d.date).toLocaleDateString("en-NG", { weekday: "short" })}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Bottom Row ─────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

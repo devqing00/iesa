@@ -20,6 +20,7 @@ class ApplicationStatus(str, Enum):
 
 class UnitType(str, Enum):
     press = "press"
+    ics = "ics"
     committee_academic = "committee_academic"
     committee_welfare = "committee_welfare"
     committee_sports = "committee_sports"
@@ -28,6 +29,7 @@ class UnitType(str, Enum):
 
 UNIT_LABELS = {
     "press": "IESA Press",
+    "ics": "IESA Creative Studio",
     "committee_academic": "Academic Committee",
     "committee_welfare": "Welfare Committee",
     "committee_sports": "Sports Committee",
@@ -41,6 +43,10 @@ UNIT_ROLE_MAP = {
     "press": {
         "position": "press_member",
         "permissions": ["press:access", "press:create"],
+    },
+    "ics": {
+        "position": "ics_member",
+        "permissions": ["announcement:view", "event:view"],
     },
     "committee_academic": {
         "position": "committee_academic_member",
@@ -67,6 +73,7 @@ HEAD_POSITION_TO_UNIT: dict[str, str] = {
     "committee_head_sports": "committee_sports",
     "committee_head_social": "committee_socials",
     "press_head": "press",
+    "ics_head": "ics",
 }
 
 # Reverse map: unit type → its head position

@@ -12,6 +12,7 @@ from bson import ObjectId
 import asyncio
 import logging
 import re
+from app.core.error_handling import fire_and_forget
 
 from app.models.announcement import (
     Announcement, AnnouncementCreate, AnnouncementUpdate, AnnouncementWithStatus
@@ -170,7 +171,7 @@ async def create_announcement(
     )
 
     # Fire-and-forget: email enrolled students matching this announcement's target levels + audience
-    asyncio.create_task(_notify_students_of_announcement(
+    fire_and_forget(_notify_students_of_announcement(
         session_id=announcement_data.sessionId,
         target_levels=announcement_data.targetLevels,
         title=announcement_data.title,
@@ -218,7 +219,7 @@ async def create_announcement(
             student_ids = [str(u["_id"]) for u in matched_users]
 
         if student_ids:
-            asyncio.create_task(
+            fire_and_forget(
                 create_bulk_notifications(
                     user_ids=student_ids,
                     type="announcement",

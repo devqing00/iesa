@@ -194,6 +194,7 @@ export default function TimetablePage() {
   }), [events]);
 
   /* ── Download ── */
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const downloadSchedule = () => {
     const rows = classes.map((cls) => ({ Course: `${cls.courseCode} - ${cls.courseTitle}`, Day: cls.day, Time: `${cls.startTime} - ${cls.endTime}`, Venue: cls.venue, Lecturer: cls.lecturer, Type: cls.classType }));
     const csv = [Object.keys(rows[0]).join(","), ...rows.map((r) => Object.values(r).join(","))].join("\n");
@@ -201,6 +202,25 @@ export default function TimetablePage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = `timetable-level-${userLevel}.csv`; a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const downloadPdf = async () => {
+    setDownloadingPdf(true);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl(`/api/v1/timetable/pdf?level=${userLevel}`), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) { const data = await res.json().catch(() => null); throw new Error(data?.detail || "Failed to generate PDF"); }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = `IESA_Timetable_Level${userLevel}.pdf`; a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error("PDF Error", err instanceof Error ? err.message : "Failed to download PDF");
+    } finally {
+      setDownloadingPdf(false);
+    }
   };
 
   /* ── Cancel class ── */
@@ -329,16 +349,28 @@ export default function TimetablePage() {
               <p className="font-display font-black text-3xl text-navy">{classStats.total}</p>
             </div>
 
-            {/* Download button */}
-            <button onClick={downloadSchedule} className="col-span-2 bg-navy border-[3px] border-navy rounded-2xl p-4 flex items-center gap-3 hover:bg-navy-light transition-colors group">
+            {/* Download buttons */}
+            <button onClick={downloadSchedule} className="bg-navy border-[3px] border-navy rounded-2xl p-4 flex items-center gap-3 hover:bg-navy-light transition-colors group">
               <div className="w-9 h-9 rounded-xl bg-teal/15 flex items-center justify-center shrink-0">
                 <svg className="w-5 h-5 text-snow" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="text-left">
-                <p className="font-display font-black text-sm text-snow group-hover:text-snow transition-colors">Download CSV</p>
-                <p className="text-[10px] text-ghost/40">Export your schedule</p>
+                <p className="font-display font-black text-sm text-snow group-hover:text-snow transition-colors">CSV</p>
+                <p className="text-[10px] text-ghost/40">Spreadsheet</p>
+              </div>
+            </button>
+            <button onClick={downloadPdf} disabled={downloadingPdf} className="bg-lime border-[3px] border-navy rounded-2xl p-4 flex items-center gap-3 hover:bg-lime-dark transition-colors group disabled:opacity-50">
+              <div className="w-9 h-9 rounded-xl bg-navy/10 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625ZM7.5 15a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7.5 15Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H8.25Z" clipRule="evenodd" />
+                  <path d="M12.971 1.816A5.23 5.23 0 0 1 14.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 0 1 3.434 1.279 9.768 9.768 0 0 0-6.963-6.963Z" />
+                </svg>
+              </div>
+              <div className="text-left">
+                <p className="font-display font-black text-sm text-navy">{downloadingPdf ? "..." : "PDF"}</p>
+                <p className="text-[10px] text-navy/40">Printable</p>
               </div>
             </button>
           </div>

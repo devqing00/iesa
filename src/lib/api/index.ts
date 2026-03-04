@@ -21,6 +21,7 @@ export {
   apiRequest,
   buildQueryString,
   getApiUrl,
+  getWsUrl,
   setTokenGetter,
   setSessionIdGetter,
   API_BASE_URL,

@@ -433,6 +433,40 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
         except Exception:
             return None, None
 
+    # ── NEW: Smart context queries ──────────────────────────────────────
+    async def _fetch_unread_notifications():
+        try:
+            return await db.notifications.count_documents({"userId": user_id, "isRead": False})
+        except Exception:
+            return 0
+
+    async def _fetch_unread_messages():
+        try:
+            return await db.messages.count_documents({"recipientId": user_id, "isRead": False})
+        except Exception:
+            return 0
+
+    async def _fetch_unit_applications():
+        try:
+            return await db["unit_applications"].find(
+                {"userId": user_id},
+                {"unitCode": 1, "unitTitle": 1, "status": 1, "semester": 1}
+            ).to_list(length=20)
+        except Exception:
+            return []
+
+    async def _fetch_growth_tools_usage():
+        """Get counts of all growth tools the student has used."""
+        try:
+            pipeline = [
+                {"$match": {"userId": user_id}},
+                {"$group": {"_id": "$tool", "count": {"$sum": 1}}},
+            ]
+            docs = await db.growth_data.aggregate(pipeline).to_list(length=20)
+            return {d["_id"]: d["count"] for d in docs}
+        except Exception:
+            return {}
+
     # Fire all independent queries concurrently
     (
         session_payments,
@@ -446,6 +480,10 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
         recent_announcements,
         user_groups,
         growth_result,
+        unread_notifs,
+        unread_msgs,
+        unit_apps,
+        growth_tools_usage,
     ) = await asyncio.gather(
         _fetch_payments(),
         _fetch_events(),
@@ -458,15 +496,43 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
         _fetch_announcements(),
         _fetch_study_groups(),
         _fetch_growth(),
+        _fetch_unread_notifications(),
+        _fetch_unread_messages(),
+        _fetch_unit_applications(),
+        _fetch_growth_tools_usage(),
     )
 
     # ── Process payment results ──
+    now = datetime.now(timezone.utc)
     paid_payments = [p for p in session_payments if user_id in (p.get("paidBy") or [])]
     unpaid_payments = [p for p in session_payments if user_id not in (p.get("paidBy") or [])]
     if session_payments:
         context["payment_status"] = f"Paid {len(paid_payments)}/{len(session_payments)} dues"
         context["paid_payments"] = [{"title": p.get("title", ""), "amount": p.get("amount", 0)} for p in paid_payments]
-        context["unpaid_payments"] = [{"title": p.get("title", ""), "amount": p.get("amount", 0)} for p in unpaid_payments]
+
+        # ── F16: Deadline urgency scoring for unpaid payments ──
+        unpaid_with_urgency = []
+        for p in unpaid_payments:
+            entry: dict = {"title": p.get("title", ""), "amount": p.get("amount", 0)}
+            deadline = p.get("deadline")
+            if deadline:
+                if hasattr(deadline, "tzinfo") and deadline.tzinfo is None:
+                    deadline = deadline.replace(tzinfo=timezone.utc)
+                days_left = (deadline - now).days
+                entry["deadline"] = deadline.strftime("%B %d, %Y")
+                entry["days_left"] = days_left
+                if days_left < 0:
+                    entry["urgency"] = "OVERDUE"
+                elif days_left <= 3:
+                    entry["urgency"] = "CRITICAL"
+                elif days_left <= 7:
+                    entry["urgency"] = "URGENT"
+                elif days_left <= 14:
+                    entry["urgency"] = "SOON"
+                else:
+                    entry["urgency"] = "UPCOMING"
+            unpaid_with_urgency.append(entry)
+        context["unpaid_payments"] = unpaid_with_urgency
     else:
         context["payment_status"] = "No payment dues found for this session"
 
@@ -630,6 +696,92 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
         if isinstance(habits_data, list):
             context["habits_count"] = len(habits_data)
 
+    # ── F16: Unread notifications & messages ──
+    context["unread_notifications"] = unread_notifs or 0
+    context["unread_messages"] = unread_msgs or 0
+
+    # ── F16: Unit / committee applications ──
+    if unit_apps:
+        context["unit_applications"] = [
+            {
+                "code": a.get("unitCode", ""),
+                "title": a.get("unitTitle", ""),
+                "status": a.get("status", "pending"),
+                "semester": a.get("semester", ""),
+            }
+            for a in unit_apps
+        ]
+
+    # ── F16: Growth tools usage summary ──
+    if growth_tools_usage:
+        context["growth_tools_used"] = list(growth_tools_usage.keys())
+
+    # ── F16: Academic progress summary (computed from fetched data) ──
+    progress: dict = {}
+    total_payments = len(session_payments) if session_payments else 0
+    if total_payments:
+        progress["payment_completion"] = f"{len(paid_payments)}/{total_payments}"
+    if user_enrollments:
+        progress["enrolled_courses"] = len(user_enrollments)
+    if user_groups:
+        progress["study_groups_joined"] = len(user_groups)
+    if growth_tools_usage:
+        progress["growth_tools_active"] = len(growth_tools_usage)
+    if progress:
+        context["academic_progress"] = progress
+
+    # ── F16: Smart priority actions ────────────────────────────────────
+    # Auto-generate 1-5 highest-priority things the student should act on
+    priorities: list[dict] = []
+
+    # 1. Overdue / critical payments
+    for p in context.get("unpaid_payments", []):
+        urg = p.get("urgency", "")
+        if urg in ("OVERDUE", "CRITICAL"):
+            label = "OVERDUE" if urg == "OVERDUE" else f"Due in {p['days_left']}d"
+            priorities.append({
+                "action": f"Pay {p['title']} (₦{p['amount']:,.0f}) — {label}",
+                "category": "payment",
+                "severity": 1 if urg == "OVERDUE" else 2,
+            })
+
+    # 2. Upcoming events not yet registered
+    for ev in context.get("upcoming_events", []):
+        if not ev.get("registered"):
+            priorities.append({
+                "action": f"RSVP to '{ev['title']}' on {ev['date']}",
+                "category": "event",
+                "severity": 3,
+            })
+
+    # 3. Unread notifs / messages nudge
+    if unread_notifs and unread_notifs >= 3:
+        priorities.append({
+            "action": f"You have {unread_notifs} unread notifications",
+            "category": "notification",
+            "severity": 4,
+        })
+    if unread_msgs and unread_msgs >= 1:
+        priorities.append({
+            "action": f"You have {unread_msgs} unread message{'s' if unread_msgs > 1 else ''}",
+            "category": "message",
+            "severity": 4,
+        })
+
+    # 4. Unit application pending
+    for ua in context.get("unit_applications", []):
+        if ua["status"] == "pending":
+            priorities.append({
+                "action": f"Your application for {ua['code']} is still pending",
+                "category": "application",
+                "severity": 5,
+            })
+
+    # Sort by severity (1=most urgent) and keep top 5
+    priorities.sort(key=lambda x: x["severity"])
+    if priorities:
+        context["priority_actions"] = priorities[:5]
+
     return context
 
 
@@ -784,6 +936,48 @@ IMPORTANT: You MUST maintain Yoruba style throughout ALL responses in this conve
         if user_context.get('habits_count'):
             user_data_section += f"\n\n## GROWTH HUB USAGE"
             user_data_section += f"\n- Habits tracked: {user_context['habits_count']}"
+        if user_context.get('growth_tools_used'):
+            if not user_context.get('habits_count'):
+                user_data_section += f"\n\n## GROWTH HUB USAGE"
+            user_data_section += f"\n- Tools used: {', '.join(user_context['growth_tools_used'])}"
+
+        # Notifications & Messages
+        notif_count = user_context.get('unread_notifications', 0)
+        msg_count = user_context.get('unread_messages', 0)
+        if notif_count or msg_count:
+            user_data_section += "\n\n## INBOX STATUS"
+            if notif_count:
+                user_data_section += f"\n- Unread notifications: {notif_count}"
+            if msg_count:
+                user_data_section += f"\n- Unread messages: {msg_count}"
+
+        # Unit / Committee Applications
+        if user_context.get('unit_applications'):
+            user_data_section += "\n\n## UNIT COURSE APPLICATIONS"
+            for ua in user_context['unit_applications']:
+                status_tag = ua['status'].upper()
+                user_data_section += f"\n- {ua['code']} ({ua['title']}): {status_tag}"
+                if ua.get('semester'):
+                    user_data_section += f" [{ua['semester']}]"
+
+        # Academic Progress Summary
+        if user_context.get('academic_progress'):
+            prog = user_context['academic_progress']
+            user_data_section += "\n\n## ACADEMIC PROGRESS SNAPSHOT"
+            if prog.get('payment_completion'):
+                user_data_section += f"\n- Payment completion: {prog['payment_completion']}"
+            if prog.get('enrolled_courses'):
+                user_data_section += f"\n- Enrolled courses: {prog['enrolled_courses']}"
+            if prog.get('study_groups_joined'):
+                user_data_section += f"\n- Study groups: {prog['study_groups_joined']}"
+            if prog.get('growth_tools_active'):
+                user_data_section += f"\n- Growth tools active: {prog['growth_tools_active']}"
+
+        # Smart Priority Actions
+        if user_context.get('priority_actions'):
+            user_data_section += "\n\n## ⚡ PRIORITY ACTIONS (most urgent first)"
+            for i, pa in enumerate(user_context['priority_actions'], 1):
+                user_data_section += f"\n{i}. {pa['action']}"
     
     # Build unpaid / paid payment details for the prompt
     payment_detail_section = ""
@@ -794,7 +988,17 @@ IMPORTANT: You MUST maintain Yoruba style throughout ALL responses in this conve
     if user_context.get('unpaid_payments'):
         payment_detail_section += "\nOwing items:"
         for p in user_context['unpaid_payments']:
-            payment_detail_section += f"\n  ✗ {p['title']} — ₦{p['amount']:,.0f}"
+            line = f"\n  ✗ {p['title']} — ₦{p['amount']:,.0f}"
+            if p.get('urgency'):
+                line += f" [{p['urgency']}]"
+                if p.get('deadline'):
+                    if p.get('days_left') is not None and p['days_left'] < 0:
+                        line += f" (was due {p['deadline']}, {abs(p['days_left'])} days ago!)"
+                    elif p.get('days_left') is not None:
+                        line += f" (due {p['deadline']}, {p['days_left']} days left)"
+                    else:
+                        line += f" (due {p['deadline']})"
+            payment_detail_section += line
     if payment_detail_section:
         user_data_section = user_data_section.replace(
             f"- Payment Status: {user_context.get('payment_status', 'Unknown')}",
@@ -820,6 +1024,8 @@ You have LIVE access to this student's real data: profile (name, matric, email, 
 6. **Use emojis sparingly:** 1–2 per message max. Only where they genuinely add warmth, not as filler.
 7. **Stay in scope:** You're an IESA/academic assistant. For completely unrelated topics, briefly acknowledge and redirect back to what you can help with.
 8. **Reference specific pages:** When guiding a student, name the exact page — "Go to Dashboard → Payments", "Check Dashboard → Growth → CGPA Calculator", "Visit Dashboard → IEPOD → TIMP".
+9. **Urgency-aware:** If the PRIORITY ACTIONS section exists, factor urgency into your responses. When a student asks "what should I do?" or any open-ended question, surface the most urgent items naturally. When payment deadlines are OVERDUE or CRITICAL, proactively mention them.
+10. **Notification-aware:** If the student has unread notifications or messages, you can mention them when contextually relevant (e.g., "By the way, you have 5 unread notifications").
 
 ## PLATFORM KNOWLEDGE
 {IESA_KNOWLEDGE}
@@ -833,8 +1039,10 @@ You have LIVE access to this student's real data: profile (name, matric, email, 
 - You have the student's data above — NEVER claim otherwise
 - NEVER fabricate data not present in the student profile section; if something is missing, say it hasn't been entered yet
 - Always suggest the relevant EXCO contact for issues beyond the platform (see Knowledge Base → Contact section)
-- For payment questions, be precise: list exactly what is paid and what is owed using the data above
+- For payment questions, be precise: list exactly what is paid and what is owed using the data above, including deadline urgency (OVERDUE, CRITICAL, URGENT, SOON)
 - For timetable questions with no data, guide the student to their class rep
+- When urgency data is present, naturally weave it into responses — mention overdue/critical deadlines without being alarmist
+- For open-ended greetings ("hi", "how far", "what's up"), give a warm greeting then briefly surface the #1 priority action if one exists
 """
 
     return prompt
@@ -1126,88 +1334,97 @@ async def chat_with_iesa_ai(
 
 def generate_suggestions(user_message: str, ai_response: str) -> List[str]:
     """
-    Generate smart follow-up suggestions based on conversation context.
+    Generate context-aware follow-up suggestions.
+
+    Scans both the user's message AND the AI's response for topic signals so
+    suggestions always feel relevant to what was just discussed.
     """
+    # Combine both sides for topic detection
+    combined = (user_message + " " + ai_response).lower()
 
-    message_lower = user_message.lower()
+    # Payment / dues — specific follow-ups depending on whether AI discussed receipts or deadlines
+    if any(w in combined for w in ["pay", "dues", "owing", "fee", "receipt", "balance", "clearance"]):
+        subs: list[str] = []
+        if any(w in combined for w in ["receipt", "download"]):
+            subs.append("Download my payment receipt")
+        if any(w in combined for w in ["deadline", "overdue", "due in", "critical"]):
+            subs.append("When is the next payment deadline?")
+        if any(w in combined for w in ["bank transfer", "transfer"]):
+            subs.append("How do I submit a bank transfer proof?")
+        subs = subs or ["How do I pay my dues?"]
+        subs += ["Show all my payment items"] if len(subs) < 2 else []
+        subs += ["Check my full payment history"] if len(subs) < 3 else []
+        return subs[:3]
 
-    # Payment-related suggestions
-    if any(word in message_lower for word in ["pay", "dues", "payment", "receipt", "owing", "fee"]):
-        return [
-            "Download my receipt",
-            "How do I pay my dues?",
-            "Check payment deadline"
-        ]
+    # Events — tailor by whether the AI mentioned a specific event or RSVP
+    if any(w in combined for w in ["event", "general meeting", "seminar", "workshop", "program", "activity", "rsvp"]):
+        if any(w in combined for w in ["register", "rsvp", "registered"]):
+            return ["How do I register for events?", "Show all upcoming events", "What events did I register for?"]
+        if any(w in combined for w in ["past", "happened", "previous"]):
+            return ["Show upcoming events", "Tell me about recent IESA events", "Who organises events?"]
+        return ["Show all upcoming events", "How do I RSVP to an event?", "Are there any paid events?"]
 
-    # Event-related suggestions
-    if any(word in message_lower for word in ["event", "meeting", "program", "activity", "general meeting"]):
-        return [
-            "Show all upcoming events",
-            "How do I RSVP to an event?",
-            "What events happened recently?"
-        ]
+    # Timetable / schedule
+    if any(w in combined for w in ["class", "schedule", "timetable", "lecture", "practical", "tutorial", "venue", "lecturer"]):
+        if any(w in combined for w in ["tomorrow", "next week", "week"]):
+            return ["What classes do I have today?", "Download my timetable as PDF", "Who is my class rep?"]
+        if any(w in combined for w in ["venue", "room", "location"]):
+            return ["Show my full weekly timetable", "What class is happening now?", "Who is my class rep?"]
+        return ["View my full weekly timetable", "Download timetable PDF", "Who is my class rep?"]
 
-    # Schedule/timetable suggestions
-    if any(word in message_lower for word in ["class", "schedule", "timetable", "lecture", "practical", "tutorial"]):
-        return [
-            "What classes do I have tomorrow?",
-            "View my full weekly timetable",
-            "Who is my class rep?"
-        ]
+    # CGPA / grades
+    if any(w in combined for w in ["cgpa", "gpa", "grade", "score", "result", "point", "semester"]):
+        return ["Calculate my CGPA", "What grade do I need to pass?", "Find past questions for my courses"]
 
-    # CGPA / grade suggestions
-    if any(word in message_lower for word in ["cgpa", "gpa", "grade", "score", "result", "point"]):
-        return [
-            "Calculate my CGPA",
-            "What grade do I need to pass?",
-            "Find past questions for my courses"
-        ]
+    # Study / exam preparation
+    if any(w in combined for w in ["study", "exam", "test", "revision", "prepare", "prepare", "read"]):
+        return ["Browse past questions by course", "Start a Pomodoro study timer", "Find or create a study group"]
 
-    # Study / exam suggestions
-    if any(word in message_lower for word in ["study", "exam", "test", "revision", "prepare"]):
-        return [
-            "Show me study resources",
-            "Start a Pomodoro study timer",
-            "Find a study group for my course"
-        ]
+    # Library / resources
+    if any(w in combined for w in ["library", "resource", "material", "book", "slide", "note", "past question", "download"]):
+        return ["Browse library resources", "Find past questions by course", "Upload a study material"]
 
-    # Library / resources suggestions
-    if any(word in message_lower for word in ["library", "resource", "material", "book", "slide", "note", "past question"]):
-        return [
-            "Browse library resources",
-            "Download past questions",
-            "Search for course slides"
-        ]
+    # IEPOD
+    if any(w in combined for w in ["iepod", "orientation", "society", "phase", "quiz", "niches"]):
+        return ["Check my IEPOD registration", "What societies are available?", "How do IEPOD phases work?"]
 
-    # IEPOD / mentoring suggestions
-    if any(word in message_lower for word in ["iepod", "timp", "mentor", "mentee", "niche", "career", "research", "project"]):
-        return [
-            "What is TIMP mentoring?",
-            "How do I apply to be a mentee?",
-            "Tell me about the Niche Audit tool"
-        ]
+    # TIMP / mentoring
+    if any(w in combined for w in ["timp", "mentor", "mentee", "mentoring", "pair", "paired"]):
+        return ["How do I apply to TIMP?", "What is the TIMP application deadline?", "Who can be a mentor?"]
 
-    # Growth tools suggestions
-    if any(word in message_lower for word in ["habit", "journal", "flashcard", "goal", "timer", "planner", "pomodoro", "growth"]):
-        return [
-            "Track my daily habits",
-            "Create flashcards for a course",
-            "Start a study timer session"
-        ]
+    # Growth tools
+    if any(w in combined for w in ["habit", "journal", "flashcard", "goal", "timer", "planner", "pomodoro", "growth hub"]):
+        return ["Track my daily habits", "Open my study journal", "Start a Pomodoro focus timer"]
 
-    # Team / EXCO suggestions
-    if any(word in message_lower for word in ["exco", "president", "secretary", "team", "class rep", "welfare", "contact"]):
-        return [
-            "Show current EXCO members",
-            "Who is my class rep?",
-            "How do I contact the Welfare Director?"
-        ]
+    # Team / EXCO / contacts
+    if any(w in combined for w in ["exco", "president", "secretary", "team", "class rep", "welfare", "contact", "officer"]):
+        return ["View current EXCO members", "Who is my class rep?", "How do I contact the Welfare Director?"]
 
-    # Default suggestions
+    # Announcements
+    if any(w in combined for w in ["announcement", "notice", "update", "news"]):
+        return ["Show all recent announcements", "What did EXCO announce this week?", "How do I get notified?"]
+
+    # Applications (unit courses)
+    if any(w in combined for w in ["application", "unit course", "apply", "pending", "approved", "rejected"]):
+        return ["Check my application status", "What unit courses are available?", "When do applications close?"]
+
+    # Study groups
+    if any(w in combined for w in ["study group", "group", "collaborate", "join"]):
+        return ["Find a study group for my course", "Create a new study group", "Show my study groups"]
+
+    # Career / niche / professional
+    if any(w in combined for w in ["career", "niche", "professional", "industry", "internship", "audit"]):
+        return ["Take the Niche Audit tool", "Apply for TIMP mentoring", "Explore IEPOD resources"]
+
+    # Priority / what should I do (open-ended)
+    if any(w in combined for w in ["priority", "urgent", "important", "should i do", "what next", "todo"]):
+        return ["Check my payment status", "Show unread notifications", "What events am I registered for?"]
+
+    # Default — varied, genuinely useful starting points
     return [
-        "Check my payment status",
         "What classes do I have today?",
-        "Tell me about IEPOD Hub"
+        "Check my payment status",
+        "Show upcoming events",
     ]
 
 

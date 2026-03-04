@@ -58,5 +58,5 @@ export async function getReceiptData(reference: string): Promise<ReceiptData> {
  * Get PDF download URL for a receipt
  */
 export function getReceiptPdfUrl(reference: string): string {
-  return `/api/paystack/receipt/data?reference=${encodeURIComponent(reference)}`;
+  return `/api/v1/paystack/receipt/pdf?reference=${encodeURIComponent(reference)}`;
 }

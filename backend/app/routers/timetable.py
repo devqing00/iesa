@@ -5,6 +5,7 @@ Timetable Router - Dynamic class schedule management
 from datetime import datetime, date, timedelta, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
 from bson import ObjectId
@@ -206,6 +207,65 @@ async def list_class_sessions(
         classes.append(ClassSessionResponse(**doc))
     
     return classes
+
+
+@router.get("/pdf")
+async def download_timetable_pdf(
+    level: Optional[int] = Query(None, description="Filter by level"),
+    user: dict = Depends(require_ipe_student),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Download timetable as a PDF for the current session."""
+    from ..utils.timetable_generator import generate_timetable_pdf
+
+    # Resolve level from user profile if not supplied
+    student_level = level
+    if not student_level:
+        user_doc = await db["users"].find_one(
+            {"_id": ObjectId(user["sub"])},
+            {"currentLevel": 1, "level": 1}
+        )
+        if user_doc:
+            raw = str(user_doc.get("currentLevel") or user_doc.get("level") or "300")
+            student_level = int("".join(c for c in raw if c.isdigit()) or "300")
+        else:
+            student_level = 300
+
+    # Get current session
+    session = await get_current_session(db)
+    session_name = session.get("name", "Current Session")
+
+    # Fetch classes
+    query = {"sessionId": str(session["_id"]), "level": student_level}
+    cursor = db["classSessions"].find(query).sort([("day", 1), ("startTime", 1)])
+    classes = []
+    async for doc in cursor:
+        classes.append(doc)
+
+    if not classes:
+        raise HTTPException(status_code=404, detail="No classes found for your level this session.")
+
+    # Get student name
+    user_doc = await db["users"].find_one(
+        {"_id": ObjectId(user["sub"])},
+        {"firstName": 1, "lastName": 1}
+    )
+    student_name = f"{user_doc.get('firstName', '')} {user_doc.get('lastName', '')}".strip() if user_doc else "Student"
+
+    pdf_buffer = generate_timetable_pdf(
+        classes=classes,
+        student_name=student_name,
+        student_level=student_level,
+        session_name=session_name,
+    )
+
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=IESA_Timetable_Level{student_level}.pdf"
+        },
+    )
 
 
 @router.get("/week", response_model=WeeklyScheduleResponse)
@@ -442,6 +502,9 @@ async def delete_class_session(
     """Delete a class session"""
     
     class_sessions = db["classSessions"]
+
+    if not ObjectId.is_valid(class_id):
+        raise HTTPException(status_code=400, detail="Invalid class ID")
 
     # Fetch before deleting for audit
     session_doc = await class_sessions.find_one({"_id": ObjectId(class_id)})

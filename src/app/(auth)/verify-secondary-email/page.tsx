@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { getApiUrl } from "@/lib/api";
 
 function VerifySecondaryEmailContent() {
   const router = useRouter();
@@ -22,8 +23,7 @@ function VerifySecondaryEmailContent() {
 
     const verifyEmail = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-        const fullUrl = `${apiUrl}/api/v1/auth/verify-secondary-email?token=${token}`;
+        const fullUrl = getApiUrl(`/api/v1/auth/verify-secondary-email?token=${token}`);
 
         const response = await fetch(fullUrl, {
           method: "GET",

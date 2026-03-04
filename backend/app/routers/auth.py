@@ -44,6 +44,7 @@ from app.core.auth import (
 )
 from app.core.security import get_current_user
 from app.core.email import send_verification_email, send_password_reset_email
+from app.core.error_handling import safe_detail
 from app.db import get_database
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
@@ -55,6 +56,32 @@ _ENV = os.getenv("ENVIRONMENT", "development")
 COOKIE_SECURE = _ENV == "production"            # True over HTTPS in prod
 COOKIE_SAMESITE: str = "none" if _ENV == "production" else "lax"  # cross-origin needs "none"
 COOKIE_PATH = "/api/v1/auth"  # Only sent to auth endpoints
+
+# Allowed origins for CSRF validation on cookie-bearing endpoints
+_ALLOWED_ORIGINS = set(
+    o.strip()
+    for o in os.getenv(
+        "ALLOWED_ORIGINS",
+        "https://iesa-seven.vercel.app" if _ENV == "production" else "http://localhost:3000",
+    ).split(",")
+    if o.strip()
+)
+
+
+def _csrf_check(request: Request) -> None:
+    """
+    Lightweight CSRF guard for cookie-authenticated endpoints.
+    
+    Validates that the request's Origin header matches an allowed origin.
+    Cross-origin POST with JSON triggers CORS preflight, but this adds
+    defense-in-depth against misconfigured CORS or future regressions.
+    """
+    origin = request.headers.get("origin")
+    # In development, skip if no Origin (same-origin requests may omit it)
+    if not origin and _ENV != "production":
+        return
+    if origin and origin not in _ALLOWED_ORIGINS:
+        raise HTTPException(status_code=403, detail="Origin not allowed")
 
 
 def _set_refresh_cookie(response: Response, token: str) -> None:
@@ -261,14 +288,14 @@ async def login(
     role = user.get("role", "student")
 
     # Update last login (fire-and-forget — don't block the response)
-    import asyncio
+    from app.core.error_handling import fire_and_forget
     _user_id_for_update = user["_id"]
     async def _update_last_login():
         await users.update_one(
             {"_id": _user_id_for_update},
             {"$set": {"lastLogin": datetime.now(timezone.utc)}},
         )
-    asyncio.create_task(_update_last_login())
+    fire_and_forget(_update_last_login())
 
     # Issue tokens
     access = create_access_token(user_id, user["email"], role)
@@ -296,6 +323,7 @@ async def refresh_token(request: Request, response: Response):
     Security: If a refresh token is reused after rotation,
     the entire family is revoked (potential token theft).
     """
+    _csrf_check(request)
     db = get_database()
 
     # Get token from cookie or body
@@ -388,6 +416,7 @@ async def refresh_token(request: Request, response: Response):
 @router.post("/logout")
 async def logout(request: Request, response: Response):
     """Logout: revoke refresh token family and clear cookie."""
+    _csrf_check(request)
     db = get_database()
 
     token = request.cookies.get(REFRESH_COOKIE_NAME)
@@ -508,7 +537,7 @@ async def verify_email(token: str):
     except JWTError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid verification token: {str(e)}"
+            detail=safe_detail("Invalid verification token", e),
         )
     except Exception as e:
         # Log unexpected errors
@@ -594,7 +623,7 @@ async def verify_secondary_email(token: str):
     except JWTError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid verification token: {str(e)}"
+            detail=safe_detail("Invalid verification token", e),
         )
     except HTTPException:
         raise

@@ -18,3 +18,4 @@ export {
 } from './useData';
 
 export { useGrowthData } from './useGrowthData';
+export { useOnlineStatus } from './useOnlineStatus';

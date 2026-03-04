@@ -149,6 +149,9 @@ PERMISSIONS = {
     # IEPOD Hub permissions
     "iepod:manage": "Manage IEPOD program (registrations, quizzes, teams, points)",
     "iepod:view": "View IEPOD program data",
+
+    # System / infrastructure permissions
+    "system:health": "Access API health dashboard (super admin only)",
 }
 
 
@@ -371,6 +374,16 @@ DEFAULT_PERMISSIONS = {
     ],
     "press_member": [
         "press:access", "press:create", "press:edit",
+    ],
+    "ics_head": [
+        "announcement:create", "announcement:view",
+        "event:view",
+        "user:view_all",
+        "unit_application:review",
+    ],
+    "ics_member": [
+        "announcement:view",
+        "event:view",
     ],
 }
 

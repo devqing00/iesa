@@ -63,6 +63,8 @@ function AdminResourcesPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: "" });
   const [revokeConfirm, setRevokeConfirm] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: "" });
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkProcessing, setBulkProcessing] = useState(false);
 
   // Review modal state
   const [reviewResource, setReviewResource] = useState<Resource | null>(null);
@@ -98,6 +100,7 @@ function AdminResourcesPage() {
 
   useEffect(() => {
     setPage(1);
+    setSelectedIds(new Set());
   }, [tab]);
 
   useEffect(() => {
@@ -143,6 +146,45 @@ function AdminResourcesPage() {
       toast.error("Failed to delete resource");
     } finally {
       setDeleting(null);
+    }
+  };
+
+  /* ─── Bulk actions ─── */
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === resources.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(resources.map((r) => r.id || r._id)));
+    }
+  };
+
+  const handleBulkAction = async (approve: boolean) => {
+    if (selectedIds.size === 0) return;
+    setBulkProcessing(true);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl("/api/v1/resources/bulk-approve"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ resource_ids: [...selectedIds], approved: approve }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      toast.success(data.message || `${selectedIds.size} resources updated`);
+      setSelectedIds(new Set());
+      fetchResources();
+    } catch {
+      toast.error("Bulk action failed");
+    } finally {
+      setBulkProcessing(false);
     }
   };
 
@@ -379,6 +421,43 @@ function AdminResourcesPage() {
         <span className="ml-auto text-slate text-sm self-center font-normal">{total} total</span>
       </div>
 
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="bg-sunny-light border-[3px] border-navy rounded-2xl p-3 flex items-center gap-3 flex-wrap shadow-[3px_3px_0_0_#000]">
+          <span className="text-xs font-display font-black text-navy">{selectedIds.size} selected</span>
+          {tab === "pending" && (
+            <>
+              <button
+                onClick={() => handleBulkAction(true)}
+                disabled={bulkProcessing}
+                className="bg-teal border-[2px] border-navy rounded-lg px-3 py-1.5 text-xs font-display text-snow press-2 press-navy transition-all disabled:opacity-50"
+              >
+                {bulkProcessing ? "Processing…" : "Approve All"}
+              </button>
+              <button
+                onClick={() => handleBulkAction(false)}
+                disabled={bulkProcessing}
+                className="bg-coral border-[2px] border-navy rounded-lg px-3 py-1.5 text-xs font-display text-snow press-2 press-navy transition-all disabled:opacity-50"
+              >
+                {bulkProcessing ? "Processing…" : "Reject All"}
+              </button>
+            </>
+          )}
+          {tab === "approved" && (
+            <button
+              onClick={() => handleBulkAction(false)}
+              disabled={bulkProcessing}
+              className="bg-sunny border-[2px] border-navy rounded-lg px-3 py-1.5 text-xs font-display text-navy press-2 press-navy transition-all disabled:opacity-50"
+            >
+              {bulkProcessing ? "Processing…" : "Revoke All"}
+            </button>
+          )}
+          <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs font-display text-slate hover:text-navy transition-colors">
+            Clear selection
+          </button>
+        </div>
+      )}
+
       {/* Resources table */}
       <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] overflow-hidden">
         {loading ? (
@@ -397,6 +476,15 @@ function AdminResourcesPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b-[4px] border-navy bg-ghost">
+                  <th className="w-10 px-3 py-4">
+                    <input
+                      type="checkbox"
+                      checked={resources.length > 0 && selectedIds.size === resources.length}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-[2px] border-navy accent-lime cursor-pointer"
+                      title="Select all"
+                    />
+                  </th>
                   <th className="text-left px-5 py-4 font-display font-black text-navy text-xs uppercase tracking-wider">Resource</th>
                   <th className="text-left px-5 py-4 font-display font-black text-navy text-xs uppercase tracking-wider">Type</th>
                   <th className="text-left px-5 py-4 font-display font-black text-navy text-xs uppercase tracking-wider">Course</th>
@@ -412,8 +500,17 @@ function AdminResourcesPage() {
                   return (
                     <tr
                       key={id}
-                      className={`border-b-[2px] border-cloud ${idx % 2 === 0 ? "bg-snow" : "bg-ghost"}`}
+                      className={`border-b-[2px] border-cloud ${idx % 2 === 0 ? "bg-snow" : "bg-ghost"} ${selectedIds.has(id) ? "!bg-sunny-light/40" : ""}`}
                     >
+                      <td className="w-10 px-3 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(id)}
+                          onChange={() => toggleSelect(id)}
+                          className="w-4 h-4 rounded border-[2px] border-navy accent-lime cursor-pointer"
+                          title={`Select ${r.title}`}
+                        />
+                      </td>
                       {/* Resource info */}
                       <td className="px-5 py-3 max-w-[220px]">
                         <p className="font-display font-black text-navy text-sm truncate">{r.title}</p>

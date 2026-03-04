@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function ApplicationsRedirect() {
-  redirect("/admin/roles?tab=applications");
+  redirect("/admin/units");
 }

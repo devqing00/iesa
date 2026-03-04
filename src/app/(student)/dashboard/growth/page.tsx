@@ -1,6 +1,7 @@
 "use client";
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import GrowthSyncBadge from "@/components/dashboard/GrowthSyncBadge";
 import { getAllGrowthData } from "@/lib/api/growth";
 import Link from "next/link";
 import { useState, useEffect } from "react";
@@ -337,6 +338,9 @@ export default function GrowthPage() {
               <p className="text-sm text-navy/50 mt-3 max-w-md">
                 Track progress, build habits, and unlock your potential with purpose-built tools.
               </p>
+              <div className="mt-3">
+                <GrowthSyncBadge />
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-3 mt-5">

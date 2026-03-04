@@ -5,6 +5,8 @@ Handles student enrollment in academic sessions with their level (100L-500L).
 Admins can view, create, update, and delete enrollments.
 """
 
+import re
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
 from bson import ObjectId
@@ -35,11 +37,15 @@ async def create_enrollment(
     sessions = db["sessions"]
     
     # Verify student exists
+    if not ObjectId.is_valid(enrollment.studentId):
+        raise HTTPException(status_code=400, detail="Invalid student ID")
     student = await users.find_one({"_id": ObjectId(enrollment.studentId)})
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     
     # Verify session exists
+    if not ObjectId.is_valid(enrollment.sessionId):
+        raise HTTPException(status_code=400, detail="Invalid session ID")
     session = await sessions.find_one({"_id": ObjectId(enrollment.sessionId)})
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -117,7 +123,7 @@ async def list_enrollments(
     # first find matching user IDs, then filter enrollments.
     matching_student_ids = None
     if search:
-        search_regex = {"$regex": search, "$options": "i"}
+        search_regex = {"$regex": re.escape(search), "$options": "i"}
         user_query = {"$or": [
             {"firstName": search_regex},
             {"lastName": search_regex},
@@ -135,16 +141,38 @@ async def list_enrollments(
     cursor = enrollments.find(query).sort("createdAt", -1).skip(skip).limit(limit)
     enrollments_list = await cursor.to_list(length=limit)
     
-    # Populate student and session details
+    # Populate student and session details (batch to avoid N+1)
+    all_student_ids = set()
+    all_session_ids = set()
+    for enrollment in enrollments_list:
+        sid = enrollment.get("studentId")
+        if sid:
+            all_student_ids.add(str(sid) if isinstance(sid, ObjectId) else sid)
+        ssid = enrollment.get("sessionId")
+        if ssid:
+            all_session_ids.add(str(ssid) if isinstance(ssid, ObjectId) else ssid)
+
+    # Batch-fetch users
+    student_oids = [ObjectId(s) for s in all_student_ids if ObjectId.is_valid(s)]
+    student_map = {}
+    if student_oids:
+        async for u in users.find({"_id": {"$in": student_oids}}, {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1}):
+            student_map[str(u["_id"])] = u
+
+    # Batch-fetch sessions
+    session_oids = [ObjectId(s) for s in all_session_ids if ObjectId.is_valid(s)]
+    session_map = {}
+    if session_oids:
+        async for s in sessions.find({"_id": {"$in": session_oids}}, {"name": 1, "isActive": 1}):
+            session_map[str(s["_id"])] = s
+
     result = []
     for enrollment in enrollments_list:
         try:
-            # Safely convert to ObjectId (handles both string and ObjectId inputs)
-            student_id = enrollment["studentId"] if isinstance(enrollment["studentId"], ObjectId) else ObjectId(enrollment["studentId"])
-            session_id = enrollment["sessionId"] if isinstance(enrollment["sessionId"], ObjectId) else ObjectId(enrollment["sessionId"])
-            
-            # Get student details
-            student = await users.find_one({"_id": student_id})
+            student_id_str = str(enrollment["studentId"]) if isinstance(enrollment["studentId"], ObjectId) else enrollment["studentId"]
+            session_id_str = str(enrollment["sessionId"]) if isinstance(enrollment["sessionId"], ObjectId) else enrollment["sessionId"]
+
+            student = student_map.get(student_id_str)
             student_info = {
                 "id": str(student["_id"]),
                 "firstName": student.get("firstName", ""),
@@ -152,25 +180,22 @@ async def list_enrollments(
                 "email": student.get("email", ""),
                 "matricNumber": student.get("matricNumber", "")
             } if student else None
-            
-            # Get session details
-            session = await sessions.find_one({"_id": session_id})
+
+            session = session_map.get(session_id_str)
             session_info = {
                 "id": str(session["_id"]),
                 "name": session.get("name", ""),
                 "isActive": session.get("isActive", False)
             } if session else None
-            
-            # Build response
+
             enrollment["id"] = str(enrollment.pop("_id"))
-            enrollment["studentId"] = str(student_id)
-            enrollment["sessionId"] = str(session_id)
+            enrollment["studentId"] = student_id_str
+            enrollment["sessionId"] = session_id_str
             enrollment["student"] = student_info
             enrollment["session"] = session_info
-            
+
             result.append(enrollment)
-        except Exception as e:
-            # Log error but continue processing other enrollments
+        except Exception:
             continue
     
     return {"items": result, "total": total}
@@ -190,11 +215,17 @@ async def get_my_enrollments(current_user: User = Depends(get_current_user)):
     cursor = enrollments.find({"studentId": current_user.get("_id", "")}).sort("createdAt", -1)
     enrollments_list = await cursor.to_list(length=None)
     
-    # Populate session details
+    # Populate session details (batch)
+    session_ids = list({e["sessionId"] for e in enrollments_list if e.get("sessionId")})
+    session_oids = [ObjectId(s) for s in session_ids if ObjectId.is_valid(s)]
+    session_map = {}
+    if session_oids:
+        async for s in sessions.find({"_id": {"$in": session_oids}}, {"name": 1, "isActive": 1, "startDate": 1, "endDate": 1, "currentSemester": 1}):
+            session_map[str(s["_id"])] = s
+
     result = []
     for enrollment in enrollments_list:
-        # Get session details
-        session = await sessions.find_one({"_id": ObjectId(enrollment["sessionId"])})
+        session = session_map.get(enrollment.get("sessionId", ""))
         session_info = {
             "id": str(session["_id"]),
             "name": session.get("name", ""),
@@ -203,10 +234,9 @@ async def get_my_enrollments(current_user: User = Depends(get_current_user)):
             "endDate": session.get("endDate"),
             "currentSemester": session.get("currentSemester")
         } if session else None
-        
+
         enrollment["id"] = str(enrollment.pop("_id"))
         enrollment["session"] = session_info
-        
         result.append(enrollment)
     
     return result

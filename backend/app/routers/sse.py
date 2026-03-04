@@ -7,6 +7,12 @@ pushes events such as new announcements, payment reminders, event updates,
 etc., as they happen.
 
 Other backend routers can publish events through the ``publish`` helper.
+
+**Limitation:** The in-process fan-out via ``asyncio.Queue`` only works within
+a single Uvicorn worker process. If the app is deployed behind multiple workers
+(e.g. ``--workers 4``), events published on one worker will NOT reach clients
+connected to other workers. For multi-worker deployments, replace the in-memory
+``_subscribers`` dict with Redis Pub/Sub or similar message broker.
 """
 
 from __future__ import annotations

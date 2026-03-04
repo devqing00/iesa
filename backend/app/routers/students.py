@@ -197,8 +197,11 @@ async def complete_student_registration(
             detail="Failed to update user profile"
         )
     
-    # Get updated user
-    updated_user = await users.find_one({"_id": ObjectId(user_id)})
+    # Get updated user (exclude passwordHash to avoid leaking it)
+    updated_user = await users.find_one(
+        {"_id": ObjectId(user_id)},
+        {"passwordHash": 0},
+    )
     if not updated_user:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

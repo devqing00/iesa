@@ -80,6 +80,8 @@ function AuditLogsPage() {
   const [resourceTypeFilter, setResourceTypeFilter] = useState("");
   const [actorSearch, setActorSearch] = useState("");
   const [actorQuery, setActorQuery] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   /* Expanded row */
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -94,6 +96,9 @@ function AuditLogsPage() {
       });
       if (actionFilter) params.set("action", actionFilter);
       if (resourceTypeFilter) params.set("resource_type", resourceTypeFilter);
+      if (actorQuery) params.set("actor_email", actorQuery);
+      if (fromDate) params.set("from_date", fromDate);
+      if (toDate) params.set("to_date", toDate);
 
       const res = await fetch(getApiUrl(`/api/v1/audit-logs/?${params}`), {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -115,20 +120,18 @@ function AuditLogsPage() {
     } finally {
       setLoading(false);
     }
-  }, [getAccessToken, actionFilter, resourceTypeFilter]);
+  }, [getAccessToken, actionFilter, resourceTypeFilter, actorQuery, fromDate, toDate]);
 
   useEffect(() => {
     setPage(0);
-  }, [actionFilter, resourceTypeFilter]);
+  }, [actionFilter, resourceTypeFilter, actorQuery, fromDate, toDate]);
 
   useEffect(() => {
     fetchLogs(page * LIMIT);
   }, [fetchLogs, page]);
 
-  /* Client-side filter for actor email search */
-  const displayedLogs = actorQuery
-    ? logs.filter((l) => l.actor.email.toLowerCase().includes(actorQuery.toLowerCase()))
-    : logs;
+  /* Actor search is now server-side — displayedLogs = logs directly */
+  const displayedLogs = logs;
 
   /* Export CSV */
   const exportCSV = () => {
@@ -187,7 +190,7 @@ function AuditLogsPage() {
           { label: "This page", value: logs.length, color: "bg-lavender-light border-lavender" },
           { label: "Offset", value: currentSkip, color: "bg-lime-light border-navy" },
           { label: "Action filter", value: actionFilter || "All", color: "bg-sunny-light border-navy" },
-          { label: "Resource filter", value: resourceTypeFilter || "All", color: "bg-teal-light border-teal" },
+          { label: "Date range", value: fromDate && toDate ? `${fromDate} → ${toDate}` : fromDate || toDate || "All time", color: "bg-teal-light border-teal" },
         ].map((s) => (
           <div key={s.label} className={`rounded-2xl border-[3px] p-4 ${s.color}`}>
             <p className="text-label text-slate uppercase tracking-wider text-xs">{s.label}</p>
@@ -250,10 +253,32 @@ function AuditLogsPage() {
           </div>
         </div>
 
+        {/* Date range row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+          <div>
+            <label className="text-label uppercase tracking-wider text-xs text-slate block mb-2">From Date</label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="w-full bg-ghost border-[3px] border-navy rounded-xl px-4 py-2 font-normal text-navy text-sm focus:outline-none focus:border-coral"
+            />
+          </div>
+          <div>
+            <label className="text-label uppercase tracking-wider text-xs text-slate block mb-2">To Date</label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="w-full bg-ghost border-[3px] border-navy rounded-xl px-4 py-2 font-normal text-navy text-sm focus:outline-none focus:border-coral"
+            />
+          </div>
+        </div>
+
         {/* Clear filters */}
-        {(actionFilter || resourceTypeFilter || actorQuery) && (
+        {(actionFilter || resourceTypeFilter || actorQuery || fromDate || toDate) && (
           <button
-            onClick={() => { setActionFilter(""); setResourceTypeFilter(""); setActorSearch(""); setActorQuery(""); }}
+            onClick={() => { setActionFilter(""); setResourceTypeFilter(""); setActorSearch(""); setActorQuery(""); setFromDate(""); setToDate(""); }}
             className="mt-4 text-sm text-coral font-display hover:underline"
           >
             ✕ Clear all filters
@@ -415,7 +440,7 @@ function AuditLogsPage() {
         <div className="flex items-center justify-between">
           <p className="text-slate text-sm font-normal">
             Showing {currentSkip + 1}–{currentSkip + displayedLogs.length}
-            {actorQuery && <span className="ml-1 text-coral">(filtered by actor)</span>}
+            {actorQuery && <span className="ml-1 text-coral">(filtered by &ldquo;{actorQuery}&rdquo;)</span>}
           </p>
           <div className="flex gap-3">
             <button

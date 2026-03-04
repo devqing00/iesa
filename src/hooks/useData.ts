@@ -61,6 +61,14 @@ export interface AdminStatsResponse {
     resource: { type: string; name?: string };
     timestamp: string;
   }[];
+  engagement?: {
+    studyGroups: number;
+    resources: number;
+    pressArticles: number;
+    aiChats: number;
+    growthEntries: number;
+    registrations7d: { date: string; count: number }[];
+  };
 }
 
 export interface Announcement {

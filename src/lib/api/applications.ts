@@ -11,6 +11,7 @@ import { api, buildQueryString } from './client';
 
 export type UnitType =
   | 'press'
+  | 'ics'
   | 'committee_academic'
   | 'committee_welfare'
   | 'committee_sports'
@@ -20,6 +21,7 @@ export type ApplicationStatus = 'pending' | 'accepted' | 'rejected';
 
 export const UNIT_LABELS: Record<UnitType, string> = {
   press: 'The IESA Press',
+  ics: 'IESA Creative Studio',
   committee_academic: 'Academic Committee',
   committee_welfare: 'Welfare Committee',
   committee_sports: 'Sports Committee',
@@ -28,6 +30,7 @@ export const UNIT_LABELS: Record<UnitType, string> = {
 
 export const UNIT_DESCRIPTIONS: Record<UnitType, string> = {
   press: 'Join the editorial team — write articles, cover events, and shape the narrative of our department.',
+  ics: 'Bring ideas to life — design graphics, create videos, and craft the visual identity of IESA.',
   committee_academic: 'Drive academic excellence — organize tutorials, study groups, and academic workshops.',
   committee_welfare: 'Champion student wellbeing — address welfare concerns and support fellow students.',
   committee_sports: 'Lead the charge in sports — organize tournaments, training sessions, and inter-departmental competitions.',
@@ -36,6 +39,7 @@ export const UNIT_DESCRIPTIONS: Record<UnitType, string> = {
 
 export const UNIT_COLORS: Record<UnitType, { bg: string; border: string; text: string; badge: string }> = {
   press: { bg: 'bg-lavender-light', border: 'border-lavender', text: 'text-navy', badge: 'bg-lavender' },
+  ics: { bg: 'bg-coral-light', border: 'border-coral', text: 'text-navy', badge: 'bg-coral' },
   committee_academic: { bg: 'bg-teal-light', border: 'border-teal', text: 'text-navy', badge: 'bg-teal' },
   committee_welfare: { bg: 'bg-coral-light', border: 'border-coral', text: 'text-navy', badge: 'bg-coral' },
   committee_sports: { bg: 'bg-sunny-light', border: 'border-sunny', text: 'text-navy', badge: 'bg-sunny' },

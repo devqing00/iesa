@@ -8,7 +8,7 @@ Only accessible to admins for security monitoring and compliance.
 from fastapi import APIRouter, HTTPException, Depends, status, Query
 from typing import List, Optional
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.core.security import get_current_user
 from app.core.permissions import require_permission
@@ -60,8 +60,11 @@ async def get_audit_logs(
     resource_type: Optional[str] = Query(None, description="Filter by resource type (user, session, payment, etc.)"),
     resource_id: Optional[str] = Query(None, description="Filter by specific resource ID"),
     actor_id: Optional[str] = Query(None, description="Filter by actor (user who performed action)"),
+    actor_email: Optional[str] = Query(None, description="Filter by actor email (partial, case-insensitive)"),
     action: Optional[str] = Query(None, description="Filter by action type"),
     session_id: Optional[str] = Query(None, description="Filter by academic session"),
+    from_date: Optional[str] = Query(None, description="Start of date range (ISO 8601, e.g. 2025-01-01)"),
+    to_date: Optional[str] = Query(None, description="End of date range (ISO 8601, e.g. 2025-12-31)"),
     limit: int = Query(100, ge=1, le=1000, description="Number of logs to return"),
     skip: int = Query(0, ge=0, description="Number of logs to skip (pagination)"),
     user: dict = Depends(require_permission("audit:view"))
@@ -72,12 +75,34 @@ async def get_audit_logs(
     Requires audit:view permission (admin only).
     Returns logs sorted by timestamp (newest first).
     """
+    # Parse date strings into datetime objects
+    parsed_from = None
+    parsed_to = None
+    if from_date:
+        try:
+            parsed_from = datetime.fromisoformat(from_date.replace("Z", "+00:00"))
+        except ValueError:
+            from fastapi import HTTPException as HE
+            raise HE(status_code=400, detail="Invalid from_date format. Use ISO 8601 (e.g. 2025-01-01)")
+    if to_date:
+        try:
+            parsed_to = datetime.fromisoformat(to_date.replace("Z", "+00:00"))
+            # If only a date (no time), set to end of day
+            if parsed_to.hour == 0 and parsed_to.minute == 0 and parsed_to.second == 0 and parsed_to.tzinfo is None:
+                parsed_to = parsed_to.replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+        except ValueError:
+            from fastapi import HTTPException as HE
+            raise HE(status_code=400, detail="Invalid to_date format. Use ISO 8601 (e.g. 2025-12-31)")
+
     logs = await AuditLogger.get_logs(
         resource_type=resource_type,
         resource_id=resource_id,
         actor_id=actor_id,
+        actor_email=actor_email,
         action=action,
         session_id=session_id,
+        from_date=parsed_from,
+        to_date=parsed_to,
         limit=limit,
         skip=skip
     )

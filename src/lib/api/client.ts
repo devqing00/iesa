@@ -297,3 +297,10 @@ export function buildQueryString<T extends object>(params: T): string {
 export function getApiUrl(path: string): string {
   return `${API_BASE_URL}${path}`;
 }
+
+/**
+ * Get WebSocket URL from the API base (http→ws, https→wss)
+ */
+export function getWsUrl(path: string): string {
+  return `${API_BASE_URL.replace(/^http/, "ws")}${path}`;
+}

@@ -26,6 +26,8 @@ interface Resource {
   uploaderName: string;
   tags: string[];
   viewCount: number;
+  averageRating?: number;
+  ratingCount?: number;
   isApproved: boolean;
   feedback?: string;
   createdAt: string;
@@ -91,11 +93,15 @@ export default function LibraryPage() {
   const [levelFilter, setLevelFilter] = useState<number | "all">("all");
   const [semesterFilter, setSemesterFilter] = useState<"all" | "first" | "second">("all");
   const [courseCodeFilter, setCourseCodeFilter] = useState("");
-  const [sortBy, setSortBy] = useState<"createdAt" | "viewCount">("createdAt");
+  const [sortBy, setSortBy] = useState<"createdAt" | "viewCount" | "rating">("createdAt");
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [mySubmissions, setMySubmissions] = useState<Resource[]>([]);
   const [showMySubmissions, setShowMySubmissions] = useState(false);
+  const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
+  const [showBookmarked, setShowBookmarked] = useState(false);
+  const [bookmarkedResources, setBookmarkedResources] = useState<Resource[]>([]);
+  const [ratingLoading, setRatingLoading] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -255,6 +261,87 @@ export default function LibraryPage() {
         );
       }
     } catch { /* non-critical */ }
+  };
+
+  /* ── Bookmarks ── */
+  const fetchBookmarks = useCallback(async () => {
+    if (!user) return;
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl("/api/v1/resources/bookmarked"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data: Resource[] = await res.json();
+        setBookmarkedIds(new Set(data.map((r) => r._id)));
+        setBookmarkedResources(data);
+      }
+    } catch { /* non-critical */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  useEffect(() => { fetchBookmarks(); }, [fetchBookmarks]);
+
+  const handleBookmark = async (resourceId: string) => {
+    if (!user) return;
+    // optimistic toggle
+    setBookmarkedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(resourceId)) next.delete(resourceId); else next.add(resourceId);
+      return next;
+    });
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl(`/api/v1/resources/${resourceId}/bookmark`), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.bookmarked) {
+          setBookmarkedIds((prev) => new Set(prev).add(resourceId));
+        } else {
+          setBookmarkedIds((prev) => { const n = new Set(prev); n.delete(resourceId); return n; });
+        }
+        // refresh bookmarked list in background
+        fetchBookmarks();
+      }
+    } catch {
+      // revert on error
+      setBookmarkedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(resourceId)) next.delete(resourceId); else next.add(resourceId);
+        return next;
+      });
+    }
+  };
+
+  /* ── Rating ── */
+  const handleRate = async (resourceId: string, rating: number) => {
+    if (!user || ratingLoading) return;
+    setRatingLoading(resourceId);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl(`/api/v1/resources/${resourceId}/rate`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ rating }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Update the resource in the list with new rating data
+        setResources((prev) =>
+          prev.map((r) => r._id === resourceId ? { ...r, averageRating: data.averageRating, ratingCount: data.ratingCount } : r)
+        );
+        toast.success("Rated!", `You gave this resource ${rating} star${rating > 1 ? "s" : ""}`);
+      } else {
+        toast.error("Rating Failed", "Could not submit your rating");
+      }
+    } catch {
+      toast.error("Rating Failed", "Something went wrong");
+    } finally {
+      setRatingLoading(null);
+    }
   };
 
   /* ── Initial loading ── */
@@ -445,7 +532,7 @@ export default function LibraryPage() {
           <div>
             <p className="text-[10px] font-bold text-slate uppercase tracking-[0.12em] mb-2">Sort by</p>
             <div className="flex gap-2">
-              {(["createdAt", "viewCount"] as const).map((s) => (
+              {(["createdAt", "viewCount", "rating"] as const).map((s) => (
                 <button
                   key={s}
                   onClick={() => setSortBy(s)}
@@ -455,7 +542,7 @@ export default function LibraryPage() {
                       : "border-navy/20 text-slate hover:text-navy hover:border-navy bg-snow"
                   }`}
                 >
-                  {s === "createdAt" ? "Newest" : "Most Viewed"}
+                  {s === "createdAt" ? "Newest" : s === "viewCount" ? "Most Viewed" : "Top Rated"}
                 </button>
               ))}
             </div>
@@ -529,6 +616,66 @@ export default function LibraryPage() {
         )}
 
         {/* ═══════════════════════════════════════════════════════
+            BOOKMARKED RESOURCES
+            ═══════════════════════════════════════════════════════ */}
+        {bookmarkedIds.size > 0 && (
+          <div className="mb-6">
+            <button
+              onClick={() => setShowBookmarked(!showBookmarked)}
+              className="w-full bg-snow border-[3px] border-navy rounded-3xl p-4 shadow-[4px_4px_0_0_#000] flex items-center justify-between hover:bg-ghost transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 text-coral" viewBox="0 0 24 24" fill="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
+                </svg>
+                <span className="font-display font-bold text-navy">
+                  Bookmarked ({bookmarkedIds.size})
+                </span>
+              </div>
+              <svg className={`w-5 h-5 text-navy transition-transform ${showBookmarked ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="currentColor">
+                <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clipRule="evenodd" />
+              </svg>
+            </button>
+
+            {showBookmarked && (
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {bookmarkedResources.map((bk) => {
+                  const accent = typeAccents[bk.type] || { bg: "bg-navy", text: "text-snow" };
+                  return (
+                    <div
+                      key={bk._id}
+                      className="bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000] flex flex-col gap-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`${accent.bg} ${accent.text} text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full`}>
+                          {bk.type}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate">{bk.courseCode}</span>
+                      </div>
+                      <p className="font-display font-bold text-navy text-sm truncate">{bk.title}</p>
+                      <div className="flex items-center justify-between mt-auto">
+                        <button
+                          onClick={() => handleBookmark(bk._id)}
+                          className="text-[10px] font-bold text-coral uppercase tracking-wider hover:underline"
+                        >
+                          Remove
+                        </button>
+                        <button
+                          onClick={() => handleViewResource(bk._id, bk.url)}
+                          className="px-3 py-1.5 bg-lime border-[2px] border-navy rounded-lg font-bold text-[10px] text-navy uppercase tracking-wider press-2 press-navy transition-all"
+                        >
+                          Open
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════
             RESOURCES GRID
             ═══════════════════════════════════════════════════════ */}
         <div className="relative">
@@ -580,6 +727,25 @@ export default function LibraryPage() {
                         </svg>
                         {resource.viewCount}
                       </span>
+                      {/* Rating display */}
+                      {(resource.ratingCount ?? 0) > 0 && (
+                        <span className="flex items-center gap-0.5 text-[10px] font-bold text-sunny uppercase tracking-wider">
+                          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                            <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" clipRule="evenodd" />
+                          </svg>
+                          {(resource.averageRating ?? 0).toFixed(1)}
+                        </span>
+                      )}
+                      {/* Bookmark toggle */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleBookmark(resource._id); }}
+                        className="p-1 rounded-lg hover:bg-cloud transition-colors"
+                        title={bookmarkedIds.has(resource._id) ? "Remove bookmark" : "Bookmark"}
+                      >
+                        <svg className={`w-3.5 h-3.5 transition-colors ${bookmarkedIds.has(resource._id) ? "text-coral" : "text-slate/50 hover:text-coral"}`} viewBox="0 0 24 24" fill={bookmarkedIds.has(resource._id) ? "currentColor" : "none"} stroke="currentColor" strokeWidth={bookmarkedIds.has(resource._id) ? 0 : 2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
 
@@ -628,7 +794,33 @@ export default function LibraryPage() {
                   </div>
 
                   {/* Footer */}
-                  <div className="px-5 pb-5 flex items-center justify-between">
+                  <div className="px-5 pb-5 space-y-3">
+                    {/* Star rating row */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold text-slate uppercase tracking-[0.1em] mr-1">Rate</span>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          onClick={() => handleRate(resource._id, star)}
+                          disabled={ratingLoading === resource._id}
+                          className="p-0 transition-transform hover:scale-125 disabled:opacity-50"
+                          title={`Rate ${star} star${star > 1 ? "s" : ""}`}
+                        >
+                          <svg
+                            className={`w-4 h-4 transition-colors ${star <= Math.round(resource.averageRating ?? 0) ? "text-sunny" : "text-cloud"}`}
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                          >
+                            <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      ))}
+                      {(resource.ratingCount ?? 0) > 0 && (
+                        <span className="text-[10px] text-slate ml-1">({resource.ratingCount})</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold text-slate truncate max-w-[45%]">
                       By {resource.uploaderName}
                     </span>
@@ -653,6 +845,7 @@ export default function LibraryPage() {
                         </>
                       )}
                     </button>
+                  </div>
                   </div>
                 </article>
               );

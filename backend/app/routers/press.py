@@ -48,6 +48,12 @@ from app.core.audit import AuditLogger
 router = APIRouter(prefix="/api/v1/press", tags=["Press"])
 
 
+def _validate_oid(value: str, label: str = "article ID"):
+    """Raise 400 if value is not a valid MongoDB ObjectId."""
+    if not ObjectId.is_valid(value):
+        raise HTTPException(status_code=400, detail=f"Invalid {label}")
+
+
 # ─── Helpers ────────────────────────────────────────────
 
 def _slugify(text: str) -> str:
@@ -285,6 +291,7 @@ async def update_article(
     user: dict = Depends(get_current_user),
 ):
     """Update own article (only while draft or revision_requested)."""
+    _validate_oid(article_id)
     db = get_database()
     articles = db["press_articles"]
 
@@ -361,6 +368,7 @@ async def upload_cover_image(
 @router.post("/{article_id}/submit")
 async def submit_article(article_id: str, user: dict = Depends(get_current_user)):
     """Submit article for review (draft or revision_requested → submitted)."""
+    _validate_oid(article_id)
     db = get_database()
     articles = db["press_articles"]
 
@@ -382,6 +390,7 @@ async def submit_article(article_id: str, user: dict = Depends(get_current_user)
 @router.delete("/{article_id}")
 async def delete_article(article_id: str, user: dict = Depends(get_current_user)):
     """Delete own draft article."""
+    _validate_oid(article_id)
     db = get_database()
     articles = db["press_articles"]
 
@@ -476,6 +485,7 @@ async def press_stats(user: dict = Depends(get_current_user)):
 @router.get("/{article_id}", response_model=Article)
 async def get_article_detail(article_id: str, user: dict = Depends(get_current_user)):
     """Get single article detail — author can see own, head can see any."""
+    _validate_oid(article_id)
     db = get_database()
     articles = db["press_articles"]
 
@@ -493,6 +503,7 @@ async def get_article_detail(article_id: str, user: dict = Depends(get_current_u
 @router.post("/{article_id}/start-review")
 async def start_review(article_id: str, user: dict = Depends(get_current_user)):
     """Mark submitted article as in_review."""
+    _validate_oid(article_id)
     db = get_database()
     is_head = await _check_press_head(user, db)
     if not is_head:
@@ -515,6 +526,7 @@ async def start_review(article_id: str, user: dict = Depends(get_current_user)):
 @router.post("/{article_id}/approve")
 async def approve_article(article_id: str, request: Request, user: dict = Depends(get_current_user)):
     """Approve article (submitted/in_review → approved)."""
+    _validate_oid(article_id)
     db = get_database()
     is_head = await _check_press_head(user, db)
     if not is_head:
@@ -554,6 +566,7 @@ async def reject_article(
     user: dict = Depends(get_current_user),
 ):
     """Reject article with reason."""
+    _validate_oid(article_id)
     db = get_database()
     is_head = await _check_press_head(user, db)
     if not is_head:
@@ -601,6 +614,7 @@ async def request_revision(
     user: dict = Depends(get_current_user),
 ):
     """Request revisions with feedback (submitted/in_review → revision_requested)."""
+    _validate_oid(article_id)
     db = get_database()
     is_head = await _check_press_head(user, db)
     if not is_head:
@@ -637,6 +651,7 @@ async def add_feedback(
     user: dict = Depends(get_current_user),
 ):
     """Add a feedback comment (head can post on any status)."""
+    _validate_oid(article_id)
     db = get_database()
     is_head = await _check_press_head(user, db)
     if not is_head:
@@ -667,6 +682,7 @@ async def add_feedback(
 @router.post("/{article_id}/publish")
 async def publish_article(article_id: str, request: Request, user: dict = Depends(get_current_user)):
     """Publish an approved article to the public blog."""
+    _validate_oid(article_id)
     db = get_database()
     is_head = await _check_press_head(user, db)
     if not is_head:
@@ -700,6 +716,7 @@ async def publish_article(article_id: str, request: Request, user: dict = Depend
 @router.post("/{article_id}/unpublish")
 async def unpublish_article(article_id: str, request: Request, user: dict = Depends(get_current_user)):
     """Take article off public blog (back to approved)."""
+    _validate_oid(article_id)
     db = get_database()
     is_head = await _check_press_head(user, db)
     if not is_head:
@@ -733,6 +750,7 @@ async def unpublish_article(article_id: str, request: Request, user: dict = Depe
 @router.post("/{article_id}/archive")
 async def archive_article(article_id: str, request: Request, user: dict = Depends(get_current_user)):
     """Archive an article."""
+    _validate_oid(article_id)
     db = get_database()
     is_head = await _check_press_head(user, db)
     if not is_head:
@@ -768,6 +786,7 @@ async def archive_article(article_id: str, request: Request, user: dict = Depend
 @router.post("/{article_id}/like")
 async def toggle_like(article_id: str, user: dict = Depends(get_current_user)):
     """Toggle like on a published article."""
+    _validate_oid(article_id)
     db = get_database()
     articles = db["press_articles"]
 

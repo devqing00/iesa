@@ -160,6 +160,7 @@ function AdminPaymentsPage() {
   const [editingPayment, setEditingPayment] = useState(false);
   const [editForm, setEditForm] = useState({ title: "", amount: "", deadline: "", description: "", mandatory: true });
   const [editSubmitting, setEditSubmitting] = useState(false);
+  const [reminderSending, setReminderSending] = useState(false);
   const [txnSortKey, setTxnSortKey] = useState<SortKey>("date");
   const [txnSortDir, setTxnSortDir] = useState<SortDir>("desc");
   const [btSortKey, setBtSortKey] = useState<SortKey>("date");
@@ -504,6 +505,29 @@ function AdminPaymentsPage() {
       toast.error(err instanceof Error ? err.message : "Failed to update payment");
     } finally {
       setEditSubmitting(false);
+    }
+  };
+
+  const handleSendReminder = async () => {
+    if (!selectedPayment) return;
+    setReminderSending(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      const res = await fetch(getApiUrl(`/api/v1/payments/${selectedPayment._id}/remind`), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Failed to send reminders");
+      }
+      const data = await res.json();
+      toast.success(`Reminder sent to ${data.sent} student${data.sent === 1 ? "" : "s"}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send reminders");
+    } finally {
+      setReminderSending(false);
     }
   };
 
@@ -2019,12 +2043,56 @@ function AdminPaymentsPage() {
                 </div>
               )}
 
+              {/* Send Reminder Button */}
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSendReminder}
+                  disabled={reminderSending}
+                  className="px-5 py-2.5 bg-coral border-[3px] border-navy rounded-2xl font-bold text-snow text-sm press-3 press-navy transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M5.25 6.31a7.5 7.5 0 0 1 11.916-2.77l.09.07H14.25a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 .75-.75v-4.5a.75.75 0 0 0-1.5 0v2.033A9 9 0 0 0 3.876 5.508a.75.75 0 0 0 1.374.602ZM18.75 17.69a7.5 7.5 0 0 1-11.916 2.77l-.09-.07H9.75a.75.75 0 0 0 0-1.5h-4.5a.75.75 0 0 0-.75.75v4.5a.75.75 0 0 0 1.5 0v-2.033a9 9 0 0 0 14.124-4.608.75.75 0 0 0-1.374-.602Z" />
+                  </svg>
+                  {reminderSending ? "Sending..." : "Send Payment Reminder"}
+                </button>
+              </div>
+
               {/* Paid Students Section */}
               <div>
-                <h4 className="font-display font-black text-lg text-navy mb-3">
-                  Students Who Paid
-                  <span className="ml-2 text-sm font-normal text-navy/40">({paidStudents.length})</span>
-                </h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-display font-black text-lg text-navy">
+                    Students Who Paid
+                    <span className="ml-2 text-sm font-normal text-navy/40">({paidStudents.length})</span>
+                  </h4>
+                  {paidStudents.length > 0 && selectedPayment && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          const token = await getAccessToken();
+                          const res = await fetch(getApiUrl(`/api/v1/payments/${selectedPayment._id}/paid-students/pdf`), {
+                            headers: { Authorization: `Bearer ${token}` },
+                          });
+                          if (!res.ok) throw new Error("Failed to generate PDF");
+                          const blob = await res.blob();
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `PaidStudents_${selectedPayment.title.replace(/\s+/g, "_").slice(0, 30)}.pdf`;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        } catch {
+                          toast.error("Failed to download PDF report");
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-navy border-[2px] border-navy rounded-xl text-snow text-xs font-bold flex items-center gap-1.5 hover:bg-navy-light transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      PDF Report
+                    </button>
+                  )}
+                </div>
                 {paidStudentsLoading ? (
                   <div className="text-center py-8">
                     <div className="inline-block w-6 h-6 border-[3px] border-navy border-t-transparent rounded-full animate-spin mb-2" />

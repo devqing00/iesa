@@ -50,6 +50,27 @@ def safe_detail(prefix: str, exc: Exception) -> str:
     return f"{prefix}: {exc}"
 
 
+def _log_bg_task_exception(task):
+    """Callback for asyncio.create_task — logs unhandled exceptions from fire-and-forget tasks."""
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc:
+        logger.error("Background task failed: %s", exc, exc_info=exc)
+
+
+def fire_and_forget(coro):
+    """Schedule a coroutine as a background task with automatic exception logging.
+
+    Usage:
+        fire_and_forget(send_email(...))
+    """
+    import asyncio
+    task = asyncio.create_task(coro)
+    task.add_done_callback(_log_bg_task_exception)
+    return task
+
+
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     """Handle FastAPI HTTP exceptions"""
     return JSONResponse(

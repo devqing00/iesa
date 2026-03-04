@@ -90,7 +90,10 @@ function EventsPage() {
   const skipFetch = useRef(false);
   const [error, setError] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [viewMode, setViewMode] = useState<"list" | "calendar">(() => {
+    const v = searchParams.get("view");
+    return v === "calendar" ? "calendar" : "list";
+  });
   const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
   const [paidEvents, setPaidEvents] = useState<Set<string>>(new Set());
   const [paymentRefs, setPaymentRefs] = useState<Record<string, string>>({});

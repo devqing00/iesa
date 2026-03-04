@@ -63,6 +63,7 @@ interface Application {
 
 const UNIT_COLORS: Record<string, { bg: string; border: string; badge: string }> = {
   press:               { bg: "bg-coral-light",    border: "border-coral",    badge: "bg-coral"    },
+  ics:                 { bg: "bg-lavender-light", border: "border-lavender", badge: "bg-lavender" },
   committee_academic:  { bg: "bg-lavender-light", border: "border-lavender", badge: "bg-lavender" },
   committee_welfare:   { bg: "bg-teal-light",     border: "border-teal",     badge: "bg-teal"     },
   committee_sports:    { bg: "bg-sunny-light",    border: "border-sunny",    badge: "bg-sunny"    },

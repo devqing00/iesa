@@ -110,8 +110,11 @@ class AuditLogger:
         resource_type: Optional[str] = None,
         resource_id: Optional[str] = None,
         actor_id: Optional[str] = None,
+        actor_email: Optional[str] = None,
         action: Optional[str] = None,
         session_id: Optional[str] = None,
+        from_date: Optional[datetime] = None,
+        to_date: Optional[datetime] = None,
         limit: int = 100,
         skip: int = 0
     ) -> list:
@@ -124,17 +127,27 @@ class AuditLogger:
         audit_logs = db["audit_logs"]
         
         # Build query
-        query = {}
+        query: Dict[str, Any] = {}
         if resource_type:
             query["resource.type"] = resource_type
         if resource_id:
             query["resource.id"] = resource_id
         if actor_id:
             query["actor.id"] = actor_id
+        if actor_email:
+            import re
+            query["actor.email"] = {"$regex": re.escape(actor_email), "$options": "i"}
         if action:
             query["action"] = action
         if session_id:
             query["sessionId"] = session_id
+        if from_date or to_date:
+            ts_filter: Dict[str, Any] = {}
+            if from_date:
+                ts_filter["$gte"] = from_date
+            if to_date:
+                ts_filter["$lte"] = to_date
+            query["timestamp"] = ts_filter
         
         cursor = audit_logs.find(query).sort("timestamp", -1).skip(skip).limit(limit)
         logs = await cursor.to_list(length=limit)

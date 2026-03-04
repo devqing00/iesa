@@ -62,11 +62,15 @@ async def create_role(
     sessions = db["sessions"]
     
     # Verify user exists
+    if not ObjectId.is_valid(role.userId):
+        raise HTTPException(status_code=400, detail="Invalid user ID")
     user = await users.find_one({"_id": ObjectId(role.userId)})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
     # Verify session exists
+    if not ObjectId.is_valid(role.sessionId):
+        raise HTTPException(status_code=400, detail="Invalid session ID")
     session = await sessions.find_one({"_id": ObjectId(role.sessionId)})
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -151,6 +155,60 @@ async def create_role(
     return Role(**created_role)
 
 
+# ─── Batch helpers to avoid N+1 queries ────────────────────────────
+
+_USER_FIELDS_FULL = {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1, "profilePhotoURL": 1}
+_USER_FIELDS_PUBLIC = {"firstName": 1, "lastName": 1, "email": 1}
+
+
+async def _batch_users(db, user_ids: list, projection: dict | None = None) -> dict:
+    """Batch-fetch users by string IDs → {str_id: doc} mapping."""
+    if not user_ids:
+        return {}
+    oids = [ObjectId(uid) for uid in set(user_ids) if ObjectId.is_valid(uid)]
+    if not oids:
+        return {}
+    proj = projection or _USER_FIELDS_FULL
+    cursor = db["users"].find({"_id": {"$in": oids}}, proj)
+    return {str(u["_id"]): u async for u in cursor}
+
+
+async def _batch_sessions(db, session_ids: list) -> dict:
+    """Batch-fetch sessions by string IDs → {str_id: doc} mapping."""
+    if not session_ids:
+        return {}
+    oids = [ObjectId(sid) for sid in set(session_ids) if ObjectId.is_valid(sid)]
+    if not oids:
+        return {}
+    cursor = db["sessions"].find({"_id": {"$in": oids}}, {"name": 1, "isActive": 1})
+    return {str(s["_id"]): s async for s in cursor}
+
+
+def _user_info(user_map: dict, user_id: str, public: bool = False) -> dict | None:
+    """Build user info dict from batch-loaded map."""
+    u = user_map.get(user_id)
+    if not u:
+        return None
+    if public:
+        return {"firstName": u.get("firstName", ""), "lastName": u.get("lastName", ""), "email": u.get("email", "")}
+    return {
+        "id": str(u["_id"]),
+        "firstName": u.get("firstName", ""),
+        "lastName": u.get("lastName", ""),
+        "email": u.get("email", ""),
+        "matricNumber": u.get("matricNumber", ""),
+        "profilePhotoURL": u.get("profilePhotoURL", ""),
+    }
+
+
+def _session_info(session_map: dict, session_id: str) -> dict | None:
+    """Build session info dict from batch-loaded map."""
+    s = session_map.get(session_id)
+    if not s:
+        return None
+    return {"id": str(s["_id"]), "name": s.get("name", ""), "isActive": s.get("isActive", False)}
+
+
 @router.get("/")
 async def list_roles(
     session_id: Optional[str] = Query(None, description="Filter by session ID"),
@@ -180,33 +238,17 @@ async def list_roles(
     cursor = roles_collection.find(query).sort("createdAt", -1)
     roles_list = await cursor.to_list(length=None)
     
-    # Populate user and session details
+    # Populate user and session details (batch to avoid N+1)
+    user_ids = [r["userId"] for r in roles_list if r.get("userId")]
+    session_ids = [r["sessionId"] for r in roles_list if r.get("sessionId")]
+    user_map = await _batch_users(db, user_ids)
+    session_map = await _batch_sessions(db, session_ids)
+
     result = []
     for role in roles_list:
-        # Get user details
-        user = await users.find_one({"_id": ObjectId(role["userId"])})
-        user_info = {
-            "id": str(user["_id"]),
-            "firstName": user.get("firstName", ""),
-            "lastName": user.get("lastName", ""),
-            "email": user.get("email", ""),
-            "matricNumber": user.get("matricNumber", ""),
-            "profilePhotoURL": user.get("profilePhotoURL", "")
-        } if user else None
-        
-        # Get session details
-        session = await sessions.find_one({"_id": ObjectId(role["sessionId"])})
-        session_info = {
-            "id": str(session["_id"]),
-            "name": session.get("name", ""),
-            "isActive": session.get("isActive", False)
-        } if session else None
-        
-        # Build response
         role["id"] = str(role.pop("_id"))
-        role["user"] = user_info
-        role["session"] = session_info
-        
+        role["user"] = _user_info(user_map, role.get("userId", ""))
+        role["session"] = _session_info(session_map, role.get("sessionId", ""))
         result.append(role)
     
     return result
@@ -250,25 +292,19 @@ async def get_executives(
     cursor = roles_collection.find({"sessionId": session_id})
     roles_list = await cursor.to_list(length=None)
     
-    # Organize by position
+    # Organize by position (batch user lookup)
+    exec_roles = [r for r in roles_list if r["position"] in exec_positions]
+    user_map = await _batch_users(db, [r["userId"] for r in exec_roles])
+
     executives = {}
-    for role in roles_list:
-        if role["position"] in exec_positions:
-            # Get user details
-            user = await users.find_one({"_id": ObjectId(role["userId"])})
-            if user:
-                executives[role["position"]] = {
-                    "position": role["position"],
-                    "user": {
-                        "id": str(user["_id"]),
-                        "firstName": user.get("firstName", ""),
-                        "lastName": user.get("lastName", ""),
-                        "email": user.get("email", ""),
-                        "matricNumber": user.get("matricNumber", ""),
-                        "profilePhotoURL": user.get("profilePhotoURL", "")
-                    },
-                    "assignedAt": role.get("createdAt")
-                }
+    for role in exec_roles:
+        info = _user_info(user_map, role["userId"])
+        if info:
+            executives[role["position"]] = {
+                "position": role["position"],
+                "user": info,
+                "assignedAt": role.get("createdAt")
+            }
     
     # Return in hierarchy order
     result = []
@@ -312,25 +348,19 @@ async def get_committees(
     cursor = roles_collection.find({"sessionId": session_id})
     roles_list = await cursor.to_list(length=None)
     
-    # Organize by position
+    # Organize by position (batch user lookup)
+    comm_roles = [r for r in roles_list if r["position"] in committee_positions]
+    user_map = await _batch_users(db, [r["userId"] for r in comm_roles])
+
     committees = {}
-    for role in roles_list:
-        if role["position"] in committee_positions:
-            # Get user details
-            user = await users.find_one({"_id": ObjectId(role["userId"])})
-            if user:
-                committees[role["position"]] = {
-                    "position": role["position"],
-                    "user": {
-                        "id": str(user["_id"]),
-                        "firstName": user.get("firstName", ""),
-                        "lastName": user.get("lastName", ""),
-                        "email": user.get("email", ""),
-                        "matricNumber": user.get("matricNumber", ""),
-                        "profilePhotoURL": user.get("profilePhotoURL", "")
-                    },
-                    "assignedAt": role.get("createdAt")
-                }
+    for role in comm_roles:
+        info = _user_info(user_map, role["userId"])
+        if info:
+            committees[role["position"]] = {
+                "position": role["position"],
+                "user": info,
+                "assignedAt": role.get("createdAt")
+            }
     
     # Return in order
     result = []
@@ -529,20 +559,13 @@ async def get_my_roles(current_user: User = Depends(get_current_user)):
     cursor = roles_collection.find({"userId": current_user.get("_id", "")}).sort("createdAt", -1)
     roles_list = await cursor.to_list(length=None)
     
-    # Populate session details
+    # Populate session details (batch)
+    session_map = await _batch_sessions(db, [r["sessionId"] for r in roles_list if r.get("sessionId")])
+
     result = []
     for role in roles_list:
-        # Get session details
-        session = await sessions.find_one({"_id": ObjectId(role["sessionId"])})
-        session_info = {
-            "id": str(session["_id"]),
-            "name": session.get("name", ""),
-            "isActive": session.get("isActive", False)
-        } if session else None
-        
         role["id"] = str(role.pop("_id"))
-        role["session"] = session_info
-        
+        role["session"] = _session_info(session_map, role.get("sessionId", ""))
         result.append(role)
     
     return result
@@ -577,18 +600,16 @@ async def get_public_executives():
     roles_list = await cursor.to_list(length=None)
 
     executives = {}
-    for role in roles_list:
-        if role["position"] in exec_positions:
-            user = await users.find_one({"_id": ObjectId(role["userId"])})
-            if user:
-                executives[role["position"]] = {
-                    "position": role["position"],
-                    "user": {
-                        "firstName": user.get("firstName", ""),
-                        "lastName": user.get("lastName", ""),
-                        "email": user.get("email", ""),
-                    },
-                }
+    exec_roles = [r for r in roles_list if r["position"] in exec_positions]
+    user_map = await _batch_users(db, [r["userId"] for r in exec_roles], _USER_FIELDS_PUBLIC)
+
+    for role in exec_roles:
+        info = _user_info(user_map, role["userId"], public=True)
+        if info:
+            executives[role["position"]] = {
+                "position": role["position"],
+                "user": info,
+            }
 
     return [executives[p] for p in exec_positions if p in executives]
 
@@ -618,18 +639,16 @@ async def get_public_committees():
     roles_list = await cursor.to_list(length=None)
 
     committees = {}
-    for role in roles_list:
-        if role["position"] in committee_positions:
-            user = await users.find_one({"_id": ObjectId(role["userId"])})
-            if user:
-                committees[role["position"]] = {
-                    "position": role["position"],
-                    "user": {
-                        "firstName": user.get("firstName", ""),
-                        "lastName": user.get("lastName", ""),
-                        "email": user.get("email", ""),
-                    },
-                }
+    comm_roles = [r for r in roles_list if r["position"] in committee_positions]
+    user_map = await _batch_users(db, [r["userId"] for r in comm_roles], _USER_FIELDS_PUBLIC)
+
+    for role in comm_roles:
+        info = _user_info(user_map, role["userId"], public=True)
+        if info:
+            committees[role["position"]] = {
+                "position": role["position"],
+                "user": info,
+            }
 
     return [committees[p] for p in committee_positions if p in committees]
 
@@ -653,18 +672,16 @@ async def get_public_class_reps():
     cursor = roles_collection.find({"sessionId": session_id})
     roles_list = await cursor.to_list(length=None)
 
+    rep_roles = [r for r in roles_list if r.get("position", "").startswith("class_rep_")]
+    user_map = await _batch_users(db, [r["userId"] for r in rep_roles], _USER_FIELDS_PUBLIC)
+
     result = []
-    for role in roles_list:
-        if role.get("position", "").startswith("class_rep_"):
-            user = await users.find_one({"_id": ObjectId(role["userId"])})
-            if user:
-                result.append({
-                    "position": role["position"],
-                    "user": {
-                        "firstName": user.get("firstName", ""),
-                        "lastName": user.get("lastName", ""),
-                        "email": user.get("email", ""),
-                    },
-                })
+    for role in rep_roles:
+        info = _user_info(user_map, role["userId"], public=True)
+        if info:
+            result.append({
+                "position": role["position"],
+                "user": info,
+            })
 
     return result

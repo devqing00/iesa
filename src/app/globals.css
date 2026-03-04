@@ -178,21 +178,36 @@ input:focus, textarea:focus, select:focus {
    TYPOGRAPHY SYSTEM
    ============================================ */
 
-/* Brush highlight effect - DISABLED (design v3.1) */
+/* Brush highlight effect — colorful brush-stroke under key words */
 .brush-highlight {
   position: relative;
   display: inline-block;
-  padding: 0;
+  padding: 0 0.05em;
+  overflow: hidden;
 }
 
 .brush-highlight::after {
-  display: none;
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: -2%;
+  width: 104%;
+  height: 35%;
+  background: oklch(88% 0.2 128 / 0.45); /* lime default */
+  z-index: -1;
+  transform: rotate(-1deg);
+  border-radius: 2px;
 }
 
-.brush-highlight.brush-coral::after,
-.brush-highlight.brush-lime::after,
+/* Context-aware variants */
+.brush-highlight.brush-coral::after {
+  background: oklch(85% 0.14 90 / 0.55) !important; /* sunny yellow on coral/sunny bg */
+}
+.brush-highlight.brush-lime::after {
+  background: oklch(68% 0.18 25 / 0.45) !important; /* coral on lime bg */
+}
 .brush-highlight.brush-navy::after {
-  display: none;
+  background: oklch(85% 0.14 90 / 0.55) !important; /* sunny yellow on navy bg */
 }
 
 .font-display {
@@ -519,10 +534,20 @@ input:focus, textarea:focus, select:focus {
 .press-6:hover { translate: 2px 2px; box-shadow: 4px 4px 0 0 var(--press-color, #000); }
 .press-6:active { translate: 6px 6px; box-shadow: 0 0 0 0 var(--press-color, #000); }
 
+/* press-7 */
+.press-7 { box-shadow: 7px 7px 0 0 var(--press-color, #000); translate: 0; transition: translate 150ms ease, box-shadow 150ms ease; }
+.press-7:hover { translate: 2.5px 2.5px; box-shadow: 4.5px 4.5px 0 0 var(--press-color, #000); }
+.press-7:active { translate: 7px 7px; box-shadow: 0 0 0 0 var(--press-color, #000); }
+
 /* press-8 */
 .press-8 { box-shadow: 8px 8px 0 0 var(--press-color, #000); translate: 0; transition: translate 150ms ease, box-shadow 150ms ease; }
 .press-8:hover { translate: 3px 3px; box-shadow: 5px 5px 0 0 var(--press-color, #000); }
 .press-8:active { translate: 8px 8px; box-shadow: 0 0 0 0 var(--press-color, #000); }
+
+/* press-9 */
+.press-9 { box-shadow: 9px 9px 0 0 var(--press-color, #000); translate: 0; transition: translate 150ms ease, box-shadow 150ms ease; }
+.press-9:hover { translate: 3.5px 3.5px; box-shadow: 5.5px 5.5px 0 0 var(--press-color, #000); }
+.press-9:active { translate: 9px 9px; box-shadow: 0 0 0 0 var(--press-color, #000); }
 
 /* press-10 */
 .press-10 { box-shadow: 10px 10px 0 0 var(--press-color, #000); translate: 0; transition: translate 150ms ease, box-shadow 150ms ease; }
