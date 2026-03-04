@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from pymongo.errors import OperationFailure
 import os
 from app.core.security import verify_token
 from app.core.rate_limiting import setup_rate_limiting
@@ -24,6 +25,24 @@ async def lifespan(app: FastAPI):
     await db["article_views"].create_index(
         "viewedAt", expireAfterSeconds=86400, background=True
     )
+
+    # AI rate limits — unique userId index for fast upserts
+    await db["ai_rate_limits"].create_index("userId", unique=True, background=True)
+
+    # Transaction records — unique reference for idempotent webhook/verify upserts.
+    # Wrapped in try/except: if the index already exists with a slightly different
+    # spec (e.g. without sparse), MongoDB returns IndexKeySpecsConflict (code 86).
+    # The existing unique index still satisfies our deduplication requirement.
+    try:
+        await db["transactions"].create_index("reference", unique=True, sparse=True, background=True)
+    except OperationFailure as e:
+        if e.code == 86:  # IndexKeySpecsConflict — existing index is compatible
+            import logging as _log
+            _log.getLogger("iesa_backend").warning(
+                "transactions.reference index already exists with a different spec — using existing index."
+            )
+        else:
+            raise
 
     yield
     # Shutdown
@@ -61,7 +80,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
-    expose_headers=["*"],
+    expose_headers=["Content-Disposition", "X-Request-Id"],
     max_age=86400,  # 24h — browsers cache preflight so OPTIONS doesn't fly every request
 )
 
@@ -79,6 +98,17 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/health/email")
+async def email_health(user: dict = Depends(verify_token)):
+    """Email service diagnostic — admin only."""
+    role = user.get("role", "student")
+    if role not in ("admin",):
+        from fastapi import HTTPException as _H
+        raise _H(status_code=403, detail="Admin only")
+    from app.core.email import check_email_health
+    return await check_email_health()
 
 # Register routers with versioned API prefix
 app.include_router(auth.router)  # Auth: register, login, refresh, logout

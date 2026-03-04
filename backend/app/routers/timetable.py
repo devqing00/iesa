@@ -9,7 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
 from bson import ObjectId
 
-from ..core.security import get_current_user
+from ..core.security import get_current_user, require_ipe_student
 from ..core.permissions import require_permission
 from ..core.database import get_database
 from ..core.audit import AuditLogger
@@ -174,7 +174,7 @@ async def list_class_sessions(
     level: Optional[int] = Query(None, description="Filter by level"),
     day: Optional[str] = Query(None, description="Filter by day"),
     courseCode: Optional[str] = Query(None, description="Filter by course code"),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Get list of class sessions"""
@@ -212,7 +212,7 @@ async def list_class_sessions(
 async def get_weekly_schedule(
     level: int = Query(..., description="Student level"),
     week_start: Optional[str] = Query(None, description="Week start date (YYYY-MM-DD)"),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Get weekly timetable view with cancellations"""
@@ -272,7 +272,7 @@ async def get_weekly_schedule(
 @router.get("/today", response_model=List[dict])
 async def get_today_classes(
     level: int = Query(..., description="Student level"),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Get today's classes"""

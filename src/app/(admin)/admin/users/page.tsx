@@ -30,6 +30,7 @@ function AdminUsersPage() {
   const { getAccessToken } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [deptFilter, setDeptFilter] = useState("all");
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -51,6 +52,7 @@ function AdminUsersPage() {
       params.set("limit", String(ITEMS_PER_PAGE));
       params.set("skip", String((page - 1) * ITEMS_PER_PAGE));
       if (roleFilter !== "all") params.set("role", roleFilter);
+      if (deptFilter !== "all") params.set("department", deptFilter);
       if (searchQuery.trim()) params.set("search", searchQuery.trim());
 
       const response = await fetch(getApiUrl(`/api/v1/users/?${params}`), {
@@ -72,7 +74,7 @@ function AdminUsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [getAccessToken, page, roleFilter, searchQuery]);
+  }, [getAccessToken, page, roleFilter, deptFilter, searchQuery]);
 
   useEffect(() => {
     const debounce = setTimeout(() => fetchUsers(), searchQuery ? 300 : 0);
@@ -84,9 +86,10 @@ function AdminUsersPage() {
   // Reset to page 1 when filter/search changes
   const handleSearch = (v: string) => { setSearchQuery(v); setPage(1); };
   const handleRoleFilter = (v: string) => { setRoleFilter(v); setPage(1); };
+  const handleDeptFilter = (v: string) => { setDeptFilter(v); setPage(1); };
 
   const activeUsers = users.filter((u) => u.isActive !== false).length;
-  const adminCount = users.filter((u) => u.role === "admin").length;
+  const externalCount = users.filter((u) => u.department && u.department !== "Industrial Engineering").length;
 
   /* ── Edit modal handlers ─── */
   const openEdit = (user: User) => {
@@ -198,18 +201,18 @@ function AdminUsersPage() {
           <span className="text-snow/70 text-xs">Currently active</span>
         </div>
 
-        {/* Admins — snow card */}
+        {/* External Students — snow card */}
         <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 press-4 press-black hover:-translate-y-1 transition-all">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Admins</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">External</p>
             <div className="w-10 h-10 rounded-xl bg-lavender-light flex items-center justify-center">
               <svg className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
-                <path fillRule="evenodd" d="M12.516 2.17a.75.75 0 0 0-1.032 0 11.209 11.209 0 0 1-7.877 3.08.75.75 0 0 0-.722.515A12.74 12.74 0 0 0 2.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 0 0 .374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 0 0-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08Zm3.094 8.016a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
+                <path d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
               </svg>
             </div>
           </div>
-          <div className="font-display font-black text-4xl text-navy">{adminCount}</div>
-          <span className="text-navy/60 text-xs">Admin accounts</span>
+          <div className="font-display font-black text-4xl text-navy">{externalCount}</div>
+          <span className="text-navy/60 text-xs">External students (this page)</span>
         </div>
       </div>
 
@@ -237,17 +240,30 @@ function AdminUsersPage() {
           className="px-5 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer"
         >
           <option value="all">All Roles</option>
-          <option value="student">Students</option>
+          <option value="student">Students Only</option>
           <option value="admin">Admins</option>
+          <option value="exco">Executives</option>
+        </select>
+
+        <select
+          value={deptFilter}
+          onChange={(e) => handleDeptFilter(e.target.value)}
+          aria-label="Filter by department"
+          className="px-5 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer"
+        >
+          <option value="all">All Departments</option>
+          <option value="ipe">IPE Students</option>
+          <option value="external">External Students</option>
         </select>
 
         <PermissionGate permission="user:export">
         <button
           onClick={() => {
-            const headers = ["Name", "Email", "Role", "Status"];
+            const headers = ["Name", "Email", "Department", "Role", "Status"];
             const rows = users.map((u) => [
               `${u.firstName} ${u.lastName}`,
               u.email,
+              u.department === "Industrial Engineering" ? "IPE" : (u.department || "External"),
               u.role,
               u.isActive !== false ? "Active" : "Inactive",
             ]);
@@ -287,7 +303,8 @@ function AdminUsersPage() {
                 <tr className="border-b-[3px] border-navy bg-ghost">
                   <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Name</th>
                   <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-slate hidden md:table-cell">Email</th>
-                  <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Role</th>
+                  <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-slate hidden lg:table-cell">Dept</th>
+                  <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Roles</th>
                   <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-slate hidden md:table-cell">Status</th>
                   <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Actions</th>
                 </tr>
@@ -295,7 +312,7 @@ function AdminUsersPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="p-12 text-center">
+                    <td colSpan={6} className="p-12 text-center">
                       <div className="flex flex-col items-center gap-3">
                         <div className="w-10 h-10 border-[3px] border-navy border-t-transparent rounded-full animate-spin" />
                         <span className="text-navy/60 text-sm">Loading users...</span>
@@ -304,7 +321,7 @@ function AdminUsersPage() {
                   </tr>
                 ) : users.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-12 text-center">
+                    <td colSpan={6} className="p-12 text-center">
                       <div className="w-14 h-14 mx-auto rounded-2xl bg-cloud flex items-center justify-center mb-3">
                         <svg className="w-6 h-6 text-slate" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0Z" clipRule="evenodd" />
@@ -335,16 +352,31 @@ function AdminUsersPage() {
                         </div>
                       </td>
                       <td className="p-4 text-navy/60 text-sm hidden md:table-cell">{user.email}</td>
-                      <td className="p-4">
+                      <td className="p-4 hidden lg:table-cell">
                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${
-                          user.role === "admin"
-                            ? "bg-lavender-light text-lavender"
-                            : user.role === "exco"
-                            ? "bg-coral-light text-coral"
-                            : "bg-cloud text-navy/60"
+                          user.department === "Industrial Engineering"
+                            ? "bg-lime-light text-navy"
+                            : "bg-lavender-light text-lavender"
                         }`}>
-                          {user.role}
+                          {user.department === "Industrial Engineering" ? "IPE" : user.department || "External"}
                         </span>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-cloud text-navy/60">
+                            student
+                          </span>
+                          {user.role === "admin" && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-lavender-light text-lavender">
+                              admin
+                            </span>
+                          )}
+                          {user.role === "exco" && (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-coral-light text-coral">
+                              executive
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4 hidden md:table-cell">
                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${

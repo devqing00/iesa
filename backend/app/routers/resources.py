@@ -14,7 +14,7 @@ import re
 import json
 import base64
 
-from ..core.security import get_current_user
+from ..core.security import get_current_user, require_ipe_student
 from ..core.database import get_database
 from ..core.permissions import get_user_permissions
 
@@ -197,7 +197,7 @@ def validate_resource_data(resource_type: str, url: str):
 @router.post("/add", response_model=dict)
 async def add_resource(
     resource_data: AddResourceRequest,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """
@@ -284,7 +284,7 @@ async def add_resource(
 
 @router.get("/my", response_model=List[dict])
 async def get_my_submissions(
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Get current user's resource submissions (including pending/rejected)"""
@@ -319,7 +319,7 @@ async def list_resources(
     sortBy: Optional[str] = Query("createdAt", description="Sort field: createdAt | viewCount"),
     page: int = Query(1, ge=1),
     pageSize: int = Query(20, ge=1, le=100),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Get list of resources with filters, full-text search, and sort"""
@@ -394,7 +394,7 @@ async def list_resources(
 @router.get("/{resource_id}", response_model=ResourceResponse)
 async def get_resource(
     resource_id: str,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Get single resource by ID"""
@@ -427,7 +427,7 @@ async def get_resource(
 @router.post("/{resource_id}/view")
 async def track_view(
     resource_id: str,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Track resource view — increments viewCount each time the View/Watch button is clicked."""
@@ -454,7 +454,7 @@ async def approve_resource(
     resource_id: str,
     approve_data: ApproveResourceRequest,
     request: Request,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Approve or reject a resource (Academic Committee/Admin only)"""
@@ -507,7 +507,7 @@ async def approve_resource(
 async def delete_resource(
     resource_id: str,
     request: Request,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Delete a resource"""

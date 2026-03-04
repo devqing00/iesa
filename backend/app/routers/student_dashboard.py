@@ -39,8 +39,8 @@ async def _get_user_level(db, user_id: str, session_id: str):
     return enrollment.get("level") if enrollment else None
 
 
-async def _fetch_announcements(db, session_id: str, user_id: str, user_level: str | None, is_admin: bool, limit: int = 5):
-    """Latest N announcements, with read status, filtered by level + expiry."""
+async def _fetch_announcements(db, session_id: str, user_id: str, user_level: str | None, is_admin: bool, user_department: str = "Industrial Engineering", limit: int = 5):
+    """Latest N announcements, with read status, filtered by level + audience + expiry."""
     query = {
         "sessionId": session_id,
         "$or": [
@@ -52,15 +52,24 @@ async def _fetch_announcements(db, session_id: str, user_id: str, user_level: st
         db["announcements"]
         .find(query)
         .sort([("isPinned", -1), ("priority", -1), ("createdAt", -1)])
-        .limit(limit * 2)  # over-fetch to account for level filtering
+        .limit(limit * 3)  # over-fetch to account for level + audience filtering
     )
-    docs = await cursor.to_list(length=limit * 2)
+    docs = await cursor.to_list(length=limit * 3)
 
+    is_ipe_student = user_department == "Industrial Engineering"
     result = []
     for doc in docs:
         target_levels = doc.get("targetLevels")
         if target_levels and not is_admin:
             if not user_level or user_level not in target_levels:
+                continue
+
+        # Audience targeting: ipe-only vs external-only vs all
+        target_audience = doc.get("targetAudience", "all")
+        if target_audience != "all" and not is_admin:
+            if target_audience == "ipe" and not is_ipe_student:
+                continue
+            if target_audience == "external" and is_ipe_student:
                 continue
         result.append({
             "id": str(doc["_id"]),
@@ -185,20 +194,35 @@ async def get_student_dashboard(
     # Get user level (needed for announcements + timetable)
     user_level = await _get_user_level(db, user_id, session_id)
 
-    # Fetch all in parallel
-    announcements, events, payments, today_classes = await asyncio.gather(
-        _fetch_announcements(db, session_id, user_id, user_level, is_admin),
-        _fetch_upcoming_events(db, session_id, user_id),
-        _fetch_payments(db, session_id, user_id),
-        _fetch_today_classes(db, session_id, user_level),
-    )
+    # External students only need announcements — skip events, payments, timetable
+    user_department = current_user.get("department", "Industrial Engineering")
+    is_external = user_department != "Industrial Engineering" and not is_admin
 
-    result = {
-        "announcements": announcements,
-        "events": events,
-        "payments": payments,
-        "todayClasses": today_classes,
-        "activeSession": session_name,
-    }
+    if is_external:
+        announcements = await _fetch_announcements(
+            db, session_id, user_id, user_level, is_admin, user_department
+        )
+        result = {
+            "announcements": announcements,
+            "events": [],
+            "payments": [],
+            "todayClasses": [],
+            "activeSession": session_name,
+        }
+    else:
+        # Fetch all in parallel for IPE students
+        announcements, events, payments, today_classes = await asyncio.gather(
+            _fetch_announcements(db, session_id, user_id, user_level, is_admin, user_department),
+            _fetch_upcoming_events(db, session_id, user_id),
+            _fetch_payments(db, session_id, user_id),
+            _fetch_today_classes(db, session_id, user_level),
+        )
+        result = {
+            "announcements": announcements,
+            "events": events,
+            "payments": payments,
+            "todayClasses": today_classes,
+            "activeSession": session_name,
+        }
     await cache_set(cache_key, result, ttl=CACHE_TTL)
     return result

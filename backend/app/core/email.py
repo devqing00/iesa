@@ -41,6 +41,7 @@ class EmailService:
         self.provider = self._detect_provider()
         self.from_email = os.getenv("EMAIL_FROM", "noreply@iesa.com")
         self.from_name = os.getenv("EMAIL_FROM_NAME", "IESA Platform")
+        self._healthy = False
         
         if self.provider == EmailProvider.SENDGRID:
             self._init_sendgrid()
@@ -50,6 +51,7 @@ class EmailService:
             self._init_smtp()
         elif self.provider == EmailProvider.CONSOLE:
             logger.warning("⚠️  Using console email provider (development mode)")
+            self._healthy = True
     
     def _detect_provider(self) -> EmailProvider:
         """Auto-detect email provider based on environment variables"""
@@ -69,6 +71,7 @@ class EmailService:
             from sendgrid import SendGridAPIClient
             self.client = SendGridAPIClient(os.getenv("SENDGRID_API_KEY"))
             logger.info("✅ SendGrid email provider initialized")
+            self._healthy = True
         except ImportError:
             logger.error("❌ SendGrid not installed. Run: pip install sendgrid")
             self.provider = EmailProvider.CONSOLE
@@ -80,6 +83,7 @@ class EmailService:
             resend.api_key = os.getenv("RESEND_API_KEY")
             self.client = resend
             logger.info("✅ Resend email provider initialized")
+            self._healthy = True
         except ImportError:
             logger.error("❌ Resend not installed. Run: pip install resend")
             self.provider = EmailProvider.CONSOLE
@@ -98,6 +102,7 @@ class EmailService:
             self.provider = EmailProvider.CONSOLE
         else:
             logger.info(f"✅ SMTP email provider initialized (Host: {self.smtp_host}, Port: {self.smtp_port})")
+            self._healthy = True
     
     async def send_email(
         self,
@@ -196,6 +201,8 @@ class EmailService:
         smtplib is synchronous, so we build the message on the current thread
         and offload the blocking network I/O to a thread-pool executor so the
         FastAPI event loop is never stalled.
+
+        Retries up to 3 times with exponential backoff for transient failures.
         """
         import asyncio
         import smtplib
@@ -234,29 +241,42 @@ class EmailService:
 
         def _do_send():
             """Synchronous SMTP send — runs in a thread-pool worker."""
-            with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
                 server.set_debuglevel(0)
                 if smtp_use_tls:
                     server.starttls()
                 server.login(smtp_user, smtp_password)
                 server.send_message(msg)
 
-        try:
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, _do_send)
-            logger.info(f"✅ Email sent to {to} via SMTP ({smtp_host})")
-            return True
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            try:
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(None, _do_send)
+                logger.info(f"✅ Email sent to {to} via SMTP ({smtp_host})")
+                return True
 
-        except smtplib.SMTPAuthenticationError as e:
-            logger.error(f"❌ SMTP Authentication failed: {str(e)}")
-            logger.error("   Check your SMTP_USER and SMTP_PASSWORD (use App Password for Gmail)")
-            return False
-        except smtplib.SMTPException as e:
-            logger.error(f"❌ SMTP error: {str(e)}")
-            return False
-        except Exception as e:
-            logger.error(f"❌ Failed to send email via SMTP: {str(e)}")
-            return False
+            except smtplib.SMTPAuthenticationError as e:
+                logger.error(f"❌ SMTP Authentication failed: {str(e)}")
+                logger.error("   Check your SMTP_USER and SMTP_PASSWORD (use App Password for Gmail)")
+                return False
+            except (smtplib.SMTPServerDisconnected, smtplib.SMTPConnectError, OSError) as e:
+                # Transient network errors — retry
+                if attempt < max_retries:
+                    wait = 2 ** attempt
+                    logger.warning(f"⚠️  SMTP transient error (attempt {attempt}/{max_retries}), retrying in {wait}s: {e}")
+                    await asyncio.sleep(wait)
+                else:
+                    logger.error(f"❌ SMTP failed after {max_retries} attempts: {str(e)}")
+                    return False
+            except smtplib.SMTPException as e:
+                logger.error(f"❌ SMTP error: {str(e)}")
+                return False
+            except Exception as e:
+                logger.error(f"❌ Failed to send email via SMTP: {str(e)}")
+                return False
+
+        return False
     
     async def _send_console(self, to, subject, html_content):
         """Print email to console (development)"""
@@ -643,3 +663,56 @@ async def send_password_reset_email(to: str, name: str, reset_url: str):
             "reset_url": reset_url
         }
     )
+
+
+async def check_email_health() -> dict:
+    """
+    Diagnose the email service:
+    - Provider detection
+    - SMTP connectivity test (if SMTP)
+    - Returns structured status report
+    """
+    service = get_email_service()
+    report = {
+        "provider": service.provider.value,
+        "healthy": service._healthy,
+        "from_email": service.from_email,
+        "from_name": service.from_name,
+    }
+
+    if service.provider == EmailProvider.SMTP:
+        import smtplib
+        import asyncio
+
+        smtp_host = service.smtp_host
+        smtp_port = service.smtp_port
+        smtp_use_tls = service.smtp_use_tls
+        smtp_user = service.smtp_user
+        smtp_password = service.smtp_password
+
+        def _test_connection():
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+                if smtp_use_tls:
+                    server.starttls()
+                server.login(smtp_user, smtp_password)
+                return True
+
+        try:
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, _test_connection)
+            report["smtp_connection"] = "ok"
+            report["smtp_host"] = smtp_host
+            report["smtp_port"] = smtp_port
+            report["smtp_user"] = smtp_user
+        except smtplib.SMTPAuthenticationError:
+            report["smtp_connection"] = "auth_failed"
+            report["healthy"] = False
+            report["error"] = "SMTP authentication failed — check SMTP_USER and SMTP_PASSWORD"
+        except Exception as e:
+            report["smtp_connection"] = "unreachable"
+            report["healthy"] = False
+            report["error"] = f"SMTP connection error: {str(e)}"
+    elif service.provider == EmailProvider.CONSOLE:
+        report["warning"] = "Using console provider — emails are printed, not sent"
+
+    return report

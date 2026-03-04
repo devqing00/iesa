@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { PasswordInput } from "@/components/ui/Input";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -106,9 +107,8 @@ function ResetPasswordForm() {
           <label htmlFor="new-password" className="font-display font-bold text-xs uppercase tracking-wider text-slate">
             New Password
           </label>
-          <input
+          <PasswordInput
             id="new-password"
-            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
@@ -122,9 +122,8 @@ function ResetPasswordForm() {
           <label htmlFor="confirm-password" className="font-display font-bold text-xs uppercase tracking-wider text-slate">
             Confirm Password
           </label>
-          <input
+          <PasswordInput
             id="confirm-password"
-            type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="••••••••"

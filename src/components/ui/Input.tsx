@@ -1,6 +1,6 @@
 'use client';
 
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useState } from 'react';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -64,6 +64,56 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 );
 
 Input.displayName = 'Input';
+
+// ─── PasswordInput ────────────────────────────────────────────────────────────
+// A self-contained password field with a show/hide toggle button on the right.
+// Drop-in replacement for <input type="password"> — accepts the same className
+// and forwards all other props to the underlying <input>.
+
+export type PasswordInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'>;
+
+export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
+  ({ className = '', style, ...props }, ref) => {
+    const [show, setShow] = useState(false);
+    return (
+      <div className="relative">
+        <input
+          ref={ref}
+          type={show ? 'text' : 'password'}
+          className={className}
+          // paddingRight ensures text never slides under the toggle button
+          // regardless of what px-* the parent passes in className
+          style={{ paddingRight: '2.75rem', ...style }}
+          {...props}
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={show ? 'Hide password' : 'Show password'}
+          onClick={() => setShow((s) => !s)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate hover:text-navy focus:outline-none transition-colors"
+        >
+          {show ? (
+            /* Eye-off */
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
+              <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
+              <line x1="1" y1="1" x2="23" y2="23" />
+            </svg>
+          ) : (
+            /* Eye */
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          )}
+        </button>
+      </div>
+    );
+  }
+);
+
+PasswordInput.displayName = 'PasswordInput';
 
 export interface TextAreaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;

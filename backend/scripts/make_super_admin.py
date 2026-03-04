@@ -72,6 +72,8 @@ async def make_super_admin(email: str) -> None:
     print(f"   Name: {user_name}")
     print(f"   Email: {email}")
     print(f"   Current Role: {user.get('role', 'student')}")
+    print(f"   Department: {user.get('department', 'N/A')}")
+    print(f"   External Student: {user.get('isExternalStudent', False)}")
     print()
 
     # Step 1: Update user role to admin (for dashboard access)
@@ -82,12 +84,19 @@ async def make_super_admin(email: str) -> None:
             {
                 "$set": {
                     "role": "admin",
+                    "isExternalStudent": False,  # admins always have full access
                     "updatedAt": datetime.now(timezone.utc)
                 }
             }
         )
         print("   ✓ User role set to: admin")
+        print("   ✓ isExternalStudent set to: False")
     else:
+        # Still enforce isExternalStudent = False on existing admins
+        await users.update_one(
+            {"_id": user["_id"]},
+            {"$set": {"isExternalStudent": False, "updatedAt": datetime.now(timezone.utc)}}
+        )
         print("✓ User already has admin role")
     print()
 

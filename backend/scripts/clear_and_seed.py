@@ -93,6 +93,7 @@ ALL_COLLECTIONS = [
     "iepod_points",
     # AI
     "ai_feedback",
+    "ai_rate_limits",
 ]
 
 
@@ -270,6 +271,7 @@ async def seed_users(db, session_id: str) -> dict:
             "emailVerified": True,          # skip email verification for seed users
             "hasCompletedOnboarding": True,
             "isActive": True,
+            "isExternalStudent": False,       # all seed users are IPE students
             "lastLogin": None,
             "firebaseUid": None,
             "createdAt": now,

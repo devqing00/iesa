@@ -4,9 +4,10 @@ import Sidebar from "@/components/dashboard/Sidebar";
 import MobileNav from "@/components/dashboard/MobileNav";
 import { useAuth } from "@/context/AuthContext";
 import { SidebarProvider, useSidebar } from "@/context/SidebarContext";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useSSE } from "@/hooks/useSSE";
+import { isExternalStudent, isRouteAllowedForExternal } from "@/lib/studentAccess";
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { isExpanded } = useSidebar();
@@ -35,14 +36,24 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useAuth();
+  const { user, userProfile, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
+  // Redirect unauthenticated users to login
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
     }
   }, [user, loading, router]);
+
+  // Redirect external students from restricted routes
+  useEffect(() => {
+    if (loading || !user || !userProfile) return;
+    if (isExternalStudent(userProfile.department) && !isRouteAllowedForExternal(pathname)) {
+      router.replace("/dashboard");
+    }
+  }, [loading, user, userProfile, pathname, router]);
 
   if (loading) {
     return (

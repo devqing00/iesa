@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { PasswordInput } from "@/components/ui/Input";
 
 export default function AdminLoginPage() {
   const { signInWithEmail } = useAuth();
@@ -117,7 +118,7 @@ export default function AdminLoginPage() {
 
             <div className="space-y-2">
               <label className="font-display font-bold text-xs uppercase tracking-wider text-slate">Password</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required className={inputClass} />
+              <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required className={inputClass} />
             </div>
 
             {error && (

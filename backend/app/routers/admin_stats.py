@@ -50,6 +50,9 @@ async def get_admin_stats(
         enrollments_by_level,
         payments_by_status,
         recent_audit_logs,
+        external_students_count,
+        ipe_students_count,
+        announcements_by_audience,
     ) = await asyncio.gather(
         # Counts
         db["users"].count_documents({}),
@@ -79,6 +82,16 @@ async def get_admin_stats(
                 "timestamp": 1,
             },
         ).sort("timestamp", -1).to_list(length=5),
+        # Department breakdown
+        db["users"].count_documents({"isExternalStudent": True}),
+        db["users"].count_documents({"$or": [
+            {"isExternalStudent": False},
+            {"isExternalStudent": {"$exists": False}},
+        ]}),
+        # Announcements by target audience
+        db["announcements"].aggregate([
+            {"$group": {"_id": {"$ifNull": ["$targetAudience", "all"]}, "count": {"$sum": 1}}},
+        ]).to_list(length=10),
     )
 
     # --- Normalise enrollments by level into ordered list ---
@@ -120,6 +133,9 @@ async def get_admin_stats(
             else str(log.get("timestamp", "")),
         })
 
+    # --- Normalise announcements by audience ---
+    audience_map = {doc["_id"]: doc["count"] for doc in announcements_by_audience}
+
     result = {
         "totalStudents": total_students,
         "totalEnrollments": total_enrollments,
@@ -130,6 +146,15 @@ async def get_admin_stats(
         "enrollmentsByLevel": ordered_levels,
         "paymentsByStatus": status_data,
         "recentActivity": logs,
+        # Department breakdown
+        "ipeStudents": ipe_students_count,
+        "externalStudents": external_students_count,
+        # Announcements by audience
+        "announcementsByAudience": {
+            "all": audience_map.get("all", 0),
+            "ipe": audience_map.get("ipe", 0),
+            "external": audience_map.get("external", 0),
+        },
     }
 
     # Store in cache

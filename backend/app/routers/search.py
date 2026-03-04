@@ -11,7 +11,7 @@ from datetime import datetime
 import re
 import logging
 
-from app.core.security import get_current_user
+from app.core.security import get_current_user, require_ipe_student, _is_external_student
 from app.db import get_database
 
 logger = logging.getLogger("iesa_backend")
@@ -35,6 +35,11 @@ async def global_search(
     """
     db = get_database()
     search_types = [t.strip() for t in types.split(",") if t.strip()]
+
+    # External students can only search announcements
+    is_external = _is_external_student(current_user)
+    if is_external:
+        search_types = [t for t in search_types if t == "announcements"]
 
     # Build a case-insensitive regex for partial matching
     pattern = re.compile(re.escape(q), re.IGNORECASE)

@@ -63,7 +63,7 @@ async def _get_user_from_query_token(token: str = Query(..., description="JWT ac
 _subscribers: dict[str, asyncio.Queue] = {}
 
 
-def publish(event_type: str, data: Any, *, target_role: str | None = None) -> None:
+def publish(event_type: str, data: Any, *, target_role: str | None = None, ipe_only: bool = False) -> None:
     """
     Send an event to all connected SSE clients.
 
@@ -75,12 +75,16 @@ def publish(event_type: str, data: Any, *, target_role: str | None = None) -> No
         JSON-serialisable payload.
     target_role : str | None
         If set, only clients whose ``role`` matches will see the event.
+    ipe_only : bool
+        If True, only IPE (Industrial Engineering) students will see the event.
+        Admins and excos still receive it regardless.
     """
     msg = {
         "type": event_type,
         "data": data,
         "timestamp": time.time(),
         "targetRole": target_role,
+        "ipeOnly": ipe_only,
     }
     dead: list[str] = []
     for sub_id, q in _subscribers.items():
@@ -110,6 +114,8 @@ async def sse_stream(
     """
     user_id = current_user["_id"]
     user_role = current_user.get("role", "student")
+    user_dept = current_user.get("department", "Industrial Engineering")
+    is_external = (user_role == "student" and user_dept != "Industrial Engineering")
     sub_id = f"{user_id}_{id(request)}"
 
     queue: asyncio.Queue = asyncio.Queue(maxsize=256)
@@ -132,6 +138,10 @@ async def sse_stream(
                 # Role-based filtering
                 target = msg.get("targetRole")
                 if target and target != user_role:
+                    continue
+
+                # Department-based filtering: hide IPE-only events from external students
+                if msg.get("ipeOnly") and is_external:
                     continue
 
                 event_type = msg.get("type", "message")

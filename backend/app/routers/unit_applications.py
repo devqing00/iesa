@@ -13,7 +13,7 @@ from typing import Optional
 from datetime import datetime, timezone
 from bson import ObjectId
 
-from app.core.security import get_current_user
+from app.core.security import get_current_user, require_ipe_student
 from app.core.permissions import get_current_session, require_permission
 from app.core.audit import AuditLogger
 from app.db import get_database
@@ -37,7 +37,7 @@ def _serialize(doc: dict) -> dict:
 @router.post("/", response_model=UnitApplicationResponse)
 async def create_application(
     body: UnitApplicationCreate,
-    user=Depends(get_current_user),
+    user=Depends(require_ipe_student),
     session=Depends(get_current_session),
 ):
     db = get_database()
@@ -82,7 +82,7 @@ async def create_application(
 
 @router.get("/my", response_model=list[UnitApplicationResponse])
 async def my_applications(
-    user=Depends(get_current_user),
+    user=Depends(require_ipe_student),
     session=Depends(get_current_session),
 ):
     db = get_database()

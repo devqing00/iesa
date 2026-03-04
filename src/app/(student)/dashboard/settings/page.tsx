@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { PasswordInput } from "@/components/ui/Input";
 
 /* ─── Types ──────────────────────────────────────────────── */
 
@@ -554,9 +555,8 @@ export default function SettingsPage() {
               <label htmlFor="delete-password" className="block text-sm font-bold text-navy mb-1">
                 Enter your password to confirm
               </label>
-              <input
+              <PasswordInput
                 id="delete-password"
-                type="password"
                 value={deletePassword}
                 onChange={(e) => setDeletePassword(e.target.value)}
                 required

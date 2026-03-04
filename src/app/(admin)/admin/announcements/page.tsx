@@ -12,12 +12,15 @@ import { withAuth, PermissionGate } from "@/lib/withAuth";
 
 /* ─── Types ──────────────────────────────── */
 
+type TargetAudience = "all" | "ipe" | "external";
+
 interface Announcement {
   _id: string;
   id?: string;
   title: string;
   content: string;
   targetLevels: string[] | null;
+  targetAudience?: TargetAudience;
   priority: "low" | "normal" | "high" | "urgent";
   isPinned: boolean;
   sessionId: string;
@@ -32,6 +35,7 @@ interface FormState {
   content: string;
   priority: "low" | "normal" | "high" | "urgent";
   targetLevels: string[];
+  targetAudience: TargetAudience;
   isPinned: boolean;
   expiresAt: string;
 }
@@ -41,9 +45,16 @@ const EMPTY_FORM: FormState = {
   content: "",
   priority: "normal",
   targetLevels: [],
+  targetAudience: "all",
   isPinned: false,
   expiresAt: "",
 };
+
+const AUDIENCE_OPTIONS: { value: TargetAudience; label: string; desc: string }[] = [
+  { value: "all", label: "All Students", desc: "Everyone sees this" },
+  { value: "ipe", label: "IPE Only", desc: "Industrial Engineering students only" },
+  { value: "external", label: "External Only", desc: "Students from other departments" },
+];
 
 const LEVEL_OPTIONS = ["100L", "200L", "300L", "400L", "500L"];
 
@@ -150,6 +161,7 @@ function AdminAnnouncementsPage() {
       content: a.content,
       priority: a.priority,
       targetLevels: a.targetLevels ?? [],
+      targetAudience: a.targetAudience ?? "all",
       isPinned: a.isPinned,
       expiresAt: a.expiresAt ? a.expiresAt.slice(0, 16) : "",
     });
@@ -179,6 +191,7 @@ function AdminAnnouncementsPage() {
           content: form.content,
           priority: form.priority,
           targetLevels: form.targetLevels.length > 0 ? form.targetLevels : null,
+          targetAudience: form.targetAudience,
           isPinned: form.isPinned,
           expiresAt: form.expiresAt || null,
         };
@@ -198,6 +211,7 @@ function AdminAnnouncementsPage() {
           priority: form.priority,
           sessionId: currentSession.id,
           targetLevels: form.targetLevels.length > 0 ? form.targetLevels : null,
+          targetAudience: form.targetAudience,
           isPinned: form.isPinned,
           expiresAt: form.expiresAt || null,
           authorId: user?.id ?? "",
@@ -455,6 +469,13 @@ function AdminAnnouncementsPage() {
 
                     {/* Footer */}
                     <div className="mt-auto flex flex-wrap items-center gap-2 pt-4 border-t-[3px] border-navy/10">
+                      {a.targetAudience && a.targetAudience !== "all" && (
+                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                          a.targetAudience === "ipe" ? "bg-lime-light text-navy" : "bg-lavender-light text-lavender"
+                        }`}>
+                          {a.targetAudience === "ipe" ? "IPE Only" : "External Only"}
+                        </span>
+                      )}
                       {a.targetLevels && a.targetLevels.length > 0 ? (
                         a.targetLevels.map((level) => (
                           <span key={level} className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-cloud text-navy/60">{level}</span>
@@ -541,6 +562,28 @@ function AdminAnnouncementsPage() {
                     }`}
                   >
                     {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Target Audience */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-bold text-navy">Audience</label>
+              <div className="flex flex-wrap gap-2">
+                {AUDIENCE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, targetAudience: opt.value }))}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold border-[3px] transition-colors ${
+                      form.targetAudience === opt.value
+                        ? "bg-navy border-navy text-snow"
+                        : "border-navy/20 text-navy/60 hover:border-navy/40"
+                    }`}
+                    title={opt.desc}
+                  >
+                    {opt.label}
                   </button>
                 ))}
               </div>

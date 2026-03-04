@@ -34,6 +34,7 @@ class UserBase(BaseModel):
     lastName: str = Field(..., min_length=1, max_length=100)
     matricNumber: Optional[str] = Field(None, min_length=1, max_length=50)  # Flexible format
     department: str = Field(default="Industrial Engineering")
+    isExternalStudent: bool = Field(default=False, description="True if student is from a department other than Industrial Engineering")
     phone: Optional[str] = Field(None, pattern=r"^\+?[0-9]{10,15}$")
     role: Literal["student", "admin", "exco"] = Field(default="student")
     bio: Optional[str] = Field(None, max_length=500)

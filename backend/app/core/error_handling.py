@@ -27,6 +27,29 @@ class IESAException(Exception):
         super().__init__(self.message)
 
 
+def _is_production() -> bool:
+    import os
+    return os.getenv("ENVIRONMENT", "development") == "production"
+
+
+def safe_detail(prefix: str, exc: Exception) -> str:
+    """
+    Build an HTTP error detail string.
+
+    In production: returns only the human-readable *prefix*
+      (e.g. "Failed to initialize payment").
+    In development: appends the raw exception so devs can debug
+      (e.g. "Failed to initialize payment: ConnectionRefused(…)").
+
+    Usage in routers:
+        from app.core.error_handling import safe_detail
+        raise HTTPException(status_code=500, detail=safe_detail("Upload failed", e))
+    """
+    if _is_production():
+        return prefix
+    return f"{prefix}: {exc}"
+
+
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     """Handle FastAPI HTTP exceptions"""
     return JSONResponse(

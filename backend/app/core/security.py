@@ -35,7 +35,7 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid authentication credentials: {str(e)}",
+            detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -149,4 +149,33 @@ async def verify_session_access(session_id: str, user: dict = Depends(get_curren
         return True
     
     return False
+
+
+IPE_DEPARTMENT = "Industrial Engineering"
+
+
+def _is_external_student(user: dict) -> bool:
+    """Check if a user is an external (non-IPE) student."""
+    return (
+        user.get("role") == "student"
+        and user.get("department", IPE_DEPARTMENT) != IPE_DEPARTMENT
+    )
+
+
+async def require_ipe_student(user: dict = Depends(get_current_user)) -> dict:
+    """
+    Dependency that blocks external students from IPE-only endpoints.
+    Admins and excos pass through regardless of department.
+
+    Usage:
+        @router.get("/ipe-only")
+        async def ipe_route(user: dict = Depends(require_ipe_student)):
+            ...
+    """
+    if _is_external_student(user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This feature is only available to IPE students",
+        )
+    return user
 

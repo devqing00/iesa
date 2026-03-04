@@ -15,6 +15,7 @@ interface Announcement {
   content: string;
   category: string;
   priority: string;
+  targetAudience?: "all" | "ipe" | "external";
   authorName?: string;
   author?: {
     firstName: string;
@@ -390,6 +391,19 @@ function AnnouncementsContent() {
 
                       {/* Meta row */}
                       <div className="flex items-center gap-3 flex-wrap">
+                        {/* Audience badge (only for targeted) */}
+                        {announcement.targetAudience && announcement.targetAudience !== "all" && (
+                          <>
+                            <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              announcement.targetAudience === "ipe"
+                                ? "bg-lime-light text-navy"
+                                : "bg-lavender-light text-lavender"
+                            }`}>
+                              {announcement.targetAudience === "ipe" ? "IPE" : "External"}
+                            </span>
+                            <span className="text-navy/15">|</span>
+                          </>
+                        )}
                         {/* Category dot */}
                         <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate uppercase tracking-[0.1em]">
                           <span className={`w-2 h-2 rounded-full ${catColor}`} />

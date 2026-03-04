@@ -23,13 +23,111 @@ import json
 import logging
 import asyncio
 
-from ..core.security import get_current_user
+from ..core.security import get_current_user, require_ipe_student
 from ..core.rate_limiting import limiter
 from ..db import get_database
 
 logger = logging.getLogger("iesa_backend")
 
 router = APIRouter(prefix="/api/v1/iesa-ai", tags=["IESA AI"])
+
+# ─── Account-linked rate limiting (persists across devices) ────────────
+AI_HOURLY_LIMIT = int(os.getenv("AI_HOURLY_LIMIT", "20"))
+AI_DAILY_LIMIT = int(os.getenv("AI_DAILY_LIMIT", "60"))
+
+
+def _current_hour_window() -> datetime:
+    """Return the start of the current UTC hour (fixed window)."""
+    now = datetime.now(timezone.utc)
+    return now.replace(minute=0, second=0, microsecond=0)
+
+
+def _current_day_window() -> datetime:
+    """Return the start of the current UTC day (fixed window)."""
+    now = datetime.now(timezone.utc)
+    return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+async def _check_ai_rate_limit(user_id: str, db) -> dict:
+    """
+    Check whether the user has remaining AI quota.
+
+    Uses two fixed-window counters stored in MongoDB:
+    - hourly: resets at the top of every hour
+    - daily: resets at midnight UTC
+
+    Returns dict with {allowed, hourly_remaining, daily_remaining, reset_at}.
+    """
+    col = db["ai_rate_limits"]
+    hour_start = _current_hour_window()
+    day_start = _current_day_window()
+
+    doc = await col.find_one({"userId": user_id})
+
+    hourly_count = 0
+    daily_count = 0
+
+    if doc:
+        # Reset hourly counter if window has passed
+        if doc.get("hourWindowStart") == hour_start:
+            hourly_count = doc.get("hourlyCount", 0)
+        # Reset daily counter if window has passed
+        if doc.get("dayWindowStart") == day_start:
+            daily_count = doc.get("dailyCount", 0)
+
+    hourly_remaining = max(0, AI_HOURLY_LIMIT - hourly_count)
+    daily_remaining = max(0, AI_DAILY_LIMIT - daily_count)
+
+    allowed = hourly_remaining > 0 and daily_remaining > 0
+
+    # Next hourly reset
+    reset_at = hour_start + timedelta(hours=1)
+
+    return {
+        "allowed": allowed,
+        "hourly_remaining": hourly_remaining,
+        "daily_remaining": daily_remaining,
+        "hourly_limit": AI_HOURLY_LIMIT,
+        "daily_limit": AI_DAILY_LIMIT,
+        "reset_at": reset_at.isoformat(),
+    }
+
+
+async def _increment_ai_usage(user_id: str, db) -> None:
+    """Atomically increment both hourly and daily counters for the user."""
+    col = db["ai_rate_limits"]
+    hour_start = _current_hour_window()
+    day_start = _current_day_window()
+
+    # Upsert with conditional reset: if the stored window differs, reset counter
+    doc = await col.find_one({"userId": user_id})
+
+    update_fields: dict = {"updatedAt": datetime.now(timezone.utc)}
+    inc_fields: dict = {}
+
+    if not doc or doc.get("hourWindowStart") != hour_start:
+        # New hour window — reset hourly counter to 1
+        update_fields["hourWindowStart"] = hour_start
+        update_fields["hourlyCount"] = 1
+    else:
+        inc_fields["hourlyCount"] = 1
+
+    if not doc or doc.get("dayWindowStart") != day_start:
+        # New day window — reset daily counter to 1
+        update_fields["dayWindowStart"] = day_start
+        update_fields["dailyCount"] = 1
+    else:
+        inc_fields["dailyCount"] = 1
+
+    operations: dict = {"$set": update_fields}
+    if inc_fields:
+        operations["$inc"] = inc_fields
+
+    await col.update_one(
+        {"userId": user_id},
+        {**operations, "$setOnInsert": {"userId": user_id, "createdAt": datetime.now(timezone.utc)}},
+        upsert=True,
+    )
 
 # Groq API setup
 try:
@@ -776,16 +874,16 @@ async def summarize_conversation_history(history: List[dict]) -> str:
 
 
 @router.post("/chat/stream")
-@limiter.limit("20/hour")
 async def chat_with_iesa_ai_stream(
     request: Request,
     chat_data: ChatMessage,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """
     Streaming version of IESA AI chat - returns tokens as they're generated.
     
+    Rate-limited per student account (persists across devices/sessions).
     Returns Server-Sent Events (SSE) stream with:
     - data: {token: "..."} for each token
     - data: {done: true, suggestions: [...]} when complete
@@ -795,6 +893,17 @@ async def chat_with_iesa_ai_stream(
         async def error_stream():
             yield f"data: {json.dumps({'error': 'AI is currently offline'})}\n\n"
         return StreamingResponse(error_stream(), media_type="text/event-stream")
+    
+    # Account-linked rate limit check
+    user_id = str(user["_id"])
+    rate_status = await _check_ai_rate_limit(user_id, db)
+    if not rate_status["allowed"]:
+        async def rate_limit_stream():
+            yield f"data: {json.dumps({'error': 'Rate limit reached. You have used all your AI queries for this period.', 'rate_limit': rate_status})}\n\n"
+        return StreamingResponse(rate_limit_stream(), media_type="text/event-stream")
+    
+    # Increment usage BEFORE the call (prevents burst abuse)
+    await _increment_ai_usage(user_id, db)
     
     async def generate():
         try:
@@ -882,42 +991,47 @@ async def chat_with_iesa_ai_stream(
 
 
 @router.get("/usage")
-@limiter.limit("30/minute")
 async def get_usage(
     request: Request,
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(require_ipe_student),
+    db: AsyncIOMotorDatabase = Depends(get_database),
 ):
     """
     Get current rate limit usage for the authenticated user.
     
-    Returns remaining requests out of the hourly limit.
+    Returns accurate remaining requests from MongoDB-backed counters.
     """
     try:
-        # The rate limiter tracks usage automatically
-        # For the chat endpoint, we have 20/hour limit
-        # We can't directly query slowapi's internal state, so we return the limit
-        # The frontend will track actual usage client-side
-        
+        user_id = str(user["_id"])
+        rate_status = await _check_ai_rate_limit(user_id, db)
         return {
-            "limit": 20,
-            "window": "hour",
-            "message": "Track usage client-side by counting requests"
+            "hourly_limit": rate_status["hourly_limit"],
+            "daily_limit": rate_status["daily_limit"],
+            "hourly_remaining": rate_status["hourly_remaining"],
+            "daily_remaining": rate_status["daily_remaining"],
+            "reset_at": rate_status["reset_at"],
         }
     except Exception as e:
         logger.error(f"Usage endpoint error: {e}")
-        return {"limit": 20, "window": "hour", "remaining": None}
+        return {
+            "hourly_limit": AI_HOURLY_LIMIT,
+            "daily_limit": AI_DAILY_LIMIT,
+            "hourly_remaining": None,
+            "daily_remaining": None,
+        }
 
 
 @router.post("/chat", response_model=ChatResponse)
-@limiter.limit("20/hour")
 async def chat_with_iesa_ai(
     request: Request,
     chat_data: ChatMessage,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """
     Chat with IESA AI - Comprehensive student assistant.
+    
+    Rate-limited per student account (persists across devices/sessions).
     
     Handles:
     - Schedule/timetable queries
@@ -932,6 +1046,24 @@ async def chat_with_iesa_ai(
             reply="I'm currently offline. Please check back later or contact the IESA admin.",
             suggestions=["Check the Events page", "Visit the Library", "View your Timetable"]
         )
+    
+    # Account-linked rate limit check
+    user_id = str(user["_id"])
+    rate_status = await _check_ai_rate_limit(user_id, db)
+    if not rate_status["allowed"]:
+        hourly_r = rate_status["hourly_remaining"]
+        daily_r = rate_status["daily_remaining"]
+        if hourly_r <= 0:
+            msg = f"You've used all {AI_HOURLY_LIMIT} AI queries for this hour. Try again after {rate_status['reset_at'][:16]}."
+        else:
+            msg = f"You've used all {AI_DAILY_LIMIT} AI queries for today. Your daily limit resets at midnight UTC."
+        return ChatResponse(
+            reply=msg,
+            suggestions=["Try again later", "Check the Events page", "View your Timetable"],
+        )
+    
+    # Increment usage BEFORE the call
+    await _increment_ai_usage(user_id, db)
     
     try:
         # Get user context for personalization
@@ -1105,7 +1237,7 @@ async def get_quick_suggestions():
 @router.post("/feedback")
 async def submit_feedback(
     feedback: dict,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """

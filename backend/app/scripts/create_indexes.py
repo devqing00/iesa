@@ -41,6 +41,8 @@ async def create_indexes():
         await users.create_index([("role", ASCENDING)], name="idx_role")
         await users.create_index([("isActive", ASCENDING)], name="idx_isActive")
         await users.create_index([("currentLevel", ASCENDING)], name="idx_currentLevel")
+        await users.create_index([("isExternalStudent", ASCENDING)], name="idx_isExternalStudent")
+        await users.create_index([("department", ASCENDING)], name="idx_department")
         
         print("✅ Users indexes created")
         

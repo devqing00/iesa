@@ -301,10 +301,12 @@ Bold, vibrant, multi-color design inspired by modern card-based editorial layout
 - **Framework:** FastAPI async
 - **Auth:** `verify_token` (JWT payload only) vs `get_current_user` (full user doc from DB)
 - **Auth hashing:** Argon2id via `run_in_executor` (async-safe, no thread blocking)
+- **JWT keys:** Three separate secrets — `JWT_SECRET_KEY` (access), `JWT_REFRESH_SECRET_KEY` (refresh), `JWT_EMAIL_SECRET_KEY` (email verification + password reset). Never mix them.
 - **Database:** MongoDB (Motor async driver) + Pydantic V2
 - **Permissions:** `require_permission("scope:action")` dependency in `app/core/permissions.py` — cached in-memory with TTL
 - **DB Indexes:** Compound indexes on hot collections (paystackTransactions, bankTransfers, payments) — created at startup via `init_db()`
 - **Blocking I/O:** Groq SDK and Cloudinary calls wrapped in `run_in_executor` — never block the event loop
+- **External students:** Non-IPE users have `isExternalStudent: True` on their user document. Use `_ipe_gate` / `require_ipe_student` to block them from IPE-only routes.
 
 ### Key Files
 - `src/app/globals.css` — Design tokens, utility classes, press system
@@ -371,6 +373,77 @@ Separate initial loading from subsequent data fetches:
 - **Permission-gated endpoints:** `user: dict = Depends(require_permission("scope:action"))`
 - **JWT-only endpoints (avoid):** `verify_token` returns only JWT payload — no permissions, no profile data
 - **WebSocket auth:** Use query param `?token=...` since browsers can't set WS headers
+- **Never use `user_data.get("role")` for admin checks** — the JWT role claim is stale after role changes. Do an inline DB lookup:
+  ```python
+  db_user = await db["users"].find_one({"_id": ObjectId(user_id)}, {"role": 1})
+  current_role = db_user.get("role", "") if db_user else ""
+  ```
+
+---
+
+## Backend Security Patterns
+
+### External Student Access Control
+IPE-only features (Study Groups, IESA AI, Timetable, Payments, etc.) must block non-IPE students.
+
+**User model field:** `isExternalStudent: bool` — `True` for non-IPE department students.
+
+**Pattern 1 — Router-level gate (most endpoints):**
+```python
+async def _ipe_gate(user_data: dict = Depends(verify_token)):
+    db = get_database()
+    u = await db["users"].find_one({"_id": ObjectId(user_data["sub"])}, {"department": 1, "role": 1})
+    if u and u.get("role") == "student" and u.get("department") != "Industrial Engineering":
+        raise HTTPException(status_code=403, detail="This feature is only available to IPE students")
+
+router = APIRouter(dependencies=[Depends(_ipe_gate)])
+```
+
+**Pattern 2 — Shared dependency (via `require_ipe_student`):**
+```python
+from ..core.security import require_ipe_student
+# Used in events, academic_calendar, study_groups, etc.
+```
+
+**Frontend:** `src/lib/studentAccess.ts` — checks `userProfile.isExternalStudent` to conditionally hide navigation items and redirect away from IPE-only routes.
+
+### JWT Key Separation
+Three signing keys prevent one token type from being used as another:
+
+| Env Var | Scope | TTL |
+|---------|-------|-----|
+| `JWT_SECRET_KEY` | Access tokens | 15 min |
+| `JWT_REFRESH_SECRET_KEY` | Refresh tokens | 7 days |
+| `JWT_EMAIL_SECRET_KEY` | Email verification + password reset | 1–24 h |
+
+All three **must** be set in production (the app raises `RuntimeError` at startup if any are missing).
+In development, deterministic fallbacks let tokens survive server restarts without invalidation.
+
+### Safe Error Details
+Never return `str(exception)` in HTTP error responses — use `safe_detail()` from `app/core/error_handling.py`:
+```python
+from app.core.error_handling import safe_detail
+
+try:
+    ...
+except Exception as e:
+    raise HTTPException(status_code=500, detail=safe_detail("Operation failed", e))
+# → Returns "Operation failed" in production, "Operation failed: <full error>" in development
+```
+
+### AI Rate Limiting (Account-Linked)
+The IESA AI uses per-user rate limits persisted in MongoDB, so they survive across devices and server restarts.
+
+- **Collection:** `ai_rate_limits` — keyed by `userId + hourWindow` or `userId + dayWindow`
+- **Limits:** 20 requests/hour, 60 requests/day (per user, UTC-aligned windows)
+- **Implementation:** `app/routers/iesa_ai.py` — checks and increments atomically with `$inc` + `upsert`
+- **Never use in-memory rate limiting for AI** — it doesn't persist across deploys
+
+### Account Deletion Cleanup
+When deleting a user account, clean all 8 related collections:
+- `enrollments`, `notifications`, `refresh_tokens`, `bankTransfers`, `growth_data`, `ai_rate_limits`, `roles`
+- For `paystackTransactions`: **anonymise** (null out PII fields) rather than delete — needed for financial audit trail
+- Remove user from `study_groups` member arrays via `$pull`
 
 ---
 

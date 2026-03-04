@@ -177,6 +177,13 @@ async def submit_transfer_proof(
     db = get_database()
     user_id = current_user.get("uid") or current_user.get("_id")
 
+    # External students cannot make payments
+    if (
+        current_user.get("role") == "student"
+        and current_user.get("department", "Industrial Engineering") != "Industrial Engineering"
+    ):
+        raise HTTPException(status_code=403, detail="Payment is only available to IPE students")
+
     # Validate payment exists
     payment = await db.payments.find_one({"_id": ObjectId(data.paymentId)})
     if not payment:

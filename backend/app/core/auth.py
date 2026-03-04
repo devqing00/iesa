@@ -22,8 +22,38 @@ from pydantic import BaseModel, EmailStr, Field
 # Configuration
 # ──────────────────────────────────────────────
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", secrets.token_urlsafe(64))
-REFRESH_SECRET_KEY = os.getenv("JWT_REFRESH_SECRET_KEY", secrets.token_urlsafe(64))
+_ENV = os.getenv("ENVIRONMENT", "development")
+
+# JWT secrets — MUST be set via env vars in production.
+# In development, deterministic fallbacks prevent token invalidation on restart.
+# Three separate keys prevent cross-type token forgery:
+#   SECRET_KEY         → access tokens  (short-lived, 15 min)
+#   REFRESH_SECRET_KEY → refresh tokens (long-lived, 7 days)
+#   EMAIL_SECRET_KEY   → email verification + password reset tokens (medium-lived, 1-24 h)
+_DEV_SECRET = "iesa-dev-secret-do-not-use-in-production"
+_DEV_REFRESH = "iesa-dev-refresh-do-not-use-in-production"
+_DEV_EMAIL   = "iesa-dev-email-secret-do-not-use-in-production"
+
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
+REFRESH_SECRET_KEY = os.getenv("JWT_REFRESH_SECRET_KEY", "")
+EMAIL_SECRET_KEY = os.getenv("JWT_EMAIL_SECRET_KEY", "")
+
+if not SECRET_KEY or not REFRESH_SECRET_KEY or not EMAIL_SECRET_KEY:
+    if _ENV == "production":
+        raise RuntimeError(
+            "FATAL: JWT_SECRET_KEY, JWT_REFRESH_SECRET_KEY, and JWT_EMAIL_SECRET_KEY must be set "
+            "in production. Generate with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+        )
+    # Development: use deterministic fallback so tokens survive restarts
+    SECRET_KEY = SECRET_KEY or _DEV_SECRET
+    REFRESH_SECRET_KEY = REFRESH_SECRET_KEY or _DEV_REFRESH
+    EMAIL_SECRET_KEY = EMAIL_SECRET_KEY or _DEV_EMAIL
+    import logging as _log
+    _log.getLogger("iesa_backend").warning(
+        "⚠️  Using development JWT secrets. Set JWT_SECRET_KEY, JWT_REFRESH_SECRET_KEY, "
+        "and JWT_EMAIL_SECRET_KEY for production."
+    )
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
@@ -276,7 +306,7 @@ def create_verification_token(user_id: str, email: str, token_type: str = "email
         "iat": now,
         "exp": expires_at,
     }
-    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    token = jwt.encode(payload, EMAIL_SECRET_KEY, algorithm=ALGORITHM)
     return token, expires_at
 
 
@@ -291,7 +321,7 @@ def decode_verification_token(token: str, expected_type: str = "email_verificati
     Returns the payload dict.
     Raises JWTError or ExpiredSignatureError on failure.
     """
-    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    payload = jwt.decode(token, EMAIL_SECRET_KEY, algorithms=[ALGORITHM])
     if payload.get("type") != expected_type:
         raise JWTError("Invalid token type")
     return payload
@@ -318,7 +348,7 @@ def create_reset_token(user_id: str, email: str) -> tuple[str, datetime]:
         "iat": now,
         "exp": expires_at,
     }
-    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    token = jwt.encode(payload, EMAIL_SECRET_KEY, algorithm=ALGORITHM)
     return token, expires_at
 
 
@@ -329,7 +359,7 @@ def decode_reset_token(token: str) -> dict:
     Returns the payload dict.
     Raises JWTError or ExpiredSignatureError on failure.
     """
-    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    payload = jwt.decode(token, EMAIL_SECRET_KEY, algorithms=[ALGORITHM])
     if payload.get("type") != "password_reset":
         raise JWTError("Invalid token type")
     return payload

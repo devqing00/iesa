@@ -36,15 +36,17 @@ async def _notify_students_of_announcement(
     content: str,
     priority: str,
     db,
+    target_audience: str = "all",
 ):
-    """Fire-and-forget: email all enrolled students matching the target levels."""
+    """Fire-and-forget: email all enrolled students matching the target levels and audience."""
     try:
         users_col = db["users"]
         enrollments_col = db["enrollments"]
 
         # Build target label string
+        audience_labels = {"all": "All Students", "ipe": "IPE Students", "external": "External Students"}
         if not target_levels:
-            target_label = "All Students"
+            target_label = audience_labels.get(target_audience, "All Students")
             query: dict = {"sessionId": session_id, "status": "active"}
         else:
             level_map = {
@@ -52,6 +54,8 @@ async def _notify_students_of_announcement(
                 "400": "400 Level", "500": "500 Level", "PG": "Postgraduate",
             }
             target_label = ", ".join(level_map.get(lv, lv) for lv in target_levels)
+            if target_audience != "all":
+                target_label += f" ({audience_labels.get(target_audience, '')})"
             query = {"sessionId": session_id, "status": "active", "level": {"$in": target_levels}}
 
         cursor = enrollments_col.find(query, {"studentId": 1})
@@ -60,8 +64,15 @@ async def _notify_students_of_announcement(
         if not student_ids:
             return
 
+        # Build user query — filter by department when audience is targeted
+        user_query: dict = {"_id": {"$in": [ObjectId(sid) for sid in student_ids]}}
+        if target_audience == "ipe":
+            user_query["department"] = "Industrial Engineering"
+        elif target_audience == "external":
+            user_query["department"] = {"$ne": "Industrial Engineering"}
+
         students = await users_col.find(
-            {"_id": {"$in": [ObjectId(sid) for sid in student_ids]}},
+            user_query,
             {"email": 1, "firstName": 1, "lastName": 1,
              "secondaryEmail": 1, "secondaryEmailVerified": 1,
              "notificationEmailPreference": 1, "notificationChannelPreference": 1}
@@ -158,7 +169,7 @@ async def create_announcement(
         details={"title": announcement_data.title, "priority": announcement_data.priority}
     )
 
-    # Fire-and-forget: email enrolled students matching this announcement's target levels
+    # Fire-and-forget: email enrolled students matching this announcement's target levels + audience
     asyncio.create_task(_notify_students_of_announcement(
         session_id=announcement_data.sessionId,
         target_levels=announcement_data.targetLevels,
@@ -166,6 +177,7 @@ async def create_announcement(
         content=announcement_data.content,
         priority=announcement_data.priority,
         db=db,
+        target_audience=announcement_data.targetAudience or "all",
     ))
 
     from app.routers.sse import publish
@@ -174,7 +186,7 @@ async def create_announcement(
         "id": str(result.inserted_id),
         "title": announcement_data.title,
         "priority": announcement_data.priority,
-    })
+    }, ipe_only=(announcement_data.targetAudience == "ipe"))
     await cache_delete("admin_stats")
     await cache_delete_pattern("student_dashboard:*")
 
@@ -192,6 +204,19 @@ async def create_announcement(
                 {"sessionId": announcement_data.sessionId, "isActive": True}
             ).to_list(length=None)
         student_ids = list({e["studentId"] for e in enrolled})
+
+        # Filter by audience (department)
+        notif_audience = announcement_data.targetAudience or "all"
+        if notif_audience != "all" and student_ids:
+            users_coll = db["users"]
+            dept_query: dict = {"_id": {"$in": [ObjectId(sid) for sid in student_ids]}}
+            if notif_audience == "ipe":
+                dept_query["department"] = "Industrial Engineering"
+            elif notif_audience == "external":
+                dept_query["department"] = {"$ne": "Industrial Engineering"}
+            matched_users = await users_coll.find(dept_query, {"_id": 1}).to_list(length=None)
+            student_ids = [str(u["_id"]) for u in matched_users]
+
         if student_ids:
             asyncio.create_task(
                 create_bulk_notifications(
@@ -303,10 +328,12 @@ async def list_announcements(
     ]).skip(skip).limit(limit)
     announcement_list = await cursor.to_list(length=limit)
     
-    # Filter by target levels and enrich with read status
+    # Filter by target levels and audience, enrich with read status
     result = []
     user_role = user.get("role", "student")
     is_admin_user = user_role in ("admin", "super_admin")
+    user_department = user.get("department", "Industrial Engineering")
+    is_ipe_student = user_department == "Industrial Engineering"
 
     for announcement in announcement_list:
         # Check if announcement is targeted to specific levels
@@ -316,6 +343,14 @@ async def list_announcements(
         if target_levels and not is_admin_user:
             if not user_level or user_level not in target_levels:
                 continue  # Skip — student's level doesn't match
+
+        # Check audience targeting (ipe-only vs external-only vs all)
+        target_audience = announcement.get("targetAudience", "all")
+        if target_audience != "all" and not is_admin_user:
+            if target_audience == "ipe" and not is_ipe_student:
+                continue  # IPE-only announcement, skip for external students
+            if target_audience == "external" and is_ipe_student:
+                continue  # External-only announcement, skip for IPE students
         
         announcement["_id"] = str(announcement["_id"])
         

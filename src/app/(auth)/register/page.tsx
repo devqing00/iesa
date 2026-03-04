@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
 import { isInstitutionalEmail } from "@/lib/emailUtils";
 import { toast } from "sonner";
+import { PasswordInput } from "@/components/ui/Input";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -280,12 +281,12 @@ export default function RegisterPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label htmlFor="register-password" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Password</label>
-                  <input id="register-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={8} className={inputClass} />
+                  <PasswordInput id="register-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={8} className={inputClass} />
                   <p className="text-xs text-slate">Min 8 chars, uppercase, lowercase & number</p>
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="register-confirm-password" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Confirm Password</label>
-                  <input id="register-confirm-password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" required minLength={8} className={inputClass} />
+                  <PasswordInput id="register-confirm-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" required minLength={8} className={inputClass} />
                 </div>
               </div>
             </div>

@@ -8,6 +8,7 @@ from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ..core.permissions import get_current_user, get_current_session, require_permission
+from ..core.security import require_ipe_student
 from ..core.audit import AuditLogger
 from ..db import get_database
 from ..models.timp import (
@@ -85,7 +86,7 @@ def _fb_to_response(doc: dict) -> FeedbackResponse:
 
 @router.get("/settings")
 async def get_timp_settings(
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     session: dict = Depends(get_current_session),
 ):
     """Get TIMP settings (form open status) for the current session."""
@@ -98,7 +99,7 @@ async def get_timp_settings(
 @router.patch("/settings", dependencies=[Depends(require_permission("timp:manage"))])
 async def update_timp_settings(
     request: Request,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     session: dict = Depends(get_current_session),
     formOpen: bool = Query(..., description="Whether the TIMP application form is open"),
 ):
@@ -133,7 +134,7 @@ async def update_timp_settings(
 @router.post("/apply", response_model=MentorApplicationResponse, status_code=201)
 async def apply_as_mentor(
     data: MentorApplicationCreate,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     session: dict = Depends(get_current_session),
 ):
     """Student applies to be a TIMP mentor."""
@@ -202,7 +203,7 @@ async def list_mentor_applications(
     search: Optional[str] = Query(None, description="Search by applicant name"),
     limit: int = Query(20, ge=1, le=100),
     skip: int = Query(0, ge=0),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     session: dict = Depends(get_current_session),
     _perm=Depends(require_permission("timp:manage")),
 ):
@@ -224,7 +225,7 @@ async def review_mentor_application(
     app_id: str,
     data: MentorApplicationReview,
     request: Request,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     _perm=Depends(require_permission("timp:manage")),
 ):
     """TIMP lead approves or rejects a mentor application."""
@@ -263,7 +264,7 @@ async def review_mentor_application(
 
 @router.get("/my-application", response_model=Optional[MentorApplicationResponse])
 async def get_my_application(
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     session: dict = Depends(get_current_session),
 ):
     """Get the current user's mentor application for this session."""
@@ -285,7 +286,7 @@ async def get_my_application(
 @router.get("/admin/mentors")
 async def get_enriched_mentors(
     search: Optional[str] = Query(None, description="Search by name"),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     session: dict = Depends(get_current_session),
     _perm=Depends(require_permission("timp:manage")),
 ):
@@ -341,7 +342,7 @@ async def get_enriched_mentors(
 @router.get("/admin/mentee-candidates")
 async def get_mentee_candidates(
     search: Optional[str] = Query(None, description="Search by name or matric"),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     session: dict = Depends(get_current_session),
     _perm=Depends(require_permission("timp:manage")),
 ):
@@ -397,7 +398,7 @@ async def get_mentee_candidates(
 @router.get("/admin/user/{user_id}")
 async def get_timp_user_details(
     user_id: str,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     session: dict = Depends(get_current_session),
     _perm=Depends(require_permission("timp:manage")),
 ):
@@ -447,7 +448,7 @@ async def get_timp_user_details(
 async def create_pair(
     data: CreatePairRequest,
     request: Request,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     session: dict = Depends(get_current_session),
     _perm=Depends(require_permission("timp:manage")),
 ):
@@ -527,7 +528,7 @@ async def list_pairs(
     search: Optional[str] = Query(None, description="Search by mentor or mentee name"),
     limit: int = Query(20, ge=1, le=100),
     skip: int = Query(0, ge=0),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     session: dict = Depends(get_current_session),
 ):
     """List mentorship pairs. TIMP leads see all; others see only their own."""
@@ -558,7 +559,7 @@ async def update_pair_status(
     pair_id: str,
     status: PairStatus,
     request: Request,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     _perm=Depends(require_permission("timp:manage")),
 ):
     """Update pair status (pause, complete, reactivate)."""
@@ -597,7 +598,7 @@ async def update_pair_status(
 async def submit_feedback(
     pair_id: str,
     data: FeedbackCreate,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
 ):
     """Submit weekly feedback for a mentorship pair."""
     db = get_database()
@@ -659,7 +660,7 @@ async def submit_feedback(
 @router.get("/pairs/{pair_id}/feedback", response_model=list[FeedbackResponse])
 async def get_pair_feedback(
     pair_id: str,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
 ):
     """Get feedback history for a mentorship pair."""
     db = get_database()
@@ -688,7 +689,7 @@ async def get_pair_feedback(
 
 @router.get("/my")
 async def get_my_timp_info(
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     session: dict = Depends(get_current_session),
 ):
     """Get the current user's full TIMP involvement — application + pairs."""

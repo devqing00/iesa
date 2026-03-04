@@ -20,7 +20,7 @@ from app.models.event import (
     Event, EventCreate, EventUpdate, EventWithStatus, EventRegistration
 )
 from app.db import get_database
-from app.core.security import get_current_user
+from app.core.security import get_current_user, require_ipe_student
 from app.core.permissions import require_permission
 from app.core.sanitization import sanitize_html, validate_no_scripts
 from app.core.audit import AuditLogger
@@ -85,7 +85,7 @@ async def create_event(
     )
     from app.routers.sse import publish
     from app.core.cache import cache_delete, cache_delete_pattern
-    publish("event_created", {"id": str(result.inserted_id), "title": event_data.title})
+    publish("event_created", {"id": str(result.inserted_id), "title": event_data.title}, ipe_only=True)
     await cache_delete("admin_stats")
     await cache_delete_pattern("student_dashboard:*")
     return Event(**created_event)
@@ -99,7 +99,7 @@ async def list_events(
     upcoming_only: Optional[bool] = Query(None, description="If true, only return events with date >= now"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of events to return"),
     skip: int = Query(0, ge=0, description="Number of events to skip (for pagination)"),
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(require_ipe_student)
 ):
     """
     List all events for a specific session with pagination.
@@ -259,14 +259,14 @@ async def upload_event_image(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Image upload failed: {str(e)}"
+            detail=safe_detail("Image upload failed", e)
         )
 
 
 @router.get("/batch-payment-status")
 async def get_batch_payment_status(
     event_ids: str = Query(..., description="Comma-separated event IDs"),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
 ):
     """Return payment status for multiple events in a single call."""
     db = get_database()
@@ -349,7 +349,7 @@ async def get_batch_payment_status(
 @router.get("/{event_id}", response_model=EventWithStatus)
 async def get_event(
     event_id: str,
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(require_ipe_student)
 ):
     """Get a specific event by ID with user's registration status"""
     db = get_database()
@@ -408,11 +408,13 @@ async def get_event(
 @router.post("/{event_id}/register", response_model=EventWithStatus)
 async def register_for_event(
     event_id: str,
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(require_ipe_student)
 ):
     """
     Register current user for an event.
+    External students are blocked by the require_ipe_student dependency.
     """
+
     db = get_database()
     events = db["events"]
     
@@ -504,7 +506,7 @@ async def register_for_event(
 @router.post("/{event_id}/pay")
 async def pay_for_event(
     event_id: str,
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(require_ipe_student)
 ):
     """
     Initialize payment for a paid event via Paystack.
@@ -636,17 +638,17 @@ async def pay_for_event(
             "status": "pending"
         }
     except httpx.HTTPError as e:
-        raise HTTPException(status_code=503, detail=f"Payment service unavailable: {str(e)}")
+        raise HTTPException(status_code=503, detail=safe_detail("Payment service unavailable", e))
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to initialize event payment: {str(e)}")
+        raise HTTPException(status_code=500, detail=safe_detail("Failed to initialize event payment", e))
 
 
 @router.get("/{event_id}/payment-status")
 async def get_event_payment_status(
     event_id: str,
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(require_ipe_student)
 ):
     """Check if user has paid for a specific event."""
     db = get_database()
@@ -721,7 +723,7 @@ class EventBankTransferCreate(BaseModel):
 async def submit_event_bank_transfer(
     event_id: str,
     data: EventBankTransferCreate,
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(require_ipe_student)
 ):
     """
     Student submits bank transfer proof for a paid event.
@@ -832,7 +834,7 @@ async def submit_event_bank_transfer(
 @router.delete("/{event_id}/register", response_model=EventWithStatus)
 async def unregister_from_event(
     event_id: str,
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(require_ipe_student)
 ):
     """Unregister current user from an event"""
     db = get_database()
@@ -927,7 +929,7 @@ async def update_event(
     )
     from app.routers.sse import publish
     from app.core.cache import cache_delete, cache_delete_pattern
-    publish("event_updated", {"id": event_id})
+    publish("event_updated", {"id": event_id}, ipe_only=True)
     await cache_delete("admin_stats")
     await cache_delete_pattern("student_dashboard:*")
     return Event(**updated_event)
@@ -968,7 +970,7 @@ async def delete_event(
     )
     from app.routers.sse import publish
     from app.core.cache import cache_delete, cache_delete_pattern
-    publish("event_deleted", {"id": event_id})
+    publish("event_deleted", {"id": event_id}, ipe_only=True)
     await cache_delete("admin_stats")
     await cache_delete_pattern("student_dashboard:*")
     return None
@@ -1183,7 +1185,7 @@ async def admin_unmark_attended(
 async def download_event_ticket(
     event_id: str,
     reference: str = Query(..., description="Payment reference for the event"),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(require_ipe_student)
 ):
     """
     Download PDF ticket for a registered event.
@@ -1299,6 +1301,6 @@ async def download_event_ticket(
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to generate ticket: {str(e)}"
+            detail=safe_detail("Failed to generate ticket", e)
         )
 

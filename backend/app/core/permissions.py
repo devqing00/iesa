@@ -377,10 +377,15 @@ async def get_current_session(
     """
     Middleware to get the current session from header or default to active session.
     
+    When X-Session-ID is provided (for archive/history browsing), it is validated:
+    - The session must exist
+    - The requesting user must have an active role in that session OR be accessing
+      the currently-active session. This prevents privilege escalation by replaying
+      old session IDs to regain expired permissions.
+    
     Usage:
         @app.get("/endpoint")
         async def endpoint(session: dict = Depends(get_current_session)):
-            # session contains full session document
             session_id = session["_id"]
     """
     db = get_database()
@@ -388,13 +393,45 @@ async def get_current_session(
     
     # If session ID provided in header, use it
     if x_session_id:
-        try:
-            session = await sessions.find_one({"_id": ObjectId(x_session_id)})
-            if not session:
-                raise HTTPException(status_code=404, detail="Session not found")
-            return session
-        except Exception:
+        if not ObjectId.is_valid(x_session_id):
             raise HTTPException(status_code=400, detail="Invalid session ID format")
+        session = await sessions.find_one({"_id": ObjectId(x_session_id)})
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # If it's the active session, allow (no privilege difference)
+        if session.get("isActive"):
+            return session
+
+        # Non-active session: check that the user has a super_admin role OR
+        # an active role specifically in that requested session.  This blocks
+        # former executives from replaying an old session-id to regain perms.
+        user_id = current_user.get("_id") or current_user.get("id")
+        roles_col = db["roles"]
+
+        is_super = await roles_col.find_one({
+            "userId": user_id,
+            "position": "super_admin",
+            "isActive": True,
+        })
+        if not is_super:
+            has_role = await roles_col.find_one({
+                "userId": user_id,
+                "sessionId": str(session["_id"]),
+                "isActive": True,
+            })
+            if not has_role:
+                # Fall back to the active session instead of granting
+                # permissions for a session the user has no role in.
+                active = await sessions.find_one({"isActive": True})
+                if not active:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="No active session found. Please create and activate a session.",
+                    )
+                return active
+
+        return session
     
     # Otherwise, get active session (cached — changes ~twice per year)
     global _active_session_cache

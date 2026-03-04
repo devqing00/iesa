@@ -20,6 +20,7 @@ const OnboardingModal = dynamic(
 );
 import { getQuoteOfTheDay } from "@/lib/quotes";
 import { getApiUrl } from "@/lib/api";
+import { isExternalStudent } from "@/lib/studentAccess";
 
 /* ─── Page Component ────────────────────────────────────────────── */
 
@@ -28,6 +29,7 @@ export default function StudentDashboardPage() {
   const enabled = !!user;
 
   const { data, isLoading: loading } = useStudentDashboard(enabled);
+  const external = isExternalStudent(userProfile?.department);
 
   // ── All hooks must be called unconditionally before any early return
   //    (React Rules of Hooks). Derived values use optional chaining so
@@ -58,9 +60,13 @@ export default function StudentDashboardPage() {
   const uidKey = user?.id ?? "anon";
   const modalSeenKey = `iesa_onboarding_seen_${uidKey}`;
   const bannerDismissedKey = `iesa_onboarding_dismissed_${uidKey}`;
+  const externalWelcomeKey = `iesa_external_welcome_dismissed_${uidKey}`;
 
   // Banner dismissed: start as false, read from localStorage after we have uid
   const [onboardingDismissed, setOnboardingDismissed] = useState<boolean>(false);
+
+  // External welcome banner: separate from onboarding, only for external students
+  const [externalWelcomeDismissed, setExternalWelcomeDismissed] = useState<boolean>(true);
 
   // Modal: start as false, then enable once we confirm it hasn't been seen
   // for THIS user. Starting as false avoids a brief flash if the user already
@@ -76,6 +82,10 @@ export default function StudentDashboardPage() {
       }
       if (localStorage.getItem(modalSeenKey) !== "1") {
         setShowOnboardingModal(true);
+      }
+      // External welcome: show until explicitly dismissed
+      if (localStorage.getItem(externalWelcomeKey) !== "1") {
+        setExternalWelcomeDismissed(false);
       }
     } catch { /* localStorage unavailable */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -173,6 +183,11 @@ export default function StudentDashboardPage() {
   const dismissOnboarding = () => {
     setOnboardingDismissed(true);
     try { localStorage.setItem(bannerDismissedKey, "1"); } catch { /* ignore */ }
+  };
+
+  const dismissExternalWelcome = () => {
+    setExternalWelcomeDismissed(true);
+    try { localStorage.setItem(externalWelcomeKey, "1"); } catch { /* ignore */ }
   };
 
   const handleOnboardingSkip = () => {
@@ -292,13 +307,56 @@ export default function StudentDashboardPage() {
           </div>
         )}
 
+        {/* ═══ EXTERNAL STUDENT WELCOME BANNER ═══ */}
+        {external && !externalWelcomeDismissed && (
+          <div className="mb-5 bg-lavender-light border-[4px] border-navy rounded-3xl p-5 md:p-6 shadow-[6px_6px_0_0_#000] relative overflow-hidden">
+            <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-lavender/15 pointer-events-none" />
+            <svg className="absolute top-3 right-16 w-5 h-5 text-lavender/20 pointer-events-none" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+            </svg>
+            <button
+              onClick={dismissExternalWelcome}
+              aria-label="Dismiss welcome banner"
+              className="absolute md:hidden top-4 right-4 w-7 h-7 rounded-lg bg-navy/10 hover:bg-navy/20 flex items-center justify-center transition-colors z-10"
+            >
+              <svg className="w-3.5 h-3.5 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 relative z-10">
+              <div className="w-12 h-12 bg-lavender border-[3px] border-navy rounded-2xl flex items-center justify-center shrink-0 shadow-[3px_3px_0_0_#000]">
+                <svg className="w-6 h-6 text-snow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-display font-black text-lg text-navy leading-tight">Welcome to IESA!</h3>
+                <p className="text-sm text-navy/70 mt-1">
+                  As a visiting student you have access to <span className="font-bold text-navy">Announcements</span>, <span className="font-bold text-navy">IEPOD</span>, <span className="font-bold text-navy">Growth Tools</span>, and your <span className="font-bold text-navy">Profile</span>. Start with IEPOD to get oriented!
+                </p>
+              </div>
+              <Link
+                href="/dashboard/iepod"
+                className="bg-navy border-[3px] border-navy px-5 py-2.5 rounded-xl font-display font-bold text-sm text-lime press-3 press-black shrink-0"
+              >
+                Go to IEPOD
+              </Link>
+              <button
+                onClick={dismissExternalWelcome}
+                aria-label="Dismiss welcome banner"
+                className="hidden md:flex w-7 h-7 rounded-lg bg-navy/10 hover:bg-navy/20 items-center justify-center transition-colors z-10"
+              >
+                <svg className="w-3.5 h-3.5 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ═══════════════════════════════════════════════════════════
             ROW 1 — Hero Bento: Greeting (8 cols) + Classes Today (4 cols)
             ═══════════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-5">
 
           {/* — Greeting Hero — */}
-          <div className="lg:col-span-8 bg-navy border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[230px] flex flex-col justify-between">
+          <div className={`${external ? "lg:col-span-12" : "lg:col-span-8"} bg-navy border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[230px] flex flex-col justify-between`}>
             {/* Decorative shapes */}
             <div className="absolute top-6 right-8 w-20 h-20 rounded-full bg-coral/15 pointer-events-none" />
             <div className="absolute bottom-8 right-32 w-10 h-10 rounded-lg bg-lavender/10 rotate-12 pointer-events-none" />
@@ -332,18 +390,27 @@ export default function StudentDashboardPage() {
                   {userProfile.level} Level
                 </span>
               )}
-              <span className="text-[10px] font-bold text-navy bg-teal rounded-full px-3 py-1 uppercase tracking-wider">
-                {todayClasses.length} class{todayClasses.length !== 1 ? "es" : ""} today
-              </span>
-              {pendingPayments.length > 0 && (
-                <span className="text-[10px] font-bold text-navy bg-coral rounded-full px-3 py-1 uppercase tracking-wider">
-                  {pendingPayments.length} pending due{pendingPayments.length !== 1 ? "s" : ""}
+              {external ? (
+                <span className="text-[10px] font-bold text-navy bg-lavender rounded-full px-3 py-1 uppercase tracking-wider">
+                  {userProfile?.department ?? "External"}
                 </span>
+              ) : (
+                <>
+                  <span className="text-[10px] font-bold text-navy bg-teal rounded-full px-3 py-1 uppercase tracking-wider">
+                    {todayClasses.length} class{todayClasses.length !== 1 ? "es" : ""} today
+                  </span>
+                  {pendingPayments.length > 0 && (
+                    <span className="text-[10px] font-bold text-navy bg-coral rounded-full px-3 py-1 uppercase tracking-wider">
+                      {pendingPayments.length} pending due{pendingPayments.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                </>
               )}
             </div>
           </div>
 
-          {/* — Classes Today Counter — */}
+          {/* — Classes Today Counter — only for IPE students */}
+          {!external && (
           <div className="lg:col-span-4 bg-coral border-[3px] border-navy rounded-[2rem] p-8 relative overflow-hidden flex flex-col justify-between min-h-[230px] shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
             {/* Decorative shapes */}
             <div className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full bg-navy/10 pointer-events-none" />
@@ -364,17 +431,18 @@ export default function StudentDashboardPage() {
               </svg>
             </Link>
           </div>
+          )}
         </div>
-
         {/* ═══════════════════════════════════════════════════════════
             ROW 4 — Main Content Bento: Schedule (8) + Sidebar (4)
             ═══════════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-5">
 
           {/* ── LEFT: Schedule + Announcements stacked (8 cols) ── */}
-          <div className="lg:col-span-8 flex flex-col gap-4">
+          <div className={external ? "lg:col-span-12 flex flex-col gap-4" : "lg:col-span-8 flex flex-col gap-4"}>
 
-            {/* Today's Schedule Card */}
+            {/* Today's Schedule Card — IPE students only */}
+            {!external && (
             <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
@@ -388,50 +456,45 @@ export default function StudentDashboardPage() {
                   </svg>
                 </Link>
               </div>
-
-              {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="h-20 bg-cloud rounded-2xl animate-pulse" />
-                  ))}
-                </div>
-              ) : todayClasses.length === 0 ? (
-                <div className="text-center py-12 bg-teal-light rounded-2xl border-[3px] border-navy/10">
-                  <div className="w-14 h-14 rounded-2xl bg-teal/20 flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-7 h-7 text-teal" viewBox="0 0 24 24" fill="currentColor">
-                      <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
-                    </svg>
+              {loading
+                ? <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{[1, 2, 3, 4].map((i) => <div key={i} className="h-20 bg-cloud rounded-2xl animate-pulse" />)}</div>
+                : todayClasses.length === 0
+                ? <div className="text-center py-12 bg-teal-light rounded-2xl border-[3px] border-navy/10">
+                    <div className="w-14 h-14 rounded-2xl bg-teal/20 flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-7 h-7 text-teal" viewBox="0 0 24 24" fill="currentColor">
+                        <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <p className="text-sm font-bold text-navy">No classes scheduled today</p>
+                    <p className="text-xs text-slate mt-1">Enjoy your free time!</p>
                   </div>
-                  <p className="text-sm font-bold text-navy">No classes scheduled today</p>
-                  <p className="text-xs text-slate mt-1">Enjoy your free time!</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {todayClasses.slice(0, 6).map((cls, i) => {
-                    const c = classColors[i % classColors.length];
-                    return (
-                      <div
-                        key={cls._id || i}
- className={`flex items-center gap-4 p-4 rounded-2xl border-[3px] ${c.border} ${c.bg} transition-all press-3 press-black`}
-                      >
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 font-display font-black text-sm ${c.timeBg} ${c.timeTxt}`}>
-                          {cls.startTime}
+                : <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {todayClasses.slice(0, 6).map((cls, i) => {
+                      const c = classColors[i % classColors.length];
+                      return (
+                        <div
+                          key={cls._id || i}
+                          className={`flex items-center gap-4 p-4 rounded-2xl border-[3px] ${c.border} ${c.bg} transition-all press-3 press-black`}
+                        >
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 font-display font-black text-sm ${c.timeBg} ${c.timeTxt}`}>
+                            {cls.startTime}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-bold truncate ${c.text}`}>{cls.courseCode}</p>
+                            <p className={`text-[10px] truncate ${c.sub}`}>
+                              {cls.venue} &middot; {cls.startTime}–{cls.endTime}
+                            </p>
+                          </div>
+                          <span className={`text-[10px] font-bold rounded-full px-2.5 py-1 shrink-0 ${c.tagBg} ${c.tagTxt}`}>
+                            {cls.classType}
+                          </span>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-bold truncate ${c.text}`}>{cls.courseCode}</p>
-                          <p className={`text-[10px] truncate ${c.sub}`}>
-                            {cls.venue} &middot; {cls.startTime}–{cls.endTime}
-                          </p>
-                        </div>
-                        <span className={`text-[10px] font-bold rounded-full px-2.5 py-1 shrink-0 ${c.tagBg} ${c.tagTxt}`}>
-                          {cls.classType}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+              }
             </div>
+            )}
 
             {/* Announcements Card */}
             <div className="flex-1 bg-sunny-light border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform">
@@ -488,9 +551,31 @@ export default function StudentDashboardPage() {
               )}
             </div>
 
-            {/* IESA AI + Growth Tools — side by side on lg+ */}
+            {/* CTA Cards — side by side on lg+ */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* IESA AI CTA */}
+              {/* First CTA: IESA AI (IPE) or IEPOD (External) */}
+              {external ? (
+                <Link href="/dashboard/iepod" className="block bg-navy border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group">
+                  <svg className="absolute top-4 right-5 w-5 h-5 text-lime/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+                  </svg>
+                  <div className="w-10 h-10 rounded-xl bg-lime/20 flex items-center justify-center mb-3">
+                    <svg className="w-5 h-5 text-lime" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
+                      <path d="M5.082 14.254a8.287 8.287 0 0 0-1.308 5.135 9.687 9.687 0 0 1-1.764-.44l-.115-.04a.563.563 0 0 1-.373-.487l-.01-.121a3.75 3.75 0 0 1 3.57-4.047ZM20.226 19.389a8.287 8.287 0 0 0-1.308-5.135 3.75 3.75 0 0 1 3.57 4.047l-.01.121a.563.563 0 0 1-.373.486l-.115.04c-.567.2-1.156.349-1.764.441Z" />
+                    </svg>
+                  </div>
+                  <h3 className="font-display font-black text-lg text-ghost mb-1">IEPOD</h3>
+                  <p className="text-ghost/40 text-xs font-medium mb-3">Orientation programme — quizzes, teams &amp; more</p>
+                  <span className="inline-flex items-center gap-1.5 text-lime text-xs font-bold group-hover:gap-2.5 transition-all">
+                    Go to IEPOD
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                    </svg>
+                  </span>
+                </Link>
+              ) : (
+              /* IESA AI CTA */
               <Link href="/dashboard/iesa-ai" className="block bg-navy border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group">
                 <svg className="absolute top-4 right-5 w-5 h-5 text-lavender/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
@@ -509,6 +594,7 @@ export default function StudentDashboardPage() {
                   </svg>
                 </span>
               </Link>
+              )}
 
               {/* Growth CTA */}
               <Link href="/dashboard/growth" className="block bg-teal border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
@@ -528,7 +614,8 @@ export default function StudentDashboardPage() {
             </div>
           </div>
 
-          {/* ── RIGHT: Stacked sidebar cards (4 cols) ── */}
+          {/* ── RIGHT: Stacked sidebar cards (4 cols) — IPE students only ── */}
+          {!external && (
           <div className="lg:col-span-4 space-y-4">
 
             {/* Pending Dues Card */}
@@ -631,6 +718,7 @@ export default function StudentDashboardPage() {
             </div>
 
           </div>
+          )}
         </div>
 
         {/* ═══════════════════════════════════════════════════════════

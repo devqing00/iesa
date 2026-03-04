@@ -17,7 +17,8 @@ from app.db import get_database
 from app.core.security import verify_token, get_current_user
 from app.core.permissions import require_permission
 from app.core.audit import audit_user_role_change, AuditLogger
-from app.core.auth import verify_password
+from app.core.auth import verify_password, async_verify_password
+from app.core.error_handling import safe_detail
 
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 limiter = Limiter(key_func=get_remote_address)
@@ -269,13 +270,14 @@ async def upload_profile_picture(
             raise e
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload profile picture: {str(e)}"
+            detail=safe_detail("Failed to upload profile picture", e)
         )
 
 
 @router.get("/")
 async def list_users(
     role: Optional[str] = None,
+    department: Optional[str] = None,
     search: Optional[str] = None,
     limit: int = 100,
     skip: int = 0,
@@ -292,6 +294,13 @@ async def list_users(
     query = {}
     if role and role != "all":
         query["role"] = role
+    if department and department != "all":
+        if department == "external":
+            query["isExternalStudent"] = True
+        elif department == "ipe":
+            query["department"] = "Industrial Engineering"
+        else:
+            query["department"] = department
     if search:
         query["$or"] = [
             {"firstName": {"$regex": search, "$options": "i"}},
@@ -739,17 +748,30 @@ async def delete_account(
             detail="Cannot verify identity"
         )
 
-    if not verify_password(data.password, user_doc["passwordHash"]):
+    if not await async_verify_password(data.password, user_doc["passwordHash"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect password"
         )
 
-    # Delete associated data
+    # Delete associated data — cast wide to remove all orphaned docs
     await db["enrollments"].delete_many({"studentId": user_id})
     await db["notifications"].delete_many({"userId": user_id})
     await db["refresh_tokens"].delete_many({"userId": user_id})
     await db["bankTransfers"].delete_many({"studentId": user_id})
+    await db["growth_data"].delete_many({"userId": user_id})
+    await db["ai_rate_limits"].delete_many({"userId": user_id})
+    await db["roles"].delete_many({"userId": user_id})
+    await db["paystackTransactions"].update_many(
+        {"studentId": user_id},
+        {"$set": {"studentName": "[deleted]", "studentEmail": "[deleted]"}},
+    )
+
+    # Remove user from study group memberships (don't delete the groups)
+    await db["study_groups"].update_many(
+        {"members.userId": user_id},
+        {"$pull": {"members": {"userId": user_id}}},
+    )
 
     # Delete the user
     await users.delete_one({"_id": ObjectId(user_id)})

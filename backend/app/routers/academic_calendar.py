@@ -6,6 +6,7 @@ from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ..core.permissions import get_current_user, get_current_session, require_permission
+from ..core.security import require_ipe_student
 from ..core.audit import AuditLogger
 from ..db import get_database
 from ..models.academic_calendar import (
@@ -77,7 +78,7 @@ async def create_academic_event(
 async def list_academic_events(
     semester: int | None = Query(None, ge=1, le=2),
     eventType: str | None = Query(None),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
     session: dict = Depends(get_current_session),
 ):
     """List academic calendar events for the current session. Filter by semester or type."""
@@ -96,7 +97,7 @@ async def list_academic_events(
 @router.get("/{event_id}", response_model=AcademicEventResponse)
 async def get_academic_event(
     event_id: str,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(require_ipe_student),
 ):
     """Get a single academic calendar event by ID."""
     db = get_database()

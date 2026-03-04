@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { PasswordInput } from "@/components/ui/Input";
 
 export default function StudentLoginPage() {
   const { signInWithEmail } = useAuth();
@@ -73,9 +74,8 @@ export default function StudentLoginPage() {
                   Forgot password?
                 </Link>
               </div>
-              <input
+              <PasswordInput
                 id="login-password"
-                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"

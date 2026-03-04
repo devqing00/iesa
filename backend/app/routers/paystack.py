@@ -108,6 +108,13 @@ async def initialize_payment(
     try:
         from app.db import get_database
         db = get_database()
+
+        # External students cannot make payments
+        if (
+            current_user.get("role") == "student"
+            and current_user.get("department", "Industrial Engineering") != "Industrial Engineering"
+        ):
+            raise HTTPException(status_code=403, detail="Payment is only available to IPE students")
         
         # Validate paymentId format
         if not ObjectId.is_valid(payment_request.paymentId):
@@ -240,14 +247,14 @@ async def initialize_payment(
     except httpx.HTTPError as e:
         raise HTTPException(
             status_code=503,
-            detail=f"Payment service unavailable: {str(e)}"
+            detail=safe_detail("Payment service unavailable", e)
         )
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to initialize payment: {str(e)}"
+            detail=safe_detail("Failed to initialize payment", e)
         )
 
 
@@ -355,16 +362,22 @@ async def verify_payment(
                     }
                 )
                 
-                # Also create a transaction record in the transactions collection
-                await db.transactions.insert_one({
-                    "paymentId": payment_id,
-                    "studentId": current_user["_id"],
-                    "amount": transaction["amount"],
-                    "method": "paystack",
-                    "reference": reference,
-                    "status": "verified",
-                    "createdAt": datetime.now(timezone.utc)
-            })
+                # Idempotent upsert — prevents duplicate if webhook already created this
+                await db.transactions.update_one(
+                    {"reference": reference},
+                    {
+                        "$setOnInsert": {
+                            "paymentId": payment_id,
+                            "studentId": current_user["_id"],
+                            "amount": transaction["amount"],
+                            "method": "paystack",
+                            "reference": reference,
+                            "status": "verified",
+                            "createdAt": datetime.now(timezone.utc),
+                        }
+                    },
+                    upsert=True,
+                )
             
             # Handle event payment: auto-register user for the event
             event_id = transaction.get("eventId")
@@ -397,14 +410,14 @@ async def verify_payment(
     except httpx.HTTPError as e:
         raise HTTPException(
             status_code=503,
-            detail=f"Payment verification service unavailable: {str(e)}"
+            detail=safe_detail("Payment verification service unavailable", e)
         )
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to verify payment: {str(e)}"
+            detail=safe_detail("Failed to verify payment", e)
         )
 
 
@@ -497,16 +510,22 @@ async def paystack_webhook(
                     }
                 )
                 
-                # Create transaction record
-                await db.transactions.insert_one({
-                    "paymentId": payment_id,
-                    "studentId": student_id,
-                    "amount": transaction["amount"],
-                    "method": "paystack",
-                    "reference": reference,
-                    "status": "verified",
-                    "createdAt": datetime.now(timezone.utc)
-                })
+                # Idempotent upsert — prevents duplicate if verify already ran
+                await db.transactions.update_one(
+                    {"reference": reference},
+                    {
+                        "$setOnInsert": {
+                            "paymentId": payment_id,
+                            "studentId": student_id,
+                            "amount": transaction["amount"],
+                            "method": "paystack",
+                            "reference": reference,
+                            "status": "verified",
+                            "createdAt": datetime.now(timezone.utc),
+                        }
+                    },
+                    upsert=True,
+                )
             
             # Handle event payment: auto-register user for the event
             event_id = transaction.get("eventId")
@@ -648,7 +667,7 @@ async def get_transactions(
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to fetch transactions: {str(e)}"
+            detail=safe_detail("Failed to fetch transactions", e)
         )
 
 
@@ -795,7 +814,7 @@ async def get_receipt_data(
         traceback.print_exc()
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to fetch receipt data: {str(e)}"
+            detail=safe_detail("Failed to fetch receipt data", e)
         )
 
 
@@ -876,7 +895,7 @@ async def resend_receipt_email(
         )
         return {"message": "Receipt email sent successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to send receipt email: {str(e)}")
+        raise HTTPException(status_code=500, detail=safe_detail("Failed to send receipt email", e))
 
 
 @router.get("/receipt/{reference}")
@@ -984,5 +1003,5 @@ async def download_receipt(
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to generate receipt: {str(e)}"
+            detail=safe_detail("Failed to generate receipt", e)
         )

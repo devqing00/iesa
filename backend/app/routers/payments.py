@@ -72,7 +72,7 @@ async def create_payment(
     )
     from app.routers.sse import publish
     from app.core.cache import cache_delete, cache_delete_pattern
-    publish("payment_created", {"id": str(result.inserted_id), "type": payment_data.type})
+    publish("payment_created", {"id": str(result.inserted_id), "type": payment_data.type}, ipe_only=True)
     await cache_delete("admin_stats")
     await cache_delete_pattern("student_dashboard:*")
     return Payment(**created_payment)
@@ -98,6 +98,13 @@ async def list_payments(
     payments = db["payments"]
     transactions = db["transactions"]
     sessions = db["sessions"]
+
+    # External students don't have payment dues
+    if (
+        user.get("role") == "student"
+        and user.get("department", "Industrial Engineering") != "Industrial Engineering"
+    ):
+        return {"items": [], "total": 0}
     
     # Resolve session_id
     if not session_id:
@@ -316,6 +323,16 @@ async def record_payment(
     db = get_database()
     payments = db["payments"]
     transactions = db["transactions"]
+
+    # External students cannot make payments
+    if (
+        user.get("role") == "student"
+        and user.get("department", "Industrial Engineering") != "Industrial Engineering"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Payment is only available to IPE students"
+        )
     
     if not ObjectId.is_valid(payment_id):
         raise HTTPException(

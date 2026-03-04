@@ -157,6 +157,7 @@ async def register(
         "currentLevel": data.level,
         "admissionYear": data.admissionYear,
         "department": data.department or "Industrial Engineering",
+        "isExternalStudent": (data.department or "Industrial Engineering") != "Industrial Engineering",
         "role": role,
         "bio": None,
         "profilePictureUrl": None,

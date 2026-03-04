@@ -10,7 +10,7 @@ mirroring the previous localStorage pattern but with cloud persistence.
 
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Any, Literal
 
 from ..core.security import verify_token
@@ -27,11 +27,26 @@ VALID_TOOLS = {
     "courses",
 }
 
+# Maximum payload size per tool (512 KB as JSON string)
+MAX_DATA_SIZE_BYTES = 512 * 1024
+
 
 # ─── Models ──────────────────────────────────────────────────────────────
 
 class GrowthDataPayload(BaseModel):
     data: Any  # Tool-specific JSON blob
+
+    @field_validator("data")
+    @classmethod
+    def enforce_size_limit(cls, v: Any) -> Any:
+        """Reject payloads larger than MAX_DATA_SIZE_BYTES to prevent storage DoS."""
+        import json
+        serialized = json.dumps(v, default=str)
+        if len(serialized.encode("utf-8")) > MAX_DATA_SIZE_BYTES:
+            raise ValueError(
+                f"Data payload too large (max {MAX_DATA_SIZE_BYTES // 1024} KB)"
+            )
+        return v
 
 
 # ─── Endpoints ───────────────────────────────────────────────────────────

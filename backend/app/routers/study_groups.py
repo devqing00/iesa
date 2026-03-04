@@ -13,10 +13,36 @@ from bson import ObjectId
 import re
 
 from ..core.security import verify_token
+from ..core.sanitization import sanitize_html
 from ..core.auth import decode_access_token
 from ..core.database import get_database
 
-router = APIRouter(prefix="/api/v1/study-groups", tags=["study-groups"])
+
+async def _ipe_gate(user_data: dict = Depends(verify_token)):
+    """Block external students from study group endpoints."""
+    user_id = user_data.get("sub")
+    if user_id and ObjectId.is_valid(user_id):
+        db = get_database()
+        u = await db["users"].find_one(
+            {"_id": ObjectId(user_id)},
+            {"department": 1, "role": 1},
+        )
+        if (
+            u
+            and u.get("role") == "student"
+            and u.get("department", "Industrial Engineering") != "Industrial Engineering"
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="This feature is only available to IPE students",
+            )
+
+
+router = APIRouter(
+    prefix="/api/v1/study-groups",
+    tags=["study-groups"],
+    dependencies=[Depends(_ipe_gate)],
+)
 
 COLLECTION = "study_groups"
 
@@ -419,8 +445,14 @@ async def delete_study_group(
     if not doc:
         raise HTTPException(status_code=404, detail="Study group not found")
 
+    # Fetch current role from DB — JWT claim can be stale after role changes
+    db_user = await db["users"].find_one(
+        {"_id": ObjectId(user_id)}, {"role": 1}
+    ) if ObjectId.is_valid(user_id) else None
+    current_role = db_user.get("role", "") if db_user else ""
+
     # Allow creator or admin to delete
-    if doc["createdBy"] != user_id and user_data.get("role") != "admin":
+    if doc["createdBy"] != user_id and current_role != "admin":
         raise HTTPException(status_code=403, detail="Only the creator or admin can delete this group")
 
     await db[COLLECTION].delete_one({"_id": ObjectId(group_id)})
@@ -455,7 +487,7 @@ async def add_message(
         "userId": user_id,
         "firstName": user.get("firstName", "") if user else "",
         "lastName": user.get("lastName", "") if user else "",
-        "text": body.text,
+        "text": sanitize_html(body.text),
         "createdAt": datetime.now(timezone.utc),
     }
 
@@ -519,6 +551,20 @@ async def websocket_chat(
 
     db = get_database()
 
+    # Block external students (router-level _ipe_gate doesn't cover WebSocket)
+    if ObjectId.is_valid(user_id):
+        u = await db["users"].find_one(
+            {"_id": ObjectId(user_id)},
+            {"department": 1, "role": 1},
+        )
+        if (
+            u
+            and u.get("role") == "student"
+            and u.get("department", "Industrial Engineering") != "Industrial Engineering"
+        ):
+            await ws.close(code=4003)
+            return
+
     if not ObjectId.is_valid(group_id):
         await ws.close(code=4004)
         return
@@ -544,7 +590,7 @@ async def websocket_chat(
             except ValueError:
                 continue
             if data.get("type") == "message":
-                text = (data.get("text") or "").strip()[:500]
+                text = sanitize_html((data.get("text") or "").strip()[:500])
                 if not text:
                     continue
                 msg = {
