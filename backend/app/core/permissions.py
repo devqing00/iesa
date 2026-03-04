@@ -508,7 +508,12 @@ async def get_user_permissions(
                 all_permissions.update(DEFAULT_PERMISSIONS.get("class_rep", []))
     
     result = list(all_permissions)
-    _permissions_cache[cache_key] = (result, time.monotonic())
+    # Only cache non-empty permission sets.
+    # Empty sets occur when a user has no roles yet (common transient state after
+    # make_super_admin.py runs): caching them would stale-lock the user out for
+    # up to _PERMISSIONS_TTL seconds even after a role is assigned.
+    if result:
+        _permissions_cache[cache_key] = (result, time.monotonic())
     return result
 
 
