@@ -77,6 +77,7 @@ ALL_COLLECTIONS = [
     "growth_data",
     # Applications
     "unit_applications",
+    "unit_settings",
     # TIMP
     "timpApplications",
     "timpPairs",

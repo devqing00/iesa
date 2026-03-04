@@ -283,18 +283,22 @@ DEFAULT_PERMISSIONS = {
         "announcement:create", "announcement:view",
         "event:create", "event:view",
         "resource:view",
+        "unit_application:review",
     ],
     "committee_head_welfare": [
         "announcement:create", "announcement:view",
         "user:view_all",
+        "unit_application:review",
     ],
     "committee_head_sports": [
         "event:create", "event:edit", "event:view",
         "announcement:create", "announcement:view",
+        "unit_application:review",
     ],
     "committee_head_social": [
         "event:create", "event:edit", "event:view",
         "announcement:create", "announcement:view",
+        "unit_application:review",
     ],
     "committee_head_technical": [
         "announcement:create", "announcement:view",
@@ -363,6 +367,7 @@ DEFAULT_PERMISSIONS = {
         "press:access", "press:create", "press:edit", "press:review", "press:publish", "press:manage",
         "announcement:create", "announcement:view",
         "user:view_all",
+        "unit_application:review",
     ],
     "press_member": [
         "press:access", "press:create", "press:edit",

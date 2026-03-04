@@ -42,11 +42,24 @@ export default function AdminLayout({
   const { permissions, loading: permissionsLoading } = usePermissions();
   const router = useRouter();
 
-  // User has admin access if their role is admin/exco OR they have any permissions from roles
+  // Permissions that committee members / press members get — these alone do NOT
+  // qualify a user for admin dashboard access. Any permission outside this set does.
+  const STUDENT_ONLY_PERMISSIONS = new Set([
+    "announcement:view",
+    "event:view",
+    "press:access",
+    "press:create",
+    "press:edit",
+    "resource:view",
+    "resource:create",
+  ]);
+
+  // User has admin access if their role is admin/exco OR they have at least one
+  // permission that goes beyond basic student-level view/access.
   const hasAdminAccess = userProfile && (
     userProfile.role === "admin" ||
     userProfile.role === "exco" ||
-    permissions.length > 0
+    permissions.some(p => !STUDENT_ONLY_PERMISSIONS.has(p))
   );
 
   useEffect(() => {
