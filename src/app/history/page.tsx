@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -69,18 +70,32 @@ export default function HistoryPage() {
       {/* ============================================
           HERO SECTION
           ============================================ */}
-      <section className="pt-16 sm:pt-20 pb-16 sm:pb-20 relative overflow-hidden bg-ghost md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="pt-16 sm:pt-20 pb-16 sm:pb-20 relative overflow-hidden md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
+        {/* Background image */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="https://images.unsplash.com/photo-1481627834876-b7833e8f5570?q=80&w=1920"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+            aria-hidden="true"
+          />
+          <div className="absolute inset-0 bg-linear-to-r from-navy/92 via-navy/78 to-navy/45" />
+          <div className="absolute inset-0 bg-linear-to-t from-navy/60 to-transparent" />
+        </div>
 
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Hero Content */}
           <div className="max-w-4xl space-y-6">
-            <h1 className="font-display font-black text-5xl sm:text-7xl text-navy leading-none">
+            <h1 className="font-display font-black text-5xl sm:text-7xl text-snow leading-none">
               A Legacy of
               <br />
               Excellence
-              <span className="inline-block bg-lavender border-[2px] border-navy px-4 sm:px-6 py-2 rotate-[2deg] shadow-[3px_3px_0_0_#000] ml-3 text-4xl sm:text-6xl align-middle">Since 2018</span>
+              <span className="inline-block bg-lavender text-navy border-[2px] border-navy px-4 sm:px-6 py-2 rotate-[2deg] shadow-[3px_3px_0_0_#000] ml-3 text-4xl sm:text-6xl align-middle">Since 2018</span>
             </h1>
-            <p className="font-display font-medium text-base sm:text-lg text-navy/70 max-w-2xl leading-relaxed">
+            <p className="font-display font-medium text-base sm:text-lg text-snow/70 max-w-2xl leading-relaxed">
               From humble beginnings to becoming one of the most vibrant student
               associations at the University of Ibadan, our journey has been
               defined by dedication, innovation, and community.

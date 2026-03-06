@@ -5,11 +5,13 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { getReceiptData, ReceiptData, getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { IesaLogo } from "@/components/ui/IesaLogo";
+import { useToast } from "@/components/ui";
 
 function ReceiptContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { getAccessToken } = useAuth();
+  const { error: toastError } = useToast();
   const reference = searchParams.get("ref");
   
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
@@ -59,7 +61,7 @@ function ReceiptContent() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      alert("Failed to download PDF receipt. Please try Print / Save PDF instead.");
+      toastError("Download failed", "Please try Print / Save PDF instead.");
     } finally {
       setDownloadingPdf(false);
     }

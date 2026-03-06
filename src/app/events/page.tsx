@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -75,16 +76,30 @@ export default function EventsPage() {
           HERO SECTION
           ============================================ */}
       <section className="pt-16 pb-12 sm:pb-16 relative overflow-hidden md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Background image */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1920"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+            aria-hidden="true"
+          />
+          <div className="absolute inset-0 bg-linear-to-r from-navy/90 via-navy/75 to-navy/40" />
+          <div className="absolute inset-0 bg-linear-to-t from-navy/60 to-transparent" />
+        </div>
 
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Hero Content */}
           <div className="max-w-4xl space-y-8">
-            <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[5rem] leading-[0.9] text-navy">
+            <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[5rem] leading-[0.9] text-snow">
               Connect, Learn,
               <br />
-              &amp; <span className="inline-block bg-sunny border-[2px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[3px_3px_0_0_#000]">Grow</span>
+              &amp; <span className="inline-block bg-sunny text-navy border-[2px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[3px_3px_0_0_#000]">Grow</span>
             </h1>
-            <p className="font-display font-medium text-base sm:text-lg text-navy/60 max-w-2xl leading-relaxed">
+            <p className="font-display font-medium text-base sm:text-lg text-snow/70 max-w-2xl leading-relaxed">
               From technical workshops to networking events, IESA hosts a
               variety of programs designed to enhance your academic journey and
               professional development.

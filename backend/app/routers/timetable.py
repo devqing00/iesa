@@ -1,5 +1,5 @@
 """
-Timetable Router - Dynamic class schedule management
+Timetable Router - Dynamic class schedule + exam timetable management
 """
 
 from datetime import datetime, date, timedelta, timezone
@@ -529,3 +529,188 @@ async def delete_class_session(
     )
 
     return {"message": "Class deleted successfully"}
+
+
+# ═══════════════════════════════════════════════════════════════════
+# EXAM TIMETABLE — Date-specific schedule (not recurring)
+# ═══════════════════════════════════════════════════════════════════
+
+
+class ExamCreate(BaseModel):
+    courseCode: str
+    courseTitle: str
+    level: int
+    date: str  # "2026-03-20"
+    startTime: str  # "09:00"
+    endTime: str  # "12:00"
+    venue: str
+    examType: str = "written"  # written, practical, oral, cbt
+
+
+class ExamUpdate(BaseModel):
+    courseCode: Optional[str] = None
+    courseTitle: Optional[str] = None
+    level: Optional[int] = None
+    date: Optional[str] = None
+    startTime: Optional[str] = None
+    endTime: Optional[str] = None
+    venue: Optional[str] = None
+    examType: Optional[str] = None
+
+
+@router.post("/exams")
+async def create_exam(
+    exam_data: ExamCreate,
+    request: Request,
+    user: dict = Depends(require_permission("timetable:create")),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Create an exam timetable entry. Requires timetable:create permission."""
+    if exam_data.level not in [100, 200, 300, 400, 500]:
+        raise HTTPException(status_code=400, detail="Invalid level")
+    validate_time(exam_data.startTime)
+    validate_time(exam_data.endTime)
+    if exam_data.examType not in ("written", "practical", "oral", "cbt"):
+        raise HTTPException(status_code=400, detail="examType must be: written, practical, oral, or cbt")
+    try:
+        datetime.strptime(exam_data.date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    session = await get_current_session(db)
+    doc = {
+        "sessionId": str(session["_id"]),
+        "courseCode": exam_data.courseCode.upper(),
+        "courseTitle": exam_data.courseTitle,
+        "level": exam_data.level,
+        "date": exam_data.date,
+        "startTime": exam_data.startTime,
+        "endTime": exam_data.endTime,
+        "venue": exam_data.venue,
+        "examType": exam_data.examType,
+        "createdBy": str(user["_id"]),
+        "createdAt": datetime.now(timezone.utc),
+        "updatedAt": datetime.now(timezone.utc),
+    }
+    result = await db["examTimetable"].insert_one(doc)
+    doc["_id"] = str(result.inserted_id)
+
+    await AuditLogger.log(
+        action="timetable.exam_created",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="exam_timetable",
+        resource_id=str(result.inserted_id),
+        details={"courseCode": doc["courseCode"], "date": doc["date"]},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    # Bust caches
+    from app.core.cache import cache_delete_pattern
+    await cache_delete_pattern("student_dashboard:*")
+
+    return {**doc, "id": doc["_id"]}
+
+
+@router.get("/exams")
+async def list_exams(
+    level: Optional[int] = Query(None),
+    user: dict = Depends(require_ipe_student),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """List exam timetable entries for the current session."""
+    session = await get_current_session(db)
+    query: dict = {"sessionId": str(session["_id"])}
+    if level:
+        query["level"] = level
+    cursor = db["examTimetable"].find(query).sort([("date", 1), ("startTime", 1)])
+    docs = await cursor.to_list(length=200)
+    for doc in docs:
+        doc["_id"] = str(doc["_id"])
+        doc["id"] = doc["_id"]
+    return docs
+
+
+@router.patch("/exams/{exam_id}")
+async def update_exam(
+    exam_id: str,
+    exam_data: ExamUpdate,
+    request: Request,
+    user: dict = Depends(require_permission("timetable:edit")),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Update an exam timetable entry."""
+    if not ObjectId.is_valid(exam_id):
+        raise HTTPException(status_code=400, detail="Invalid exam ID")
+    updates = {k: v for k, v in exam_data.model_dump().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    if "courseCode" in updates:
+        updates["courseCode"] = updates["courseCode"].upper()
+    if "startTime" in updates:
+        validate_time(updates["startTime"])
+    if "endTime" in updates:
+        validate_time(updates["endTime"])
+    if "date" in updates:
+        try:
+            datetime.strptime(updates["date"], "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format")
+    if "examType" in updates and updates["examType"] not in ("written", "practical", "oral", "cbt"):
+        raise HTTPException(status_code=400, detail="Invalid examType")
+    if "level" in updates and updates["level"] not in [100, 200, 300, 400, 500]:
+        raise HTTPException(status_code=400, detail="Invalid level")
+
+    updates["updatedAt"] = datetime.now(timezone.utc)
+    result = await db["examTimetable"].update_one({"_id": ObjectId(exam_id)}, {"$set": updates})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    await AuditLogger.log(
+        action="timetable.exam_updated",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="exam_timetable",
+        resource_id=exam_id,
+        details=updates,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    from app.core.cache import cache_delete_pattern
+    await cache_delete_pattern("student_dashboard:*")
+
+    return {"message": "Exam updated successfully"}
+
+
+@router.delete("/exams/{exam_id}")
+async def delete_exam(
+    exam_id: str,
+    request: Request,
+    user: dict = Depends(require_permission("timetable:edit")),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Delete an exam timetable entry."""
+    if not ObjectId.is_valid(exam_id):
+        raise HTTPException(status_code=400, detail="Invalid exam ID")
+    doc = await db["examTimetable"].find_one({"_id": ObjectId(exam_id)})
+    result = await db["examTimetable"].delete_one({"_id": ObjectId(exam_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    await AuditLogger.log(
+        action="timetable.exam_deleted",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="exam_timetable",
+        resource_id=exam_id,
+        details={"courseCode": doc.get("courseCode") if doc else None},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    from app.core.cache import cache_delete_pattern
+    await cache_delete_pattern("student_dashboard:*")
+
+    return {"message": "Exam deleted successfully"}

@@ -434,6 +434,78 @@ export default function StudentDashboardPage() {
           </div>
           )}
         </div>
+
+        {/* ═══ IEPOD PROMO BANNER (IPE students only) ═══ */}
+        {!external && (
+          <Link
+            href="/dashboard/iepod"
+            className="block bg-coral border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] mb-5 relative overflow-hidden group hover:shadow-[6px_6px_0_0_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-snow/20 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <svg className="w-6 h-6 text-snow" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M12.963 2.286a.75.75 0 0 0-1.071-.136 9.742 9.742 0 0 0-3.539 6.176 7.547 7.547 0 0 1-1.705-1.715.75.75 0 0 0-1.152-.082A9 9 0 1 0 15.68 4.534a7.46 7.46 0 0 1-2.717-2.248ZM15.75 14.25a3.75 3.75 0 1 1-7.313-1.172c.628.465 1.35.81 2.133 1a5.99 5.99 0 0 1 1.925-3.546 3.75 3.75 0 0 1 3.255 3.718Z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-display font-black text-base text-snow">IEPOD — Orientation Hub</h3>
+                <p className="text-snow/60 text-xs font-medium truncate">Complete quizzes, join a team, and get oriented with Industrial Engineering</p>
+              </div>
+              <svg className="w-5 h-5 text-snow/40 shrink-0 group-hover:translate-x-1 transition-transform" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <svg className="absolute top-3 right-8 w-4 h-4 text-snow/10 pointer-events-none" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+            </svg>
+          </Link>
+        )}
+
+        {/* ═══ EXTERNAL STUDENT QUICK ACCESS ═══ */}
+        {external && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+            <Link href="/dashboard/announcements" className="bg-sunny-light border-[3px] border-navy rounded-2xl p-4 press-3 press-black group">
+              <div className="w-9 h-9 rounded-xl bg-sunny/20 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                <svg className="w-5 h-5 text-sunny" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M5.25 9a6.75 6.75 0 0113.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 01-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 11-7.48 0 24.585 24.585 0 01-4.831-1.244.75.75 0 01-.298-1.205A8.217 8.217 0 005.25 9.75V9zm4.502 8.9a2.25 2.25 0 004.496 0 25.057 25.057 0 01-4.496 0z" />
+                </svg>
+              </div>
+              <p className="font-display font-black text-sm text-navy">Announcements</p>
+              <p className="text-[10px] text-slate mt-0.5">Stay updated</p>
+            </Link>
+
+            <Link href="/dashboard/iepod" className="bg-lavender-light border-[3px] border-navy rounded-2xl p-4 press-3 press-black group">
+              <div className="w-9 h-9 rounded-xl bg-lavender/20 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                <svg className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM15.75 9.75a3 3 0 116 0 3 3 0 01-6 0zM2.25 9.75a3 3 0 116 0 3 3 0 01-6 0zM6.31 15.117A6.745 6.745 0 0112 12a6.745 6.745 0 016.709 7.498.75.75 0 01-.372.568A12.696 12.696 0 0112 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 01-.372-.568 6.787 6.787 0 011.019-4.38z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <p className="font-display font-black text-sm text-navy">IEPOD</p>
+              <p className="text-[10px] text-slate mt-0.5">Orientation</p>
+            </Link>
+
+            <Link href="/dashboard/growth" className="bg-teal-light border-[3px] border-navy rounded-2xl p-4 press-3 press-black group">
+              <div className="w-9 h-9 rounded-xl bg-teal/20 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                <svg className="w-5 h-5 text-teal" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M15.22 6.268a.75.75 0 01.968-.432l5.942 2.28a.75.75 0 01.431.97l-2.28 5.941a.75.75 0 11-1.4-.537l1.63-4.251-1.086.483a11.2 11.2 0 00-5.45 5.174.75.75 0 01-1.199.19L9 12.31l-6.22 6.22a.75.75 0 11-1.06-1.06l6.75-6.75a.75.75 0 011.06 0l3.606 3.605a12.694 12.694 0 015.68-4.973l1.086-.484-4.251-1.631a.75.75 0 01-.432-.97z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <p className="font-display font-black text-sm text-navy">Growth Hub</p>
+              <p className="text-[10px] text-slate mt-0.5">Build habits</p>
+            </Link>
+
+            <Link href="/dashboard/profile" className="bg-coral-light border-[3px] border-navy rounded-2xl p-4 press-3 press-black group">
+              <div className="w-9 h-9 rounded-xl bg-coral/20 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
+                <svg className="w-5 h-5 text-coral" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <p className="font-display font-black text-sm text-navy">Profile</p>
+              <p className="text-[10px] text-slate mt-0.5">Your details</p>
+            </Link>
+          </div>
+        )}
+
         {/* ═══════════════════════════════════════════════════════════
             ROW 4 — Main Content Bento: Schedule (8) + Sidebar (4)
             ═══════════════════════════════════════════════════════════ */}
@@ -720,6 +792,31 @@ export default function StudentDashboardPage() {
                 </div>
               )}
             </div>
+
+            {/* Study Groups Card */}
+            <Link
+              href="/dashboard/growth/study-groups"
+              className="block bg-lavender border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] group hover:shadow-[6px_6px_0_0_#000] hover:-translate-x-px hover:-translate-y-px transition-all"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-xl bg-snow/20 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-snow" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 0 0-1.032-.211 50.89 50.89 0 0 0-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 0 0 2.433 3.984L7.28 21.53A.75.75 0 0 1 6 21v-2.659a30.76 30.76 0 0 1-1.087-.082C2.905 18.027 1.5 16.308 1.5 14.39V6.385c0-1.918 1.405-3.637 3.413-3.727h0Z" />
+                    <path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.814 2.67 2.94 1.243.102 2.5.157 3.768.165l2.782 2.781a.75.75 0 0 0 1.28-.53v-2.39l.33-.026c1.542-.125 2.67-1.433 2.67-2.94v-4.286c0-1.505-1.125-2.811-2.664-2.94A49.392 49.392 0 0 0 15.75 7.5Z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-display font-black text-base text-snow">Study Groups</h3>
+                  <p className="text-snow/50 text-[10px] font-medium">Chat, schedule sessions &amp; share resources</p>
+                </div>
+              </div>
+              <span className="inline-flex items-center gap-1.5 text-snow/70 text-xs font-bold group-hover:text-snow group-hover:gap-2.5 transition-all">
+                Open groups
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                </svg>
+              </span>
+            </Link>
 
           </div>
           )}

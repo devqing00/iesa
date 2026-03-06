@@ -11,10 +11,12 @@ import {
   getEnrichedMentors,
   getMenteeCandidates,
   getTimpUserDetails,
-  APPLICATION_STATUS_STYLES,
-  PAIR_STATUS_STYLES,
   getTimpSettings,
   updateTimpSettings,
+  getTimpAnalytics,
+  getPairMessages,
+  APPLICATION_STATUS_STYLES,
+  PAIR_STATUS_STYLES,
 } from "@/lib/api";
 import type {
   MentorApplication,
@@ -24,6 +26,8 @@ import type {
   EnrichedMentor,
   MenteeCandidate,
   TimpUserDetails,
+  TimpAnalytics,
+  TimpMessage,
 } from "@/lib/api";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { Modal } from "@/components/ui/Modal";
@@ -31,7 +35,7 @@ import Pagination from "@/components/ui/Pagination";
 import Image from "next/image";
 
 /* ─── Types ────────────────────────────────────── */
-type Tab = "applications" | "assignment" | "pairs";
+type Tab = "applications" | "assignment" | "pairs" | "analytics";
 const SUB_TABS = ["pending", "approved", "rejected"] as const;
 const PAIR_TABS = ["active", "paused", "completed"] as const;
 const PAGE_SIZE = 10;
@@ -175,6 +179,15 @@ function AdminTimpPage() {
   const [feedbackPairId, setFeedbackPairId] = useState<string | null>(null);
   const [feedbackHistory, setFeedbackHistory] = useState<TimpFeedback[]>([]);
 
+  /* ── Analytics state ── */
+  const [analytics, setAnalytics] = useState<TimpAnalytics | null>(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(true);
+
+  /* ── Pair messages state (admin view) ── */
+  const [messagesPairId, setMessagesPairId] = useState<string | null>(null);
+  const [pairMessages, setPairMessages] = useState<TimpMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
   /* ── Reset pages on sub-tab change ── */
   useEffect(() => { setAppPage(1); }, [appSubTab]);
   useEffect(() => { setPairPage(1); }, [pairSubTab]);
@@ -226,10 +239,35 @@ function AdminTimpPage() {
     }
   }, [pairSubTab, pairPage]);
 
+  /* ── Fetch: Analytics ── */
+  const fetchAnalytics = useCallback(async () => {
+    setLoadingAnalytics(true);
+    try {
+      const data = await getTimpAnalytics();
+      setAnalytics(data);
+    } catch { /* handled */ } finally {
+      setLoadingAnalytics(false);
+    }
+  }, []);
+
+  /* ── Load pair messages (admin) ── */
+  const loadMessages = async (pairId: string) => {
+    if (messagesPairId === pairId) { setMessagesPairId(null); return; }
+    setLoadingMessages(true);
+    try {
+      const msgs = await getPairMessages(pairId, 100);
+      setPairMessages(msgs);
+      setMessagesPairId(pairId);
+    } catch { /* handled */ } finally {
+      setLoadingMessages(false);
+    }
+  };
+
   /* ── Trigger fetches ── */
   useEffect(() => { if (tab === "applications") fetchApps(); }, [tab, fetchApps]);
   useEffect(() => { if (tab === "assignment") fetchAssignment(); }, [tab, fetchAssignment]);
   useEffect(() => { if (tab === "pairs") fetchPairs(); }, [tab, fetchPairs]);
+  useEffect(() => { if (tab === "analytics") fetchAnalytics(); }, [tab, fetchAnalytics]);
 
   /* ── Filtered mentors/mentees from local search ── */
   const filteredMentors = useMemo(() => {
@@ -330,6 +368,7 @@ function AdminTimpPage() {
         { label: "Unpaired", count: mentees.filter((m) => !m.alreadyPaired).length, bg: "bg-sunny-light" },
       ];
     }
+    if (tab === "analytics") return []; // analytics has its own display
     return [
       { label: "Showing", count: pairs.length, bg: "bg-teal-light" },
       { label: "Total", count: totalPairs, bg: "bg-lavender-light" },
@@ -380,6 +419,7 @@ function AdminTimpPage() {
             { key: "applications", label: "Applications" },
             { key: "assignment", label: "Assignment" },
             { key: "pairs", label: "Pairs" },
+            { key: "analytics", label: "Analytics" },
           ] as { key: Tab; label: string }[]
         ).map((t) => (
           <button
@@ -397,14 +437,16 @@ function AdminTimpPage() {
       </div>
 
       {/* ─── Stats ─── */}
-      <div className={`grid gap-3 ${statCards.length === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2"}`}>
-        {statCards.map((s) => (
-          <div key={s.label} className={`${s.bg} rounded-2xl p-4 text-center border-2 border-cloud`}>
-            <p className="text-2xl font-display font-black text-navy">{s.count}</p>
-            <p className="text-xs font-bold text-slate uppercase tracking-wider">{s.label}</p>
-          </div>
-        ))}
-      </div>
+      {statCards.length > 0 && (
+        <div className={`grid gap-3 ${statCards.length === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2"}`}>
+          {statCards.map((s) => (
+            <div key={s.label} className={`${s.bg} rounded-2xl p-4 text-center border-2 border-cloud`}>
+              <p className="text-2xl font-display font-black text-navy">{s.count}</p>
+              <p className="text-xs font-bold text-slate uppercase tracking-wider">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ═══════════════ APPLICATIONS TAB ═══════════════ */}
       {tab === "applications" && (
@@ -462,7 +504,111 @@ function AdminTimpPage() {
           onLoadFeedback={loadFeedback}
           onUpdateStatus={handleUpdatePairStatus}
           onViewDetail={openUserDetail}
+          messagesPairId={messagesPairId}
+          pairMessages={pairMessages}
+          loadingMessages={loadingMessages}
+          onLoadMessages={loadMessages}
         />
+      )}
+
+      {/* ═══════════════ ANALYTICS TAB ═══════════════ */}
+      {tab === "analytics" && (
+        <div className="space-y-6">
+          {loadingAnalytics ? (
+            <Spinner />
+          ) : !analytics ? (
+            <EmptyState message="No analytics data available" />
+          ) : (
+            <>
+              {/* Application overview */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-teal-light border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] text-center">
+                  <p className="font-display font-black text-3xl text-navy">{analytics.applications.total}</p>
+                  <p className="text-[10px] font-bold text-slate uppercase tracking-wider mt-1">Total Applications</p>
+                </div>
+                <div className="bg-sunny-light border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] text-center">
+                  <p className="font-display font-black text-3xl text-navy">{analytics.applications.pending}</p>
+                  <p className="text-[10px] font-bold text-slate uppercase tracking-wider mt-1">Pending</p>
+                </div>
+                <div className="bg-lime-light border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] text-center">
+                  <p className="font-display font-black text-3xl text-teal">{analytics.applications.approved}</p>
+                  <p className="text-[10px] font-bold text-slate uppercase tracking-wider mt-1">Approved</p>
+                </div>
+                <div className="bg-coral-light border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] text-center">
+                  <p className="font-display font-black text-3xl text-coral">{analytics.applications.rejected}</p>
+                  <p className="text-[10px] font-bold text-slate uppercase tracking-wider mt-1">Rejected</p>
+                </div>
+              </div>
+
+              {/* Approval rate + Pairs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+                  <h3 className="font-display font-black text-lg text-navy mb-3">Approval Rate</h3>
+                  <div className="flex items-center gap-4">
+                    <div className="relative w-20 h-20">
+                      <svg viewBox="0 0 36 36" className="w-20 h-20 -rotate-90">
+                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#E5E7EB" strokeWidth="3" />
+                        <circle
+                          cx="18" cy="18" r="15.9" fill="none"
+                          stroke={analytics.applications.approvalRate >= 50 ? "#72D5C0" : "#F08E7D"}
+                          strokeWidth="3"
+                          strokeDasharray={`${analytics.applications.approvalRate} ${100 - analytics.applications.approvalRate}`}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <span className="absolute inset-0 flex items-center justify-center font-display font-black text-lg text-navy">
+                        {analytics.applications.approvalRate}%
+                      </span>
+                    </div>
+                    <div className="text-sm text-slate">
+                      <p>{analytics.applications.approved} approved out of {analytics.applications.total} total applications</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+                  <h3 className="font-display font-black text-lg text-navy mb-3">Mentorship Pairs</h3>
+                  <div className="space-y-2">
+                    {[
+                      { label: "Active", count: analytics.pairs.active, color: "bg-teal" },
+                      { label: "Paused", count: analytics.pairs.paused, color: "bg-sunny" },
+                      { label: "Completed", count: analytics.pairs.completed, color: "bg-lavender" },
+                    ].map((p) => (
+                      <div key={p.label} className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${p.color}`} />
+                        <span className="text-sm font-bold text-navy flex-1">{p.label}</span>
+                        <span className="font-display font-black text-lg text-navy">{p.count}</span>
+                      </div>
+                    ))}
+                    <div className="pt-2 border-t-2 border-cloud flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate uppercase">Total</span>
+                      <span className="font-display font-black text-xl text-navy">{analytics.pairs.total}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Feedback */}
+              <div className="bg-lime border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+                <h3 className="font-display font-black text-lg text-navy mb-2">Feedback Overview</h3>
+                <div className="flex items-center gap-6">
+                  <div>
+                    <p className="font-display font-black text-4xl text-navy">{analytics.feedback.total}</p>
+                    <p className="text-xs font-bold text-navy/60 uppercase">Total Entries</p>
+                  </div>
+                  <div className="w-px h-12 bg-navy/20" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-display font-black text-4xl text-navy">{analytics.feedback.averageRating}</p>
+                      <Stars rating={Math.round(analytics.feedback.averageRating)} />
+                    </div>
+                    <p className="text-xs font-bold text-navy/60 uppercase">Avg Rating</p>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       )}
 
       {/* ═══════════════ REVIEW MODAL ═══════════════ */}
@@ -1109,6 +1255,10 @@ function PairsTab({
   onLoadFeedback,
   onUpdateStatus,
   onViewDetail,
+  messagesPairId,
+  pairMessages,
+  loadingMessages,
+  onLoadMessages,
 }: {
   pairs: MentorshipPair[];
   totalPairs: number;
@@ -1122,6 +1272,10 @@ function PairsTab({
   onLoadFeedback: (pairId: string) => void;
   onUpdateStatus: (pairId: string, status: PairStatus) => void;
   onViewDetail: (userId: string) => void;
+  messagesPairId: string | null;
+  pairMessages: TimpMessage[];
+  loadingMessages: boolean;
+  onLoadMessages: (pairId: string) => void;
 }) {
   return (
     <>
@@ -1193,6 +1347,12 @@ function PairsTab({
                     >
                       {feedbackPairId === pair.id ? "Hide" : "View"} Feedback
                     </button>
+                    <button
+                      onClick={() => onLoadMessages(pair.id)}
+                      className="bg-lavender-light border-[3px] border-navy rounded-xl px-4 py-2 text-xs font-bold text-navy press-2 press-navy transition-all"
+                    >
+                      {messagesPairId === pair.id ? "Hide" : "View"} Messages
+                    </button>
                     {pair.status === "active" && (
                       <>
                         <button
@@ -1257,6 +1417,49 @@ function PairsTab({
                           )}
                         </div>
                       ))
+                    )}
+                  </div>
+                )}
+
+                {/* Messages history (admin view) */}
+                {messagesPairId === pair.id && (
+                  <div className="mt-4 pt-4 border-t-[3px] border-cloud">
+                    <p className="text-xs font-bold text-navy uppercase mb-3">Pair Messages</p>
+                    {loadingMessages ? (
+                      <div className="flex items-center justify-center py-6">
+                        <div className="w-6 h-6 border-[3px] border-teal border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    ) : pairMessages.length === 0 ? (
+                      <p className="text-sm text-slate">No messages exchanged yet.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                        {pairMessages.map((msg) => (
+                          <div
+                            key={msg._id}
+                            className={`rounded-2xl p-3 border-2 ${
+                              msg.senderRole === "mentor"
+                                ? "bg-teal-light border-teal/20"
+                                : "bg-lavender-light border-lavender/20"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                msg.senderRole === "mentor"
+                                  ? "bg-teal/10 text-teal"
+                                  : "bg-lavender/10 text-lavender"
+                              }`}>
+                                {msg.senderName} ({msg.senderRole})
+                              </span>
+                              <span className="text-[10px] text-slate">
+                                {new Date(msg.createdAt).toLocaleString("en-NG", {
+                                  day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-sm text-navy">{msg.content}</p>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 )}

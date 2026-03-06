@@ -254,3 +254,52 @@ export async function getMenteeCandidates(search?: string): Promise<{ items: Men
 export async function getTimpUserDetails(userId: string): Promise<TimpUserDetails> {
   return api.get<TimpUserDetails>(`${BASE}/admin/user/${userId}`);
 }
+
+
+// ── Analytics ────────────────────────────────────────────────────────
+
+export interface TimpAnalytics {
+  applications: {
+    total: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+    approvalRate: number;
+  };
+  pairs: {
+    active: number;
+    paused: number;
+    completed: number;
+    total: number;
+  };
+  feedback: {
+    total: number;
+    averageRating: number;
+  };
+}
+
+export async function getTimpAnalytics(): Promise<TimpAnalytics> {
+  return api.get<TimpAnalytics>(`${BASE}/analytics`);
+}
+
+
+// ── Messaging ────────────────────────────────────────────────────────
+
+export interface TimpMessage {
+  _id: string;
+  pairId: string;
+  senderId: string;
+  senderName: string;
+  senderRole: "mentor" | "mentee";
+  content: string;
+  createdAt: string;
+}
+
+export async function getPairMessages(pairId: string, limit?: number): Promise<TimpMessage[]> {
+  const qs = limit ? `?limit=${limit}` : "";
+  return api.get<TimpMessage[]>(`${BASE}/pairs/${pairId}/messages${qs}`);
+}
+
+export async function sendPairMessage(pairId: string, content: string): Promise<{ message: string }> {
+  return api.post<{ message: string }>(`${BASE}/pairs/${pairId}/messages`, { content });
+}

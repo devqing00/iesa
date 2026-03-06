@@ -4,20 +4,39 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 
 export default function Home() {
-
   return (
     <div className="min-h-screen bg-snow overflow-x-hidden">
       {/* Subtle diamond sparkle decorators */}
-      <svg className="fixed top-16 left-[10%] w-5 h-5 text-navy/8 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+      <svg
+        className="fixed top-16 left-[10%] w-5 h-5 text-navy/8 pointer-events-none z-0"
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+      >
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
-      <svg className="fixed top-32 right-[12%] w-6 h-6 text-navy/6 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+      <svg
+        className="fixed top-32 right-[12%] w-6 h-6 text-navy/6 pointer-events-none z-0"
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+      >
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
-      <svg className="fixed top-[45%] left-[8%] w-5 h-5 text-navy/6 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+      <svg
+        className="fixed top-[45%] left-[8%] w-5 h-5 text-navy/6 pointer-events-none z-0"
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+      >
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
-      <svg className="fixed top-[60%] right-[20%] w-4 h-4 text-navy/8 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+      <svg
+        className="fixed top-[60%] right-[20%] w-4 h-4 text-navy/8 pointer-events-none z-0"
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+      >
         <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
       </svg>
 
@@ -25,74 +44,68 @@ export default function Home() {
 
       <main id="main-content" className="relative z-10 pt-14 sm:pt-16">
         {/* ═══ HERO ═══ */}
-        <section className="py-12 sm:py-20 md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-              {/* Hero text */}
-              <div className="lg:col-span-2">
-                <div className="relative">
-                  <h1 className="font-display text-[2.5rem] sm:text-[4rem] lg:text-[5.5rem] leading-[0.9] text-navy mb-6 sm:mb-8 font-black">
-                    <span>Industrial Engineering</span>
-                    <br />
-                    <span className="inline-block bg-lavender text-snow px-4 sm:px-8 py-2 sm:py-3 rounded-2xl rotate-[-1deg] mt-2">
-                      Redefined
-                    </span>
-                  </h1>
-                </div>
+        <section className="relative md:min-h-[calc(100vh-5rem)] flex flex-col justify-center overflow-hidden">
+          {/* Background image with gradient overlay */}
+          <div className="absolute inset-0 z-0">
+            <Image
+              src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=1920"
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover"
+              aria-hidden="true"
+            />
+            <div className="absolute inset-0 bg-linear-to-r from-navy/95 via-navy/80 to-navy/40" />
+            <div className="absolute inset-0 bg-linear-to-t from-navy/60 to-transparent" />
+          </div>
 
-                <p className="font-display text-sm sm:text-base lg:text-lg text-navy/60 max-w-xl mb-8 leading-relaxed font-medium">
-                  Join <span className="font-black">500+ students</span> at University of Ibadan&apos;s premier engineering association.
-                </p>
+          {/* Accent lime stripe */}
+          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-lime z-10 hidden md:block" />
 
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Link
-                    href="/register"
-                    className="font-display text-center bg-lavender border-[3px] border-navy rounded-full px-6 sm:px-8 py-3 text-sm font-black text-snow uppercase tracking-wide press-3 press-black transition-all"
-                  >
-                    Join IESA →
-                  </Link>
-                  <Link
-                    href="#about"
-                    className="font-display text-center bg-snow border-[3px] border-navy rounded-full px-6 sm:px-8 py-3 text-sm font-black text-navy uppercase tracking-wide press-2 press-black transition-all"
-                  >
-                    Learn More
-                  </Link>
-                </div>
+          {/* Content */}
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-20 sm:py-28 md:py-0">
+            <div className="max-w-2xl">
+              <h1 className="font-display font-black text-[3rem] sm:text-[4.5rem] lg:text-[6rem] leading-[0.88] text-snow mb-6">
+                Engineering
+                <br />
+                <span className="text-lime">Excellence</span>
+                <br />
+                Starts Here
+              </h1>
+
+              <p className="font-display text-base sm:text-lg text-snow/75 max-w-lg mb-8 leading-relaxed font-medium">
+                Join IESA — the premier industrial engineering student
+                association at the University of Ibadan, building Africa&apos;s
+                next generation of engineers.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-3 mb-14">
+                <Link
+                  href="/register"
+                  className="font-display text-center bg-lime border-[3px] border-navy rounded-full px-8 py-3.5 text-sm font-black text-navy uppercase tracking-wide press-3 press-navy transition-all"
+                >
+                  Join IESA →
+                </Link>
+                <Link
+                  href="/about"
+                  className="font-display text-center bg-snow/10 backdrop-blur-sm border-[3px] border-snow/40 rounded-full px-8 py-3.5 text-sm font-black text-snow uppercase tracking-wide hover:bg-snow/20 transition-all"
+                >
+                  Our Story
+                </Link>
               </div>
+            </div>
+          </div>
 
-              {/* Hero image card */}
-              <div className="lg:row-span-2">
-                <div className="bg-lavender border-[3px] border-navy rounded-3xl p-4 sm:p-6 h-full shadow-[3px_3px_0_0_#000]">
-                  <div className="aspect-[4/5] bg-gradient-to-br from-teal-light to-lavender-light border-[2px] border-navy rounded-2xl overflow-hidden relative mb-4">
-                    <Image
-                      src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=600"
-                      alt="IESA Community"
-                      fill
-                      priority
-                      sizes="(max-width: 1024px) 100vw, 33vw"
-                      className="object-cover mix-blend-multiply"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-navy/50 to-transparent" />
-                    <div className="absolute bottom-3 left-3 right-3">
-                      <p className="font-display text-snow text-sm sm:text-base font-bold">Community First</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex gap-2">
-                      {[
-                        <path key="loc" fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />,
-                        <path key="bolt" fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />,
-                        <path key="plane" d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />,
-                      ].map((icon, i) => (
-                        <div key={i} className="w-8 h-8 bg-snow border-[2px] border-navy rounded-full flex items-center justify-center">
-                          <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">{icon}</svg>
-                        </div>
-                      ))}
-                    </div>
-                    <span className="font-display text-xs font-bold text-navy uppercase">UI Engineering</span>
-                  </div>
-                </div>
-              </div>
+          {/* Floating badge bottom-right */}
+          <div className="absolute bottom-8 right-8 hidden lg:block z-10">
+            <div className="bg-lime border-[3px] border-navy rounded-2xl px-5 py-3 shadow-[4px_4px_0_0_#000] rotate-[2deg]">
+              <p className="font-display font-black text-[10px] text-navy uppercase tracking-widest mb-0.5">
+                Est. 2018
+              </p>
+              <p className="font-display font-black text-base text-navy">
+                UI Engineering
+              </p>
             </div>
           </div>
         </section>
@@ -113,13 +126,24 @@ export default function Home() {
               {/* Mission */}
               <div className="bg-coral border-[3px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000] rotate-[-1deg] hover:rotate-0 transition-transform">
                 <div className="w-12 h-12 sm:w-14 sm:h-14 bg-navy rounded-full flex items-center justify-center mb-4">
-                  <svg className="w-6 h-6 sm:w-8 sm:h-8 text-snow" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                  <svg
+                    className="w-6 h-6 sm:w-8 sm:h-8 text-snow"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                 </div>
-                <h3 className="font-display text-xl sm:text-2xl text-snow mb-3 font-black">Our Mission</h3>
+                <h3 className="font-display text-xl sm:text-2xl text-snow mb-3 font-black">
+                  Our Mission
+                </h3>
                 <p className="font-display text-sm sm:text-base text-snow/85 leading-relaxed font-medium">
-                  Empower students through academic excellence and industry connections.
+                  Empower students through academic excellence and industry
+                  connections.
                 </p>
               </div>
 
@@ -142,13 +166,24 @@ export default function Home() {
               {/* Vision */}
               <div className="bg-sunny border-[3px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000] rotate-[1deg] hover:rotate-0 transition-transform">
                 <div className="w-12 h-12 sm:w-14 sm:h-14 bg-navy rounded-full flex items-center justify-center mb-4">
-                  <svg className="w-6 h-6 sm:w-8 sm:h-8 text-sunny" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  <svg
+                    className="w-6 h-6 sm:w-8 sm:h-8 text-sunny"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                 </div>
-                <h3 className="font-display text-xl sm:text-2xl text-navy mb-3 font-black">Our Vision</h3>
+                <h3 className="font-display text-xl sm:text-2xl text-navy mb-3 font-black">
+                  Our Vision
+                </h3>
                 <p className="font-display text-sm sm:text-base text-navy/80 leading-relaxed font-medium">
-                  Africa&apos;s leading industrial engineering student community.
+                  Africa&apos;s leading industrial engineering student
+                  community.
                 </p>
               </div>
             </div>
@@ -220,17 +255,30 @@ export default function Home() {
                   className={`${item.bg} border-[3px] border-navy rounded-3xl p-6 press-3 press-black transition-all`}
                 >
                   <div className="aspect-video bg-gradient-to-br from-ghost to-lavender-light border-[2px] border-navy rounded-2xl overflow-hidden relative mb-4">
-                    <Image src={item.img} alt={item.title} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover mix-blend-multiply" />
+                    <Image
+                      src={item.img}
+                      alt={item.title}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      className="object-cover mix-blend-multiply"
+                    />
                   </div>
-                  <h3 className={`font-display text-xl sm:text-2xl ${item.light === false ? "text-snow" : "text-navy"} mb-2 font-black`}>
+                  <h3
+                    className={`font-display text-xl sm:text-2xl ${item.light === false ? "text-snow" : "text-navy"} mb-2 font-black`}
+                  >
                     {item.title}
                   </h3>
-                  <p className={`font-display text-sm ${item.light === false ? "text-snow/80" : "text-navy/80"} mb-4 font-medium`}>
+                  <p
+                    className={`font-display text-sm ${item.light === false ? "text-snow/80" : "text-navy/80"} mb-4 font-medium`}
+                  >
                     {item.desc}
                   </p>
                   <div className="flex gap-2 flex-wrap">
                     {item.tags.map((tag, j) => (
-                      <span key={j} className="font-display bg-snow border-[2px] border-navy rounded-full px-3 py-1 text-xs font-bold text-navy uppercase">
+                      <span
+                        key={j}
+                        className="font-display bg-snow border-[2px] border-navy rounded-full px-3 py-1 text-xs font-bold text-navy uppercase"
+                      >
                         {tag}
                       </span>
                     ))}

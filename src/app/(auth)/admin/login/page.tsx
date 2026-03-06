@@ -1,18 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
+import { TwoFactorRequiredError } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { PasswordInput } from "@/components/ui/Input";
 
 export default function AdminLoginPage() {
-  const { signInWithEmail } = useAuth();
+  const { signInWithEmail, complete2FALogin } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  /* ── 2FA state ── */
+  const [twoFaStep, setTwoFaStep] = useState(false);
+  const [tempToken, setTempToken] = useState("");
+  const [twoFaCode, setTwoFaCode] = useState("");
+  const twoFaInputRef = useRef<HTMLInputElement>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,12 +30,52 @@ export default function AdminLoginPage() {
       await signInWithEmail(email, password);
       toast.success("Welcome, Admin!", { description: "Redirecting to admin dashboard..." });
     } catch (err: unknown) {
+      if (err instanceof TwoFactorRequiredError) {
+        setTempToken(err.tempToken);
+        setTwoFaStep(true);
+        setLoading(false);
+        return;
+      }
       const msg = err instanceof Error ? err.message || "Failed to login" : "Failed to login";
       setError(msg);
       toast.error("Login failed", { description: msg });
       setLoading(false);
     }
   };
+
+  /* ── Auto-focus 2FA input ── */
+  useEffect(() => {
+    if (twoFaStep) twoFaInputRef.current?.focus();
+  }, [twoFaStep]);
+
+  /* ── Submit 2FA code ── */
+  const handle2FASubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (twoFaCode.length !== 6 || loading) return;
+    setError("");
+    setLoading(true);
+
+    try {
+      await complete2FALogin(tempToken, twoFaCode);
+      toast.success("Welcome, Admin!", { description: "Redirecting to admin dashboard..." });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message || "Invalid code" : "Invalid code";
+      setError(msg);
+      setTwoFaCode("");
+      toast.error("Verification failed", { description: msg });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* ── Auto-submit when 6 digits entered ── */
+  const handle2FARef = useRef(handle2FASubmit);
+  handle2FARef.current = handle2FASubmit;
+  useEffect(() => {
+    if (twoFaCode.length === 6 && !loading) {
+      handle2FARef.current();
+    }
+  }, [twoFaCode, loading]);
 
   const inputClass = "w-full px-4 py-3.5 bg-snow border-[3px] border-navy rounded-2xl text-navy font-display font-normal placeholder:text-slate focus:outline-none focus:border-coral transition-all";
 
@@ -92,8 +139,12 @@ export default function AdminLoginPage() {
 
           {/* Header */}
           <div className="space-y-2">
-            <h1 className="font-display font-black text-2xl md:text-3xl text-navy">Administrator Login</h1>
-            <p className="font-display font-normal text-navy/60">Sign in to manage the platform</p>
+            <h1 className="font-display font-black text-2xl md:text-3xl text-navy">
+              {twoFaStep ? "Two-Factor Verification" : "Administrator Login"}
+            </h1>
+            <p className="font-display font-normal text-navy/60">
+              {twoFaStep ? "One more step to verify your identity" : "Sign in to manage the platform"}
+            </p>
           </div>
 
           {/* Info Card */}
@@ -110,27 +161,83 @@ export default function AdminLoginPage() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div className="space-y-2">
-              <label className="font-display font-bold text-xs uppercase tracking-wider text-slate">Admin Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@iesa.ui.edu.ng" required className={inputClass} />
-            </div>
-
-            <div className="space-y-2">
-              <label className="font-display font-bold text-xs uppercase tracking-wider text-slate">Password</label>
-              <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required className={inputClass} />
-            </div>
-
-            {error && (
-              <div role="alert" className="p-4 border-[3px] border-coral bg-coral-light text-coral text-sm rounded-2xl font-medium">
-                {error}
+          {!twoFaStep ? (
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div className="space-y-2">
+                <label className="font-display font-bold text-xs uppercase tracking-wider text-slate">Admin Email</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@iesa.ui.edu.ng" required className={inputClass} />
               </div>
-            )}
 
-            <button type="submit" disabled={loading} className="w-full py-3.5 bg-lime border-[3px] border-navy rounded-2xl press-3 press-navy font-display font-black text-navy transition-all disabled:opacity-50">
-              {loading ? "Signing in..." : "Sign In"}
-            </button>
-          </form>
+              <div className="space-y-2">
+                <label className="font-display font-bold text-xs uppercase tracking-wider text-slate">Password</label>
+                <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required className={inputClass} />
+              </div>
+
+              {error && (
+                <div role="alert" className="p-4 border-[3px] border-coral bg-coral-light text-coral text-sm rounded-2xl font-medium">
+                  {error}
+                </div>
+              )}
+
+              <button type="submit" disabled={loading} className="w-full py-3.5 bg-lime border-[3px] border-navy rounded-2xl press-3 press-navy font-display font-black text-navy transition-all disabled:opacity-50">
+                {loading ? "Signing in..." : "Sign In"}
+              </button>
+            </form>
+          ) : (
+            /* ── 2FA Verification Step ── */
+            <form onSubmit={handle2FASubmit} className="space-y-6">
+              <div className="p-4 bg-lavender-light border-[3px] border-lavender rounded-2xl">
+                <p className="font-display font-medium text-sm text-navy">
+                  Enter the 6-digit code from your authenticator app, or a backup code.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="admin-2fa-code" className="font-display font-bold text-xs uppercase tracking-wider text-slate">
+                  Verification Code
+                </label>
+                <input
+                  ref={twoFaInputRef}
+                  id="admin-2fa-code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={8}
+                  value={twoFaCode}
+                  onChange={(e) => setTwoFaCode(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8))}
+                  placeholder="000000"
+                  className="w-full px-4 py-3.5 bg-snow border-[3px] border-navy rounded-2xl text-navy font-display font-bold text-center text-xl tracking-[0.3em] placeholder:text-slate placeholder:font-normal placeholder:tracking-[0.3em] focus:outline-none focus:border-coral transition-all"
+                />
+              </div>
+
+              {error && (
+                <div role="alert" className="p-4 border-[3px] border-coral bg-coral-light text-coral text-sm rounded-2xl font-medium">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading || twoFaCode.length < 6}
+                className="w-full py-3.5 bg-lime border-[3px] border-navy rounded-2xl press-3 press-navy font-display font-black text-navy transition-all disabled:opacity-50"
+              >
+                {loading ? "Verifying..." : "Verify & Sign In"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTwoFaStep(false);
+                  setTempToken("");
+                  setTwoFaCode("");
+                  setError("");
+                }}
+                className="w-full py-2 font-display font-bold text-sm text-slate hover:text-navy transition-colors"
+              >
+                ← Back to login
+              </button>
+            </form>
+          )}
 
           {/* Links */}
           <div className="pt-6 border-t-[3px] border-cloud space-y-4">

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -92,25 +93,40 @@ export default function IepodLandingPage() {
             HERO SECTION
             ============================================ */}
         <section className="pt-16 sm:pt-20 pb-16 sm:pb-24 relative overflow-hidden md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Background image with gradient overlay */}
+          <div className="absolute inset-0 z-0">
+            <Image
+              src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=1920"
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover"
+              aria-hidden="true"
+            />
+            <div className="absolute inset-0 bg-linear-to-r from-navy/92 via-navy/75 to-navy/30" />
+            <div className="absolute inset-0 bg-linear-to-t from-navy/55 to-transparent" />
+          </div>
+
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
               {/* Left: Text */}
               <div className="space-y-8 relative">
                 <div className="inline-block">
-                  <span className="text-label text-slate">IESA Professional Development Hub</span>
+                  <span className="text-label text-snow/60">IESA Professional Development Hub</span>
                 </div>
 
-                <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[4.5rem] leading-[0.9] text-navy">
+                <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[4.5rem] leading-[0.9] text-snow">
                   Process
                   <br />
-                  <span className="inline-block bg-lime border-[3px] border-navy px-5 py-2 rotate-[-2deg] shadow-[5px_5px_0_0_#0F0F2D]">
+                  <span className="inline-block bg-lime text-navy border-[3px] border-navy px-5 py-2 rotate-[-2deg] shadow-[5px_5px_0_0_#0F0F2D]">
                     Drivers
                   </span>
                 </h1>
 
-                <p className="font-display text-lg sm:text-xl text-navy/70 max-w-lg leading-relaxed font-light">
+                <p className="font-display text-lg sm:text-xl text-snow/70 max-w-lg leading-relaxed font-light">
                   Your Process, Our Progress. Moving beyond &ldquo;results at any cost&rdquo;
-                  toward a <strong className="font-bold text-navy">prototyping mindset</strong> —
+                    toward a <strong className="font-bold text-snow">prototyping mindset</strong> —
                   methodical growth, engineering rigor, and deep inquiry.
                 </p>
 
@@ -123,7 +139,7 @@ export default function IepodLandingPage() {
                   </Link>
                   <a
                     href="#pipeline"
-                    className="bg-transparent border-[3px] border-navy px-6 py-3.5 rounded-xl font-display font-bold text-navy hover:bg-navy hover:text-lime transition-all"
+                    className="bg-snow/10 border-[3px] border-snow/60 px-6 py-3.5 rounded-xl font-display font-bold text-snow hover:bg-snow hover:text-navy transition-all"
                   >
                     See the Pipeline &darr;
                   </a>

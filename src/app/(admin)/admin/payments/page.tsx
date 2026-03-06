@@ -99,7 +99,7 @@ function transactionStatusBadge(status: string) {
 
 function AdminPaymentsPage() {
   const { getAccessToken } = useAuth();
-  const [activeTab, setActiveTab] = useState<"payments" | "transactions" | "bank-accounts" | "transfers">("payments");
+  const [activeTab, setActiveTab] = useState<"payments" | "transactions" | "bank-accounts" | "transfers" | "analytics">("payments");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -166,6 +166,37 @@ function AdminPaymentsPage() {
   const [btSortKey, setBtSortKey] = useState<SortKey>("date");
   const [btSortDir, setBtSortDir] = useState<SortDir>("desc");
 
+  // ── Payment Analytics State ──
+  interface PaymentAnalytics {
+    sessionName: string;
+    totalCollected: number;
+    totalCollectedPaystack: number;
+    totalCollectedTransfer: number;
+    totalExpected: number;
+    collectionRate: number;
+    byCategory: { category: string; title: string; amount: number; paidCount: number; totalTarget: number }[];
+    monthlyTrend: { month: string; amount: number; count: number }[];
+    paymentDues: { id: string; title: string; amount: number; category: string; paidCount: number; deadline: string }[];
+  }
+  const [analytics, setAnalytics] = useState<PaymentAnalytics | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+
+  const fetchAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      const res = await fetch(getApiUrl("/api/v1/admin/payment-analytics"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (!data.error) setAnalytics(data);
+      }
+    } catch { /* non-critical */ }
+    finally { setAnalyticsLoading(false); }
+  }, [getAccessToken]);
+
   useEffect(() => {
     fetchSessions();
     fetchPlatformSettings();
@@ -177,6 +208,8 @@ function AdminPaymentsPage() {
       fetchBankAccounts();
     } else if (activeTab === "transfers") {
       fetchBankTransfers();
+    } else if (activeTab === "analytics") {
+      fetchAnalytics();
     }
   }, [activeTab]);
 
@@ -759,6 +792,14 @@ function AdminPaymentsPage() {
               {pendingTransferCount}
             </span>
           )}
+        </button>
+        <button
+          onClick={() => setActiveTab("analytics")}
+          className={`px-5 py-2 text-sm font-bold rounded-xl transition-all ${
+            activeTab === "analytics" ? "bg-navy text-snow" : "text-navy/60 hover:text-navy"
+          }`}
+        >
+          Analytics
         </button>
       </div>
 
@@ -2159,6 +2200,120 @@ function AdminPaymentsPage() {
         confirmLabel="Delete"
         variant="danger"
       />
+
+      {/* ── Analytics Tab ── */}
+      {activeTab === "analytics" && (
+        <div className="space-y-6">
+          {analyticsLoading ? (
+            <div className="bg-snow rounded-3xl border-[3px] border-navy p-12 text-center shadow-[4px_4px_0_0_#000]">
+              <div className="inline-block w-10 h-10 border-[3px] border-navy border-t-transparent rounded-full animate-spin mb-4" />
+              <p className="text-sm text-navy/60">Loading analytics...</p>
+            </div>
+          ) : !analytics ? (
+            <div className="bg-snow rounded-3xl border-[3px] border-navy p-12 text-center shadow-[4px_4px_0_0_#000]">
+              <p className="text-sm text-navy/60">No analytics data available (no active session?)</p>
+            </div>
+          ) : (
+            <>
+              {/* Overview Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-teal border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50 mb-1">Total Collected</p>
+                  <p className="font-display font-black text-3xl text-navy">&#8358;{analytics.totalCollected.toLocaleString()}</p>
+                  <p className="text-xs text-navy/50 mt-1">{analytics.sessionName}</p>
+                </div>
+                <div className="bg-lime border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50 mb-1">Collection Rate</p>
+                  <p className="font-display font-black text-3xl text-navy">{analytics.collectionRate}%</p>
+                  <div className="w-full bg-navy/10 rounded-full h-2 mt-2">
+                    <div className="bg-navy rounded-full h-2" style={{ width: `${Math.min(analytics.collectionRate, 100)}%` }} />
+                  </div>
+                </div>
+                <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Paystack</p>
+                  <p className="font-display font-black text-2xl text-navy">&#8358;{analytics.totalCollectedPaystack.toLocaleString()}</p>
+                  <p className="text-xs text-slate mt-1">online payments</p>
+                </div>
+                <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Bank Transfers</p>
+                  <p className="font-display font-black text-2xl text-navy">&#8358;{analytics.totalCollectedTransfer.toLocaleString()}</p>
+                  <p className="text-xs text-slate mt-1">approved transfers</p>
+                </div>
+              </div>
+
+              {/* Monthly Trend */}
+              {analytics.monthlyTrend.length > 0 && (
+                <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+                  <h3 className="font-display font-black text-lg text-navy mb-4">Monthly Collection Trend</h3>
+                  <div className="flex items-end gap-3 h-40">
+                    {analytics.monthlyTrend.map((m) => {
+                      const max = Math.max(...analytics.monthlyTrend.map((t) => t.amount), 1);
+                      const pct = (m.amount / max) * 100;
+                      return (
+                        <div key={m.month} className="flex-1 flex flex-col items-center gap-1">
+                          <span className="text-[10px] font-bold text-navy">&#8358;{(m.amount / 1000).toFixed(0)}k</span>
+                          <div className="w-full bg-teal rounded-t-lg min-h-[4px]" style={{ height: `${Math.max(pct, 5)}%` }} />
+                          <span className="text-[9px] text-slate font-bold">{m.month.slice(5)}</span>
+                          <span className="text-[8px] text-slate">{m.count} txn</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Per-Due Breakdown */}
+              {analytics.paymentDues.length > 0 && (
+                <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+                  <h3 className="font-display font-black text-lg text-navy mb-4">Per-Due Breakdown</h3>
+                  <div className="space-y-3">
+                    {analytics.paymentDues.map((due) => (
+                      <div key={due.id} className="flex items-center gap-4 p-4 bg-ghost rounded-2xl border-[2px] border-navy/10">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-navy truncate">{due.title}</p>
+                          <p className="text-[10px] text-slate">{due.category} &middot; &#8358;{due.amount.toLocaleString()}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="font-display font-black text-lg text-teal">{due.paidCount}</p>
+                          <p className="text-[10px] text-slate">paid</p>
+                        </div>
+                        {due.deadline && (
+                          <span className="text-[10px] font-bold text-slate shrink-0">
+                            Due {new Date(due.deadline).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Category Breakdown */}
+              {analytics.byCategory.length > 0 && (
+                <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+                  <h3 className="font-display font-black text-lg text-navy mb-4">By Category</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {analytics.byCategory.map((cat) => {
+                      const catColors: Record<string, string> = {
+                        Dues: "bg-lavender-light",
+                        Levy: "bg-coral-light",
+                        Fee: "bg-sunny-light",
+                        Registration: "bg-teal-light",
+                      };
+                      return (
+                        <div key={cat.category} className={`${catColors[cat.category] || "bg-cloud"} border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]`}>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50 mb-1">{cat.category}</p>
+                          <p className="font-display font-black text-xl text-navy">{cat.paidCount} paid</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -24,6 +24,8 @@ class AnnouncementBase(BaseModel):
     targetAudience: TargetAudience = Field(default="all", description="Who sees this: all, ipe (IPE only), external (external depts only)")
     isPinned: bool = Field(default=False, description="Pinned announcements appear at top")
     expiresAt: Optional[datetime] = Field(None, description="Auto-hide after this date")
+    scheduledFor: Optional[datetime] = Field(None, description="Publish at this time (null = publish immediately)")
+    sendEmail: bool = Field(default=True, description="Send email notification to targeted students")
 
     def __init__(self, **data):
         # Convert integer levels to strings if present in input data
@@ -46,6 +48,8 @@ class AnnouncementUpdate(BaseModel):
     targetAudience: Optional[TargetAudience] = None
     isPinned: Optional[bool] = None
     expiresAt: Optional[datetime] = None
+    scheduledFor: Optional[datetime] = None
+    sendEmail: Optional[bool] = None
 
 
 class Announcement(AnnouncementBase):

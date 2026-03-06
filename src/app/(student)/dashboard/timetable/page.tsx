@@ -60,12 +60,31 @@ interface CalendarEvent {
   };
 }
 
+interface ExamEntry {
+  _id: string;
+  courseCode: string;
+  courseTitle: string;
+  level: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  venue: string;
+  examType: string;
+}
+
 /* ─── Constants ─────────────────────────────────────────────────── */
 
 const typeStyles: Record<string, { bg: string; text: string; calColor: string; dot: string }> = {
   lecture: { bg: "bg-navy", text: "text-snow", calColor: "#0F0F2D", dot: "bg-navy" },
   practical: { bg: "bg-coral", text: "text-snow", calColor: "#d45555", dot: "bg-coral" },
   tutorial: { bg: "bg-teal", text: "text-navy", calColor: "#5ec4b6", dot: "bg-teal" },
+};
+
+const examTypeStyles: Record<string, { bg: string; text: string }> = {
+  written: { bg: "bg-navy", text: "text-snow" },
+  practical: { bg: "bg-coral", text: "text-snow" },
+  oral: { bg: "bg-lavender", text: "text-snow" },
+  cbt: { bg: "bg-teal", text: "text-snow" },
 };
 
 const todayCardColors = [
@@ -93,6 +112,7 @@ export default function TimetablePage() {
   const [cancelling, setCancelling] = useState(false);
   const [screenSize, setScreenSize] = useState<"mobile" | "tablet" | "desktop">("desktop");
   const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null);
+  const [exams, setExams] = useState<ExamEntry[]>([]);
   const calendarRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
 
@@ -127,6 +147,12 @@ export default function TimetablePage() {
       if (!cancellationsRes.ok) throw new Error("Failed to fetch cancellations");
       const weekData = await cancellationsRes.json();
       setCancellations(weekData.cancellations || []);
+
+      // Fetch exams for this level
+      try {
+        const examsRes = await fetch(getApiUrl(`/api/v1/timetable/exams?level=${userLevel}`), { headers: { Authorization: `Bearer ${token}` } });
+        if (examsRes.ok) setExams(await examsRes.json());
+      } catch { /* exam fetch non-critical */ }
     } catch (error) {
     } finally {
       setLoading(false);
@@ -377,7 +403,64 @@ export default function TimetablePage() {
         </div>
 
         {/* ═══════════════════════════════════════════════════════
-            TODAY'S CLASSES
+            UPCOMING EXAMS
+            ═══════════════════════════════════════════════════════ */}
+        {exams.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-3 h-8 rounded-full bg-coral" />
+              <h2 className="font-display font-black text-xl text-navy">Upcoming Exams</h2>
+              <span className="px-2.5 py-0.5 rounded-full bg-coral-light text-coral text-xs font-bold">{exams.length}</span>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {exams
+                .filter(ex => new Date(ex.date + "T23:59:59") >= new Date())
+                .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
+                .map((ex, i) => {
+                  const colors = examTypeStyles[ex.examType] ?? examTypeStyles.written;
+                  const examDate = new Date(ex.date + "T00:00");
+                  const daysUntil = Math.ceil((examDate.getTime() - Date.now()) / 86400000);
+                  const rotation = i % 3 === 1 ? "rotate-[0.5deg] hover:rotate-0" : i % 3 === 2 ? "rotate-[-0.5deg] hover:rotate-0" : "";
+                  const isToday = daysUntil <= 0;
+                  return (
+                    <div key={ex._id} className={`bg-snow border-[3px] border-navy rounded-3xl p-5 shadow-[3px_3px_0_0_#000] transition-all ${rotation} ${isToday ? "ring-2 ring-coral ring-offset-2" : ""}`}>
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <p className="font-display font-black text-lg text-navy">{ex.courseCode}</p>
+                          <p className="text-xs text-slate line-clamp-1">{ex.courseTitle}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                          <span className={`text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 ${colors.bg} ${colors.text}`}>{ex.examType}</span>
+                          {isToday && <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-1 bg-coral text-snow">Today</span>}
+                        </div>
+                      </div>
+                      <div className="space-y-1.5 text-[10px] font-bold text-slate uppercase tracking-wider">
+                        <p className="flex items-center gap-1.5">
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" /></svg>
+                          {examDate.toLocaleDateString("en-NG", { weekday: "short", day: "numeric", month: "short" })}
+                          {daysUntil > 0 && <span className="ml-1 text-coral normal-case">({daysUntil}d away)</span>}
+                        </p>
+                        <p className="flex items-center gap-1.5">
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" /></svg>
+                          {ex.startTime} – {ex.endTime}
+                        </p>
+                        <p className="flex items-center gap-1.5">
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="m11.54 22.351.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 3.834 3.025ZM12 12.75a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" /></svg>
+                          {ex.venue}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+            {exams.filter(ex => new Date(ex.date + "T23:59:59") < new Date()).length > 0 && (
+              <p className="text-xs text-slate font-bold mt-3">{exams.filter(ex => new Date(ex.date + "T23:59:59") < new Date()).length} past exam(s) not shown</p>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════
+            TODAY&apos;S CLASSES
             ═══════════════════════════════════════════════════════ */}
         {todaysClasses.length > 0 && (
           <div className="mb-6">

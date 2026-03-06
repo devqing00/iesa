@@ -194,6 +194,12 @@ export default function GrowthPage() {
     journalEntries: 0,
     coursesTracked: 0,
     coursesProgress: 0,
+    // Weekly summary
+    weeklyFocusMinutes: 0,
+    weeklyFocusSessions: 0,
+    weeklyHabitCompletions: 0,
+    weeklyJournalEntries: 0,
+    weeklyTasksCompleted: 0,
   });
 
   useEffect(() => {
@@ -225,6 +231,28 @@ export default function GrowthPage() {
       const todayFocus = timerRecords.filter((r) => r.date === today && r.mode === "focus");
       const focusMinutes = todayFocus.reduce((acc, r) => acc + r.duration, 0);
 
+      // Weekly boundaries (Monday-Sunday)
+      const now = new Date();
+      const nowISO = now.toISOString();
+      const dayOfWeek = now.getDay(); // 0=Sun 1=Mon ...
+      const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - mondayOffset);
+      weekStart.setHours(0, 0, 0, 0);
+      const weekStartStr = weekStart.toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+      // Helper: check if a date string falls within this week
+      const isThisWeek = (dateStr: string) => {
+        // Handle both ISO "YYYY-MM-DD" and toDateString() formats
+        const d = new Date(dateStr);
+        return !isNaN(d.getTime()) && d >= weekStart && d <= now;
+      };
+
+      // Weekly focus
+      const weeklyFocus = timerRecords.filter((r) => r.mode === "focus" && isThisWeek(r.date));
+      const weeklyFocusMinutes = weeklyFocus.reduce((acc, r) => acc + r.duration, 0);
+      const weeklyFocusSessions = weeklyFocus.length;
+
       const goals = parse<GoalData[]>(apiData, "goals", "iesa-goals") ?? [];
       const goalsCompleted = goals.filter((g) => g.completedAt).length;
       const goalsActive = goals.length - goalsCompleted;
@@ -245,10 +273,20 @@ export default function GrowthPage() {
       });
 
       const decks = parse<DeckData[]>(apiData, "flashcards", "iesa-flashcards-data") ?? [];
-      const now = new Date().toISOString();
-      const dueCards = decks.reduce((acc, d) => acc + d.cards.filter((c) => c.nextReview <= now).length, 0);
+      
+      const dueCards = decks.reduce((acc, d) => acc + d.cards.filter((c) => c.nextReview <= nowISO).length, 0);
 
       const journalEntries = parse<JournalEntry[]>(apiData, "journal", "iesa-journal-entries") ?? [];
+
+      // Weekly habit completions
+      const weeklyHabitCompletions = habits.reduce((acc, h) => {
+        return acc + h.completions.filter((c) => c >= weekStartStr && c <= now.toISOString().slice(0, 10)).length;
+      }, 0);
+
+      // Weekly journal entries (weekKey format: "YYYY-Www")
+      const weekNum = Math.ceil(((now.getTime() - new Date(now.getFullYear(), 0, 1).getTime()) / 86400000 + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7);
+      const currentWeekKey = `${now.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+      const weeklyJournalEntries = journalEntries.filter((j) => j.weekKey === currentWeekKey).length;
 
       const courses = parse<CourseData[]>(apiData, "courses", "iesa-courses-progress") ?? [];
       const totalTopics = courses.reduce((a, c) => a + c.topics.length, 0);
@@ -271,6 +309,11 @@ export default function GrowthPage() {
         journalEntries: journalEntries.length,
         coursesTracked: courses.length,
         coursesProgress: coursesPct,
+        weeklyFocusMinutes,
+        weeklyFocusSessions,
+        weeklyHabitCompletions,
+        weeklyJournalEntries,
+        weeklyTasksCompleted: completed, // tasks don't have completion dates, use total
       });
     }
 
@@ -418,6 +461,73 @@ export default function GrowthPage() {
           </div>
         </div>
 
+        {/* ═══ WEEKLY SUMMARY ═══ */}
+        {(stats.weeklyFocusMinutes > 0 || stats.weeklyHabitCompletions > 0 || stats.weeklyJournalEntries > 0 || stats.weeklyTasksCompleted > 0) && (
+          <div className="mb-8">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-3 h-8 rounded-full bg-teal" />
+              <h2 className="font-display font-black text-xl text-navy">This Week</h2>
+              <span className="text-[10px] font-bold text-slate uppercase tracking-[0.1em] ml-auto">
+                Mon – Sun
+              </span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-coral-light border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-lg bg-coral/20 flex items-center justify-center">
+                    <svg className="w-3.5 h-3.5 text-coral" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M12.963 2.286a.75.75 0 00-1.071-.136 9.742 9.742 0 00-3.539 6.177A7.547 7.547 0 016.648 6.61a.75.75 0 00-1.152-.082A9 9 0 1015.68 4.534a7.46 7.46 0 01-2.717-2.248zM15.75 14.25a3.75 3.75 0 11-7.313-1.172c.628.465 1.35.81 2.133 1a5.99 5.99 0 011.925-3.545 3.75 3.75 0 013.255 3.717z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <span className="text-[9px] font-bold text-navy/40 uppercase tracking-[0.12em]">Focus</span>
+                </div>
+                <p className="font-display font-black text-2xl text-navy">{stats.weeklyFocusMinutes}<span className="text-sm text-slate ml-0.5">min</span></p>
+                <p className="text-[10px] text-slate mt-0.5">{stats.weeklyFocusSessions} sessions</p>
+              </div>
+
+              <div className="bg-teal-light border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-lg bg-teal/20 flex items-center justify-center">
+                    <svg className="w-3.5 h-3.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <span className="text-[9px] font-bold text-navy/40 uppercase tracking-[0.12em]">Tasks</span>
+                </div>
+                <p className="font-display font-black text-2xl text-navy">{stats.weeklyTasksCompleted}</p>
+                <p className="text-[10px] text-slate mt-0.5">completed</p>
+              </div>
+
+              <div className="bg-lime-light border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-lg bg-lime/20 flex items-center justify-center">
+                    <svg className="w-3.5 h-3.5 text-lime-dark" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M2.25 13.5a8.25 8.25 0 018.25-8.25.75.75 0 01.75.75v6.75H18a.75.75 0 01.75.75 8.25 8.25 0 01-16.5 0z" clipRule="evenodd" />
+                      <path fillRule="evenodd" d="M12.75 3a.75.75 0 01.75-.75 8.25 8.25 0 018.25 8.25.75.75 0 01-.75.75h-7.5a.75.75 0 01-.75-.75V3z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <span className="text-[9px] font-bold text-navy/40 uppercase tracking-[0.12em]">Habits</span>
+                </div>
+                <p className="font-display font-black text-2xl text-navy">{stats.weeklyHabitCompletions}</p>
+                <p className="text-[10px] text-slate mt-0.5">check-ins</p>
+              </div>
+
+              <div className="bg-lavender-light border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-lg bg-lavender/20 flex items-center justify-center">
+                    <svg className="w-3.5 h-3.5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.125 3C3.089 3 2.25 3.84 2.25 4.875V18a3 3 0 003 3h15a.75.75 0 000-1.5H5.25a1.5 1.5 0 01-1.5-1.5h15.75a.75.75 0 00.75-.75V4.875C20.25 3.839 19.41 3 18.375 3H4.125zM12 9.75a.75.75 0 000 1.5h4.5a.75.75 0 000-1.5H12zm-3-1.5a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5a.75.75 0 01-.75-.75zm.75 4.5a.75.75 0 000 1.5h4.5a.75.75 0 000-1.5h-4.5z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <span className="text-[9px] font-bold text-navy/40 uppercase tracking-[0.12em]">Journal</span>
+                </div>
+                <p className="font-display font-black text-2xl text-navy">{stats.weeklyJournalEntries}</p>
+                <p className="text-[10px] text-slate mt-0.5">{stats.weeklyJournalEntries === 1 ? "entry" : "entries"} written</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ═══ GROWTH TOOLS GRID ═══ */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-5">
@@ -431,7 +541,7 @@ export default function GrowthPage() {
               return (
                 <Link
                   key={tool.id}
-                  href={`./growth/${tool.href}`}
+                  href={`/dashboard/growth/${tool.href}`}
                   className={`group bg-snow border-[3px] border-navy rounded-3xl press-4 press-black transition-all overflow-hidden ${rotation}`}
                 >
                   <div className={`${tool.color.bg} px-6 py-4 border-b-[4px] border-navy flex items-center justify-between`}>

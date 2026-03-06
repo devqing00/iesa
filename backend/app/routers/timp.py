@@ -6,6 +6,7 @@ import re
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 
 from ..core.permissions import get_current_user, get_current_session, require_permission
 from ..core.security import require_ipe_student
@@ -730,3 +731,161 @@ async def get_my_timp_info(
         "formOpen": form_open,
         "userLevel": level_num,
     }
+
+
+# ═══════════════════════════════════════════════════════════════════
+# ADMIN ANALYTICS
+# ═══════════════════════════════════════════════════════════════════
+
+@router.get("/analytics")
+async def get_timp_analytics(
+    user: dict = Depends(require_permission("timp:manage")),
+):
+    """TIMP programme health dashboard."""
+    db = get_database()
+    session = await get_current_session(db)
+    sid = str(session["_id"])
+
+    import asyncio
+
+    (
+        total_apps,
+        pending_apps,
+        approved_apps,
+        rejected_apps,
+        active_pairs,
+        paused_pairs,
+        completed_pairs,
+        total_feedback,
+        avg_rating_result,
+    ) = await asyncio.gather(
+        db.timpApplications.count_documents({"sessionId": sid}),
+        db.timpApplications.count_documents({"sessionId": sid, "status": "pending"}),
+        db.timpApplications.count_documents({"sessionId": sid, "status": "approved"}),
+        db.timpApplications.count_documents({"sessionId": sid, "status": "rejected"}),
+        db.timpPairs.count_documents({"sessionId": sid, "status": "active"}),
+        db.timpPairs.count_documents({"sessionId": sid, "status": "paused"}),
+        db.timpPairs.count_documents({"sessionId": sid, "status": "completed"}),
+        db.timpFeedback.count_documents({"sessionId": sid}),
+        db.timpFeedback.aggregate([
+            {"$match": {"sessionId": sid}},
+            {"$group": {"_id": None, "avg": {"$avg": "$rating"}}},
+        ]).to_list(length=1),
+    )
+
+    avg_rating = round(avg_rating_result[0]["avg"], 1) if avg_rating_result else 0
+
+    return {
+        "applications": {
+            "total": total_apps,
+            "pending": pending_apps,
+            "approved": approved_apps,
+            "rejected": rejected_apps,
+            "approvalRate": round(approved_apps / total_apps * 100, 1) if total_apps else 0,
+        },
+        "pairs": {
+            "active": active_pairs,
+            "paused": paused_pairs,
+            "completed": completed_pairs,
+            "total": active_pairs + paused_pairs + completed_pairs,
+        },
+        "feedback": {
+            "total": total_feedback,
+            "averageRating": avg_rating,
+        },
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════
+# MENTOR-MENTEE MESSAGING
+# ═══════════════════════════════════════════════════════════════════
+
+class TimpMessageCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=2000)
+
+
+@router.post("/pairs/{pair_id}/messages")
+async def send_pair_message(
+    pair_id: str,
+    data: TimpMessageCreate,
+    user: dict = Depends(require_ipe_student),
+):
+    """Send a message within a mentor-mentee pair."""
+    db = get_database()
+    uid = str(user["_id"])
+
+    if not ObjectId.is_valid(pair_id):
+        raise HTTPException(status_code=400, detail="Invalid pair ID")
+
+    pair = await db.timpPairs.find_one({"_id": ObjectId(pair_id)})
+    if not pair:
+        raise HTTPException(status_code=404, detail="Pair not found")
+
+    # Only mentor or mentee of this pair can send messages
+    if uid not in (pair["mentorId"], pair["menteeId"]):
+        raise HTTPException(status_code=403, detail="You are not part of this pair")
+
+    msg = {
+        "pairId": pair_id,
+        "senderId": uid,
+        "senderName": f"{user.get('firstName', '')} {user.get('lastName', '')}".strip(),
+        "senderRole": "mentor" if uid == pair["mentorId"] else "mentee",
+        "content": data.content,
+        "createdAt": datetime.now(timezone.utc),
+    }
+    await db.timpMessages.insert_one(msg)
+
+    # Notify the other party
+    recipient_id = pair["menteeId"] if uid == pair["mentorId"] else pair["mentorId"]
+    try:
+        from app.routers.notifications import create_notification
+        await create_notification(
+            user_id=recipient_id,
+            type="timp_message",
+            title=f"New message from {msg['senderName']}",
+            message=data.content[:100],
+            link="/dashboard/timp",
+            category="mentoring",
+        )
+    except Exception:
+        pass
+
+    return {"message": "Message sent"}
+
+
+@router.get("/pairs/{pair_id}/messages")
+async def get_pair_messages(
+    pair_id: str,
+    user: dict = Depends(require_ipe_student),
+    limit: int = Query(50, ge=1, le=200),
+):
+    """Get messages for a mentor-mentee pair."""
+    db = get_database()
+    uid = str(user["_id"])
+
+    if not ObjectId.is_valid(pair_id):
+        raise HTTPException(status_code=400, detail="Invalid pair ID")
+
+    pair = await db.timpPairs.find_one({"_id": ObjectId(pair_id)})
+    if not pair:
+        raise HTTPException(status_code=404, detail="Pair not found")
+
+    # Only mentor, mentee, or admin can read messages
+    has_manage = False
+    try:
+        from ..core.permissions import get_user_permissions
+        perms = await get_user_permissions(uid)
+        has_manage = "timp:manage" in perms
+    except Exception:
+        pass
+
+    if uid not in (pair["mentorId"], pair["menteeId"]) and not has_manage:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    cursor = db.timpMessages.find({"pairId": pair_id}).sort("createdAt", -1).limit(limit)
+    messages = []
+    async for m in cursor:
+        m["_id"] = str(m["_id"])
+        messages.append(m)
+    messages.reverse()  # chronological order
+    return messages

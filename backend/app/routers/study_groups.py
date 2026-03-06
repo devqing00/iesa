@@ -530,7 +530,11 @@ async def get_messages(
     return messages
 
 
-@router.websocket("/{group_id}/ws")
+# Separate router: router-level HTTPBearer deps don't work for WebSocket scope
+_ws_router = APIRouter(prefix="/api/v1/study-groups", tags=["study-groups"])
+
+
+@_ws_router.websocket("/{group_id}/ws")
 async def websocket_chat(
     group_id: str,
     ws: WebSocket,

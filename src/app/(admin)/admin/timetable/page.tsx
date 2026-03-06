@@ -26,9 +26,24 @@ interface ClassSession {
   createdAt: string;
 }
 
+interface ExamEntry {
+  _id: string;
+  sessionId: string;
+  courseCode: string;
+  courseTitle: string;
+  level: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+  venue: string;
+  examType: string;
+  createdAt: string;
+}
+
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const LEVELS = [100, 200, 300, 400, 500];
 const CLASS_TYPES = ["lecture", "practical", "tutorial"] as const;
+const EXAM_TYPES = ["written", "practical", "oral", "cbt"] as const;
 
 const typeColors: Record<string, { bg: string; text: string }> = {
   lecture: { bg: "bg-navy", text: "text-snow" },
@@ -36,11 +51,18 @@ const typeColors: Record<string, { bg: string; text: string }> = {
   tutorial: { bg: "bg-teal", text: "text-snow" },
 };
 
+const examTypeColors: Record<string, { bg: string; text: string }> = {
+  written: { bg: "bg-navy", text: "text-snow" },
+  practical: { bg: "bg-coral", text: "text-snow" },
+  oral: { bg: "bg-lavender", text: "text-snow" },
+  cbt: { bg: "bg-teal", text: "text-snow" },
+};
+
 /* ─── Component ──────────────────────────── */
 
 function AdminTimetablePage() {
   const { user, getAccessToken } = useAuth();
-  const [activeTab, setActiveTab] = useState<"classes" | "calendar">("classes");
+  const [activeTab, setActiveTab] = useState<"classes" | "exams" | "calendar">("classes");
   const [classes, setClasses] = useState<ClassSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterLevel, setFilterLevel] = useState<number | "">("");
@@ -48,6 +70,25 @@ function AdminTimetablePage() {
   const [showModal, setShowModal] = useState(false);
   const [editingClass, setEditingClass] = useState<ClassSession | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+
+  /* ── Exam state ── */
+  const [exams, setExams] = useState<ExamEntry[]>([]);
+  const [examsLoading, setExamsLoading] = useState(true);
+  const [examFilterLevel, setExamFilterLevel] = useState<number | "">("");
+  const [showExamModal, setShowExamModal] = useState(false);
+  const [editingExam, setEditingExam] = useState<ExamEntry | null>(null);
+  const [deletingExam, setDeletingExam] = useState<string | null>(null);
+  const [examDeleteConfirm, setExamDeleteConfirm] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: "" });
+  const [examForm, setExamForm] = useState({
+    courseCode: "",
+    courseTitle: "",
+    level: 100,
+    date: "",
+    startTime: "09:00",
+    endTime: "12:00",
+    venue: "",
+    examType: "written" as string,
+  });
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: "" });
   const [formData, setFormData] = useState({
     courseCode: "",
@@ -156,6 +197,79 @@ function AdminTimetablePage() {
 
   /* ── Modal helpers ── */
 
+  /* ── Exam fetch ── */
+
+  const fetchExams = useCallback(async () => {
+    if (!user) return;
+    try {
+      const token = await getAccessToken();
+      const params = new URLSearchParams();
+      if (examFilterLevel) params.set("level", String(examFilterLevel));
+      const url = getApiUrl(`/api/v1/timetable/exams${params.toString() ? `?${params}` : ""}`);
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) setExams(await res.json());
+      else toast.error("Failed to load exams");
+    } catch { toast.error("Failed to load exams"); }
+    finally { setExamsLoading(false); }
+  }, [user, getAccessToken, examFilterLevel]);
+
+  useEffect(() => { if (activeTab === "exams") fetchExams(); }, [fetchExams, activeTab]);
+
+  /* ── Exam create / edit ── */
+  const handleExamSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    try {
+      const token = await getAccessToken();
+      const isEdit = !!editingExam;
+      const url = isEdit
+        ? getApiUrl(`/api/v1/timetable/exams/${editingExam._id}`)
+        : getApiUrl("/api/v1/timetable/exams");
+      const res = await fetch(url, {
+        method: isEdit ? "PATCH" : "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(examForm),
+      });
+      if (res.ok) {
+        toast.success(isEdit ? "Exam updated" : "Exam created");
+        await fetchExams();
+        setShowExamModal(false);
+        setEditingExam(null);
+      } else {
+        const err = await res.json().catch(() => null);
+        toast.error(err?.detail ?? "Failed to save exam");
+      }
+    } catch { toast.error("Failed to save exam"); }
+  };
+
+  /* ── Exam delete ── */
+  const handleExamDelete = async (id: string) => {
+    if (!user) return;
+    setDeletingExam(id);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl(`/api/v1/timetable/exams/${id}`), {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) { toast.success("Exam deleted"); await fetchExams(); }
+      else toast.error("Failed to delete exam");
+    } catch { toast.error("Failed to delete exam"); }
+    finally { setDeletingExam(null); }
+  };
+
+  const openExamCreate = () => {
+    setEditingExam(null);
+    setExamForm({ courseCode: "", courseTitle: "", level: 100, date: "", startTime: "09:00", endTime: "12:00", venue: "", examType: "written" });
+    setShowExamModal(true);
+  };
+
+  const openExamEdit = (ex: ExamEntry) => {
+    setEditingExam(ex);
+    setExamForm({ courseCode: ex.courseCode, courseTitle: ex.courseTitle, level: ex.level, date: ex.date, startTime: ex.startTime, endTime: ex.endTime, venue: ex.venue, examType: ex.examType });
+    setShowExamModal(true);
+  };
+
   const openCreateModal = () => {
     setEditingClass(null);
     setFormData({
@@ -233,6 +347,17 @@ function AdminTimetablePage() {
                 Add Class
               </button>
             )}
+            {activeTab === "exams" && (
+              <button
+                onClick={openExamCreate}
+                className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+                </svg>
+                Add Exam
+              </button>
+            )}
           </PermissionGate>
         </div>
       </div>
@@ -248,6 +373,16 @@ function AdminTimetablePage() {
           }`}
         >
           Class Schedule
+        </button>
+        <button
+          onClick={() => setActiveTab("exams")}
+          className={`px-5 py-2.5 rounded-2xl font-display font-bold text-sm transition-all border-[3px] ${
+            activeTab === "exams"
+              ? "bg-navy border-navy text-snow"
+              : "bg-ghost border-navy text-navy hover:bg-cloud"
+          }`}
+        >
+          Exam Timetable
         </button>
         <button
           onClick={() => setActiveTab("calendar")}
@@ -605,6 +740,177 @@ function AdminTimetablePage() {
         </div>
       )}
         </>
+      ) : activeTab === "exams" ? (
+        <>
+          {/* Exam Stats + Filter */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-snow border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Total Exams</p>
+              <p className="font-display font-black text-2xl text-navy">{exams.length}</p>
+            </div>
+            <div className="bg-coral border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Courses</p>
+              <p className="font-display font-black text-2xl text-snow">{new Set(exams.map(e => e.courseCode)).size}</p>
+            </div>
+            <div className="bg-ghost border-[3px] border-navy rounded-2xl p-4 flex flex-col justify-center col-span-2">
+              <label className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Filter Level</label>
+              <select
+                value={examFilterLevel}
+                onChange={(e) => setExamFilterLevel(e.target.value ? Number(e.target.value) : "")}
+                title="Filter exams by level"
+                className="bg-transparent text-navy font-bold text-sm appearance-none cursor-pointer outline-none"
+              >
+                <option value="">All Levels</option>
+                {LEVELS.map(l => <option key={l} value={l}>{l} Level</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Exam List */}
+          {examsLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="bg-snow border-[3px] border-navy rounded-3xl p-6 animate-pulse space-y-3">
+                  <div className="h-6 w-32 rounded-xl bg-cloud" />
+                  <div className="h-4 w-48 rounded-xl bg-cloud" />
+                </div>
+              ))}
+            </div>
+          ) : exams.length === 0 ? (
+            <div className="bg-snow border-[3px] border-navy rounded-3xl p-16 text-center shadow-[4px_4px_0_0_#000] space-y-4">
+              <div className="w-16 h-16 bg-coral-light rounded-2xl flex items-center justify-center mx-auto">
+                <svg className="w-8 h-8 text-coral" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25a3.75 3.75 0 0 0-3-3.75H5.625Z" />
+                </svg>
+              </div>
+              <h3 className="font-display font-black text-lg text-navy">No exams scheduled</h3>
+              <p className="text-sm text-navy/60 max-w-sm mx-auto">Add exam timetable entries so students can see their upcoming exams.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {exams.sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)).map((ex) => {
+                const colors = examTypeColors[ex.examType] ?? examTypeColors.written;
+                return (
+                  <div key={ex._id} className="bg-snow border-[3px] border-navy rounded-3xl p-5 press-3 press-black transition-all group">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <p className="font-display font-black text-lg text-navy">{ex.courseCode}</p>
+                        <p className="text-sm text-navy/60 line-clamp-1">{ex.courseTitle}</p>
+                      </div>
+                      <span className={`shrink-0 ml-2 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${colors.bg} ${colors.text}`}>
+                        {ex.examType}
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 text-sm text-navy/70 mb-4">
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
+                        </svg>
+                        <span className="font-medium">{new Date(ex.date + "T00:00").toLocaleDateString("en-NG", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
+                        </svg>
+                        <span>{ex.startTime} – {ex.endTime}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="m11.54 22.351.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 3.834 3.025ZM12 12.75a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" />
+                        </svg>
+                        <span>{ex.venue}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M11.7 2.805a.75.75 0 0 1 .6 0A60.65 60.65 0 0 1 22.83 8.72a.75.75 0 0 1-.231 1.337 49.949 49.949 0 0 0-9.902 3.912l-.003.002-.34.18a.75.75 0 0 1-.707 0A50.009 50.009 0 0 0 7.5 12.174v-.224c0-.131.067-.248.172-.311a54.614 54.614 0 0 1 4.653-2.52.75.75 0 0 0-.65-1.352 56.129 56.129 0 0 0-4.78 2.589 1.858 1.858 0 0 0-.859 1.228 49.803 49.803 0 0 0-4.634-1.527.75.75 0 0 1-.231-1.337A60.653 60.653 0 0 1 11.7 2.805Z" />
+                        </svg>
+                        <span>{ex.level} Level</span>
+                      </div>
+                    </div>
+                    <PermissionGate permission="timetable:edit">
+                      <div className="flex gap-2">
+                        <button onClick={() => openExamEdit(ex)} className="flex-1 px-4 py-2 rounded-xl bg-ghost border-[3px] border-navy text-navy text-xs font-bold hover:bg-navy hover:text-snow transition-all">Edit</button>
+                        <button onClick={() => setExamDeleteConfirm({ isOpen: true, id: ex._id })} disabled={deletingExam === ex._id} className="px-4 py-2 rounded-xl bg-coral-light border-[3px] border-coral text-coral text-xs font-bold hover:bg-coral hover:text-snow transition-all disabled:opacity-50">
+                          {deletingExam === ex._id ? "..." : "Delete"}
+                        </button>
+                      </div>
+                    </PermissionGate>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Exam Create/Edit Modal */}
+          {showExamModal && (
+            <div className="fixed inset-0 z-[70] flex items-center justify-center px-4 py-4 sm:p-6">
+              <div className="absolute inset-0 bg-navy/50" onClick={() => { setShowExamModal(false); setEditingExam(null); }} />
+              <div className="relative bg-snow border-[3px] border-navy rounded-3xl p-8 w-full max-w-lg max-h-[calc(100vh-2rem)] sm:max-h-[85vh] overflow-y-auto shadow-[4px_4px_0_0_#000] flex flex-col">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">{editingExam ? "Edit" : "New"} Exam</p>
+                    <h3 className="font-display font-black text-xl text-navy">
+                      {editingExam ? `Edit ${editingExam.courseCode}` : "Add Exam Entry"}
+                    </h3>
+                  </div>
+                  <button onClick={() => { setShowExamModal(false); setEditingExam(null); }} className="p-2 rounded-xl hover:bg-cloud transition-colors" aria-label="Close">
+                    <svg className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+                <form onSubmit={handleExamSubmit} className="space-y-5">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-bold text-navy">Course Code</label>
+                      <input type="text" required value={examForm.courseCode} onChange={(e) => setExamForm({ ...examForm, courseCode: e.target.value.toUpperCase() })} placeholder="IEE 301" className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm placeholder:text-slate" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-bold text-navy">Level</label>
+                      <select value={examForm.level} onChange={(e) => setExamForm({ ...examForm, level: Number(e.target.value) })} title="Level" className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer">
+                        {LEVELS.map(l => <option key={l} value={l}>{l} Level</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-bold text-navy">Course Title</label>
+                    <input type="text" required value={examForm.courseTitle} onChange={(e) => setExamForm({ ...examForm, courseTitle: e.target.value })} placeholder="Systems Engineering" className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm placeholder:text-slate" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-bold text-navy">Date</label>
+                      <input type="date" required value={examForm.date} onChange={(e) => setExamForm({ ...examForm, date: e.target.value })} title="Exam date" className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-bold text-navy">Exam Type</label>
+                      <select value={examForm.examType} onChange={(e) => setExamForm({ ...examForm, examType: e.target.value })} title="Exam type" className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer">
+                        {EXAM_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-bold text-navy">Start Time</label>
+                      <input type="time" required value={examForm.startTime} onChange={(e) => setExamForm({ ...examForm, startTime: e.target.value })} title="Start time" className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-bold text-navy">End Time</label>
+                      <input type="time" required value={examForm.endTime} onChange={(e) => setExamForm({ ...examForm, endTime: e.target.value })} title="End time" className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-bold text-navy">Venue</label>
+                    <input type="text" required value={examForm.venue} onChange={(e) => setExamForm({ ...examForm, venue: e.target.value })} placeholder="Exam Hall A" className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm placeholder:text-slate" />
+                  </div>
+                  <div className="flex gap-3 pt-4">
+                    <button type="button" onClick={() => { setShowExamModal(false); setEditingExam(null); }} className="flex-1 px-5 py-2.5 rounded-2xl border-[3px] border-navy text-navy text-sm font-bold hover:bg-cloud transition-colors">Cancel</button>
+                    <button type="submit" className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy transition-all">{editingExam ? "Update Exam" : "Create Exam"}</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </>
       ) : (
         <AcademicCalendarTab />
       )}
@@ -621,6 +927,20 @@ function AdminTimetablePage() {
         confirmLabel="Delete"
         variant="danger"
         isLoading={deleting === deleteConfirm.id}
+      />
+
+      <ConfirmModal
+        isOpen={examDeleteConfirm.isOpen}
+        onClose={() => !deletingExam && setExamDeleteConfirm({ isOpen: false, id: "" })}
+        onConfirm={async () => {
+          await handleExamDelete(examDeleteConfirm.id);
+          setExamDeleteConfirm({ isOpen: false, id: "" });
+        }}
+        title="Delete Exam"
+        message="Are you sure you want to delete this exam from the timetable?"
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deletingExam === examDeleteConfirm.id}
       />
     </div>
   );

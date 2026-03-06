@@ -108,7 +108,7 @@ export async function listAcademicEvents(filters?: {
   eventType?: string;
 }): Promise<AcademicEvent[]> {
   const qs = buildQueryString(filters || {});
-  return api.get<AcademicEvent[]>(`${BASE}${qs}`);
+  return api.get<AcademicEvent[]>(`${BASE}/${qs}`);
 }
 
 export async function getAcademicEvent(id: string): Promise<AcademicEvent> {

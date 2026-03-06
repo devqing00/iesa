@@ -97,17 +97,33 @@ export default function BlogPage() {
 
       <main id="main-content" className="pt-14 sm:pt-16 pb-12">
         {/* ── Hero ── */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12 pt-12 md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
-          <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[5rem] leading-[0.9] text-navy mb-4">
-            IESA Blog
-          </h1>
-          <p className="text-lg text-slate max-w-2xl">
-            Stories, features, and perspectives from the Industrial Engineering Students&apos; Association.
-          </p>
+        <section className="relative overflow-hidden md:min-h-[calc(100vh-5rem)] flex flex-col justify-center pt-16 pb-16">
+          {/* Background image */}
+          <div className="absolute inset-0 z-0">
+            <Image
+              src="https://images.unsplash.com/photo-1455390582262-044cdead277a?q=80&w=1920"
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover"
+              aria-hidden="true"
+            />
+            <div className="absolute inset-0 bg-linear-to-r from-navy/90 via-navy/75 to-navy/40" />
+            <div className="absolute inset-0 bg-linear-to-t from-navy/60 to-transparent" />
+          </div>
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[5rem] leading-[0.9] text-snow mb-4">
+              IESA Blog
+            </h1>
+            <p className="text-lg text-snow/70 max-w-2xl">
+              Stories, features, and perspectives from the Industrial Engineering Students&apos; Association.
+            </p>
+          </div>
         </section>
 
         {/* ── Search & Filter ── */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-10">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 mb-10">
           {/* Search */}
           <div className="mb-6">
             <div className="relative max-w-md">

@@ -295,6 +295,9 @@ export {
   getEnrichedMentors,
   getMenteeCandidates,
   getTimpUserDetails,
+  getTimpAnalytics,
+  getPairMessages,
+  sendPairMessage,
   APPLICATION_STATUS_STYLES,
   PAIR_STATUS_STYLES,
 } from './timp';
@@ -315,6 +318,8 @@ export type {
   EnrichedMentor,
   MenteeCandidate,
   TimpUserDetails,
+  TimpAnalytics,
+  TimpMessage,
 } from './timp';
 
 // Bank Transfers

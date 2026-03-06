@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useSession } from "@/context/SessionContext";
 import { useRouter } from "next/navigation";
@@ -170,7 +170,7 @@ export default function SettingsPage() {
     if (twoFaCode.length !== 6) return;
     setTwoFaLoading(true);
     try {
-      const res = await api.post("/api/v1/2fa/verify", { body: { code: twoFaCode } });
+      const res = await api.post("/api/v1/2fa/verify", { code: twoFaCode });
       setTwoFaEnabled(true);
       setTwoFaBackupCodes(res.backupCodes || []);
       setTwoFaStep("backup");
@@ -187,7 +187,7 @@ export default function SettingsPage() {
     if (twoFaCode.length !== 6) return;
     setTwoFaLoading(true);
     try {
-      await api.post("/api/v1/2fa/disable", { body: { code: twoFaCode } });
+      await api.post("/api/v1/2fa/disable", { code: twoFaCode });
       setTwoFaEnabled(false);
       setTwoFaStep("idle");
       setTwoFaCode("");
@@ -199,6 +199,18 @@ export default function SettingsPage() {
       setTwoFaLoading(false);
     }
   };
+
+  // Auto-submit 2FA code when 6 digits entered
+  const verifyRef = useRef(handle2FAVerify);
+  const disableRef = useRef(handle2FADisable);
+  verifyRef.current = handle2FAVerify;
+  disableRef.current = handle2FADisable;
+
+  useEffect(() => {
+    if (twoFaCode.length !== 6 || twoFaLoading) return;
+    if (twoFaStep === "setup") verifyRef.current();
+    if (twoFaStep === "disable") disableRef.current();
+  }, [twoFaCode, twoFaStep, twoFaLoading]);
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();

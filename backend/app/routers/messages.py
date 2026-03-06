@@ -1,20 +1,34 @@
 """
 Student Direct Messages Router
 
-Lightweight student-to-student messaging.
-Messages are stored in the `direct_messages` collection.
-Conversations are implicitly defined by (user_a, user_b) pair.
+Full-featured student-to-student messaging with:
+- Per-user rate limiting (MongoDB-backed, survives restarts)
+- Block list (mutual block enforcement)
+- Message requests (first message -> pending request; recipient must accept)
+- Report + auto-mute (flag messages -> admin review -> mute sender for N days)
+- Connections / follow system (mutual follow required to DM)
+
+Collections used:
+  - direct_messages       - individual messages
+  - dm_blocks             - block list entries {blockerId, blockedId}
+  - dm_connections        - follow / connection requests {fromUserId, toUserId, status}
+  - dm_message_requests   - first-contact requests {senderId, recipientId, status, message}
+  - dm_reports            - abuse reports {reporterId, reportedUserId, conversationKey, reason, ...}
+  - dm_mutes              - muted users {userId, mutedUntil, reason}
+  - dm_rate_limits        - per-user message counters {userId, windowKey, count}
 """
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import datetime, timezone, timedelta
+from typing import Optional, List
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.security import get_current_user, require_ipe_student
+from app.core.permissions import require_permission
+from app.core.auth import decode_access_token
 from app.db import get_database
 
 router = APIRouter(
@@ -24,21 +38,871 @@ router = APIRouter(
 )
 
 
-# ─── Models ──────────────────────────────────────────
+# --- Configuration -------------------------------------------------
+
+RATE_LIMIT_PER_MINUTE = 15          # max messages per minute per user
+RATE_LIMIT_PER_HOUR = 120           # max messages per hour
+MUTE_DURATION_DAYS_DEFAULT = 7      # default mute duration
+MESSAGE_MAX_LENGTH = 2000
+
+
+# --- Pydantic Models -----------------------------------------------
 
 class SendMessageBody(BaseModel):
     recipientId: str
-    content: str = Field(..., min_length=1, max_length=2000)
+    content: str = Field(..., min_length=1, max_length=MESSAGE_MAX_LENGTH)
 
 
-# ─── Helpers ─────────────────────────────────────────
+class BlockUserBody(BaseModel):
+    userId: str
+
+
+class ConnectionRequestBody(BaseModel):
+    userId: str
+
+
+class ReportBody(BaseModel):
+    reportedUserId: str
+    messageIds: List[str] = Field(default_factory=list, max_length=20)
+    reason: str = Field(..., min_length=5, max_length=1000)
+
+
+class MuteUserBody(BaseModel):
+    userId: str
+    days: int = Field(default=MUTE_DURATION_DAYS_DEFAULT, ge=1, le=365)
+    reason: str = Field(default="", max_length=500)
+
+
+class ReviewReportBody(BaseModel):
+    action: str = Field(..., pattern=r"^(dismiss|warn|mute)$")
+    muteDays: int = Field(default=MUTE_DURATION_DAYS_DEFAULT, ge=1, le=365)
+    adminNote: str = Field(default="", max_length=500)
+
+
+class AcceptRequestBody(BaseModel):
+    action: str = Field(..., pattern=r"^(accept|decline)$")
+
+
+# --- Helpers -------------------------------------------------------
 
 def _conversation_key(uid_a: str, uid_b: str) -> str:
     """Deterministic conversation key regardless of sender/recipient order."""
     return "|".join(sorted([uid_a, uid_b]))
 
 
-# ─── Endpoints ───────────────────────────────────────
+async def _check_rate_limit(db: AsyncIOMotorDatabase, user_id: str) -> None:
+    """
+    Per-user rate limiting backed by MongoDB.
+    Uses minute and hour windows (UTC-aligned).
+    """
+    now = datetime.now(timezone.utc)
+    minute_key = f"{user_id}:{now.strftime('%Y%m%d%H%M')}"
+    hour_key = f"{user_id}:{now.strftime('%Y%m%d%H')}"
+
+    # Atomic increment-and-read for minute window
+    minute_doc = await db["dm_rate_limits"].find_one_and_update(
+        {"_id": minute_key},
+        {"$inc": {"count": 1}, "$setOnInsert": {"createdAt": now}},
+        upsert=True,
+        return_document=True,
+    )
+    if minute_doc and minute_doc.get("count", 0) > RATE_LIMIT_PER_MINUTE:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Maximum {RATE_LIMIT_PER_MINUTE} messages per minute.",
+        )
+
+    # Atomic increment-and-read for hour window
+    hour_doc = await db["dm_rate_limits"].find_one_and_update(
+        {"_id": hour_key},
+        {"$inc": {"count": 1}, "$setOnInsert": {"createdAt": now}},
+        upsert=True,
+        return_document=True,
+    )
+    if hour_doc and hour_doc.get("count", 0) > RATE_LIMIT_PER_HOUR:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Maximum {RATE_LIMIT_PER_HOUR} messages per hour.",
+        )
+
+
+async def _check_block(db: AsyncIOMotorDatabase, user_a: str, user_b: str) -> None:
+    """Raise if either user has blocked the other."""
+    block = await db["dm_blocks"].find_one({
+        "$or": [
+            {"blockerId": user_a, "blockedId": user_b},
+            {"blockerId": user_b, "blockedId": user_a},
+        ]
+    })
+    if block:
+        raise HTTPException(status_code=403, detail="Unable to send message to this user")
+
+
+async def _check_mute(db: AsyncIOMotorDatabase, user_id: str) -> None:
+    """Raise if user is muted."""
+    now = datetime.now(timezone.utc)
+    mute = await db["dm_mutes"].find_one({
+        "userId": user_id,
+        "mutedUntil": {"$gt": now},
+    })
+    if mute:
+        until = mute["mutedUntil"].strftime("%b %d, %Y")
+        raise HTTPException(
+            status_code=403,
+            detail=f"Your messaging privileges are suspended until {until}.",
+        )
+
+
+async def _are_connected(db: AsyncIOMotorDatabase, user_a: str, user_b: str) -> bool:
+    """Check if two users have an accepted mutual connection."""
+    conn = await db["dm_connections"].find_one({
+        "$or": [
+            {"fromUserId": user_a, "toUserId": user_b, "status": "accepted"},
+            {"fromUserId": user_b, "toUserId": user_a, "status": "accepted"},
+        ]
+    })
+    return conn is not None
+
+
+async def _has_pending_request(db: AsyncIOMotorDatabase, sender_id: str, recipient_id: str) -> bool:
+    """Check if there is already a pending message request."""
+    req = await db["dm_message_requests"].find_one({
+        "senderId": sender_id,
+        "recipientId": recipient_id,
+        "status": "pending",
+    })
+    return req is not None
+
+
+async def _user_brief(db: AsyncIOMotorDatabase, user_id: str) -> dict:
+    """Get minimal user info."""
+    if not ObjectId.is_valid(user_id):
+        return {"id": user_id, "name": "Unknown", "email": ""}
+    u = await db["users"].find_one(
+        {"_id": ObjectId(user_id)},
+        {"firstName": 1, "lastName": 1, "email": 1, "currentLevel": 1, "level": 1},
+    )
+    if not u:
+        return {"id": user_id, "name": "Unknown", "email": ""}
+    return {
+        "id": user_id,
+        "name": f"{u.get('firstName', '')} {u.get('lastName', '')}".strip(),
+        "email": u.get("email", ""),
+        "level": u.get("currentLevel") or u.get("level"),
+    }
+
+
+# --- WebSocket DM Manager -----------------------------------------
+
+class DMManager:
+    """Maintains active WebSocket connections per user for real-time DM delivery."""
+
+    def __init__(self):
+        self.connections: dict[str, list[WebSocket]] = {}  # user_id -> [ws, ...]
+
+    async def connect(self, user_id: str, ws: WebSocket):
+        await ws.accept()
+        self.connections.setdefault(user_id, []).append(ws)
+
+    def disconnect(self, user_id: str, ws: WebSocket):
+        if user_id in self.connections:
+            self.connections[user_id] = [c for c in self.connections[user_id] if c is not ws]
+            if not self.connections[user_id]:
+                del self.connections[user_id]
+
+    async def notify(self, user_id: str, data: dict):
+        """Push a message event to all connected sockets for this user."""
+        for ws in list(self.connections.get(user_id, [])):
+            try:
+                await ws.send_json(data)
+            except Exception:
+                pass
+
+
+dm_manager = DMManager()
+
+
+# ===================================================================
+# CONNECTIONS (Follow / Connect)
+# ===================================================================
+
+@router.post("/connections/request")
+async def send_connection_request(
+    body: ConnectionRequestBody,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Send a connection request to another student."""
+    sender_id = str(user["_id"])
+    target_id = body.userId
+
+    if sender_id == target_id:
+        raise HTTPException(status_code=400, detail="Cannot connect with yourself")
+    if not ObjectId.is_valid(target_id):
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+
+    # Check block
+    await _check_block(db, sender_id, target_id)
+
+    # Check if target exists
+    target = await db["users"].find_one({"_id": ObjectId(target_id)}, {"_id": 1})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Check if already connected or pending
+    existing = await db["dm_connections"].find_one({
+        "$or": [
+            {"fromUserId": sender_id, "toUserId": target_id},
+            {"fromUserId": target_id, "toUserId": sender_id},
+        ]
+    })
+    if existing:
+        if existing["status"] == "accepted":
+            raise HTTPException(status_code=400, detail="Already connected")
+        if existing["status"] == "pending":
+            # If the OTHER person already sent a request to ME, auto-accept
+            if existing["fromUserId"] == target_id:
+                await db["dm_connections"].update_one(
+                    {"_id": existing["_id"]},
+                    {"$set": {"status": "accepted", "acceptedAt": datetime.now(timezone.utc)}},
+                )
+                await dm_manager.notify(target_id, {
+                    "type": "connection_accepted",
+                    "data": {"userId": sender_id, "userName": f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()},
+                })
+                return {"status": "accepted", "message": "Connection established"}
+            # I already sent a request to them
+            raise HTTPException(status_code=400, detail="Connection request already sent")
+        if existing["status"] == "declined":
+            # Allow re-requesting if previously declined
+            await db["dm_connections"].update_one(
+                {"_id": existing["_id"]},
+                {"$set": {
+                    "fromUserId": sender_id,
+                    "toUserId": target_id,
+                    "status": "pending",
+                    "createdAt": datetime.now(timezone.utc),
+                }},
+            )
+            await dm_manager.notify(target_id, {
+                "type": "connection_request",
+                "data": {"userId": sender_id, "userName": f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()},
+            })
+            return {"status": "pending", "message": "Connection request sent"}
+
+    # Create new request
+    now = datetime.now(timezone.utc)
+    await db["dm_connections"].insert_one({
+        "fromUserId": sender_id,
+        "toUserId": target_id,
+        "status": "pending",
+        "createdAt": now,
+    })
+
+    sender_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
+    await dm_manager.notify(target_id, {
+        "type": "connection_request",
+        "data": {"userId": sender_id, "userName": sender_name},
+    })
+
+    return {"status": "pending", "message": "Connection request sent"}
+
+
+@router.post("/connections/{request_id}/respond")
+async def respond_to_connection(
+    request_id: str,
+    body: AcceptRequestBody,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Accept or decline a connection request."""
+    user_id = str(user["_id"])
+
+    if not ObjectId.is_valid(request_id):
+        raise HTTPException(status_code=400, detail="Invalid request ID")
+
+    conn = await db["dm_connections"].find_one({"_id": ObjectId(request_id)})
+    if not conn:
+        raise HTTPException(status_code=404, detail="Connection request not found")
+
+    if conn["toUserId"] != user_id:
+        raise HTTPException(status_code=403, detail="This request was not sent to you")
+
+    if conn["status"] != "pending":
+        raise HTTPException(status_code=400, detail="Request already handled")
+
+    now = datetime.now(timezone.utc)
+    new_status = "accepted" if body.action == "accept" else "declined"
+    update = {"$set": {"status": new_status, f"{new_status}At": now}}
+    await db["dm_connections"].update_one({"_id": ObjectId(request_id)}, update)
+
+    other_id = conn["fromUserId"]
+    user_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
+
+    if new_status == "accepted":
+        await dm_manager.notify(other_id, {
+            "type": "connection_accepted",
+            "data": {"userId": user_id, "userName": user_name},
+        })
+
+    return {"status": new_status}
+
+
+@router.get("/connections")
+async def list_connections(
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """List all accepted connections for the current user."""
+    user_id = str(user["_id"])
+
+    cursor = db["dm_connections"].find({
+        "$or": [
+            {"fromUserId": user_id, "status": "accepted"},
+            {"toUserId": user_id, "status": "accepted"},
+        ]
+    }).sort("acceptedAt", -1)
+
+    connections = []
+    async for doc in cursor:
+        other_id = doc["toUserId"] if doc["fromUserId"] == user_id else doc["fromUserId"]
+        info = await _user_brief(db, other_id)
+        connections.append({
+            "connectionId": str(doc["_id"]),
+            "user": info,
+            "connectedAt": doc.get("acceptedAt", doc.get("createdAt")).isoformat() if doc.get("acceptedAt") or doc.get("createdAt") else None,
+        })
+
+    return connections
+
+
+@router.get("/connections/pending")
+async def list_pending_connections(
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """List incoming pending connection requests."""
+    user_id = str(user["_id"])
+
+    cursor = db["dm_connections"].find({
+        "toUserId": user_id,
+        "status": "pending",
+    }).sort("createdAt", -1).limit(50)
+
+    requests = []
+    async for doc in cursor:
+        info = await _user_brief(db, doc["fromUserId"])
+        requests.append({
+            "requestId": str(doc["_id"]),
+            "user": info,
+            "createdAt": doc["createdAt"].isoformat(),
+        })
+
+    return requests
+
+
+@router.get("/connections/sent")
+async def list_sent_connections(
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """List outgoing pending connection requests."""
+    user_id = str(user["_id"])
+
+    cursor = db["dm_connections"].find({
+        "fromUserId": user_id,
+        "status": "pending",
+    }).sort("createdAt", -1).limit(50)
+
+    requests = []
+    async for doc in cursor:
+        info = await _user_brief(db, doc["toUserId"])
+        requests.append({
+            "requestId": str(doc["_id"]),
+            "user": info,
+            "createdAt": doc["createdAt"].isoformat(),
+        })
+
+    return requests
+
+
+@router.delete("/connections/{other_user_id}")
+async def remove_connection(
+    other_user_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Remove an existing connection (unfriend)."""
+    user_id = str(user["_id"])
+
+    result = await db["dm_connections"].delete_one({
+        "$or": [
+            {"fromUserId": user_id, "toUserId": other_user_id, "status": "accepted"},
+            {"fromUserId": other_user_id, "toUserId": user_id, "status": "accepted"},
+        ]
+    })
+
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Connection not found")
+
+    return {"removed": True}
+
+
+@router.get("/connections/status/{other_user_id}")
+async def get_connection_status(
+    other_user_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Get connection status with a specific user."""
+    user_id = str(user["_id"])
+
+    conn = await db["dm_connections"].find_one({
+        "$or": [
+            {"fromUserId": user_id, "toUserId": other_user_id},
+            {"fromUserId": other_user_id, "toUserId": user_id},
+        ]
+    })
+
+    if not conn:
+        return {"status": "none", "direction": None}
+
+    direction = "outgoing" if conn["fromUserId"] == user_id else "incoming"
+    return {
+        "status": conn["status"],
+        "direction": direction,
+        "requestId": str(conn["_id"]),
+    }
+
+
+# ===================================================================
+# BLOCK LIST
+# ===================================================================
+
+@router.post("/block")
+async def block_user(
+    body: BlockUserBody,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Block a user. Removes any existing connection."""
+    user_id = str(user["_id"])
+    target_id = body.userId
+
+    if user_id == target_id:
+        raise HTTPException(status_code=400, detail="Cannot block yourself")
+    if not ObjectId.is_valid(target_id):
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+
+    # Check if already blocked
+    existing = await db["dm_blocks"].find_one({"blockerId": user_id, "blockedId": target_id})
+    if existing:
+        raise HTTPException(status_code=400, detail="User is already blocked")
+
+    now = datetime.now(timezone.utc)
+    await db["dm_blocks"].insert_one({
+        "blockerId": user_id,
+        "blockedId": target_id,
+        "createdAt": now,
+    })
+
+    # Remove any connection between the two
+    await db["dm_connections"].delete_many({
+        "$or": [
+            {"fromUserId": user_id, "toUserId": target_id},
+            {"fromUserId": target_id, "toUserId": user_id},
+        ]
+    })
+
+    # Cancel pending message requests
+    await db["dm_message_requests"].update_many(
+        {
+            "$or": [
+                {"senderId": user_id, "recipientId": target_id, "status": "pending"},
+                {"senderId": target_id, "recipientId": user_id, "status": "pending"},
+            ]
+        },
+        {"$set": {"status": "cancelled"}},
+    )
+
+    return {"blocked": True}
+
+
+@router.delete("/block/{user_id_param}")
+async def unblock_user(
+    user_id_param: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Unblock a user."""
+    user_id = str(user["_id"])
+    result = await db["dm_blocks"].delete_one({"blockerId": user_id, "blockedId": user_id_param})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Block not found")
+    return {"unblocked": True}
+
+
+@router.get("/blocked")
+async def list_blocked_users(
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """List all users the current user has blocked."""
+    user_id = str(user["_id"])
+    cursor = db["dm_blocks"].find({"blockerId": user_id}).sort("createdAt", -1)
+    results = []
+    async for doc in cursor:
+        info = await _user_brief(db, doc["blockedId"])
+        results.append({
+            "blockId": str(doc["_id"]),
+            "user": info,
+            "blockedAt": doc["createdAt"].isoformat(),
+        })
+    return results
+
+
+# ===================================================================
+# MESSAGE REQUESTS (first-contact)
+# ===================================================================
+
+@router.get("/requests")
+async def list_message_requests(
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """List incoming message requests (people who want to start a conversation)."""
+    user_id = str(user["_id"])
+
+    cursor = db["dm_message_requests"].find({
+        "recipientId": user_id,
+        "status": "pending",
+    }).sort("createdAt", -1).limit(50)
+
+    requests = []
+    async for doc in cursor:
+        info = await _user_brief(db, doc["senderId"])
+        requests.append({
+            "requestId": str(doc["_id"]),
+            "user": info,
+            "message": doc.get("message", "")[:200],
+            "createdAt": doc["createdAt"].isoformat(),
+        })
+
+    return requests
+
+
+@router.get("/requests/count")
+async def count_message_requests(
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Get count of pending message requests."""
+    user_id = str(user["_id"])
+    count = await db["dm_message_requests"].count_documents({
+        "recipientId": user_id,
+        "status": "pending",
+    })
+    return {"count": count}
+
+
+@router.post("/requests/{request_id}/respond")
+async def respond_to_message_request(
+    request_id: str,
+    body: AcceptRequestBody,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Accept or decline a message request."""
+    user_id = str(user["_id"])
+
+    if not ObjectId.is_valid(request_id):
+        raise HTTPException(status_code=400, detail="Invalid request ID")
+
+    req = await db["dm_message_requests"].find_one({"_id": ObjectId(request_id)})
+    if not req:
+        raise HTTPException(status_code=404, detail="Message request not found")
+
+    if req["recipientId"] != user_id:
+        raise HTTPException(status_code=403, detail="Not your request")
+
+    if req["status"] != "pending":
+        raise HTTPException(status_code=400, detail="Request already handled")
+
+    now = datetime.now(timezone.utc)
+    new_status = "accepted" if body.action == "accept" else "declined"
+
+    await db["dm_message_requests"].update_one(
+        {"_id": ObjectId(request_id)},
+        {"$set": {"status": new_status, f"{new_status}At": now}},
+    )
+
+    sender_id = req["senderId"]
+
+    if new_status == "accepted":
+        # Auto-create mutual connection so they can DM freely
+        existing_conn = await db["dm_connections"].find_one({
+            "$or": [
+                {"fromUserId": sender_id, "toUserId": user_id},
+                {"fromUserId": user_id, "toUserId": sender_id},
+            ]
+        })
+        if not existing_conn:
+            await db["dm_connections"].insert_one({
+                "fromUserId": sender_id,
+                "toUserId": user_id,
+                "status": "accepted",
+                "createdAt": now,
+                "acceptedAt": now,
+            })
+
+        # If the request included a message, insert it as a real DM
+        if req.get("message"):
+            conv_key = _conversation_key(sender_id, user_id)
+            await db["direct_messages"].insert_one({
+                "conversationKey": conv_key,
+                "senderId": sender_id,
+                "recipientId": user_id,
+                "content": req["message"],
+                "isRead": False,
+                "createdAt": req["createdAt"],
+            })
+
+        user_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
+        await dm_manager.notify(sender_id, {
+            "type": "message_request_accepted",
+            "data": {"userId": user_id, "userName": user_name},
+        })
+
+    return {"status": new_status}
+
+
+# ===================================================================
+# REPORT + MUTE
+# ===================================================================
+
+@router.post("/report")
+async def report_user(
+    body: ReportBody,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Report a user for abusive messaging behaviour."""
+    reporter_id = str(user["_id"])
+    reported_id = body.reportedUserId
+
+    if reporter_id == reported_id:
+        raise HTTPException(status_code=400, detail="Cannot report yourself")
+    if not ObjectId.is_valid(reported_id):
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+
+    # Check for duplicate recent report (don't spam)
+    one_day_ago = datetime.now(timezone.utc) - timedelta(days=1)
+    existing = await db["dm_reports"].find_one({
+        "reporterId": reporter_id,
+        "reportedUserId": reported_id,
+        "createdAt": {"$gt": one_day_ago},
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="You already reported this user recently")
+
+    conv_key = _conversation_key(reporter_id, reported_id)
+
+    # Gather evidence: fetch the reported message contents
+    evidence_messages = []
+    if body.messageIds:
+        valid_ids = [ObjectId(mid) for mid in body.messageIds if ObjectId.is_valid(mid)]
+        if valid_ids:
+            cursor = db["direct_messages"].find({
+                "_id": {"$in": valid_ids},
+                "conversationKey": conv_key,
+            }).limit(20)
+            async for msg in cursor:
+                evidence_messages.append({
+                    "id": str(msg["_id"]),
+                    "senderId": msg["senderId"],
+                    "content": msg["content"],
+                    "createdAt": msg["createdAt"].isoformat(),
+                })
+
+    now = datetime.now(timezone.utc)
+    await db["dm_reports"].insert_one({
+        "reporterId": reporter_id,
+        "reportedUserId": reported_id,
+        "conversationKey": conv_key,
+        "reason": body.reason.strip(),
+        "evidenceMessages": evidence_messages,
+        "status": "pending",
+        "adminAction": None,
+        "adminNote": "",
+        "reviewedBy": None,
+        "reviewedAt": None,
+        "createdAt": now,
+    })
+
+    return {"reported": True, "message": "Report submitted. An admin will review it."}
+
+
+@router.get("/mute-status")
+async def get_mute_status(
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Check if the current user is muted."""
+    user_id = str(user["_id"])
+    now = datetime.now(timezone.utc)
+    mute = await db["dm_mutes"].find_one({
+        "userId": user_id,
+        "mutedUntil": {"$gt": now},
+    })
+    if mute:
+        return {
+            "muted": True,
+            "mutedUntil": mute["mutedUntil"].isoformat(),
+            "reason": mute.get("reason", ""),
+        }
+    return {"muted": False}
+
+
+# ===================================================================
+# ADMIN: Report Review + Mute Management
+# ===================================================================
+
+_admin_router = APIRouter(
+    prefix="/api/v1/admin/messages",
+    tags=["Admin Messages"],
+)
+
+
+@_admin_router.get("/reports")
+async def list_reports(
+    status_filter: str = Query("pending", pattern=r"^(pending|reviewed|all)$"),
+    user: dict = Depends(require_permission("messages:manage")),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Admin: list message abuse reports."""
+    query: dict = {}
+    if status_filter != "all":
+        query["status"] = status_filter
+
+    cursor = db["dm_reports"].find(query).sort("createdAt", -1).limit(100)
+
+    reports = []
+    async for doc in cursor:
+        reporter_info = await _user_brief(db, doc["reporterId"])
+        reported_info = await _user_brief(db, doc["reportedUserId"])
+        reports.append({
+            "id": str(doc["_id"]),
+            "reporter": reporter_info,
+            "reportedUser": reported_info,
+            "reason": doc["reason"],
+            "evidenceMessages": doc.get("evidenceMessages", []),
+            "status": doc["status"],
+            "adminAction": doc.get("adminAction"),
+            "adminNote": doc.get("adminNote", ""),
+            "reviewedBy": doc.get("reviewedBy"),
+            "reviewedAt": doc.get("reviewedAt", ""),
+            "createdAt": doc["createdAt"].isoformat(),
+        })
+
+    return reports
+
+
+@_admin_router.post("/reports/{report_id}/review")
+async def review_report(
+    report_id: str,
+    body: ReviewReportBody,
+    user: dict = Depends(require_permission("messages:manage")),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Admin: review a report. Actions: dismiss, warn, mute."""
+    if not ObjectId.is_valid(report_id):
+        raise HTTPException(status_code=400, detail="Invalid report ID")
+
+    report = await db["dm_reports"].find_one({"_id": ObjectId(report_id)})
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    if report["status"] == "reviewed":
+        raise HTTPException(status_code=400, detail="Report already reviewed")
+
+    admin_id = str(user["_id"])
+    now = datetime.now(timezone.utc)
+
+    await db["dm_reports"].update_one(
+        {"_id": ObjectId(report_id)},
+        {"$set": {
+            "status": "reviewed",
+            "adminAction": body.action,
+            "adminNote": body.adminNote,
+            "reviewedBy": admin_id,
+            "reviewedAt": now,
+        }},
+    )
+
+    reported_user_id = report["reportedUserId"]
+
+    if body.action == "mute":
+        mute_until = now + timedelta(days=body.muteDays)
+        # Upsert: extend mute if already muted
+        await db["dm_mutes"].update_one(
+            {"userId": reported_user_id},
+            {"$set": {
+                "mutedUntil": mute_until,
+                "reason": body.adminNote or f"Muted by admin for {body.muteDays} days",
+                "mutedBy": admin_id,
+                "createdAt": now,
+            }},
+            upsert=True,
+        )
+        # Notify the muted user
+        await dm_manager.notify(reported_user_id, {
+            "type": "muted",
+            "data": {
+                "mutedUntil": mute_until.isoformat(),
+                "days": body.muteDays,
+            },
+        })
+
+    return {"reviewed": True, "action": body.action}
+
+
+@_admin_router.get("/muted-users")
+async def list_muted_users(
+    user: dict = Depends(require_permission("messages:manage")),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Admin: list currently muted users."""
+    now = datetime.now(timezone.utc)
+    cursor = db["dm_mutes"].find({"mutedUntil": {"$gt": now}}).sort("mutedUntil", -1)
+
+    results = []
+    async for doc in cursor:
+        info = await _user_brief(db, doc["userId"])
+        results.append({
+            "user": info,
+            "mutedUntil": doc["mutedUntil"].isoformat(),
+            "reason": doc.get("reason", ""),
+            "mutedBy": doc.get("mutedBy", ""),
+        })
+    return results
+
+
+@_admin_router.delete("/muted-users/{target_user_id}")
+async def unmute_user(
+    target_user_id: str,
+    user: dict = Depends(require_permission("messages:manage")),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Admin: unmute a user."""
+    result = await db["dm_mutes"].delete_one({"userId": target_user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User is not muted")
+    return {"unmuted": True}
+
+
+# ===================================================================
+# MESSAGING ENDPOINTS
+# ===================================================================
 
 @router.post("/send")
 async def send_message(
@@ -46,40 +910,131 @@ async def send_message(
     user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
-    """Send a direct message to another student."""
+    """
+    Send a direct message to another student.
+
+    Flow:
+    1. Check rate limit
+    2. Check mute status
+    3. Check block list
+    4. Check connection status:
+       - If connected -> send directly
+       - If NOT connected -> create a message request instead
+    """
     sender_id = str(user["_id"])
+    recipient_id = body.recipientId
 
-    if sender_id == body.recipientId:
+    if sender_id == recipient_id:
         raise HTTPException(status_code=400, detail="Cannot message yourself")
-
-    if not ObjectId.is_valid(body.recipientId):
+    if not ObjectId.is_valid(recipient_id):
         raise HTTPException(status_code=400, detail="Invalid recipient ID")
+
+    # 1. Rate limit
+    await _check_rate_limit(db, sender_id)
+
+    # 2. Mute check
+    await _check_mute(db, sender_id)
+
+    # 3. Block check
+    await _check_block(db, sender_id, recipient_id)
 
     # Verify recipient exists
     recipient = await db["users"].find_one(
-        {"_id": ObjectId(body.recipientId)},
+        {"_id": ObjectId(recipient_id)},
         {"firstName": 1, "lastName": 1},
     )
     if not recipient:
         raise HTTPException(status_code=404, detail="Recipient not found")
 
-    conv_key = _conversation_key(sender_id, body.recipientId)
+    # 4. Connection check
+    connected = await _are_connected(db, sender_id, recipient_id)
+
+    if not connected:
+        # Not connected -- create a message request instead
+        already_pending = await _has_pending_request(db, sender_id, recipient_id)
+        if already_pending:
+            raise HTTPException(
+                status_code=400,
+                detail="You already have a pending message request to this user. Wait for them to accept.",
+            )
+
+        # Check if recipient previously declined
+        prev_declined = await db["dm_message_requests"].find_one({
+            "senderId": sender_id,
+            "recipientId": recipient_id,
+            "status": "declined",
+            "declinedAt": {"$gt": datetime.now(timezone.utc) - timedelta(days=7)},
+        })
+        if prev_declined:
+            raise HTTPException(
+                status_code=400,
+                detail="This user declined your message request recently. Try again later.",
+            )
+
+        now = datetime.now(timezone.utc)
+        await db["dm_message_requests"].insert_one({
+            "senderId": sender_id,
+            "recipientId": recipient_id,
+            "message": body.content.strip(),
+            "status": "pending",
+            "createdAt": now,
+        })
+
+        sender_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
+        await dm_manager.notify(recipient_id, {
+            "type": "message_request",
+            "data": {
+                "senderId": sender_id,
+                "senderName": sender_name,
+                "preview": body.content.strip()[:100],
+            },
+        })
+
+        return {
+            "id": None,
+            "conversationKey": None,
+            "createdAt": now.isoformat(),
+            "messageRequest": True,
+            "message": "Message request sent. They need to accept before you can chat.",
+        }
+
+    # Connected -- send the message directly
+    conv_key = _conversation_key(sender_id, recipient_id)
     now = datetime.now(timezone.utc)
 
     doc = {
         "conversationKey": conv_key,
         "senderId": sender_id,
-        "recipientId": body.recipientId,
+        "recipientId": recipient_id,
         "content": body.content.strip(),
         "isRead": False,
         "createdAt": now,
     }
     result = await db["direct_messages"].insert_one(doc)
 
+    # Real-time delivery via WebSocket
+    sender_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
+    ws_payload = {
+        "type": "new_message",
+        "data": {
+            "id": str(result.inserted_id),
+            "conversationKey": conv_key,
+            "senderId": sender_id,
+            "senderName": sender_name,
+            "recipientId": recipient_id,
+            "content": body.content.strip(),
+            "isRead": False,
+            "createdAt": now.isoformat(),
+        },
+    }
+    await dm_manager.notify(recipient_id, ws_payload)
+    await dm_manager.notify(sender_id, ws_payload)
+
     return {
         "id": str(result.inserted_id),
         "conversationKey": conv_key,
         "createdAt": now.isoformat(),
+        "messageRequest": False,
     }
 
 
@@ -91,7 +1046,6 @@ async def list_conversations(
     """List all conversations for the current user, with last message preview."""
     user_id = str(user["_id"])
 
-    # Aggregate: group by conversationKey, get last message
     pipeline = [
         {
             "$match": {
@@ -123,32 +1077,49 @@ async def list_conversations(
         {"$limit": 50},
     ]
 
-    conversations = []
+    # Collect all other-user IDs first, then batch fetch
+    raw_convs = []
+    other_ids = set()
     async for doc in db["direct_messages"].aggregate(pipeline):
         conv_key: str = doc["_id"]
         parts = conv_key.split("|")
         other_id = parts[1] if parts[0] == user_id else parts[0]
+        other_ids.add(other_id)
+        raw_convs.append((doc, other_id))
 
-        # Get other user info
-        other_user = await db["users"].find_one(
-            {"_id": ObjectId(other_id)},
-            {"firstName": 1, "lastName": 1, "email": 1},
-        )
-        other_name = "Unknown"
-        other_email = ""
-        if other_user:
-            other_name = f"{other_user.get('firstName', '')} {other_user.get('lastName', '')}".strip()
-            other_email = other_user.get("email", "")
+    # Batch fetch user info
+    user_map: dict[str, dict] = {}
+    if other_ids:
+        oids = [ObjectId(oid) for oid in other_ids if ObjectId.is_valid(oid)]
+        if oids:
+            async for u in db["users"].find(
+                {"_id": {"$in": oids}},
+                {"firstName": 1, "lastName": 1, "email": 1},
+            ):
+                uid = str(u["_id"])
+                user_map[uid] = {
+                    "name": f"{u.get('firstName', '')} {u.get('lastName', '')}".strip(),
+                    "email": u.get("email", ""),
+                }
 
+    # Also check blocks
+    blocked_ids = set()
+    async for b in db["dm_blocks"].find({"blockerId": user_id}, {"blockedId": 1}):
+        blocked_ids.add(b["blockedId"])
+
+    conversations = []
+    for doc, other_id in raw_convs:
+        info = user_map.get(other_id, {"name": "Unknown", "email": ""})
         conversations.append({
-            "conversationKey": conv_key,
+            "conversationKey": doc["_id"],
             "otherUserId": other_id,
-            "otherUserName": other_name,
-            "otherUserEmail": other_email,
+            "otherUserName": info["name"],
+            "otherUserEmail": info["email"],
             "lastMessage": doc["lastMessage"][:100],
             "lastSenderId": doc["lastSenderId"],
             "lastAt": doc["lastAt"].isoformat() if doc["lastAt"] else None,
             "unreadCount": doc["unreadCount"],
+            "isBlocked": other_id in blocked_ids,
         })
 
     return conversations
@@ -189,14 +1160,21 @@ async def get_conversation(
             "createdAt": doc["createdAt"].isoformat(),
         })
 
-    # Reverse to chronological order (oldest first at top)
     messages.reverse()
 
-    # Get other user info
     other_user = await db["users"].find_one(
         {"_id": ObjectId(other_user_id)},
         {"firstName": 1, "lastName": 1, "email": 1},
     )
+
+    # Include connection + block status
+    connected = await _are_connected(db, user_id, other_user_id)
+    block = await db["dm_blocks"].find_one({
+        "$or": [
+            {"blockerId": user_id, "blockedId": other_user_id},
+            {"blockerId": other_user_id, "blockedId": user_id},
+        ]
+    })
 
     return {
         "messages": messages,
@@ -205,6 +1183,9 @@ async def get_conversation(
             "name": f"{other_user.get('firstName', '')} {other_user.get('lastName', '')}".strip() if other_user else "Unknown",
             "email": other_user.get("email", "") if other_user else "",
         },
+        "isConnected": connected,
+        "isBlocked": block is not None,
+        "blockedByMe": block is not None and block.get("blockerId") == user_id if block else False,
     }
 
 
@@ -226,6 +1207,16 @@ async def mark_conversation_read(
         {"$set": {"isRead": True}},
     )
 
+    if result.modified_count > 0:
+        await dm_manager.notify(other_user_id, {
+            "type": "messages_read",
+            "data": {
+                "conversationKey": conv_key,
+                "readBy": user_id,
+                "count": result.modified_count,
+            },
+        })
+
     return {"markedRead": result.modified_count}
 
 
@@ -242,9 +1233,20 @@ async def search_users_for_messaging(
     escaped = re.escape(q.strip())
     pattern = re.compile(escaped, re.IGNORECASE)
 
+    # Get blocked user IDs to exclude from results
+    blocked_ids = set()
+    async for b in db["dm_blocks"].find(
+        {"$or": [{"blockerId": user_id}, {"blockedId": user_id}]},
+        {"blockerId": 1, "blockedId": 1},
+    ):
+        blocked_ids.add(b["blockedId"] if b["blockerId"] == user_id else b["blockerId"])
+
+    exclude_oids = [ObjectId(uid) for uid in blocked_ids if ObjectId.is_valid(uid)]
+    exclude_oids.append(ObjectId(user_id))
+
     cursor = db["users"].find(
         {
-            "_id": {"$ne": ObjectId(user_id)},
+            "_id": {"$nin": exclude_oids},
             "role": "student",
             "$or": [
                 {"firstName": {"$regex": pattern}},
@@ -256,13 +1258,107 @@ async def search_users_for_messaging(
         {"firstName": 1, "lastName": 1, "email": 1, "level": 1, "currentLevel": 1},
     ).limit(10)
 
+    # Also batch-check connection status for these users
     results = []
     async for u in cursor:
+        uid = str(u["_id"])
         results.append({
-            "id": str(u["_id"]),
+            "id": uid,
             "name": f"{u.get('firstName', '')} {u.get('lastName', '')}".strip(),
             "email": u.get("email", ""),
             "level": u.get("currentLevel") or u.get("level"),
         })
 
+    # Batch check connection status
+    if results:
+        result_ids = [r["id"] for r in results]
+        connected_set = set()
+        pending_set = set()
+        async for c in db["dm_connections"].find({
+            "$or": [
+                {"fromUserId": user_id, "toUserId": {"$in": result_ids}},
+                {"fromUserId": {"$in": result_ids}, "toUserId": user_id},
+            ]
+        }):
+            other = c["toUserId"] if c["fromUserId"] == user_id else c["fromUserId"]
+            if c["status"] == "accepted":
+                connected_set.add(other)
+            elif c["status"] == "pending":
+                pending_set.add(other)
+
+        for r in results:
+            r["connectionStatus"] = (
+                "connected" if r["id"] in connected_set
+                else "pending" if r["id"] in pending_set
+                else "none"
+            )
+
     return results
+
+
+# --- WebSocket Endpoint --------------------------------------------
+# Separate router: router-level HTTPBearer deps don't work for WebSocket scope
+_ws_router = APIRouter(prefix="/api/v1/messages", tags=["Messages"])
+
+
+@_ws_router.websocket("/ws")
+async def dm_websocket(ws: WebSocket, token: str = Query("")):
+    """
+    Real-time DM connection.
+
+    Connect with: ws://<host>/api/v1/messages/ws?token=<jwt>
+    Server pushes events:
+      - {"type": "new_message", "data": {...}}
+      - {"type": "messages_read", "data": {...}}
+      - {"type": "connection_request", "data": {...}}
+      - {"type": "connection_accepted", "data": {...}}
+      - {"type": "message_request", "data": {...}}
+      - {"type": "message_request_accepted", "data": {...}}
+      - {"type": "muted", "data": {...}}
+    Client can send:
+      - {"type": "ping"}  ->  server replies {"type": "pong"}
+    """
+    if not token:
+        await ws.close(code=4001, reason="Token required")
+        return
+
+    try:
+        user_data = decode_access_token(token)
+    except Exception:
+        await ws.close(code=4003, reason="Invalid token")
+        return
+
+    user_id = user_data.get("sub")
+    if not user_id:
+        await ws.close(code=4003, reason="Invalid token payload")
+        return
+
+    # Block external students
+    db = get_database()
+    if ObjectId.is_valid(user_id):
+        u = await db["users"].find_one(
+            {"_id": ObjectId(user_id)},
+            {"department": 1, "role": 1},
+        )
+        if (
+            u
+            and u.get("role") == "student"
+            and u.get("department", "Industrial Engineering")
+            != "Industrial Engineering"
+        ):
+            await ws.close(code=4003, reason="IPE students only")
+            return
+
+    await dm_manager.connect(user_id, ws)
+    try:
+        while True:
+            data = await ws.receive_json()
+            msg_type = data.get("type", "")
+            if msg_type == "ping":
+                await ws.send_json({"type": "pong"})
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        dm_manager.disconnect(user_id, ws)

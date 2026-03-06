@@ -245,8 +245,20 @@ async def add_resource(
     if resource_data.semester and resource_data.semester not in ["first", "second"]:
         raise HTTPException(status_code=400, detail="Semester must be 'first' or 'second'")
 
-    # Create resource document
-    resources = db["resources"]
+    # Auto-approve logic:
+    # 1. Admins with resource:approve permission get auto-approved
+    # 2. Trusted students (at least 1 previously approved resource) get auto-approved
+    has_approve_perm = await check_resource_permission(user, "resource:approve", db)
+    is_trusted_uploader = False
+    if not has_approve_perm:
+        prev_approved = await resources.count_documents({
+            "uploadedBy": user_id,
+            "isApproved": True,
+        })
+        is_trusted_uploader = prev_approved >= 1
+
+    auto_approve = has_approve_perm or is_trusted_uploader
+
     resource_doc = {
         "sessionId": str(session["_id"]),
         "title": resource_data.title,
@@ -264,8 +276,9 @@ async def add_resource(
         "uploaderName": uploader_name,
         "tags": tag_list,
         "viewCount": 0,
-        "isApproved": await check_resource_permission(user, "resource:approve", db),  # Auto-approve for admins
-        "approvedBy": user_id if await check_resource_permission(user, "resource:approve", db) else None,
+        "isApproved": auto_approve,
+        "approvedBy": user_id if auto_approve else None,
+        "autoApproved": is_trusted_uploader,  # flag for audit trail
         "feedback": None,
         "createdAt": datetime.now(timezone.utc),
         "updatedAt": datetime.now(timezone.utc)
@@ -353,13 +366,14 @@ async def list_resources(
         else:
             query["isApproved"] = approved
 
-    # Full-text search across title, courseCode, and tags
+    # Full-text search across title, courseCode, description, and tags
     if search and search.strip():
         escaped = re.escape(search.strip())
         pattern = re.compile(escaped, re.IGNORECASE)
         query["$or"] = [
             {"title": {"$regex": pattern}},
             {"courseCode": {"$regex": pattern}},
+            {"description": {"$regex": pattern}},
             {"tags": {"$elemMatch": {"$regex": pattern}}},
             {"uploaderName": {"$regex": pattern}},
         ]

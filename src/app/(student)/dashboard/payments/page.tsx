@@ -457,24 +457,27 @@ function PaymentsContent() {
 
               {/* Stats Strip */}
               <div className="md:col-span-5 grid grid-cols-1 gap-3">
+                {/* Outstanding Balance */}
+                <div className="bg-coral-light border-[3px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Outstanding</span>
+                    <p className={`font-display font-black text-2xl ${pendingPayments.length > 0 ? "text-coral" : "text-navy"}`}>
+                      ₦{pendingPayments.reduce((s, p) => s + p.amount, 0).toLocaleString()}
+                    </p>
+                    <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-navy/40">{pendingPayments.length} due{pendingPayments.length !== 1 ? "s" : ""} remaining</span>
+                  </div>
+                  <div className="w-10 h-10 rounded-xl bg-coral/20 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-coral" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" /></svg>
+                  </div>
+                </div>
                 {/* Completed */}
                 <div className="bg-teal-light border-[3px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.3deg] hover:rotate-0 transition-transform flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Completed</span>
-                    <p className="font-display font-black text-2xl text-navy">{paidPayments.length}</p>
+                    <p className="font-display font-black text-2xl text-navy">{paidPayments.length}<span className="text-base font-bold text-navy/40">/{payments.length}</span></p>
                   </div>
                   <div className="w-10 h-10 rounded-xl bg-teal/20 flex items-center justify-center">
                     <svg className="w-5 h-5 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>
-                  </div>
-                </div>
-                {/* Pending */}
-                <div className="bg-coral-light border-[3px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Pending</span>
-                    <p className={`font-display font-black text-2xl ${pendingPayments.length > 0 ? "text-coral" : "text-navy"}`}>{pendingPayments.length}</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-xl bg-coral/20 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-coral" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" /></svg>
                   </div>
                 </div>
                 {/* Total Paid */}
@@ -489,6 +492,31 @@ function PaymentsContent() {
                 </div>
               </div>
             </div>
+
+            {/* ═══ COMPLETION PROGRESS ═══ */}
+            {payments.length > 0 && (
+              <div className="bg-snow border-[3px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-2">
+                    <svg className="w-3.5 h-3.5 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>
+                    Payment Completion
+                  </span>
+                  <span className="font-display font-black text-sm text-navy">
+                    {payments.length > 0 ? Math.round((paidPayments.length / payments.length) * 100) : 0}%
+                  </span>
+                </div>
+                <div className="w-full h-4 bg-cloud rounded-full border-[2px] border-navy/10 overflow-hidden">
+                  <div
+                    className="h-full bg-teal rounded-full transition-all duration-500"
+                    style={{ width: `${payments.length > 0 ? (paidPayments.length / payments.length) * 100 : 0}%` }}
+                  />
+                </div>
+                <div className="flex justify-between mt-2 text-[9px] font-bold uppercase tracking-[0.08em] text-navy/40">
+                  <span>₦{paidPayments.reduce((s, p) => s + p.amount, 0).toLocaleString()} paid</span>
+                  <span>₦{payments.reduce((s, p) => s + p.amount, 0).toLocaleString()} total</span>
+                </div>
+              </div>
+            )}
 
             {/* ═══ TAB BAR ═══ */}
             <div className="bg-snow border-[3px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] p-4">

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -28,17 +29,30 @@ export default function AboutPage() {
           HERO SECTION
           ============================================ */}
       <section className="pt-16 pb-16 sm:pb-20 relative overflow-hidden md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
+        {/* Background image */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&w=1920"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+            aria-hidden="true"
+          />
+          <div className="absolute inset-0 bg-linear-to-r from-navy/90 via-navy/75 to-navy/40" />
+          <div className="absolute inset-0 bg-linear-to-t from-navy/60 to-transparent" />
+        </div>
 
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Hero Content */}
-          <div className="max-w-4xl space-y-8 relative">
-            <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[5rem] leading-[0.9] text-navy">
+          <div className="max-w-4xl space-y-8">
+            <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[5rem] leading-[0.9] text-snow">
               Shaping the Future
               <br />
-              of <span className="inline-block bg-lime border-[2px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[3px_3px_0_0_#000]">Industrial</span> Engineering
+              of <span className="inline-block bg-lime text-navy border-[2px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[3px_3px_0_0_#000]">Industrial</span> Engineering
             </h1>
-            <p className="font-display text-base sm:text-lg text-navy/60 max-w-2xl leading-relaxed font-extralight">
+            <p className="font-display text-base sm:text-lg text-snow/70 max-w-2xl leading-relaxed font-extralight">
               The Industrial Engineering Student Association (IESA) at the
               University of Ibadan is more than just a student organization —
               we&apos;re a community dedicated to academic excellence,
@@ -201,29 +215,33 @@ export default function AboutPage() {
           {/* Section Header */}
           <div className="text-center mb-10 sm:mb-14">
             <h2 className="font-display font-black text-3xl sm:text-5xl text-navy">
-              Our Leadership
+              Meet the Leaders
             </h2>
+            <p className="font-display font-medium text-base text-slate mt-3 max-w-md mx-auto">
+              The people steering IESA forward — from vision to execution.
+            </p>
           </div>
 
-          {/* Leadership Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { role: "President", name: "Leadership Position", bg: "bg-lime" },
-              { role: "Vice President", name: "Leadership Position", bg: "bg-lavender" },
-              { role: "General Secretary", name: "Leadership Position", bg: "bg-teal" },
-              { role: "Financial Secretary", name: "Leadership Position", bg: "bg-coral" },
-            ].map((leader, i) => (
-              <div key={i} className={`${leader.bg} border-[2px] border-navy rounded-3xl p-6 press-4 press-black text-center transition-all`}>
-                <div className="w-20 h-20 mx-auto bg-snow border-[2px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[2px_2px_0_0_#000]">
-                  <svg className="w-8 h-8 text-navy" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <p className="font-display text-[10px] font-bold text-navy/60 uppercase tracking-widest mb-1">{leader.role}</p>
-                <h3 className="font-display font-black text-lg text-navy">{leader.name}</h3>
+          {/* Team teaser card */}
+          <Link href="/team" className="block group">
+            <div className="bg-navy border-[4px] border-lime rounded-3xl p-10 sm:p-16 text-center shadow-[8px_8px_0_0_#C8F31D] hover:shadow-[12px_12px_0_0_#C8F31D] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all">
+              <div className="w-20 h-20 mx-auto bg-lime border-[3px] border-navy rounded-full flex items-center justify-center mb-6 shadow-[3px_3px_0_0_#C8F31D]">
+                <svg className="w-9 h-9 text-navy" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A18.034 18.034 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" clipRule="evenodd" />
+                </svg>
               </div>
-            ))}
-          </div>
+              <p className="font-display font-black text-[10px] uppercase tracking-[0.18em] text-lime/60 mb-3">The People Behind It All</p>
+              <h3 className="font-display font-black text-3xl sm:text-5xl text-snow mb-4">
+                Curious who drives IESA?
+              </h3>
+              <p className="font-display font-medium text-base sm:text-lg text-snow/60 max-w-lg mx-auto mb-8">
+                Presidents, secretaries, committee chairs — the dedicated students steering every IESA initiative are just one click away.
+              </p>
+              <span className="inline-flex items-center gap-2 bg-lime border-[3px] border-navy rounded-full px-8 py-3.5 font-display font-black text-sm text-navy uppercase tracking-wide shadow-[4px_4px_0_0_#000] group-hover:shadow-[6px_6px_0_0_#000] transition-all">
+                Meet the Full Team →
+              </span>
+            </div>
+          </Link>
         </div>
       </section>
 

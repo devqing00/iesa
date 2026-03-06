@@ -3,9 +3,11 @@
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useState, useEffect, useCallback } from "react";
 import { getTimeGreeting } from "@/lib/greeting";
 import { useAdminStats } from "@/hooks/useData";
 import { AdminDashboardSkeleton } from "@/components/ui/Skeleton";
+import { getApiUrl } from "@/lib/api";
 
 const AdminCharts = dynamic(() => import("./AdminCharts"), { ssr: false });
 
@@ -26,8 +28,34 @@ function formatTimeAgo(timestamp: string): string {
 /* ─── Component ──────────────────────────────────── */
 
 export default function AdminDashboardPage() {
-  const { user } = useAuth();
+  const { user, getAccessToken } = useAuth();
   const { data, isLoading: loading } = useAdminStats(!!user);
+
+  // Detailed engagement analytics
+  interface EngagementDetail {
+    inactiveStudents: number;
+    totalStudents: number;
+    activeStudents7d: number;
+    unenrolledStudents: number;
+    iepod: { totalRegistrations: number; completionRate: number; byPhase: Record<string, number> };
+    library: { uploads30d: number; uploads7d: number };
+    aiUsage7d: number;
+  }
+  const [engagementDetail, setEngagementDetail] = useState<EngagementDetail | null>(null);
+
+  const fetchEngagement = useCallback(async () => {
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl("/api/v1/admin/engagement"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setEngagementDetail(await res.json());
+    } catch { /* non-critical */ }
+  }, [getAccessToken]);
+
+  useEffect(() => {
+    if (user) fetchEngagement();
+  }, [user, fetchEngagement]);
 
   // Full-page shimmer skeleton while initial data loads
   if (loading && !data) return <AdminDashboardSkeleton />;
@@ -259,6 +287,117 @@ export default function AdminDashboardPage() {
               </div>
             ))}
           </div>
+
+          {/* Detailed Engagement Analytics */}
+          {engagementDetail && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Active vs Inactive Students */}
+              <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-3">Student Activity (7d)</p>
+                <div className="flex items-end justify-between mb-2">
+                  <p className="font-display font-black text-3xl text-teal">{engagementDetail.activeStudents7d}</p>
+                  <p className="text-[10px] font-bold text-slate">/ {engagementDetail.totalStudents}</p>
+                </div>
+                <div className="w-full bg-cloud rounded-full h-2 mb-2">
+                  <div
+                    className="bg-teal rounded-full h-2 transition-all"
+                    style={{ width: `${engagementDetail.totalStudents ? Math.round(engagementDetail.activeStudents7d / engagementDetail.totalStudents * 100) : 0}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-slate">
+                  {engagementDetail.totalStudents ? Math.round(engagementDetail.activeStudents7d / engagementDetail.totalStudents * 100) : 0}% active this week
+                </p>
+              </div>
+
+              {/* Inactive Students */}
+              <div className="bg-coral-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50 mb-3">Inactive (30d+)</p>
+                <p className="font-display font-black text-3xl text-coral">{engagementDetail.inactiveStudents}</p>
+                <p className="text-[10px] text-navy/50 mt-1">
+                  {engagementDetail.totalStudents ? Math.round(engagementDetail.inactiveStudents / engagementDetail.totalStudents * 100) : 0}% of all students
+                </p>
+              </div>
+
+              {/* Unenrolled Students */}
+              <div className="bg-sunny-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50 mb-3">Unenrolled</p>
+                <p className="font-display font-black text-3xl text-sunny">{engagementDetail.unenrolledStudents}</p>
+                <p className="text-[10px] text-navy/50 mt-1">not enrolled this session</p>
+              </div>
+
+              {/* Library Velocity */}
+              <div className="bg-lavender-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50 mb-3">Library Uploads</p>
+                <div className="flex items-baseline gap-3">
+                  <div>
+                    <p className="font-display font-black text-3xl text-lavender">{engagementDetail.library.uploads7d}</p>
+                    <p className="text-[10px] text-navy/50">this week</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-display font-black text-xl text-navy/40">{engagementDetail.library.uploads30d}</p>
+                    <p className="text-[10px] text-navy/40">30d total</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* IEPOD + AI Row */}
+          {engagementDetail && (engagementDetail.iepod.totalRegistrations > 0 || engagementDetail.aiUsage7d > 0) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* IEPOD Progress */}
+              {engagementDetail.iepod.totalRegistrations > 0 && (
+                <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-0.5">Programme</p>
+                      <h3 className="font-display font-black text-lg text-navy">IEPOD Progress</h3>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-display font-black text-2xl text-teal">{engagementDetail.iepod.completionRate}%</p>
+                      <p className="text-[10px] text-slate">completion</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate mb-3">{engagementDetail.iepod.totalRegistrations} registrations</p>
+                  {Object.keys(engagementDetail.iepod.byPhase).length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(engagementDetail.iepod.byPhase).map(([phase, count]) => {
+                        const phaseColors: Record<string, string> = {
+                          orientation: "bg-lavender-light text-lavender",
+                          quiz: "bg-sunny-light text-sunny",
+                          team: "bg-teal-light text-teal",
+                          pitch: "bg-coral-light text-coral",
+                          completed: "bg-lime-light text-lime-dark",
+                        };
+                        return (
+                          <span key={phase} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${phaseColors[phase] || "bg-cloud text-slate"}`}>
+                            {phase}: {count}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* AI Usage */}
+              <div className="bg-navy border-[3px] border-lime rounded-3xl p-6 shadow-[4px_4px_0_0_#C8F31D]">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/50 mb-0.5">IESA AI</p>
+                    <h3 className="font-display font-black text-lg text-snow">AI Usage (7d)</h3>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-lime/15 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-lime" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5Z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                </div>
+                <p className="font-display font-black text-5xl text-lime mb-1">{engagementDetail.aiUsage7d}</p>
+                <p className="text-snow/50 text-sm">rate-limit entries this week</p>
+              </div>
+            </div>
+          )}
 
           {/* Registrations 7-day sparkline */}
           {engagement.registrations7d.length > 0 && (

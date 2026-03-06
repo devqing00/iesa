@@ -9,6 +9,8 @@ import {
   applyAsMentor,
   submitTimpFeedback,
   getPairFeedback,
+  getPairMessages,
+  sendPairMessage,
   APPLICATION_STATUS_STYLES,
   PAIR_STATUS_STYLES,
 } from "@/lib/api";
@@ -16,6 +18,7 @@ import type {
   MyTimpInfo,
   MentorshipPair,
   TimpFeedback,
+  TimpMessage,
 } from "@/lib/api";
 
 /* ─── Helpers ────────────────────────────── */
@@ -71,6 +74,13 @@ export default function TimpPage() {
   // Feedback history
   const [viewFeedback, setViewFeedback] = useState<string | null>(null);
   const [feedbackHistory, setFeedbackHistory] = useState<TimpFeedback[]>([]);
+
+  // Messaging
+  const [messagesPairId, setMessagesPairId] = useState<string | null>(null);
+  const [pairMessages, setPairMessages] = useState<TimpMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [newMessage, setNewMessage] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
 
   useEffect(() => {
     if (user) fetchInfo();
@@ -138,6 +148,41 @@ export default function TimpPage() {
       setViewFeedback(pairId);
     } catch {
       toast.error("Failed to load feedback history");
+    }
+  };
+
+  const loadMessages = async (pairId: string) => {
+    if (messagesPairId === pairId) {
+      setMessagesPairId(null);
+      return;
+    }
+    setLoadingMessages(true);
+    try {
+      const msgs = await getPairMessages(pairId, 50);
+      setPairMessages(msgs);
+      setMessagesPairId(pairId);
+      setNewMessage("");
+    } catch {
+      toast.error("Failed to load messages");
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  const handleSendMessage = async (pairId: string) => {
+    const text = newMessage.trim();
+    if (!text || sendingMessage) return;
+    setSendingMessage(true);
+    try {
+      await sendPairMessage(pairId, text);
+      setNewMessage("");
+      // Refresh messages
+      const msgs = await getPairMessages(pairId, 50);
+      setPairMessages(msgs);
+    } catch {
+      toast.error("Failed to send message");
+    } finally {
+      setSendingMessage(false);
     }
   };
 
@@ -354,7 +399,20 @@ export default function TimpPage() {
                     </div>
 
                     {pair.status === "active" && (
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          onClick={() => loadMessages(pair.id)}
+                          className={`border-[3px] px-4 py-2 rounded-xl font-display font-bold text-xs transition-all ${
+                            messagesPairId === pair.id
+                              ? "bg-teal border-navy text-navy shadow-[2px_2px_0_0_#000]"
+                              : "bg-teal-light border-navy text-navy hover:bg-teal/40"
+                          }`}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 00-1.032-.211 50.89 50.89 0 00-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 002.433 3.984L7.28 21.53A.75.75 0 016 21v-4.03a48.527 48.527 0 01-1.087-.128C2.905 16.58 1.5 14.833 1.5 12.862V6.638c0-1.97 1.405-3.718 3.413-3.979z" /><path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.814 2.67 2.94 1.243.102 2.5.157 3.768.165l2.782 2.781a.75.75 0 001.28-.53v-2.39l.33-.026c1.542-.125 2.67-1.433 2.67-2.94v-4.286c0-1.505-1.125-2.811-2.664-2.94A49.392 49.392 0 0015.75 7.5z" /></svg>
+                            {messagesPairId === pair.id ? "Hide Chat" : "Messages"}
+                          </span>
+                        </button>
                         <button
                           onClick={() => {
                             setFeedbackPair(pair);
@@ -407,6 +465,79 @@ export default function TimpPage() {
                   )}
                   {viewFeedback === pair.id && feedbackHistory.length === 0 && (
                     <p className="text-sm text-slate mt-4 pt-4 border-t-[3px] border-cloud">No feedback submitted yet.</p>
+                  )}
+
+                  {/* Messages panel */}
+                  {messagesPairId === pair.id && (
+                    <div className="mt-4 pt-4 border-t-[3px] border-cloud">
+                      <h4 className="font-display font-bold text-sm text-navy mb-3 flex items-center gap-2">
+                        <svg className="w-4 h-4 text-teal" fill="currentColor" viewBox="0 0 24 24"><path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 00-1.032-.211 50.89 50.89 0 00-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 002.433 3.984L7.28 21.53A.75.75 0 016 21v-4.03a48.527 48.527 0 01-1.087-.128C2.905 16.58 1.5 14.833 1.5 12.862V6.638c0-1.97 1.405-3.718 3.413-3.979z" /><path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.814 2.67 2.94 1.243.102 2.5.157 3.768.165l2.782 2.781a.75.75 0 001.28-.53v-2.39l.33-.026c1.542-.125 2.67-1.433 2.67-2.94v-4.286c0-1.505-1.125-2.811-2.664-2.94A49.392 49.392 0 0015.75 7.5z" /></svg>
+                        Pair Chat
+                      </h4>
+
+                      {loadingMessages ? (
+                        <div className="flex items-center justify-center py-6">
+                          <div className="w-5 h-5 border-[3px] border-teal border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      ) : (
+                        <>
+                          {/* Message list */}
+                          <div className="max-h-72 overflow-y-auto space-y-2 mb-3 pr-1">
+                            {pairMessages.length === 0 ? (
+                              <p className="text-xs text-slate text-center py-4">No messages yet. Start the conversation!</p>
+                            ) : (
+                              pairMessages.map((msg) => {
+                                const isMe = msg.senderId === user?.id;
+                                return (
+                                  <div key={msg._id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                                    <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
+                                      isMe
+                                        ? "bg-lime-light border-2 border-lime/40"
+                                        : "bg-ghost border-2 border-cloud"
+                                    }`}>
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                                          msg.senderRole === "mentor" ? "text-teal" : "text-lavender"
+                                        }`}>
+                                          {isMe ? "You" : msg.senderName}
+                                        </span>
+                                        <span className="text-[9px] text-slate">
+                                          {new Date(msg.createdAt).toLocaleString("en-NG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                                        </span>
+                                      </div>
+                                      <p className="text-sm text-navy">{msg.content}</p>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+
+                          {/* Send message form */}
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={newMessage}
+                              onChange={(e) => setNewMessage(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(pair.id); } }}
+                              placeholder="Type a message…"
+                              className="flex-1 px-4 py-2.5 bg-ghost border-[3px] border-navy/20 rounded-xl text-sm text-navy placeholder:text-slate focus:border-navy focus:outline-none transition-colors"
+                            />
+                            <button
+                              onClick={() => handleSendMessage(pair.id)}
+                              disabled={!newMessage.trim() || sendingMessage}
+                              className="bg-navy border-[3px] border-navy px-4 py-2.5 rounded-xl font-display font-bold text-xs text-snow press-2 press-navy transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              {sendingMessage ? (
+                                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                              ) : (
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" /></svg>
+                              )}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
               );

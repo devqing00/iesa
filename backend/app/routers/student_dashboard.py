@@ -47,6 +47,10 @@ async def _fetch_announcements(db, session_id: str, user_id: str, user_level: st
             {"expiresAt": None},
             {"expiresAt": {"$gt": datetime.now(timezone.utc)}},
         ],
+        # Only show published announcements (or legacy docs without the field)
+        "$and": [
+            {"$or": [{"isPublished": True}, {"isPublished": {"$exists": False}}]}
+        ],
     }
     cursor = (
         db["announcements"]

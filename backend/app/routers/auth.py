@@ -18,7 +18,7 @@ import os
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from jose import JWTError, ExpiredSignatureError
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.auth import (
     async_hash_password,
@@ -33,6 +33,8 @@ from app.core.auth import (
     decode_verification_token,
     create_reset_token,
     decode_reset_token,
+    create_2fa_temp_token,
+    decode_2fa_temp_token,
     TokenPair,
     RegisterRequest,
     LoginRequest,
@@ -240,7 +242,7 @@ async def register(
 # LOGIN
 # ──────────────────────────────────────────────
 
-@router.post("/login", response_model=TokenPair)
+@router.post("/login")
 @limiter.limit("10/minute")
 async def login(
     request: Request,
@@ -252,7 +254,8 @@ async def login(
     
     - Verifies Argon2id hash
     - Re-hashes if parameters changed
-    - Returns access + sets httpOnly refresh cookie
+    - If 2FA enabled: returns {requires2FA, tempToken} (exchange via /login/2fa)
+    - Otherwise: returns access + sets httpOnly refresh cookie
     """
     db = get_database()
     users = db["users"]
@@ -287,6 +290,14 @@ async def login(
     user_id = str(user["_id"])
     role = user.get("role", "student")
 
+    # ── 2FA gate ──────────────────────────────────────
+    if user.get("twoFactorEnabled"):
+        temp_token = create_2fa_temp_token(user_id, user["email"], role)
+        return {
+            "requires2FA": True,
+            "tempToken": temp_token,
+        }
+
     # Update last login (fire-and-forget — don't block the response)
     from app.core.error_handling import fire_and_forget
     _user_id_for_update = user["_id"]
@@ -299,6 +310,105 @@ async def login(
 
     # Issue tokens
     access = create_access_token(user_id, user["email"], role)
+    refresh, family, expires_at = create_refresh_token(user_id)
+    await _store_refresh_token(db, user_id, refresh, family, expires_at)
+
+    _set_refresh_cookie(response, refresh)
+
+    return TokenPair(
+        access_token=access,
+        refresh_token=refresh,
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+
+
+# ──────────────────────────────────────────────
+# LOGIN — 2FA STEP
+# ──────────────────────────────────────────────
+
+class Login2FARequest(BaseModel):
+    tempToken: str = Field(..., min_length=1)
+    code: str = Field(..., min_length=6, max_length=6)
+
+
+@router.post("/login/2fa")
+@limiter.limit("10/minute")
+async def login_2fa(
+    request: Request,
+    response: Response,
+    data: Login2FARequest,
+):
+    """
+    Complete login for users with 2FA enabled.
+
+    Exchanges a temp token (from /login) + TOTP/backup code for real tokens.
+    """
+    import pyotp
+    from jose import JWTError as _JWTError, ExpiredSignatureError as _Expired
+
+    # Decode the temp token
+    try:
+        payload = decode_2fa_temp_token(data.tempToken)
+    except _Expired:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="2FA session expired. Please login again.",
+        )
+    except _JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid 2FA session.",
+        )
+
+    user_id = payload["sub"]
+    email = payload["email"]
+    role = payload["role"]
+
+    db = get_database()
+    user = await db["users"].find_one(
+        {"_id": ObjectId(user_id)},
+        {"twoFactorEnabled": 1, "twoFactorSecret": 1, "twoFactorBackupCodes": 1},
+    )
+
+    if not user or not user.get("twoFactorEnabled"):
+        raise HTTPException(status_code=400, detail="2FA is not enabled for this account")
+
+    secret = user.get("twoFactorSecret", "")
+    totp = pyotp.TOTP(secret)
+    code_valid = False
+    method = "totp"
+
+    # Try TOTP code first
+    if totp.verify(data.code, valid_window=1):
+        code_valid = True
+    else:
+        # Try backup code
+        backup_codes: list = user.get("twoFactorBackupCodes", [])
+        code_upper = data.code.upper()
+        if code_upper in backup_codes:
+            code_valid = True
+            method = "backup"
+            backup_codes.remove(code_upper)
+            await db["users"].update_one(
+                {"_id": ObjectId(user_id)},
+                {"$set": {"twoFactorBackupCodes": backup_codes}},
+            )
+
+    if not code_valid:
+        raise HTTPException(status_code=400, detail="Invalid 2FA code")
+
+    # Update last login
+    from app.core.error_handling import fire_and_forget
+    _oid = ObjectId(user_id)
+    async def _update_last_login():
+        await db["users"].update_one(
+            {"_id": _oid},
+            {"$set": {"lastLogin": datetime.now(timezone.utc)}},
+        )
+    fire_and_forget(_update_last_login())
+
+    # Issue real tokens
+    access = create_access_token(user_id, email, role)
     refresh, family, expires_at = create_refresh_token(user_id)
     await _store_refresh_token(db, user_id, refresh, family, expires_at)
 

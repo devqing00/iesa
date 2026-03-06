@@ -247,6 +247,46 @@ def decode_refresh_token(token: str) -> dict:
 
 
 # ──────────────────────────────────────────────
+# 2FA Temp Tokens
+# ──────────────────────────────────────────────
+
+TWO_FA_TEMP_TOKEN_EXPIRE_MINUTES = 5
+
+
+def create_2fa_temp_token(user_id: str, email: str, role: str) -> str:
+    """
+    Create a short-lived temp token issued after password verification
+    when the user has 2FA enabled.  The frontend exchanges this + a TOTP
+    code for real access/refresh tokens via POST /auth/login/2fa.
+    
+    Signed with EMAIL_SECRET_KEY to stay separate from access/refresh keys.
+    """
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "role": role,
+        "type": "2fa_temp",
+        "iat": now,
+        "exp": now + timedelta(minutes=TWO_FA_TEMP_TOKEN_EXPIRE_MINUTES),
+    }
+    return jwt.encode(payload, EMAIL_SECRET_KEY, algorithm=ALGORITHM)
+
+
+def decode_2fa_temp_token(token: str) -> dict:
+    """
+    Decode and verify a 2FA temp token.
+    
+    Returns the payload dict.
+    Raises JWTError or ExpiredSignatureError on failure.
+    """
+    payload = jwt.decode(token, EMAIL_SECRET_KEY, algorithms=[ALGORITHM])
+    if payload.get("type") != "2fa_temp":
+        raise JWTError("Invalid token type — expected 2fa_temp")
+    return payload
+
+
+# ──────────────────────────────────────────────
 # Password Strength Validation
 # ──────────────────────────────────────────────
 

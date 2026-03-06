@@ -155,6 +155,22 @@ async def create_announcement(
     announcement_dict["readBy"] = []
     announcement_dict["createdAt"] = datetime.now(timezone.utc)
     announcement_dict["updatedAt"] = datetime.now(timezone.utc)
+
+    # Scheduling support: if scheduledFor is in the future, mark as draft
+    is_scheduled = False
+    if announcement_dict.get("scheduledFor"):
+        scheduled_dt = announcement_dict["scheduledFor"]
+        if isinstance(scheduled_dt, str):
+            scheduled_dt = datetime.fromisoformat(scheduled_dt.replace("Z", "+00:00"))
+        if scheduled_dt > datetime.now(timezone.utc):
+            announcement_dict["isPublished"] = False
+            is_scheduled = True
+        else:
+            # Scheduled time already passed — publish immediately
+            announcement_dict["isPublished"] = True
+            announcement_dict["scheduledFor"] = None
+    else:
+        announcement_dict["isPublished"] = True
     
     result = await announcements.insert_one(announcement_dict)
     created_announcement = await announcements.find_one({"_id": result.inserted_id})
@@ -170,68 +186,74 @@ async def create_announcement(
         details={"title": announcement_data.title, "priority": announcement_data.priority}
     )
 
-    # Fire-and-forget: email enrolled students matching this announcement's target levels + audience
-    fire_and_forget(_notify_students_of_announcement(
-        session_id=announcement_data.sessionId,
-        target_levels=announcement_data.targetLevels,
-        title=announcement_data.title,
-        content=announcement_data.content,
-        priority=announcement_data.priority,
-        db=db,
-        target_audience=announcement_data.targetAudience or "all",
-    ))
+    # Fire-and-forget: email enrolled students — only for immediately published announcements with sendEmail=True
+    if not is_scheduled and announcement_data.sendEmail:
+        fire_and_forget(_notify_students_of_announcement(
+            session_id=announcement_data.sessionId,
+            target_levels=announcement_data.targetLevels,
+            title=announcement_data.title,
+            content=announcement_data.content,
+            priority=announcement_data.priority,
+            db=db,
+            target_audience=announcement_data.targetAudience or "all",
+        ))
 
-    from app.routers.sse import publish
-    from app.core.cache import cache_delete, cache_delete_pattern
-    publish("announcement_created", {
-        "id": str(result.inserted_id),
-        "title": announcement_data.title,
-        "priority": announcement_data.priority,
-    }, ipe_only=(announcement_data.targetAudience == "ipe"))
-    await cache_delete("admin_stats")
-    await cache_delete_pattern("student_dashboard:*")
+    if not is_scheduled:
+        from app.routers.sse import publish
+        from app.core.cache import cache_delete, cache_delete_pattern
+        publish("announcement_created", {
+            "id": str(result.inserted_id),
+            "title": announcement_data.title,
+            "priority": announcement_data.priority,
+        }, ipe_only=(announcement_data.targetAudience == "ipe"))
+        await cache_delete("admin_stats")
+        await cache_delete_pattern("student_dashboard:*")
+    else:
+        from app.core.cache import cache_delete
+        await cache_delete("admin_stats")
 
-    # Create in-app notifications for targeted students
-    try:
-        from app.routers.notifications import create_bulk_notifications
-        target_levels = announcement_data.targetLevels or []
-        enrollments_coll = db["enrollments"]
-        if target_levels:
-            enrolled = await enrollments_coll.find(
-                {"sessionId": announcement_data.sessionId, "level": {"$in": [f"{l}L" for l in target_levels]}, "isActive": True}
-            ).to_list(length=None)
-        else:
-            enrolled = await enrollments_coll.find(
-                {"sessionId": announcement_data.sessionId, "isActive": True}
-            ).to_list(length=None)
-        student_ids = list({e["studentId"] for e in enrolled})
+    # Create in-app notifications for targeted students (only for immediately published)
+    if not is_scheduled:
+        try:
+            from app.routers.notifications import create_bulk_notifications
+            target_levels = announcement_data.targetLevels or []
+            enrollments_coll = db["enrollments"]
+            if target_levels:
+                enrolled = await enrollments_coll.find(
+                    {"sessionId": announcement_data.sessionId, "level": {"$in": [f"{l}L" for l in target_levels]}, "isActive": True}
+                ).to_list(length=None)
+            else:
+                enrolled = await enrollments_coll.find(
+                    {"sessionId": announcement_data.sessionId, "isActive": True}
+                ).to_list(length=None)
+            student_ids = list({e["studentId"] for e in enrolled})
 
-        # Filter by audience (department)
-        notif_audience = announcement_data.targetAudience or "all"
-        if notif_audience != "all" and student_ids:
-            users_coll = db["users"]
-            dept_query: dict = {"_id": {"$in": [ObjectId(sid) for sid in student_ids]}}
-            if notif_audience == "ipe":
-                dept_query["department"] = "Industrial Engineering"
-            elif notif_audience == "external":
-                dept_query["department"] = {"$ne": "Industrial Engineering"}
-            matched_users = await users_coll.find(dept_query, {"_id": 1}).to_list(length=None)
-            student_ids = [str(u["_id"]) for u in matched_users]
+            # Filter by audience (department)
+            notif_audience = announcement_data.targetAudience or "all"
+            if notif_audience != "all" and student_ids:
+                users_coll = db["users"]
+                dept_query: dict = {"_id": {"$in": [ObjectId(sid) for sid in student_ids]}}
+                if notif_audience == "ipe":
+                    dept_query["department"] = "Industrial Engineering"
+                elif notif_audience == "external":
+                    dept_query["department"] = {"$ne": "Industrial Engineering"}
+                matched_users = await users_coll.find(dept_query, {"_id": 1}).to_list(length=None)
+                student_ids = [str(u["_id"]) for u in matched_users]
 
-        if student_ids:
-            fire_and_forget(
-                create_bulk_notifications(
-                    user_ids=student_ids,
-                    type="announcement",
-                    title=f"📢 {announcement_data.title}",
-                    message=announcement_data.content[:200],
-                    link=f"/dashboard/announcements?highlight={result.inserted_id}",
-                    related_id=str(result.inserted_id),
-                    category="announcements",
+            if student_ids:
+                fire_and_forget(
+                    create_bulk_notifications(
+                        user_ids=student_ids,
+                        type="announcement",
+                        title=f"📢 {announcement_data.title}",
+                        message=announcement_data.content[:200],
+                        link=f"/dashboard/announcements?highlight={result.inserted_id}",
+                        related_id=str(result.inserted_id),
+                        category="announcements",
+                    )
                 )
-            )
-    except Exception as e:
-        logger.error(f"Failed to create announcement notifications: {e}")
+        except Exception as e:
+            logger.error(f"Failed to create announcement notifications: {e}")
 
     return Announcement(**created_announcement)
 
@@ -282,6 +304,13 @@ async def list_announcements(
     
     # Build query
     query = {"sessionId": session_id}
+
+    # Students only see published announcements; admins see all (including scheduled drafts)
+    is_admin_viewer = user.get("role") in ("admin", "super_admin")
+    if not is_admin_viewer:
+        query["$and"] = query.get("$and", []) + [
+            {"$or": [{"isPublished": True}, {"isPublished": {"$exists": False}}]}
+        ]
     
     # Filter by priority if specified
     if priority:
@@ -555,3 +584,86 @@ async def get_my_read_announcements(
     
     # Return array of announcement IDs as strings
     return [str(announcement["_id"]) for announcement in read_announcements]
+
+
+# ═══════════════════════════════════════════════════════════════════
+# SCHEDULED ANNOUNCEMENT PUBLISHER
+# Call via cron or on admin dashboard load to publish due announcements
+# ═══════════════════════════════════════════════════════════════════
+
+@router.post("/publish-scheduled")
+async def publish_scheduled_announcements(
+    user: dict = Depends(require_permission("announcement:create")),
+):
+    """
+    Publish all announcements whose scheduledFor has passed.
+    Triggers email + in-app notifications for each published announcement.
+    """
+    db = get_database()
+    now = datetime.now(timezone.utc)
+    due = await db["announcements"].find({
+        "isPublished": False,
+        "scheduledFor": {"$lte": now},
+    }).to_list(length=100)
+
+    published_count = 0
+    for ann in due:
+        await db["announcements"].update_one(
+            {"_id": ann["_id"]},
+            {"$set": {"isPublished": True, "updatedAt": now}},
+        )
+        published_count += 1
+
+        # Send email if sendEmail is true
+        if ann.get("sendEmail", True):
+            fire_and_forget(_notify_students_of_announcement(
+                session_id=ann["sessionId"],
+                target_levels=ann.get("targetLevels"),
+                title=ann["title"],
+                content=ann["content"],
+                priority=ann.get("priority", "normal"),
+                db=db,
+                target_audience=ann.get("targetAudience", "all"),
+            ))
+
+        # SSE + cache
+        from app.routers.sse import publish as sse_publish
+        from app.core.cache import cache_delete, cache_delete_pattern
+        sse_publish("announcement_created", {
+            "id": str(ann["_id"]),
+            "title": ann["title"],
+            "priority": ann.get("priority", "normal"),
+        }, ipe_only=(ann.get("targetAudience") == "ipe"))
+        await cache_delete_pattern("student_dashboard:*")
+
+        # In-app notifications
+        try:
+            from app.routers.notifications import create_bulk_notifications
+            target_levels = ann.get("targetLevels") or []
+            enrollments_coll = db["enrollments"]
+            if target_levels:
+                enrolled = await enrollments_coll.find(
+                    {"sessionId": ann["sessionId"], "level": {"$in": [f"{l}L" for l in target_levels]}, "isActive": True}
+                ).to_list(length=None)
+            else:
+                enrolled = await enrollments_coll.find(
+                    {"sessionId": ann["sessionId"], "isActive": True}
+                ).to_list(length=None)
+            student_ids = list({e["studentId"] for e in enrolled})
+            if student_ids:
+                fire_and_forget(
+                    create_bulk_notifications(
+                        user_ids=student_ids,
+                        type="announcement",
+                        title=f"📢 {ann['title']}",
+                        message=ann.get("content", "")[:200],
+                        link=f"/dashboard/announcements?highlight={ann['_id']}",
+                        related_id=str(ann["_id"]),
+                        category="announcements",
+                    )
+                )
+        except Exception as e:
+            logger.error(f"Failed to create scheduled announcement notifications: {e}")
+
+    await cache_delete("admin_stats")
+    return {"published": published_count}

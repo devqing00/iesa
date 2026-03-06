@@ -106,6 +106,7 @@ PERMISSIONS = {
     "timetable:create": "Create timetable entries",
     "timetable:edit": "Edit timetable entries",
     "timetable:cancel": "Cancel timetable entries",
+    "timetable:exam": "Manage exam timetable entries",
     
     # Press permissions
     "press:access": "Access the IESA Press ecosystem",

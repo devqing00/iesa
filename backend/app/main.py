@@ -53,6 +53,44 @@ async def lifespan(app: FastAPI):
         else:
             raise
 
+    # DM rate limits — TTL auto-cleanup after 2 hours
+    await db["dm_rate_limits"].create_index("createdAt", expireAfterSeconds=7200, background=True)
+
+    # DM connections — compound index for fast pair lookups
+    await db["dm_connections"].create_index(
+        [("fromUserId", 1), ("toUserId", 1)], unique=True, background=True
+    )
+    await db["dm_connections"].create_index(
+        [("toUserId", 1), ("status", 1)], background=True
+    )
+
+    # DM blocks — compound index for blocker/blocked lookups
+    await db["dm_blocks"].create_index(
+        [("blockerId", 1), ("blockedId", 1)], unique=True, background=True
+    )
+
+    # DM message requests — sender+recipient+status
+    await db["dm_message_requests"].create_index(
+        [("recipientId", 1), ("status", 1)], background=True
+    )
+
+    # DM reports — pending status for admin queue
+    await db["dm_reports"].create_index("status", background=True)
+
+    # DM mutes — userId + active mute lookup
+    await db["dm_mutes"].create_index("userId", unique=True, background=True)
+
+    # Direct messages — conversationKey for fast conversation fetches
+    await db["direct_messages"].create_index(
+        [("conversationKey", 1), ("createdAt", -1)], background=True
+    )
+    await db["direct_messages"].create_index(
+        [("senderId", 1), ("createdAt", -1)], background=True
+    )
+    await db["direct_messages"].create_index(
+        [("recipientId", 1), ("createdAt", -1)], background=True
+    )
+
     # Transaction records — unique reference for idempotent webhook/verify upserts.
     # Wrapped in try/except: if the index already exists with a slightly different
     # spec (e.g. without sparse), MongoDB returns IndexKeySpecsConflict (code 86).
@@ -98,17 +136,6 @@ def _get_origins():
 
 origins = _get_origins()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-    expose_headers=["Content-Disposition", "X-Request-Id"],
-    max_age=86400,  # 24h — browsers cache preflight so OPTIONS doesn't fly every request
-)
-
-
 # ── Request body size limit middleware ──────────────────────
 MAX_BODY_SIZE = 10 * 1024 * 1024  # 10 MB — covers image uploads; rejects mega payloads
 
@@ -133,6 +160,18 @@ limiter = setup_rate_limiting(app)
 
 # Setup centralized error handling
 setup_exception_handlers(app)
+
+# CORS middleware MUST be outermost (added last) so every response
+# — including errors from inner middleware — gets CORS headers.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+    expose_headers=["Content-Disposition", "X-Request-Id"],
+    max_age=86400,  # 24h — browsers cache preflight so OPTIONS doesn't fly every request
+)
 
 @app.get("/")
 async def root():
@@ -254,6 +293,9 @@ app.include_router(notifications.router)     # In-app Notification System
 app.include_router(search.router)              # Global Search
 app.include_router(growth.router)              # Growth Hub Tools (personal data)
 app.include_router(messages.router)            # Student Direct Messages
+app.include_router(messages._admin_router)     # Admin Message Reports & Mutes
+app.include_router(messages._ws_router)        # Messages WebSocket (no HTTTPBearer dep)
+app.include_router(study_groups._ws_router)    # Study Groups WebSocket (no HTTPBearer dep)
 app.include_router(two_factor.router)          # Two-Factor Authentication (TOTP)
 
 @app.get("/api/protected")

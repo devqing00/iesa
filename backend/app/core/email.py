@@ -690,8 +690,16 @@ async def check_email_health() -> dict:
         smtp_user = service.smtp_user
         smtp_password = service.smtp_password
 
+        # Skip live SMTP test if credentials aren't configured
+        if not smtp_host or not smtp_user or not smtp_password:
+            report["smtp_connection"] = "not_configured"
+            report["healthy"] = False
+            report["error"] = "SMTP credentials not configured (SMTP_HOST / SMTP_USER / SMTP_PASSWORD)"
+            report["status"] = "degraded"
+            return report
+
         def _test_connection():
-            with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=5) as server:
                 if smtp_use_tls:
                     server.starttls()
                 server.login(smtp_user, smtp_password)
@@ -699,11 +707,18 @@ async def check_email_health() -> dict:
 
         try:
             loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, _test_connection)
+            await asyncio.wait_for(
+                loop.run_in_executor(None, _test_connection),
+                timeout=8.0
+            )
             report["smtp_connection"] = "ok"
             report["smtp_host"] = smtp_host
             report["smtp_port"] = smtp_port
             report["smtp_user"] = smtp_user
+        except asyncio.TimeoutError:
+            report["smtp_connection"] = "timeout"
+            report["healthy"] = False
+            report["error"] = "SMTP connection timed out (>8s) — check SMTP_HOST and network"
         except smtplib.SMTPAuthenticationError:
             report["smtp_connection"] = "auth_failed"
             report["healthy"] = False

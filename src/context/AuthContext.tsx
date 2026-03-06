@@ -9,6 +9,16 @@ import { getApiUrl, setTokenGetter } from "@/lib/api";
 // Types
 // ──────────────────────────────────────────────
 
+/** Thrown by signInWithEmail when the user has 2FA enabled. */
+export class TwoFactorRequiredError extends Error {
+  tempToken: string;
+  constructor(tempToken: string) {
+    super("Two-factor authentication required");
+    this.name = "TwoFactorRequiredError";
+    this.tempToken = tempToken;
+  }
+}
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -41,6 +51,7 @@ interface AuthContextType {
   userProfile: UserProfile | null; // alias for backward compat
   loading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
+  complete2FALogin: (tempToken: string, code: string) => Promise<void>;
 
   signUpWithEmail: (
     email: string,
@@ -66,6 +77,7 @@ const AuthContext = createContext<AuthContextType>({
   userProfile: null,
   loading: true,
   signInWithEmail: async () => {},
+  complete2FALogin: async () => {},
   signUpWithEmail: async () => {},
   signOut: async () => {},
   refreshProfile: async () => {},
@@ -255,6 +267,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     const data = await res.json();
+
+    // 2FA gate — throw a structured error the login page can catch
+    if (data.requires2FA && data.tempToken) {
+      throw new TwoFactorRequiredError(data.tempToken);
+    }
+
+    setMemoryToken(data.access_token, data.expires_in);
+
+    // Fetch profile
+    const profile = await fetchUserProfile();
+    if (profile) {
+      setUser(profile);
+      scheduleRefresh(data.expires_in);
+    }
+
+    // Role-based redirect
+    const role = profile?.role;
+    if (role === "admin" || role === "exco") {
+      router.push("/admin/dashboard");
+    } else {
+      router.push("/dashboard");
+    }
+  };
+
+  const complete2FALogin = async (tempToken: string, code: string) => {
+    const res = await fetch(getApiUrl("/api/v1/auth/login/2fa"), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tempToken, code }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Invalid 2FA code" }));
+      throw new Error(err.detail || "Invalid 2FA code");
+    }
+
+    const data = await res.json();
     setMemoryToken(data.access_token, data.expires_in);
 
     // Fetch profile
@@ -356,12 +406,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       userProfile: user,
       loading,
       signInWithEmail,
+      complete2FALogin,
       signUpWithEmail,
       signOut,
       refreshProfile,
       getAccessToken,
     }),
-    [user, loading, signInWithEmail, signUpWithEmail, signOut, refreshProfile, getAccessToken]
+    [user, loading, signInWithEmail, complete2FALogin, signUpWithEmail, signOut, refreshProfile, getAccessToken]
   );
 
   return (

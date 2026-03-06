@@ -23,6 +23,9 @@ interface Announcement {
   targetAudience?: TargetAudience;
   priority: "low" | "normal" | "high" | "urgent";
   isPinned: boolean;
+  isPublished?: boolean;
+  scheduledFor?: string | null;
+  sendEmail?: boolean;
   sessionId: string;
   authorName?: string;
   createdAt: string;
@@ -38,6 +41,8 @@ interface FormState {
   targetAudience: TargetAudience;
   isPinned: boolean;
   expiresAt: string;
+  scheduledFor: string;
+  sendEmail: boolean;
 }
 
 const EMPTY_FORM: FormState = {
@@ -48,6 +53,8 @@ const EMPTY_FORM: FormState = {
   targetAudience: "all",
   isPinned: false,
   expiresAt: "",
+  scheduledFor: "",
+  sendEmail: true,
 };
 
 const AUDIENCE_OPTIONS: { value: TargetAudience; label: string; desc: string }[] = [
@@ -164,6 +171,8 @@ function AdminAnnouncementsPage() {
       targetAudience: a.targetAudience ?? "all",
       isPinned: a.isPinned,
       expiresAt: a.expiresAt ? a.expiresAt.slice(0, 16) : "",
+      scheduledFor: a.scheduledFor ? a.scheduledFor.slice(0, 16) : "",
+      sendEmail: a.sendEmail !== false,
     });
     setFormErrors({});
     setModalOpen(true);
@@ -194,6 +203,8 @@ function AdminAnnouncementsPage() {
           targetAudience: form.targetAudience,
           isPinned: form.isPinned,
           expiresAt: form.expiresAt || null,
+          scheduledFor: form.scheduledFor || null,
+          sendEmail: form.sendEmail,
         };
         const res = await fetch(getApiUrl(`/api/v1/announcements/${editingId}`), { method: "PATCH", headers, body: JSON.stringify(body) });
         if (!res.ok) {
@@ -214,6 +225,8 @@ function AdminAnnouncementsPage() {
           targetAudience: form.targetAudience,
           isPinned: form.isPinned,
           expiresAt: form.expiresAt || null,
+          scheduledFor: form.scheduledFor || null,
+          sendEmail: form.sendEmail,
           authorId: user?.id ?? "",
         };
         const res = await fetch(getApiUrl("/api/v1/announcements/"), { method: "POST", headers, body: JSON.stringify(body) });
@@ -425,6 +438,14 @@ function AdminAnnouncementsPage() {
                           Pinned
                         </span>
                       )}
+                      {a.isPublished === false && (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-lavender-light text-lavender">
+                          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                            <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" />
+                          </svg>
+                          Scheduled{a.scheduledFor ? ` · ${new Date(a.scheduledFor).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : ""}
+                        </span>
+                      )}
 
                       {/* Actions — visible on hover */}
                       <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -627,6 +648,42 @@ function AdminAnnouncementsPage() {
                 <span className="text-sm text-navy font-medium">Pin to top</span>
               </label>
 
+              <label className="flex items-center gap-3 cursor-pointer">
+                <div
+                  onClick={() => setForm((f) => ({ ...f, sendEmail: !f.sendEmail }))}
+                  className={`relative w-11 h-6 rounded-full transition-colors border-[2px] ${
+                    form.sendEmail ? "bg-navy border-navy" : "bg-cloud border-navy/20"
+                  }`}
+                >
+                  <div className={`absolute top-0.5 w-4 h-4 rounded-full shadow transition-transform ${
+                    form.sendEmail ? "bg-lime left-5" : "bg-navy/30 left-0.5"
+                  }`} />
+                </div>
+                <span className="text-sm text-navy font-medium">Send email notification</span>
+              </label>
+            </div>
+
+            {/* Scheduling Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label htmlFor="ann-scheduled" className="text-xs text-slate font-bold">Schedule for later (optional)</label>
+                <input
+                  id="ann-scheduled"
+                  type="datetime-local"
+                  value={form.scheduledFor}
+                  onChange={(e) => setForm((f) => ({ ...f, scheduledFor: e.target.value }))}
+                  className="w-full px-3 py-2.5 rounded-xl bg-ghost border-[3px] border-navy text-navy text-sm transition-all"
+                />
+                {form.scheduledFor && (
+                  <p className="text-[10px] text-sunny font-bold flex items-center gap-1">
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" />
+                    </svg>
+                    Will be published automatically at scheduled time
+                  </p>
+                )}
+              </div>
+
               <div className="space-y-1">
                 <label htmlFor="ann-expires" className="text-xs text-slate font-bold">Expires at (optional)</label>
                 <input
@@ -652,7 +709,7 @@ function AdminAnnouncementsPage() {
                 disabled={submitting}
  className="px-6 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy disabled:opacity-40 transition-all"
               >
-                {submitting ? "Saving..." : editingId ? "Save Changes" : "Publish"}
+                {submitting ? "Saving..." : editingId ? "Save Changes" : form.scheduledFor ? "Schedule" : "Publish"}
               </button>
             </div>
           </div>
