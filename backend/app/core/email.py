@@ -272,6 +272,20 @@ class EmailService:
                 logger.error("   Check your SMTP_USER and SMTP_PASSWORD (use App Password for Gmail)")
                 return False
             except (smtplib.SMTPServerDisconnected, smtplib.SMTPConnectError, OSError) as e:
+                # Permanent network errors (unreachable, refused, no route) — fall back to console immediately
+                import errno as _errno
+                _permanent_errnos = (
+                    _errno.ENETUNREACH,   # 101 — Network is unreachable (dev/no internet)
+                    _errno.ECONNREFUSED,  # 111 — Connection refused
+                    getattr(_errno, 'ENETDOWN', 100),  # 100 — Network is down
+                    getattr(_errno, 'EHOSTUNREACH', 113),  # 113 — No route to host
+                )
+                if isinstance(e, OSError) and getattr(e, 'errno', None) in _permanent_errnos:
+                    logger.warning(
+                        f"⚠️  SMTP network unreachable ({e}) — falling back to console output. "
+                        f"Set EMAIL_PROVIDER=console in .env to suppress this warning in dev."
+                    )
+                    return await self._send_console(to, subject, html_content)
                 # Transient network errors — retry
                 if attempt < max_retries:
                     wait = 2 ** attempt

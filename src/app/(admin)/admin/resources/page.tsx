@@ -164,7 +164,7 @@ function AdminResourcesPage() {
     if (selectedIds.size === resources.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(resources.map((r) => r.id || r._id)));
+      setSelectedIds(new Set(resources.map((r) => r.id || r._id).filter((id): id is string => !!id)));
     }
   };
 

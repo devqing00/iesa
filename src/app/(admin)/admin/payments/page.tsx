@@ -2124,7 +2124,7 @@ function AdminPaymentsPage() {
                           const url = URL.createObjectURL(blob);
                           const a = document.createElement("a");
                           a.href = url;
-                          a.download = `PaidStudents_${selectedPayment.title.replace(/\s+/g, "_").slice(0, 30)}.pdf`;
+                          a.download = `PaidStudents_${(selectedPayment.title ?? "Payment").replace(/\s+/g, "_").slice(0, 30)}.pdf`;
                           a.click();
                           URL.revokeObjectURL(url);
                         } catch {

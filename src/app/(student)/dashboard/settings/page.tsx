@@ -145,7 +145,7 @@ export default function SettingsPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await api.get("/api/v1/2fa/status");
+        const res = await api.get("/api/v1/2fa/status") as { enabled?: boolean };
         setTwoFaEnabled(res.enabled ?? false);
       } catch { /* silent */ }
     })();
@@ -157,7 +157,7 @@ export default function SettingsPage() {
   const handle2FASetup = async () => {
     setTwoFaLoading(true);
     try {
-      const res = await api.post("/api/v1/2fa/setup");
+      const res = await api.post("/api/v1/2fa/setup") as { secret: string; qrCodeDataUrl: string };
       setTwoFaSetup({ secret: res.secret, qrCodeDataUrl: res.qrCodeDataUrl });
       setTwoFaStep("setup");
       setTwoFaCode("");
@@ -172,7 +172,7 @@ export default function SettingsPage() {
     if (twoFaCode.length !== 6) return;
     setTwoFaLoading(true);
     try {
-      const res = await api.post("/api/v1/2fa/verify", { code: twoFaCode });
+      const res = await api.post("/api/v1/2fa/verify", { code: twoFaCode }) as { backupCodes?: string[] };
       setTwoFaEnabled(true);
       setTwoFaBackupCodes(res.backupCodes || []);
       setTwoFaStep("backup");

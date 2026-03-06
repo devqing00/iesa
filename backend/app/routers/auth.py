@@ -897,15 +897,22 @@ async def resend_verification(request: Request, user: dict = Depends(get_current
             verification_url=verification_url
         )
         if not email_sent:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to send verification email. Please try again later."
+            # Don't 500 on email failure — log the URL so devs can verify manually
+            import logging
+            logging.warning(
+                f"[resend-verification] Email delivery failed for {email}. "
+                f"Manual verification URL: {verification_url}"
             )
+            return {
+                "message": "Verification email queued. If you don't receive it, contact support.",
+                "dev_note": "Email delivery failed — check server logs for the verification URL."
+            }
     except HTTPException:
         raise
     except Exception as e:
         import logging
         logging.error(f"Failed to resend verification email: {e}")
+        logging.warning(f"[resend-verification] Verification URL for {email}: {verification_url}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to send verification email. Please try again later."
