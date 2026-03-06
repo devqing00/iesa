@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Types ─── */
 interface Executive {
@@ -45,6 +46,7 @@ const ACCENT_CYCLE = [
 /* ─── Component ─── */
 export default function CentralExcosPage() {
   const { getAccessToken } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("team-central");
   const [executives, setExecutives] = useState<Executive[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -72,6 +74,7 @@ export default function CentralExcosPage() {
 
   return (
     <div className="space-y-6">
+      <ToolHelpModal toolId="team-central" isOpen={showHelp} onClose={closeHelp} />
       {/* ── section header ── */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
@@ -82,11 +85,14 @@ export default function CentralExcosPage() {
           <h2 className="font-display font-black text-2xl md:text-3xl text-navy">Central Executives</h2>
           <p className="text-sm text-navy/60 font-medium mt-1">The leadership team guiding our department</p>
         </div>
-        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cloud border-[3px] border-navy font-display font-bold text-xs text-navy">
+        <div className="flex items-center gap-3">
+          <HelpButton onClick={openHelp} />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cloud border-[3px] border-navy font-display font-bold text-xs text-navy">
           <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
             <path d="M10 9a3 3 0 100-6 3 3 0 000 6zM6 8a2 2 0 11-4 0 2 2 0 014 0zM1.49 15.326a.78.78 0 01-.358-.442 3 3 0 014.308-3.516 6.484 6.484 0 00-1.905 3.959c-.023.222-.014.442.025.654a4.97 4.97 0 01-2.07-.655zM16.44 15.98a4.97 4.97 0 002.07-.654.78.78 0 00.357-.442 3 3 0 00-4.308-3.517 6.484 6.484 0 011.907 3.96 2.32 2.32 0 01-.026.654zM18 8a2 2 0 11-4 0 2 2 0 014 0zM5.304 16.19a.844.844 0 01-.277-.71 5 5 0 019.947 0 .843.843 0 01-.277.71A6.975 6.975 0 0110 18a6.974 6.974 0 01-4.696-1.81z" />
           </svg>
           {executives.length} Members
+        </div>
         </div>
       </div>
 

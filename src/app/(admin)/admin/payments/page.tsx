@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import Pagination from "@/components/ui/Pagination";
 import { ConfirmModal } from "@/components/ui/Modal";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -99,6 +100,7 @@ function transactionStatusBadge(status: string) {
 
 function AdminPaymentsPage() {
   const { getAccessToken } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("admin-payments");
   const [activeTab, setActiveTab] = useState<"payments" | "transactions" | "bank-accounts" | "transfers" | "analytics">("payments");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -642,6 +644,10 @@ function AdminPaymentsPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
+      <ToolHelpModal toolId="admin-payments" isOpen={showHelp} onClose={closeHelp} />
+      <div className="flex justify-end mb-3">
+        <HelpButton onClick={openHelp} />
+      </div>
       {/* ── Header ── */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6">
         <div>

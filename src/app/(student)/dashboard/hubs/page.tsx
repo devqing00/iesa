@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { getMyIepodProfile, getMyTimpInfo } from "@/lib/api";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 const HUBS = [
   {
@@ -37,6 +38,7 @@ const HUBS = [
 ];
 
 export default function HubsPage() {
+  const { showHelp, openHelp, closeHelp } = useToolHelp("hubs");
   const [iepodStatus, setIepodStatus] = useState<string | null>(null);
   const [timpStatus, setTimpStatus] = useState<string | null>(null);
 
@@ -66,15 +68,19 @@ export default function HubsPage() {
   return (
     <>
       <DashboardHeader />
+      <ToolHelpModal toolId="hubs" isOpen={showHelp} onClose={closeHelp} />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="font-display font-black text-display-lg text-navy">
-            <span className="brush-highlight">Hubs</span>
-          </h1>
-          <p className="mt-2 text-slate text-body">
-            Programmes designed to accelerate your growth as an Industrial Engineer.
-          </p>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="font-display font-black text-display-lg text-navy">
+              <span className="brush-highlight">Hubs</span>
+            </h1>
+            <p className="mt-2 text-slate text-body">
+              Programmes designed to accelerate your growth as an Industrial Engineer.
+            </p>
+          </div>
+          <HelpButton onClick={openHelp} />
         </div>
 
         {/* Hub cards */}

@@ -21,11 +21,13 @@ import type {
   LeaderboardEntry,
   IepodQuizType,
 } from "@/lib/api";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 type View = "list" | "quiz" | "result" | "leaderboard";
 
 export default function QuizzesPage() {
   const { user } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("iepod-quizzes");
   const [view, setView] = useState<View>("list");
   const [quizzes, setQuizzes] = useState<IepodQuiz[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -140,19 +142,23 @@ export default function QuizzesPage() {
   return (
     <div className="min-h-screen">
       <DashboardHeader title="Quizzes & Challenges" />
+      <ToolHelpModal toolId="iepod-quizzes" isOpen={showHelp} onClose={closeHelp} />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         <div className="flex items-center justify-between">
           <Link href="/dashboard/iepod" className="text-lavender font-bold text-sm hover:underline">
             &larr; Back to IEPOD
           </Link>
-          {view !== "list" && (
-            <button
-              onClick={() => { setView("list"); setActiveQuiz(null); setResult(null); }}
-              className="bg-transparent border-[3px] border-navy px-4 py-1.5 rounded-xl font-display font-bold text-xs text-navy hover:bg-navy hover:text-lime transition-all"
-            >
-              All Quizzes
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {view !== "list" && (
+              <button
+                onClick={() => { setView("list"); setActiveQuiz(null); setResult(null); }}
+                className="bg-transparent border-[3px] border-navy px-4 py-1.5 rounded-xl font-display font-bold text-xs text-navy hover:bg-navy hover:text-lime transition-all"
+              >
+                All Quizzes
+              </button>
+            )}
+            <HelpButton onClick={openHelp} />
+          </div>
         </div>
 
         {/* ── Quiz List ──────────────────────────────────────── */}

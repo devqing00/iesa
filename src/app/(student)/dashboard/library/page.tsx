@@ -6,6 +6,7 @@ import { getApiUrl } from "@/lib/api";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { useToast } from "@/components/ui/Toast";
 import Pagination from "@/components/ui/Pagination";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -81,6 +82,7 @@ const formatFileSize = (bytes: number) => {
 
 export default function LibraryPage() {
   const { user, userProfile, getAccessToken } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("library");
 
   // Parse student's own level (e.g. "300L" → 300 or numeric)
   const studentLevel = parseInt(String(userProfile?.level || userProfile?.currentLevel || "0")) || null;
@@ -362,8 +364,10 @@ export default function LibraryPage() {
   return (
     <div className="min-h-screen bg-ghost">
       <DashboardHeader title="Resource Library" />
+      <ToolHelpModal toolId="library" isOpen={showHelp} onClose={closeHelp} />
 
       <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
+        <div className="flex justify-end mb-3"><HelpButton onClick={openHelp} /></div>
 
         {/* ═══════════════════════════════════════════════════════
             HERO BENTO

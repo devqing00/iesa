@@ -281,9 +281,11 @@ async def get_engagement_analytics(
 async def _count_unenrolled(db, session_id: str) -> int:
     """Count students who have an account but no active enrollment for the session."""
     enrolled_ids = set()
-    cursor = db["enrollments"].find({"sessionId": session_id, "isActive": True}, {"studentId": 1})
+    cursor = db["enrollments"].find({"sessionId": session_id, "isActive": True}, {"studentId": 1, "userId": 1})
     async for e in cursor:
-        enrolled_ids.add(e["studentId"])
+        sid = e.get("studentId") or e.get("userId")
+        if sid:
+            enrolled_ids.add(sid)
     total_students = await db["users"].count_documents({"role": "student"})
     return max(0, total_students - len(enrolled_ids))
 

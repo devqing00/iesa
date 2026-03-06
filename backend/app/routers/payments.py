@@ -467,11 +467,12 @@ async def record_payment(
     
     result = await transactions.insert_one(transaction_dict)
     
-    # Update payment's paidBy array
+    # Update payment's paidBy array — use $addToSet to prevent duplicates
+    # (guards against race conditions even with the earlier in-memory check)
     await payments.update_one(
         {"_id": ObjectId(payment_id)},
         {
-            "$push": {"paidBy": transaction_data.studentId},
+            "$addToSet": {"paidBy": transaction_data.studentId},
             "$set": {"updatedAt": datetime.now(timezone.utc)}
         }
     )

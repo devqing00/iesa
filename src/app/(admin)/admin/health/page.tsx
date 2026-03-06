@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { withAuth } from "@/lib/withAuth";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 interface ServiceStatus {
   status: "healthy" | "degraded" | "unhealthy";
@@ -33,6 +34,7 @@ const statusColors: Record<string, { bg: string; text: string; dot: string }> = 
 
 function AdminHealthPage() {
   const { getAccessToken } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("admin-health");
   const [data, setData] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -73,6 +75,10 @@ function AdminHealthPage() {
   return (
     <div className="min-h-screen bg-ghost">
       <main id="main-content" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <ToolHelpModal toolId="admin-health" isOpen={showHelp} onClose={closeHelp} />
+        <div className="flex justify-end mb-3">
+          <HelpButton onClick={openHelp} />
+        </div>
         {loading && !data ? (
           <div className="flex items-center justify-center min-h-[40vh]">
             <div className="text-center">

@@ -25,11 +25,13 @@ import type {
   IepodTeamStatus,
   IepodSubmissionStatus,
 } from "@/lib/api";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 type Tab = "browse" | "my-team" | "submissions";
 
 export default function TeamPage() {
   const { user } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("iepod-team");
   const [tab, setTab] = useState<Tab>("browse");
   const [profile, setProfile] = useState<MyIepodProfile | null>(null);
   const [teams, setTeams] = useState<IepodTeam[]>([]);
@@ -208,10 +210,14 @@ export default function TeamPage() {
   return (
     <div className="min-h-screen">
       <DashboardHeader title="Teams & Hackathon" />
+      <ToolHelpModal toolId="iepod-team" isOpen={showHelp} onClose={closeHelp} />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        <Link href="/dashboard/iepod" className="text-lavender font-bold text-sm hover:underline inline-block">
-          &larr; Back to IEPOD
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link href="/dashboard/iepod" className="text-lavender font-bold text-sm hover:underline inline-block">
+            &larr; Back to IEPOD
+          </Link>
+          <HelpButton onClick={openHelp} />
+        </div>
 
         {/* Tab nav */}
         <div className="flex gap-2 overflow-x-auto pb-2">

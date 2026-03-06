@@ -10,6 +10,7 @@ import {
   api,
 } from "@/lib/api";
 import type { UnitApplication, UnitType, CreateApplicationData } from "@/lib/api";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Unit-to-role position mapping ────────────── */
 const UNIT_ROLE_POSITIONS: Record<UnitType, string[]> = {
@@ -87,6 +88,7 @@ function UnitIcon({ unit, className = "w-8 h-8" }: { unit: UnitType; className?:
 /* ─── Page Component ───────────────────────────── */
 
 export default function ApplicationsPage() {
+  const { showHelp, openHelp, closeHelp } = useToolHelp("applications");
   const [applications, setApplications] = useState<UnitApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -167,20 +169,24 @@ export default function ApplicationsPage() {
   /* ── Render ─────────────────────────────────── */
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8 space-y-8">
+      <ToolHelpModal toolId="applications" isOpen={showHelp} onClose={closeHelp} />
       {/* ─── Header ─────────────────────────── */}
-      <div>
-        <div className="flex items-center gap-3 mb-2">
-          <span className="inline-block px-3 py-1 text-label bg-lavender text-snow rounded-full">
-            Units & Committees
-          </span>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <span className="inline-block px-3 py-1 text-label bg-lavender text-snow rounded-full">
+              Units & Committees
+            </span>
+          </div>
+          <h1 className="font-display font-black text-display-lg text-navy">
+            <span className="brush-highlight">Join a Unit</span>
+          </h1>
+          <p className="text-slate mt-2 max-w-2xl">
+            Apply to join IESA units and committees. Each unit plays a vital role in making the department thrive.
+            Your application will be reviewed by the unit head.
+          </p>
         </div>
-        <h1 className="font-display font-black text-display-lg text-navy">
-          <span className="brush-highlight">Join a Unit</span>
-        </h1>
-        <p className="text-slate mt-2 max-w-2xl">
-          Apply to join IESA units and committees. Each unit plays a vital role in making the department thrive.
-          Your application will be reviewed by the unit head.
-        </p>
+        <HelpButton onClick={openHelp} />
       </div>
 
       {/* ─── Unit Cards Grid ────────────────── */}

@@ -3,12 +3,18 @@
 import { Suspense } from "react";
 import { withAuth } from "@/lib/withAuth";
 import RolesTab from "@/components/admin/RolesTab";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Inner (needs Suspense boundary) ───────── */
 
 function RolesPageInner() {
+  const { showHelp, openHelp, closeHelp } = useToolHelp("admin-roles");
   return (
     <div className="max-w-7xl mx-auto space-y-8">
+      <ToolHelpModal toolId="admin-roles" isOpen={showHelp} onClose={closeHelp} />
+      <div className="flex justify-end mb-3">
+        <HelpButton onClick={openHelp} />
+      </div>
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>

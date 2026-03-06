@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
 import { EventSchemaObject, flattenZodErrors } from "@/lib/schemas";
 import { ConfirmModal } from "@/components/ui/Modal";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -132,6 +133,7 @@ function attendeeCount(event: Event) {
 
 function AdminEventsPage() {
   const { user, getAccessToken } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("admin-events");
   const [viewMode, setViewMode] = useState<"upcoming" | "past">("upcoming");
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -468,6 +470,10 @@ function AdminEventsPage() {
   return (
     <>
       <div className="max-w-7xl mx-auto space-y-8">
+        <ToolHelpModal toolId="admin-events" isOpen={showHelp} onClose={closeHelp} />
+        <div className="flex justify-end mb-3">
+          <HelpButton onClick={openHelp} />
+        </div>
         {/* ── Header ── */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>

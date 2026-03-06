@@ -252,10 +252,21 @@ class EmailService:
         for attempt in range(1, max_retries + 1):
             try:
                 loop = asyncio.get_running_loop()
-                await loop.run_in_executor(None, _do_send)
+                await asyncio.wait_for(
+                    loop.run_in_executor(None, _do_send),
+                    timeout=20.0
+                )
                 logger.info(f"✅ Email sent to {to} via SMTP ({smtp_host})")
                 return True
 
+            except asyncio.TimeoutError:
+                logger.error(f"❌ SMTP timed out (>20s) on attempt {attempt}/{max_retries} — check SMTP_HOST/network")
+                if attempt < max_retries:
+                    wait = 2 ** attempt
+                    logger.warning(f"   Retrying in {wait}s...")
+                    await asyncio.sleep(wait)
+                else:
+                    return False
             except smtplib.SMTPAuthenticationError as e:
                 logger.error(f"❌ SMTP Authentication failed: {str(e)}")
                 logger.error("   Check your SMTP_USER and SMTP_PASSWORD (use App Password for Gmail)")

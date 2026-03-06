@@ -2,6 +2,7 @@
 
 import { useState, useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { ALL_PAGE_HELP } from "./PageHelpContent";
 
 /* ─── Step icon SVGs (stroke-based, 24×24 viewBox) ──── */
 const STEP_ICONS: Record<string, ReactNode> = {
@@ -192,6 +193,8 @@ export const TOOL_HELP: Record<string, ToolHelpContent> = {
       "Keep cards simple — one concept per card works best",
     ],
   },
+  /* Merge all page-level help content */
+  ...ALL_PAGE_HELP,
 };
 
 /* ─── Help trigger button ─────────────────────────────── */

@@ -7,6 +7,7 @@ import { getApiUrl, listBankAccounts, submitTransferProof, getMyTransfers, check
 import type { BankAccount, BankTransfer } from "@/lib/api";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { useToast } from "@/components/ui/Toast";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Types ─── */
 interface Payment {
@@ -49,6 +50,7 @@ export default function PaymentsPage() {
 
 function PaymentsContent() {
   const { user, getAccessToken } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("payments");
   const router = useRouter();
   const searchParams = useSearchParams();
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -387,8 +389,10 @@ function PaymentsContent() {
   return (
     <div className="min-h-screen bg-ghost">
       <DashboardHeader title="Payments & Dues" />
+      <ToolHelpModal toolId="payments" isOpen={showHelp} onClose={closeHelp} />
 
       <div className="px-4 md:px-8 py-6 pb-24 md:pb-8 max-w-6xl mx-auto relative">
+        <div className="flex justify-end mb-3"><HelpButton onClick={openHelp} /></div>
         {/* Diamond Sparkle Decorators */}
         <svg className="fixed top-20 left-[6%] w-5 h-5 text-sunny/18 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
         <svg className="fixed top-44 right-[8%] w-7 h-7 text-teal/12 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>

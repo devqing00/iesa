@@ -3,6 +3,7 @@
 import Link from "next/link";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { usePermissions } from "@/context/PermissionsContext";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 const UNITS = [
   {
@@ -39,6 +40,7 @@ const UNITS = [
 
 export default function UnitsPage() {
   const { hasPermission } = usePermissions();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("units");
 
   const visibleUnits = UNITS.filter((u) => {
     if (!u.anyPermission) return true;
@@ -48,15 +50,19 @@ export default function UnitsPage() {
   return (
     <>
       <DashboardHeader />
+      <ToolHelpModal toolId="units" isOpen={showHelp} onClose={closeHelp} />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="font-display font-black text-display-lg text-navy">
-            <span className="brush-highlight">Units</span>
-          </h1>
-          <p className="mt-2 text-slate text-body">
-            IESA operational units — apply for roles or manage your unit work.
-          </p>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="font-display font-black text-display-lg text-navy">
+              <span className="brush-highlight">Units</span>
+            </h1>
+            <p className="mt-2 text-slate text-body">
+              IESA operational units — apply for roles or manage your unit work.
+            </p>
+          </div>
+          <HelpButton onClick={openHelp} />
         </div>
 
         {/* Unit cards */}

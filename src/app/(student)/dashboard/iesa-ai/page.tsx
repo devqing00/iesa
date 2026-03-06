@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useSidebar } from "@/context/SidebarContext";
 import { getApiUrl } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ═══════════════════════════════════════════
 /* ═══════════════════════════════════════════
@@ -187,6 +188,7 @@ type LanguageCode = (typeof LANGUAGE_OPTIONS)[number]["code"];
 ═══════════════════════════════════════════ */
 export default function IESAAIPage() {
   const { user, getAccessToken } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("iesa-ai");
   const { isExpanded } = useSidebar();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -703,6 +705,7 @@ export default function IESAAIPage() {
   ═══════════════════════════════════════════ */
   return (
     <div className="min-h-screen flex flex-col bg-ghost overflow-x-hidden relative">
+      <ToolHelpModal toolId="iesa-ai" isOpen={showHelp} onClose={closeHelp} />
       {/* ── diamond sparkles ── */}
       {[
         "top-10 left-[6%] w-5 h-5 text-lavender/14",
@@ -751,6 +754,7 @@ export default function IESAAIPage() {
             {/* right: action buttons — desktop inline, mobile dropdown */}
             {/* desktop buttons (md+) */}
             <div className="hidden md:flex items-center gap-2">
+              <HelpButton onClick={openHelp} />
               {/* Token usage display */}
               <div
                 className={`flex items-center gap-1.5 px-2.5 py-1 border-[3px] border-navy rounded-xl ${

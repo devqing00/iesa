@@ -7,8 +7,9 @@ import { withAuth } from "@/lib/withAuth";
 import { Modal, ConfirmModal } from "@/components/ui/Modal";
 import { toast } from "sonner";
 import Image from "next/image";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
-/* ─── Types ────────────────────────────────────── */
+/* ── Types ────────────────────────────────────── */
 
 interface UnitMember {
   id: string;
@@ -84,6 +85,7 @@ type Tab = "overview" | "applications";
 
 function UnitsPage() {
   const { getAccessToken } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("admin-units");
 
   const [tab, setTab] = useState<Tab>("overview");
   const [units, setUnits] = useState<UnitOverview[]>([]);
@@ -291,6 +293,10 @@ function UnitsPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
+      <ToolHelpModal toolId="admin-units" isOpen={showHelp} onClose={closeHelp} />
+      <div className="flex justify-end mb-3">
+        <HelpButton onClick={openHelp} />
+      </div>
       {/* Header */}
       <div className="mb-8">
         <h1 className="font-display font-black text-display-lg text-navy">

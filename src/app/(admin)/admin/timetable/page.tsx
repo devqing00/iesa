@@ -7,6 +7,7 @@ import { getApiUrl } from "@/lib/api";
 import { toast } from "sonner";
 import { ConfirmModal } from "@/components/ui/Modal";
 import AcademicCalendarTab from "@/components/admin/AcademicCalendarTab";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -62,6 +63,7 @@ const examTypeColors: Record<string, { bg: string; text: string }> = {
 
 function AdminTimetablePage() {
   const { user, getAccessToken } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("admin-timetable");
   const [activeTab, setActiveTab] = useState<"classes" | "exams" | "calendar">("classes");
   const [classes, setClasses] = useState<ClassSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -325,6 +327,10 @@ function AdminTimetablePage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
+      <ToolHelpModal toolId="admin-timetable" isOpen={showHelp} onClose={closeHelp} />
+      <div className="flex justify-end mb-3">
+        <HelpButton onClick={openHelp} />
+      </div>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>

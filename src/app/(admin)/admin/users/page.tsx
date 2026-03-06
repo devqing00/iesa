@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -28,6 +29,7 @@ interface User {
 
 function AdminUsersPage() {
   const { getAccessToken } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("admin-users");
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [deptFilter, setDeptFilter] = useState("all");
@@ -156,6 +158,10 @@ function AdminUsersPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
+      <ToolHelpModal toolId="admin-users" isOpen={showHelp} onClose={closeHelp} />
+      <div className="flex justify-end mb-3">
+        <HelpButton onClick={openHelp} />
+      </div>
       {/* ── Header ─────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
         <div>

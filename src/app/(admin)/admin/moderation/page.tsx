@@ -6,8 +6,9 @@ import { useAuth } from "@/context/AuthContext";
 import { withAuth } from "@/lib/withAuth";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmModal } from "@/components/ui/Modal";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
-/* ─── Types ──────────────────────────────── */
+/* ── Types ──────────────────────────────── */
 
 interface Report {
   id: string;
@@ -41,6 +42,7 @@ type Tab = "reports" | "muted";
 function ModerationPage() {
   const { getAccessToken } = useAuth();
   const toast = useToast();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("admin-moderation");
 
   const [tab, setTab] = useState<Tab>("reports");
   const [reports, setReports] = useState<Report[]>([]);
@@ -169,6 +171,10 @@ function ModerationPage() {
   return (
     <main id="main-content" className="min-h-screen bg-ghost">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <ToolHelpModal toolId="admin-moderation" isOpen={showHelp} onClose={closeHelp} />
+        <div className="flex justify-end mb-3">
+          <HelpButton onClick={openHelp} />
+        </div>
         {/* Header */}
         <div className="mb-6">
           <h1 className="font-display font-black text-display-md text-navy">

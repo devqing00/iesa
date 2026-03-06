@@ -5,6 +5,7 @@ import GrowthSyncBadge from "@/components/dashboard/GrowthSyncBadge";
 import { getAllGrowthData } from "@/lib/api/growth";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -178,6 +179,7 @@ const toolIcons: Record<string, React.ReactNode> = {
 /* ─── Component ─────────────────────────────────────────────────── */
 
 export default function GrowthPage() {
+  const { showHelp, openHelp, closeHelp } = useToolHelp("growth-hub");
   const [stats, setStats] = useState({
     latestGpa: 0,
     totalRecords: 0,
@@ -358,8 +360,10 @@ export default function GrowthPage() {
   return (
     <div className="min-h-screen bg-ghost">
       <DashboardHeader title="Growth Hub" />
+      <ToolHelpModal toolId="growth-hub" isOpen={showHelp} onClose={closeHelp} />
 
       <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
+        <div className="flex justify-end mb-3"><HelpButton onClick={openHelp} /></div>
 
         {/* ═══ BENTO HERO ═══ */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-8">

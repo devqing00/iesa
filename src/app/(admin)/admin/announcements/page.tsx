@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
 import { AnnouncementSchema, flattenZodErrors } from "@/lib/schemas";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -97,6 +98,7 @@ function relativeTime(dateStr: string) {
 function AdminAnnouncementsPage() {
   const { user, getAccessToken } = useAuth();
   const { currentSession } = useSession();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("admin-announcements");
 
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -319,6 +321,10 @@ function AdminAnnouncementsPage() {
             </div>
           </div>
         )}
+        <ToolHelpModal toolId="admin-announcements" isOpen={showHelp} onClose={closeHelp} />
+        <div className="flex justify-end mb-3">
+          <HelpButton onClick={openHelp} />
+        </div>
         {/* ── Header ─────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>

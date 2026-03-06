@@ -8,6 +8,7 @@ import { getApiUrl } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import RichTextEditor from "@/components/ui/RichTextEditor";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 const CATEGORIES = [
   { value: "news", label: "News" },
@@ -36,6 +37,7 @@ export default function WriteArticlePage() {
 
 function WriteArticleContent() {
   const { user, getAccessToken } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("press-write");
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
@@ -210,7 +212,9 @@ function WriteArticleContent() {
   return (
     <div className="min-h-screen bg-ghost">
       <DashboardHeader title={editId ? "Edit Article" : "Write Article"} />
+      <ToolHelpModal toolId="press-write" isOpen={showHelp} onClose={closeHelp} />
       <div className="max-w-5xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
+        <div className="flex justify-end mb-3"><HelpButton onClick={openHelp} /></div>
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
       <div className="flex items-center justify-between">

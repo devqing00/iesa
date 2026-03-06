@@ -8,6 +8,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { PasswordInput } from "@/components/ui/Input";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Types ──────────────────────────────────────────────── */
 
@@ -89,6 +90,7 @@ const CATEGORY_META: { key: NotifCategory; label: string; desc: string; icon: Re
 
 export default function SettingsPage() {
   const { userProfile, refreshProfile, signOut } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("settings");
   const { allSessions } = useSession();
   const router = useRouter();
 
@@ -322,14 +324,18 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <ToolHelpModal toolId="settings" isOpen={showHelp} onClose={closeHelp} />
       {/* Page Header */}
-      <div className="mb-10">
-        <h1 className="font-display font-black text-display-lg text-navy">
-          <span className="brush-highlight">Settings</span>
-        </h1>
-        <p className="mt-2 text-slate text-body">
-          Manage your password, notification preferences, and account.
-        </p>
+      <div className="flex items-start justify-between gap-4 mb-10">
+        <div>
+          <h1 className="font-display font-black text-display-lg text-navy">
+            <span className="brush-highlight">Settings</span>
+          </h1>
+          <p className="mt-2 text-slate text-body">
+            Manage your password, notification preferences, and account.
+          </p>
+        </div>
+        <HelpButton onClick={openHelp} />
       </div>
 
       {/* ═══════════════════════════════════════════════════════

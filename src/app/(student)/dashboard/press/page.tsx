@@ -7,6 +7,7 @@ import { getApiUrl } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { ConfirmModal } from "@/components/ui/Modal";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 interface Article {
   _id: string;
@@ -37,6 +38,7 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }>
 
 export default function PressDashboardPage() {
   const { user, getAccessToken } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("press");
   const toast = useToast();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -136,7 +138,9 @@ export default function PressDashboardPage() {
   return (
     <div className="min-h-screen bg-ghost">
       <DashboardHeader title="Association Press" />
+      <ToolHelpModal toolId="press" isOpen={showHelp} onClose={closeHelp} />
       <div className="max-w-5xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
+        <div className="flex justify-end mb-3"><HelpButton onClick={openHelp} /></div>
 
     {accessDenied ? (
       <div className="bg-snow border-[3px] border-navy rounded-3xl p-10 shadow-[4px_4px_0_0_#000] text-center max-w-lg mx-auto mt-8">

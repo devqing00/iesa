@@ -8,6 +8,7 @@ import { isInstitutionalEmail } from "@/lib/emailUtils";
 import Link from "next/link";
 import { toast } from "sonner";
 import { OnboardingModal } from "@/components/ui/OnboardingModal";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── types ─── */
 interface UserProfile {
@@ -38,6 +39,7 @@ interface UserProfile {
 
 export default function ProfilePage() {
   const { user, getAccessToken } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("profile");
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
@@ -429,6 +431,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-ghost p-4 sm:p-6 lg:p-8 pb-24 md:pb-8 overflow-x-hidden relative">
+      <ToolHelpModal toolId="profile" isOpen={showHelp} onClose={closeHelp} />
       {/* ── onboarding modal (portal) ── */}
       {showOnboardingFlow && (
         <OnboardingModal
@@ -450,16 +453,19 @@ export default function ProfilePage() {
       ))}
 
       <div className="max-w-6xl mx-auto space-y-8 relative z-10">
-        {/* ── back link ── */}
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-2 text-sm font-display font-bold text-navy hover:text-coral transition-colors"
-        >
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />
-          </svg>
-          Back to Dashboard
-        </Link>
+        {/* ── back link + help ── */}
+        <div className="flex items-center justify-between">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 text-sm font-display font-bold text-navy hover:text-coral transition-colors"
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />
+            </svg>
+            Back to Dashboard
+          </Link>
+          <HelpButton onClick={openHelp} />
+        </div>
 
         {/* ── notifications ── */}
         {successMessage && (

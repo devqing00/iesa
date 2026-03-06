@@ -10,6 +10,7 @@ import { AdminDashboardSkeleton } from "@/components/ui/Skeleton";
 import { getApiUrl } from "@/lib/api";
 
 const AdminCharts = dynamic(() => import("./AdminCharts"), { ssr: false });
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Helpers ────────────────────────────────────── */
 
@@ -29,6 +30,7 @@ function formatTimeAgo(timestamp: string): string {
 
 export default function AdminDashboardPage() {
   const { user, getAccessToken } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("admin-dashboard");
   const { data, isLoading: loading } = useAdminStats(!!user);
 
   // Detailed engagement analytics
@@ -131,6 +133,10 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
+      <ToolHelpModal toolId="admin-dashboard" isOpen={showHelp} onClose={closeHelp} />
+      <div className="flex justify-end mb-3">
+        <HelpButton onClick={openHelp} />
+      </div>
       {/* ── Header ─────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>

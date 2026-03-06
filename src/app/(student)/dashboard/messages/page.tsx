@@ -6,6 +6,7 @@ import { getApiUrl, getWsUrl } from "@/lib/api";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmModal } from "@/components/ui/Modal";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -113,6 +114,7 @@ type SidebarTab = "chats" | "requests" | "connections";
 
 export default function MessagesPage() {
   const { getAccessToken, userProfile } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("messages");
   const toast = useToast();
   const currentUserId = userProfile?.id || "";
 
@@ -706,8 +708,10 @@ export default function MessagesPage() {
   return (
     <main id="main-content" className="min-h-screen bg-ghost">
       <DashboardHeader title="Messages" />
+      <ToolHelpModal toolId="messages" isOpen={showHelp} onClose={closeHelp} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex justify-end mb-3"><HelpButton onClick={openHelp} /></div>
         {/* ── Mute Banner ── */}
         {muteInfo?.muted && (
           <div className="mb-4 bg-coral-light border-[3px] border-coral rounded-2xl p-4 flex items-start gap-3">

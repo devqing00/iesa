@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Types ──────────────────────────────────────────────── */
 
@@ -33,6 +34,7 @@ interface ArchiveData {
 /* ─── Component ──────────────────────────────────────────── */
 
 export default function ArchivePage() {
+  const { showHelp, openHelp, closeHelp } = useToolHelp("archive");
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [data, setData] = useState<ArchiveData | null>(null);
@@ -77,14 +79,18 @@ export default function ArchivePage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <ToolHelpModal toolId="archive" isOpen={showHelp} onClose={closeHelp} />
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="font-display font-black text-display-lg text-navy">
-          Session <span className="brush-highlight">Archive</span>
-        </h1>
-        <p className="mt-2 text-slate text-body">
-          Browse announcements and events from past academic sessions.
-        </p>
+      <div className="flex items-start justify-between gap-4 mb-8">
+        <div>
+          <h1 className="font-display font-black text-display-lg text-navy">
+            Session <span className="brush-highlight">Archive</span>
+          </h1>
+          <p className="mt-2 text-slate text-body">
+            Browse announcements and events from past academic sessions.
+          </p>
+        </div>
+        <HelpButton onClick={openHelp} />
       </div>
 
       {/* Session Picker */}

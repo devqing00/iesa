@@ -21,6 +21,7 @@ import type {
   LeaderboardEntry,
   IepodPhase,
 } from "@/lib/api";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Phase timeline component ─────────────────────────────────── */
 
@@ -202,6 +203,7 @@ function RegistrationForm({
 
 export default function IepodStudentPage() {
   const { user } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("iepod");
   const [profile, setProfile] = useState<MyIepodProfile | null>(null);
   const [societies, setSocieties] = useState<Society[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -285,7 +287,9 @@ export default function IepodStudentPage() {
   return (
     <div className="min-h-screen">
       <DashboardHeader title="IEPOD Hub" />
+      <ToolHelpModal toolId="iepod" isOpen={showHelp} onClose={closeHelp} />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-end mb-3"><HelpButton onClick={openHelp} /></div>
         {/* ── Not Registered ──────────────────────────────────── */}
         {!isRegistered && (
           <div className="grid lg:grid-cols-5 gap-8">

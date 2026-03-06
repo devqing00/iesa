@@ -49,6 +49,7 @@ import type {
   NicheAudit,
   QuizResult,
 } from "@/lib/api";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Types ────────────────────────────────────── */
 type Tab = "overview" | "registrations" | "societies" | "quizzes" | "teams" | "submissions" | "niche-audits" | "points";
@@ -113,6 +114,7 @@ function StatCard({ label, value, bg }: { label: string; value: number | string;
 
 function AdminIepodPage() {
   const [tab, setTab] = useState<Tab>("overview");
+  const { showHelp, openHelp, closeHelp } = useToolHelp("admin-iepod");
 
   /* ── Stats ── */
   const [stats, setStats] = useState<IepodStats | null>(null);
@@ -337,6 +339,10 @@ function AdminIepodPage() {
      ═══════════════════════════════════════════════ */
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+      <ToolHelpModal toolId="admin-iepod" isOpen={showHelp} onClose={closeHelp} />
+      <div className="flex justify-end mb-3">
+        <HelpButton onClick={openHelp} />
+      </div>
       {/* ─── Header ─── */}
       <div>
         <h1 className="font-display font-black text-2xl md:text-3xl text-navy">

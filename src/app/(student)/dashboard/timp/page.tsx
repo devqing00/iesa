@@ -20,6 +20,7 @@ import type {
   TimpFeedback,
   TimpMessage,
 } from "@/lib/api";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Helpers ────────────────────────────── */
 
@@ -48,6 +49,7 @@ function Stars({ rating }: { rating: number }) {
 
 export default function TimpPage() {
   const { user } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("timp");
   const [info, setInfo] = useState<MyTimpInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -209,8 +211,10 @@ export default function TimpPage() {
   return (
     <div className="min-h-screen bg-ghost">
       <DashboardHeader title="TIMP" />
+      <ToolHelpModal toolId="timp" isOpen={showHelp} onClose={closeHelp} />
 
       <div className="max-w-5xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8 space-y-8">
+        <div className="flex justify-end mb-3"><HelpButton onClick={openHelp} /></div>
         {/* ── Hero ── */}
         <div className="bg-teal border-4 border-navy rounded-3xl p-8 shadow-[6px_6px_0_0_#000] relative overflow-hidden">
           <div className="absolute -bottom-10 -right-10 w-36 h-36 rounded-full bg-navy/10 pointer-events-none" />

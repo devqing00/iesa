@@ -13,6 +13,7 @@ import {
   getMyIepodProfile,
 } from "@/lib/api";
 import type { NicheAudit, Society } from "@/lib/api";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 const STEPS = [
   { key: "focus", title: "Focus Problem", desc: "What engineering problem do you want to explore?" },
@@ -33,6 +34,7 @@ const SKILL_SUGGESTIONS = [
 
 export default function NicheAuditPage() {
   const { user } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("iepod-niche-audit");
   const [audit, setAudit] = useState<NicheAudit | null>(null);
   const [societies, setSocieties] = useState<Society[]>([]);
   const [loading, setLoading] = useState(true);
@@ -276,13 +278,17 @@ export default function NicheAuditPage() {
   return (
     <div className="min-h-screen">
       <DashboardHeader title={isEditingExisting ? "Edit Niche Audit" : "Niche Audit"} />
+      <ToolHelpModal toolId="iepod-niche-audit" isOpen={showHelp} onClose={closeHelp} />
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        <Link
-          href="/dashboard/iepod"
-          className="text-lavender font-bold text-sm hover:underline inline-block"
-        >
-          &larr; Back to IEPOD
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link
+            href="/dashboard/iepod"
+            className="text-lavender font-bold text-sm hover:underline inline-block"
+          >
+            &larr; Back to IEPOD
+          </Link>
+          <HelpButton onClick={openHelp} />
+        </div>
 
         {/* Step indicator */}
         <div className="flex items-center gap-1 overflow-x-auto pb-2">

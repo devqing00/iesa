@@ -7,8 +7,9 @@ import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { toast } from "sonner";
 import { ConfirmModal } from "@/components/ui/Modal";
 import Pagination from "@/components/ui/Pagination";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
-/* ─── Types ──────────────────────────────── */
+/* ── Types ──────────────────────────────── */
 
 interface ContactMessage {
   _id: string;
@@ -42,6 +43,7 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }>
 
 function AdminMessagesPage() {
   const { getAccessToken } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("admin-messages");
 
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -215,6 +217,10 @@ function AdminMessagesPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
+      <ToolHelpModal toolId="admin-messages" isOpen={showHelp} onClose={closeHelp} />
+      <div className="flex justify-end mb-3">
+        <HelpButton onClick={openHelp} />
+      </div>
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>

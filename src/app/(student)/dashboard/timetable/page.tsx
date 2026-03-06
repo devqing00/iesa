@@ -14,6 +14,7 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import { addDays, isSameDay, parseISO } from "date-fns";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { useToast } from "@/components/ui/Toast";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Calendar setup ────────────────────────────────────────────── */
 
@@ -100,6 +101,7 @@ const todayCardColors = [
 
 export default function TimetablePage() {
   const { user, userProfile, getAccessToken } = useAuth();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("timetable");
   const [classes, setClasses] = useState<ClassSession[]>([]);
   const [cancellations, setCancellations] = useState<ClassCancellation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -314,8 +316,10 @@ export default function TimetablePage() {
   return (
     <div className="min-h-screen bg-ghost">
       <DashboardHeader title="Timetable" />
+      <ToolHelpModal toolId="timetable" isOpen={showHelp} onClose={closeHelp} />
 
       <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
+        <div className="flex justify-end mb-3"><HelpButton onClick={openHelp} /></div>
 
         {/* ═══════════════════════════════════════════════════════
             HERO BENTO

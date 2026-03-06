@@ -33,8 +33,9 @@ import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { Modal } from "@/components/ui/Modal";
 import Pagination from "@/components/ui/Pagination";
 import Image from "next/image";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
-/* ─── Types ────────────────────────────────────── */
+/* ── Types ────────────────────────────────────── */
 type Tab = "applications" | "assignment" | "pairs" | "analytics";
 const SUB_TABS = ["pending", "approved", "rejected"] as const;
 const PAIR_TABS = ["active", "paused", "completed"] as const;
@@ -124,6 +125,7 @@ function EmptyState({ message }: { message: string }) {
 
 function AdminTimpPage() {
   const [tab, setTab] = useState<Tab>("applications");
+  const { showHelp, openHelp, closeHelp } = useToolHelp("admin-timp");
 
   /* ── Form toggle ── */
   const [formOpen, setFormOpen] = useState(true);
@@ -380,6 +382,10 @@ function AdminTimpPage() {
      ═══════════════════════════════════════════════ */
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+      <ToolHelpModal toolId="admin-timp" isOpen={showHelp} onClose={closeHelp} />
+      <div className="flex justify-end mb-3">
+        <HelpButton onClick={openHelp} />
+      </div>
       {/* ─── Header ─── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
