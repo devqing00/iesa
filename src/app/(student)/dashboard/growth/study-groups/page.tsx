@@ -95,6 +95,7 @@ function GroupChatPanel({ groupId, userId, getAccessToken }: ChatPanelProps) {
   const wsRef = useRef<WebSocket | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cancelledRef = useRef(false);
 
   useEffect(() => {
@@ -113,7 +114,16 @@ function GroupChatPanel({ groupId, userId, getAccessToken }: ChatPanelProps) {
       wsRef.current = ws;
       setWsStatus("connecting");
 
-      ws.onopen = () => setWsStatus("open");
+      ws.onopen = () => {
+        setWsStatus("open");
+        // Heartbeat: send ping every 30 s to keep connection alive through proxies
+        if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+        heartbeatRef.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "ping" }));
+          }
+        }, 30_000);
+      };
 
       ws.onmessage = (event) => {
         try {
@@ -123,11 +133,16 @@ function GroupChatPanel({ groupId, userId, getAccessToken }: ChatPanelProps) {
               prev.some((m) => m.id === packet.data.id) ? prev : [...prev, packet.data]
             );
           }
+          // pong from server — ignore (just keeps the connection alive)
         } catch { /* ignore */ }
       };
 
       ws.onclose = () => {
         setWsStatus("closed");
+        if (heartbeatRef.current) {
+          clearInterval(heartbeatRef.current);
+          heartbeatRef.current = null;
+        }
         if (!cancelledRef.current) {
           reconnectRef.current = setTimeout(() => connectWS(), 4000);
         }
@@ -154,6 +169,7 @@ function GroupChatPanel({ groupId, userId, getAccessToken }: ChatPanelProps) {
     return () => {
       cancelledRef.current = true;
       if (reconnectRef.current) clearTimeout(reconnectRef.current);
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
       if (wsRef.current) {
         wsRef.current.onclose = null;
         wsRef.current.close();
@@ -202,7 +218,7 @@ function GroupChatPanel({ groupId, userId, getAccessToken }: ChatPanelProps) {
                     {new Date(msg.createdAt).toLocaleString("en-NG", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </p>
-                <div className={`inline-block px-4 py-2 rounded-2xl text-sm ${
+                <div className={`inline-block px-4 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words ${
                   msg.userId === userId ? "bg-lime text-navy rounded-tr-sm" : "bg-ghost text-navy rounded-tl-sm"
                 }`}>
                   {msg.text}
@@ -213,20 +229,27 @@ function GroupChatPanel({ groupId, userId, getAccessToken }: ChatPanelProps) {
         )}
         <div ref={bottomRef} />
       </div>
-      <div className="flex gap-2">
-        <input
+      <div className="flex gap-2 items-end">
+        <textarea
           value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
+          onChange={(e) => {
+            setInputValue(e.target.value);
+            const el = e.target;
+            el.style.height = "auto";
+            el.style.height = Math.min(el.scrollHeight, 120) + "px";
+          }}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-          placeholder="Type a message..."
+          placeholder="Type a message... (Shift+Enter for new line)"
           maxLength={500}
+          rows={1}
           disabled={wsStatus !== "open"}
-          className="flex-1 px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-teal focus:outline-none disabled:opacity-50"
+          className="flex-1 resize-none px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-teal focus:outline-none disabled:opacity-50"
+          style={{ maxHeight: "120px" }}
         />
         <button
           onClick={sendMessage}
           disabled={wsStatus !== "open" || !inputValue.trim()}
-          className="bg-navy text-snow px-5 py-3 rounded-xl font-display font-bold text-sm disabled:opacity-40 hover:bg-navy-light transition-colors"
+          className="bg-navy text-snow px-5 py-3 rounded-xl font-display font-bold text-sm disabled:opacity-40 hover:bg-navy-light transition-colors shrink-0"
         >
           Send
         </button>

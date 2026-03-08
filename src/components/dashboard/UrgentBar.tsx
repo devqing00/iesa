@@ -43,9 +43,15 @@ export default function UrgentBar() {
 
     load();
     const interval = setInterval(load, 180_000);
+
+    // Instant refresh when SSE dispatches an announcement event
+    const handleSSE = () => load();
+    window.addEventListener("sse:notification", handleSSE);
+
     return () => {
       cancelled = true;
       clearInterval(interval);
+      window.removeEventListener("sse:notification", handleSSE);
     };
   }, [user, getAccessToken]);
 

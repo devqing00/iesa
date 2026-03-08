@@ -5,6 +5,7 @@ import { mutate } from "swr";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
 import { EventSchemaObject, flattenZodErrors } from "@/lib/schemas";
@@ -246,8 +247,8 @@ function AdminEventsPage() {
       if (!res.ok) throw new Error("Upload failed");
       const data = await res.json();
       setForm((f) => ({ ...f, imageUrl: data.url }));
-    } catch {
-      toast.error("Image upload failed");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Image upload failed"));
     } finally {
       setImageUploading(false);
     }
@@ -304,18 +305,20 @@ function AdminEventsPage() {
       };
 
       if (editingEvent) {
-        await fetch(getApiUrl(`/api/v1/events/${editingEvent.id}`), {
+        const res = await fetch(getApiUrl(`/api/v1/events/${editingEvent.id}`), {
           method: "PATCH",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify(body),
         });
+        if (!res.ok) await throwApiError(res, "edit this event");
       } else {
         if (!activeSessionId) throw new Error("No active academic session found");
-        await fetch(getApiUrl("/api/v1/events/"), {
+        const res = await fetch(getApiUrl("/api/v1/events/"), {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ ...body, sessionId: activeSessionId, createdBy: user?.id ?? "" }),
         });
+        if (!res.ok) await throwApiError(res, "create event");
       }
 
       await fetchEvents();
@@ -324,8 +327,8 @@ function AdminEventsPage() {
       setEditingEvent(null);
       setForm(emptyForm);
       toast.success(editingEvent ? "Event updated" : "Event created");
-    } catch {
-      toast.error("Failed to save event");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to save event"));
     } finally {
       setSubmitting(false);
     }
@@ -334,15 +337,16 @@ function AdminEventsPage() {
   const handleDelete = async (id: string) => {
     const token = await getToken();
     try {
-      await fetch(getApiUrl(`/api/v1/events/${id}`), {
+      const res = await fetch(getApiUrl(`/api/v1/events/${id}`), {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!res.ok) await throwApiError(res, "delete this event");
       setDeleteConfirm(null);
       await fetchEvents();
       mutate("/api/v1/admin/stats");
-    } catch {
-      toast.error("Failed to delete event");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to delete event"));
     }
   };
 
@@ -358,10 +362,10 @@ function AdminEventsPage() {
       const res = await fetch(getApiUrl(`/api/v1/events/${event.id}/registrations`), {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error("Failed to load registrants");
+      if (!res.ok) await throwApiError(res, "load registrants");
       setRegistrantsData(await res.json());
-    } catch {
-      toast.error("Failed to load registrant list");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to load registrant list"));
     } finally {
       setRegistrantsLoading(false);
     }
@@ -370,22 +374,24 @@ function AdminEventsPage() {
   const toggleAttendance = async (eventId: string, userId: string, hasAttended: boolean) => {
     const token = await getToken();
     try {
+      let res: Response;
       if (hasAttended) {
-        await fetch(getApiUrl(`/api/v1/events/${eventId}/attendees/${userId}`), {
+        res = await fetch(getApiUrl(`/api/v1/events/${eventId}/attendees/${userId}`), {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
         });
       } else {
-        await fetch(getApiUrl(`/api/v1/events/${eventId}/attendees`), {
+        res = await fetch(getApiUrl(`/api/v1/events/${eventId}/attendees`), {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ userId }),
         });
       }
+      if (!res.ok) await throwApiError(res, "update attendance");
       // Refresh
       if (registrantsEvent) await openRegistrants(registrantsEvent);
-    } catch {
-      toast.error("Failed to update attendance");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to update attendance"));
     }
   };
 
@@ -396,7 +402,7 @@ function AdminEventsPage() {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) await throwApiError(res, "remove registration");
       toast.success("Registration removed");
       // Re-fetch
       if (registrantsEvent) {
@@ -404,8 +410,8 @@ function AdminEventsPage() {
         // Update event list count too
         await fetchEvents();
       }
-    } catch {
-      toast.error("Failed to remove registration");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to remove registration"));
     }
   };
 
@@ -448,11 +454,11 @@ function AdminEventsPage() {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ userIds: unattended.map((r) => r.id) }),
       });
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) await throwApiError(res, "mark all as attended");
       toast.success(`Marked ${unattended.length} registrant${unattended.length !== 1 ? "s" : ""} as attended`);
       await openRegistrants(registrantsEvent);
-    } catch {
-      toast.error("Failed to mark all as attended");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to mark all as attended"));
     } finally {
       setMarkingAll(false);
     }

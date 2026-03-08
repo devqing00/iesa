@@ -6,6 +6,7 @@ import { PermissionGate } from "@/lib/withAuth";
 import { getApiUrl } from "@/lib/api";
 import { ConfirmModal } from "@/components/ui/Modal";
 import { toast } from "sonner";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -215,8 +216,7 @@ export default function RolesTab() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to assign role");
+        await throwApiError(response, "assign role");
       }
 
       const rawRole = await response.json();
@@ -237,7 +237,7 @@ export default function RolesTab() {
         toast.info("Configure permissions for this custom role");
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to assign role";
+      const msg = getErrorMessage(err, "Failed to assign role");
       setError(msg);
       toast.error(msg);
     } finally {
@@ -262,12 +262,12 @@ export default function RolesTab() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) throw new Error("Failed to delete role");
+      if (!response.ok) await throwApiError(response, "delete role");
       await fetchData();
       toast.success("Role removed");
       setDeleteConfirm({ isOpen: false, id: "" });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to delete role";
+      const msg = getErrorMessage(err, "Failed to delete role");
       setError(msg);
       toast.error(msg);
     } finally {
@@ -329,14 +329,13 @@ export default function RolesTab() {
         body: JSON.stringify({ permissions: Array.from(selectedPerms) }),
       });
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.detail || "Failed to update permissions");
+        await throwApiError(response, "update permissions");
       }
       await fetchData();
       setEditPermsRole(null);
       toast.success("Permissions updated");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to save permissions";
+      const msg = getErrorMessage(err, "Failed to save permissions");
       setError(msg);
       toast.error(msg);
     } finally {

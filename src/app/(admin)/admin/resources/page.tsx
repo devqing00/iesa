@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { ResourceSchema, type ResourceFormData, flattenZodErrors } from "@/lib/schemas";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { ConfirmModal } from "@/components/ui/Modal";
@@ -85,7 +86,7 @@ function AdminResourcesPage() {
       const res = await fetch(getApiUrl(`/api/v1/resources?${params}`), {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) await throwApiError(res, "load resources");
       const data = await res.json();
       const mapped = (data.resources ?? []).map((r: Resource) => ({
         ...r,
@@ -93,8 +94,8 @@ function AdminResourcesPage() {
       }));
       setResources(mapped);
       setTotal(data.total ?? 0);
-    } catch {
-      toast.error("Failed to load resources");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to load resources"));
     } finally {
       setLoading(false);
     }
@@ -121,13 +122,13 @@ function AdminResourcesPage() {
         },
         body: JSON.stringify({ approved: approve, feedback: feedback || null }),
       });
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) await throwApiError(res, approve ? "approve this resource" : "reject this resource");
       toast.success(approve ? "Resource approved" : "Resource rejected");
       setReviewResource(null);
       setReviewFeedback("");
       fetchResources();
-    } catch {
-      toast.error("Failed to update resource");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to update resource"));
     } finally {
       setApproving(null);
     }
@@ -141,11 +142,11 @@ function AdminResourcesPage() {
         method: "DELETE",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) await throwApiError(res, "delete this resource");
       toast.success("Resource deleted");
       fetchResources();
-    } catch {
-      toast.error("Failed to delete resource");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to delete resource"));
     } finally {
       setDeleting(null);
     }
@@ -178,13 +179,13 @@ function AdminResourcesPage() {
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ resource_ids: [...selectedIds], approved: approve }),
       });
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) await throwApiError(res, "perform bulk action");
       const data = await res.json();
       toast.success(data.message || `${selectedIds.size} resources updated`);
       setSelectedIds(new Set());
       fetchResources();
-    } catch {
-      toast.error("Bulk action failed");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Bulk action failed"));
     } finally {
       setBulkProcessing(false);
     }
@@ -213,16 +214,13 @@ function AdminResourcesPage() {
         },
         body: JSON.stringify(result.data),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail ?? "Failed to add resource");
-      }
+      if (!res.ok) await throwApiError(res, "add resource");
       toast.success("Resource added successfully");
       await fetchResources();
       setShowAddForm(false);
       setFormData({});
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to add resource");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to add resource"));
     } finally {
       setSubmitting(false);
     }

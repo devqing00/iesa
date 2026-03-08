@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useSidebar } from "@/context/SidebarContext";
 import { usePermissions } from "@/context/PermissionsContext";
+import { useDM } from "@/context/DMContext";
 import { prefetchRoute } from "@/hooks/useData";
 import { isExternalStudent, EXTERNAL_HIDDEN_HREFS } from "@/lib/studentAccess";
 
@@ -174,6 +175,7 @@ export default function Sidebar() {
   const { signOut, userProfile } = useAuth();
   const { isExpanded, toggleSidebar, closeSidebar } = useSidebar();
   const { hasPermission, permissions } = usePermissions();
+  const { totalUnread } = useDM();
 
   const external = isExternalStudent(userProfile?.department);
 
@@ -257,7 +259,7 @@ export default function Sidebar() {
                       href={link.href}
                       title={!isExpanded ? link.name : undefined}
                       onMouseEnter={() => prefetchRoute(link.href)}
-                      className={`flex items-center gap-3 rounded-xl transition-all text-sm ${
+                      className={`relative flex items-center gap-3 rounded-xl transition-all text-sm ${
                         isExpanded ? "px-3 py-2.5" : "justify-center px-2 py-2.5"
                       } ${
                         isActive
@@ -267,6 +269,14 @@ export default function Sidebar() {
                     >
                       <span className={isActive ? "text-navy" : ""}>{link.icon}</span>
                       {isExpanded && <span className="truncate">{link.name}</span>}
+                      {isExpanded && link.href === "/dashboard/messages" && totalUnread > 0 && (
+                        <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-coral text-snow text-[10px] font-black flex items-center justify-center">
+                          {totalUnread > 9 ? "9+" : totalUnread}
+                        </span>
+                      )}
+                      {!isExpanded && link.href === "/dashboard/messages" && totalUnread > 0 && (
+                        <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-coral border border-snow" />
+                      )}
                     </Link>
                   );
                 })}

@@ -509,7 +509,7 @@ export default function TimpPage() {
                                           {new Date(msg.createdAt).toLocaleString("en-NG", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                                         </span>
                                       </div>
-                                      <p className="text-sm text-navy">{msg.content}</p>
+                                      <p className="text-sm text-navy whitespace-pre-wrap break-words">{msg.content}</p>
                                     </div>
                                   </div>
                                 );
@@ -518,14 +518,20 @@ export default function TimpPage() {
                           </div>
 
                           {/* Send message form */}
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
+                          <div className="flex gap-2 items-end">
+                            <textarea
                               value={newMessage}
-                              onChange={(e) => setNewMessage(e.target.value)}
+                              onChange={(e) => {
+                                setNewMessage(e.target.value);
+                                const el = e.target;
+                                el.style.height = "auto";
+                                el.style.height = Math.min(el.scrollHeight, 120) + "px";
+                              }}
                               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(pair.id); } }}
-                              placeholder="Type a message…"
-                              className="flex-1 px-4 py-2.5 bg-ghost border-[3px] border-navy/20 rounded-xl text-sm text-navy placeholder:text-slate focus:border-navy focus:outline-none transition-colors"
+                              placeholder="Type a message… (Shift+Enter for new line)"
+                              rows={1}
+                              className="flex-1 resize-none px-4 py-2.5 bg-ghost border-[3px] border-navy/20 rounded-xl text-sm text-navy placeholder:text-slate focus:border-navy focus:outline-none transition-colors"
+                              style={{ maxHeight: "120px" }}
                             />
                             <button
                               onClick={() => handleSendMessage(pair.id)}

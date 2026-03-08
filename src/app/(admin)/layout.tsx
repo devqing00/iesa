@@ -2,6 +2,7 @@
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminMobileNav from "@/components/admin/AdminMobileNav";
+import NotificationBell from "@/components/dashboard/NotificationBell";
 import { useAuth } from "@/context/AuthContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { SidebarProvider, useSidebar } from "@/context/SidebarContext";

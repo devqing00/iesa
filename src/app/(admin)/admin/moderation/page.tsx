@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { withAuth } from "@/lib/withAuth";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmModal } from "@/components/ui/Modal";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
@@ -87,8 +88,8 @@ function ModerationPage() {
     try {
       const res = await apiFetch("/api/v1/admin/messages/reports");
       if (res.ok) setReports(await res.json());
-    } catch {
-      /* silent */
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to load reports"));
     } finally {
       setLoading(false);
     }
@@ -99,8 +100,8 @@ function ModerationPage() {
     try {
       const res = await apiFetch("/api/v1/admin/messages/muted-users");
       if (res.ok) setMutedUsers(await res.json());
-    } catch {
-      /* silent */
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to load muted users"));
     } finally {
       setLoading(false);
     }
@@ -128,8 +129,7 @@ function ModerationPage() {
         }
       );
       if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.detail || "Failed");
+        await throwApiError(res, "review report");
       }
       toast.success(
         reviewAction === "mute"
@@ -142,7 +142,7 @@ function ModerationPage() {
       fetchReports();
       fetchMutedUsers();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Action failed");
+      toast.error(getErrorMessage(e, "Action failed"));
     } finally {
       setSubmitting(false);
     }
@@ -156,12 +156,12 @@ function ModerationPage() {
         `/api/v1/admin/messages/muted-users/${unmuteModal.userId}`,
         { method: "DELETE" }
       );
-      if (!res.ok) throw new Error();
+      if (!res.ok) await throwApiError(res, "unmute user");
       toast.success(`${unmuteModal.name} has been unmuted`);
       setUnmuteModal({ open: false, userId: "", name: "" });
       fetchMutedUsers();
-    } catch {
-      toast.error("Failed to unmute user");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to unmute user"));
     }
   };
 

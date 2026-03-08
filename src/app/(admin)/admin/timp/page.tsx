@@ -30,7 +30,9 @@ import type {
   TimpMessage,
 } from "@/lib/api";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
+import { getErrorMessage } from "@/lib/adminApiError";
 import { Modal } from "@/components/ui/Modal";
+import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
 import Image from "next/image";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
@@ -134,7 +136,7 @@ function AdminTimpPage() {
   useEffect(() => {
     getTimpSettings()
       .then((s) => setFormOpen(s.formOpen))
-      .catch(() => {});
+      .catch((err) => { toast.error(getErrorMessage(err, "Failed to load settings")); });
   }, []);
 
   const handleToggleForm = async () => {
@@ -142,7 +144,7 @@ function AdminTimpPage() {
     try {
       const updated = await updateTimpSettings(!formOpen);
       setFormOpen(updated.formOpen);
-    } catch { /* handled */ } finally {
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to toggle form")); } finally {
       setTogglingForm(false);
     }
   };
@@ -205,7 +207,7 @@ function AdminTimpPage() {
       });
       setApps(data.items ?? []);
       setTotalApps(data.total ?? 0);
-    } catch { /* handled */ } finally {
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to load applications")); } finally {
       setLoadingApps(false);
     }
   }, [appSubTab, appPage]);
@@ -220,7 +222,7 @@ function AdminTimpPage() {
       ]);
       setMentors(mentorsRes.items ?? []);
       setMentees(menteesRes.items ?? []);
-    } catch { /* handled */ } finally {
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to load assignment data")); } finally {
       setLoadingAssignment(false);
     }
   }, []);
@@ -236,7 +238,7 @@ function AdminTimpPage() {
       });
       setPairs(data.items ?? []);
       setTotalPairs(data.total ?? 0);
-    } catch { /* handled */ } finally {
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to load pairs")); } finally {
       setLoadingPairs(false);
     }
   }, [pairSubTab, pairPage]);
@@ -247,7 +249,7 @@ function AdminTimpPage() {
     try {
       const data = await getTimpAnalytics();
       setAnalytics(data);
-    } catch { /* handled */ } finally {
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to load analytics")); } finally {
       setLoadingAnalytics(false);
     }
   }, []);
@@ -260,7 +262,7 @@ function AdminTimpPage() {
       const msgs = await getPairMessages(pairId, 100);
       setPairMessages(msgs);
       setMessagesPairId(pairId);
-    } catch { /* handled */ } finally {
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to load messages")); } finally {
       setLoadingMessages(false);
     }
   };
@@ -309,7 +311,7 @@ function AdminTimpPage() {
       setReviewApp(null);
       setReviewFeedback("");
       await fetchApps();
-    } catch { /* handled */ } finally {
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to review application")); } finally {
       setSubmittingReview(false);
     }
   };
@@ -322,7 +324,7 @@ function AdminTimpPage() {
       setSelectedMentor(null);
       setSelectedMentee(null);
       await fetchAssignment();
-    } catch { /* handled */ } finally {
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to create pair")); } finally {
       setCreatingPair(false);
     }
   };
@@ -331,7 +333,7 @@ function AdminTimpPage() {
     try {
       await updatePairStatus(pairId, status);
       await fetchPairs();
-    } catch { /* handled */ }
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to update pair")); }
   };
 
   const loadFeedback = async (pairId: string) => {
@@ -340,7 +342,7 @@ function AdminTimpPage() {
       const fb = await getPairFeedback(pairId);
       setFeedbackHistory(fb);
       setFeedbackPairId(pairId);
-    } catch { /* handled */ }
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to load feedback")); }
   };
 
   const openUserDetail = async (userId: string) => {
@@ -349,7 +351,7 @@ function AdminTimpPage() {
     try {
       const detail = await getTimpUserDetails(userId);
       setDetailUser(detail);
-    } catch { /* handled */ } finally {
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to load user details")); } finally {
       setLoadingDetail(false);
     }
   };
@@ -1462,7 +1464,7 @@ function PairsTab({
                                 })}
                               </span>
                             </div>
-                            <p className="text-sm text-navy">{msg.content}</p>
+                            <p className="text-sm text-navy whitespace-pre-wrap break-words">{msg.content}</p>
                           </div>
                         ))}
                       </div>

@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
 import { AnnouncementSchema, flattenZodErrors } from "@/lib/schemas";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Types ──────────────────────────────── */
@@ -209,10 +210,7 @@ function AdminAnnouncementsPage() {
           sendEmail: form.sendEmail,
         };
         const res = await fetch(getApiUrl(`/api/v1/announcements/${editingId}`), { method: "PATCH", headers, body: JSON.stringify(body) });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || "Failed to update announcement");
-        }
+        if (!res.ok) await throwApiError(res, "update this announcement");
         toast.success("Announcement updated");
       } else {
         if (!currentSession?.id) {
@@ -232,10 +230,7 @@ function AdminAnnouncementsPage() {
           authorId: user?.id ?? "",
         };
         const res = await fetch(getApiUrl("/api/v1/announcements/"), { method: "POST", headers, body: JSON.stringify(body) });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || "Failed to create announcement");
-        }
+        if (!res.ok) await throwApiError(res, "create announcement");
         toast.success(
           form.targetLevels.length > 0
             ? `Announcement created for ${form.targetLevels.join(", ")}`
@@ -248,8 +243,8 @@ function AdminAnnouncementsPage() {
       setModalOpen(false);
       setForm(EMPTY_FORM);
       setEditingId(null);
-    } catch {
-      toast.error("Failed to save announcement");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to save announcement"));
     } finally {
       setSubmitting(false);
     }
@@ -264,13 +259,13 @@ function AdminAnnouncementsPage() {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error("Failed to delete announcement");
+      if (!res.ok) await throwApiError(res, "delete this announcement");
       toast.success("Announcement deleted");
       setDeleteConfirmId(null);
       await fetchAnnouncements();
       mutate("/api/v1/admin/stats");
-    } catch {
-      toast.error("Failed to delete announcement");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to delete announcement"));
     }
   };
 

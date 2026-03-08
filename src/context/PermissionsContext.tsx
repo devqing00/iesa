@@ -62,16 +62,18 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const data = await response.json();
         const perms = data.permissions || [];
-        // Admin/exco users always get wildcard as safety net
-        if ((userProfile.role === "admin" || userProfile.role === "exco") && !perms.includes("*")) {
+        // Only full-admin users get wildcard safety net.
+        // Exco/other roles must rely on their actual permissions from the backend
+        // so PermissionGate correctly hides actions they can't perform.
+        if (userProfile.role === "admin" && !perms.includes("*")) {
           setPermissions(["*", ...perms]);
         } else {
           setPermissions(perms);
         }
       } else {
-        // Fallback: Admin/exco gets all permissions
-        if (userProfile.role === "admin" || userProfile.role === "exco") {
-          setPermissions(["*"]); // Wildcard for all permissions
+        // Fallback: only full-admin gets wildcard
+        if (userProfile.role === "admin") {
+          setPermissions(["*"]);
         } else {
           setPermissions([]);
         }

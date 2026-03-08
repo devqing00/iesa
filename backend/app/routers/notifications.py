@@ -64,6 +64,19 @@ async def create_notification(
         "createdAt": datetime.now(timezone.utc),
     }
     result = await db.notifications.insert_one(doc)
+
+    # Push SSE event so connected clients can refresh their notification bell
+    try:
+        from app.routers.sse import publish
+        publish("notification_created", {
+            "id": str(result.inserted_id),
+            "userId": user_id,
+            "type": type,
+            "title": title,
+        })
+    except Exception:
+        pass  # SSE is non-critical
+
     return str(result.inserted_id)
 
 
@@ -119,6 +132,18 @@ async def create_bulk_notifications(
         for uid in user_ids
     ]
     result = await db.notifications.insert_many(docs)
+
+    # Push SSE event so connected clients can refresh their notification bell
+    try:
+        from app.routers.sse import publish
+        publish("notification_created", {
+            "type": type,
+            "title": title,
+            "count": len(result.inserted_ids),
+        })
+    except Exception:
+        pass  # SSE is non-critical
+
     return len(result.inserted_ids)
 
 

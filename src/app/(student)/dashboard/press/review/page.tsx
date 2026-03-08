@@ -415,7 +415,7 @@ export default function PressReviewPage() {
                         <div key={fb.id || idx} className="bg-ghost border border-navy/5 rounded-xl p-2.5 text-xs">
                           <span className="font-bold text-navy">{fb.reviewerName}</span>
                           <span className="text-slate ml-2">{new Date(fb.createdAt).toLocaleDateString("en-NG", { month: "short", day: "numeric" })}</span>
-                          <p className="text-navy/70 mt-1">{fb.message}</p>
+                          <p className="text-navy/70 mt-1 whitespace-pre-wrap">{fb.message}</p>
                         </div>
                       ))}
                     </div>

@@ -5,6 +5,7 @@ import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { toast } from "sonner";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { ConfirmModal } from "@/components/ui/Modal";
 import Pagination from "@/components/ui/Pagination";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
@@ -78,12 +79,12 @@ function AdminMessagesPage() {
       const res = await fetch(getApiUrl(`/api/v1/contact?${params}`), {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (!res.ok) throw new Error("Failed to load messages");
+      if (!res.ok) await throwApiError(res, "load messages");
       const data = await res.json();
       setMessages(data.messages ?? []);
       setTotal(data.total ?? 0);
-    } catch {
-      toast.error("Failed to load messages");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to load messages"));
     } finally {
       setLoading(false);
     }
@@ -138,14 +139,14 @@ function AdminMessagesPage() {
         },
         body: JSON.stringify(updates),
       });
-      if (!res.ok) throw new Error("Failed to update");
+      if (!res.ok) await throwApiError(res, "update message");
       const updated = await res.json();
       setMessages((prev) => prev.map((m) => m._id === id ? updated : m));
       setSelected(updated);
       toast.success("Message updated");
       fetchStats();
-    } catch {
-      toast.error("Failed to update message");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to update message"));
     } finally {
       setSaving(false);
     }
@@ -159,14 +160,14 @@ function AdminMessagesPage() {
         method: "DELETE",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) await throwApiError(res, "delete message");
       toast.success("Message deleted");
       setSelected(null);
       setDeleteConfirm({ isOpen: false, id: "" });
       fetchMessages();
       fetchStats();
-    } catch {
-      toast.error("Failed to delete message");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to delete message"));
     } finally {
       setDeleting(false);
     }
@@ -184,14 +185,14 @@ function AdminMessagesPage() {
         },
         body: JSON.stringify({ status: "archived" }),
       });
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) await throwApiError(res, "archive message");
       toast.success("Message archived");
       setSelected(null);
       setArchiveConfirm({ isOpen: false, id: "" });
       fetchMessages();
       fetchStats();
-    } catch {
-      toast.error("Failed to archive message");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to archive message"));
     } finally {
       setArchiving(false);
     }

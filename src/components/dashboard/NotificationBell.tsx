@@ -52,19 +52,22 @@ function timeAgo(ts: string): string {
 }
 
 export default function NotificationBell() {
-  const { getAccessToken, user } = useAuth();
+  const { getAccessToken, user, loading: authLoading } = useAuth();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [fetching, setFetching] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const hasFetchedRef = useRef(false);
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
     try {
-      setLoading(true);
       const token = await getAccessToken();
-      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+      if (!token) return; // can't fetch without auth
+      setFetching(true);
+      const headers: HeadersInit = { Authorization: `Bearer ${token}` };
 
       // Fetch notifications and unread count in parallel
       const [listRes, countRes] = await Promise.all([
@@ -80,15 +83,18 @@ export default function NotificationBell() {
         const { count } = await countRes.json();
         setUnreadCount(count);
       }
+      hasFetchedRef.current = true;
     } catch {
       // silently fail — bell is non-critical
     } finally {
-      setLoading(false);
+      setFetching(false);
+      setInitialLoading(false);
     }
   }, [getAccessToken, user]);
 
-  /* Poll every 60 seconds + listen for SSE push events */
+  /* Fetch when user becomes available + fallback poll every 60s + SSE push events */
   useEffect(() => {
+    if (!user || authLoading) return;
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 60 * 1000);
 
@@ -100,7 +106,7 @@ export default function NotificationBell() {
       clearInterval(interval);
       window.removeEventListener("sse:notification", handleSSE);
     };
-  }, [fetchNotifications]);
+  }, [fetchNotifications, user, authLoading]);
 
   /* Close on outside click */
   useEffect(() => {
@@ -249,7 +255,7 @@ export default function NotificationBell() {
 
           {/* List */}
           <div className="max-h-[60vh] overflow-y-auto">
-            {loading ? (
+            {initialLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="w-6 h-6 border-[3px] border-navy border-t-lime rounded-full animate-spin" />
               </div>

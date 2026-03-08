@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, ComponentType } from "react";
+import { useEffect, useRef, ComponentType } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { usePermissions } from "@/context/PermissionsContext";
+import { useToast } from "@/components/ui/Toast";
 
 interface WithAuthOptions {
   requiredPermission?: string;
@@ -49,6 +50,8 @@ export function withAuth<P extends object>(
     const { user, userProfile, loading: authLoading } = useAuth();
     const { hasPermission, hasAnyPermission, hasAllPermissions, loading: permissionsLoading } = usePermissions();
     const router = useRouter();
+    const toast = useToast();
+    const toastFiredRef = useRef(false);
 
     const {
       requiredPermission,
@@ -73,27 +76,36 @@ export function withAuth<P extends object>(
         ? "/admin/dashboard"
         : "/dashboard";
 
+      // Helper to show toast once and redirect
+      const denyAccess = () => {
+        if (!toastFiredRef.current) {
+          toastFiredRef.current = true;
+          toast.error("Access denied", "You don't have permission to access this page.");
+        }
+        router.push(dashboardPath);
+      };
+
       // Check role-based access (legacy)
       if (allowedRoles && userProfile && !allowedRoles.includes(userProfile.role)) {
-        router.push(dashboardPath);
+        denyAccess();
         return;
       }
 
       // Check single permission
       if (requiredPermission && !hasPermission(requiredPermission)) {
-        router.push(dashboardPath);
+        denyAccess();
         return;
       }
 
       // Check ANY permission
       if (anyPermission && !hasAnyPermission(anyPermission)) {
-        router.push(dashboardPath);
+        denyAccess();
         return;
       }
 
       // Check ALL permissions
       if (requiredPermissions && !hasAllPermissions(requiredPermissions)) {
-        router.push(dashboardPath);
+        denyAccess();
         return;
       }
     }, [
@@ -105,6 +117,7 @@ export function withAuth<P extends object>(
       hasAnyPermission,
       hasAllPermissions,
       router,
+      toast,
     ]);
 
     // Show loading state

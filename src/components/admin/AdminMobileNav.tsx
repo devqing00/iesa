@@ -177,7 +177,7 @@ export default function AdminMobileNav() {
       name: "Messages",
       href: "/admin/messages",
       color: "bg-coral-light",
-      anyPermission: ["announcement:view"],
+      anyPermission: ["contact:view", "contact:manage"],
       icon: (
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <path d="M1.5 8.67v8.58a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3V8.67l-8.928 5.493a3 3 0 0 1-3.144 0L1.5 8.67Z" />

@@ -93,17 +93,18 @@ async def lifespan(app: FastAPI):
     )
 
     # Transaction records — unique reference for idempotent webhook/verify upserts.
-    # Wrapped in try/except: if the index already exists with a slightly different
-    # spec (e.g. without sparse), MongoDB returns IndexKeySpecsConflict (code 86).
-    # The existing unique index still satisfies our deduplication requirement.
+    # If the index exists without sparse=True (code 86 = IndexKeySpecsConflict),
+    # drop it and recreate with the correct spec — same pattern as refresh_tokens.expiresAt.
     try:
         await db["transactions"].create_index("reference", unique=True, sparse=True, background=True)
     except OperationFailure as e:
-        if e.code == 86:  # IndexKeySpecsConflict — existing index is compatible
+        if e.code == 86:  # IndexKeySpecsConflict — drop stale index and recreate
             import logging as _log
-            _log.getLogger("iesa_backend").warning(
-                "transactions.reference index already exists with a different spec — using existing index."
+            _log.getLogger("iesa_backend").info(
+                "transactions.reference index spec mismatch — dropping and recreating with sparse=True."
             )
+            await db["transactions"].drop_index("reference_1")
+            await db["transactions"].create_index("reference", unique=True, sparse=True, background=True)
         else:
             raise
 

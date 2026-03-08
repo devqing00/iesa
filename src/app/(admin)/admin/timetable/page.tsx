@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { getApiUrl } from "@/lib/api";
 import { toast } from "sonner";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { ConfirmModal } from "@/components/ui/Modal";
 import AcademicCalendarTab from "@/components/admin/AcademicCalendarTab";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
@@ -165,11 +166,10 @@ function AdminTimetablePage() {
         await fetchClasses();
         closeModal();
       } else {
-        const err = await res.json().catch(() => null);
-        toast.error(err?.detail ?? "Failed to save class");
+        await throwApiError(res, isEdit ? "update this class" : "create class");
       }
-    } catch {
-      toast.error("Failed to save class");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to save class"));
     }
   };
 
@@ -188,10 +188,10 @@ function AdminTimetablePage() {
         toast.success("Class deleted");
         await fetchClasses();
       } else {
-        toast.error("Failed to delete class");
+        await throwApiError(res, "delete this class");
       }
-    } catch {
-      toast.error("Failed to delete class");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to delete class"));
     } finally {
       setDeleting(null);
     }
@@ -238,10 +238,9 @@ function AdminTimetablePage() {
         setShowExamModal(false);
         setEditingExam(null);
       } else {
-        const err = await res.json().catch(() => null);
-        toast.error(err?.detail ?? "Failed to save exam");
+        await throwApiError(res, isEdit ? "update this exam" : "create exam");
       }
-    } catch { toast.error("Failed to save exam"); }
+    } catch (e) { toast.error(getErrorMessage(e, "Failed to save exam")); }
   };
 
   /* ── Exam delete ── */
@@ -255,8 +254,8 @@ function AdminTimetablePage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) { toast.success("Exam deleted"); await fetchExams(); }
-      else toast.error("Failed to delete exam");
-    } catch { toast.error("Failed to delete exam"); }
+      else await throwApiError(res, "delete this exam");
+    } catch (e) { toast.error(getErrorMessage(e, "Failed to delete exam")); }
     finally { setDeletingExam(null); }
   };
 

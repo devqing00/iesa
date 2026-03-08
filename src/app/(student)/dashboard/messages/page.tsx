@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getApiUrl, getWsUrl } from "@/lib/api";
+import { getApiUrl } from "@/lib/api";
+import { useDM } from "@/context/DMContext";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmModal } from "@/components/ui/Modal";
@@ -116,7 +117,11 @@ export default function MessagesPage() {
   const { getAccessToken, userProfile } = useAuth();
   const { showHelp, openHelp, closeHelp } = useToolHelp("messages");
   const toast = useToast();
+  const { subscribe, setMessagesPageOpen, syncTotalUnread } = useDM();
   const currentUserId = userProfile?.id || "";
+  // Stable ref so event handler closures always read the latest value
+  const currentUserIdRef = useRef(currentUserId);
+  currentUserIdRef.current = currentUserId;
 
   /* ── State: Core ── */
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -176,10 +181,7 @@ export default function MessagesPage() {
   /* ── Scroll ref ── */
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  /* ── WebSocket refs ── */
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const wsClosedRef = useRef(false);
+  /* ── selectedConv stable ref (for WS event handlers) ── */
   const selectedConvRef = useRef<Conversation | null>(null);
   selectedConvRef.current = selectedConv;
 
@@ -207,12 +209,14 @@ export default function MessagesPage() {
       if (!res.ok) throw new Error();
       const data: Conversation[] = await res.json();
       setConversations(data);
+      // Keep context badge in sync with actual unread totals from the API
+      syncTotalUnread(data.reduce((s, c) => s + c.unreadCount, 0));
     } catch {
       /* silent */
     } finally {
       setLoadingConvs(false);
     }
-  }, [apiFetch]);
+  }, [apiFetch, syncTotalUnread]);
 
   /* ── Fetch mute status ── */
   const fetchMuteStatus = useCallback(async () => {
@@ -535,153 +539,127 @@ export default function MessagesPage() {
 
   /* ── Initial load + WS ── */
   useEffect(() => {
+    // Tell context this page is open so it stops double-counting unreads
+    setMessagesPageOpen(true);
     fetchConversations();
     fetchMuteStatus();
-    wsClosedRef.current = false;
-
-    const connectWS = async () => {
-      if (wsClosedRef.current) return;
-      const token = await getAccessToken();
-      if (!token || wsClosedRef.current) return;
-
-      const wsUrl = getWsUrl(`/api/v1/messages/ws?token=${token}`);
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onmessage = (event) => {
-        try {
-          const packet = JSON.parse(event.data);
-
-          if (packet.type === "new_message") {
-            const msg = packet.data;
-            const activeConv = selectedConvRef.current;
-
-            if (
-              activeConv &&
-              (msg.senderId === activeConv.otherUserId ||
-                msg.recipientId === activeConv.otherUserId)
-            ) {
-              setMessages((prev) =>
-                prev.some((m) => m.id === msg.id)
-                  ? prev
-                  : [
-                      ...prev,
-                      {
-                        id: msg.id,
-                        senderId: msg.senderId,
-                        recipientId: msg.recipientId,
-                        content: msg.content,
-                        isRead: msg.isRead,
-                        createdAt: msg.createdAt,
-                      },
-                    ]
-              );
-            }
-
-            setConversations((prev) => {
-              const otherUserId =
-                msg.senderId === currentUserId
-                  ? msg.recipientId
-                  : msg.senderId;
-              const existing = prev.find((c) => c.otherUserId === otherUserId);
-              const activeConv = selectedConvRef.current;
-
-              if (existing) {
-                const updated: Conversation = {
-                  ...existing,
-                  lastMessage: msg.content.slice(0, 100),
-                  lastSenderId: msg.senderId,
-                  lastAt: msg.createdAt,
-                  unreadCount:
-                    msg.senderId !== currentUserId &&
-                    activeConv?.otherUserId !== otherUserId
-                      ? existing.unreadCount + 1
-                      : existing.unreadCount,
-                };
-                return [updated, ...prev.filter((c) => c !== existing)];
-              }
-
-              return [
-                {
-                  conversationKey: msg.conversationKey,
-                  otherUserId,
-                  otherUserName: msg.senderName || "Unknown",
-                  otherUserEmail: "",
-                  lastMessage: msg.content.slice(0, 100),
-                  lastSenderId: msg.senderId,
-                  lastAt: msg.createdAt,
-                  unreadCount: msg.senderId !== currentUserId ? 1 : 0,
-                },
-                ...prev,
-              ];
-            });
-          }
-
-          if (packet.type === "messages_read") {
-            const { conversationKey, readBy } = packet.data;
-            const activeConv = selectedConvRef.current;
-
-            if (activeConv?.conversationKey === conversationKey) {
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.recipientId === readBy && !m.isRead
-                    ? { ...m, isRead: true }
-                    : m
-                )
-              );
-            }
-
-            setConversations((prev) =>
-              prev.map((c) =>
-                c.conversationKey === conversationKey
-                  ? { ...c, unreadCount: 0 }
-                  : c
-              )
-            );
-          }
-
-          if (
-            packet.type === "connection_request" ||
-            packet.type === "message_request"
-          ) {
-            fetchRequests();
-          }
-
-          if (
-            packet.type === "connection_accepted" ||
-            packet.type === "message_request_accepted"
-          ) {
-            fetchConnectionsList();
-            fetchConversations();
-          }
-
-          if (packet.type === "muted") {
-            fetchMuteStatus();
-          }
-        } catch {
-          /* ignore malformed packets */
-        }
-      };
-
-      ws.onclose = () => {
-        if (!wsClosedRef.current) {
-          reconnectTimerRef.current = setTimeout(connectWS, 4000);
-        }
-      };
-      ws.onerror = () => ws.close();
-    };
-
-    connectWS();
-
     return () => {
-      wsClosedRef.current = true;
-      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-      if (wsRef.current) {
-        wsRef.current.onclose = null;
-        wsRef.current.close();
-      }
+      setMessagesPageOpen(false);
     };
-  }, [fetchConversations, fetchMuteStatus, fetchRequests, fetchConnectionsList, getAccessToken, currentUserId]);
+  }, [setMessagesPageOpen, fetchConversations, fetchMuteStatus]);
+
+  /* ── Subscribe to global DM WebSocket events from DMContext ── */
+  useEffect(() => {
+    return subscribe((packet) => {
+      if (packet.type === "new_message") {
+        const msg = packet.data;
+        const activeConv = selectedConvRef.current;
+        const meId = currentUserIdRef.current;
+
+        // Append message to thread if conversation is open
+        if (
+          activeConv &&
+          (msg.senderId === activeConv.otherUserId ||
+            msg.recipientId === activeConv.otherUserId)
+        ) {
+          setMessages((prev) =>
+            prev.some((m) => m.id === msg.id)
+              ? prev
+              : [
+                  ...prev,
+                  {
+                    id: msg.id,
+                    senderId: msg.senderId,
+                    recipientId: msg.recipientId,
+                    content: msg.content,
+                    isRead: msg.isRead,
+                    createdAt: msg.createdAt,
+                  },
+                ]
+          );
+        }
+
+        // Update conversation list with latest message + unread count
+        setConversations((prev) => {
+          const otherUserId =
+            msg.senderId === meId ? msg.recipientId : msg.senderId;
+          const existing = prev.find((c) => c.otherUserId === otherUserId);
+          const currentActive = selectedConvRef.current;
+
+          if (existing) {
+            const updated: Conversation = {
+              ...existing,
+              lastMessage: msg.content.slice(0, 100),
+              lastSenderId: msg.senderId,
+              lastAt: msg.createdAt,
+              unreadCount:
+                msg.senderId !== meId &&
+                currentActive?.otherUserId !== otherUserId
+                  ? existing.unreadCount + 1
+                  : existing.unreadCount,
+            };
+            return [updated, ...prev.filter((c) => c !== existing)];
+          }
+
+          return [
+            {
+              conversationKey: msg.conversationKey,
+              otherUserId,
+              otherUserName: msg.senderName || "Unknown",
+              otherUserEmail: "",
+              lastMessage: msg.content.slice(0, 100),
+              lastSenderId: msg.senderId,
+              lastAt: msg.createdAt,
+              unreadCount: msg.senderId !== meId ? 1 : 0,
+            },
+            ...prev,
+          ];
+        });
+      }
+
+      if (packet.type === "messages_read") {
+        const { conversationKey, readBy } = packet.data;
+        const activeConv = selectedConvRef.current;
+
+        if (activeConv?.conversationKey === conversationKey) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.recipientId === readBy && !m.isRead
+                ? { ...m, isRead: true }
+                : m
+            )
+          );
+        }
+
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.conversationKey === conversationKey
+              ? { ...c, unreadCount: 0 }
+              : c
+          )
+        );
+      }
+
+      if (
+        packet.type === "connection_request" ||
+        packet.type === "message_request"
+      ) {
+        fetchRequests();
+      }
+
+      if (
+        packet.type === "connection_accepted" ||
+        packet.type === "message_request_accepted"
+      ) {
+        fetchConnectionsList();
+        fetchConversations();
+      }
+
+      if (packet.type === "muted") {
+        fetchMuteStatus();
+      }
+    });
+  }, [subscribe, fetchRequests, fetchConnectionsList, fetchConversations, fetchMuteStatus]);
 
   /* ── Auto-scroll ── */
   useEffect(() => {
@@ -1289,14 +1267,20 @@ export default function MessagesPage() {
                     >
                       <textarea
                         value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
+                        onChange={(e) => {
+                          setNewMessage(e.target.value);
+                          // Auto-resize textarea
+                          const el = e.target;
+                          el.style.height = "auto";
+                          el.style.height = Math.min(el.scrollHeight, 120) + "px";
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && !e.shiftKey) {
                             e.preventDefault();
                             handleSend();
                           }
                         }}
-                        placeholder={isConnected ? "Type a message..." : "Write your message request..."}
+                        placeholder={isConnected ? "Type a message... (Shift+Enter for new line)" : "Write your message request..."}
                         rows={1}
                         className="flex-1 resize-none px-4 py-2.5 bg-ghost border-[2px] border-cloud rounded-xl text-sm text-navy placeholder:text-slate focus:border-navy focus:outline-none transition-colors"
                         style={{ maxHeight: "120px" }}

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import Pagination from "@/components/ui/Pagination";
 import { Modal } from "@/components/ui/Modal";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
@@ -127,10 +128,7 @@ function AdminUsersPage() {
           getApiUrl(`/api/v1/users/${editUser._id}/academic-info?${params}`),
           { method: "PATCH", headers }
         );
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || "Failed to update academic info");
-        }
+        if (!res.ok) await throwApiError(res, "update academic info");
       }
 
       // 2. Toggle status if changed
@@ -140,17 +138,14 @@ function AdminUsersPage() {
           getApiUrl(`/api/v1/users/${editUser._id}/status?is_active=${editIsActive}`),
           { method: "PATCH", headers }
         );
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || "Failed to update status");
-        }
+        if (!res.ok) await throwApiError(res, "update user status");
       }
 
       toast.success("User updated successfully");
       closeEdit();
       fetchUsers();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Update failed");
+      toast.error(getErrorMessage(err, "Update failed"));
     } finally {
       setSaving(false);
     }

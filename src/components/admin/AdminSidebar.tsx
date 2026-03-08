@@ -8,6 +8,7 @@ import { useSidebar } from "@/context/SidebarContext";
 import { useSession } from "@/context/SessionContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { prefetchRoute } from "@/hooks/useData";
+import { useState } from "react";
 
 /* ─── Admin Nav Group Definitions ──────────────────────────────── */
 
@@ -230,6 +231,10 @@ export default function AdminSidebar() {
   const { currentSession, allSessions } = useSession();
   const { hasPermission } = usePermissions();
   const activeSession = allSessions.find(s => s.isActive) ?? currentSession;
+  const [systemExpanded, setSystemExpanded] = useState(false);
+
+  /** Max visible links in "System" group before collapsing */
+  const SYSTEM_MAX_VISIBLE = 5;
 
   /** Check if a nav link should be visible based on permissions */
   const isLinkVisible = (link: NavLink) => {
@@ -280,6 +285,19 @@ export default function AdminSidebar() {
           {navGroups.map((group) => {
             const visibleLinks = group.links.filter(isLinkVisible);
             if (visibleLinks.length === 0) return null;
+
+            const isSystem = group.label === "System";
+            const needsCollapse = isSystem && visibleLinks.length > SYSTEM_MAX_VISIBLE;
+            const shownLinks = needsCollapse && !systemExpanded
+              ? visibleLinks.slice(0, SYSTEM_MAX_VISIBLE)
+              : visibleLinks;
+            const hiddenCount = needsCollapse ? visibleLinks.length - SYSTEM_MAX_VISIBLE : 0;
+            // Auto-expand if the active page is in the hidden portion
+            const activeInHidden = needsCollapse && !systemExpanded &&
+              visibleLinks.slice(SYSTEM_MAX_VISIBLE).some(l => pathname === l.href);
+
+            const linksToRender = activeInHidden ? visibleLinks : shownLinks;
+
             return (
             <div key={group.label}>
               {/* Group Header */}
@@ -298,7 +316,7 @@ export default function AdminSidebar() {
 
               {/* Group Links */}
               <div className="space-y-0.5">
-                {group.links.filter(isLinkVisible).map((link) => {
+                {linksToRender.map((link) => {
                   const isActive = pathname === link.href;
                   return (
                     <Link
@@ -319,6 +337,38 @@ export default function AdminSidebar() {
                     </Link>
                   );
                 })}
+
+                {/* Show more / Show less toggle for System group */}
+                {needsCollapse && !activeInHidden && isExpanded && (
+                  <button
+                    onClick={() => setSystemExpanded(!systemExpanded)}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-[11px] font-bold text-slate hover:text-navy transition-colors rounded-xl hover:bg-ghost"
+                  >
+                    <svg
+                      className={`w-4 h-4 shrink-0 transition-transform duration-200 ${systemExpanded ? "rotate-180" : ""}`}
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clipRule="evenodd" />
+                    </svg>
+                    <span>{systemExpanded ? "Show less" : `${hiddenCount} more…`}</span>
+                  </button>
+                )}
+                {needsCollapse && !activeInHidden && !isExpanded && (
+                  <button
+                    onClick={() => setSystemExpanded(!systemExpanded)}
+                    title={systemExpanded ? "Show less" : `${hiddenCount} more items`}
+                    className="flex justify-center w-full px-2 py-1.5 text-slate hover:text-navy transition-colors rounded-xl hover:bg-ghost"
+                  >
+                    <svg
+                      className={`w-4 h-4 transition-transform duration-200 ${systemExpanded ? "rotate-180" : ""}`}
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
           ); })}

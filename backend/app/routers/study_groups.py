@@ -614,6 +614,8 @@ async def websocket_chat(
                 )
                 msg["createdAt"] = msg["createdAt"].isoformat()
                 await chat_manager.broadcast(group_id, {"type": "message", "data": msg})
+            elif data.get("type") == "ping":
+                await ws.send_json({"type": "pong"})
     except WebSocketDisconnect:
         pass
     finally:

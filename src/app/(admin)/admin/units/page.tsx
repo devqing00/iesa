@@ -6,6 +6,7 @@ import { getApiUrl } from "@/lib/api";
 import { withAuth } from "@/lib/withAuth";
 import { Modal, ConfirmModal } from "@/components/ui/Modal";
 import { toast } from "sonner";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import Image from "next/image";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
@@ -129,11 +130,11 @@ function UnitsPage() {
       const res = await fetch(getApiUrl("/api/v1/unit-applications/overview"), {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error("Failed to fetch units overview");
+      if (!res.ok) await throwApiError(res, "load units overview");
       const data = await res.json();
       setUnits(data);
-    } catch {
-      toast.error("Failed to load units overview");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to load units overview"));
     } finally {
       setLoading(false);
     }
@@ -152,12 +153,12 @@ function UnitsPage() {
       const res = await fetch(getApiUrl(`/api/v1/unit-applications/?${params.toString()}`), {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error("Failed to fetch applications");
+      if (!res.ok) await throwApiError(res, "load applications");
       const data = await res.json();
       setApplications(data.items || []);
       setAppTotal(data.total || 0);
-    } catch {
-      toast.error("Failed to load applications");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to load applications"));
     } finally {
       setAppLoading(false);
     }
@@ -189,15 +190,12 @@ function UnitsPage() {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ maxMembers: settingsMaxMembers, isOpen: settingsIsOpen }),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Failed to update settings");
-      }
+      if (!res.ok) await throwApiError(res, "update unit settings");
       toast.success("Settings updated");
       setSettingsUnit(null);
       fetchOverview();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to update settings");
+      toast.error(getErrorMessage(err, "Failed to update settings"));
     } finally {
       setSavingSettings(false);
     }
@@ -215,17 +213,14 @@ function UnitsPage() {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ status: reviewStatus, feedback: reviewFeedback || null }),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Review failed");
-      }
+      if (!res.ok) await throwApiError(res, "review application");
       toast.success(`Application ${reviewStatus}`);
       setReviewApp(null);
       setReviewFeedback("");
       fetchApplications();
       fetchOverview();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Review failed");
+      toast.error(getErrorMessage(err, "Review failed"));
     } finally {
       setReviewing(false);
     }
@@ -255,15 +250,12 @@ function UnitsPage() {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Revoke failed");
-      }
+      if (!res.ok) await throwApiError(res, "revoke membership");
       toast.success(`Removed ${member.firstName} from ${unit.unitLabel}`);
       setRevokeConfirm({ isOpen: false, member: null, unit: null });
       fetchOverview();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Revoke failed");
+      toast.error(getErrorMessage(err, "Revoke failed"));
     } finally {
       setRevoking(false);
     }

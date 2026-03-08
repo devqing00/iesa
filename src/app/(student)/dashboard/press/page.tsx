@@ -292,7 +292,7 @@ export default function PressDashboardPage() {
                     {article.status === "revision_requested" && latestFeedback && (
                       <div className="mt-3 bg-coral-light border-[2px] border-coral rounded-xl p-3">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-coral mb-1">Feedback from {latestFeedback.reviewerName}</p>
-                        <p className="text-xs text-navy/80 line-clamp-2">{latestFeedback.message}</p>
+                        <p className="text-xs text-navy/80 line-clamp-2 whitespace-pre-wrap">{latestFeedback.message}</p>
                       </div>
                     )}
                   </div>

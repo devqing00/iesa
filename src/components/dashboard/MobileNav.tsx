@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useSession } from "@/context/SessionContext";
 import { usePermissions } from "@/context/PermissionsContext";
+import { useDM } from "@/context/DMContext";
 import { isExternalStudent, EXTERNAL_HIDDEN_HREFS } from "@/lib/studentAccess";
 
 interface MobileNavLink {
@@ -14,6 +15,7 @@ interface MobileNavLink {
   icon: React.ReactNode;
   color?: string;
   anyPermission?: string[];
+  badge?: number;
 }
 
 export default function MobileNav() {
@@ -21,6 +23,7 @@ export default function MobileNav() {
   const { signOut, userProfile } = useAuth();
   const { currentSession, allSessions } = useSession();
   const { hasPermission, permissions } = usePermissions();
+  const { totalUnread } = useDM();
   const [showMore, setShowMore] = useState(false);
   const activeSession = allSessions.find(s => s.isActive) ?? currentSession;
   const external = isExternalStudent(userProfile?.department);
@@ -145,6 +148,18 @@ export default function MobileNav() {
       ),
     },
     {
+      name: "Messages",
+      href: "/dashboard/messages",
+      color: "bg-lavender-light",
+      badge: totalUnread,
+      icon: (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 0 0-1.032-.211 50.89 50.89 0 0 0-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 0 0 2.433 3.984L7.28 21.53A.75.75 0 0 1 6 21v-2.234a4.75 4.75 0 0 1-1.087-3.275V10.66a4.795 4.795 0 0 1 0-7.893Z" />
+          <path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.814 2.67 2.94 1.243.102 2.5.157 3.768.165l2.782 2.781a.75.75 0 0 0 1.28-.53v-2.39l.33-.026c1.542-.125 2.67-1.433 2.67-2.94v-4.286c0-1.505-1.125-2.811-2.664-2.94A49.392 49.392 0 0 0 15.75 7.5Z" />
+        </svg>
+      ),
+    },
+    {
       name: "Announcements",
       href: "/dashboard/announcements",
       color: "bg-cloud",
@@ -185,7 +200,7 @@ export default function MobileNav() {
                   <Link
                     key={link.href}
                     href={link.href}
-                    className={`flex items-center gap-2.5 px-3 py-3 rounded-2xl text-sm font-bold transition-all ${
+                    className={`relative flex items-center gap-2.5 px-3 py-3 rounded-2xl text-sm font-bold transition-all ${
                       isActive
                         ? "bg-lime text-navy border-[3px] border-navy shadow-[3px_3px_0_0_#000]"
                         : `${link.color} text-navy/70 hover:text-navy border-[2px] border-transparent hover:border-navy/10`
@@ -194,6 +209,11 @@ export default function MobileNav() {
                   >
                     <span className={isActive ? "text-navy" : "text-navy/50"}>{link.icon}</span>
                     <span className="truncate">{link.name}</span>
+                    {link.badge != null && link.badge > 0 && (
+                      <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-coral text-snow text-[10px] font-black flex items-center justify-center">
+                        {link.badge > 9 ? "9+" : link.badge}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
@@ -268,7 +288,7 @@ export default function MobileNav() {
           })}
           <button
             onClick={() => setShowMore(!showMore)}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all ${
+            className={`relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all ${
               showMore ? "text-navy bg-lime font-bold" : "text-slate hover:text-navy"
             }`}
           >
@@ -276,6 +296,9 @@ export default function MobileNav() {
               <path fillRule="evenodd" d="M4.5 12a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm6 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm6 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clipRule="evenodd" />
             </svg>
             <span className="text-[10px] font-bold">More</span>
+            {totalUnread > 0 && !showMore && (
+              <span className="absolute top-1 right-1.5 w-2 h-2 rounded-full bg-coral border border-snow" />
+            )}
           </button>
         </div>
       </nav>

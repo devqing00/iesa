@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/adminApiError";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { Modal, ConfirmModal } from "@/components/ui/Modal";
 import Pagination from "@/components/ui/Pagination";
@@ -185,7 +186,7 @@ function AdminIepodPage() {
   /* ── Fetchers ── */
   const fetchStats = useCallback(async () => {
     setStatsLoading(true);
-    try { setStats(await getIepodStats()); } catch { toast.error("Failed to load stats"); } finally { setStatsLoading(false); }
+    try { setStats(await getIepodStats()); } catch (err) { toast.error(getErrorMessage(err, "Failed to load stats")); } finally { setStatsLoading(false); }
   }, []);
 
   const fetchRegistrations = useCallback(async () => {
@@ -193,36 +194,36 @@ function AdminIepodPage() {
     try {
       const res = await listRegistrations({ status: regSubTab, phase: regPhase || undefined, department: regDept || undefined, search: regSearch || undefined, limit: PAGE_SIZE, skip: (regPage - 1) * PAGE_SIZE });
       setRegistrations(res.registrations); setRegTotal(res.total);
-    } catch { toast.error("Failed to load registrations"); } finally { setRegLoading(false); }
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to load registrations")); } finally { setRegLoading(false); }
   }, [regSubTab, regPhase, regSearch, regPage, regDept]);
 
   const fetchSocieties = useCallback(async () => {
     setSocLoading(true);
-    try { setSocieties(await listSocieties(false)); } catch { toast.error("Failed to load societies"); } finally { setSocLoading(false); }
+    try { setSocieties(await listSocieties(false)); } catch (err) { toast.error(getErrorMessage(err, "Failed to load societies")); } finally { setSocLoading(false); }
   }, []);
 
   const fetchQuizzes = useCallback(async () => {
     setQuizLoading(true);
-    try { setQuizzes(await listQuizzes()); } catch { toast.error("Failed to load quizzes"); } finally { setQuizLoading(false); }
+    try { setQuizzes(await listQuizzes()); } catch (err) { toast.error(getErrorMessage(err, "Failed to load quizzes")); } finally { setQuizLoading(false); }
   }, []);
 
   const fetchTeams = useCallback(async () => {
     setTeamLoading(true);
-    try { const res = await listTeams({}); setTeams(res.teams); } catch { toast.error("Failed to load teams"); } finally { setTeamLoading(false); }
+    try { const res = await listTeams({}); setTeams(res.teams); } catch (err) { toast.error(getErrorMessage(err, "Failed to load teams")); } finally { setTeamLoading(false); }
   }, []);
 
   const fetchSubmissions = useCallback(async () => {
     setSubLoading(true);
-    try { const res = await listAllSubmissions({ status: subStatusFilter || undefined, limit: 100 }); setSubmissions(res.submissions); } catch { toast.error("Failed to load submissions"); } finally { setSubLoading(false); }
+    try { const res = await listAllSubmissions({ status: subStatusFilter || undefined, limit: 100 }); setSubmissions(res.submissions); } catch (err) { toast.error(getErrorMessage(err, "Failed to load submissions")); } finally { setSubLoading(false); }
   }, [subStatusFilter]);
 
   const fetchNicheAudits = useCallback(async () => {
     setNicheLoading(true);
-    try { const res = await listNicheAudits({ search: nicheSearch || undefined, limit: PAGE_SIZE, skip: (nichePage - 1) * PAGE_SIZE }); setNicheAudits(res.audits); setNicheTotal(res.total); } catch { toast.error("Failed to load niche audits"); } finally { setNicheLoading(false); }
+    try { const res = await listNicheAudits({ search: nicheSearch || undefined, limit: PAGE_SIZE, skip: (nichePage - 1) * PAGE_SIZE }); setNicheAudits(res.audits); setNicheTotal(res.total); } catch (err) { toast.error(getErrorMessage(err, "Failed to load niche audits")); } finally { setNicheLoading(false); }
   }, [nicheSearch, nichePage]);
 
   const fetchLeaderboard = useCallback(async () => {
-    try { setLeaderboard(await getLeaderboard(100)); } catch { toast.error("Failed to load leaderboard"); }
+    try { setLeaderboard(await getLeaderboard(100)); } catch (err) { toast.error(getErrorMessage(err, "Failed to load leaderboard")); }
   }, []);
 
   /* ── Trigger fetches ── */
@@ -246,7 +247,7 @@ function AdminIepodPage() {
 
   /* ── Handlers ── */
   async function handleUpdateRegistration(id: string, status: IepodRegistrationStatus, adminNote?: string, phase?: IepodPhase) {
-    try { await updateRegistration(id, { status, adminNote, phase }); toast.success(`Registration ${status}`); fetchRegistrations(); } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Update failed"); }
+    try { await updateRegistration(id, { status, adminNote, phase }); toast.success(`Registration ${status}`); fetchRegistrations(); } catch (err: unknown) { toast.error(getErrorMessage(err, "Update failed")); }
   }
 
   async function handleSaveSociety(e: React.FormEvent) {
@@ -257,7 +258,7 @@ function AdminIepodPage() {
       if (editingSociety) { await updateSociety(editingSociety._id, socForm); toast.success("Society updated"); }
       else { await createSociety(socForm); toast.success("Society created"); }
       await fetchSocieties(); closeSocModal();
-    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Save failed"); } finally { setSocSubmitting(false); }
+    } catch (err: unknown) { toast.error(getErrorMessage(err, "Save failed")); } finally { setSocSubmitting(false); }
   }
 
   function closeSocModal() {
@@ -270,7 +271,7 @@ function AdminIepodPage() {
     try {
       if (deleteTarget.type === "society") { await deleteSociety(deleteTarget.id); toast.success("Society deleted"); await fetchSocieties(); }
       else if (deleteTarget.type === "quiz") { await deleteQuiz(deleteTarget.id); toast.success("Quiz deleted"); await fetchQuizzes(); }
-    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Delete failed"); } finally { setDeleteTarget(null); }
+    } catch (err: unknown) { toast.error(getErrorMessage(err, "Delete failed")); } finally { setDeleteTarget(null); }
   }
 
   async function handleSaveQuiz(e: React.FormEvent) {
@@ -280,7 +281,7 @@ function AdminIepodPage() {
     try {
       await createQuiz({ ...quizForm, questions: quizQuestions }); toast.success("Quiz created");
       await fetchQuizzes(); closeQuizModal();
-    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Save failed"); } finally { setQuizSubmitting(false); }
+    } catch (err: unknown) { toast.error(getErrorMessage(err, "Save failed")); } finally { setQuizSubmitting(false); }
   }
 
   function closeQuizModal() {
@@ -292,18 +293,18 @@ function AdminIepodPage() {
   async function handleToggleQuizLive(quiz: IepodQuiz) {
     const qId = quiz._id || quiz.id;
     if (!qId) return;
-    try { await updateQuiz(qId, { isLive: !quiz.isLive }); toast.success(quiz.isLive ? "Quiz unpublished" : "Quiz published"); fetchQuizzes(); } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Toggle failed"); }
+    try { await updateQuiz(qId, { isLive: !quiz.isLive }); toast.success(quiz.isLive ? "Quiz unpublished" : "Quiz published"); fetchQuizzes(); } catch (err: unknown) { toast.error(getErrorMessage(err, "Toggle failed")); }
   }
 
   async function handleViewQuizResults(quizId: string) {
     if (showResultsQuizId === quizId) { setShowResultsQuizId(null); return; }
-    try { const results = await getQuizResults(quizId); setQuizResults(results); setShowResultsQuizId(quizId); } catch { toast.error("Failed to load results"); }
+    try { const results = await getQuizResults(quizId); setQuizResults(results); setShowResultsQuizId(quizId); } catch (err) { toast.error(getErrorMessage(err, "Failed to load results")); }
   }
 
   async function handleAssignMentor(teamId: string) {
     const userId = mentorInput[teamId];
     if (!userId) { toast.error("Enter a mentor user ID"); return; }
-    try { await assignMentor(teamId, userId); toast.success("Mentor assigned"); setMentorInput({ ...mentorInput, [teamId]: "" }); fetchTeams(); } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Assign failed"); }
+    try { await assignMentor(teamId, userId); toast.success("Mentor assigned"); setMentorInput({ ...mentorInput, [teamId]: "" }); fetchTeams(); } catch (err: unknown) { toast.error(getErrorMessage(err, "Assign failed")); }
   }
 
   async function handleReviewSubmission() {
@@ -312,7 +313,7 @@ function AdminIepodPage() {
     try {
       await reviewSubmission(reviewingSub._id, { status: reviewForm.status, feedback: reviewForm.feedback || undefined, score: reviewForm.score ? Number(reviewForm.score) : undefined });
       toast.success("Submission reviewed"); setReviewingSub(null); setReviewForm({ status: "reviewed", feedback: "", score: "" }); fetchSubmissions();
-    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Review failed"); } finally { setReviewSubmitting(false); }
+    } catch (err: unknown) { toast.error(getErrorMessage(err, "Review failed")); } finally { setReviewSubmitting(false); }
   }
 
   async function handleAwardBonus(e: React.FormEvent) {
@@ -322,7 +323,7 @@ function AdminIepodPage() {
     try {
       await awardBonusPoints({ userId: bonusUserId, points: Number(bonusPoints), description: bonusDesc });
       toast.success("Points awarded"); setBonusUserId(""); setBonusPoints(""); setBonusDesc(""); fetchLeaderboard();
-    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Award failed"); } finally { setBonusSubmitting(false); }
+    } catch (err: unknown) { toast.error(getErrorMessage(err, "Award failed")); } finally { setBonusSubmitting(false); }
   }
 
   function addQuizQuestion() { setQuizQuestions([...quizQuestions, { question: "", options: ["", "", "", ""], correctIndex: 0, points: 10 }]); }

@@ -4,6 +4,7 @@ import Sidebar from "@/components/dashboard/Sidebar";
 import MobileNav from "@/components/dashboard/MobileNav";
 import { useAuth } from "@/context/AuthContext";
 import { SidebarProvider, useSidebar } from "@/context/SidebarContext";
+import { DMProvider } from "@/context/DMContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useSSE } from "@/hooks/useSSE";
@@ -70,7 +71,9 @@ export default function DashboardLayout({
 
   return (
     <SidebarProvider>
-      <DashboardContent>{children}</DashboardContent>
+      <DMProvider>
+        <DashboardContent>{children}</DashboardContent>
+      </DMProvider>
     </SidebarProvider>
   );
 }

@@ -6,6 +6,7 @@ import { useSession } from "@/context/SessionContext";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { getApiUrl } from "@/lib/api";
 import { toast } from "sonner";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { SessionSchema, flattenZodErrors, type SessionFormData } from "@/lib/schemas";
 import { ConfirmModal } from "@/components/ui/Modal";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
@@ -97,19 +98,15 @@ function AdminSessionsPage() {
         },
         body: JSON.stringify(formData),
       });
-      if (response.ok) {
-        await fetchSessions();
-        await refreshSessions();
-        setShowCreateModal(false);
-        setFormErrors({});
-        setFormData({ name: "", semester1StartDate: "", semester1EndDate: "", semester2StartDate: "", semester2EndDate: "", isActive: false });
-        toast.success("Session created successfully");
-      } else {
-        const err = await response.json().catch(() => null);
-        toast.error(err?.detail ?? "Failed to create session");
-      }
-    } catch {
-      toast.error("Failed to create session");
+      if (!response.ok) await throwApiError(response, "create session");
+      await fetchSessions();
+      await refreshSessions();
+      setShowCreateModal(false);
+      setFormErrors({});
+      setFormData({ name: "", semester1StartDate: "", semester1EndDate: "", semester2StartDate: "", semester2EndDate: "", isActive: false });
+      toast.success("Session created successfully");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to create session"));
     }
   };
 
@@ -135,20 +132,16 @@ function AdminSessionsPage() {
         },
         body: JSON.stringify(formData),
       });
-      if (response.ok) {
-        await fetchSessions();
-        await refreshSessions();
-        setShowEditModal(false);
-        setEditingSession(null);
-        setFormErrors({});
-        setFormData({ name: "", semester1StartDate: "", semester1EndDate: "", semester2StartDate: "", semester2EndDate: "", isActive: false });
-        toast.success("Session updated successfully");
-      } else {
-        const err = await response.json().catch(() => null);
-        toast.error(err?.detail ?? "Failed to update session");
-      }
-    } catch {
-      toast.error("Failed to update session");
+      if (!response.ok) await throwApiError(response, "update this session");
+      await fetchSessions();
+      await refreshSessions();
+      setShowEditModal(false);
+      setEditingSession(null);
+      setFormErrors({});
+      setFormData({ name: "", semester1StartDate: "", semester1EndDate: "", semester2StartDate: "", semester2EndDate: "", isActive: false });
+      toast.success("Session updated successfully");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to update session"));
     }
   };
 
@@ -181,15 +174,12 @@ function AdminSessionsPage() {
         },
         body: JSON.stringify({ isActive: true }),
       });
-      if (response.ok) {
-        await fetchSessions();
-        await refreshSessions();
-        toast.success("Session activated");
-      } else {
-        toast.error("Failed to activate session");
-      }
-    } catch {
-      toast.error("Failed to activate session");
+      if (!response.ok) await throwApiError(response, "activate this session");
+      await fetchSessions();
+      await refreshSessions();
+      toast.success("Session activated");
+    } catch (e) {
+      toast.error(getErrorMessage(e, "Failed to activate session"));
     } finally {
       setActivating(false);
     }

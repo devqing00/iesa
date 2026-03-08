@@ -17,6 +17,7 @@ import {
 import type { BankAccount, BankTransfer } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import Pagination from "@/components/ui/Pagination";
 import { ConfirmModal } from "@/components/ui/Modal";
@@ -238,11 +239,11 @@ function AdminPaymentsPage() {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error("Failed to update setting");
+      if (!res.ok) await throwApiError(res, "update payment setting");
       setOnlinePaymentEnabled(enabled);
       toast.success(enabled ? "Online payments enabled" : "Online payments disabled");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update setting");
+      toast.error(getErrorMessage(err, "Failed to update setting"));
     } finally {
       setTogglingPayment(false);
     }
@@ -284,7 +285,7 @@ function AdminPaymentsPage() {
         setPayments(items.map((item: Payment & { _id?: string }) => ({ ...item, id: item.id || item._id })));
       }
     } catch (error) {
-      toast.error("Failed to load payments");
+      toast.error(getErrorMessage(error, "Failed to load payments"));
     } finally {
       setLoading(false);
     }
@@ -303,7 +304,7 @@ function AdminPaymentsPage() {
         setTransactions(data.map((item: Transaction & { _id?: string }) => ({ ...item, id: item.id || item._id })));
       }
     } catch (error) {
-      toast.error("Failed to load transactions");
+      toast.error(getErrorMessage(error, "Failed to load transactions"));
     } finally {
       setLoading(false);
     }
@@ -349,11 +350,10 @@ function AdminPaymentsPage() {
           description: "",
         });
       } else {
-        const error = await response.json();
-        toast.error(error.detail || "Failed to create payment");
+        await throwApiError(response, "create payment");
       }
     } catch (error) {
-      toast.error("Failed to create payment");
+      toast.error(getErrorMessage(error, "Failed to create payment"));
     } finally {
       setSubmitting(false);
     }
@@ -421,7 +421,7 @@ function AdminPaymentsPage() {
       await fetchBankAccounts();
       setShowBankAccountModal(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save bank account");
+      toast.error(getErrorMessage(err, "Failed to save bank account"));
     } finally {
       setBankAccountSubmitting(false);
     }
@@ -433,7 +433,7 @@ function AdminPaymentsPage() {
       toast.success("Bank account deleted");
       fetchBankAccounts();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to delete bank account");
+      toast.error(getErrorMessage(err, "Failed to delete bank account"));
     }
   };
 
@@ -472,7 +472,7 @@ function AdminPaymentsPage() {
       setReviewingTransfer(null);
       fetchBankTransfers();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to review transfer");
+      toast.error(getErrorMessage(err, "Failed to review transfer"));
     } finally {
       setReviewSubmitting(false);
     }
@@ -526,18 +526,14 @@ function AdminPaymentsPage() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(body),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to update");
-      }
+      if (!res.ok) await throwApiError(res, "update payment");
+      const updated = await res.json();
       toast.success("Payment updated");
       setEditingPayment(false);
       fetchPayments();
-      // Refresh the selected payment data
-      const updated = await res.json();
       setSelectedPayment((prev) => prev ? { ...prev, ...updated } : prev);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update payment");
+      toast.error(getErrorMessage(err, "Failed to update payment"));
     } finally {
       setEditSubmitting(false);
     }
@@ -553,14 +549,11 @@ function AdminPaymentsPage() {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to send reminders");
-      }
+      if (!res.ok) await throwApiError(res, "send reminders");
       const data = await res.json();
       toast.success(`Reminder sent to ${data.sent} student${data.sent === 1 ? "" : "s"}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to send reminders");
+      toast.error(getErrorMessage(err, "Failed to send reminders"));
     } finally {
       setReminderSending(false);
     }
@@ -2119,7 +2112,7 @@ function AdminPaymentsPage() {
                           const res = await fetch(getApiUrl(`/api/v1/payments/${selectedPayment._id}/paid-students/pdf`), {
                             headers: { Authorization: `Bearer ${token}` },
                           });
-                          if (!res.ok) throw new Error("Failed to generate PDF");
+                          if (!res.ok) await throwApiError(res, "download PDF report");
                           const blob = await res.blob();
                           const url = URL.createObjectURL(blob);
                           const a = document.createElement("a");
@@ -2127,8 +2120,8 @@ function AdminPaymentsPage() {
                           a.download = `PaidStudents_${(selectedPayment.title ?? "Payment").replace(/\s+/g, "_").slice(0, 30)}.pdf`;
                           a.click();
                           URL.revokeObjectURL(url);
-                        } catch {
-                          toast.error("Failed to download PDF report");
+                        } catch (e) {
+                          toast.error(getErrorMessage(e, "Failed to download PDF report"));
                         }
                       }}
                       className="px-3 py-1.5 bg-navy border-[2px] border-navy rounded-xl text-snow text-xs font-bold flex items-center gap-1.5 hover:bg-navy-light transition-colors"

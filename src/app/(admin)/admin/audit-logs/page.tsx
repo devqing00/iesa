@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
@@ -107,18 +108,13 @@ function AuditLogsPage() {
       });
 
       if (!res.ok) {
-        if (res.status === 403) {
-          toast.error("You don't have permission to view audit logs");
-        } else {
-          toast.error("Failed to load audit logs");
-        }
-        return;
+        await throwApiError(res, "view audit logs");
       }
 
       const data: AuditLogEntry[] = await res.json();
       setLogs(data);
-    } catch {
-      toast.error("Failed to load audit logs");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to load audit logs"));
     } finally {
       setLoading(false);
     }

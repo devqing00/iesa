@@ -5,6 +5,7 @@ import { mutate } from "swr";
 import { useAuth } from "@/context/AuthContext";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { getApiUrl } from "@/lib/api";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { ConfirmModal } from "@/components/ui/Modal";
 import Pagination from "@/components/ui/Pagination";
 import { toast } from "sonner";
@@ -175,18 +176,15 @@ function EnrollmentsPage() {
         body: JSON.stringify(formData),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Failed to create enrollment");
-      }
+      if (!response.ok) await throwApiError(response, "create enrollment");
 
       await fetchEnrollments();
       mutate("/api/v1/admin/stats");
       setFormData({ studentId: "", sessionId: formData.sessionId, level: "100L" });
       setShowModal(false);
       toast.success("Enrollment created successfully");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to create enrollment";
+    } catch (e) {
+      const msg = getErrorMessage(e, "Failed to create enrollment");
       setError(msg);
       toast.error(msg);
     }
@@ -209,13 +207,13 @@ function EnrollmentsPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) throw new Error("Failed to delete enrollment");
+      if (!response.ok) await throwApiError(response, "delete this enrollment");
       await fetchEnrollments();
       mutate("/api/v1/admin/stats");
       toast.success("Enrollment removed");
       setDeleteConfirm({ isOpen: false, id: "" });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to delete enrollment";
+    } catch (e) {
+      const msg = getErrorMessage(e, "Failed to delete enrollment");
       setError(msg);
       toast.error(msg);
     } finally {
