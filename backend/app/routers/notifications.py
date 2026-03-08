@@ -159,7 +159,11 @@ async def list_notifications(
     db = get_database()
     user_id = current_user.get("uid") or current_user.get("_id")
 
-    query: dict = {"userId": user_id}
+    # Accept both string IDs (new) and ObjectId (legacy data)
+    id_variants: list = [user_id]
+    if ObjectId.is_valid(str(user_id)):
+        id_variants.append(ObjectId(str(user_id)))
+    query: dict = {"userId": {"$in": id_variants}}
     if unread_only:
         query["isRead"] = False
 
@@ -178,7 +182,12 @@ async def get_unread_count(
     """Get the count of unread notifications."""
     db = get_database()
     user_id = current_user.get("uid") or current_user.get("_id")
-    count = await db.notifications.count_documents({"userId": user_id, "isRead": False})
+
+    # Accept both string IDs (new) and ObjectId (legacy data)
+    id_variants: list = [user_id]
+    if ObjectId.is_valid(str(user_id)):
+        id_variants.append(ObjectId(str(user_id)))
+    count = await db.notifications.count_documents({"userId": {"$in": id_variants}, "isRead": False})
     return {"count": count}
 
 
@@ -194,8 +203,12 @@ async def mark_as_read(
     db = get_database()
     user_id = current_user.get("uid") or current_user.get("_id")
 
+    id_variants: list = [user_id]
+    if ObjectId.is_valid(str(user_id)):
+        id_variants.append(ObjectId(str(user_id)))
+
     result = await db.notifications.update_one(
-        {"_id": ObjectId(notification_id), "userId": user_id},
+        {"_id": ObjectId(notification_id), "userId": {"$in": id_variants}},
         {"$set": {"isRead": True}},
     )
     if result.matched_count == 0:
@@ -211,8 +224,12 @@ async def mark_all_read(
     db = get_database()
     user_id = current_user.get("uid") or current_user.get("_id")
 
+    # Accept both string IDs (new) and ObjectId (legacy data)
+    id_variants: list = [user_id]
+    if ObjectId.is_valid(str(user_id)):
+        id_variants.append(ObjectId(str(user_id)))
     result = await db.notifications.update_many(
-        {"userId": user_id, "isRead": False},
+        {"userId": {"$in": id_variants}, "isRead": False},
         {"$set": {"isRead": True}},
     )
     return {"message": f"Marked {result.modified_count} notifications as read"}
@@ -230,8 +247,12 @@ async def delete_notification(
     db = get_database()
     user_id = current_user.get("uid") or current_user.get("_id")
 
+    id_variants: list = [user_id]
+    if ObjectId.is_valid(str(user_id)):
+        id_variants.append(ObjectId(str(user_id)))
+
     result = await db.notifications.delete_one(
-        {"_id": ObjectId(notification_id), "userId": user_id}
+        {"_id": ObjectId(notification_id), "userId": {"$in": id_variants}}
     )
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Notification not found")

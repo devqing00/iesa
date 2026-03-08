@@ -79,9 +79,18 @@ async def get_admin_stats(
         db["announcements"].count_documents({}),
         # Active session (single document)
         db["sessions"].find_one({"isActive": True}, {"_id": 0, "name": 1}),
-        # Enrollments grouped by level
+        # Enrollments grouped by level — normalise int (400) and string (400L) to same bucket
         db["enrollments"].aggregate([
-            {"$group": {"_id": "$level", "count": {"$sum": 1}}},
+            {"$addFields": {
+                "_levelNorm": {
+                    "$cond": [
+                        {"$regexMatch": {"input": {"$toString": "$level"}, "regex": "L$"}},
+                        {"$toString": "$level"},
+                        {"$concat": [{"$toString": "$level"}, "L"]}
+                    ]
+                }
+            }},
+            {"$group": {"_id": "$_levelNorm", "count": {"$sum": 1}}},
             {"$sort": {"_id": 1}},
         ]).to_list(length=100),
         # Payments grouped by status

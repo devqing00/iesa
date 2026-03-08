@@ -677,7 +677,7 @@ export default function ProfilePage() {
                         <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50">Class Role</div>
                         <div className="font-display font-black text-sm text-navy leading-tight">{meta.label}</div>
                         {role.level && (
-                          <div className="text-[10px] text-navy/60 mt-0.5">{role.level}L</div>
+                          <div className="text-[10px] text-navy/60 mt-0.5">{String(role.level).endsWith("L") ? role.level : `${role.level}L`}</div>
                         )}
                       </div>
                     </div>
@@ -1123,7 +1123,7 @@ export default function ProfilePage() {
                         </td>
                         <td className="p-4">
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-lavender-light text-xs font-bold text-navy">
-                            {e.level} Level
+                            {String(e.level).replace(/L$/i, "")} Level
                           </span>
                         </td>
                         <td className="p-4 text-sm text-navy/60">

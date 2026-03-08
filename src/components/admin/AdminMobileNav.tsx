@@ -41,7 +41,7 @@ export default function AdminMobileNav() {
     {
       name: "Users",
       href: "/admin/users",
-      anyPermission: ["user:view_all", "user:edit", "user:delete"],
+      anyPermission: ["user:view_all", "user:edit"],
       icon: (
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
@@ -62,7 +62,7 @@ export default function AdminMobileNav() {
     {
       name: "Payments",
       href: "/admin/payments",
-      anyPermission: ["payment:view_all", "payment:create", "payment:approve"],
+      anyPermission: ["payment:view_all", "payment:create", "payment:approve", "bank_transfer:review", "bank_transfer:manage_accounts"],
       icon: (
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <path d="M4.5 3.75a3 3 0 0 0-3 3v.75h21v-.75a3 3 0 0 0-3-3h-15Z" />
@@ -205,6 +205,18 @@ export default function AdminMobileNav() {
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <path fillRule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0 1 18 9.375v9.375a3 3 0 0 0 3-3V6.108c0-1.505-1.125-2.811-2.664-2.94a48.972 48.972 0 0 0-8.583-.19 2.977 2.977 0 0 0-2.251 1.9v1.132Z" clipRule="evenodd" />
           <path fillRule="evenodd" d="M13.023 8.125A3.375 3.375 0 0 0 9.648 4.75H7.502c-.166 0-.33.01-.493.022A4.476 4.476 0 0 0 3 9.03v7.97a3 3 0 0 0 3 3h7.5a3 3 0 0 0 3-3v-7.5c0-.81-.288-1.553-.767-2.133l-.21-.242ZM10.5 10.5a.75.75 0 0 1 .75.75v.75h.75a.75.75 0 0 1 0 1.5h-.75v.75a.75.75 0 0 1-1.5 0v-.75h-.75a.75.75 0 0 1 0-1.5h.75v-.75a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+        </svg>
+      ),
+    },
+    {
+      name: "System Health",
+      href: "/admin/health",
+      color: "bg-teal-light",
+      anyPermission: ["system:health"],
+      icon: (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path fillRule="evenodd" d="M2.25 13.5a8.25 8.25 0 0 1 8.25-8.25.75.75 0 0 1 .75.75v6.75H18a.75.75 0 0 1 .75.75 8.25 8.25 0 0 1-16.5 0Z" clipRule="evenodd" />
+          <path fillRule="evenodd" d="M12.75 3a.75.75 0 0 1 .75-.75 8.25 8.25 0 0 1 8.25 8.25.75.75 0 0 1-.75.75H12.75V3Z" clipRule="evenodd" />
         </svg>
       ),
     },

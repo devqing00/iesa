@@ -28,9 +28,18 @@ class AnnouncementBase(BaseModel):
     sendEmail: bool = Field(default=True, description="Send email notification to targeted students")
 
     def __init__(self, **data):
-        # Convert integer levels to strings if present in input data
+        # Normalise targetLevels to canonical "NL" format (e.g. "100L", "200L")
         if "targetLevels" in data and data["targetLevels"]:
-             data["targetLevels"] = [str(level) for level in data["targetLevels"]]
+            normalised = []
+            for lv in data["targetLevels"]:
+                s = str(lv).strip().upper().replace("LEVEL", "").strip()
+                # Strip trailing L if present, then re-add to ensure consistent format
+                s = s.rstrip("L")
+                if s.isdigit():
+                    normalised.append(f"{s}L")
+                else:
+                    normalised.append(str(lv))  # keep as-is for non-numeric (e.g. "PG")
+            data["targetLevels"] = normalised
         super().__init__(**data)
 
 

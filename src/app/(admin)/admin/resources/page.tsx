@@ -94,8 +94,8 @@ function AdminResourcesPage() {
       }));
       setResources(mapped);
       setTotal(data.total ?? 0);
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to load resources"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to load resources"));
     } finally {
       setLoading(false);
     }
@@ -122,13 +122,13 @@ function AdminResourcesPage() {
         },
         body: JSON.stringify({ approved: approve, feedback: feedback || null }),
       });
-      if (!res.ok) await throwApiError(res, approve ? "approve this resource" : "reject this resource");
+      if (!res.ok) await throwApiError(res, approve ? "approve resource" : "reject resource");
       toast.success(approve ? "Resource approved" : "Resource rejected");
       setReviewResource(null);
       setReviewFeedback("");
       fetchResources();
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to update resource"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to update resource"));
     } finally {
       setApproving(null);
     }
@@ -142,11 +142,11 @@ function AdminResourcesPage() {
         method: "DELETE",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (!res.ok) await throwApiError(res, "delete this resource");
+      if (!res.ok) await throwApiError(res, "delete resource");
       toast.success("Resource deleted");
       fetchResources();
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to delete resource"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to delete resource"));
     } finally {
       setDeleting(null);
     }
@@ -179,13 +179,13 @@ function AdminResourcesPage() {
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ resource_ids: [...selectedIds], approved: approve }),
       });
-      if (!res.ok) await throwApiError(res, "perform bulk action");
+      if (!res.ok) await throwApiError(res, approve ? "approve all resources" : "reject all resources");
       const data = await res.json();
       toast.success(data.message || `${selectedIds.size} resources updated`);
       setSelectedIds(new Set());
       fetchResources();
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Bulk action failed"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Bulk action failed"));
     } finally {
       setBulkProcessing(false);
     }
@@ -219,8 +219,8 @@ function AdminResourcesPage() {
       await fetchResources();
       setShowAddForm(false);
       setFormData({});
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to add resource"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to add resource"));
     } finally {
       setSubmitting(false);
     }
@@ -430,7 +430,7 @@ function AdminResourcesPage() {
         <div className="bg-sunny-light border-[3px] border-navy rounded-2xl p-3 flex items-center gap-3 flex-wrap shadow-[3px_3px_0_0_#000]">
           <span className="text-xs font-display font-black text-navy">{selectedIds.size} selected</span>
           {tab === "pending" && (
-            <>
+            <PermissionGate permission="resource:approve">
               <button
                 onClick={() => handleBulkAction(true)}
                 disabled={bulkProcessing}
@@ -445,9 +445,10 @@ function AdminResourcesPage() {
               >
                 {bulkProcessing ? "Processing…" : "Reject All"}
               </button>
-            </>
+            </PermissionGate>
           )}
           {tab === "approved" && (
+            <PermissionGate permission="resource:approve">
             <button
               onClick={() => handleBulkAction(false)}
               disabled={bulkProcessing}
@@ -455,6 +456,7 @@ function AdminResourcesPage() {
             >
               {bulkProcessing ? "Processing…" : "Revoke All"}
             </button>
+            </PermissionGate>
           )}
           <button onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs font-display text-slate hover:text-navy transition-colors">
             Clear selection

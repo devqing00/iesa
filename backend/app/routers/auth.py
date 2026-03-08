@@ -931,13 +931,31 @@ async def _auto_enroll(db, user_id: str, level: str = "100L") -> None:
     enrollments = db["enrollments"]
 
     active = await sessions.find_one({"isActive": True})
-    if active:
-        now = datetime.now(timezone.utc)
-        await enrollments.insert_one({
-            "studentId": user_id,
-            "sessionId": str(active["_id"]),
-            "level": level,
-            "enrollmentDate": now,
-            "createdAt": now,
-            "isActive": True,
-        })
+    if not active:
+        return
+
+    session_id = str(active["_id"])
+
+    # Normalise level to "NL" string format
+    if isinstance(level, int) or (isinstance(level, str) and level.isdigit()):
+        level = f"{level}L"
+
+    # Guard against duplicates — check both field name variants
+    existing = await enrollments.find_one({
+        "$or": [
+            {"studentId": user_id, "sessionId": session_id},
+            {"userId": user_id, "sessionId": session_id},
+        ]
+    })
+    if existing:
+        return
+
+    now = datetime.now(timezone.utc)
+    await enrollments.insert_one({
+        "studentId": user_id,
+        "sessionId": session_id,
+        "level": level,
+        "enrollmentDate": now,
+        "createdAt": now,
+        "isActive": True,
+    })

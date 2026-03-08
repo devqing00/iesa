@@ -5,10 +5,10 @@ import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { toast } from "sonner";
-import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { ConfirmModal } from "@/components/ui/Modal";
 import Pagination from "@/components/ui/Pagination";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 
 /* ── Types ──────────────────────────────── */
 
@@ -83,8 +83,8 @@ function AdminMessagesPage() {
       const data = await res.json();
       setMessages(data.messages ?? []);
       setTotal(data.total ?? 0);
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to load messages"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to load messages"));
     } finally {
       setLoading(false);
     }
@@ -139,14 +139,14 @@ function AdminMessagesPage() {
         },
         body: JSON.stringify(updates),
       });
-      if (!res.ok) await throwApiError(res, "update message");
+      if (!res.ok) await throwApiError(res, "reply to message");
       const updated = await res.json();
       setMessages((prev) => prev.map((m) => m._id === id ? updated : m));
       setSelected(updated);
       toast.success("Message updated");
       fetchStats();
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to update message"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to update message"));
     } finally {
       setSaving(false);
     }
@@ -166,8 +166,8 @@ function AdminMessagesPage() {
       setDeleteConfirm({ isOpen: false, id: "" });
       fetchMessages();
       fetchStats();
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to delete message"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to delete message"));
     } finally {
       setDeleting(false);
     }
@@ -191,8 +191,8 @@ function AdminMessagesPage() {
       setArchiveConfirm({ isOpen: false, id: "" });
       fetchMessages();
       fetchStats();
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to archive message"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to archive message"));
     } finally {
       setArchiving(false);
     }

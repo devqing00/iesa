@@ -5,12 +5,12 @@ import { mutate } from "swr";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
-import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
 import { EventSchemaObject, flattenZodErrors } from "@/lib/schemas";
 import { ConfirmModal } from "@/components/ui/Modal";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -180,19 +180,18 @@ function AdminEventsPage() {
       const res = await fetch(getApiUrl(`/api/v1/events/?${params}`), {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (res.ok) {
-        const data = await res.json();
-        const items = data.items ?? data;
-        setEvents(
-          items.map((e: Event & { _id?: string }) => ({
-            ...e,
-            id: e.id || e._id,
-          }))
-        );
-        setTotalEventCount(data.total ?? items.length);
-      }
-    } catch {
-      toast.error("Failed to load events");
+      if (!res.ok) await throwApiError(res, "load events");
+      const data = await res.json();
+      const items = data.items ?? data;
+      setEvents(
+        items.map((e: Event & { _id?: string }) => ({
+          ...e,
+          id: e.id || e._id,
+        }))
+      );
+      setTotalEventCount(data.total ?? items.length);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "load events"));
     } finally {
       setLoading(false);
     }
@@ -212,8 +211,8 @@ function AdminEventsPage() {
           const data = await res.json();
           setActiveSessionId(data.id || data._id);
         }
-      } catch {
-        toast.error("Failed to get active session");
+      } catch (err) {
+        toast.error(getErrorMessage(err, "load active session"));
       }
     };
     fetchActiveSession();
@@ -244,11 +243,11 @@ function AdminEventsPage() {
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) await throwApiError(res, "upload image");
       const data = await res.json();
       setForm((f) => ({ ...f, imageUrl: data.url }));
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Image upload failed"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "upload image"));
     } finally {
       setImageUploading(false);
     }
@@ -310,7 +309,7 @@ function AdminEventsPage() {
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify(body),
         });
-        if (!res.ok) await throwApiError(res, "edit this event");
+        if (!res.ok) await throwApiError(res, "update event");
       } else {
         if (!activeSessionId) throw new Error("No active academic session found");
         const res = await fetch(getApiUrl("/api/v1/events/"), {
@@ -327,8 +326,8 @@ function AdminEventsPage() {
       setEditingEvent(null);
       setForm(emptyForm);
       toast.success(editingEvent ? "Event updated" : "Event created");
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to save event"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "save event"));
     } finally {
       setSubmitting(false);
     }
@@ -341,12 +340,12 @@ function AdminEventsPage() {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) await throwApiError(res, "delete this event");
+      if (!res.ok) await throwApiError(res, "delete event");
       setDeleteConfirm(null);
       await fetchEvents();
       mutate("/api/v1/admin/stats");
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to delete event"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "delete event"));
     }
   };
 
@@ -364,8 +363,8 @@ function AdminEventsPage() {
       });
       if (!res.ok) await throwApiError(res, "load registrants");
       setRegistrantsData(await res.json());
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to load registrant list"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "load registrants"));
     } finally {
       setRegistrantsLoading(false);
     }
@@ -390,8 +389,8 @@ function AdminEventsPage() {
       if (!res.ok) await throwApiError(res, "update attendance");
       // Refresh
       if (registrantsEvent) await openRegistrants(registrantsEvent);
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to update attendance"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "update attendance"));
     }
   };
 
@@ -410,8 +409,8 @@ function AdminEventsPage() {
         // Update event list count too
         await fetchEvents();
       }
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to remove registration"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "remove registration"));
     }
   };
 
@@ -454,11 +453,11 @@ function AdminEventsPage() {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ userIds: unattended.map((r) => r.id) }),
       });
-      if (!res.ok) await throwApiError(res, "mark all as attended");
+      if (!res.ok) await throwApiError(res, "mark all attended");
       toast.success(`Marked ${unattended.length} registrant${unattended.length !== 1 ? "s" : ""} as attended`);
       await openRegistrants(registrantsEvent);
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to mark all as attended"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "mark all attended"));
     } finally {
       setMarkingAll(false);
     }
@@ -710,6 +709,7 @@ function AdminEventsPage() {
                           Edit
                         </button>
                         </PermissionGate>
+                        <PermissionGate permission="event:manage">
                         <button
                           onClick={() => openRegistrants(event)}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-lavender-light border-[3px] border-lavender text-lavender text-sm font-bold hover:bg-lavender hover:text-snow transition-colors"
@@ -720,6 +720,7 @@ function AdminEventsPage() {
                           </svg>
                           <span className="hidden sm:inline">{attendeeCount(event)}</span>
                         </button>
+                        </PermissionGate>
                         <PermissionGate permission="event:delete">
                         {deleteConfirm === event.id ? (
                           <div className="flex items-center gap-1">
@@ -1126,6 +1127,7 @@ function AdminEventsPage() {
                 </PermissionGate>
 
                 {/* Download dropdown */}
+                <PermissionGate permission="event:manage">
                 <div className="relative">
                   <button
                     onClick={() => setShowDownloadMenu((v) => !v)}
@@ -1161,6 +1163,7 @@ function AdminEventsPage() {
                     </div>
                   )}
                 </div>
+                </PermissionGate>
 
                 <button
                   onClick={() => setRegistrantsEvent(null)}

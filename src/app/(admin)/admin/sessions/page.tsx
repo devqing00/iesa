@@ -61,12 +61,11 @@ function AdminSessionsPage() {
       const response = await fetch(getApiUrl("/api/v1/sessions/"), {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (response.ok) {
-        const data = await response.json();
-        setSessions(data);
-      }
-    } catch {
-      toast.error("Failed to load sessions");
+      if (!response.ok) await throwApiError(response, "load sessions");
+      const data = await response.json();
+      setSessions(data);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to load sessions"));
     } finally {
       setLoading(false);
     }
@@ -105,8 +104,8 @@ function AdminSessionsPage() {
       setFormErrors({});
       setFormData({ name: "", semester1StartDate: "", semester1EndDate: "", semester2StartDate: "", semester2EndDate: "", isActive: false });
       toast.success("Session created successfully");
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to create session"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to create session"));
     }
   };
 
@@ -132,7 +131,7 @@ function AdminSessionsPage() {
         },
         body: JSON.stringify(formData),
       });
-      if (!response.ok) await throwApiError(response, "update this session");
+      if (!response.ok) await throwApiError(response, "update session");
       await fetchSessions();
       await refreshSessions();
       setShowEditModal(false);
@@ -140,8 +139,8 @@ function AdminSessionsPage() {
       setFormErrors({});
       setFormData({ name: "", semester1StartDate: "", semester1EndDate: "", semester2StartDate: "", semester2EndDate: "", isActive: false });
       toast.success("Session updated successfully");
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to update session"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to update session"));
     }
   };
 
@@ -174,12 +173,12 @@ function AdminSessionsPage() {
         },
         body: JSON.stringify({ isActive: true }),
       });
-      if (!response.ok) await throwApiError(response, "activate this session");
+      if (!response.ok) await throwApiError(response, "set active session");
       await fetchSessions();
       await refreshSessions();
       toast.success("Session activated");
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to activate session"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to activate session"));
     } finally {
       setActivating(false);
     }

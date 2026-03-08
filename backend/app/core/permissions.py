@@ -134,6 +134,7 @@ PERMISSIONS = {
 
     # Unit application permissions
     "unit_application:review": "Review unit/committee applications",
+    "unit_application:manage": "Manage units & committees (create, edit, delete, assign heads)",
 
     # TIMP permissions
     "timp:manage": "Manage TIMP mentoring (review applications, create pairs)",
@@ -201,7 +202,7 @@ DEFAULT_PERMISSIONS = {
         "bank_transfer:manage_accounts", "bank_transfer:review", "bank_transfer:view_all",
         "iepod:manage", "iepod:view",
         "contact:view", "contact:manage",
-        "unit_application:review",
+        "unit_application:review", "unit_application:manage",
         "audit:view", "audit:export",
     ],
     "vice_president": [
@@ -216,7 +217,7 @@ DEFAULT_PERMISSIONS = {
         "bank_transfer:review", "bank_transfer:view_all",
         "iepod:manage", "iepod:view",
         "contact:view", "contact:manage",
-        "unit_application:review",
+        "unit_application:review", "unit_application:manage",
     ],
     "general_secretary": [
         "announcement:create", "announcement:edit", "announcement:view",

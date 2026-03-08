@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { withAuth } from "@/lib/withAuth";
-import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmModal } from "@/components/ui/Modal";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 
 /* ── Types ──────────────────────────────── */
 
@@ -87,9 +87,10 @@ function ModerationPage() {
     setLoading(true);
     try {
       const res = await apiFetch("/api/v1/admin/messages/reports");
-      if (res.ok) setReports(await res.json());
-    } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to load reports"));
+      if (!res.ok) await throwApiError(res, "load flagged content");
+      setReports(await res.json());
+    } catch {
+      /* silent */
     } finally {
       setLoading(false);
     }
@@ -99,9 +100,10 @@ function ModerationPage() {
     setLoading(true);
     try {
       const res = await apiFetch("/api/v1/admin/messages/muted-users");
-      if (res.ok) setMutedUsers(await res.json());
-    } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to load muted users"));
+      if (!res.ok) await throwApiError(res, "load flagged content");
+      setMutedUsers(await res.json());
+    } catch {
+      /* silent */
     } finally {
       setLoading(false);
     }
@@ -128,9 +130,7 @@ function ModerationPage() {
           }),
         }
       );
-      if (!res.ok) {
-        await throwApiError(res, "review report");
-      }
+      if (!res.ok) await throwApiError(res, "update moderation status");
       toast.success(
         reviewAction === "mute"
           ? `User muted for ${muteDays} days`
@@ -141,8 +141,8 @@ function ModerationPage() {
       setMuteDays(7);
       fetchReports();
       fetchMutedUsers();
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Action failed"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Action failed"));
     } finally {
       setSubmitting(false);
     }
@@ -156,7 +156,7 @@ function ModerationPage() {
         `/api/v1/admin/messages/muted-users/${unmuteModal.userId}`,
         { method: "DELETE" }
       );
-      if (!res.ok) await throwApiError(res, "unmute user");
+      if (!res.ok) await throwApiError(res, "update moderation status");
       toast.success(`${unmuteModal.name} has been unmuted`);
       setUnmuteModal({ open: false, userId: "", name: "" });
       fetchMutedUsers();

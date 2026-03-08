@@ -63,7 +63,7 @@ interface UpdateAnnouncementData {
   title?: string;
   content?: string;
   priority?: AnnouncementPriority;
-  targetLevels?: number[];
+  targetLevels?: string[];
   isPinned?: boolean;
   expiresAt?: string | null;
 }

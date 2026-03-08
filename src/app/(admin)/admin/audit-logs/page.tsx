@@ -4,9 +4,9 @@ import React, { useState, useEffect, useCallback } from "react";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 
 /* ── Types ────────────────────────────────────── */
 
@@ -107,9 +107,7 @@ function AuditLogsPage() {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
-      if (!res.ok) {
-        await throwApiError(res, "view audit logs");
-      }
+      if (!res.ok) await throwApiError(res, "load audit logs");
 
       const data: AuditLogEntry[] = await res.json();
       setLogs(data);

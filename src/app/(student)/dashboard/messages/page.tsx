@@ -23,6 +23,28 @@ interface Conversation {
   isBlocked?: boolean;
 }
 
+interface ReplyTo {
+  id: string;
+  content: string;
+  senderName: string;
+  senderId: string;
+  hasAttachment?: boolean;
+}
+
+interface Attachment {
+  url: string;
+  name: string;
+  size: number;
+  type: string;
+  resourceType: string;
+}
+
+interface Reaction {
+  userId: string;
+  emoji: string;
+  createdAt: string;
+}
+
 interface Message {
   id: string;
   senderId: string;
@@ -30,6 +52,12 @@ interface Message {
   content: string;
   isRead: boolean;
   createdAt: string;
+  readAt?: string | null;
+  deletedAt?: string | null;
+  replyTo?: ReplyTo | null;
+  attachments?: Attachment[];
+  reactions?: Reaction[];
+  isPinned?: boolean;
 }
 
 interface SearchUser {
@@ -57,6 +85,17 @@ interface ConnectedUser {
   connectionId: string;
   user: { id: string; name: string; email: string; level?: string };
   connectedAt: string;
+}
+
+interface SearchResult {
+  id: string;
+  conversationKey: string;
+  senderId: string;
+  recipientId: string;
+  content: string;
+  createdAt: string;
+  otherUserId: string;
+  otherUserName: string;
 }
 
 /* ─── Helpers ───────────────────────────────────────────────────── */
@@ -117,7 +156,7 @@ export default function MessagesPage() {
   const { getAccessToken, userProfile } = useAuth();
   const { showHelp, openHelp, closeHelp } = useToolHelp("messages");
   const toast = useToast();
-  const { subscribe, setMessagesPageOpen, syncTotalUnread } = useDM();
+  const { subscribe, setMessagesPageOpen, syncTotalUnread, sendWsMessage } = useDM();
   const currentUserId = userProfile?.id || "";
   // Stable ref so event handler closures always read the latest value
   const currentUserIdRef = useRef(currentUserId);
@@ -180,10 +219,66 @@ export default function MessagesPage() {
 
   /* ── Scroll ref ── */
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isInitialScrollRef = useRef(true);
 
   /* ── selectedConv stable ref (for WS event handlers) ── */
   const selectedConvRef = useRef<Conversation | null>(null);
   selectedConvRef.current = selectedConv;
+
+  /* ── Conversations ref for syncing unread on unmount ── */
+  const conversationsRef = useRef<Conversation[]>([]);
+  conversationsRef.current = conversations;
+
+  /* ── State: Typing Indicator ── */
+  const [otherTyping, setOtherTyping] = useState(false);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingSentRef = useRef(0);
+
+  /* ── State: Reply ── */
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+
+  /* ── State: Attachment Preview ── */
+  const [attachmentPreview, setAttachmentPreview] = useState<Attachment | null>(null);
+
+  /* ── State: File Upload ── */
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  /* ── State: Message Search ── */
+  const [msgSearchOpen, setMsgSearchOpen] = useState(false);
+  const [msgSearchQuery, setMsgSearchQuery] = useState("");
+  const [msgSearchResults, setMsgSearchResults] = useState<SearchResult[]>([]);
+  const [msgSearching, setMsgSearching] = useState(false);
+  const msgSearchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /* ── State: Pinned Messages ── */
+  const [pinnedOpen, setPinnedOpen] = useState(false);
+  const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
+  const [loadingPinned, setLoadingPinned] = useState(false);
+
+  /* ── State: Emoji Picker ── */
+  const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<string | null>(null);
+
+  /* ── State: Active message actions (replaces hover) ── */
+  const [activeMsgId, setActiveMsgId] = useState<string | null>(null);
+
+  /* ── State: Context menu (long-press / right-click) ── */
+  const [contextMenu, setContextMenu] = useState<{
+    msgId: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  /* ── State: Swipe tracking ── */
+  const swipeRef = useRef<{
+    startX: number;
+    startY: number;
+    msgId: string;
+    swiping: boolean;
+    currentOffset: number;
+    longPressTimer: ReturnType<typeof setTimeout> | null;
+  } | null>(null);
+  const [swipeOffsets, setSwipeOffsets] = useState<Record<string, number>>({});
 
   /* ═══ API Helpers ═══ */
 
@@ -296,14 +391,17 @@ export default function MessagesPage() {
     if (!newMessage.trim() || !selectedConv || sending) return;
 
     const content = newMessage.trim();
+    const replyId = replyTo?.id || null;
     setSending(true);
     setNewMessage("");
+    setReplyTo(null);
     try {
       const res = await apiFetch("/api/v1/messages/send", {
         method: "POST",
         body: JSON.stringify({
           recipientId: selectedConv.otherUserId,
           content,
+          replyToId: replyId,
         }),
       });
       if (!res.ok) {
@@ -476,6 +574,251 @@ export default function MessagesPage() {
     }
   };
 
+  /* ── Upload file attachment ── */
+  const handleFileUpload = async (file: File) => {
+    if (!selectedConv || uploading) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File too large. Maximum size is 10MB.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const token = await getAccessToken();
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("recipientId", selectedConv.otherUserId);
+      const res = await fetch(getApiUrl("/api/v1/messages/upload-attachment"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.detail || "Upload failed");
+      }
+      // Message is created server-side and delivered via WS
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to upload file");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  /* ── Delete message ── */
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      const res = await apiFetch(`/api/v1/messages/message/${messageId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.detail || "Failed to delete");
+      }
+      toast.success("Message deleted");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to delete");
+    }
+  };
+
+  /* ── Pin / Unpin message ── */
+  const handlePinMessage = async (messageId: string, isPinned: boolean) => {
+    try {
+      const res = await apiFetch(`/api/v1/messages/message/${messageId}/pin`, {
+        method: isPinned ? "DELETE" : "POST",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.detail || "Failed");
+      }
+      toast.success(isPinned ? "Message unpinned" : "Message pinned");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    }
+  };
+
+  /* ── Add / Remove reaction ── */
+  const handleReaction = async (messageId: string, emoji: string) => {
+    const msg = messages.find((m) => m.id === messageId);
+    if (!msg) return;
+    const existing = msg.reactions?.find(
+      (r) => r.userId === currentUserId && r.emoji === emoji
+    );
+    try {
+      if (existing) {
+        await apiFetch(
+          `/api/v1/messages/message/${messageId}/react/${encodeURIComponent(emoji)}`,
+          { method: "DELETE" }
+        );
+      } else {
+        const res = await apiFetch(
+          `/api/v1/messages/message/${messageId}/react`,
+          { method: "POST", body: JSON.stringify({ emoji }) }
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          throw new Error(err?.detail || "Failed");
+        }
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to react");
+    }
+    setEmojiPickerMsgId(null);
+  };
+
+  /* ── Fetch pinned messages ── */
+  const fetchPinned = useCallback(async () => {
+    if (!selectedConv) return;
+    setLoadingPinned(true);
+    try {
+      const res = await apiFetch(
+        `/api/v1/messages/conversation/${selectedConv.otherUserId}/pinned`
+      );
+      if (res.ok) setPinnedMessages(await res.json());
+    } catch { /* silent */ }
+    finally { setLoadingPinned(false); }
+  }, [apiFetch, selectedConv]);
+
+  /* ── Message search ── */
+  useEffect(() => {
+    if (msgSearchTimerRef.current) clearTimeout(msgSearchTimerRef.current);
+    if (!msgSearchQuery || msgSearchQuery.length < 2) {
+      setMsgSearchResults([]);
+      return;
+    }
+    msgSearchTimerRef.current = setTimeout(async () => {
+      setMsgSearching(true);
+      try {
+        const res = await apiFetch(
+          `/api/v1/messages/search?q=${encodeURIComponent(msgSearchQuery)}`
+        );
+        if (res.ok) setMsgSearchResults(await res.json());
+      } catch { /* silent */ }
+      finally { setMsgSearching(false); }
+    }, 400);
+    return () => {
+      if (msgSearchTimerRef.current) clearTimeout(msgSearchTimerRef.current);
+    };
+  }, [msgSearchQuery, apiFetch]);
+
+  /* ── Typing indicator: send ── */
+  const sendTypingIndicator = useCallback(() => {
+    if (!selectedConv) return;
+    const now = Date.now();
+    if (now - lastTypingSentRef.current < 2000) return; // Throttle to every 2s
+    lastTypingSentRef.current = now;
+    sendWsMessage({ type: "typing", recipientId: selectedConv.otherUserId });
+  }, [selectedConv, sendWsMessage]);
+
+  /* ── Touch gesture handlers (swipe-to-reply + long-press context menu) ── */
+  const SWIPE_THRESHOLD = 60; // px to trigger reply
+  const LONG_PRESS_MS = 500;
+
+  const handleTouchStart = useCallback((e: React.TouchEvent, msgId: string, isDeleted: boolean) => {
+    if (isDeleted) return;
+    const touch = e.touches[0];
+    const timer = setTimeout(() => {
+      // Long press → open context menu at touch position
+      if (swipeRef.current && !swipeRef.current.swiping) {
+        setContextMenu({ msgId, x: touch.clientX, y: touch.clientY });
+        swipeRef.current = null;
+        // Subtle haptic feedback if available
+        if (navigator.vibrate) navigator.vibrate(30);
+      }
+    }, LONG_PRESS_MS);
+    swipeRef.current = { startX: touch.clientX, startY: touch.clientY, msgId, swiping: false, currentOffset: 0, longPressTimer: timer };
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!swipeRef.current) return;
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - swipeRef.current.startX;
+    const deltaY = Math.abs(touch.clientY - swipeRef.current.startY);
+
+    // If vertical scroll is dominant, cancel horizontal swipe
+    if (deltaY > 20 && !swipeRef.current.swiping) {
+      if (swipeRef.current.longPressTimer) clearTimeout(swipeRef.current.longPressTimer);
+      swipeRef.current = null;
+      return;
+    }
+
+    // Cancel long-press if user moves
+    if (Math.abs(deltaX) > 10 || deltaY > 10) {
+      if (swipeRef.current.longPressTimer) clearTimeout(swipeRef.current.longPressTimer);
+      swipeRef.current.longPressTimer = null;
+    }
+
+    // Only allow swipe right (positive deltaX) for reply gesture
+    if (deltaX > 10) {
+      swipeRef.current.swiping = true;
+      const capped = Math.min(deltaX, SWIPE_THRESHOLD + 20);
+      swipeRef.current.currentOffset = capped;
+      const capturedMsgId = swipeRef.current.msgId; // capture before async setState callback
+      setSwipeOffsets((prev) => ({ ...prev, [capturedMsgId]: capped }));
+    }
+  }, [SWIPE_THRESHOLD]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!swipeRef.current) return;
+    if (swipeRef.current.longPressTimer) clearTimeout(swipeRef.current.longPressTimer);
+    const { msgId, swiping, currentOffset } = swipeRef.current;
+
+    if (swiping && currentOffset >= SWIPE_THRESHOLD) {
+      // Trigger reply
+      const msg = messages.find((m) => m.id === msgId);
+      if (msg && !msg.deletedAt) {
+        setReplyTo(msg);
+        if (navigator.vibrate) navigator.vibrate(15);
+      }
+    }
+
+    // Reset swipe offset with animation
+    setSwipeOffsets((prev) => {
+      const next = { ...prev };
+      delete next[msgId];
+      return next;
+    });
+    swipeRef.current = null;
+  }, [SWIPE_THRESHOLD, messages]);
+
+  /* ── Desktop: toggle action bar on click, dismiss on outside click ── */
+  const handleMsgClick = useCallback((msgId: string, isDeleted: boolean) => {
+    if (isDeleted) return;
+    setActiveMsgId((prev) => (prev === msgId ? null : msgId));
+    setEmojiPickerMsgId(null);
+  }, []);
+
+  /* ── Right-click context menu (desktop) ── */
+  const handleMsgContextMenu = useCallback((e: React.MouseEvent, msgId: string, isDeleted: boolean) => {
+    if (isDeleted) return;
+    e.preventDefault();
+    setContextMenu({ msgId, x: e.clientX, y: e.clientY });
+    setActiveMsgId(null);
+  }, []);
+
+  /* ── Close menus on outside click ── */
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (contextMenu && !target.closest("[data-msg-context-menu]")) {
+        setContextMenu(null);
+      }
+      if (activeMsgId && !target.closest("[data-msg-actions]") && !target.closest("[data-msg-bubble]")) {
+        setActiveMsgId(null);
+        setEmojiPickerMsgId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [contextMenu, activeMsgId]);
+
+  /* ── Can delete check (within 5 min, own message, not deleted) ── */
+  const canDelete = (msg: Message) => {
+    if (msg.senderId !== currentUserId || msg.deletedAt) return false;
+    const elapsed = (Date.now() - new Date(msg.createdAt).getTime()) / 1000;
+    return elapsed <= 5 * 60;
+  };
+
   /* ═══ Navigation ═══ */
 
   const startConversation = (user: { id: string; name: string; email: string }) => {
@@ -495,12 +838,22 @@ export default function MessagesPage() {
     setSearchQuery("");
     setSearchResults([]);
     setShowThread(true);
+    isInitialScrollRef.current = true;
     fetchMessages(user.id);
   };
 
   const selectConversation = (conv: Conversation) => {
     setSelectedConv(conv);
     setShowThread(true);
+    isInitialScrollRef.current = true;
+    // Immediately clear unread count locally (server-side mark-read happens in fetchMessages)
+    if (conv.unreadCount > 0) {
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.otherUserId === conv.otherUserId ? { ...c, unreadCount: 0 } : c
+        )
+      );
+    }
     fetchMessages(conv.otherUserId);
   };
 
@@ -544,9 +897,12 @@ export default function MessagesPage() {
     fetchConversations();
     fetchMuteStatus();
     return () => {
+      // Sync the latest unread totals back to DMContext before closing
+      const total = conversationsRef.current.reduce((s, c) => s + c.unreadCount, 0);
+      syncTotalUnread(total);
       setMessagesPageOpen(false);
     };
-  }, [setMessagesPageOpen, fetchConversations, fetchMuteStatus]);
+  }, [setMessagesPageOpen, fetchConversations, fetchMuteStatus, syncTotalUnread]);
 
   /* ── Subscribe to global DM WebSocket events from DMContext ── */
   useEffect(() => {
@@ -574,9 +930,15 @@ export default function MessagesPage() {
                     content: msg.content,
                     isRead: msg.isRead,
                     createdAt: msg.createdAt,
+                    replyTo: msg.replyTo || null,
+                    attachments: msg.attachments || [],
+                    reactions: [],
+                    isPinned: false,
                   },
                 ]
           );
+          // Clear typing when a message arrives
+          if (msg.senderId !== meId) setOtherTyping(false);
         }
 
         // Update conversation list with latest message + unread count
@@ -589,7 +951,7 @@ export default function MessagesPage() {
           if (existing) {
             const updated: Conversation = {
               ...existing,
-              lastMessage: msg.content.slice(0, 100),
+              lastMessage: msg.content ? msg.content.slice(0, 100) : (msg.attachments?.length ? "Sent an attachment" : ""),
               lastSenderId: msg.senderId,
               lastAt: msg.createdAt,
               unreadCount:
@@ -607,7 +969,7 @@ export default function MessagesPage() {
               otherUserId,
               otherUserName: msg.senderName || "Unknown",
               otherUserEmail: "",
-              lastMessage: msg.content.slice(0, 100),
+              lastMessage: msg.content ? msg.content.slice(0, 100) : (msg.attachments?.length ? "Sent an attachment" : ""),
               lastSenderId: msg.senderId,
               lastAt: msg.createdAt,
               unreadCount: msg.senderId !== meId ? 1 : 0,
@@ -618,14 +980,14 @@ export default function MessagesPage() {
       }
 
       if (packet.type === "messages_read") {
-        const { conversationKey, readBy } = packet.data;
+        const { conversationKey, readBy, readAt } = packet.data;
         const activeConv = selectedConvRef.current;
 
         if (activeConv?.conversationKey === conversationKey) {
           setMessages((prev) =>
             prev.map((m) =>
               m.recipientId === readBy && !m.isRead
-                ? { ...m, isRead: true }
+                ? { ...m, isRead: true, readAt: readAt || new Date().toISOString() }
                 : m
             )
           );
@@ -638,6 +1000,65 @@ export default function MessagesPage() {
               : c
           )
         );
+      }
+
+      if (packet.type === "typing") {
+        const activeConv = selectedConvRef.current;
+        if (activeConv && packet.data?.senderId === activeConv.otherUserId) {
+          setOtherTyping(true);
+          if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+          typingTimerRef.current = setTimeout(() => setOtherTyping(false), 3000);
+        }
+      }
+
+      if (packet.type === "message_deleted") {
+        const { messageId, conversationKey } = packet.data;
+        const activeConv = selectedConvRef.current;
+        if (activeConv?.conversationKey === conversationKey) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === messageId
+                ? { ...m, deletedAt: packet.data.deletedAt, content: "" }
+                : m
+            )
+          );
+        }
+      }
+
+      if (packet.type === "message_pinned") {
+        const { messageId, conversationKey, isPinned } = packet.data;
+        const activeConv = selectedConvRef.current;
+        if (activeConv?.conversationKey === conversationKey) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === messageId ? { ...m, isPinned } : m
+            )
+          );
+        }
+      }
+
+      if (packet.type === "reaction_updated") {
+        const { messageId, conversationKey, reaction, action } = packet.data;
+        const activeConv = selectedConvRef.current;
+        if (activeConv?.conversationKey === conversationKey) {
+          setMessages((prev) =>
+            prev.map((m) => {
+              if (m.id !== messageId) return m;
+              const reactions = [...(m.reactions || [])];
+              if (action === "add") {
+                if (!reactions.find((r) => r.userId === reaction.userId && r.emoji === reaction.emoji)) {
+                  reactions.push(reaction);
+                }
+              } else {
+                const idx = reactions.findIndex(
+                  (r) => r.userId === reaction.userId && r.emoji === reaction.emoji
+                );
+                if (idx >= 0) reactions.splice(idx, 1);
+              }
+              return { ...m, reactions };
+            })
+          );
+        }
       }
 
       if (
@@ -663,7 +1084,13 @@ export default function MessagesPage() {
 
   /* ── Auto-scroll ── */
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length === 0) return;
+    // Instant scroll on initial load / conversation switch, smooth for new messages
+    const behavior = isInitialScrollRef.current ? "auto" as const : "smooth" as const;
+    isInitialScrollRef.current = false;
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior });
+    });
   }, [messages]);
 
   /* ── Group messages by date ── */
@@ -1103,7 +1530,9 @@ export default function MessagesPage() {
                       {otherUser?.name || selectedConv.otherUserName}
                     </div>
                     <div className="text-[10px] text-slate">
-                      {isBlocked
+                      {otherTyping ? (
+                        <span className="text-teal font-medium animate-pulse">typing...</span>
+                      ) : isBlocked
                         ? blockedByMe
                           ? "You blocked this user"
                           : "This user has blocked you"
@@ -1114,6 +1543,27 @@ export default function MessagesPage() {
                   </div>
                   {/* Action buttons */}
                   <div className="flex items-center gap-1 shrink-0">
+                    {/* Message search */}
+                    <button
+                      onClick={() => setMsgSearchOpen(true)}
+                      className="p-1.5 rounded-lg text-slate hover:text-navy hover:bg-ghost transition-colors"
+                      title="Search messages"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                        <circle cx="11" cy="11" r="8" />
+                        <path d="M21 21l-4.35-4.35" />
+                      </svg>
+                    </button>
+                    {/* Pinned messages */}
+                    <button
+                      onClick={() => { setPinnedOpen(true); fetchPinned(); }}
+                      className="p-1.5 rounded-lg text-slate hover:text-navy hover:bg-ghost transition-colors"
+                      title="Pinned messages"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M16 4a1 1 0 00-1.4.2L12 8l-2.6-3.8A1 1 0 008 4a1 1 0 00-1 1v6.28l-2.6 3.12a1 1 0 00.2 1.4 1 1 0 00.6.2H11v5a1 1 0 002 0v-5h5.8a1 1 0 00.6-.2 1 1 0 00.2-1.4L17 11.28V5a1 1 0 00-1-1z" />
+                      </svg>
+                    </button>
                     {/* Report */}
                     {!isBlocked && (
                       <button
@@ -1186,43 +1636,266 @@ export default function MessagesPage() {
                           <div className="flex-1 h-px bg-cloud" />
                         </div>
 
-                        {group.msgs.map((msg) => {
+                        {group.msgs.map((msg, msgIdx) => {
                           const isMine = msg.senderId === currentUserId;
+                          const isDeleted = !!msg.deletedAt;
+                          const isLastMyMsg =
+                            isMine &&
+                            msgIdx === group.msgs.length - 1 &&
+                            group === groupedMessages[groupedMessages.length - 1];
+
+                          // Group reactions by emoji
+                          const reactionGroups: { emoji: string; count: number; myReaction: boolean }[] = [];
+                          if (msg.reactions?.length) {
+                            const map = new Map<string, { count: number; mine: boolean }>();
+                            for (const r of msg.reactions) {
+                              const existing = map.get(r.emoji) || { count: 0, mine: false };
+                              existing.count++;
+                              if (r.userId === currentUserId) existing.mine = true;
+                              map.set(r.emoji, existing);
+                            }
+                            map.forEach((v, emoji) => reactionGroups.push({ emoji, count: v.count, myReaction: v.mine }));
+                          }
+
                           return (
                             <div
                               key={msg.id}
-                              className={`flex mb-2 ${isMine ? "justify-end" : "justify-start"}`}
+                              className={`flex mb-2 group relative ${isMine ? "justify-end" : "justify-start"}`}
+                              style={{
+                                transform: swipeOffsets[msg.id] ? `translateX(${swipeOffsets[msg.id]}px)` : undefined,
+                                transition: swipeOffsets[msg.id] ? "none" : "transform 0.2s ease-out",
+                              }}
+                              onTouchStart={(e) => handleTouchStart(e, msg.id, isDeleted)}
+                              onTouchMove={handleTouchMove}
+                              onTouchEnd={handleTouchEnd}
+                              onContextMenu={(e) => handleMsgContextMenu(e, msg.id, isDeleted)}
+                              onClick={() => handleMsgClick(msg.id, isDeleted)}
+                              data-msg-bubble
                             >
-                              <div
-                                className={`max-w-[75%] px-4 py-2.5 rounded-2xl ${
-                                  isMine
-                                    ? "bg-lime text-navy rounded-br-md"
-                                    : "bg-ghost text-navy rounded-bl-md"
-                                }`}
-                              >
-                                <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
-                                  {msg.content}
-                                </p>
-                                <div className={`flex items-center gap-1 mt-1 ${isMine ? "justify-end" : "justify-start"}`}>
-                                  <span className="text-[10px] text-navy-muted">
-                                    {formatTime(msg.createdAt)}
-                                  </span>
-                                  {isMine && (
-                                    <svg
-                                      className={`w-3 h-3 ${msg.isRead ? "text-teal" : "text-navy-muted"}`}
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth={2.5}
-                                    >
-                                      {msg.isRead ? (
-                                        <path d="M18 7l-8.5 8.5L5 11M22 7l-8.5 8.5" />
-                                      ) : (
-                                        <path d="M20 6L9 17l-5-5" />
-                                      )}
+                              {/* Swipe-to-reply indicator */}
+                              {swipeOffsets[msg.id] && swipeOffsets[msg.id] > 15 && (
+                                <div
+                                  className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full flex items-center justify-center transition-opacity ${
+                                    swipeOffsets[msg.id] >= SWIPE_THRESHOLD ? "opacity-100" : "opacity-40"
+                                  }`}
+                                  style={{ marginLeft: "-8px" }}
+                                >
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                                    swipeOffsets[msg.id] >= SWIPE_THRESHOLD ? "bg-lime text-navy" : "bg-cloud text-slate"
+                                  }`}>
+                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                      <path d="M9 17l-5-5 5-5M4 12h16" />
                                     </svg>
-                                  )}
+                                  </div>
                                 </div>
+                              )}
+
+                              <div className={`max-w-[75%] ${isMine ? "items-end" : "items-start"} flex flex-col`}>
+                                {/* Reply preview */}
+                                {msg.replyTo && !isDeleted && (
+                                  <div className={`text-[10px] mb-0.5 px-3 py-1 rounded-t-xl border-l-[3px] ${
+                                    isMine ? "bg-lime-light/60 border-navy/30" : "bg-ghost border-lavender"
+                                  }`}>
+                                    <span className="font-bold text-navy-muted">
+                                      {msg.replyTo.senderId === currentUserId ? "You" : msg.replyTo.senderName}
+                                    </span>
+                                    <p className="text-slate truncate max-w-[200px]">
+                                      {msg.replyTo.content || (msg.replyTo.hasAttachment ? "Attachment" : "")}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {/* Pin indicator */}
+                                {msg.isPinned && !isDeleted && (
+                                  <div className={`flex items-center gap-1 text-[9px] text-sunny font-bold mb-0.5 ${isMine ? "justify-end" : "justify-start"}`}>
+                                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                                      <path d="M16 4a1 1 0 00-1.4.2L12 8l-2.6-3.8A1 1 0 008 4a1 1 0 00-1 1v6.28l-2.6 3.12a1 1 0 00.2 1.4 1 1 0 00.6.2H11v5a1 1 0 002 0v-5h5.8a1 1 0 00.6-.2 1 1 0 00.2-1.4L17 11.28V5a1 1 0 00-1-1z" />
+                                    </svg>
+                                    Pinned
+                                  </div>
+                                )}
+
+                                <div
+                                  className={`px-4 py-2.5 rounded-2xl relative ${
+                                    isDeleted
+                                      ? "bg-cloud/50 text-slate italic"
+                                      : isMine
+                                        ? "bg-lime text-navy rounded-br-md"
+                                        : "bg-ghost text-navy rounded-bl-md"
+                                  }`}
+                                >
+                                  {/* Desktop action bar (click-triggered, persistent) — hidden on touch */}
+                                  {activeMsgId === msg.id && !isDeleted && (
+                                    <div
+                                      className={`absolute -top-9 hidden md:flex items-center gap-0.5 bg-snow border-[2px] border-navy rounded-xl shadow-[3px_3px_0_0_#000] px-1 py-0.5 z-10 ${
+                                        isMine ? "right-0" : "left-0"
+                                      }`}
+                                      data-msg-actions
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {/* React */}
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id); }}
+                                        className="p-1 rounded-lg hover:bg-ghost text-slate hover:text-navy transition-colors"
+                                        title="React"
+                                      >
+                                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                          <circle cx="12" cy="12" r="10" />
+                                          <path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" />
+                                        </svg>
+                                      </button>
+                                      {/* Reply */}
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); setReplyTo(msg); setActiveMsgId(null); }}
+                                        className="p-1 rounded-lg hover:bg-ghost text-slate hover:text-navy transition-colors"
+                                        title="Reply"
+                                      >
+                                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                          <path d="M9 17l-5-5 5-5M4 12h16" />
+                                        </svg>
+                                      </button>
+                                      {/* Pin/Unpin */}
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handlePinMessage(msg.id, !!msg.isPinned); setActiveMsgId(null); }}
+                                        className="p-1 rounded-lg hover:bg-ghost text-slate hover:text-navy transition-colors"
+                                        title={msg.isPinned ? "Unpin" : "Pin"}
+                                      >
+                                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                                          <path d="M16 4a1 1 0 00-1.4.2L12 8l-2.6-3.8A1 1 0 008 4a1 1 0 00-1 1v6.28l-2.6 3.12a1 1 0 00.2 1.4 1 1 0 00.6.2H11v5a1 1 0 002 0v-5h5.8a1 1 0 00.6-.2 1 1 0 00.2-1.4L17 11.28V5a1 1 0 00-1-1z" />
+                                        </svg>
+                                      </button>
+                                      {/* Delete */}
+                                      {canDelete(msg) && (
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleDeleteMessage(msg.id); setActiveMsgId(null); }}
+                                          className="p-1 rounded-lg hover:bg-coral-light text-slate hover:text-coral transition-colors"
+                                          title="Delete message"
+                                        >
+                                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                          </svg>
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Emoji picker (attached to the action bar) */}
+                                  {emojiPickerMsgId === msg.id && (
+                                    <div
+                                      className={`absolute -top-[4.25rem] flex items-center gap-1 bg-snow border-[2px] border-navy rounded-xl shadow-[4px_4px_0_0_#000] px-2 py-1.5 z-20 ${
+                                        isMine ? "right-0" : "left-0"
+                                      }`}
+                                      data-msg-actions
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {["👍", "❤️", "😂", "😮", "😢", "🔥", "👎", "🎉"].map((emoji) => (
+                                        <button
+                                          key={emoji}
+                                          onClick={(e) => { e.stopPropagation(); handleReaction(msg.id, emoji); setActiveMsgId(null); }}
+                                          className="text-base hover:scale-125 transition-transform p-0.5"
+                                        >
+                                          {emoji}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {isDeleted ? (
+                                    <p className="text-sm">This message was deleted</p>
+                                  ) : (
+                                    <>
+                                      {/* Attachments */}
+                                      {msg.attachments && msg.attachments.length > 0 && (
+                                        <div className="mb-1">
+                                          {msg.attachments.map((att, i) => (
+                                            att.resourceType === "image" ? (
+                                              <button key={i} type="button" onClick={() => setAttachmentPreview(att)} className="block w-full text-left focus:outline-none">
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img
+                                                  src={att.url}
+                                                  alt={att.name}
+                                                  className="max-w-full max-h-56 rounded-xl border-[2px] border-cloud object-cover hover:opacity-90 transition-opacity cursor-zoom-in"
+                                                />
+                                              </button>
+                                            ) : (
+                                              <a
+                                                key={i}
+                                                href={att.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center gap-2 px-3 py-2 bg-snow/50 rounded-xl border-[2px] border-cloud hover:border-navy transition-colors"
+                                              >
+                                                <svg className="w-4 h-4 text-lavender shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
+                                                  <path d="M14 2v6h6" />
+                                                </svg>
+                                                <div className="min-w-0">
+                                                  <div className="text-xs font-bold text-navy truncate">{att.name}</div>
+                                                  <div className="text-[9px] text-slate">
+                                                    {att.size < 1024 ? `${att.size}B` : att.size < 1048576 ? `${(att.size / 1024).toFixed(1)}KB` : `${(att.size / 1048576).toFixed(1)}MB`}
+                                                  </div>
+                                                </div>
+                                              </a>
+                                            )
+                                          ))}
+                                        </div>
+                                      )}
+                                      {/* Text content */}
+                                      {msg.content && (
+                                        <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+                                          {msg.content}
+                                        </p>
+                                      )}
+                                    </>
+                                  )}
+                                  <div className={`flex items-center gap-1 mt-1 ${isMine ? "justify-end" : "justify-start"}`}>
+                                    <span className="text-[10px] text-navy-muted">
+                                      {formatTime(msg.createdAt)}
+                                    </span>
+                                    {isMine && !isDeleted && (
+                                      <>
+                                        <svg
+                                          className={`w-3 h-3 ${msg.isRead ? "text-teal" : "text-navy-muted"}`}
+                                          viewBox="0 0 24 24"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          strokeWidth={2.5}
+                                        >
+                                          {msg.isRead ? (
+                                            <path d="M18 7l-8.5 8.5L5 11M22 7l-8.5 8.5" />
+                                          ) : (
+                                            <path d="M20 6L9 17l-5-5" />
+                                          )}
+                                        </svg>
+                                        {msg.readAt && isLastMyMsg && (
+                                          <span className="text-[9px] text-teal ml-0.5">
+                                            Seen {formatTime(msg.readAt)}
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Reactions bar */}
+                                {reactionGroups.length > 0 && (
+                                  <div className={`flex flex-wrap gap-1 mt-0.5 ${isMine ? "justify-end" : "justify-start"}`}>
+                                    {reactionGroups.map((rg) => (
+                                      <button
+                                        key={rg.emoji}
+                                        onClick={() => handleReaction(msg.id, rg.emoji)}
+                                        className={`inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full border transition-colors ${
+                                          rg.myReaction
+                                            ? "bg-lime-light border-lime-dark text-navy"
+                                            : "bg-ghost border-cloud text-navy hover:border-navy"
+                                        }`}
+                                      >
+                                        <span>{rg.emoji}</span>
+                                        {rg.count > 1 && <span className="text-[9px] font-bold">{rg.count}</span>}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           );
@@ -1231,6 +1904,95 @@ export default function MessagesPage() {
                     ))
                   )}
                   <div ref={messagesEndRef} />
+
+                  {/* Context menu (long-press on mobile / right-click on desktop) */}
+                  {contextMenu && (() => {
+                    const ctxMsg = messages.find((m) => m.id === contextMenu.msgId);
+                    if (!ctxMsg || ctxMsg.deletedAt) return null;
+                    const isMineCtx = ctxMsg.senderId === currentUserId;
+                    return (
+                      <div
+                        className="fixed inset-0 z-50"
+                        onClick={() => setContextMenu(null)}
+                        onContextMenu={(e) => e.preventDefault()}
+                      >
+                        {/* Backdrop (mobile only) */}
+                        <div className="absolute inset-0 bg-navy/10 md:bg-transparent" />
+                        <div
+                          data-msg-context-menu
+                          className="absolute bg-snow border-[3px] border-navy rounded-2xl shadow-[5px_5px_0_0_#000] py-2 min-w-[180px] z-50"
+                          style={{
+                            left: Math.min(contextMenu.x, window.innerWidth - 200),
+                            top: Math.min(contextMenu.y, window.innerHeight - 280),
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {/* Quick reactions row */}
+                          <div className="flex items-center gap-1 px-3 py-2 border-b border-cloud">
+                            {["👍", "❤️", "😂", "😮", "🔥", "🎉"].map((emoji) => (
+                              <button
+                                key={emoji}
+                                onClick={() => { handleReaction(contextMenu.msgId, emoji); setContextMenu(null); }}
+                                className="text-xl hover:scale-125 active:scale-90 transition-transform p-1"
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Reply */}
+                          <button
+                            onClick={() => { setReplyTo(ctxMsg); setContextMenu(null); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-navy hover:bg-ghost transition-colors"
+                          >
+                            <svg className="w-4 h-4 text-slate" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                              <path d="M9 17l-5-5 5-5M4 12h16" />
+                            </svg>
+                            Reply
+                          </button>
+
+                          {/* React (more options) */}
+                          <button
+                            onClick={() => { setEmojiPickerMsgId(contextMenu.msgId); setActiveMsgId(contextMenu.msgId); setContextMenu(null); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-navy hover:bg-ghost transition-colors"
+                          >
+                            <svg className="w-4 h-4 text-slate" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                              <circle cx="12" cy="12" r="10" />
+                              <path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" />
+                            </svg>
+                            More reactions
+                          </button>
+
+                          {/* Pin/Unpin */}
+                          <button
+                            onClick={() => { handlePinMessage(contextMenu.msgId, !!ctxMsg.isPinned); setContextMenu(null); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-navy hover:bg-ghost transition-colors"
+                          >
+                            <svg className="w-4 h-4 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M16 4a1 1 0 00-1.4.2L12 8l-2.6-3.8A1 1 0 008 4a1 1 0 00-1 1v6.28l-2.6 3.12a1 1 0 00.2 1.4 1 1 0 00.6.2H11v5a1 1 0 002 0v-5h5.8a1 1 0 00.6-.2 1 1 0 00.2-1.4L17 11.28V5a1 1 0 00-1-1z" />
+                            </svg>
+                            {ctxMsg.isPinned ? "Unpin" : "Pin message"}
+                          </button>
+
+                          {/* Delete (own messages, within 5 min) */}
+                          {isMineCtx && canDelete(ctxMsg) && (
+                            <>
+                              <div className="h-px bg-cloud mx-2 my-1" />
+                              <button
+                                onClick={() => { handleDeleteMessage(contextMenu.msgId); setContextMenu(null); }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-coral hover:bg-coral-light transition-colors"
+                              >
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                  <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                Delete message
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Message input */}
@@ -1258,6 +2020,30 @@ export default function MessagesPage() {
                         </span>
                       </div>
                     )}
+
+                    {/* Reply preview bar */}
+                    {replyTo && (
+                      <div className="mb-2 flex items-center gap-2 px-3 py-2 bg-lavender-light rounded-xl border-l-[3px] border-lavender">
+                        <div className="flex-1 min-w-0">
+                          <span className="text-[10px] font-bold text-lavender">
+                            Replying to {replyTo.senderId === currentUserId ? "yourself" : (otherUser?.name || "them")}
+                          </span>
+                          <p className="text-xs text-navy-muted truncate">
+                            {replyTo.content || (replyTo.attachments?.length ? "Attachment" : "")}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setReplyTo(null)}
+                          className="p-1 rounded-lg hover:bg-ghost text-slate hover:text-navy transition-colors shrink-0"
+                          aria-label="Cancel reply"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                            <path d="M18 6L6 18M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
@@ -1265,10 +2051,42 @@ export default function MessagesPage() {
                       }}
                       className="flex items-end gap-2"
                     >
+                      {/* File upload button */}
+                      {isConnected && (
+                        <>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            className="hidden"
+                            title="Choose file to attach"
+                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleFileUpload(f);
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={uploading}
+                            className="shrink-0 w-10 h-10 rounded-xl bg-ghost border-[2px] border-cloud flex items-center justify-center hover:border-navy transition-colors disabled:opacity-50"
+                            title="Attach file"
+                          >
+                            {uploading ? (
+                              <div className="w-4 h-4 border-2 border-navy border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <svg className="w-5 h-5 text-slate" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                              </svg>
+                            )}
+                          </button>
+                        </>
+                      )}
                       <textarea
                         value={newMessage}
                         onChange={(e) => {
                           setNewMessage(e.target.value);
+                          sendTypingIndicator();
                           // Auto-resize textarea
                           const el = e.target;
                           el.style.height = "auto";
@@ -1382,6 +2200,234 @@ export default function MessagesPage() {
               >
                 {reportSubmitting ? "Submitting..." : "Submit Report"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Message Search Overlay */}
+      {msgSearchOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center bg-navy/40 backdrop-blur-sm px-4 pt-20"
+          onClick={() => { setMsgSearchOpen(false); setMsgSearchQuery(""); setMsgSearchResults([]); }}
+        >
+          <div
+            className="bg-snow border-[3px] border-navy rounded-2xl shadow-[8px_8px_0_0_#000] w-full max-w-lg overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b-[2px] border-cloud">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-slate shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="M21 21l-4.35-4.35" />
+                </svg>
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Search messages..."
+                  value={msgSearchQuery}
+                  onChange={(e) => setMsgSearchQuery(e.target.value)}
+                  className="flex-1 bg-transparent text-sm text-navy placeholder:text-slate focus:outline-none"
+                />
+                <button
+                  onClick={() => { setMsgSearchOpen(false); setMsgSearchQuery(""); setMsgSearchResults([]); }}
+                  className="p-1 rounded-lg hover:bg-ghost text-slate"
+                  title="Close search"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="max-h-80 overflow-y-auto">
+              {msgSearching ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-3 border-lime border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : msgSearchResults.length === 0 ? (
+                <div className="py-8 text-center text-slate text-sm">
+                  {msgSearchQuery.length >= 2 ? "No messages found" : "Type to search across all conversations"}
+                </div>
+              ) : (
+                msgSearchResults.map((r) => {
+                  // Highlight matching text
+                  const lowerContent = r.content.toLowerCase();
+                  const lowerQuery = msgSearchQuery.toLowerCase();
+                  const idx = lowerContent.indexOf(lowerQuery);
+                  let before = r.content;
+                  let match = "";
+                  let after = "";
+                  if (idx >= 0) {
+                    before = r.content.slice(0, idx);
+                    match = r.content.slice(idx, idx + msgSearchQuery.length);
+                    after = r.content.slice(idx + msgSearchQuery.length);
+                  }
+
+                  return (
+                    <button
+                      key={r.id}
+                      onClick={() => {
+                        // Jump to conversation
+                        const conv = conversations.find((c) => c.otherUserId === r.otherUserId);
+                        if (conv) {
+                          selectConversation(conv);
+                        } else {
+                          startConversation({ id: r.otherUserId, name: r.otherUserName, email: "" });
+                        }
+                        setMsgSearchOpen(false);
+                        setMsgSearchQuery("");
+                        setMsgSearchResults([]);
+                      }}
+                      className="w-full text-left px-4 py-3 border-b border-cloud hover:bg-ghost/60 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-bold text-xs text-navy">{r.otherUserName}</span>
+                        <span className="text-[9px] text-slate">{timeAgo(r.createdAt)}</span>
+                      </div>
+                      <p className="text-xs text-navy-muted line-clamp-2">
+                        {idx >= 0 ? (
+                          <>
+                            {before}
+                            <mark className="bg-sunny/40 text-navy font-bold rounded-sm px-0.5">{match}</mark>
+                            {after}
+                          </>
+                        ) : (
+                          r.content
+                        )}
+                      </p>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pinned Messages Drawer */}
+      {pinnedOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center bg-navy/40 backdrop-blur-sm px-4 pt-20"
+          onClick={() => setPinnedOpen(false)}
+        >
+          <div
+            className="bg-snow border-[3px] border-navy rounded-2xl shadow-[8px_8px_0_0_#000] w-full max-w-md overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-3 border-b-[2px] border-cloud flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-sunny" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M16 4a1 1 0 00-1.4.2L12 8l-2.6-3.8A1 1 0 008 4a1 1 0 00-1 1v6.28l-2.6 3.12a1 1 0 00.2 1.4 1 1 0 00.6.2H11v5a1 1 0 002 0v-5h5.8a1 1 0 00.6-.2 1 1 0 00.2-1.4L17 11.28V5a1 1 0 00-1-1z" />
+                </svg>
+                <h3 className="font-display font-black text-base text-navy">Pinned Messages</h3>
+              </div>
+              <button
+                onClick={() => setPinnedOpen(false)}
+                className="p-1 rounded-lg hover:bg-ghost text-slate"
+                title="Close pinned messages"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="max-h-80 overflow-y-auto">
+              {loadingPinned ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-3 border-lime border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : pinnedMessages.length === 0 ? (
+                <div className="py-8 text-center text-slate text-sm">
+                  No pinned messages in this conversation
+                </div>
+              ) : (
+                pinnedMessages.map((pm) => {
+                  const isMine = pm.senderId === currentUserId;
+                  return (
+                    <div key={pm.id} className="px-4 py-3 border-b border-cloud">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-bold text-xs text-navy">
+                          {isMine ? "You" : (otherUser?.name || "")}
+                        </span>
+                        <span className="text-[9px] text-slate">{timeAgo(pm.createdAt)}</span>
+                      </div>
+                      {pm.attachments && pm.attachments.length > 0 && (
+                        <div className="mb-1">
+                          {pm.attachments.map((att, i) => (
+                            att.resourceType === "image" ? (
+                              <button key={i} type="button" onClick={() => setAttachmentPreview(att)} className="block focus:outline-none">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={att.url} alt={att.name} className="max-w-full max-h-32 rounded-lg object-cover hover:opacity-90 transition-opacity cursor-zoom-in" />
+                              </button>
+                            ) : (
+                              <a key={i} href={att.url} target="_blank" rel="noopener noreferrer" className="text-xs text-lavender hover:underline">
+                                {att.name}
+                              </a>
+                            )
+                          ))}
+                        </div>
+                      )}
+                      {pm.content && (
+                        <p className="text-xs text-navy-muted line-clamp-3">{pm.content}</p>
+                      )}
+                      <button
+                        onClick={() => handlePinMessage(pm.id, true)}
+                        className="mt-1 text-[9px] text-coral hover:underline"
+                      >
+                        Unpin
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── Attachment Preview Lightbox ── */}
+      {attachmentPreview && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-navy/80 backdrop-blur-md"
+          onClick={() => setAttachmentPreview(null)}
+          onKeyDown={(e) => e.key === "Escape" && setAttachmentPreview(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Attachment preview"
+          tabIndex={-1}
+        >
+          <button
+            type="button"
+            className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-snow/10 hover:bg-snow/20 text-snow border border-snow/20 transition-colors"
+            onClick={() => setAttachmentPreview(null)}
+            aria-label="Close preview"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          <div
+            className="flex flex-col items-center gap-3 max-w-[90vw] max-h-[90vh] p-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={attachmentPreview.url}
+              alt={attachmentPreview.name}
+              className="max-w-full max-h-[80vh] rounded-2xl border-[3px] border-snow/20 object-contain shadow-[0_8px_40px_rgba(0,0,0,0.5)]"
+            />
+            <div className="flex items-center gap-3">
+              <p className="text-snow/80 text-sm font-medium">{attachmentPreview.name}</p>
+              <a
+                href={attachmentPreview.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-1.5 bg-lime border-[2px] border-navy rounded-xl text-navy text-xs font-bold press-2 press-navy"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Open original
+              </a>
             </div>
           </div>
         </div>

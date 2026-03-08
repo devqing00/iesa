@@ -22,7 +22,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, UploadFile, File, Form
 from pydantic import BaseModel, Field
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -50,7 +50,8 @@ MESSAGE_MAX_LENGTH = 2000
 
 class SendMessageBody(BaseModel):
     recipientId: str
-    content: str = Field(..., min_length=1, max_length=MESSAGE_MAX_LENGTH)
+    content: str = Field("", max_length=MESSAGE_MAX_LENGTH)
+    replyToId: Optional[str] = None
 
 
 class BlockUserBody(BaseModel):
@@ -81,6 +82,18 @@ class ReviewReportBody(BaseModel):
 
 class AcceptRequestBody(BaseModel):
     action: str = Field(..., pattern=r"^(accept|decline)$")
+
+
+class ReactionBody(BaseModel):
+    emoji: str = Field(..., min_length=1, max_length=8)
+
+
+# --- Constants: Allowed reaction emojis & limits ---
+ALLOWED_REACTIONS = {"👍", "❤️", "😂", "😮", "😢", "🔥", "👎", "🎉"}
+MAX_REACTIONS_PER_MESSAGE = 50
+MAX_PINNED_PER_CONVERSATION = 25
+DELETE_WINDOW_MINUTES = 5
+ATTACHMENT_MAX_SIZE_MB = 10
 
 
 # --- Helpers -------------------------------------------------------
@@ -1002,6 +1015,10 @@ async def send_message(
     conv_key = _conversation_key(sender_id, recipient_id)
     now = datetime.now(timezone.utc)
 
+    # Require content or at least a reply reference (allows empty content if attachment sent separately)
+    if not body.content.strip() and not body.replyToId:
+        raise HTTPException(status_code=400, detail="Message content is required")
+
     doc = {
         "conversationKey": conv_key,
         "senderId": sender_id,
@@ -1010,6 +1027,27 @@ async def send_message(
         "isRead": False,
         "createdAt": now,
     }
+
+    # Handle reply
+    if body.replyToId:
+        if not ObjectId.is_valid(body.replyToId):
+            raise HTTPException(status_code=400, detail="Invalid replyToId")
+        original = await db["direct_messages"].find_one(
+            {"_id": ObjectId(body.replyToId), "conversationKey": conv_key},
+            {"content": 1, "senderId": 1, "attachments": 1},
+        )
+        if original:
+            reply_sender = await _user_brief(db, original["senderId"])
+            doc["replyTo"] = {
+                "id": body.replyToId,
+                "content": (original.get("content") or "")[:200],
+                "senderName": reply_sender.get("name", "Unknown"),
+                "senderId": original["senderId"],
+            }
+            # Include attachment info in reply preview if original had attachments
+            if original.get("attachments"):
+                doc["replyTo"]["hasAttachment"] = True
+
     result = await db["direct_messages"].insert_one(doc)
 
     # Real-time delivery via WebSocket
@@ -1025,6 +1063,8 @@ async def send_message(
             "content": body.content.strip(),
             "isRead": False,
             "createdAt": now.isoformat(),
+            "replyTo": doc.get("replyTo"),
+            "attachments": doc.get("attachments", []),
         },
     }
     await dm_manager.notify(recipient_id, ws_payload)
@@ -1057,8 +1097,10 @@ async def list_conversations(
             "$group": {
                 "_id": "$conversationKey",
                 "lastMessage": {"$first": "$content"},
+                "lastAttachments": {"$first": "$attachments"},
                 "lastSenderId": {"$first": "$senderId"},
                 "lastAt": {"$first": "$createdAt"},
+                "lastDeletedAt": {"$first": "$deletedAt"},
                 "unreadCount": {
                     "$sum": {
                         "$cond": [
@@ -1110,12 +1152,19 @@ async def list_conversations(
     conversations = []
     for doc, other_id in raw_convs:
         info = user_map.get(other_id, {"name": "Unknown", "email": ""})
+        last_msg = doc["lastMessage"][:100] if doc.get("lastMessage") else ""
+        # Fallback: attachment-only message → show label
+        if not last_msg and doc.get("lastAttachments"):
+            last_msg = "Sent an attachment"
+        # Check if last message was deleted
+        if doc.get("lastDeletedAt"):
+            last_msg = "This message was deleted"
         conversations.append({
             "conversationKey": doc["_id"],
             "otherUserId": other_id,
             "otherUserName": info["name"],
             "otherUserEmail": info["email"],
-            "lastMessage": doc["lastMessage"][:100],
+            "lastMessage": last_msg,
             "lastSenderId": doc["lastSenderId"],
             "lastAt": doc["lastAt"].isoformat() if doc["lastAt"] else None,
             "unreadCount": doc["unreadCount"],
@@ -1151,14 +1200,21 @@ async def get_conversation(
 
     messages = []
     async for doc in cursor:
-        messages.append({
+        msg = {
             "id": str(doc["_id"]),
             "senderId": doc["senderId"],
             "recipientId": doc["recipientId"],
-            "content": doc["content"],
+            "content": doc["content"] if not doc.get("deletedAt") else "",
             "isRead": doc.get("isRead", False),
             "createdAt": doc["createdAt"].isoformat(),
-        })
+            "readAt": doc["readAt"].isoformat() if doc.get("readAt") else None,
+            "deletedAt": doc["deletedAt"].isoformat() if doc.get("deletedAt") else None,
+            "replyTo": doc.get("replyTo"),
+            "attachments": doc.get("attachments", []),
+            "reactions": doc.get("reactions", []),
+            "isPinned": doc.get("isPinned", False),
+        }
+        messages.append(msg)
 
     messages.reverse()
 
@@ -1202,9 +1258,10 @@ async def mark_conversation_read(
     user_id = str(user["_id"])
     conv_key = _conversation_key(user_id, other_user_id)
 
+    now = datetime.now(timezone.utc)
     result = await db["direct_messages"].update_many(
         {"conversationKey": conv_key, "recipientId": user_id, "isRead": False},
-        {"$set": {"isRead": True}},
+        {"$set": {"isRead": True, "readAt": now}},
     )
 
     if result.modified_count > 0:
@@ -1214,6 +1271,7 @@ async def mark_conversation_read(
                 "conversationKey": conv_key,
                 "readBy": user_id,
                 "count": result.modified_count,
+                "readAt": now.isoformat(),
             },
         })
 
@@ -1296,6 +1354,489 @@ async def search_users_for_messaging(
     return results
 
 
+# ===================================================================
+# UPLOAD ATTACHMENT
+# ===================================================================
+
+@router.post("/upload-attachment")
+async def upload_attachment(
+    recipientId: str = Form(...),
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """
+    Upload a file/image attachment for a DM.
+    Returns the attachment metadata to be included in a subsequent send_message call.
+    The attachment is stored on the message doc directly.
+    """
+    from app.utils.cloudinary_config import upload_dm_attachment
+
+    sender_id = str(user["_id"])
+
+    # Validate
+    if sender_id == recipientId:
+        raise HTTPException(status_code=400, detail="Cannot send to yourself")
+    if not ObjectId.is_valid(recipientId):
+        raise HTTPException(status_code=400, detail="Invalid recipient ID")
+
+    await _check_mute(db, sender_id)
+    await _check_block(db, sender_id, recipientId)
+    await _check_rate_limit(db, sender_id)
+
+    # Check file size (10 MB limit)
+    contents = await file.read()
+    if len(contents) > ATTACHMENT_MAX_SIZE_MB * 1024 * 1024:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Maximum size is {ATTACHMENT_MAX_SIZE_MB}MB.",
+        )
+
+    # Determine extension
+    filename = file.filename or "file"
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "bin"
+
+    result = await upload_dm_attachment(contents, sender_id, ext)
+    if not result or not result.get("url"):
+        raise HTTPException(status_code=500, detail="Failed to upload file")
+
+    # Build the attachment object
+    attachment = {
+        "url": result["url"],
+        "name": filename,
+        "size": len(contents),
+        "type": file.content_type or "application/octet-stream",
+        "resourceType": result.get("resourceType", "raw"),
+    }
+
+    # Now create the message with this attachment
+    connected = await _are_connected(db, sender_id, recipientId)
+    if not connected:
+        raise HTTPException(
+            status_code=400,
+            detail="You must be connected to send attachments. Send a message request first.",
+        )
+
+    conv_key = _conversation_key(sender_id, recipientId)
+    now = datetime.now(timezone.utc)
+
+    doc = {
+        "conversationKey": conv_key,
+        "senderId": sender_id,
+        "recipientId": recipientId,
+        "content": "",
+        "isRead": False,
+        "createdAt": now,
+        "attachments": [attachment],
+    }
+    insert_result = await db["direct_messages"].insert_one(doc)
+
+    sender_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
+    ws_payload = {
+        "type": "new_message",
+        "data": {
+            "id": str(insert_result.inserted_id),
+            "conversationKey": conv_key,
+            "senderId": sender_id,
+            "senderName": sender_name,
+            "recipientId": recipientId,
+            "content": "",
+            "isRead": False,
+            "createdAt": now.isoformat(),
+            "attachments": [attachment],
+        },
+    }
+    await dm_manager.notify(recipientId, ws_payload)
+    await dm_manager.notify(sender_id, ws_payload)
+
+    return {
+        "id": str(insert_result.inserted_id),
+        "conversationKey": conv_key,
+        "createdAt": now.isoformat(),
+        "attachment": attachment,
+    }
+
+
+# ===================================================================
+# SOFT DELETE MESSAGE
+# ===================================================================
+
+@router.delete("/message/{message_id}")
+async def delete_message(
+    message_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """
+    Soft-delete a message within 5 minutes of sending.
+    Only the sender can delete their own messages.
+    """
+    if not ObjectId.is_valid(message_id):
+        raise HTTPException(status_code=400, detail="Invalid message ID")
+
+    user_id = str(user["_id"])
+    msg = await db["direct_messages"].find_one({"_id": ObjectId(message_id)})
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if msg["senderId"] != user_id:
+        raise HTTPException(status_code=403, detail="You can only delete your own messages")
+    if msg.get("deletedAt"):
+        raise HTTPException(status_code=400, detail="Message already deleted")
+
+    # Check time window
+    created = msg["createdAt"]
+    if isinstance(created, str):
+        created = datetime.fromisoformat(created)
+    if not created.tzinfo:
+        created = created.replace(tzinfo=timezone.utc)
+    elapsed = (datetime.now(timezone.utc) - created).total_seconds()
+    if elapsed > DELETE_WINDOW_MINUTES * 60:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Messages can only be deleted within {DELETE_WINDOW_MINUTES} minutes of sending.",
+        )
+
+    now = datetime.now(timezone.utc)
+    await db["direct_messages"].update_one(
+        {"_id": ObjectId(message_id)},
+        {"$set": {"deletedAt": now, "content": ""}},
+    )
+
+    # Notify both users
+    conv_key = msg["conversationKey"]
+    other_id = msg["recipientId"] if msg["senderId"] == user_id else msg["senderId"]
+    ws_payload = {
+        "type": "message_deleted",
+        "data": {
+            "messageId": message_id,
+            "conversationKey": conv_key,
+            "deletedAt": now.isoformat(),
+        },
+    }
+    await dm_manager.notify(other_id, ws_payload)
+    await dm_manager.notify(user_id, ws_payload)
+
+    return {"deleted": True}
+
+
+# ===================================================================
+# MESSAGE SEARCH
+# ===================================================================
+
+@router.get("/search")
+async def search_messages(
+    q: str = Query(..., min_length=2, max_length=200),
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """
+    Search across all conversations for messages containing the query string.
+    Returns up to 30 matching messages grouped by conversation.
+    """
+    import re as regex_module
+
+    user_id = str(user["_id"])
+    escaped = regex_module.escape(q.strip())
+    pattern = regex_module.compile(escaped, regex_module.IGNORECASE)
+
+    cursor = (
+        db["direct_messages"]
+        .find({
+            "$or": [{"senderId": user_id}, {"recipientId": user_id}],
+            "content": {"$regex": pattern},
+            "deletedAt": {"$exists": False},
+        })
+        .sort("createdAt", -1)
+        .limit(30)
+    )
+
+    # Collect results and other user IDs
+    raw_results = []
+    other_ids = set()
+    async for doc in cursor:
+        other_id = doc["recipientId"] if doc["senderId"] == user_id else doc["senderId"]
+        other_ids.add(other_id)
+        raw_results.append({
+            "id": str(doc["_id"]),
+            "conversationKey": doc["conversationKey"],
+            "senderId": doc["senderId"],
+            "recipientId": doc["recipientId"],
+            "content": doc["content"],
+            "createdAt": doc["createdAt"].isoformat(),
+            "otherUserId": other_id,
+        })
+
+    # Batch fetch user names
+    user_map: dict[str, str] = {}
+    if other_ids:
+        oids = [ObjectId(oid) for oid in other_ids if ObjectId.is_valid(oid)]
+        if oids:
+            async for u in db["users"].find(
+                {"_id": {"$in": oids}},
+                {"firstName": 1, "lastName": 1},
+            ):
+                uid = str(u["_id"])
+                user_map[uid] = f"{u.get('firstName', '')} {u.get('lastName', '')}".strip()
+
+    for r in raw_results:
+        r["otherUserName"] = user_map.get(r["otherUserId"], "Unknown")
+
+    return raw_results
+
+
+# ===================================================================
+# PINNED MESSAGES
+# ===================================================================
+
+@router.post("/message/{message_id}/pin")
+async def pin_message(
+    message_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Pin a message in a conversation. Both participants can pin."""
+    if not ObjectId.is_valid(message_id):
+        raise HTTPException(status_code=400, detail="Invalid message ID")
+
+    user_id = str(user["_id"])
+    msg = await db["direct_messages"].find_one({"_id": ObjectId(message_id)})
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if msg.get("deletedAt"):
+        raise HTTPException(status_code=400, detail="Cannot pin a deleted message")
+
+    # Verify user is part of this conversation
+    if user_id not in (msg["senderId"], msg["recipientId"]):
+        raise HTTPException(status_code=403, detail="Not your conversation")
+
+    if msg.get("isPinned"):
+        raise HTTPException(status_code=400, detail="Message already pinned")
+
+    # Check pin limit
+    conv_key = msg["conversationKey"]
+    pin_count = await db["direct_messages"].count_documents({
+        "conversationKey": conv_key,
+        "isPinned": True,
+    })
+    if pin_count >= MAX_PINNED_PER_CONVERSATION:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Maximum {MAX_PINNED_PER_CONVERSATION} pinned messages per conversation",
+        )
+
+    await db["direct_messages"].update_one(
+        {"_id": ObjectId(message_id)},
+        {"$set": {"isPinned": True, "pinnedAt": datetime.now(timezone.utc), "pinnedBy": user_id}},
+    )
+
+    other_id = msg["recipientId"] if msg["senderId"] == user_id else msg["senderId"]
+    ws_payload = {
+        "type": "message_pinned",
+        "data": {
+            "messageId": message_id,
+            "conversationKey": conv_key,
+            "isPinned": True,
+            "pinnedBy": user_id,
+        },
+    }
+    await dm_manager.notify(other_id, ws_payload)
+    await dm_manager.notify(user_id, ws_payload)
+
+    return {"pinned": True}
+
+
+@router.delete("/message/{message_id}/pin")
+async def unpin_message(
+    message_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Unpin a message."""
+    if not ObjectId.is_valid(message_id):
+        raise HTTPException(status_code=400, detail="Invalid message ID")
+
+    user_id = str(user["_id"])
+    msg = await db["direct_messages"].find_one({"_id": ObjectId(message_id)})
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if user_id not in (msg["senderId"], msg["recipientId"]):
+        raise HTTPException(status_code=403, detail="Not your conversation")
+    if not msg.get("isPinned"):
+        raise HTTPException(status_code=400, detail="Message is not pinned")
+
+    await db["direct_messages"].update_one(
+        {"_id": ObjectId(message_id)},
+        {"$unset": {"isPinned": "", "pinnedAt": "", "pinnedBy": ""}},
+    )
+
+    other_id = msg["recipientId"] if msg["senderId"] == user_id else msg["senderId"]
+    conv_key = msg["conversationKey"]
+    ws_payload = {
+        "type": "message_pinned",
+        "data": {
+            "messageId": message_id,
+            "conversationKey": conv_key,
+            "isPinned": False,
+        },
+    }
+    await dm_manager.notify(other_id, ws_payload)
+    await dm_manager.notify(user_id, ws_payload)
+
+    return {"unpinned": True}
+
+
+@router.get("/conversation/{other_user_id}/pinned")
+async def get_pinned_messages(
+    other_user_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Get all pinned messages in a conversation."""
+    if not ObjectId.is_valid(other_user_id):
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+
+    user_id = str(user["_id"])
+    conv_key = _conversation_key(user_id, other_user_id)
+
+    cursor = (
+        db["direct_messages"]
+        .find({"conversationKey": conv_key, "isPinned": True})
+        .sort("pinnedAt", -1)
+    )
+
+    pinned = []
+    async for doc in cursor:
+        pinned.append({
+            "id": str(doc["_id"]),
+            "senderId": doc["senderId"],
+            "recipientId": doc["recipientId"],
+            "content": doc["content"] if not doc.get("deletedAt") else "",
+            "createdAt": doc["createdAt"].isoformat(),
+            "pinnedAt": doc.get("pinnedAt", doc["createdAt"]).isoformat(),
+            "attachments": doc.get("attachments", []),
+        })
+
+    return pinned
+
+
+# ===================================================================
+# EMOJI REACTIONS
+# ===================================================================
+
+@router.post("/message/{message_id}/react")
+async def add_reaction(
+    message_id: str,
+    body: ReactionBody,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Add an emoji reaction to a message."""
+    if not ObjectId.is_valid(message_id):
+        raise HTTPException(status_code=400, detail="Invalid message ID")
+
+    if body.emoji not in ALLOWED_REACTIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid reaction. Allowed: {', '.join(sorted(ALLOWED_REACTIONS))}",
+        )
+
+    user_id = str(user["_id"])
+    msg = await db["direct_messages"].find_one({"_id": ObjectId(message_id)})
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if msg.get("deletedAt"):
+        raise HTTPException(status_code=400, detail="Cannot react to a deleted message")
+    if user_id not in (msg["senderId"], msg["recipientId"]):
+        raise HTTPException(status_code=403, detail="Not your conversation")
+
+    reactions = msg.get("reactions", [])
+
+    # Check if user already reacted with this emoji
+    existing = next(
+        (r for r in reactions if r["userId"] == user_id and r["emoji"] == body.emoji),
+        None,
+    )
+    if existing:
+        raise HTTPException(status_code=400, detail="You already reacted with this emoji")
+
+    if len(reactions) >= MAX_REACTIONS_PER_MESSAGE:
+        raise HTTPException(status_code=400, detail="Too many reactions on this message")
+
+    reaction = {
+        "userId": user_id,
+        "emoji": body.emoji,
+        "createdAt": datetime.now(timezone.utc).isoformat(),
+    }
+
+    await db["direct_messages"].update_one(
+        {"_id": ObjectId(message_id)},
+        {"$push": {"reactions": reaction}},
+    )
+
+    other_id = msg["recipientId"] if msg["senderId"] == user_id else msg["senderId"]
+    conv_key = msg["conversationKey"]
+    ws_payload = {
+        "type": "reaction_updated",
+        "data": {
+            "messageId": message_id,
+            "conversationKey": conv_key,
+            "reaction": reaction,
+            "action": "add",
+        },
+    }
+    await dm_manager.notify(other_id, ws_payload)
+    await dm_manager.notify(user_id, ws_payload)
+
+    return {"reacted": True}
+
+
+@router.delete("/message/{message_id}/react/{emoji}")
+async def remove_reaction(
+    message_id: str,
+    emoji: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Remove your emoji reaction from a message."""
+    if not ObjectId.is_valid(message_id):
+        raise HTTPException(status_code=400, detail="Invalid message ID")
+
+    user_id = str(user["_id"])
+    msg = await db["direct_messages"].find_one({"_id": ObjectId(message_id)})
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if user_id not in (msg["senderId"], msg["recipientId"]):
+        raise HTTPException(status_code=403, detail="Not your conversation")
+
+    # URL-decode the emoji (might come URL-encoded)
+    from urllib.parse import unquote
+    decoded_emoji = unquote(emoji)
+
+    result = await db["direct_messages"].update_one(
+        {"_id": ObjectId(message_id)},
+        {"$pull": {"reactions": {"userId": user_id, "emoji": decoded_emoji}}},
+    )
+
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Reaction not found")
+
+    other_id = msg["recipientId"] if msg["senderId"] == user_id else msg["senderId"]
+    conv_key = msg["conversationKey"]
+    ws_payload = {
+        "type": "reaction_updated",
+        "data": {
+            "messageId": message_id,
+            "conversationKey": conv_key,
+            "reaction": {"userId": user_id, "emoji": decoded_emoji},
+            "action": "remove",
+        },
+    }
+    await dm_manager.notify(other_id, ws_payload)
+    await dm_manager.notify(user_id, ws_payload)
+
+    return {"removed": True}
+
+
 # --- WebSocket Endpoint --------------------------------------------
 # Separate router: router-level HTTPBearer deps don't work for WebSocket scope
 _ws_router = APIRouter(prefix="/api/v1/messages", tags=["Messages"])
@@ -1356,6 +1897,14 @@ async def dm_websocket(ws: WebSocket, token: str = Query("")):
             msg_type = data.get("type", "")
             if msg_type == "ping":
                 await ws.send_json({"type": "pong"})
+            elif msg_type == "typing":
+                # Relay typing indicator to the other user
+                recipient_id = data.get("recipientId", "")
+                if recipient_id and recipient_id != user_id:
+                    await dm_manager.notify(recipient_id, {
+                        "type": "typing",
+                        "data": {"senderId": user_id},
+                    })
     except WebSocketDisconnect:
         pass
     except Exception:

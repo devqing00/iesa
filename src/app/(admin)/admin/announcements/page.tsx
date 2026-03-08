@@ -9,8 +9,8 @@ import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
 import { AnnouncementSchema, flattenZodErrors } from "@/lib/schemas";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
-import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -143,8 +143,8 @@ function AdminAnnouncementsPage() {
         setAnnouncements(mapped);
         setTotalCount(data.total ?? items.length);
       }
-    } catch {
-      toast.error("Failed to load announcements");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to load announcements"));
     } finally {
       setLoading(false);
     }
@@ -210,7 +210,7 @@ function AdminAnnouncementsPage() {
           sendEmail: form.sendEmail,
         };
         const res = await fetch(getApiUrl(`/api/v1/announcements/${editingId}`), { method: "PATCH", headers, body: JSON.stringify(body) });
-        if (!res.ok) await throwApiError(res, "update this announcement");
+        if (!res.ok) await throwApiError(res, "update announcement");
         toast.success("Announcement updated");
       } else {
         if (!currentSession?.id) {
@@ -243,8 +243,8 @@ function AdminAnnouncementsPage() {
       setModalOpen(false);
       setForm(EMPTY_FORM);
       setEditingId(null);
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to save announcement"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to save announcement"));
     } finally {
       setSubmitting(false);
     }
@@ -259,13 +259,13 @@ function AdminAnnouncementsPage() {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) await throwApiError(res, "delete this announcement");
+      if (!res.ok) await throwApiError(res, "delete announcement");
       toast.success("Announcement deleted");
       setDeleteConfirmId(null);
       await fetchAnnouncements();
       mutate("/api/v1/admin/stats");
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to delete announcement"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to delete announcement"));
     }
   };
 

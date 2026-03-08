@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useSidebar } from "@/context/SidebarContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useDM } from "@/context/DMContext";
+import { useNotificationCount } from "@/hooks/useNotificationCount";
 import { prefetchRoute } from "@/hooks/useData";
 import { isExternalStudent, EXTERNAL_HIDDEN_HREFS } from "@/lib/studentAccess";
 
@@ -176,6 +177,7 @@ export default function Sidebar() {
   const { isExpanded, toggleSidebar, closeSidebar } = useSidebar();
   const { hasPermission, permissions } = usePermissions();
   const { totalUnread } = useDM();
+  const { unreadCount: notifUnread } = useNotificationCount();
 
   const external = isExternalStudent(userProfile?.department);
 
@@ -275,6 +277,14 @@ export default function Sidebar() {
                         </span>
                       )}
                       {!isExpanded && link.href === "/dashboard/messages" && totalUnread > 0 && (
+                        <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-coral border border-snow" />
+                      )}
+                      {isExpanded && link.href === "/dashboard/announcements" && notifUnread > 0 && (
+                        <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-coral text-snow text-[10px] font-black flex items-center justify-center">
+                          {notifUnread > 9 ? "9+" : notifUnread}
+                        </span>
+                      )}
+                      {!isExpanded && link.href === "/dashboard/announcements" && notifUnread > 0 && (
                         <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-coral border border-snow" />
                       )}
                     </Link>

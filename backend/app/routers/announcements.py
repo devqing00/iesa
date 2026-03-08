@@ -29,6 +29,108 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/announcements", tags=["Announcements"])
 
+def _normalize_levels(levels: list) -> list:
+    """
+    Normalise level values to canonical '\u202fNL' string format.
+    Handles legacy integer levels (300 → '300L') and existing strings ('300L' → '300L').
+    """
+    out = []
+    for lv in levels:
+        s = str(lv).strip()
+        if s.isdigit():
+            out.append(f"{s}L")
+        elif s.upper().endswith("L") and s[:-1].isdigit():
+            out.append(s)  # already canonical
+        else:
+            out.append(s)
+    return out
+
+
+async def _fire_announcement_notifications(ann_doc: dict, db) -> None:
+    """
+    Shared helper: create in-app notifications for students + all admin/exco users
+    for a published announcement.
+    Idempotent — safe to call multiple times (callers should check if already sent).
+    """
+    try:
+        from app.routers.notifications import create_bulk_notifications
+
+        ann_id = str(ann_doc.get("_id", ""))
+        target_levels = _normalize_levels(ann_doc.get("targetLevels") or [])
+        session_id = ann_doc.get("sessionId", "")
+        notif_audience = ann_doc.get("targetAudience") or "all"
+        enrollments_coll = db["enrollments"]
+
+        logger.info(
+            "[NOTIF] '%s': sessionId=%s levels=%s audience=%s",
+            ann_doc.get("title"), session_id, target_levels or "ALL", notif_audience,
+        )
+
+        if target_levels:
+            enrolled = await enrollments_coll.find(
+                {"sessionId": session_id, "level": {"$in": target_levels}, "isActive": True}
+            ).to_list(length=None)
+        else:
+            enrolled = await enrollments_coll.find(
+                {"sessionId": session_id, "isActive": True}
+            ).to_list(length=None)
+
+        student_ids = list({str(e.get("studentId") or e.get("userId") or e["_id"]) for e in enrolled})
+
+        # Fallback: no enrollments + all-levels → notify all student users
+        if not student_ids and not target_levels:
+            logger.warning("[NOTIF] No enrollments for session %s — using all student users", session_id)
+            all_students = await db["users"].find(
+                {"role": "student"}, {"_id": 1, "department": 1}
+            ).to_list(length=None)
+            student_ids = [str(u["_id"]) for u in all_students]
+
+        # Filter by department if audience is targeted
+        if notif_audience != "all" and student_ids:
+            dept_query: dict = {"_id": {"$in": [ObjectId(sid) for sid in student_ids]}}
+            if notif_audience == "ipe":
+                dept_query["department"] = "Industrial Engineering"
+            elif notif_audience == "external":
+                dept_query["department"] = {"$ne": "Industrial Engineering"}
+            matched = await db["users"].find(dept_query, {"_id": 1}).to_list(length=None)
+            student_ids = [str(u["_id"]) for u in matched]
+
+        # Fetch admin/exco IDs upfront so we can exclude them from the student path
+        # (admins who are also enrolled get exactly one notification — the admin-link variant)
+        admin_users = await db["users"].find(
+            {"role": {"$in": ["admin", "exco"]}}, {"_id": 1}
+        ).to_list(length=None)
+        admin_ids = [str(u["_id"]) for u in admin_users]
+        admin_id_set = set(admin_ids)
+
+        # Remove admins/exco from student set to avoid duplicates
+        student_ids = [sid for sid in student_ids if sid not in admin_id_set]
+
+        logger.info("[NOTIF] Student recipients: %d", len(student_ids))
+        if student_ids:
+            await create_bulk_notifications(
+                user_ids=student_ids,
+                type="announcement",
+                title=f"📢 {ann_doc['title']}",
+                message=(ann_doc.get("content") or "")[:200],
+                link=f"/dashboard/announcements?highlight={ann_id}",
+                related_id=ann_id,
+                category="announcements",
+            )
+
+        if admin_ids:
+            await create_bulk_notifications(
+                user_ids=admin_ids,
+                type="announcement",
+                title=f"📢 {ann_doc['title']}",
+                message=(ann_doc.get("content") or "")[:200],
+                link="/admin/announcements",
+                related_id=ann_id,
+                category="announcements",
+            )
+    except Exception as e:
+        logger.error(f"Failed to create announcement notifications: {e}", exc_info=True)
+
 
 async def _notify_students_of_announcement(
     session_id: str,
@@ -46,21 +148,29 @@ async def _notify_students_of_announcement(
 
         # Build target label string
         audience_labels = {"all": "All Students", "ipe": "IPE Students", "external": "External Students"}
+        # Normalise levels to handle legacy integer format (300 → '300L')
         if not target_levels:
             target_label = audience_labels.get(target_audience, "All Students")
-            query: dict = {"sessionId": session_id, "status": "active"}
+            query: dict = {"sessionId": session_id, "isActive": True}
         else:
+            target_levels = _normalize_levels(target_levels)
             level_map = {
-                "100": "100 Level", "200": "200 Level", "300": "300 Level",
-                "400": "400 Level", "500": "500 Level", "PG": "Postgraduate",
+                "100L": "100 Level", "200L": "200 Level", "300L": "300 Level",
+                "400L": "400 Level", "500L": "500 Level", "PG": "Postgraduate",
             }
             target_label = ", ".join(level_map.get(lv, lv) for lv in target_levels)
             if target_audience != "all":
                 target_label += f" ({audience_labels.get(target_audience, '')})"
-            query = {"sessionId": session_id, "status": "active", "level": {"$in": target_levels}}
+            query = {"sessionId": session_id, "isActive": True, "level": {"$in": target_levels}}
 
         cursor = enrollments_col.find(query, {"studentId": 1})
         student_ids = [doc["studentId"] async for doc in cursor]
+
+        # Fallback: if no enrollments and all-levels, use all student users
+        if not student_ids and not target_levels:
+            logger.warning("[EMAIL] No enrollments for session %s — falling back to all student users", session_id)
+            all_students = await users_col.find({"role": "student"}, {"_id": 1}).to_list(length=None)
+            student_ids = [str(u["_id"]) for u in all_students]
 
         if not student_ids:
             return
@@ -214,46 +324,7 @@ async def create_announcement(
 
     # Create in-app notifications for targeted students (only for immediately published)
     if not is_scheduled:
-        try:
-            from app.routers.notifications import create_bulk_notifications
-            target_levels = announcement_data.targetLevels or []
-            enrollments_coll = db["enrollments"]
-            if target_levels:
-                enrolled = await enrollments_coll.find(
-                    {"sessionId": announcement_data.sessionId, "level": {"$in": [f"{l}L" for l in target_levels]}, "isActive": True}
-                ).to_list(length=None)
-            else:
-                enrolled = await enrollments_coll.find(
-                    {"sessionId": announcement_data.sessionId, "isActive": True}
-                ).to_list(length=None)
-            student_ids = list({e["studentId"] for e in enrolled})
-
-            # Filter by audience (department)
-            notif_audience = announcement_data.targetAudience or "all"
-            if notif_audience != "all" and student_ids:
-                users_coll = db["users"]
-                dept_query: dict = {"_id": {"$in": [ObjectId(sid) for sid in student_ids]}}
-                if notif_audience == "ipe":
-                    dept_query["department"] = "Industrial Engineering"
-                elif notif_audience == "external":
-                    dept_query["department"] = {"$ne": "Industrial Engineering"}
-                matched_users = await users_coll.find(dept_query, {"_id": 1}).to_list(length=None)
-                student_ids = [str(u["_id"]) for u in matched_users]
-
-            if student_ids:
-                fire_and_forget(
-                    create_bulk_notifications(
-                        user_ids=student_ids,
-                        type="announcement",
-                        title=f"📢 {announcement_data.title}",
-                        message=announcement_data.content[:200],
-                        link=f"/dashboard/announcements?highlight={result.inserted_id}",
-                        related_id=str(result.inserted_id),
-                        category="announcements",
-                    )
-                )
-        except Exception as e:
-            logger.error(f"Failed to create announcement notifications: {e}")
+        fire_and_forget(_fire_announcement_notifications(created_announcement, db))
 
     return Announcement(**created_announcement)
 
@@ -500,21 +571,33 @@ async def update_announcement(
         )
     
     update_data["updatedAt"] = datetime.now(timezone.utc)
-    
+
+    # Snapshot isPublished BEFORE updating so we can detect first-publish
+    was_published: bool = False
+    if update_data.get("isPublished") is True:
+        original = await announcements.find_one(
+            {"_id": ObjectId(announcement_id)}, {"isPublished": 1}
+        )
+        was_published = bool(original and original.get("isPublished") is True)
+
     result = await announcements.update_one(
         {"_id": ObjectId(announcement_id)},
         {"$set": update_data}
     )
-    
+
     if result.matched_count == 0:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Announcement {announcement_id} not found"
         )
-    
+
     updated_announcement = await announcements.find_one({"_id": ObjectId(announcement_id)})
     updated_announcement["_id"] = str(updated_announcement["_id"])
-    
+
+    # Fire notifications when an announcement is published for the first time via PATCH
+    if update_data.get("isPublished") is True and not was_published:
+        fire_and_forget(_fire_announcement_notifications(updated_announcement, db))
+
     await AuditLogger.log(
         action=AuditLogger.ANNOUNCEMENT_UPDATED,
         actor_id=user["_id"],
@@ -551,7 +634,10 @@ async def delete_announcement(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Announcement {announcement_id} not found"
         )
-    
+
+    # Cascade: remove all in-app notifications for this announcement
+    await db["notifications"].delete_many({"type": "announcement", "relatedId": announcement_id})
+
     await AuditLogger.log(
         action=AuditLogger.ANNOUNCEMENT_DELETED,
         actor_id=user["_id"],
@@ -636,34 +722,62 @@ async def publish_scheduled_announcements(
         }, ipe_only=(ann.get("targetAudience") == "ipe"))
         await cache_delete_pattern("student_dashboard:*")
 
-        # In-app notifications
-        try:
-            from app.routers.notifications import create_bulk_notifications
-            target_levels = ann.get("targetLevels") or []
-            enrollments_coll = db["enrollments"]
-            if target_levels:
-                enrolled = await enrollments_coll.find(
-                    {"sessionId": ann["sessionId"], "level": {"$in": [f"{l}L" for l in target_levels]}, "isActive": True}
-                ).to_list(length=None)
-            else:
-                enrolled = await enrollments_coll.find(
-                    {"sessionId": ann["sessionId"], "isActive": True}
-                ).to_list(length=None)
-            student_ids = list({e["studentId"] for e in enrolled})
-            if student_ids:
-                fire_and_forget(
-                    create_bulk_notifications(
-                        user_ids=student_ids,
-                        type="announcement",
-                        title=f"📢 {ann['title']}",
-                        message=ann.get("content", "")[:200],
-                        link=f"/dashboard/announcements?highlight={ann['_id']}",
-                        related_id=str(ann["_id"]),
-                        category="announcements",
-                    )
-                )
-        except Exception as e:
-            logger.error(f"Failed to create scheduled announcement notifications: {e}")
+        # In-app notifications — delegate to shared helper
+        asyncio.ensure_future(_fire_announcement_notifications(ann, db))
 
     await cache_delete("admin_stats")
     return {"published": published_count}
+
+
+@router.post("/backfill-notifications")
+async def backfill_announcement_notifications(
+    user: dict = Depends(get_current_user),
+):
+    # Only admin / exco can run the backfill
+    user_role = user.get("role", "")
+    if user_role not in ("admin", "exco"):
+        raise HTTPException(status_code=403, detail="Admin or exco role required")
+    """
+    Retroactively create in-app notifications for all published announcements
+    that have not yet had notifications sent (checked via relatedId in notifications collection).
+
+    Useful after deploying the notification feature for the first time, or
+    after seeding the database with announcements.
+
+    Requires announcement:create permission.
+    """
+    db = get_database()
+
+    # Find all published announcements (isPublished=True or field missing)
+    published_anns = await db["announcements"].find(
+        {"$or": [{"isPublished": True}, {"isPublished": {"$exists": False}}]}
+    ).to_list(length=None)
+
+    # Find which announcement IDs already have notifications
+    existing_ids: set[str] = set()
+    async for n in db["notifications"].find(
+        {"type": "announcement", "relatedId": {"$ne": None}}, {"relatedId": 1}
+    ):
+        if n.get("relatedId"):
+            existing_ids.add(str(n["relatedId"]))
+
+    created_for: list[str] = []
+    skipped: list[str] = []
+
+    for ann in published_anns:
+        ann_id = str(ann["_id"])
+        ann["_id"] = ann_id  # normalise for helper
+        if ann_id in existing_ids:
+            skipped.append(ann_id)
+            continue
+        await _fire_announcement_notifications(ann, db)
+        created_for.append(ann_id)
+
+    logger.info(
+        "[BACKFILL] Notification backfill complete: created for %d announcements, skipped %d (already sent)",
+        len(created_for), len(skipped),
+    )
+    return {
+        "created_for": len(created_for),
+        "skipped_already_sent": len(skipped),
+    }

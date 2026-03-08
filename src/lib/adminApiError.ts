@@ -1,53 +1,63 @@
 /**
- * Admin API Error Handling
+ * Centralised error helpers for admin pages.
  *
- * Shared utility for admin page fetch calls.
- * Extracts 403 → "Permission denied" and other HTTP error details
- * so admin pages never show a generic "Failed to..." toast.
+ * • throwApiError  – call after a failed fetch; reads the response body once
+ *                    and throws an Error with a user-friendly message.
+ * • getErrorMessage – use in catch blocks to extract the message from any
+ *                    caught value, with a safe fallback.
  */
 
 /**
- * Parse an API Response that is NOT ok and throw an Error with a
- * user-friendly message.
+ * Reads a failed Response and throws an Error with a contextual message.
  *
- * - 403 → "Permission denied — you don't have permission to <action>."
- * - 401 → "Session expired — please log in again."
- * - 404 → "Not found — <backend detail or fallback>."
- * - 409 → "Conflict — <backend detail or fallback>."
- * - Other → "<fallback> — <backend detail or status text>."
+ * 403 → "Permission denied — you don't have permission to <action>"
+ * 404 → "<Action> — not found"
+ * Other → server detail string, or "<Action> failed (HTTP <status>)"
  *
- * @param res     The non-ok `Response` object from `fetch()`
- * @param action  Human-readable action being attempted (e.g. "create announcement")
+ * MUST be awaited — it reads the response body.
  */
-export async function throwApiError(res: Response, action: string): Promise<never> {
+export async function throwApiError(
+  res: Response,
+  action: string,
+): Promise<never> {
   let detail = "";
+
   try {
     const body = await res.json();
-    detail = body.detail || body.message || "";
+    detail = typeof body?.detail === "string" ? body.detail : "";
   } catch {
-    detail = res.statusText || "";
+    // body wasn't JSON — ignore
   }
 
   if (res.status === 403) {
-    throw new Error(`Permission denied — you don't have permission to ${action}.`);
+    throw new Error(
+      detail || `Permission denied — you don't have permission to ${action}`,
+    );
   }
-  if (res.status === 401) {
-    throw new Error("Session expired — please log in again.");
-  }
+
   if (res.status === 404) {
-    throw new Error(detail ? `Not found — ${detail}` : `Not found — could not ${action}.`);
+    throw new Error(detail || `${capitalize(action)} — not found`);
   }
-  if (res.status === 409) {
-    throw new Error(detail ? `Conflict — ${detail}` : `Conflict — could not ${action}.`);
-  }
-  // Fallback for 4xx / 5xx
-  throw new Error(detail || `Failed to ${action}`);
+
+  throw new Error(
+    detail || `${capitalize(action)} failed (HTTP ${res.status})`,
+  );
 }
 
 /**
- * Extract a user-friendly message from an error caught in a catch block.
+ * Safely extract an error message from an unknown caught value.
+ *
+ * Covers Error instances, plain strings, and arbitrary objects.
+ * Returns the fallback when the caught value has no usable message.
  */
-export function getErrorMessage(e: unknown, fallback: string): string {
-  if (e instanceof Error) return e.message;
+export function getErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) return err.message;
+  if (typeof err === "string" && err) return err;
   return fallback;
+}
+
+/* ── internal ─────────────────────────────────────────────── */
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

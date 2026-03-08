@@ -6,6 +6,8 @@ All collections are centralized here for easy access across the application.
 """
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from bson.codec_options import CodecOptions
+from datetime import timezone
 from typing import Optional
 import os
 from dotenv import load_dotenv
@@ -29,7 +31,8 @@ async def connect_to_mongo():
     global client, database
     try:
         client = AsyncIOMotorClient(MONGODB_URL)
-        database = client[DATABASE_NAME]
+        codec = CodecOptions(tz_aware=True, tzinfo=timezone.utc)
+        database = client[DATABASE_NAME].with_options(codec_options=codec)
         # Verify connection
         await client.admin.command('ping')
         print(f"✅ Connected to MongoDB: {DATABASE_NAME}")

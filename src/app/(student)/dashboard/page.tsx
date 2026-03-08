@@ -392,7 +392,7 @@ export default function StudentDashboardPage() {
             <div className="relative z-10 flex flex-wrap items-center gap-2 mt-6">
               {userProfile?.level && (
                 <span className="text-[10px] font-bold text-navy bg-lime rounded-full px-3 py-1 uppercase tracking-wider">
-                  {userProfile.level} Level
+                  {String(userProfile.level).replace(/L$/i, "")} Level
                 </span>
               )}
               {external ? (

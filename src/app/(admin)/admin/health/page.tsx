@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { withAuth } from "@/lib/withAuth";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
@@ -51,13 +52,13 @@ function AdminHealthPage() {
       const pingMs = Math.round(performance.now() - t0);
       setBasicPing(pingMs);
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) await throwApiError(res, "load system health");
       const json: HealthData = await res.json();
       setData(json);
       setError("");
       setLastRefresh(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch health data");
+      setError(getErrorMessage(err, "Failed to fetch health data"));
     } finally {
       setLoading(false);
     }

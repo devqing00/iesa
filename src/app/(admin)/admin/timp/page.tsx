@@ -30,9 +30,7 @@ import type {
   TimpMessage,
 } from "@/lib/api";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
-import { getErrorMessage } from "@/lib/adminApiError";
 import { Modal } from "@/components/ui/Modal";
-import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
 import Image from "next/image";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
@@ -136,7 +134,7 @@ function AdminTimpPage() {
   useEffect(() => {
     getTimpSettings()
       .then((s) => setFormOpen(s.formOpen))
-      .catch((err) => { toast.error(getErrorMessage(err, "Failed to load settings")); });
+      .catch(() => {});
   }, []);
 
   const handleToggleForm = async () => {
@@ -144,7 +142,7 @@ function AdminTimpPage() {
     try {
       const updated = await updateTimpSettings(!formOpen);
       setFormOpen(updated.formOpen);
-    } catch (err) { toast.error(getErrorMessage(err, "Failed to toggle form")); } finally {
+    } catch { /* handled */ } finally {
       setTogglingForm(false);
     }
   };
@@ -207,7 +205,7 @@ function AdminTimpPage() {
       });
       setApps(data.items ?? []);
       setTotalApps(data.total ?? 0);
-    } catch (err) { toast.error(getErrorMessage(err, "Failed to load applications")); } finally {
+    } catch { /* handled */ } finally {
       setLoadingApps(false);
     }
   }, [appSubTab, appPage]);
@@ -222,7 +220,7 @@ function AdminTimpPage() {
       ]);
       setMentors(mentorsRes.items ?? []);
       setMentees(menteesRes.items ?? []);
-    } catch (err) { toast.error(getErrorMessage(err, "Failed to load assignment data")); } finally {
+    } catch { /* handled */ } finally {
       setLoadingAssignment(false);
     }
   }, []);
@@ -238,7 +236,7 @@ function AdminTimpPage() {
       });
       setPairs(data.items ?? []);
       setTotalPairs(data.total ?? 0);
-    } catch (err) { toast.error(getErrorMessage(err, "Failed to load pairs")); } finally {
+    } catch { /* handled */ } finally {
       setLoadingPairs(false);
     }
   }, [pairSubTab, pairPage]);
@@ -249,7 +247,7 @@ function AdminTimpPage() {
     try {
       const data = await getTimpAnalytics();
       setAnalytics(data);
-    } catch (err) { toast.error(getErrorMessage(err, "Failed to load analytics")); } finally {
+    } catch { /* handled */ } finally {
       setLoadingAnalytics(false);
     }
   }, []);
@@ -262,7 +260,7 @@ function AdminTimpPage() {
       const msgs = await getPairMessages(pairId, 100);
       setPairMessages(msgs);
       setMessagesPairId(pairId);
-    } catch (err) { toast.error(getErrorMessage(err, "Failed to load messages")); } finally {
+    } catch { /* handled */ } finally {
       setLoadingMessages(false);
     }
   };
@@ -311,7 +309,7 @@ function AdminTimpPage() {
       setReviewApp(null);
       setReviewFeedback("");
       await fetchApps();
-    } catch (err) { toast.error(getErrorMessage(err, "Failed to review application")); } finally {
+    } catch { /* handled */ } finally {
       setSubmittingReview(false);
     }
   };
@@ -324,7 +322,7 @@ function AdminTimpPage() {
       setSelectedMentor(null);
       setSelectedMentee(null);
       await fetchAssignment();
-    } catch (err) { toast.error(getErrorMessage(err, "Failed to create pair")); } finally {
+    } catch { /* handled */ } finally {
       setCreatingPair(false);
     }
   };
@@ -333,7 +331,7 @@ function AdminTimpPage() {
     try {
       await updatePairStatus(pairId, status);
       await fetchPairs();
-    } catch (err) { toast.error(getErrorMessage(err, "Failed to update pair")); }
+    } catch { /* handled */ }
   };
 
   const loadFeedback = async (pairId: string) => {
@@ -342,7 +340,7 @@ function AdminTimpPage() {
       const fb = await getPairFeedback(pairId);
       setFeedbackHistory(fb);
       setFeedbackPairId(pairId);
-    } catch (err) { toast.error(getErrorMessage(err, "Failed to load feedback")); }
+    } catch { /* handled */ }
   };
 
   const openUserDetail = async (userId: string) => {
@@ -351,7 +349,7 @@ function AdminTimpPage() {
     try {
       const detail = await getTimpUserDetails(userId);
       setDetailUser(detail);
-    } catch (err) { toast.error(getErrorMessage(err, "Failed to load user details")); } finally {
+    } catch { /* handled */ } finally {
       setLoadingDetail(false);
     }
   };
@@ -398,6 +396,7 @@ function AdminTimpPage() {
             The IESA Mentoring Project — manage mentors, pairs & assignments
           </p>
         </div>
+        <PermissionGate permission="timp:manage">
         <button
           onClick={handleToggleForm}
           disabled={togglingForm}
@@ -418,6 +417,7 @@ function AdminTimpPage() {
           </svg>
           {togglingForm ? "Updating…" : formOpen ? "Form Open" : "Form Closed"}
         </button>
+        </PermissionGate>
       </div>
 
       {/* ─── Tabs ─── */}
@@ -1068,6 +1068,7 @@ function AssignmentTab({
           </div>
 
           {/* Create button */}
+          <PermissionGate permission="timp:manage">
           <button
             onClick={onCreatePair}
             disabled={!canCreate}
@@ -1075,6 +1076,7 @@ function AssignmentTab({
           >
             {creatingPair ? "Creating…" : "Create Pair"}
           </button>
+          </PermissionGate>
         </div>
       </div>
 
@@ -1362,7 +1364,7 @@ function PairsTab({
                       {messagesPairId === pair.id ? "Hide" : "View"} Messages
                     </button>
                     {pair.status === "active" && (
-                      <>
+                      <PermissionGate permission="timp:manage">
                         <button
                           onClick={() => onUpdateStatus(pair.id, "paused")}
                           className="bg-sunny-light border-[3px] border-navy rounded-xl px-4 py-2 text-xs font-bold text-navy press-2 press-navy transition-all"
@@ -1375,15 +1377,17 @@ function PairsTab({
                         >
                           Complete
                         </button>
-                      </>
+                      </PermissionGate>
                     )}
                     {pair.status === "paused" && (
+                      <PermissionGate permission="timp:manage">
                       <button
                         onClick={() => onUpdateStatus(pair.id, "active")}
                         className="bg-teal-light border-[3px] border-navy rounded-xl px-4 py-2 text-xs font-bold text-navy press-2 press-navy transition-all"
                       >
                         Resume
                       </button>
+                      </PermissionGate>
                     )}
                   </div>
                 </div>

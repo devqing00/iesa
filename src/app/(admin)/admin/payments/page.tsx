@@ -17,11 +17,11 @@ import {
 import type { BankAccount, BankTransfer } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import Pagination from "@/components/ui/Pagination";
 import { ConfirmModal } from "@/components/ui/Modal";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -284,8 +284,8 @@ function AdminPaymentsPage() {
         const items = data.items ?? data;
         setPayments(items.map((item: Payment & { _id?: string }) => ({ ...item, id: item.id || item._id })));
       }
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Failed to load payments"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to load payments"));
     } finally {
       setLoading(false);
     }
@@ -303,8 +303,8 @@ function AdminPaymentsPage() {
         const data = await response.json();
         setTransactions(data.map((item: Transaction & { _id?: string }) => ({ ...item, id: item.id || item._id })));
       }
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Failed to load transactions"));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to load transactions"));
     } finally {
       setLoading(false);
     }
@@ -335,25 +335,23 @@ function AdminPaymentsPage() {
         }),
       });
 
-      if (response.ok) {
-        toast.success("Payment created successfully!");
-        mutate("/api/v1/admin/stats");
-        await fetchPayments();
-        setShowCreateModal(false);
-        setFormData({
-          title: "",
-          amount: "",
-          sessionId: formData.sessionId, // Keep session
-          category: "Dues",
-          mandatory: true,
-          deadline: "",
-          description: "",
-        });
-      } else {
-        await throwApiError(response, "create payment");
-      }
-    } catch (error) {
-      toast.error(getErrorMessage(error, "Failed to create payment"));
+      if (!response.ok) await throwApiError(response, "create payment");
+
+      toast.success("Payment created successfully!");
+      mutate("/api/v1/admin/stats");
+      await fetchPayments();
+      setShowCreateModal(false);
+      setFormData({
+        title: "",
+        amount: "",
+        sessionId: formData.sessionId, // Keep session
+        category: "Dues",
+        mandatory: true,
+        deadline: "",
+        description: "",
+      });
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to create payment"));
     } finally {
       setSubmitting(false);
     }
@@ -366,8 +364,8 @@ function AdminPaymentsPage() {
       setBankAccountLoading(true);
       const data = await listBankAccounts();
       setBankAccounts(data);
-    } catch {
-      toast.error("Failed to load bank accounts");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to load bank accounts"));
     } finally {
       setBankAccountLoading(false);
     }
@@ -444,8 +442,8 @@ function AdminPaymentsPage() {
       setBankTransferLoading(true);
       const data = await listAllTransfers(transferStatusFilter !== "all" ? transferStatusFilter : undefined);
       setBankTransfers(data);
-    } catch {
-      toast.error("Failed to load bank transfers");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to load bank transfers"));
     } finally {
       setBankTransferLoading(false);
     }
@@ -502,8 +500,8 @@ function AdminPaymentsPage() {
       if (res.ok) {
         setPaidStudents(await res.json());
       }
-    } catch {
-      toast.error("Failed to load paid students");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to load paid students"));
     } finally {
       setPaidStudentsLoading(false);
     }
@@ -527,10 +525,11 @@ function AdminPaymentsPage() {
         body: JSON.stringify(body),
       });
       if (!res.ok) await throwApiError(res, "update payment");
-      const updated = await res.json();
       toast.success("Payment updated");
       setEditingPayment(false);
       fetchPayments();
+      // Refresh the selected payment data
+      const updated = await res.json();
       setSelectedPayment((prev) => prev ? { ...prev, ...updated } : prev);
     } catch (err) {
       toast.error(getErrorMessage(err, "Failed to update payment"));
@@ -838,6 +837,7 @@ function AdminPaymentsPage() {
               </button>
             )}
 
+            <PermissionGate permission="payment:view_all">
             <button
               onClick={() => {
                 const headers = ["Title", "Category", "Amount", "Deadline", "Paid By Count"];
@@ -865,6 +865,7 @@ function AdminPaymentsPage() {
               </svg>
               Export
             </button>
+            </PermissionGate>
           </div>
 
           {/* Table */}
@@ -1000,6 +1001,7 @@ function AdminPaymentsPage() {
                   </button>
                 )}
 
+                <PermissionGate permission="payment:view_all">
                 <button
                   onClick={() => {
                     const headers = ["Reference", "Student", "Amount", "Status", "Category", "Date"];
@@ -1028,6 +1030,7 @@ function AdminPaymentsPage() {
                   </svg>
                   Export
                 </button>
+                </PermissionGate>
               </div>
             </div>
           </div>
@@ -2084,6 +2087,7 @@ function AdminPaymentsPage() {
               )}
 
               {/* Send Reminder Button */}
+              <PermissionGate permission="payment:create">
               <div className="flex justify-end">
                 <button
                   onClick={handleSendReminder}
@@ -2096,6 +2100,7 @@ function AdminPaymentsPage() {
                   {reminderSending ? "Sending..." : "Send Payment Reminder"}
                 </button>
               </div>
+              </PermissionGate>
 
               {/* Paid Students Section */}
               <div>
@@ -2105,6 +2110,7 @@ function AdminPaymentsPage() {
                     <span className="ml-2 text-sm font-normal text-navy/40">({paidStudents.length})</span>
                   </h4>
                   {paidStudents.length > 0 && selectedPayment && (
+                    <PermissionGate permission="payment:view_all">
                     <button
                       onClick={async () => {
                         try {
@@ -2112,7 +2118,7 @@ function AdminPaymentsPage() {
                           const res = await fetch(getApiUrl(`/api/v1/payments/${selectedPayment._id}/paid-students/pdf`), {
                             headers: { Authorization: `Bearer ${token}` },
                           });
-                          if (!res.ok) await throwApiError(res, "download PDF report");
+                          if (!res.ok) await throwApiError(res, "generate PDF report");
                           const blob = await res.blob();
                           const url = URL.createObjectURL(blob);
                           const a = document.createElement("a");
@@ -2120,8 +2126,8 @@ function AdminPaymentsPage() {
                           a.download = `PaidStudents_${(selectedPayment.title ?? "Payment").replace(/\s+/g, "_").slice(0, 30)}.pdf`;
                           a.click();
                           URL.revokeObjectURL(url);
-                        } catch (e) {
-                          toast.error(getErrorMessage(e, "Failed to download PDF report"));
+                        } catch (err) {
+                          toast.error(getErrorMessage(err, "Failed to download PDF report"));
                         }
                       }}
                       className="px-3 py-1.5 bg-navy border-[2px] border-navy rounded-xl text-snow text-xs font-bold flex items-center gap-1.5 hover:bg-navy-light transition-colors"
@@ -2131,6 +2137,7 @@ function AdminPaymentsPage() {
                       </svg>
                       PDF Report
                     </button>
+                    </PermissionGate>
                   )}
                 </div>
                 {paidStudentsLoading ? (

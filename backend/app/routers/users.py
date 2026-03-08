@@ -94,16 +94,23 @@ async def auto_enroll_in_active_session(user_id: str, db):
     active_session = await sessions.find_one({"isActive": True})
     
     if active_session:
-        # Create enrollment
-        enrollment_data = {
-            "studentId": user_id,
-            "sessionId": str(active_session["_id"]),
-            "level": "100L",  # Default level, can be updated later
-            "enrollmentDate": datetime.now(timezone.utc),
-            "isActive": True
-        }
-        
-        await enrollments.insert_one(enrollment_data)
+        session_id = str(active_session["_id"])
+        # Guard against duplicates — check both field name variants
+        existing = await enrollments.find_one({
+            "$or": [
+                {"studentId": user_id, "sessionId": session_id},
+                {"userId": user_id, "sessionId": session_id},
+            ]
+        })
+        if not existing:
+            enrollment_data = {
+                "studentId": user_id,
+                "sessionId": session_id,
+                "level": "100L",  # Default level, can be updated later
+                "enrollmentDate": datetime.now(timezone.utc),
+                "isActive": True
+            }
+            await enrollments.insert_one(enrollment_data)
 
 
 @router.get("/me", response_model=User)
@@ -128,23 +135,13 @@ async def get_my_permissions(user: dict = Depends(get_current_user)):
             "session_name": "2024/2025"
         }
     """
-    from app.core.permissions import get_user_permissions, get_current_session
+    from app.core.permissions import get_user_permissions
     
     db = get_database()
     sessions = db["sessions"]
     
     # Get active session
     active_session = await sessions.find_one({"isActive": True})
-
-    # Admin users always get all permissions regardless of session state
-    if user.get("role") == "admin":
-        from app.core.permissions import PERMISSIONS
-        return {
-            "permissions": list(PERMISSIONS.keys()),
-            "session_id": str(active_session["_id"]) if active_session else None,
-            "session_name": active_session.get("name") if active_session else None,
-            "is_admin": True
-        }
 
     if not active_session:
         return {
@@ -154,7 +151,9 @@ async def get_my_permissions(user: dict = Depends(get_current_user)):
             "message": "No active session"
         }
     
-    # Get permissions for active session
+    # Get actual permissions for the user's assigned role in this session.
+    # This respects the RBAC system: super_admin gets all, admin/exco get
+    # only the permissions their position grants via DEFAULT_PERMISSIONS + overrides.
     permissions = await get_user_permissions(
         str(user["_id"]),
         str(active_session["_id"])
@@ -164,7 +163,7 @@ async def get_my_permissions(user: dict = Depends(get_current_user)):
         "permissions": permissions,
         "session_id": str(active_session["_id"]),
         "session_name": active_session.get("name"),
-        "is_admin": user.get("role") == "admin"
+        "is_admin": user.get("role") in ("admin", "exco")
     }
 
 

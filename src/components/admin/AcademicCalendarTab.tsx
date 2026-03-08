@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { PermissionGate } from "@/lib/withAuth";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/adminApiError";
 import {
   listAcademicEvents,
   createAcademicEvent,
@@ -60,8 +61,8 @@ export default function AcademicCalendarTab() {
       if (filterType) filters.eventType = filterType;
       const data = await listAcademicEvents(filters as { semester?: number; eventType?: string });
       setEvents(data);
-    } catch {
-      toast.error("Failed to load academic calendar");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to load academic calendar"));
     } finally {
       setLoading(false);
     }
@@ -99,8 +100,8 @@ export default function AcademicCalendarTab() {
       }
       closeModal();
       await fetchEvents();
-    } catch {
-      toast.error("Failed to save event");
+    } catch (err) {
+      toast.error(getErrorMessage(err, editing ? "Failed to update calendar event" : "Failed to create calendar event"));
     } finally {
       setSaving(false);
     }
@@ -115,8 +116,8 @@ export default function AcademicCalendarTab() {
       await deleteAcademicEvent(id);
       toast.success("Event deleted");
       await fetchEvents();
-    } catch {
-      toast.error("Failed to delete event");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to delete calendar event"));
     } finally {
       setDeleting(null);
     }

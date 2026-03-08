@@ -104,7 +104,7 @@ export interface Announcement {
   content: string;
   sessionId: string;
   priority: AnnouncementPriority;
-  targetLevels: number[];
+  targetLevels: string[];
   isPinned: boolean;
   expiresAt?: string;
   authorId: string;
@@ -122,7 +122,7 @@ export interface AnnouncementCreate {
   title: string;
   content: string;
   priority?: AnnouncementPriority;
-  targetLevels?: number[];
+  targetLevels?: string[];
   isPinned?: boolean;
   expiresAt?: string;
 }

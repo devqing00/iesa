@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "sonner";
-import { getErrorMessage } from "@/lib/adminApiError";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { Modal, ConfirmModal } from "@/components/ui/Modal";
 import Pagination from "@/components/ui/Pagination";
@@ -51,6 +50,7 @@ import type {
   QuizResult,
 } from "@/lib/api";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { getErrorMessage } from "@/lib/adminApiError";
 
 /* ─── Types ────────────────────────────────────── */
 type Tab = "overview" | "registrations" | "societies" | "quizzes" | "teams" | "submissions" | "niche-audits" | "points";
@@ -247,7 +247,7 @@ function AdminIepodPage() {
 
   /* ── Handlers ── */
   async function handleUpdateRegistration(id: string, status: IepodRegistrationStatus, adminNote?: string, phase?: IepodPhase) {
-    try { await updateRegistration(id, { status, adminNote, phase }); toast.success(`Registration ${status}`); fetchRegistrations(); } catch (err: unknown) { toast.error(getErrorMessage(err, "Update failed")); }
+    try { await updateRegistration(id, { status, adminNote, phase }); toast.success(`Registration ${status}`); fetchRegistrations(); } catch (err) { toast.error(getErrorMessage(err, "Failed to update registration")); }
   }
 
   async function handleSaveSociety(e: React.FormEvent) {
@@ -258,7 +258,7 @@ function AdminIepodPage() {
       if (editingSociety) { await updateSociety(editingSociety._id, socForm); toast.success("Society updated"); }
       else { await createSociety(socForm); toast.success("Society created"); }
       await fetchSocieties(); closeSocModal();
-    } catch (err: unknown) { toast.error(getErrorMessage(err, "Save failed")); } finally { setSocSubmitting(false); }
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to save society")); } finally { setSocSubmitting(false); }
   }
 
   function closeSocModal() {
@@ -271,7 +271,7 @@ function AdminIepodPage() {
     try {
       if (deleteTarget.type === "society") { await deleteSociety(deleteTarget.id); toast.success("Society deleted"); await fetchSocieties(); }
       else if (deleteTarget.type === "quiz") { await deleteQuiz(deleteTarget.id); toast.success("Quiz deleted"); await fetchQuizzes(); }
-    } catch (err: unknown) { toast.error(getErrorMessage(err, "Delete failed")); } finally { setDeleteTarget(null); }
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to delete item")); } finally { setDeleteTarget(null); }
   }
 
   async function handleSaveQuiz(e: React.FormEvent) {
@@ -281,7 +281,7 @@ function AdminIepodPage() {
     try {
       await createQuiz({ ...quizForm, questions: quizQuestions }); toast.success("Quiz created");
       await fetchQuizzes(); closeQuizModal();
-    } catch (err: unknown) { toast.error(getErrorMessage(err, "Save failed")); } finally { setQuizSubmitting(false); }
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to create quiz")); } finally { setQuizSubmitting(false); }
   }
 
   function closeQuizModal() {
@@ -293,18 +293,18 @@ function AdminIepodPage() {
   async function handleToggleQuizLive(quiz: IepodQuiz) {
     const qId = quiz._id || quiz.id;
     if (!qId) return;
-    try { await updateQuiz(qId, { isLive: !quiz.isLive }); toast.success(quiz.isLive ? "Quiz unpublished" : "Quiz published"); fetchQuizzes(); } catch (err: unknown) { toast.error(getErrorMessage(err, "Toggle failed")); }
+    try { await updateQuiz(qId, { isLive: !quiz.isLive }); toast.success(quiz.isLive ? "Quiz unpublished" : "Quiz published"); fetchQuizzes(); } catch (err) { toast.error(getErrorMessage(err, "Failed to update quiz")); }
   }
 
   async function handleViewQuizResults(quizId: string) {
     if (showResultsQuizId === quizId) { setShowResultsQuizId(null); return; }
-    try { const results = await getQuizResults(quizId); setQuizResults(results); setShowResultsQuizId(quizId); } catch (err) { toast.error(getErrorMessage(err, "Failed to load results")); }
+    try { const results = await getQuizResults(quizId); setQuizResults(results); setShowResultsQuizId(quizId); } catch (err) { toast.error(getErrorMessage(err, "Failed to load quiz results")); }
   }
 
   async function handleAssignMentor(teamId: string) {
     const userId = mentorInput[teamId];
     if (!userId) { toast.error("Enter a mentor user ID"); return; }
-    try { await assignMentor(teamId, userId); toast.success("Mentor assigned"); setMentorInput({ ...mentorInput, [teamId]: "" }); fetchTeams(); } catch (err: unknown) { toast.error(getErrorMessage(err, "Assign failed")); }
+    try { await assignMentor(teamId, userId); toast.success("Mentor assigned"); setMentorInput({ ...mentorInput, [teamId]: "" }); fetchTeams(); } catch (err) { toast.error(getErrorMessage(err, "Failed to assign mentor")); }
   }
 
   async function handleReviewSubmission() {
@@ -313,7 +313,7 @@ function AdminIepodPage() {
     try {
       await reviewSubmission(reviewingSub._id, { status: reviewForm.status, feedback: reviewForm.feedback || undefined, score: reviewForm.score ? Number(reviewForm.score) : undefined });
       toast.success("Submission reviewed"); setReviewingSub(null); setReviewForm({ status: "reviewed", feedback: "", score: "" }); fetchSubmissions();
-    } catch (err: unknown) { toast.error(getErrorMessage(err, "Review failed")); } finally { setReviewSubmitting(false); }
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to review submission")); } finally { setReviewSubmitting(false); }
   }
 
   async function handleAwardBonus(e: React.FormEvent) {
@@ -323,7 +323,7 @@ function AdminIepodPage() {
     try {
       await awardBonusPoints({ userId: bonusUserId, points: Number(bonusPoints), description: bonusDesc });
       toast.success("Points awarded"); setBonusUserId(""); setBonusPoints(""); setBonusDesc(""); fetchLeaderboard();
-    } catch (err: unknown) { toast.error(getErrorMessage(err, "Award failed")); } finally { setBonusSubmitting(false); }
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to award bonus points")); } finally { setBonusSubmitting(false); }
   }
 
   function addQuizQuestion() { setQuizQuestions([...quizQuestions, { question: "", options: ["", "", "", ""], correctIndex: 0, points: 10 }]); }

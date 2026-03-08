@@ -38,7 +38,11 @@ export type DMEventType =
   | "message_request"
   | "message_request_accepted"
   | "muted"
-  | "pong";
+  | "pong"
+  | "typing"
+  | "message_deleted"
+  | "message_pinned"
+  | "reaction_updated";
 
 export type DMEvent = {
   type: DMEventType;
@@ -70,6 +74,11 @@ interface DMContextValue {
    * Lets the context stay in sync after the page computed its own totals.
    */
   syncTotalUnread: (total: number) => void;
+  /**
+   * Send a JSON message through the shared WebSocket connection.
+   * Used for typing indicators.
+   */
+  sendWsMessage: (data: Record<string, unknown>) => void;
 }
 
 const DMContext = createContext<DMContextValue>({
@@ -78,6 +87,7 @@ const DMContext = createContext<DMContextValue>({
   setMessagesPageOpen: () => {},
   markConversationRead: () => {},
   syncTotalUnread: () => {},
+  sendWsMessage: () => {},
 });
 
 export function useDM() {
@@ -125,6 +135,13 @@ export function DMProvider({ children }: { children: React.ReactNode }) {
   const syncTotalUnread = useCallback((total: number) => {
     totalUnreadRef.current = total;
     setTotalUnread(total);
+  }, []);
+
+  const sendWsMessage = useCallback((data: Record<string, unknown>) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(data));
+    }
   }, []);
 
   // ── WebSocket management ───────────────────────────────────────────
@@ -217,6 +234,7 @@ export function DMProvider({ children }: { children: React.ReactNode }) {
         setMessagesPageOpen,
         markConversationRead,
         syncTotalUnread,
+        sendWsMessage,
       }}
     >
       {children}

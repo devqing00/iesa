@@ -5,11 +5,11 @@ import { mutate } from "swr";
 import { useAuth } from "@/context/AuthContext";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { getApiUrl } from "@/lib/api";
-import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { ConfirmModal } from "@/components/ui/Modal";
 import Pagination from "@/components/ui/Pagination";
 import { toast } from "sonner";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 
 /* ── Types ──────────────────────────────── */
 
@@ -110,7 +110,8 @@ function EnrollmentsPage() {
         fetch(getApiUrl("/api/v1/sessions/"), { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
-      if (!studentsRes.ok || !sessionsRes.ok) throw new Error("Failed to fetch data");
+      if (!studentsRes.ok) await throwApiError(studentsRes, "load students");
+      if (!sessionsRes.ok) await throwApiError(sessionsRes, "load sessions");
 
       const [studentsData, sessionsData] = await Promise.all([
         studentsRes.json(),
@@ -130,7 +131,7 @@ function EnrollmentsPage() {
         setFormData((prev) => ({ ...prev, sessionId: activeSession.id }));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch data");
+      setError(getErrorMessage(err, "Failed to load students/sessions"));
     }
   };
 
@@ -150,12 +151,12 @@ function EnrollmentsPage() {
       const res = await fetch(getApiUrl(`/api/v1/enrollments/?${params.toString()}`), {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error("Failed to fetch enrollments");
+      if (!res.ok) await throwApiError(res, "load enrollments");
       const data = await res.json();
       setEnrollments(data.items ?? data);
       setTotalEnrollments(data.total ?? (data.items ?? data).length);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch enrollments");
+      setError(getErrorMessage(err, "Failed to load enrollments"));
     } finally {
       setLoading(false);
     }
@@ -176,15 +177,15 @@ function EnrollmentsPage() {
         body: JSON.stringify(formData),
       });
 
-      if (!response.ok) await throwApiError(response, "create enrollment");
+      if (!response.ok) await throwApiError(response, "enroll students");
 
       await fetchEnrollments();
       mutate("/api/v1/admin/stats");
       setFormData({ studentId: "", sessionId: formData.sessionId, level: "100L" });
       setShowModal(false);
       toast.success("Enrollment created successfully");
-    } catch (e) {
-      const msg = getErrorMessage(e, "Failed to create enrollment");
+    } catch (err) {
+      const msg = getErrorMessage(err, "Failed to enroll students");
       setError(msg);
       toast.error(msg);
     }
@@ -207,13 +208,13 @@ function EnrollmentsPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) await throwApiError(response, "delete this enrollment");
+      if (!response.ok) await throwApiError(response, "delete enrollment");
       await fetchEnrollments();
       mutate("/api/v1/admin/stats");
       toast.success("Enrollment removed");
       setDeleteConfirm({ isOpen: false, id: "" });
-    } catch (e) {
-      const msg = getErrorMessage(e, "Failed to delete enrollment");
+    } catch (err) {
+      const msg = getErrorMessage(err, "Failed to delete enrollment");
       setError(msg);
       toast.error(msg);
     } finally {

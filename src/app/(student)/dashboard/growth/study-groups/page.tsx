@@ -94,12 +94,14 @@ function GroupChatPanel({ groupId, userId, getAccessToken }: ChatPanelProps) {
   const [wsStatus, setWsStatus] = useState<"connecting" | "open" | "closed">("connecting");
   const wsRef = useRef<WebSocket | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const isInitialScrollRef = useRef(true);
   const reconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cancelledRef = useRef(false);
 
   useEffect(() => {
     cancelledRef.current = false;
+    isInitialScrollRef.current = true;
 
     // Defined inside effect so it can reference itself for reconnect
     const connectWS = async (retryToken?: string) => {
@@ -179,7 +181,12 @@ function GroupChatPanel({ groupId, userId, getAccessToken }: ChatPanelProps) {
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length === 0) return;
+    const behavior = isInitialScrollRef.current ? "auto" as const : "smooth" as const;
+    isInitialScrollRef.current = false;
+    requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior });
+    });
   }, [messages]);
 
   const sendMessage = () => {
@@ -765,7 +772,7 @@ export default function StudyGroupFinderPage() {
               </span>
               {group.level && (
                 <span className="bg-lavender-light text-navy text-label-sm px-2 py-0.5 rounded-lg">
-                  {group.level}L
+                  {group.level}
                 </span>
               )}
             </div>
@@ -880,7 +887,7 @@ export default function StudyGroupFinderPage() {
                 </span>
                 {g.level && (
                   <span className="bg-lavender-light text-navy text-label px-3 py-1 rounded-xl">
-                    {g.level} Level
+                    {String(g.level).replace(/L$/i, "")} Level
                   </span>
                 )}
                 {member && (

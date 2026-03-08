@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useSession } from "@/context/SessionContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useDM } from "@/context/DMContext";
+import { useNotificationCount } from "@/hooks/useNotificationCount";
 import { isExternalStudent, EXTERNAL_HIDDEN_HREFS } from "@/lib/studentAccess";
 
 interface MobileNavLink {
@@ -24,6 +25,7 @@ export default function MobileNav() {
   const { currentSession, allSessions } = useSession();
   const { hasPermission, permissions } = usePermissions();
   const { totalUnread } = useDM();
+  const { unreadCount: notifUnread } = useNotificationCount();
   const [showMore, setShowMore] = useState(false);
   const activeSession = allSessions.find(s => s.isActive) ?? currentSession;
   const external = isExternalStudent(userProfile?.department);
@@ -163,6 +165,7 @@ export default function MobileNav() {
       name: "Announcements",
       href: "/dashboard/announcements",
       color: "bg-cloud",
+      badge: notifUnread,
       icon: (
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <path fillRule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clipRule="evenodd" />
@@ -296,7 +299,7 @@ export default function MobileNav() {
               <path fillRule="evenodd" d="M4.5 12a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm6 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm6 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clipRule="evenodd" />
             </svg>
             <span className="text-[10px] font-bold">More</span>
-            {totalUnread > 0 && !showMore && (
+            {(totalUnread > 0 || notifUnread > 0) && !showMore && (
               <span className="absolute top-1 right-1.5 w-2 h-2 rounded-full bg-coral border border-snow" />
             )}
           </button>

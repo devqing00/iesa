@@ -243,19 +243,24 @@ async def initialize_student_data(db, user: dict, level: str):
     
     session_id = str(active_session["_id"])
     user_id = user["_id"]
-    level_num = int(level.replace("L", ""))
-    
-    # 1. Create enrollment record
+    # Normalise level to "NL" string format
+    if isinstance(level, int) or (isinstance(level, str) and level.isdigit()):
+        level = f"{level}L"
+    user_id_str = str(user_id)
+
+    # 1. Create enrollment record — guard against duplicates across both field name variants
     existing_enrollment = await enrollments.find_one({
-        "userId": user_id,
-        "sessionId": session_id
+        "$or": [
+            {"studentId": user_id_str, "sessionId": session_id},
+            {"userId": user_id_str, "sessionId": session_id},
+        ]
     })
-    
+
     if not existing_enrollment:
         enrollment_data = {
-            "userId": user_id,
+            "studentId": user_id_str,
             "sessionId": session_id,
-            "level": level_num,
+            "level": level,
             "isActive": True,
             "semester": active_session.get("currentSemester", 1),
             "enrolledAt": datetime.now(timezone.utc),

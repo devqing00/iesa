@@ -2,7 +2,6 @@
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminMobileNav from "@/components/admin/AdminMobileNav";
-import NotificationBell from "@/components/dashboard/NotificationBell";
 import { useAuth } from "@/context/AuthContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { SidebarProvider, useSidebar } from "@/context/SidebarContext";
@@ -25,9 +24,8 @@ function AdminContent({ children }: { children: React.ReactNode }) {
       >
         {/* Subtle dot pattern */}
         <div className="absolute inset-0 -z-10 bg-dots opacity-20 pointer-events-none" />
-        <div className="p-4 md:p-6 lg:p-8">
-          {children}
-        </div>
+
+        <div className="p-4 md:p-6 lg:p-8 -mt-4">{children}</div>
       </main>
       <AdminMobileNav />
     </div>
@@ -57,11 +55,11 @@ export default function AdminLayout({
 
   // User has admin access if their role is admin/exco OR they have at least one
   // permission that goes beyond basic student-level view/access.
-  const hasAdminAccess = userProfile && (
-    userProfile.role === "admin" ||
-    userProfile.role === "exco" ||
-    permissions.some(p => !STUDENT_ONLY_PERMISSIONS.has(p))
-  );
+  const hasAdminAccess =
+    userProfile &&
+    (userProfile.role === "admin" ||
+      userProfile.role === "exco" ||
+      permissions.some((p) => !STUDENT_ONLY_PERMISSIONS.has(p)));
 
   useEffect(() => {
     if (loading || permissionsLoading) return;

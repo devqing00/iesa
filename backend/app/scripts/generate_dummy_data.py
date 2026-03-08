@@ -490,7 +490,7 @@ async def generate_announcements(db, session_id, admin_id):
                 "priority": template["priority"],
                 "sessionId": session_id,
                 "authorId": str(admin_id),
-                "targetLevels": random.sample([100, 200, 300, 400, 500], k=random.randint(2, 5)),
+                "targetLevels": random.sample(["100L", "200L", "300L", "400L", "500L"], k=random.randint(2, 5)),
                 "readBy": [],
                 "viewCount": random.randint(5, 50),
                 "createdAt": date_offset,

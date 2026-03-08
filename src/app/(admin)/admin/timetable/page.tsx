@@ -5,10 +5,10 @@ import { useAuth } from "@/context/AuthContext";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { getApiUrl } from "@/lib/api";
 import { toast } from "sonner";
-import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { ConfirmModal } from "@/components/ui/Modal";
 import AcademicCalendarTab from "@/components/admin/AcademicCalendarTab";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -119,13 +119,10 @@ function AdminTimetablePage() {
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        setClasses(await res.json());
-      } else {
-        toast.error("Failed to load timetable");
-      }
-    } catch {
-      toast.error("Failed to load timetable");
+      if (!res.ok) await throwApiError(res, "load timetable");
+      setClasses(await res.json());
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to load timetable"));
     } finally {
       setLoading(false);
     }
@@ -161,15 +158,12 @@ function AdminTimetablePage() {
         }),
       });
 
-      if (res.ok) {
-        toast.success(isEdit ? "Class updated" : "Class created");
-        await fetchClasses();
-        closeModal();
-      } else {
-        await throwApiError(res, isEdit ? "update this class" : "create class");
-      }
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to save class"));
+      if (!res.ok) await throwApiError(res, isEdit ? "update timetable entry" : "create timetable entry");
+      toast.success(isEdit ? "Class updated" : "Class created");
+      await fetchClasses();
+      closeModal();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to save class"));
     }
   };
 
@@ -184,14 +178,11 @@ function AdminTimetablePage() {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        toast.success("Class deleted");
-        await fetchClasses();
-      } else {
-        await throwApiError(res, "delete this class");
-      }
-    } catch (e) {
-      toast.error(getErrorMessage(e, "Failed to delete class"));
+      if (!res.ok) await throwApiError(res, "delete timetable entry");
+      toast.success("Class deleted");
+      await fetchClasses();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to delete class"));
     } finally {
       setDeleting(null);
     }
@@ -209,9 +200,9 @@ function AdminTimetablePage() {
       if (examFilterLevel) params.set("level", String(examFilterLevel));
       const url = getApiUrl(`/api/v1/timetable/exams${params.toString() ? `?${params}` : ""}`);
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) setExams(await res.json());
-      else toast.error("Failed to load exams");
-    } catch { toast.error("Failed to load exams"); }
+      if (!res.ok) await throwApiError(res, "load timetable");
+      setExams(await res.json());
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to load exams")); }
     finally { setExamsLoading(false); }
   }, [user, getAccessToken, examFilterLevel]);
 
@@ -232,15 +223,12 @@ function AdminTimetablePage() {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify(examForm),
       });
-      if (res.ok) {
-        toast.success(isEdit ? "Exam updated" : "Exam created");
-        await fetchExams();
-        setShowExamModal(false);
-        setEditingExam(null);
-      } else {
-        await throwApiError(res, isEdit ? "update this exam" : "create exam");
-      }
-    } catch (e) { toast.error(getErrorMessage(e, "Failed to save exam")); }
+      if (!res.ok) await throwApiError(res, isEdit ? "update timetable entry" : "create timetable entry");
+      toast.success(isEdit ? "Exam updated" : "Exam created");
+      await fetchExams();
+      setShowExamModal(false);
+      setEditingExam(null);
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to save exam")); }
   };
 
   /* ── Exam delete ── */
@@ -253,9 +241,10 @@ function AdminTimetablePage() {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) { toast.success("Exam deleted"); await fetchExams(); }
-      else await throwApiError(res, "delete this exam");
-    } catch (e) { toast.error(getErrorMessage(e, "Failed to delete exam")); }
+      if (!res.ok) await throwApiError(res, "delete timetable entry");
+      toast.success("Exam deleted");
+      await fetchExams();
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to delete exam")); }
     finally { setDeletingExam(null); }
   };
 

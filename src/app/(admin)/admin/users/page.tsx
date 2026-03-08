@@ -72,8 +72,8 @@ function AdminUsersPage() {
         setUsers(mappedData);
         setTotalUsers(total);
       }
-    } catch {
-      toast.error("Failed to load users");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to load users"));
     } finally {
       setLoading(false);
     }
@@ -344,7 +344,7 @@ function AdminUsersPage() {
                               {user.firstName} {user.lastName}
                             </div>
                             {(user.currentLevel || user.level) && (
-                              <div className="text-xs text-slate mt-0.5">{user.currentLevel || `${user.level} Level`}</div>
+                              <div className="text-xs text-slate mt-0.5">{String(user.currentLevel || user.level).replace(/L$/i, "")} Level</div>
                             )}
                             <div className="text-xs text-slate mt-0.5 md:hidden truncate max-w-[150px]">
                               {user.email}

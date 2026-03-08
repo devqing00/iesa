@@ -11,7 +11,7 @@ from app.core.security import verify_token
 from app.core.permissions import require_permission as _require_permission
 from app.core.rate_limiting import setup_rate_limiting
 from app.core.error_handling import setup_exception_handlers, setup_logging
-from app.routers import sessions, users, payments, events, announcements, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press, unit_applications, academic_calendar, timp, bank_transfers, settings, contact_messages, iepod, admin_stats, student_dashboard, sse, notifications, search, growth, messages, two_factor
+from app.routers import sessions, users, payments, events, announcements, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press, unit_applications, units, academic_calendar, timp, bank_transfers, settings, contact_messages, iepod, admin_stats, student_dashboard, sse, notifications, search, growth, messages, two_factor
 from app.db import connect_to_mongo, close_mongo_connection, get_database
 
 # Setup logging first
@@ -282,6 +282,7 @@ app.include_router(audit_logs.router)  # Audit Logs (Admin Only)
 app.include_router(study_groups.router)  # Study Group Finder
 app.include_router(press.router)  # Association Press / Blog
 app.include_router(unit_applications.router)  # Unit Applications
+app.include_router(units.router)              # Units & Committees Management
 app.include_router(academic_calendar.router)  # Academic Calendar Events
 app.include_router(timp.router)  # TIMP Mentoring Project
 app.include_router(bank_transfers.router)  # Bank Transfer Payments

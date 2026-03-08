@@ -150,9 +150,9 @@ export default function RolesTab() {
         fetch(getApiUrl("/api/v1/sessions/"), { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
-      if (!rolesRes.ok || !usersRes.ok || !sessionsRes.ok) {
-        throw new Error("Failed to fetch data");
-      }
+      if (!rolesRes.ok) await throwApiError(rolesRes, "load roles");
+      if (!usersRes.ok) await throwApiError(usersRes, "load users");
+      if (!sessionsRes.ok) await throwApiError(sessionsRes, "load roles");
 
       const [rolesData, usersData, sessionsData] = await Promise.all([
         rolesRes.json(),
@@ -187,7 +187,7 @@ export default function RolesTab() {
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch data");
+      setError(getErrorMessage(err, "Failed to fetch data"));
     } finally {
       setLoading(false);
     }
@@ -215,9 +215,7 @@ export default function RolesTab() {
         body: JSON.stringify({ ...formData, position: effectivePosition }),
       });
 
-      if (!response.ok) {
-        await throwApiError(response, "assign role");
-      }
+      if (!response.ok) await throwApiError(response, "assign role");
 
       const rawRole = await response.json();
       const newRole: Role = { ...rawRole, id: rawRole.id || rawRole._id || "" };
@@ -262,7 +260,7 @@ export default function RolesTab() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) await throwApiError(response, "delete role");
+      if (!response.ok) await throwApiError(response, "remove role");
       await fetchData();
       toast.success("Role removed");
       setDeleteConfirm({ isOpen: false, id: "" });
@@ -328,9 +326,7 @@ export default function RolesTab() {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ permissions: Array.from(selectedPerms) }),
       });
-      if (!response.ok) {
-        await throwApiError(response, "update permissions");
-      }
+      if (!response.ok) await throwApiError(response, "update permissions");
       await fetchData();
       setEditPermsRole(null);
       toast.success("Permissions updated");

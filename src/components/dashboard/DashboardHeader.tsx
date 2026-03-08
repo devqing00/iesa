@@ -129,7 +129,10 @@ export default function DashboardHeader({ title = "Dashboard" }: { title?: strin
               <div>
                 <p className="font-bold text-sm text-navy">{userProfile.firstName} {userProfile.lastName}</p>
                 <p className="text-xs text-slate font-medium">
-                  {(userProfile.level || userProfile.currentLevel) ? `${userProfile.level || userProfile.currentLevel} Level` : "Student"}
+                  {(() => {
+                    const lvl = userProfile.level || userProfile.currentLevel;
+                    return lvl ? `${String(lvl).replace(/L$/i, "")} Level` : "Student";
+                  })()}
                 </p>
               </div>
             </Link>

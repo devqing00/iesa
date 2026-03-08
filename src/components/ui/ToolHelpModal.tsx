@@ -321,18 +321,27 @@ export function ToolHelpModal({ toolId, isOpen, onClose }: ToolHelpModalProps) {
 }
 
 /* ─── Hook for first-time help ────────────────────────── */
+
+/** How many days before the auto-show can fire again for the same tool. */
+const HELP_COOLDOWN_DAYS = 90;
+
 export function useToolHelp(toolId: string) {
   const [showHelp, setShowHelp] = useState(false);
   const storageKey = `iesa-help-seen-${toolId}`;
 
   useEffect(() => {
     try {
-      const seen = localStorage.getItem(storageKey);
-      if (!seen) {
-        // Show help after a short delay for first-time visitors
-        const timeout = setTimeout(() => setShowHelp(true), 600);
-        return () => clearTimeout(timeout);
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        // Already dismissed — check if the cooldown has elapsed
+        const ts = Number(raw);
+        if (!Number.isNaN(ts) && Date.now() - ts < HELP_COOLDOWN_DAYS * 86_400_000) {
+          return; // still within cooldown, don't show
+        }
       }
+      // First visit OR cooldown elapsed — show after a short delay
+      const timeout = setTimeout(() => setShowHelp(true), 600);
+      return () => clearTimeout(timeout);
     } catch {
       // localStorage not available
     }
@@ -343,7 +352,7 @@ export function useToolHelp(toolId: string) {
   const closeHelp = () => {
     setShowHelp(false);
     try {
-      localStorage.setItem(storageKey, "1");
+      localStorage.setItem(storageKey, String(Date.now()));
     } catch {
       // localStorage not available
     }
