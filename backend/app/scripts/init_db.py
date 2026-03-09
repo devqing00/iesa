@@ -15,7 +15,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime, timedelta, timezone
 import os
 from dotenv import load_dotenv
-from app.core.auth import hash_password
+# NOTE: Passwords handled by Firebase Auth — no passwordHash fields needed
 
 # Load environment variables
 load_dotenv()
@@ -143,20 +143,6 @@ async def create_indexes(db):
     await db.announcements.create_index([("sessionId", 1), ("createdAt", -1)])  # For recent announcements
     await db.announcements.create_index([("targetLevels", 1), ("createdAt", -1)])  # For level-specific announcements
     
-    # Grades collection indexes
-    await db.grades.create_index("studentId")
-    await db.grades.create_index("sessionId")
-    await db.grades.create_index("semester")
-    await db.grades.create_index([("studentId", 1), ("sessionId", 1)])  # For student grades by session
-    await db.grades.create_index("createdAt")
-    
-    # Refresh Tokens collection indexes
-    await db.refresh_tokens.create_index("token", unique=True)
-    await db.refresh_tokens.create_index("userId")
-    await db.refresh_tokens.create_index("expiresAt")
-    await db.refresh_tokens.create_index("family")  # For token rotation family revocation
-    await db.refresh_tokens.create_index([("userId", 1), ("isRevoked", 1)])  # For active tokens per user
-    
     # Unit Applications collection indexes
     await db.unit_applications.create_index("studentId")
     await db.unit_applications.create_index("sessionId")
@@ -282,7 +268,6 @@ async def create_admin_user(db):
     
     admin_data = {
         "email": "admin@iesa.edu",
-        "passwordHash": hash_password("AdminPass1!"),
         "firstName": "Admin",
         "lastName": "User",
         "matricNumber": "ADM/2024/001",

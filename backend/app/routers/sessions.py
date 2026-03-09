@@ -284,7 +284,7 @@ async def delete_session(
     Requires session:delete permission.
     
     WARNING: This will also delete all session-scoped data
-    (payments, events, announcements, grades, roles).
+    (payments, events, announcements, roles).
     """
     db = get_database()
     sessions = db["sessions"]

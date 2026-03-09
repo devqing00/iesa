@@ -56,10 +56,8 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    """Model for creating a new user (internal use — password hashed before storage)"""
-    password: Optional[str] = Field(None, min_length=8, max_length=128, description="Raw password (hashed before storage)")
-    # Legacy field preserved for data migration only
-    firebaseUid: Optional[str] = Field(None, description="Deprecated — Firebase UID for migration")
+    """Model for creating a new user (via Firebase Auth — no password stored locally)"""
+    firebaseUid: Optional[str] = Field(None, description="Firebase Auth UID")
 
 
 class UserUpdate(BaseModel):
@@ -96,8 +94,6 @@ class User(UserBase):
 
 class UserInDB(User):
     """Internal user model with additional metadata"""
-    passwordHash: Optional[str] = None
     lastLogin: Optional[datetime] = None
     isActive: bool = True
-    # Legacy field for migration
     firebaseUid: Optional[str] = None

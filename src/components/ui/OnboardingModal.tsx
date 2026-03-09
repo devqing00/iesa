@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "@/context/AuthContext";
+import { getApiUrl } from "@/lib/api";
+import { toast } from "sonner";
 
 /* ─── Types ─────────────────────────────────────────── */
 
@@ -115,28 +117,6 @@ function ConfettiParticles() {
   );
 }
 
-/* ─── Session / Level helpers ──────────────────────── */
-
-function generateAdmissionSessions(): { label: string; admissionYear: number }[] {
-  const currentYear = new Date().getFullYear();
-  const sessions = [];
-  for (let i = 0; i < 5; i++) {
-    const startYear = currentYear - i;
-    const endYear = startYear + 1;
-    sessions.push({
-      label: `${startYear}/${endYear}`,
-      admissionYear: endYear,
-    });
-  }
-  return sessions.reverse();
-}
-
-function computeLevel(admissionYear: number): string {
-  const currentYear = new Date().getFullYear();
-  const levelNum = Math.max(100, Math.min(500, (currentYear - admissionYear) * 100 + 100));
-  return `${levelNum}L`;
-}
-
 /* ─── Feature Cards for Tour ──────────────────────── */
 
 const FEATURES = [
@@ -206,53 +186,220 @@ const FEATURES = [
 
 interface OnboardingModalProps {
   onComplete: () => void;
-  onSkip: () => void;
+  onSkip?: () => void;
+  mandatory?: boolean;
 }
 
-export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
-  const { userProfile } = useAuth();
+export function OnboardingModal({ onComplete, onSkip, mandatory = false }: OnboardingModalProps) {
+  const { userProfile, getAccessToken, refreshProfile } = useAuth();
   const [step, setStep] = useState<Step>(0);
+
+  // True when the user registered via email and already has all required fields —
+  // Step 1 should be a read-only confirmation, not an editable save form.
+  const isConfirmMode = !mandatory && !!(userProfile?.matricNumber && userProfile?.phone && userProfile?.currentLevel && userProfile?.admissionYear);
 
   // Form state
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [matricNumber, setMatricNumber] = useState("");
   const [phone, setPhone] = useState("");
-  const [admissionSession, setAdmissionSession] = useState("");
+  const [admittedSession, setAdmittedSession] = useState("");
+  const [levelConfirmed, setLevelConfirmed] = useState(false);
+  const [isExternal, setIsExternal] = useState(false);
+  const [department, setDepartment] = useState("");
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const prefilled = useRef(false);
 
-  const sessions = generateAdmissionSessions();
+  // Session data for level calculation
+  const [apiSessions, setApiSessions] = useState<string[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [currentSecondYear, setCurrentSecondYear] = useState<number | null>(null);
+  const [activeSessionName, setActiveSessionName] = useState("");
 
-  // Pre-fill from existing profile
+  // Fetch sessions
   useEffect(() => {
     setMounted(true);
-    if (userProfile) {
-      setFirstName(userProfile.firstName || "");
-      setLastName(userProfile.lastName || "");
-      if (userProfile.matricNumber) setMatricNumber(userProfile.matricNumber);
-      if (userProfile.phone) setPhone(userProfile.phone);
-      if (userProfile.admissionYear) {
-        const match = sessions.find(s => s.admissionYear === userProfile.admissionYear);
-        if (match) setAdmissionSession(match.label);
-      }
+    (async () => {
+      try {
+        const res = await fetch(getApiUrl("/api/v1/sessions/"));
+        if (res.ok) {
+          const list: { isActive: boolean; name: string }[] = await res.json();
+          const active = list.find((s) => s.isActive);
+          if (active?.name) {
+            setActiveSessionName(active.name);
+            const sy = parseInt(active.name.split("/")[1]);
+            if (!isNaN(sy)) setCurrentSecondYear(sy);
+          }
+          setApiSessions(list.map((s) => s.name));
+        }
+      } catch { /* API unavailable */ }
+      finally { setSessionsLoading(false); }
+    })();
+  }, []);
+
+  // Session dropdown options
+  const sessionOptions: string[] = (() => {
+    const base = currentSecondYear ?? new Date().getFullYear() + 1;
+    const generated: string[] = [];
+    for (let y = base; y >= base - 5; y--) generated.push(`${y - 1}/${y}`);
+    for (const n of apiSessions) if (!generated.includes(n)) generated.push(n);
+    return generated.sort((a, b) => b.localeCompare(a));
+  })();
+
+  // Level calculation using active session
+  const calculateLevel = useCallback(
+    (admSession: string): string => {
+      if (currentSecondYear === null) return "";
+      const admSY = parseInt(admSession.split("/")[1]);
+      if (isNaN(admSY)) return "";
+      return `${Math.max(100, Math.min(500, (currentSecondYear - admSY) * 100 + 100))}L`;
+    },
+    [currentSecondYear]
+  );
+
+  const calculatedLevel = admittedSession ? calculateLevel(admittedSession) : "";
+  const derivedAdmissionYear = admittedSession ? parseInt(admittedSession.split("/")[1]) : 0;
+
+  // Pre-fill from existing profile (once)
+  useEffect(() => {
+    if (prefilled.current || !userProfile) return;
+    prefilled.current = true;
+    setFirstName(userProfile.firstName || "");
+    setLastName(userProfile.lastName || "");
+    if (userProfile.matricNumber) setMatricNumber(userProfile.matricNumber);
+    if (userProfile.phone) setPhone(userProfile.phone);
+    if (userProfile.admissionYear) {
+      const ay = userProfile.admissionYear;
+      setAdmittedSession(`${ay - 1}/${ay}`);
+      setLevelConfirmed(true);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (userProfile.department && userProfile.department !== "Industrial Engineering") {
+      setIsExternal(true);
+      setDepartment(userProfile.department);
+    }
   }, [userProfile]);
 
-  const selectedAdmissionYear = sessions.find(s => s.label === admissionSession)?.admissionYear;
-  const computedLevel = selectedAdmissionYear ? computeLevel(selectedAdmissionYear) : "";
+  // Reset level confirmation when session changes
+  useEffect(() => { setLevelConfirmed(false); }, [admittedSession]);
 
+  // Block Escape key when mandatory
+  useEffect(() => {
+    if (!mandatory) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") e.preventDefault(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [mandatory]);
 
+  // Validate step 1 form
+  const validateForm = (): boolean => {
+    setFormError("");
+    if (!firstName.trim()) { setFormError("First name is required"); return false; }
+    if (!lastName.trim()) { setFormError("Last name is required"); return false; }
+    if (!matricNumber.trim()) { setFormError("Matric number is required"); return false; }
+    if (!/^\d{6}$/.test(matricNumber)) { setFormError("Matric number must be exactly 6 digits"); return false; }
+    if (!phone.trim()) { setFormError("Phone number is required"); return false; }
+    if (!/^(\+234|0)[789]\d{9}$/.test(phone.replace(/[\s-]/g, ""))) {
+      setFormError("Invalid Nigerian phone number (e.g. +2348123456789)");
+      return false;
+    }
+    if (!admittedSession) { setFormError("Please select the session you were admitted"); return false; }
+    if (!calculatedLevel) { setFormError("Could not calculate your level \u2014 no active session found"); return false; }
+    if (!levelConfirmed) { setFormError("Please confirm your calculated level"); return false; }
+    if (isExternal && !department.trim()) { setFormError("Please enter your department"); return false; }
+    return true;
+  };
+
+  // Confirm-mode: user already has all data from email registration.
+  // Just call complete-registration with existing profile values to set the hasCompletedOnboarding flag.
+  const handleConfirmProfile = async () => {
+    if (!userProfile) return;
+    setSaving(true);
+    setFormError("");
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl("/api/v1/students/complete-registration"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          firstName: userProfile.firstName,
+          lastName: userProfile.lastName,
+          matricNumber: userProfile.matricNumber,
+          phone: userProfile.phone,
+          level: userProfile.currentLevel,
+          admissionYear: userProfile.admissionYear,
+          department: userProfile.department || "Industrial Engineering",
+        }),
+      });
+      if (res.ok || res.status === 409) {
+        await refreshProfile();
+        setStep(2);
+      } else {
+        const err = await res.json().catch(() => ({ detail: "Failed" }));
+        setFormError(err.detail || "Something went wrong. Please try again.");
+      }
+    } catch {
+      setFormError("Network error \u2014 please check your connection.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Save profile to backend
+  const handleSaveProfile = async () => {
+    if (!validateForm()) return;
+    setSaving(true);
+    setFormError("");
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl("/api/v1/students/complete-registration"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          matricNumber: matricNumber.trim(),
+          phone: phone.replace(/[\s-]/g, "").trim(),
+          level: calculatedLevel,
+          admissionYear: derivedAdmissionYear,
+          department: isExternal && department.trim() ? department.trim() : "Industrial Engineering",
+        }),
+      });
+
+      if (res.ok || res.status === 409) {
+        await refreshProfile();
+        toast.success("Profile saved!");
+        setStep(2);
+      } else {
+        const err = await res.json().catch(() => ({ detail: "Failed to save profile" }));
+        setFormError(err.detail || "Failed to save profile. Please try again.");
+      }
+    } catch {
+      setFormError("Network error \u2014 please check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (!mounted) return null;
+
+  const inputClass =
+    "w-full px-3.5 py-3 bg-snow border-[3px] border-navy rounded-2xl text-navy font-display font-normal text-sm placeholder:text-slate focus:outline-none focus:border-coral transition-all";
 
   const modalContent = (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6"
       role="presentation"
     >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-navy/70 backdrop-blur-sm animate-fade-in" />
+      {/* Backdrop — not clickable when mandatory */}
+      <div
+        className="absolute inset-0 bg-navy/70 backdrop-blur-sm animate-fade-in"
+        onClick={!mandatory && onSkip ? onSkip : undefined}
+      />
 
       <div
         role="dialog"
@@ -320,37 +467,155 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
             </div>
           )}
 
-          {/* ═══ Step 1: Profile Confirmation ═══ */}
-          {step === 1 && (
+          {/* ═══ Step 1: Profile Form / Confirmation ═══ */}
+          {step === 1 && isConfirmMode && (
             <div className="space-y-3">
-              <p className="text-slate text-sm">Here&apos;s the profile we have on file for you. Head to your Profile page if anything needs updating.</p>
+              <p className="text-slate text-sm">Your details are already set up. Everything looks good!</p>
 
-              {/* Profile fields — read-only */}
-              <div className="bg-ghost border-[2px] border-navy/10 rounded-2xl divide-y divide-navy/8 overflow-hidden">
-                {[
-                  { label: "Full Name", value: [firstName, lastName].filter(Boolean).join(" ") || null },
-                  { label: "Matric Number", value: matricNumber || null },
-                  { label: "Phone", value: phone || null },
-                  { label: "Admitted Session", value: admissionSession || null },
-                  { label: "Current Level", value: computedLevel || null },
-                ].map(({ label, value }) => (
-                  <div key={label} className="flex items-center justify-between px-4 py-3 gap-4">
-                    <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40 shrink-0">{label}</span>
-                    <span className={`text-sm font-display font-bold text-right ${value ? "text-navy" : "text-slate/50 italic font-normal"}`}>
-                      {value ?? "Not set"}
-                    </span>
-                  </div>
-                ))}
+              {/* Read-only summary rows */}
+              {[
+                { label: "Name", value: `${userProfile?.firstName} ${userProfile?.lastName}` },
+                { label: "Matric Number", value: userProfile?.matricNumber },
+                { label: "Phone", value: userProfile?.phone },
+                { label: "Level", value: userProfile?.currentLevel },
+                { label: "Department", value: userProfile?.department || "Industrial Engineering" },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-center justify-between px-4 py-3 bg-ghost border-[2px] border-cloud rounded-2xl">
+                  <span className="font-display font-bold text-[10px] uppercase tracking-[0.1em] text-navy/40">{label}</span>
+                  <span className="font-display font-medium text-sm text-navy">{value || "—"}</span>
+                </div>
+              ))}
+
+              {formError && (
+                <div className="p-3 border-[2px] border-coral bg-coral-light text-coral text-xs rounded-xl font-medium flex items-start gap-2">
+                  <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><circle cx="12" cy="12" r="10" /><path strokeLinecap="round" d="M12 8v4m0 4h.01" /></svg>
+                  {formError}
+                </div>
+              )}
+            </div>
+          )}
+
+          {step === 1 && !isConfirmMode && (
+            <div className="space-y-3">
+              <p className="text-slate text-sm">
+                {mandatory
+                  ? "Complete your profile to get started. All fields are required."
+                  : "Review and update your profile details."}
+              </p>
+
+              {/* Name */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="font-display font-bold text-[10px] uppercase tracking-[0.1em] text-navy/40">First Name</label>
+                  <input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="John" className={inputClass} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="font-display font-bold text-[10px] uppercase tracking-[0.1em] text-navy/40">Last Name</label>
+                  <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" className={inputClass} />
+                </div>
               </div>
 
-              {computedLevel && (
-                <div className="bg-lime/20 border-[2px] border-lime/50 rounded-xl px-4 py-2.5 flex items-center gap-2.5">
-                  <svg className="w-4 h-4 text-teal shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M5 13l4 4L19 7" />
+              {/* Matric */}
+              <div className="space-y-1.5">
+                <label className="font-display font-bold text-[10px] uppercase tracking-[0.1em] text-navy/40">Matric Number</label>
+                <input
+                  value={matricNumber}
+                  onChange={(e) => setMatricNumber(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="236123"
+                  maxLength={6}
+                  className={inputClass}
+                />
+                <p className="text-[10px] text-slate">6 digits only</p>
+              </div>
+
+              {/* Phone */}
+              <div className="space-y-1.5">
+                <label className="font-display font-bold text-[10px] uppercase tracking-[0.1em] text-navy/40">Phone Number</label>
+                <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+234 812 345 6789" className={inputClass} />
+              </div>
+
+              {/* External toggle */}
+              <div className="flex items-center justify-between bg-ghost border-2 border-cloud rounded-2xl px-3.5 py-2.5">
+                <div>
+                  <p className="font-display font-bold text-xs text-navy">Not from Industrial Engineering?</p>
+                  <p className="text-[10px] text-slate mt-0.5">Toggle if you&apos;re from a different department</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setIsExternal(!isExternal); setDepartment(""); }}
+                  className={`relative w-12 h-6 rounded-full border-2 transition-all ${isExternal ? "bg-lime border-navy" : "bg-cloud border-cloud"}`}
+                  title={isExternal ? "Currently: External student" : "Currently: IPE student"}
+                >
+                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-navy transition-all ${isExternal ? "left-6" : "left-0.5"}`} />
+                </button>
+              </div>
+
+              {isExternal && (
+                <div className="space-y-1.5">
+                  <label className="font-display font-bold text-[10px] uppercase tracking-[0.1em] text-navy/40">Your Department</label>
+                  <input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Electrical Engineering" maxLength={200} className={inputClass} />
+                  <p className="text-[10px] text-slate">You&apos;ll be able to join IEPOD but some features are IPE-exclusive</p>
+                </div>
+              )}
+
+              {/* Session admitted */}
+              <div className="space-y-1.5">
+                <label className="font-display font-bold text-[10px] uppercase tracking-[0.1em] text-navy/40">Session Admitted</label>
+                {sessionsLoading ? (
+                  <div className={`${inputClass} flex items-center gap-2 text-slate`}>
+                    <div className="w-3.5 h-3.5 rounded-full border-[2px] border-navy border-t-transparent animate-spin shrink-0" />
+                    Loading sessions...
+                  </div>
+                ) : (
+                  <select
+                    value={admittedSession}
+                    onChange={(e) => setAdmittedSession(e.target.value)}
+                    className={`${inputClass} appearance-none cursor-pointer`}
+                    aria-label="Session admitted"
+                  >
+                    <option value="">Select the session you were admitted</option>
+                    {sessionOptions.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                )}
+                <p className="text-[10px] text-slate">e.g. 2022/2023</p>
+              </div>
+
+              {/* Level confirmation */}
+              {admittedSession && !sessionsLoading && calculatedLevel && (
+                <div className={`p-3.5 rounded-2xl border-[3px] transition-all ${levelConfirmed ? "bg-teal-light border-teal" : "bg-sunny-light border-sunny"}`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-display font-bold text-sm text-navy">
+                        Your level: <span className="font-black">{calculatedLevel}</span>
+                      </p>
+                      <p className="text-[10px] text-navy/60 mt-0.5">
+                        Admitted {admittedSession}{activeSessionName ? `, current ${activeSessionName}` : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setLevelConfirmed(!levelConfirmed)}
+                      className={`px-3.5 py-1.5 rounded-xl border-[2px] text-xs font-bold transition-all ${levelConfirmed ? "bg-teal border-navy text-navy" : "bg-snow border-navy text-navy hover:bg-ghost"}`}
+                    >
+                      {levelConfirmed ? "Confirmed" : "Confirm"}
+                    </button>
+                  </div>
+                  {!levelConfirmed && (
+                    <p className="text-[10px] text-navy/50 mt-2">Please confirm your level is correct</p>
+                  )}
+                </div>
+              )}
+
+              {/* Form error */}
+              {formError && (
+                <div className="p-3 border-[2px] border-coral bg-coral-light text-coral text-xs rounded-xl font-medium flex items-start gap-2">
+                  <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <circle cx="12" cy="12" r="10" />
+                    <path strokeLinecap="round" d="M12 8v4m0 4h.01" />
                   </svg>
-                  <p className="text-xs font-display font-bold text-navy">
-                    You&apos;re a <span className="text-teal">{computedLevel}</span> student — admitted {admissionSession}.
-                  </p>
+                  {formError}
                 </div>
               )}
             </div>
@@ -419,12 +684,14 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
         <div className="px-6 py-5 border-t-[3px] border-navy/10 flex items-center gap-3">
           {step === 0 && (
             <>
-              <button
-                onClick={onSkip}
-                className="text-sm font-display font-bold text-navy/40 hover:text-navy/60 transition-colors"
-              >
-                Skip for now
-              </button>
+              {!mandatory && onSkip && (
+                <button
+                  onClick={onSkip}
+                  className="text-sm font-display font-bold text-navy/40 hover:text-navy/60 transition-colors"
+                >
+                  Skip for now
+                </button>
+              )}
               <div className="flex-1" />
               <button
                 onClick={() => setStep(1)}
@@ -445,10 +712,11 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
               </button>
               <div className="flex-1" />
               <button
-                onClick={() => setStep(2)}
-                className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-xl font-display font-bold text-sm text-navy transition-all"
+                onClick={isConfirmMode ? handleConfirmProfile : handleSaveProfile}
+                disabled={saving}
+                className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-xl font-display font-bold text-sm text-navy transition-all disabled:opacity-50"
               >
-                Looks good, continue
+                {saving ? "Saving..." : isConfirmMode ? "Looks Good, Continue" : "Save & Continue"}
               </button>
             </>
           )}

@@ -19,7 +19,6 @@ from app.db import get_database
 from app.core.security import verify_token, get_current_user
 from app.core.permissions import require_permission
 from app.core.audit import audit_user_role_change, AuditLogger
-from app.core.auth import verify_password, async_verify_password
 from app.core.error_handling import safe_detail
 
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
@@ -51,7 +50,7 @@ async def create_or_update_user_profile(
     
     if existing_user:
         # Update existing user profile
-        update_data = user_data.model_dump(exclude={"password", "firebaseUid"}, exclude_none=True)
+        update_data = user_data.model_dump(exclude={"firebaseUid"}, exclude_none=True)
         update_data["updatedAt"] = datetime.now(timezone.utc)
         update_data["lastLogin"] = datetime.now(timezone.utc)
         
@@ -727,47 +726,36 @@ async def get_notification_categories(
 # ACCOUNT DELETION
 # ──────────────────────────────────────────────
 
-class DeleteAccountRequest(PydanticBaseModel):
-    password: str
 
 @router.delete("/me")
 async def delete_account(
-    data: DeleteAccountRequest,
     user: dict = Depends(get_current_user),
 ):
     """
     Permanently delete the current user's account and all associated data.
-    Requires password confirmation.
-    
-    Deletes:
-    - User document
-    - All enrollments
-    - All notifications
-    - All refresh tokens
-    - All bank transfers
+
+    Firebase Auth user is also deleted so they can't log in again.
     """
     db = get_database()
     users = db["users"]
     user_id = str(user["_id"])
 
-    # Verify password
+    # Delete Firebase Auth user (if firebaseUid exists)
     user_doc = await users.find_one({"_id": ObjectId(user_id)})
-    if not user_doc or not user_doc.get("passwordHash"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot verify identity"
-        )
-
-    if not await async_verify_password(data.password, user_doc["passwordHash"]):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect password"
-        )
+    firebase_uid = user_doc.get("firebaseUid") if user_doc else None
+    if firebase_uid:
+        try:
+            from firebase_admin import auth as fb_auth
+            import asyncio
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, fb_auth.delete_user, firebase_uid)
+        except Exception as e:
+            import logging
+            logging.warning(f"Failed to delete Firebase user {firebase_uid}: {e}")
 
     # Delete associated data — cast wide to remove all orphaned docs
     await db["enrollments"].delete_many({"studentId": user_id})
     await db["notifications"].delete_many({"userId": user_id})
-    await db["refresh_tokens"].delete_many({"userId": user_id})
     await db["bankTransfers"].delete_many({"studentId": user_id})
     await db["growth_data"].delete_many({"userId": user_id})
     await db["ai_rate_limits"].delete_many({"userId": user_id})

@@ -358,39 +358,6 @@ export interface EnrollmentWithDetails extends Enrollment {
 }
 
 // ============================================
-// CGPA Types
-// ============================================
-
-export interface Course {
-  code: string;
-  title: string;
-  units: number;
-  score: number;
-  gradePoint?: number;
-  grade?: string;
-}
-
-export interface Semester {
-  semesterNumber: 1 | 2;
-  courses: Course[];
-  gpa?: number;
-}
-
-
-
-export interface CGPAResponse {
-  studentId: string;
-  cgpa: number;
-  totalUnits: number;
-  sessions: Array<{
-    sessionId: string;
-    sessionName: string;
-    gpa: number;
-    units: number;
-  }>;
-}
-
-// ============================================
 // AI Chat Types
 // ============================================
 

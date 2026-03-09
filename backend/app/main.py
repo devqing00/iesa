@@ -11,7 +11,7 @@ from app.core.security import verify_token
 from app.core.permissions import require_permission as _require_permission
 from app.core.rate_limiting import setup_rate_limiting
 from app.core.error_handling import setup_exception_handlers, setup_logging
-from app.routers import sessions, users, payments, events, announcements, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press, unit_applications, units, academic_calendar, timp, bank_transfers, settings, contact_messages, iepod, admin_stats, student_dashboard, sse, notifications, search, growth, messages, two_factor, class_rep, unit_head, push_notifications
+from app.routers import sessions, users, payments, events, announcements, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press, unit_applications, units, academic_calendar, timp, bank_transfers, settings, contact_messages, iepod, admin_stats, student_dashboard, sse, notifications, search, growth, messages, class_rep, unit_head, push_notifications
 from app.db import connect_to_mongo, close_mongo_connection, get_database
 
 # Setup logging first
@@ -24,6 +24,10 @@ async def lifespan(app: FastAPI):
     # Startup
     await connect_to_mongo()
 
+    # Initialise Firebase Admin SDK
+    from app.core.auth import init_firebase
+    init_firebase()
+
     # Ensure TTL index on article_views for automatic cleanup (24h)
     from app.db import get_database
     db = get_database()
@@ -34,25 +38,14 @@ async def lifespan(app: FastAPI):
     # AI rate limits — unique userId index for fast upserts
     await db["ai_rate_limits"].create_index("userId", unique=True, background=True)
 
-    # Refresh tokens — TTL index auto-deletes expired tokens.
-    # Drop any existing non-TTL index on expiresAt first (code 85 = IndexOptionsConflict),
-    # then recreate it with expireAfterSeconds so tokens are actually purged by MongoDB.
+    # Users — unique index on firebaseUid for fast token→user lookups
     try:
-        await db["refresh_tokens"].create_index(
-            "expiresAt", expireAfterSeconds=0, background=True
-        )
-    except OperationFailure as e:
-        if e.code == 85:  # IndexOptionsConflict — existing index lacks expireAfterSeconds
-            import logging as _log
-            _log.getLogger("iesa_backend").warning(
-                "refresh_tokens.expiresAt index exists without TTL — dropping and recreating."
-            )
-            await db["refresh_tokens"].drop_index("expiresAt_1")
-            await db["refresh_tokens"].create_index(
-                "expiresAt", expireAfterSeconds=0, background=True
-            )
-        else:
-            raise
+        await db["users"].create_index("firebaseUid", unique=True, sparse=True, background=True)
+    except Exception as e:
+        # IndexKeySpecsConflict (code 86): stale index exists without unique=True — drop and recreate
+        if getattr(e, "code", None) == 86:
+            await db["users"].drop_index("firebaseUid_1")
+            await db["users"].create_index("firebaseUid", unique=True, sparse=True, background=True)
 
     # DM rate limits — TTL auto-cleanup after 2 hours
     await db["dm_rate_limits"].create_index("createdAt", expireAfterSeconds=7200, background=True)
@@ -94,7 +87,7 @@ async def lifespan(app: FastAPI):
 
     # Transaction records — unique reference for idempotent webhook/verify upserts.
     # If the index exists without sparse=True (code 86 = IndexKeySpecsConflict),
-    # drop it and recreate with the correct spec — same pattern as refresh_tokens.expiresAt.
+    # drop it and recreate with the correct spec.
     try:
         await db["transactions"].create_index("reference", unique=True, sparse=True, background=True)
     except OperationFailure as e:
@@ -112,6 +105,38 @@ async def lifespan(app: FastAPI):
     await db["push_subscriptions"].create_index(
         [("userId", 1), ("endpoint", 1)], unique=True, background=True
     )
+
+    # ── Startup migration: backfill null-level enrollments ──────────────────
+    # Enrollments created during Google sign-up have level=null because the
+    # user's level is unknown at that point. Once they complete onboarding their
+    # currentLevel is set on the user doc; this migration propagates it to the
+    # enrollment record so the admin panel and profile page show the correct level.
+    import logging as _mig_log
+    _mig_logger = _mig_log.getLogger("iesa_backend")
+    try:
+        null_enrollments = await db["enrollments"].find(
+            {"level": None}, {"_id": 1, "studentId": 1}
+        ).to_list(length=1000)
+        if null_enrollments:
+            fixed = 0
+            for enr in null_enrollments:
+                sid = enr.get("studentId")
+                if not sid:
+                    continue
+                from bson import ObjectId as _ObjId
+                user_doc = await db["users"].find_one(
+                    {"_id": _ObjId(sid)}, {"currentLevel": 1}
+                )
+                if user_doc and user_doc.get("currentLevel"):
+                    await db["enrollments"].update_one(
+                        {"_id": enr["_id"]},
+                        {"$set": {"level": user_doc["currentLevel"]}}
+                    )
+                    fixed += 1
+            if fixed:
+                _mig_logger.info("Startup migration: backfilled level on %d enrollment(s)", fixed)
+    except Exception as _mig_e:
+        _mig_logger.warning("Startup migration (enrollment level backfill) failed: %s", _mig_e)
 
     yield
     # Shutdown
@@ -304,7 +329,6 @@ app.include_router(messages.router)            # Student Direct Messages
 app.include_router(messages._admin_router)     # Admin Message Reports & Mutes
 app.include_router(messages._ws_router)        # Messages WebSocket (no HTTTPBearer dep)
 app.include_router(study_groups._ws_router)    # Study Groups WebSocket (no HTTPBearer dep)
-app.include_router(two_factor.router)          # Two-Factor Authentication (TOTP)
 app.include_router(class_rep.router)             # Class Rep Portal
 app.include_router(unit_head.router)               # Unit Head Portal
 app.include_router(push_notifications.router)        # Web Push Notifications

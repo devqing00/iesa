@@ -28,7 +28,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.security import get_current_user, require_ipe_student
 from app.core.permissions import require_permission
-from app.core.auth import decode_access_token
+from app.core.security import verify_firebase_id_token_raw
 from app.db import get_database
 
 router = APIRouter(
@@ -1864,7 +1864,7 @@ async def dm_websocket(ws: WebSocket, token: str = Query("")):
         return
 
     try:
-        user_data = decode_access_token(token)
+        user_data = await verify_firebase_id_token_raw(token)
     except Exception:
         await ws.close(code=4003, reason="Invalid token")
         return

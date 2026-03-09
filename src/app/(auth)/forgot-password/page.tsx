@@ -4,9 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 export default function ForgotPasswordPage() {
+  const { sendPasswordReset } = useAuth();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -16,7 +17,7 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      await api.post("/api/v1/auth/forgot-password", { email }, { skipAuth: true, showErrorToast: false });
+      await sendPasswordReset(email);
       setSent(true);
       toast.success("Check your email for a reset link");
     } catch {

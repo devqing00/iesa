@@ -19,7 +19,6 @@ const OnboardingModal = dynamic(
   { ssr: false }
 );
 import { getQuoteOfTheDay } from "@/lib/quotes";
-import { getApiUrl } from "@/lib/api";
 import { isExternalStudent } from "@/lib/studentAccess";
 import DeadlineWidget from "@/components/dashboard/DeadlineWidget";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
@@ -27,7 +26,7 @@ import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelp
 /* ─── Page Component ────────────────────────────────────────────── */
 
 export default function StudentDashboardPage() {
-  const { user, userProfile, getAccessToken, refreshProfile } = useAuth();
+  const { user, userProfile, refreshProfile } = useAuth();
   const { showHelp, openHelp, closeHelp } = useToolHelp("student-dashboard");
   const enabled = !!user;
 
@@ -171,17 +170,27 @@ export default function StudentDashboardPage() {
     if (!userProfile.phone) profileMissing.push("phone number");
     if (!userProfile.emailVerified) profileMissing.push("email verification");
   }
+
+  // Profile is structurally incomplete (missing required data, not just onboarding flag)
+  const profileIncomplete = !!(userProfile && (
+    !userProfile.matricNumber ||
+    !userProfile.phone ||
+    (!userProfile.level && !userProfile.currentLevel) ||
+    !userProfile.admissionYear
+  ));
+
   // Hide banner if backend says onboarding is complete OR if user has dismissed it
   const showOnboarding =
     !onboardingDismissed &&
     !userProfile?.hasCompletedOnboarding &&
     profileMissing.length > 0;
 
-  // Show modal when onboarding is incomplete and hasn't been seen/skipped
-  const shouldShowModal =
-    !userProfile?.hasCompletedOnboarding &&
-    showOnboardingModal &&
-    !!userProfile;
+  // Show modal:
+  //  - MANDATORY (no escape) when profile is actually incomplete (e.g. Google sign-up)
+  //  - OPTIONAL (skippable) for users who have data but haven't finished the tour
+  const shouldShowModal = profileIncomplete
+    ? !!userProfile
+    : !userProfile?.hasCompletedOnboarding && showOnboardingModal && !!userProfile;
 
   const dismissOnboarding = () => {
     setOnboardingDismissed(true);
@@ -202,57 +211,9 @@ export default function StudentDashboardPage() {
     setShowOnboardingModal(false);
     try { localStorage.setItem(modalSeenKey, "1"); } catch { /* ignore */ }
 
-    // Mark onboarding complete on the backend so the banner / profile badge update too.
-    // Only attempt if we have the minimum required fields; if anything is missing the
-    // user will still be prompted on the profile page (which gives richer error messages).
-    const admissionYear = userProfile?.admissionYear;
-    const matricNumber  = userProfile?.matricNumber || "";
-    const phone         = userProfile?.phone        || "";
-
-    if (!admissionYear || !matricNumber || !phone) {
-      // Profile is incomplete — skip the backend call. The profile page will guide
-      // the user through completing their details when they visit it.
-      return;
-    }
-
-    try {
-      const token = await getAccessToken();
-
-      // Recalculate level from admissionYear + active session (prevents stale/wrong level).
-      // Fall back to stored level, then to a safe default so the validator never receives "".
-      const activeSession     = data?.activeSession;
-      const currentSecondYear = activeSession ? parseInt(activeSession.split("/")[1]) : null;
-      const storedLevel       = (userProfile?.currentLevel || userProfile?.level || "").toString();
-      const level             = currentSecondYear
-        ? `${Math.max(100, Math.min(500, (currentSecondYear - admissionYear) * 100 + 100))}L`
-        : storedLevel || "100L";
-
-      const res = await fetch(getApiUrl("/api/v1/students/complete-registration"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          firstName:    userProfile?.firstName || "",
-          lastName:     userProfile?.lastName  || "",
-          matricNumber,
-          phone,
-          level,
-          admissionYear,
-        }),
-      });
-
-      // 409 = already completed (e.g. double-call) — treat as success.
-      // Any other non-ok status means the update failed; skip refreshProfile so
-      // hasCompletedOnboarding stays consistent with the actual DB state.
-      if (res.ok || res.status === 409) {
-        await refreshProfile();
-      }
-    } catch {
-      // Network error — localStorage still prevents the modal re-appearing locally,
-      // but hasCompletedOnboarding stays false until the user completes via profile page.
-    }
+    // The OnboardingModal already called the complete-registration API.
+    // Just refresh the profile so the UI reflects hasCompletedOnboarding = true.
+    await refreshProfile();
   };
 
   return (
@@ -267,7 +228,8 @@ export default function StudentDashboardPage() {
         {shouldShowModal && (
           <OnboardingModal
             onComplete={handleOnboardingComplete}
-            onSkip={handleOnboardingSkip}
+            onSkip={profileIncomplete ? undefined : handleOnboardingSkip}
+            mandatory={profileIncomplete}
           />
         )}
 

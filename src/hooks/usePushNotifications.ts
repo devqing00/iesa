@@ -21,6 +21,7 @@ export function usePushNotifications() {
   const [permission, setPermission] = useState<NotificationPermission>("default");
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
 
   // Check support + current state on mount
@@ -84,11 +85,12 @@ export function usePushNotifications() {
   const subscribe = useCallback(async () => {
     if (!supported || loading) return;
     setLoading(true);
+    setError(null);
 
     try {
       // 1. Get VAPID public key from backend
       const keyRes = await apiFetch("/vapid-public-key");
-      if (!keyRes.ok) throw new Error("Push not available");
+      if (!keyRes.ok) throw new Error("Push notifications are not configured on the server");
       const { publicKey } = await keyRes.json();
 
       // 2. Request notification permission
@@ -99,16 +101,20 @@ export function usePushNotifications() {
         return;
       }
 
-      // 3. Subscribe via PushManager
-      const reg = registrationRef.current;
-      if (!reg) throw new Error("Service worker not registered");
+      // 3. Ensure SW is registered (re-register if the ref is still null due to async timing)
+      let reg = registrationRef.current;
+      if (!reg) {
+        reg = await navigator.serviceWorker.register("/push-sw.js", { scope: "/push/" });
+        registrationRef.current = reg;
+      }
 
+      // 4. Subscribe via PushManager
       const pushSub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
 
-      // 4. Send subscription to backend
+      // 5. Send subscription to backend
       const subJson = pushSub.toJSON();
       const res = await apiFetch("/subscribe", {
         method: "POST",
@@ -120,9 +126,12 @@ export function usePushNotifications() {
 
       if (res.ok) {
         setSubscribed(true);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || "Failed to save subscription");
       }
-    } catch {
-      /* silently fail */
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to enable push notifications");
     } finally {
       setLoading(false);
     }
@@ -131,6 +140,7 @@ export function usePushNotifications() {
   const unsubscribe = useCallback(async () => {
     if (!supported || loading) return;
     setLoading(true);
+    setError(null);
 
     try {
       const reg = registrationRef.current;
@@ -153,8 +163,8 @@ export function usePushNotifications() {
         await pushSub.unsubscribe();
       }
       setSubscribed(false);
-    } catch {
-      /* silently fail */
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to disable push notifications");
     } finally {
       setLoading(false);
     }
@@ -165,6 +175,7 @@ export function usePushNotifications() {
     permission,
     subscribed,
     loading,
+    error,
     subscribe,
     unsubscribe,
   };

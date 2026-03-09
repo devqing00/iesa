@@ -44,7 +44,6 @@ ALL_COLLECTIONS = [
     "sessions",
     "enrollments",
     "roles",
-    "refresh_tokens",
     "audit_logs",
     # Content
     "announcements",
@@ -52,18 +51,30 @@ ALL_COLLECTIONS = [
     "payments",
     "transactions",
     "press_articles",
+    "article_views",
     "resources",
+    "resource_ratings",
     "notifications",
     "contact_messages",
+    "push_subscriptions",
     # Timetable
     "classSessions",
     "classCancellations",
     "academicEvents",
+    "examTimetable",
     # Payments
     "bankAccounts",
     "bankTransfers",
     "paystackTransactions",
     "platformSettings",
+    # Messaging (Direct Messages)
+    "direct_messages",
+    "dm_connections",
+    "dm_message_requests",
+    "dm_blocks",
+    "dm_mutes",
+    "dm_reports",
+    "dm_rate_limits",
     # Study Groups
     "study_groups",
     # Growth Hub
@@ -71,6 +82,7 @@ ALL_COLLECTIONS = [
     # Applications
     "unit_applications",
     "unit_settings",
+    "custom_units",
     # TIMP
     "timpApplications",
     "timpPairs",
@@ -95,13 +107,16 @@ ALL_COLLECTIONS = [
     # Unit Head Portal
     "unit_noticeboard",
     "unit_tasks",
+    # Legacy / cleanup
+    "refresh_tokens",
+    "grades",
 ]
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async def clear_all_data(db, keep_users: bool = False) -> None:
     """Delete all documents from every tracked collection."""
-    skip = {"users", "refresh_tokens"} if keep_users else set()
+    skip = {"users"} if keep_users else set()
     label = (
         "Clearing session/content data (keeping users)..."
         if keep_users
@@ -119,16 +134,25 @@ async def clear_all_data(db, keep_users: bool = False) -> None:
             print(f"   - (empty) '{col_name}'")
 
 
+def _current_semester() -> int:
+    """Return 1 (Sep–Feb) or 2 (Mar–Aug) based on today's date."""
+    return 2 if datetime.now(timezone.utc).month in range(3, 9) else 1
+
+
 async def create_session(db, session_name: str) -> str:
     """Create (or reuse) the active academic session."""
     sessions = db["sessions"]
 
+    # Deactivate any previously active sessions first
+    await sessions.update_many({"isActive": True}, {"$set": {"isActive": False}})
+
     existing = await sessions.find_one({"name": session_name})
     if existing:
         await sessions.update_one(
-            {"_id": existing["_id"]}, {"$set": {"isActive": True}}
+            {"_id": existing["_id"]},
+            {"$set": {"isActive": True, "currentSemester": _current_semester()}}
         )
-        print(f"   + Session '{session_name}' already exists — marked active")
+        print(f"   + Session '{session_name}' already exists — marked active (semester {_current_semester()})")
         return str(existing["_id"])
 
     try:
@@ -137,6 +161,7 @@ async def create_session(db, session_name: str) -> str:
         start_year = datetime.now().year
 
     now = datetime.now(timezone.utc)
+    semester = _current_semester()
     doc = {
         "name": session_name,
         "startDate":          datetime(start_year,     9,  1, tzinfo=timezone.utc),
@@ -145,27 +170,51 @@ async def create_session(db, session_name: str) -> str:
         "semester1EndDate":   datetime(start_year + 1, 2, 28, tzinfo=timezone.utc),
         "semester2StartDate": datetime(start_year + 1, 3,  1, tzinfo=timezone.utc),
         "semester2EndDate":   datetime(start_year + 1, 8, 31, tzinfo=timezone.utc),
-        "currentSemester": 1,
+        "currentSemester": semester,
         "isActive": True,
         "createdAt": now,
         "updatedAt": now,
     }
     result = await sessions.insert_one(doc)
     sid = str(result.inserted_id)
-    print(f"   + Created active session: '{session_name}'")
+    print(f"   + Created active session: '{session_name}' (semester {semester})")
     return sid
 
 
 async def promote_user_to_admin(db, email: str) -> None:
-    """Promote an existing user to super_admin role."""
-    result = await db["users"].update_one(
-        {"email": email},
-        {"$set": {"role": "super_admin", "updatedAt": datetime.now(timezone.utc)}},
-    )
-    if result.matched_count == 0:
+    """Promote an existing user to admin + create super_admin position role."""
+    user = await db["users"].find_one({"email": email})
+    if not user:
         print(f"   x No user found with email: {email}")
-    else:
-        print(f"   + Promoted '{email}' to admin")
+        return
+
+    user_id = str(user["_id"])
+    now = datetime.now(timezone.utc)
+
+    # Set role to admin
+    await db["users"].update_one(
+        {"_id": user["_id"]},
+        {"$set": {"role": "admin", "isExternalStudent": False, "updatedAt": now}},
+    )
+
+    # Get active session
+    active_session = await db["sessions"].find_one({"isActive": True})
+    session_id = str(active_session["_id"]) if active_session else "global"
+
+    # Remove existing super_admin positions, create fresh one
+    await db["roles"].delete_many({"userId": user_id, "position": "super_admin"})
+    await db["roles"].insert_one({
+        "userId": user_id,
+        "sessionId": session_id,
+        "position": "super_admin",
+        "isActive": True,
+        "permissions": [],  # empty = all permissions via super_admin bypass
+        "assignedBy": user_id,
+        "assignedAt": now,
+        "createdAt": now,
+        "updatedAt": now,
+    })
+    print(f"   + Promoted '{email}' to super_admin")
 
 
 # ─── Entry point ──────────────────────────────────────────────────────────────

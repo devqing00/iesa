@@ -47,6 +47,7 @@ class CompleteRegistrationRequest(BaseModel):
     level: str
     admissionYear: int
     institutionalEmail: Optional[str] = None  # If different from account email
+    department: Optional[str] = None  # Defaults to "Industrial Engineering" if not set
     
     @validator("firstName", "lastName")
     def validate_name(cls, v):
@@ -170,6 +171,7 @@ async def complete_student_registration(
         )
     
     # Update user profile
+    resolved_dept = data.department or "Industrial Engineering"
     update_data = {
         "firstName": data.firstName,
         "lastName": data.lastName,
@@ -181,6 +183,8 @@ async def complete_student_registration(
         "phoneVerified": False,  # Will be True after SMS verification
         "currentLevel": data.level,
         "admissionYear": data.admissionYear,
+        "department": resolved_dept,
+        "isExternalStudent": resolved_dept != "Industrial Engineering",
         "hasCompletedOnboarding": True,
         "registrationCompletedAt": datetime.now(timezone.utc),
         "updatedAt": datetime.now(timezone.utc)
@@ -268,6 +272,13 @@ async def initialize_student_data(db, user: dict, level: str):
             "updatedAt": datetime.now(timezone.utc)
         }
         await enrollments.insert_one(enrollment_data)
+    elif level and existing_enrollment.get("level") != level:
+        # Enrollment exists but level is wrong or stale (e.g. placeholder from register-profile,
+        # or null from Google sign-up before onboarding). Update to the now-confirmed real level.
+        await enrollments.update_one(
+            {"_id": existing_enrollment["_id"]},
+            {"$set": {"level": level, "updatedAt": datetime.now(timezone.utc)}}
+        )
     
     # 2. Initialize payment records (show as unpaid with placeholder amounts)
     # Create common departmental payments

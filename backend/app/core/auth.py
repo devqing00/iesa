@@ -1,344 +1,120 @@
 """
-In-App Authentication System
+Authentication Utilities — Firebase Auth edition
 
-Replaces Firebase Auth with:
-- Argon2id password hashing (OWASP recommended)
-- JWT access tokens (short-lived, 15 min)
-- Refresh tokens (long-lived, 7 days, stored in DB + httpOnly cookie)
-- Token rotation with family tracking for theft detection
+Most auth logic now lives in Firebase (password hashing, access tokens,
+refresh tokens, email verification, password reset, 2FA).
+
+This file retains only:
+- EMAIL_SECRET_KEY + JWT helpers for **secondary** email verification
+  (our custom dual-email feature; Firebase doesn't know about these)
+- RegisterProfileRequest model (used by POST /auth/register-profile)
+- Firebase Admin SDK initialisation helper
 """
 
 import os
-import secrets
+import base64
+import json
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHashError
-from jose import jwt, JWTError, ExpiredSignatureError
+from jose import jwt, JWTError, ExpiredSignatureError   # noqa: F401 — re-exported
 from pydantic import BaseModel, EmailStr, Field
 
+import firebase_admin
+from firebase_admin import credentials as fb_credentials, auth as fb_auth  # noqa: F401
+
+logger = logging.getLogger("iesa_backend")
+
 # ──────────────────────────────────────────────
-# Configuration
+# Firebase Admin SDK Initialisation
+# ──────────────────────────────────────────────
+
+_firebase_initialised = False
+
+
+def init_firebase() -> None:
+    """Initialise Firebase Admin SDK (idempotent — safe to call multiple times)."""
+    global _firebase_initialised
+    if _firebase_initialised or firebase_admin._apps:
+        return
+
+    # Prefer base64-encoded JSON (works in Docker / Render / Vercel)
+    b64 = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON_BASE64", "")
+    cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
+
+    if b64:
+        info = json.loads(base64.b64decode(b64))
+        cred = fb_credentials.Certificate(info)
+    elif cred_path and os.path.exists(cred_path):
+        cred = fb_credentials.Certificate(cred_path)
+    elif os.path.exists("serviceAccountKey.json"):
+        cred = fb_credentials.Certificate("serviceAccountKey.json")
+    else:
+        raise RuntimeError(
+            "Firebase credentials not found.  Set FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 "
+            "or FIREBASE_CREDENTIALS_PATH, or place serviceAccountKey.json in the backend dir."
+        )
+
+    firebase_admin.initialize_app(cred)
+    _firebase_initialised = True
+    logger.info("Firebase Admin SDK initialised.")
+
+
+async def verify_firebase_token(id_token: str) -> dict:
+    """
+    Verify a Firebase ID token (async-safe via run_in_executor).
+
+    Returns the decoded token dict from Firebase Admin SDK.
+    Raises firebase_admin.auth.InvalidIdTokenError on failure.
+    """
+    import asyncio
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, fb_auth.verify_id_token, id_token)
+
+
+# ──────────────────────────────────────────────
+# Configuration — Email Verification Token
 # ──────────────────────────────────────────────
 
 _ENV = os.getenv("ENVIRONMENT", "development")
+_DEV_EMAIL = "iesa-dev-email-secret-do-not-use-in-production"
 
-# JWT secrets — MUST be set via env vars in production.
-# In development, deterministic fallbacks prevent token invalidation on restart.
-# Three separate keys prevent cross-type token forgery:
-#   SECRET_KEY         → access tokens  (short-lived, 15 min)
-#   REFRESH_SECRET_KEY → refresh tokens (long-lived, 7 days)
-#   EMAIL_SECRET_KEY   → email verification + password reset tokens (medium-lived, 1-24 h)
-_DEV_SECRET = "iesa-dev-secret-do-not-use-in-production"
-_DEV_REFRESH = "iesa-dev-refresh-do-not-use-in-production"
-_DEV_EMAIL   = "iesa-dev-email-secret-do-not-use-in-production"
-
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
-REFRESH_SECRET_KEY = os.getenv("JWT_REFRESH_SECRET_KEY", "")
 EMAIL_SECRET_KEY = os.getenv("JWT_EMAIL_SECRET_KEY", "")
-
-if not SECRET_KEY or not REFRESH_SECRET_KEY or not EMAIL_SECRET_KEY:
+if not EMAIL_SECRET_KEY:
     if _ENV == "production":
         raise RuntimeError(
-            "FATAL: JWT_SECRET_KEY, JWT_REFRESH_SECRET_KEY, and JWT_EMAIL_SECRET_KEY must be set "
-            "in production. Generate with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+            "FATAL: JWT_EMAIL_SECRET_KEY must be set in production "
+            "(used for secondary email verification tokens)."
         )
-    # Development: use deterministic fallback so tokens survive restarts
-    SECRET_KEY = SECRET_KEY or _DEV_SECRET
-    REFRESH_SECRET_KEY = REFRESH_SECRET_KEY or _DEV_REFRESH
-    EMAIL_SECRET_KEY = EMAIL_SECRET_KEY or _DEV_EMAIL
-    import logging as _log
-    _log.getLogger("iesa_backend").warning(
-        "⚠️  Using development JWT secrets. Set JWT_SECRET_KEY, JWT_REFRESH_SECRET_KEY, "
-        "and JWT_EMAIL_SECRET_KEY for production."
-    )
+    EMAIL_SECRET_KEY = _DEV_EMAIL
+    logger.warning("⚠️  Using dev JWT_EMAIL_SECRET_KEY — set it for production.")
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
-REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
-
-# Argon2id hasher with OWASP-recommended parameters
-ph = PasswordHasher(
-    time_cost=3,        # 3 iterations
-    memory_cost=65536,  # 64 MB
-    parallelism=4,      # 4 threads
-    hash_len=32,        # 32-byte hash
-    salt_len=16,        # 16-byte salt
-)
+VERIFICATION_TOKEN_EXPIRE_HOURS = int(os.getenv("VERIFICATION_TOKEN_EXPIRE_HOURS", "24"))
 
 
 # ──────────────────────────────────────────────
-# Pydantic Models
+# Secondary Email Verification Tokens
 # ──────────────────────────────────────────────
 
-class TokenPair(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-    expires_in: int = Field(description="Access token TTL in seconds")
-
-
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(..., min_length=8, max_length=128)
-    firstName: str = Field(..., min_length=1, max_length=100)
-    lastName: str = Field(..., min_length=1, max_length=100)
-    matricNumber: Optional[str] = Field(None, max_length=50)
-    phone: Optional[str] = Field(None, pattern=r"^(\+234|0)[789]\d{9}$")
-    level: Optional[str] = Field(None, pattern=r"^\d{3}L$")
-    admissionYear: Optional[int] = Field(None, ge=2000, le=2040)
-    role: Optional[str] = Field(None, pattern=r"^(student|admin)$")
-    department: Optional[str] = Field(None, max_length=200, description="Student's department (defaults to Industrial Engineering)")
-
-
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(..., min_length=1)
-
-
-class ChangePasswordRequest(BaseModel):
-    currentPassword: str = Field(..., min_length=1)
-    newPassword: str = Field(..., min_length=8, max_length=128)
-
-
-class ResetPasswordRequest(BaseModel):
-    email: EmailStr
-
-
-class ResetPasswordConfirm(BaseModel):
-    token: str
-    newPassword: str = Field(..., min_length=8, max_length=128)
-
-
-# ──────────────────────────────────────────────
-# Password Hashing
-# ──────────────────────────────────────────────
-# Password Hashing — async wrappers to avoid blocking the event loop.
-# Argon2id (64 MB, 3 iterations) takes 200–500 ms per call.
-# ──────────────────────────────────────────────
-
-import asyncio
-
-def hash_password(password: str) -> str:
-    """Hash a password using Argon2id (SYNC — prefer async_hash_password)."""
-    return ph.hash(password)
-
-
-async def async_hash_password(password: str) -> str:
-    """Hash a password using Argon2id without blocking the event loop."""
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, ph.hash, password)
-
-
-def verify_password(password: str, hashed: str) -> bool:
-    """Verify a password against its Argon2id hash (SYNC — prefer async_verify_password)."""
-    try:
-        return ph.verify(hashed, password)
-    except (VerifyMismatchError, VerificationError, InvalidHashError):
-        return False
-
-
-async def async_verify_password(password: str, hashed: str) -> bool:
-    """Verify a password without blocking the event loop."""
-    loop = asyncio.get_running_loop()
-    try:
-        return await loop.run_in_executor(None, ph.verify, hashed, password)
-    except (VerifyMismatchError, VerificationError, InvalidHashError):
-        return False
-
-
-def check_needs_rehash(hashed: str) -> bool:
-    """Check if a hash needs to be re-hashed with updated parameters."""
-    return ph.check_needs_rehash(hashed)
-
-
-# ──────────────────────────────────────────────
-# JWT Token Creation
-# ──────────────────────────────────────────────
-
-def create_access_token(
+def create_verification_token(
     user_id: str,
     email: str,
-    role: str = "student",
-    extra_claims: Optional[dict] = None,
-) -> str:
+    token_type: str = "email_verification",
+) -> tuple[str, datetime]:
     """
-    Create a short-lived JWT access token.
-    
-    Claims:
-        sub: user MongoDB _id (string)
-        email: user email
-        role: user role
-        type: "access"
-        iat: issued at
-        exp: expiration (15 min default)
-    """
-    now = datetime.now(timezone.utc)
-    payload = {
-        "sub": user_id,
-        "email": email,
-        "role": role,
-        "type": "access",
-        "iat": now,
-        "exp": now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
-    }
-    if extra_claims:
-        payload.update(extra_claims)
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    Create a JWT for email verification (secondary email flow).
 
-
-def create_refresh_token(user_id: str, token_family: Optional[str] = None) -> tuple[str, str, datetime]:
-    """
-    Create a long-lived refresh token.
-    
-    Returns:
-        (jwt_token, token_family, expires_at)
-    
-    Token family is used for rotation detection:
-    - Each login creates a new family
-    - Each refresh reuses the same family
-    - If a token from the same family is used twice, the whole family is revoked (theft detected)
-    """
-    family = token_family or secrets.token_urlsafe(32)
-    now = datetime.now(timezone.utc)
-    expires_at = now + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    
-    payload = {
-        "sub": user_id,
-        "type": "refresh",
-        "family": family,
-        "jti": secrets.token_urlsafe(16),  # unique token ID
-        "iat": now,
-        "exp": expires_at,
-    }
-    token = jwt.encode(payload, REFRESH_SECRET_KEY, algorithm=ALGORITHM)
-    return token, family, expires_at
-
-
-# ──────────────────────────────────────────────
-# JWT Token Verification
-# ──────────────────────────────────────────────
-
-def decode_access_token(token: str) -> dict:
-    """
-    Decode and verify an access token.
-    
-    Returns the payload dict.
-    Raises JWTError or ExpiredSignatureError on failure.
-    """
-    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    if payload.get("type") != "access":
-        raise JWTError("Invalid token type")
-    return payload
-
-
-def decode_refresh_token(token: str) -> dict:
-    """
-    Decode and verify a refresh token.
-    
-    Returns the payload dict.
-    Raises JWTError or ExpiredSignatureError on failure.
-    """
-    payload = jwt.decode(token, REFRESH_SECRET_KEY, algorithms=[ALGORITHM])
-    if payload.get("type") != "refresh":
-        raise JWTError("Invalid token type")
-    return payload
-
-
-# ──────────────────────────────────────────────
-# 2FA Temp Tokens
-# ──────────────────────────────────────────────
-
-TWO_FA_TEMP_TOKEN_EXPIRE_MINUTES = 5
-
-
-def create_2fa_temp_token(user_id: str, email: str, role: str) -> str:
-    """
-    Create a short-lived temp token issued after password verification
-    when the user has 2FA enabled.  The frontend exchanges this + a TOTP
-    code for real access/refresh tokens via POST /auth/login/2fa.
-    
-    Signed with EMAIL_SECRET_KEY to stay separate from access/refresh keys.
-    """
-    now = datetime.now(timezone.utc)
-    payload = {
-        "sub": user_id,
-        "email": email,
-        "role": role,
-        "type": "2fa_temp",
-        "iat": now,
-        "exp": now + timedelta(minutes=TWO_FA_TEMP_TOKEN_EXPIRE_MINUTES),
-    }
-    return jwt.encode(payload, EMAIL_SECRET_KEY, algorithm=ALGORITHM)
-
-
-def decode_2fa_temp_token(token: str) -> dict:
-    """
-    Decode and verify a 2FA temp token.
-    
-    Returns the payload dict.
-    Raises JWTError or ExpiredSignatureError on failure.
-    """
-    payload = jwt.decode(token, EMAIL_SECRET_KEY, algorithms=[ALGORITHM])
-    if payload.get("type") != "2fa_temp":
-        raise JWTError("Invalid token type — expected 2fa_temp")
-    return payload
-
-
-# ──────────────────────────────────────────────
-# Password Strength Validation
-# ──────────────────────────────────────────────
-
-def validate_password_strength(password: str) -> tuple[bool, str]:
-    """
-    Validate password meets minimum security requirements.
-    
-    Requirements:
-    - At least 8 characters
-    - At least one uppercase letter
-    - At least one lowercase letter
-    - At least one digit
-    - At least one special character
-    
-    Returns (is_valid, error_message)
-    """
-    if len(password) < 8:
-        return False, "Password must be at least 8 characters long"
-    if not any(c.isupper() for c in password):
-        return False, "Password must contain at least one uppercase letter"
-    if not any(c.islower() for c in password):
-        return False, "Password must contain at least one lowercase letter"
-    if not any(c.isdigit() for c in password):
-        return False, "Password must contain at least one digit"
-    if not any(c in "!@#$%^&*()_+-=[]{}|;':\",./<>?" for c in password):
-        return False, "Password must contain at least one special character"
-    return True, ""
-
-
-# ──────────────────────────────────────────────
-# Email Verification Tokens
-# ──────────────────────────────────────────────
-
-VERIFICATION_TOKEN_EXPIRE_HOURS = int(os.getenv("VERIFICATION_TOKEN_EXPIRE_HOURS", "24"))
-RESET_TOKEN_EXPIRE_HOURS = int(os.getenv("RESET_TOKEN_EXPIRE_HOURS", "1"))
-
-
-def create_verification_token(user_id: str, email: str, token_type: str = "email_verification") -> tuple[str, datetime]:
-    """
-    Create an email verification token.
-    
     Args:
-        user_id: The user's ID
+        user_id: MongoDB _id (string)
         email: The email address to verify
-        token_type: "email_verification" for primary, "secondary_email_verification" for secondary
-    
-    Returns:
-        (jwt_token, expires_at)
+        token_type: "email_verification" | "secondary_email_verification"
+
+    Returns (jwt_token, expires_at)
     """
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(hours=VERIFICATION_TOKEN_EXPIRE_HOURS)
-    
     payload = {
         "sub": user_id,
         "email": email,
@@ -352,14 +128,9 @@ def create_verification_token(user_id: str, email: str, token_type: str = "email
 
 def decode_verification_token(token: str, expected_type: str = "email_verification") -> dict:
     """
-    Decode and verify an email verification token.
-    
-    Args:
-        token: The JWT token
-        expected_type: "email_verification" or "secondary_email_verification"
-    
-    Returns the payload dict.
-    Raises JWTError or ExpiredSignatureError on failure.
+    Decode + validate an email verification JWT.
+
+    Raises JWTError / ExpiredSignatureError on failure.
     """
     payload = jwt.decode(token, EMAIL_SECRET_KEY, algorithms=[ALGORITHM])
     if payload.get("type") != expected_type:
@@ -368,38 +139,20 @@ def decode_verification_token(token: str, expected_type: str = "email_verificati
 
 
 # ──────────────────────────────────────────────
-# Password Reset Tokens
+# Pydantic Models
 # ──────────────────────────────────────────────
 
-def create_reset_token(user_id: str, email: str) -> tuple[str, datetime]:
+class RegisterProfileRequest(BaseModel):
     """
-    Create a password reset token.
-    
-    Returns:
-        (jwt_token, expires_at)
+    Body for POST /auth/register-profile.
+    Called *after* the frontend creates a Firebase user.
     """
-    now = datetime.now(timezone.utc)
-    expires_at = now + timedelta(hours=RESET_TOKEN_EXPIRE_HOURS)
-    
-    payload = {
-        "sub": user_id,
-        "email": email,
-        "type": "password_reset",
-        "iat": now,
-        "exp": expires_at,
-    }
-    token = jwt.encode(payload, EMAIL_SECRET_KEY, algorithm=ALGORITHM)
-    return token, expires_at
+    firebaseIdToken: str = Field(..., description="Firebase ID token proving the user just authenticated")
+    firstName: str = Field(..., min_length=1, max_length=100)
+    lastName: str = Field(..., min_length=1, max_length=100)
+    matricNumber: Optional[str] = Field(None, max_length=50)
+    phone: Optional[str] = Field(None, pattern=r"^(\+234|0)[789]\d{9}$")
+    level: Optional[str] = Field(None, pattern=r"^\d{3}L$")
+    admissionYear: Optional[int] = Field(None, ge=2000, le=2040)
+    department: Optional[str] = Field(None, max_length=200)
 
-
-def decode_reset_token(token: str) -> dict:
-    """
-    Decode and verify a password reset token.
-    
-    Returns the payload dict.
-    Raises JWTError or ExpiredSignatureError on failure.
-    """
-    payload = jwt.decode(token, EMAIL_SECRET_KEY, algorithms=[ALGORITHM])
-    if payload.get("type") != "password_reset":
-        raise JWTError("Invalid token type")
-    return payload

@@ -41,7 +41,7 @@ from app.models.press import (
 )
 from app.db import get_database
 from app.core.security import get_current_user, verify_token
-from app.core.auth import decode_access_token
+from app.core.security import verify_firebase_id_token_raw
 from app.core.sanitization import sanitize_html, validate_no_scripts
 from app.core.audit import AuditLogger
 
@@ -192,7 +192,7 @@ async def get_published_article(slug: str, request: Request):
     auth_header = request.headers.get("authorization", "")
     if auth_header.startswith("Bearer "):
         try:
-            token_data = decode_access_token(auth_header.split(" ", 1)[1])
+            token_data = await verify_firebase_id_token_raw(auth_header.split(" ", 1)[1])
             user_id = token_data.get("sub")
             if user_id:
                 result["userHasLiked"] = ObjectId(user_id) in liked_by

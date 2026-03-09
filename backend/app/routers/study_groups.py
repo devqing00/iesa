@@ -14,7 +14,7 @@ import re
 
 from ..core.security import verify_token, get_current_user
 from ..core.sanitization import sanitize_html
-from ..core.auth import decode_access_token
+from ..core.security import verify_firebase_id_token_raw
 from ..core.database import get_database
 
 
@@ -543,7 +543,7 @@ async def websocket_chat(
     """Real-time WebSocket chat for a study group (members only)."""
     # Authenticate via query-param token (browsers can't set WS headers)
     try:
-        user_data = decode_access_token(token)
+        user_data = await verify_firebase_id_token_raw(token)
     except Exception:
         await ws.close(code=4001)
         return

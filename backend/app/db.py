@@ -97,7 +97,6 @@ enrollments_collection = lambda: get_collection("enrollments")
 payments_collection = lambda: get_collection("payments")
 events_collection = lambda: get_collection("events")
 announcements_collection = lambda: get_collection("announcements")
-grades_collection = lambda: get_collection("grades")
 roles_collection = lambda: get_collection("roles")
 
 # Additional Collections

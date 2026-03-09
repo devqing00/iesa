@@ -1123,7 +1123,7 @@ export default function ProfilePage() {
                         </td>
                         <td className="p-4">
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-lavender-light text-xs font-bold text-navy">
-                            {String(e.level).replace(/L$/i, "")} Level
+                            {e.level ? `${String(e.level).replace(/L$/i, "")} Level` : "—"}
                           </span>
                         </td>
                         <td className="p-4 text-sm text-navy/60">

@@ -38,10 +38,6 @@ class AuditLogger:
     ENROLLMENT_UPDATED = "enrollment.updated"
     ENROLLMENT_DELETED = "enrollment.deleted"
     
-    GRADE_CREATED = "grade.created"
-    GRADE_UPDATED = "grade.updated"
-    GRADE_DELETED = "grade.deleted"
-    
     EVENT_CREATED = "event.created"
     EVENT_UPDATED = "event.updated"
     EVENT_DELETED = "event.deleted"

@@ -145,7 +145,6 @@ async def delete_session_with_data(client, session_id: str):
             "payments", 
             "transactions",
             "roles",
-            "grades",
             "events",
             "announcements"
         ]

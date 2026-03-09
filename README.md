@@ -38,7 +38,7 @@ IESA is a full-stack departmental web platform for the Industrial Engineering de
 - **Admin Statistics** — Dashboard with key metrics and growth charts
 
 ### Platform-Wide
-- **JWT Authentication** — Argon2id password hashing, access + httpOnly refresh token flow
+- **Firebase Authentication** — Email/password + Google sign-in, Firebase Admin SDK for backend token verification
 - **Permission-Based Access** — Every protected route and API endpoint gated by named scopes
 - **Real-Time Updates** — WebSocket for study group chat, SSE for cache revalidation
 - **Rate Limiting** — SlowAPI with Redis backend (falls back to in-memory)
@@ -62,7 +62,7 @@ IESA is a full-stack departmental web platform for the Industrial Engineering de
 | **Backend Framework** | FastAPI (async) |
 | **Database** | MongoDB via Motor (async driver) |
 | **Schema Validation** | Pydantic v2 |
-| **Authentication** | JWT (PyJWT) + Argon2id password hashing |
+| **Authentication** | Firebase Auth (email/password, Google sign-in) |
 | **AI** | Groq SDK — Llama 3.3 70B Versatile |
 | **Payments** | Paystack |
 | **File Storage** | Cloudinary |
@@ -200,9 +200,9 @@ iesa/
 ├── backend/
 │   └── app/
 │       ├── core/
-│       │   ├── auth.py             # JWT creation & verification
+│       │   ├── auth.py             # Firebase init & token verification
 │       │   ├── permissions.py      # require_permission() dependency (cached)
-│       │   ├── security.py         # Argon2id hashing helpers
+│       │   ├── security.py         # Firebase token → MongoDB user mapping
 │       │   ├── audit.py            # Audit log helpers
 │       │   ├── email.py            # Transactional email via Resend
 │       │   ├── rate_limiting.py    # SlowAPI setup
@@ -224,9 +224,9 @@ iesa/
 
 ### Auth Flow
 
-1. User submits credentials → backend verifies with Argon2id → returns short-lived **access token** + long-lived **refresh token** (httpOnly cookie)
-2. Frontend stores access token in memory via `AuthContext`; calls `getAccessToken()` which auto-refreshes if expired
-3. Every API request includes `Authorization: Bearer <token>`
+1. User signs in via Firebase (email/password or Google) → frontend receives Firebase ID token
+2. Frontend stores Firebase user via `onAuthStateChanged`; calls `getAccessToken()` which uses `FirebaseUser.getIdToken()` (auto-refreshes)
+3. Every API request includes `Authorization: Bearer <firebase_id_token>` → backend verifies with Firebase Admin SDK
 
 ### Permission System
 

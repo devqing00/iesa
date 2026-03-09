@@ -134,23 +134,6 @@ async def create_indexes():
         print("✅ Roles indexes created")
         
         # ========================
-        # GRADES COLLECTION
-        # ========================
-        grades = db["grades"]
-        
-        # Compound index for student grades per session
-        await grades.create_index(
-            [("studentId", ASCENDING), ("sessionId", ASCENDING)],
-            name="idx_grade_student_session"
-        )
-        
-        # Query indexes
-        await grades.create_index([("sessionId", ASCENDING)], name="idx_grade_session")
-        await grades.create_index([("studentId", ASCENDING)], name="idx_grade_student")
-        
-        print("✅ Grades indexes created")
-        
-        # ========================
         # EVENTS COLLECTION
         # ========================
         events = db["events"]
@@ -208,7 +191,7 @@ async def create_indexes():
         print("\n📊 Index Statistics:")
         collections = [
             "users", "sessions", "enrollments", "payments", "transactions",
-            "roles", "grades", "events", "announcements"
+            "roles", "events", "announcements"
         ]
         
         for collection_name in collections:

@@ -13,7 +13,7 @@ Usage:
     python scripts/seed_dummy_data.py --fresh       # Clear ALL data first, then seed
     python scripts/seed_dummy_data.py --no-users    # Skip user creation
 
-⚠️  Requires the backend venv (motor, argon2-cffi, python-dotenv).
+⚠️  Requires the backend venv (motor, python-dotenv).
 """
 
 import asyncio
@@ -32,7 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from app.core.auth import hash_password
+# NOTE: Passwords handled by Firebase Auth — no passwordHash fields needed
 
 # ───────────────────────────────────────────────────────────────────────
 # Helper
@@ -89,8 +89,6 @@ async def seed_sessions(db) -> tuple[str, str]:
 async def seed_users(db) -> dict[str, str]:
     """Create admin + exco + students. Returns {email: id}."""
     coll = db["users"]
-    pwd_hash = hash_password("Password1!")
-
     users = [
         # ── Admin ────────────────────────────────────────────
         {
@@ -555,7 +553,6 @@ async def seed_users(db) -> dict[str, str]:
     for u in users:
         docs.append({
             **u,
-            "password": pwd_hash,
             "isActive": u.get("isActive", True),
             "emailVerified": u.get("emailVerified", True),
             "profilePictureUrl": None,
@@ -2435,7 +2432,7 @@ async def seed_previous_session_data(db, prev_session_id: str, users: dict[str, 
 
 COLLECTIONS_TO_CLEAR = [
     "users", "sessions", "enrollments", "roles", "payments", "events",
-    "announcements", "refresh_tokens", "audit_logs",
+    "announcements", "audit_logs",
     "academicEvents", "classSessions", "classCancellations",
     "contact_messages", "resources", "press_articles",
     "timpApplications", "timpPairs", "timpFeedbacks",

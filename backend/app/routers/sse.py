@@ -26,7 +26,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query, Request, HTTPException, status
 from fastapi.responses import StreamingResponse
 
-from app.core.auth import decode_access_token
+from app.core.security import verify_firebase_id_token_raw
 from app.db import get_database
 from bson import ObjectId
 
@@ -41,7 +41,7 @@ async def _get_user_from_query_token(token: str = Query(..., description="JWT ac
     JWT is passed as a ``?token=...`` query parameter instead.
     """
     try:
-        payload = decode_access_token(token)
+        payload = await verify_firebase_id_token_raw(token)
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

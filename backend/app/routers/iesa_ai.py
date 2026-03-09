@@ -3,7 +3,7 @@ IESA AI Router - Comprehensive AI Assistant
 
 A smart AI assistant powered by Groq that can:
 - Answer questions about timetables/schedules with REAL data
-- Provide personalized payment, grade, and enrollment info
+- Provide personalized payment and enrollment info
 - Help with IESA processes and procedures
 - Offer contextual study tips and academic guidance
 - Answer general questions about the department
@@ -1018,8 +1018,8 @@ You have LIVE access to this student's real data: profile (name, matric, email, 
 ## RESPONSE GUIDELINES
 1. **Be specific & direct:** Quote actual data when answering — course names, amounts, times, venues. Don't be vague.
 2. **Be concise:** 2–5 sentences for simple questions. Use brief bullet lists for multi-item answers. Avoid long walls of text.
-3. **Be honest about gaps:** If a field is empty (no timetable, no grades), say so clearly with a practical next step. Example: "No timetable entries yet — your class rep likely hasn't added them. Remind them to update it."
-4. **Be context-aware:** "Do I have class tomorrow?" → check the weekly timetable for tomorrow's day. "What's my GPA?" → calculate from grade data. Parse the question's intent before answering.
+3. **Be honest about gaps:** If a field is empty (no timetable), say so clearly with a practical next step. Example: "No timetable entries yet — your class rep likely hasn't added them. Remind them to update it."
+4. **Be context-aware:** "Do I have class tomorrow?" → check the weekly timetable for tomorrow's day. Parse the question's intent before answering.
 5. **Be a community ally:** This is a student platform. Be warm, encouraging, motivating. Students are navigating academics and early career — meet them there.
 6. **Use emojis sparingly:** 1–2 per message max. Only where they genuinely add warmth, not as filler.
 7. **Stay in scope:** You're an IESA/academic assistant. For completely unrelated topics, briefly acknowledge and redirect back to what you can help with.
@@ -1120,7 +1120,6 @@ async def chat_with_iesa_ai_stream(
             
             # Debug: Log what data is available
             logger.info(f"User context keys: {list(user_context.keys())}")
-            logger.info(f"Has grades: {bool(user_context.get('grades'))}")
             logger.info(f"Has timetable: {bool(user_context.get('today_classes') or user_context.get('weekly_timetable'))}")
             
             # Build system prompt
@@ -1372,9 +1371,9 @@ def generate_suggestions(user_message: str, ai_response: str) -> List[str]:
             return ["Show my full weekly timetable", "What class is happening now?", "Who is my class rep?"]
         return ["View my full weekly timetable", "Download timetable PDF", "Who is my class rep?"]
 
-    # CGPA / grades
-    if any(w in combined for w in ["cgpa", "gpa", "grade", "score", "result", "point", "semester"]):
-        return ["Calculate my CGPA", "What grade do I need to pass?", "Find past questions for my courses"]
+    # CGPA
+    if any(w in combined for w in ["cgpa", "gpa", "score", "result", "point", "semester"]):
+        return ["Open Growth Hub CGPA Calculator", "Find past questions for my courses", "Browse library resources"]
 
     # Study / exam preparation
     if any(w in combined for w in ["study", "exam", "test", "revision", "prepare", "prepare", "read"]):

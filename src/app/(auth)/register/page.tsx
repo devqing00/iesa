@@ -146,8 +146,6 @@ export default function RegisterPage() {
         admissionYear: derivedAdmissionYear,
         department: isExternalStudent && department.trim() ? department.trim() : "Industrial Engineering",
       });
-      // Lock the form immediately — navigation may be slow on cold starts.
-      // setIsSubmitting stays true; we show a success screen instead.
       setRegistrationSuccess(true);
       toast.success("Account created!", { description: "Verification email sent. Check your inbox." });
     } catch (err: unknown) {

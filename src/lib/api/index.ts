@@ -73,10 +73,6 @@ export type {
   // Enrollment
   Enrollment,
   EnrollmentWithDetails,
-  // CGPA
-  Course,
-  Semester,
-  CGPAResponse,
   // Chat
   ChatMessage,
   ChatResponse,

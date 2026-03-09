@@ -63,11 +63,6 @@ PERMISSIONS = {
     "payment:approve": "Approve/verify payments",
     "payment:view_all": "View all students' payments",
     
-    # Grade permissions
-    "grade:create": "Create grade records",
-    "grade:edit": "Edit grade records",
-    "grade:view_all": "View all students' grades",
-    
     # User management permissions
     "user:view_all": "View all users",
     "user:edit": "Edit user profiles",
@@ -124,9 +119,6 @@ PERMISSIONS = {
     "user:edit_role": "Change user roles (student/exco/admin)",
     "user:edit_academic": "Edit academic info (admission year, level)",
     "user:export": "Export user data as CSV",
-
-    # Grade permissions (additional)
-    "grade:delete": "Delete grade records",
 
     # Contact message permissions
     "contact:view": "View contact form submissions",
@@ -191,7 +183,6 @@ DEFAULT_PERMISSIONS = {
         "session:view",
         "audit:view",
         "enrollment:view",
-        "grade:view_all",
         "payment:view_all",
         "resource:view",
         "timetable:view",
@@ -212,7 +203,6 @@ DEFAULT_PERMISSIONS = {
         "resource:view", "resource:approve", "resource:delete",
         "timetable:create", "timetable:edit", "timetable:cancel", "timetable:view",
         "press:access", "press:create", "press:edit", "press:review", "press:publish", "press:manage",
-        "grade:view_all", "grade:create", "grade:edit", "grade:delete",
         "timp:manage", "timp:view",
         "bank_transfer:manage_accounts", "bank_transfer:review", "bank_transfer:view_all",
         "iepod:manage", "iepod:view",

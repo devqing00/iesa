@@ -1,185 +1,65 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+/**
+ * Verify Email Page
+ *
+ * Primary email verification is now handled by Firebase Auth.
+ * This page informs users and redirects them to login.
+ * The verify-secondary-email page still uses the custom backend flow.
+ */
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { getApiUrl } from "@/lib/api";
 
-function VerifyEmailContent() {
+export default function VerifyEmailPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const token = searchParams.get("token");
-
-  const [status, setStatus] = useState<"verifying" | "success" | "error" | "already-verified">("verifying");
-  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    if (!token) {
-      setStatus("error");
-      setErrorMessage("No verification token provided");
-      return;
-    }
-
-    const verifyEmail = async () => {
-      try {
-        const fullUrl = getApiUrl(`/api/v1/auth/verify-email?token=${token}`);
-        
-        const response = await fetch(fullUrl, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.detail || "Verification failed");
-        }
-
-        if (data.alreadyVerified) {
-          setStatus("already-verified");
-        } else {
-          setStatus("success");
-        }
-      } catch (error: unknown) {
-        setStatus("error");
-        if (error instanceof Error) {
-          setErrorMessage(error.message);
-        } else {
-          setErrorMessage("Failed to verify email. Please try again.");
-        }
-      }
-    };
-
-    verifyEmail();
-  }, [token]);
-
-  const handleGoToLogin = () => {
-    router.push("/login");
-  };
+    const timer = setTimeout(() => router.push("/login"), 5000);
+    return () => clearTimeout(timer);
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-ghost flex items-center justify-center p-8">
-      <div className="w-full max-w-md space-y-8">
+      <main id="main-content" className="w-full max-w-md space-y-8 text-center">
         {/* Logo */}
-        <Link href="/" className="w-full inline-flex justify-center items-center gap-3">
-          <div className="w-10 h-10 flex items-center justify-center overflow-hidden">
-            <Image src="/assets/images/logo.svg" alt="IESA Logo" width={28} height={28} className="object-contain" />
+        <Link href="/" className="inline-flex items-center justify-center gap-3">
+          <div className="w-10 h-10 flex items-center justify-center">
+            <Image src="/assets/images/logo.svg" alt="IESA Logo" width={40} height={40} className="object-contain" />
           </div>
           <span className="font-display font-black text-xl text-navy">IESA</span>
         </Link>
 
-        {/* Card */}
-        <div className="bg-snow border-[3px] border-navy rounded-3xl p-8 shadow-[3px_3px_0_0_#000]">
-          {status === "verifying" && (
-            <div className="space-y-6 text-center">
-              <div className="flex justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-[3px] border-navy border-t-transparent"></div>
-              </div>
-              <div className="space-y-2">
-                <h1 className="font-display font-black text-2xl text-navy">Verifying Email</h1>
-                <p className="font-display font-normal text-navy/60">Please wait while we verify your email address...</p>
-              </div>
-            </div>
-          )}
+        <div className="bg-snow border-[4px] border-navy rounded-3xl p-8 shadow-[8px_8px_0_0_#000] space-y-6">
+          <div className="w-16 h-16 mx-auto bg-teal-light border-[3px] border-navy rounded-2xl flex items-center justify-center">
+            <svg className="w-8 h-8 text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+            </svg>
+          </div>
 
-          {status === "success" && (
-            <div className="space-y-6 text-center">
-              <div className="flex justify-center">
-                <div className="w-16 h-16 rounded-full bg-teal border-[3px] border-navy flex items-center justify-center">
-                  <svg className="w-8 h-8 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <h1 className="font-display font-black text-2xl text-navy">Email Verified!</h1>
-                <p className="font-display font-normal text-navy/60">Your email has been successfully verified. You can now log in to your account.</p>
-              </div>
-              <button
-                onClick={handleGoToLogin}
-                className="w-full bg-lime border-[3px] border-navy press-3 press-navy px-8 py-4 rounded-2xl font-display font-bold text-lg text-navy transition-all"
-              >
-                Go to Login
-              </button>
-            </div>
-          )}
+          <div className="space-y-3">
+            <h1 className="font-display font-black text-2xl text-navy">Email Verification</h1>
+            <p className="font-display font-normal text-navy/60">
+              Email verification is handled automatically. Check your inbox for a verification link from Firebase, then sign in.
+            </p>
+          </div>
 
-          {status === "already-verified" && (
-            <div className="space-y-6 text-center">
-              <div className="flex justify-center">
-                <div className="w-16 h-16 rounded-full bg-sunny border-[3px] border-navy flex items-center justify-center">
-                  <svg className="w-8 h-8 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <h1 className="font-display font-black text-2xl text-navy">Already Verified</h1>
-                <p className="font-display font-normal text-navy/60">This email address has already been verified. You can log in to your account.</p>
-              </div>
-              <button
-                onClick={handleGoToLogin}
-                className="w-full bg-lime border-[3px] border-navy press-3 press-navy px-8 py-4 rounded-2xl font-display font-bold text-lg text-navy transition-all"
-              >
-                Go to Login
-              </button>
-            </div>
-          )}
+          <Link
+            href="/login"
+            className="inline-block py-3.5 px-8 bg-lime border-[3px] border-navy rounded-2xl press-3 press-navy font-display font-black text-navy transition-all"
+          >
+            Go to Login
+          </Link>
 
-          {status === "error" && (
-            <div className="space-y-6 text-center">
-              <div className="flex justify-center">
-                <div className="w-16 h-16 rounded-full bg-coral border-[3px] border-navy flex items-center justify-center">
-                  <svg className="w-8 h-8 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <h1 className="font-display font-black text-2xl text-navy">Verification Failed</h1>
-                <p className="font-display font-normal text-navy/60">{errorMessage || "Failed to verify email. The link may have expired."}</p>
-              </div>
-              <div className="space-y-3">
-                <button
-                  onClick={() => router.push("/register")}
-                  className="w-full bg-lime border-[3px] border-navy press-3 press-navy px-8 py-4 rounded-2xl font-display font-bold text-lg text-navy transition-all"
-                >
-                  Register Again
-                </button>
-                <Link
-                  href="/login"
-                  className="block w-full bg-transparent border-[3px] border-navy px-8 py-3 rounded-xl font-display font-bold text-base text-navy hover:bg-navy hover:text-snow transition-all text-center"
-                >
-                  Back to Login
-                </Link>
-              </div>
-            </div>
-          )}
+          <p className="text-xs text-slate">Redirecting automatically in 5 seconds...</p>
         </div>
 
-        {/* Footer */}
-        <p className="text-center font-display font-normal text-sm text-navy/60">
+        <p className="font-display font-normal text-sm text-navy/60">
           Need help? <Link href="/contact" className="text-navy hover:underline">Contact support</Link>
         </p>
-      </div>
+      </main>
     </div>
-  );
-}
-
-export default function VerifyEmailPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-ghost">
-        <div className="text-center">
-          <div className="w-12 h-12 rounded-full border-4 border-navy border-t-lime animate-spin mx-auto mb-4" />
-          <p className="font-display font-bold text-navy">Loading...</p>
-        </div>
-      </div>
-    }>
-      <VerifyEmailContent />
-    </Suspense>
   );
 }

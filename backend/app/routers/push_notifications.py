@@ -42,7 +42,7 @@ def _load_vapid():
     if _vapid_loaded:
         return
     _vapid_loaded = True
-    _VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY")
+    _VAPID_PUBLIC_KEY = (os.getenv("VAPID_PUBLIC_KEY") or "").strip().replace("\n", "").replace("\r", "") or None
     raw_private = os.getenv("VAPID_PRIVATE_KEY")
     claims_email = os.getenv("VAPID_CLAIMS_EMAIL", "mailto:admin@iesa.org")
     # The private key is stored as base64-encoded PEM in .env (single-line safe)

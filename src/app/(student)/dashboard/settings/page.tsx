@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useSession } from "@/context/SessionContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
-import { PasswordInput } from "@/components/ui/Input";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
@@ -90,17 +89,14 @@ const CATEGORY_META: { key: NotifCategory; label: string; desc: string; icon: Re
 /* ─── Page ───────────────────────────────────────────────── */
 
 export default function SettingsPage() {
-  const { userProfile, refreshProfile, signOut } = useAuth();
+  const { userProfile, refreshProfile, signOut, sendPasswordReset } = useAuth();
   const { showHelp, openHelp, closeHelp } = useToolHelp("settings");
   const { allSessions } = useSession();
   const router = useRouter();
 
-  /* ── Password Change ──────────────────────── */
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [pwLoading, setPwLoading] = useState(false);
-  const [showPasswords, setShowPasswords] = useState(false);
+  /* ── Password Reset ───────────────────────── */
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   /* ── Notification Preferences ─────────────── */
   const [emailPref, setEmailPref] = useState<EmailPref>("primary");
@@ -117,18 +113,9 @@ export default function SettingsPage() {
   const [catLoading, setCatLoading] = useState<NotifCategory | null>(null);
 
   /* ── Account Deletion ─────────────────────── */
-  const [deletePassword, setDeletePassword] = useState("");
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showDeleteZone, setShowDeleteZone] = useState(false);
-
-  /* ── Two-Factor Auth ──────────────────────── */
-  const [twoFaEnabled, setTwoFaEnabled] = useState(false);
-  const [twoFaLoading, setTwoFaLoading] = useState(false);
-  const [twoFaSetup, setTwoFaSetup] = useState<{ secret: string; qrCodeDataUrl: string } | null>(null);
-  const [twoFaCode, setTwoFaCode] = useState("");
-  const [twoFaBackupCodes, setTwoFaBackupCodes] = useState<string[]>([]);
-  const [twoFaStep, setTwoFaStep] = useState<"idle" | "setup" | "backup" | "disable">("idle");
 
   // Sync prefs from user profile
   useEffect(() => {
@@ -142,104 +129,20 @@ export default function SettingsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userProfile]);
 
-  // Fetch 2FA status on mount
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await api.get("/api/v1/2fa/status") as { enabled?: boolean };
-        setTwoFaEnabled(res.enabled ?? false);
-      } catch { /* silent */ }
-    })();
-  }, []);
-
   /* ─── Handlers ─────────────────────────────────────────── */
 
-  /* ── 2FA Handlers ── */
-  const handle2FASetup = async () => {
-    setTwoFaLoading(true);
+  const handlePasswordReset = async () => {
+    if (!userProfile?.email) return;
+    setResetLoading(true);
     try {
-      const res = await api.post("/api/v1/2fa/setup") as { secret: string; qrCodeDataUrl: string };
-      setTwoFaSetup({ secret: res.secret, qrCodeDataUrl: res.qrCodeDataUrl });
-      setTwoFaStep("setup");
-      setTwoFaCode("");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to set up 2FA");
-    } finally {
-      setTwoFaLoading(false);
-    }
-  };
-
-  const handle2FAVerify = async () => {
-    if (twoFaCode.length !== 6) return;
-    setTwoFaLoading(true);
-    try {
-      const res = await api.post("/api/v1/2fa/verify", { code: twoFaCode }) as { backupCodes?: string[] };
-      setTwoFaEnabled(true);
-      setTwoFaBackupCodes(res.backupCodes || []);
-      setTwoFaStep("backup");
-      setTwoFaCode("");
-      toast.success("2FA enabled successfully!");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Invalid code");
-    } finally {
-      setTwoFaLoading(false);
-    }
-  };
-
-  const handle2FADisable = async () => {
-    if (twoFaCode.length !== 6) return;
-    setTwoFaLoading(true);
-    try {
-      await api.post("/api/v1/2fa/disable", { code: twoFaCode });
-      setTwoFaEnabled(false);
-      setTwoFaStep("idle");
-      setTwoFaCode("");
-      setTwoFaSetup(null);
-      toast.success("2FA disabled");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Invalid code");
-    } finally {
-      setTwoFaLoading(false);
-    }
-  };
-
-  // Auto-submit 2FA code when 6 digits entered
-  const verifyRef = useRef(handle2FAVerify);
-  const disableRef = useRef(handle2FADisable);
-  verifyRef.current = handle2FAVerify;
-  disableRef.current = handle2FADisable;
-
-  useEffect(() => {
-    if (twoFaCode.length !== 6 || twoFaLoading) return;
-    if (twoFaStep === "setup") verifyRef.current();
-    if (twoFaStep === "disable") disableRef.current();
-  }, [twoFaCode, twoFaStep, twoFaLoading]);
-
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      toast.error("New passwords do not match");
-      return;
-    }
-    if (newPassword.length < 8) {
-      toast.error("Password must be at least 8 characters");
-      return;
-    }
-    setPwLoading(true);
-    try {
-      await api.post("/api/v1/auth/change-password", {
-        currentPassword,
-        newPassword,
-      });
-      toast.success("Password changed successfully");
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
+      await sendPasswordReset(userProfile.email);
+      setResetSent(true);
+      toast.success("Password reset email sent!");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to change password";
+      const msg = err instanceof Error ? err.message : "Failed to send reset email";
       toast.error(msg);
     } finally {
-      setPwLoading(false);
+      setResetLoading(false);
     }
   };
 
@@ -306,7 +209,7 @@ export default function SettingsPage() {
     }
     setDeleteLoading(true);
     try {
-      await api.delete("/api/v1/users/me", { body: { password: deletePassword } });
+      await api.delete("/api/v1/users/me");
       toast.success("Account deleted. Redirecting...");
       await signOut();
       router.push("/");
@@ -333,14 +236,14 @@ export default function SettingsPage() {
             <span className="brush-highlight">Settings</span>
           </h1>
           <p className="mt-2 text-slate text-body">
-            Manage your password, notification preferences, and account.
+            Manage your security, notification preferences, and account.
           </p>
         </div>
         <HelpButton onClick={openHelp} />
       </div>
 
       {/* ═══════════════════════════════════════════════════════
-          SECTION 1: CHANGE PASSWORD
+          SECTION 1: PASSWORD
           ═══════════════════════════════════════════════════════ */}
       <section className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[8px_8px_0_0_#000] mb-8">
         <div className="flex items-center gap-3 mb-6">
@@ -350,236 +253,29 @@ export default function SettingsPage() {
             </svg>
           </div>
           <div>
-            <h2 className="font-display font-black text-xl text-navy">Change Password</h2>
-            <p className="text-sm text-slate">Update your account password</p>
+            <h2 className="font-display font-black text-xl text-navy">Password</h2>
+            <p className="text-sm text-slate">Reset your password via email</p>
           </div>
         </div>
 
-        <form onSubmit={handleChangePassword} className="space-y-4">
-          <div>
-            <label htmlFor="current-password" className="block text-sm font-bold text-navy mb-1">
-              Current Password
-            </label>
-            <input
-              id="current-password"
-              type={showPasswords ? "text" : "password"}
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              required
-              className="w-full px-4 py-3 border-[3px] border-navy rounded-xl bg-ghost text-navy font-medium focus:outline-none focus:ring-2 focus:ring-lime focus:border-lime transition-all"
-              placeholder="Enter current password"
-            />
-          </div>
-          <div>
-            <label htmlFor="new-password" className="block text-sm font-bold text-navy mb-1">
-              New Password
-            </label>
-            <input
-              id="new-password"
-              type={showPasswords ? "text" : "password"}
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-              minLength={8}
-              className="w-full px-4 py-3 border-[3px] border-navy rounded-xl bg-ghost text-navy font-medium focus:outline-none focus:ring-2 focus:ring-lime focus:border-lime transition-all"
-              placeholder="At least 8 characters"
-            />
-          </div>
-          <div>
-            <label htmlFor="confirm-password" className="block text-sm font-bold text-navy mb-1">
-              Confirm New Password
-            </label>
-            <input
-              id="confirm-password"
-              type={showPasswords ? "text" : "password"}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              minLength={8}
-              className="w-full px-4 py-3 border-[3px] border-navy rounded-xl bg-ghost text-navy font-medium focus:outline-none focus:ring-2 focus:ring-lime focus:border-lime transition-all"
-              placeholder="Re-enter new password"
-            />
-          </div>
-
-          <div className="flex items-center gap-4 pt-2">
-            <label className="flex items-center gap-2 text-sm text-slate cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={showPasswords}
-                onChange={(e) => setShowPasswords(e.target.checked)}
-                className="rounded border-navy"
-              />
-              Show passwords
-            </label>
-          </div>
-
-          <button
-            type="submit"
-            disabled={pwLoading || !currentPassword || !newPassword || !confirmPassword}
-            className="bg-lime border-[4px] border-navy press-5 press-navy px-8 py-3 rounded-2xl font-display font-black text-navy disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            {pwLoading ? "Changing..." : "Change Password"}
-          </button>
-        </form>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════
-          SECTION 1.5: TWO-FACTOR AUTHENTICATION
-          ═══════════════════════════════════════════════════════ */}
-      <section className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[8px_8px_0_0_#000] mb-8">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-lavender-light rounded-xl flex items-center justify-center">
-            <svg className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div>
-            <h2 className="font-display font-black text-xl text-navy">Two-Factor Authentication</h2>
-            <p className="text-sm text-slate">Add an extra layer of security with a TOTP authenticator app</p>
-          </div>
-          {twoFaEnabled && (
-            <span className="ml-auto inline-flex items-center gap-1 px-3 py-1 rounded-full bg-teal-light text-teal text-xs font-bold border-[2px] border-teal">
-              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-                <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
-              </svg>
-              Enabled
-            </span>
-          )}
-        </div>
-
-        {/* Idle state — not enabled */}
-        {twoFaStep === "idle" && !twoFaEnabled && (
-          <div className="bg-ghost rounded-2xl p-6 text-center">
-            <p className="text-sm text-navy mb-4">
-              Use an authenticator app (Google Authenticator, Authy, etc.) to generate time-based one-time passwords for extra security.
-            </p>
+        <div className="bg-ghost rounded-2xl p-6">
+          <p className="text-sm text-navy mb-4">
+            To change your password, we&apos;ll send a password reset link to your email address (<span className="font-bold">{userProfile?.email}</span>).
+          </p>
+          {resetSent ? (
+            <div className="bg-teal-light border-[3px] border-teal rounded-xl p-4 text-sm text-navy">
+              <span className="font-bold">Reset email sent!</span> Check your inbox and follow the link to set a new password.
+            </div>
+          ) : (
             <button
-              onClick={handle2FASetup}
-              disabled={twoFaLoading}
+              onClick={handlePasswordReset}
+              disabled={resetLoading}
               className="bg-lavender border-[3px] border-navy press-4 press-navy px-6 py-3 rounded-2xl font-display font-black text-snow disabled:opacity-50 transition-all"
             >
-              {twoFaLoading ? "Setting up..." : "Enable 2FA"}
+              {resetLoading ? "Sending..." : "Send Reset Email"}
             </button>
-          </div>
-        )}
-
-        {/* Idle state — enabled */}
-        {twoFaStep === "idle" && twoFaEnabled && (
-          <div className="bg-teal-light rounded-2xl p-6">
-            <p className="text-sm text-navy mb-4">
-              Two-factor authentication is active. You&apos;ll need your authenticator app to verify logins.
-            </p>
-            <button
-              onClick={() => { setTwoFaStep("disable"); setTwoFaCode(""); }}
-              className="bg-coral border-[3px] border-navy press-3 press-navy px-5 py-2.5 rounded-xl font-display font-black text-snow text-sm transition-all"
-            >
-              Disable 2FA
-            </button>
-          </div>
-        )}
-
-        {/* Setup step — scan QR */}
-        {twoFaStep === "setup" && twoFaSetup && (
-          <div className="space-y-5">
-            <div className="bg-ghost rounded-2xl p-6 text-center">
-              <p className="text-sm text-navy font-bold mb-3">
-                1. Scan this QR code with your authenticator app
-              </p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={twoFaSetup.qrCodeDataUrl}
-                alt="2FA QR Code"
-                className="mx-auto w-48 h-48 rounded-xl border-[3px] border-navy"
-              />
-              <p className="text-xs text-slate mt-3">
-                Or enter this key manually: <code className="bg-snow px-2 py-1 rounded text-navy font-mono text-xs border border-cloud">{twoFaSetup.secret}</code>
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-navy font-bold mb-2">2. Enter the 6-digit code from your app</p>
-              <div className="flex items-center gap-3">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={twoFaCode}
-                  onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="000000"
-                  className="w-40 text-center text-2xl font-mono tracking-[0.3em] px-4 py-3 bg-ghost border-[3px] border-navy rounded-xl focus:outline-none focus:border-lavender"
-                />
-                <button
-                  onClick={handle2FAVerify}
-                  disabled={twoFaLoading || twoFaCode.length !== 6}
-                  className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-3 rounded-xl font-display font-black text-navy disabled:opacity-50 transition-all"
-                >
-                  {twoFaLoading ? "Verifying..." : "Verify & Enable"}
-                </button>
-                <button
-                  onClick={() => { setTwoFaStep("idle"); setTwoFaSetup(null); }}
-                  className="text-sm text-slate hover:text-navy transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Backup codes step */}
-        {twoFaStep === "backup" && twoFaBackupCodes.length > 0 && (
-          <div className="space-y-4">
-            <div className="bg-sunny-light border-[3px] border-sunny rounded-2xl p-5">
-              <p className="text-sm font-bold text-navy mb-2">Save your backup codes</p>
-              <p className="text-xs text-slate mb-4">
-                Each code can only be used once. Store them in a safe place — you&apos;ll need them if you lose access to your authenticator app.
-              </p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {twoFaBackupCodes.map((code) => (
-                  <div key={code} className="bg-snow rounded-lg px-3 py-2 text-center font-mono text-sm text-navy border border-cloud">
-                    {code}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <button
-              onClick={() => { setTwoFaStep("idle"); setTwoFaBackupCodes([]); }}
-              className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-3 rounded-xl font-display font-black text-navy transition-all"
-            >
-              I&apos;ve saved my codes
-            </button>
-          </div>
-        )}
-
-        {/* Disable step */}
-        {twoFaStep === "disable" && (
-          <div className="bg-coral-light rounded-2xl p-6 space-y-4">
-            <p className="text-sm text-navy font-bold">Enter a code from your authenticator app to disable 2FA</p>
-            <div className="flex items-center gap-3">
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                value={twoFaCode}
-                onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="000000"
-                className="w-40 text-center text-2xl font-mono tracking-[0.3em] px-4 py-3 bg-snow border-[3px] border-navy rounded-xl focus:outline-none focus:border-coral"
-              />
-              <button
-                onClick={handle2FADisable}
-                disabled={twoFaLoading || twoFaCode.length !== 6}
-                className="bg-coral border-[3px] border-navy press-3 press-navy px-6 py-3 rounded-xl font-display font-black text-snow disabled:opacity-50 transition-all"
-              >
-                {twoFaLoading ? "Disabling..." : "Disable 2FA"}
-              </button>
-              <button
-                onClick={() => { setTwoFaStep("idle"); setTwoFaCode(""); }}
-                className="text-sm text-slate hover:text-navy transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════
@@ -800,20 +496,6 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label htmlFor="delete-password" className="block text-sm font-bold text-navy mb-1">
-                Enter your password to confirm
-              </label>
-              <PasswordInput
-                id="delete-password"
-                value={deletePassword}
-                onChange={(e) => setDeletePassword(e.target.value)}
-                required
-                className="w-full px-4 py-3 border-[3px] border-coral rounded-xl bg-ghost text-navy font-medium focus:outline-none focus:ring-2 focus:ring-coral transition-all"
-                placeholder="Your current password"
-              />
-            </div>
-
-            <div>
               <label htmlFor="delete-confirm" className="block text-sm font-bold text-navy mb-1">
                 Type <span className="text-coral font-black">DELETE MY ACCOUNT</span> to confirm
               </label>
@@ -831,7 +513,7 @@ export default function SettingsPage() {
             <div className="flex gap-3">
               <button
                 type="submit"
-                disabled={deleteLoading || deleteConfirmText !== "DELETE MY ACCOUNT" || !deletePassword}
+                disabled={deleteLoading || deleteConfirmText !== "DELETE MY ACCOUNT"}
                 className="bg-coral border-[4px] border-navy press-5 press-navy px-8 py-3 rounded-2xl font-display font-black text-snow disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 {deleteLoading ? "Deleting..." : "Permanently Delete Account"}
@@ -840,7 +522,6 @@ export default function SettingsPage() {
                 type="button"
                 onClick={() => {
                   setShowDeleteZone(false);
-                  setDeletePassword("");
                   setDeleteConfirmText("");
                 }}
                 className="bg-ghost border-[3px] border-navy px-6 py-3 rounded-xl font-display font-bold text-navy hover:bg-cloud transition-all"
@@ -857,7 +538,7 @@ export default function SettingsPage() {
 
 /* ── Push Notification Toggle ─────────────────────────────── */
 function PushNotificationToggle() {
-  const { supported, permission, subscribed, loading, subscribe, unsubscribe } = usePushNotifications();
+  const { supported, permission, subscribed, loading, error, subscribe, unsubscribe } = usePushNotifications();
 
   if (!supported) return null;
 
@@ -903,6 +584,12 @@ function PushNotificationToggle() {
           </span>
         )}
       </div>
+
+      {error && (
+        <div className="mt-3 p-3 border-[2px] border-coral bg-coral-light rounded-2xl text-coral text-xs font-medium">
+          {error}
+        </div>
+      )}
     </div>
   );
 }
