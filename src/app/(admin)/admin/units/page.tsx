@@ -83,6 +83,43 @@ interface UserSearchResult {
   role: string;
 }
 
+interface UnitNotice {
+  id: string;
+  title: string;
+  content: string;
+  isPinned: boolean;
+  authorName?: string;
+  createdAt: string;
+}
+
+interface UnitTask {
+  id: string;
+  title: string;
+  description?: string;
+  status: "pending" | "in_progress" | "done";
+  priority: "low" | "normal" | "high" | "urgent";
+  assignedTo?: string;
+  dueDate?: string;
+  createdByName?: string;
+  createdAt: string;
+}
+
+interface UnitTaskSummary {
+  total: number;
+  pending: number;
+  in_progress: number;
+  done: number;
+  completionRate: number;
+}
+
+interface UnitContent {
+  unitSlug: string;
+  unitLabel: string;
+  noticeboard: UnitNotice[];
+  tasks: UnitTask[];
+  taskSummary: UnitTaskSummary;
+}
+
 /* ─── Helpers ──────────────────────────────────── */
 
 const COLOR_OPTIONS = [
@@ -119,7 +156,7 @@ function formatDate(d: string) {
 
 /* ─── Component ────────────────────────────────── */
 
-type Tab = "overview" | "applications";
+type Tab = "overview" | "applications" | "content";
 
 function UnitsPage() {
   const { getAccessToken } = useAuth();
@@ -154,6 +191,11 @@ function UnitsPage() {
 
   // Expanded unit cards
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(new Set());
+
+  // Content tab state
+  const [unitContents, setUnitContents] = useState<Record<string, UnitContent>>({});
+  const [contentLoading, setContentLoading] = useState<Record<string, boolean>>({});
+  const [expandedContent, setExpandedContent] = useState<Set<string>>(new Set());
 
   // Create unit modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -232,6 +274,32 @@ function UnitsPage() {
       setAppLoading(false);
     }
   }, [getAccessToken, filterUnit, filterStatus]);
+
+  const fetchUnitContent = useCallback(async (unitSlug: string) => {
+    if (unitContents[unitSlug] || contentLoading[unitSlug]) return;
+    setContentLoading((prev) => ({ ...prev, [unitSlug]: true }));
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      const res = await fetch(getApiUrl(`/api/v1/unit-head/${unitSlug}/admin-content`), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        // Silently skip units where head content isn't available
+        setUnitContents((prev) => ({
+          ...prev,
+          [unitSlug]: { unitSlug, unitLabel: unitSlug, noticeboard: [], tasks: [], taskSummary: { total: 0, pending: 0, in_progress: 0, done: 0, completionRate: 0 } },
+        }));
+        return;
+      }
+      const data = await res.json();
+      setUnitContents((prev) => ({ ...prev, [unitSlug]: data }));
+    } catch {
+      // Silently ignore
+    } finally {
+      setContentLoading((prev) => ({ ...prev, [unitSlug]: false }));
+    }
+  }, [getAccessToken, unitContents, contentLoading]);
 
   useEffect(() => { fetchOverview(); fetchUnitConfigs(); }, [fetchOverview, fetchUnitConfigs]);
   useEffect(() => { if (tab === "applications") fetchApplications(); }, [tab, fetchApplications]);
@@ -549,6 +617,10 @@ function UnitsPage() {
             <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-coral text-snow text-xs font-bold min-w-[20px]">{totalPending}</span>
           )}
         </button>
+        <button
+          onClick={() => setTab("content")}
+          className={`px-5 py-2.5 rounded-xl font-bold text-sm border-[3px] transition-all ${tab === "content" ? "bg-navy text-snow border-navy" : "bg-snow text-navy border-navy/20 hover:border-navy/40"}`}
+        >Content</button>
       </div>
 
       {/* ── Overview Tab ─────────────── */}
@@ -799,6 +871,189 @@ function UnitsPage() {
                 );
               })}
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Content Tab ──────────────── */}
+      {tab === "content" && (
+        <div className="space-y-4">
+          <p className="text-xs font-bold text-slate uppercase tracking-wider">
+            Noticeboard posts &amp; tasks across all units — viewable by admins with review access.
+          </p>
+          {mergedUnits.length === 0 ? (
+            <div className="text-center py-16 bg-snow border-[3px] border-navy/10 rounded-2xl">
+              <p className="text-slate font-medium">No units available</p>
+            </div>
+          ) : (
+            mergedUnits.map((unit) => {
+              const colors = getUnitColors(unit.slug, unit.config?.colorKey);
+              const isOpen = expandedContent.has(unit.slug);
+              const content = unitContents[unit.slug];
+              const isLoading = contentLoading[unit.slug];
+
+              const toggleContent = () => {
+                setExpandedContent((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(unit.slug)) {
+                    next.delete(unit.slug);
+                  } else {
+                    next.add(unit.slug);
+                    fetchUnitContent(unit.slug);
+                  }
+                  return next;
+                });
+              };
+
+              const taskStatusColor: Record<string, string> = {
+                pending: "bg-sunny/20 text-navy",
+                in_progress: "bg-lavender/20 text-navy",
+                done: "bg-teal/20 text-teal",
+              };
+              const priorityColor: Record<string, string> = {
+                low: "bg-cloud text-slate",
+                normal: "bg-ghost text-slate",
+                high: "bg-sunny/20 text-navy",
+                urgent: "bg-coral/20 text-coral",
+              };
+
+              return (
+                <div key={unit.slug} className={`${colors.bg} border-[4px] ${colors.border} rounded-2xl overflow-hidden`}>
+                  {/* Header row */}
+                  <button
+                    onClick={toggleContent}
+                    className="w-full flex items-center justify-between px-5 py-4 hover:bg-navy/5 transition-colors text-left"
+                    aria-expanded={isOpen}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <p className="font-display font-black text-base text-navy">{unit.unitLabel}</p>
+                        <p className="text-xs text-slate mt-0.5">
+                          {unit.memberCount} member{unit.memberCount !== 1 ? "s" : ""}
+                          {content && ` · ${content.taskSummary.total} task${content.taskSummary.total !== 1 ? "s" : ""} · ${content.noticeboard.length} notice${content.noticeboard.length !== 1 ? "s" : ""}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {content && content.taskSummary.total > 0 && (
+                        <div className="hidden sm:flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-full bg-teal/20 text-teal text-[10px] font-bold">
+                            {content.taskSummary.completionRate}% done
+                          </span>
+                          {content.taskSummary.pending > 0 && (
+                            <span className="px-2 py-0.5 rounded-full bg-sunny/20 text-navy text-[10px] font-bold">
+                              {content.taskSummary.pending} pending
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      <svg
+                        className={`w-5 h-5 text-navy transition-transform ${isOpen ? "rotate-180" : ""}`}
+                        viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"
+                      >
+                        <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  </button>
+
+                  {/* Expanded content */}
+                  {isOpen && (
+                    <div className="border-t-[3px] border-navy/10">
+                      {isLoading ? (
+                        <div className="flex items-center justify-center py-10">
+                          <div className="animate-spin rounded-full h-7 w-7 border-[3px] border-navy border-t-transparent" />
+                        </div>
+                      ) : !content ? (
+                        <div className="px-5 py-8 text-center text-slate text-sm">Could not load content.</div>
+                      ) : (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-navy/10">
+
+                          {/* Noticeboard */}
+                          <div className="px-5 py-4">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate mb-3">
+                              Noticeboard ({content.noticeboard.length})
+                            </p>
+                            {content.noticeboard.length === 0 ? (
+                              <p className="text-sm text-slate italic">No posts yet.</p>
+                            ) : (
+                              <div className="space-y-2.5">
+                                {content.noticeboard.slice(0, 5).map((notice) => (
+                                  <div key={notice.id} className="bg-snow/60 rounded-xl p-3 border border-navy/10">
+                                    <div className="flex items-start justify-between gap-2 mb-1">
+                                      <p className="text-sm font-bold text-navy leading-snug line-clamp-1">{notice.title}</p>
+                                      {notice.isPinned && (
+                                        <span className="shrink-0 px-1.5 py-0.5 rounded bg-navy text-snow text-[9px] font-bold uppercase tracking-wider">Pinned</span>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-slate line-clamp-2">{notice.content}</p>
+                                    <p className="text-[10px] text-slate/70 mt-1.5">{formatDate(notice.createdAt)}{notice.authorName && ` · ${notice.authorName}`}</p>
+                                  </div>
+                                ))}
+                                {content.noticeboard.length > 5 && (
+                                  <p className="text-xs text-slate text-center pt-1">+{content.noticeboard.length - 5} more</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Tasks */}
+                          <div className="px-5 py-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-slate">
+                                Tasks ({content.taskSummary.total})
+                              </p>
+                              {content.taskSummary.total > 0 && (
+                                <div className="flex items-center gap-1.5">
+                                  <div className="h-1.5 rounded-full bg-cloud overflow-hidden w-16">
+                                    <div
+                                      className="h-full bg-teal rounded-full transition-all"
+                                      style={{ width: `${content.taskSummary.completionRate}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-[10px] font-bold text-teal">{content.taskSummary.completionRate}%</span>
+                                </div>
+                              )}
+                            </div>
+                            {content.taskSummary.total > 0 && (
+                              <div className="flex items-center gap-1.5 mb-3">
+                                <span className="px-2 py-0.5 rounded-full bg-sunny/20 text-navy text-[10px] font-bold">{content.taskSummary.pending} pending</span>
+                                <span className="px-2 py-0.5 rounded-full bg-lavender/20 text-navy text-[10px] font-bold">{content.taskSummary.in_progress} in progress</span>
+                                <span className="px-2 py-0.5 rounded-full bg-teal/20 text-teal text-[10px] font-bold">{content.taskSummary.done} done</span>
+                              </div>
+                            )}
+                            {content.tasks.length === 0 ? (
+                              <p className="text-sm text-slate italic">No tasks yet.</p>
+                            ) : (
+                              <div className="space-y-2">
+                                {content.tasks.slice(0, 6).map((task) => (
+                                  <div key={task.id} className="bg-snow/60 rounded-xl p-3 border border-navy/10">
+                                    <div className="flex items-start justify-between gap-2 mb-1">
+                                      <p className="text-sm font-bold text-navy leading-snug line-clamp-1">{task.title}</p>
+                                      <div className="shrink-0 flex items-center gap-1">
+                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${priorityColor[task.priority] || "bg-ghost text-slate"}`}>{task.priority}</span>
+                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${taskStatusColor[task.status] || ""}`}>{task.status.replace("_", " ")}</span>
+                                      </div>
+                                    </div>
+                                    {task.description && <p className="text-xs text-slate line-clamp-1">{task.description}</p>}
+                                    <p className="text-[10px] text-slate/70 mt-1">
+                                      {formatDate(task.createdAt)}{task.createdByName && ` · by ${task.createdByName}`}
+                                      {task.dueDate && <span className="text-coral"> · due {task.dueDate.slice(0, 10)}</span>}
+                                    </p>
+                                  </div>
+                                ))}
+                                {content.tasks.length > 6 && (
+                                  <p className="text-xs text-slate text-center pt-1">+{content.tasks.length - 6} more</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       )}

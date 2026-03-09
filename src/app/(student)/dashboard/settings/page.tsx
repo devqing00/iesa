@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { PasswordInput } from "@/components/ui/Input";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 /* ─── Types ──────────────────────────────────────────────── */
 
@@ -626,6 +627,9 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Push Notifications */}
+        <PushNotificationToggle />
+
         {/* Email Preference — only shown if secondary email exists */}
         <div>
           <h3 className="font-display font-bold text-navy text-base mb-1">Email Recipient</h3>
@@ -847,6 +851,58 @@ export default function SettingsPage() {
           </form>
         )}
       </section>
+    </div>
+  );
+}
+
+/* ── Push Notification Toggle ─────────────────────────────── */
+function PushNotificationToggle() {
+  const { supported, permission, subscribed, loading, subscribe, unsubscribe } = usePushNotifications();
+
+  if (!supported) return null;
+
+  return (
+    <div className="mb-8">
+      <h3 className="font-display font-bold text-navy text-base mb-1">Browser Push Notifications</h3>
+      <p className="text-sm text-slate mb-4">
+        Get notified even when the tab is closed. Works on Chrome, Firefox, Edge, and Safari 16+.
+      </p>
+
+      <div className="flex items-center gap-4">
+        {permission === "denied" ? (
+          <div className="bg-coral-light border-[3px] border-navy/20 rounded-2xl p-4 text-sm text-navy">
+            <span className="font-bold">Push blocked.</span> You previously denied notification permissions.
+            Open your browser settings to re-enable them for this site.
+          </div>
+        ) : subscribed ? (
+          <button
+            type="button"
+            onClick={unsubscribe}
+            disabled={loading}
+            className="bg-snow border-[3px] border-navy rounded-2xl px-6 py-3 font-display font-bold text-sm text-navy press-3 press-navy disabled:opacity-50 transition-all"
+          >
+            {loading ? "Disabling..." : "Disable Push Notifications"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={subscribe}
+            disabled={loading}
+            className="bg-lime border-[3px] border-navy rounded-2xl px-6 py-3 font-display font-bold text-sm text-navy press-3 press-navy disabled:opacity-50 transition-all"
+          >
+            {loading ? "Enabling..." : "Enable Push Notifications"}
+          </button>
+        )}
+
+        {subscribed && (
+          <span className="flex items-center gap-1.5 text-sm text-teal font-bold">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
+            </svg>
+            Active
+          </span>
+        )}
+      </div>
     </div>
   );
 }

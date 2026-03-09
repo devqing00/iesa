@@ -119,6 +119,30 @@ export default function AdminMobileNav() {
       ),
     },
     {
+      name: "Class Rep",
+      href: "/admin/class-rep",
+      color: "bg-lavender-light",
+      anyPermission: ["class_rep:view_cohort"],
+      icon: (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M11.7 2.805a.75.75 0 0 1 .6 0A60.65 60.65 0 0 1 22.83 8.72a.75.75 0 0 1-.231 1.337 49.948 49.948 0 0 0-9.902 3.912l-.003.002-.34.18a.75.75 0 0 1-.707 0A50.88 50.88 0 0 0 7.5 12.174v-.224c0-.131.067-.248.172-.311a54.615 54.615 0 0 1 4.653-2.52.75.75 0 0 0-.65-1.352 56.123 56.123 0 0 0-4.78 2.589 1.858 1.858 0 0 0-.859 1.228 49.803 49.803 0 0 0-4.634-1.527.75.75 0 0 1-.231-1.337A60.653 60.653 0 0 1 11.7 2.805Z" />
+          <path d="M13.06 15.473a48.45 48.45 0 0 1 7.666-3.282c.134 1.414.22 2.843.255 4.284a.75.75 0 0 1-.46.711 47.87 47.87 0 0 0-8.105 4.342.75.75 0 0 1-.832 0 47.87 47.87 0 0 0-8.104-4.342.75.75 0 0 1-.461-.71c.035-1.442.121-2.87.255-4.286a48.4 48.4 0 0 1 6.463 2.806l.203.107a2.25 2.25 0 0 0 2.12 0l.203-.107Z" />
+          <path d="M6.75 14.771V16.5a.75.75 0 0 0 .375.65 48.34 48.34 0 0 1 3.27 2.012 38.7 38.7 0 0 0-.61-3.225.75.75 0 0 0-.449-.547 47.818 47.818 0 0 0-2.586-1.118Z" />
+        </svg>
+      ),
+    },
+    {
+      name: "Unit Head",
+      href: "/admin/unit-head",
+      color: "bg-teal-light",
+      anyPermission: ["unit_head:view_members"],
+      icon: (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM14.25 8.625a3.375 3.375 0 1 1 6.75 0 3.375 3.375 0 0 1-6.75 0ZM1.5 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122ZM17.25 19.128l-.001.144a2.25 2.25 0 0 1-.233.96 10.088 10.088 0 0 0 5.06-1.01.75.75 0 0 0 .42-.643 4.875 4.875 0 0 0-6.957-4.611 8.586 8.586 0 0 1 1.71 5.157v.003Z" />
+        </svg>
+      ),
+    },
+    {
       name: "TIMP",
       href: "/admin/timp",
       color: "bg-teal-light",
@@ -243,11 +267,13 @@ export default function AdminMobileNav() {
           })}
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label="More options"
+            aria-expanded={isMenuOpen}
             className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all ${
               isMenuOpen ? "text-navy bg-lime font-bold" : "text-slate hover:text-navy"
             }`}
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path fillRule="evenodd" d="M4.5 12a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm6 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm6 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clipRule="evenodd" />
             </svg>
             <span className="text-[10px] font-bold">More</span>
@@ -267,9 +293,10 @@ export default function AdminMobileNav() {
               </p>
               <button
                 onClick={() => setIsMenuOpen(false)}
+                aria-label="Close menu"
                 className="w-7 h-7 rounded-lg border-[2px] border-navy/20 flex items-center justify-center hover:bg-cloud transition-colors"
               >
-                <svg className="w-3.5 h-3.5 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                <svg className="w-3.5 h-3.5 text-navy" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                 </svg>
               </button>

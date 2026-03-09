@@ -773,6 +773,7 @@ async def delete_account(
     await db["ai_rate_limits"].delete_many({"userId": user_id})
     await db["roles"].delete_many({"userId": user_id})
     await db["unit_applications"].delete_many({"userId": user_id})
+    await db["push_subscriptions"].delete_many({"userId": user_id})
     await db["paystackTransactions"].update_many(
         {"studentId": user_id},
         {"$set": {"studentName": "[deleted]", "studentEmail": "[deleted]"}},

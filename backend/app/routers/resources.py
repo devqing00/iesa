@@ -500,6 +500,40 @@ async def approve_resource(
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Resource not found")
     
+    # Notify the uploader
+    try:
+        resource_doc = await resources.find_one(
+            {"_id": ObjectId(resource_id)},
+            {"uploadedBy": 1, "title": 1},
+        )
+        if resource_doc and resource_doc.get("uploadedBy"):
+            from app.routers.notifications import create_notification
+            uploader_id = str(resource_doc["uploadedBy"])
+            res_title = resource_doc.get("title", "your resource")
+            if approve_data.approved:
+                await create_notification(
+                    user_id=uploader_id,
+                    type="resource_approved",
+                    title="Resource Approved",
+                    message=f'Your resource "{res_title}" has been approved and is now visible in the library.',
+                    link="/dashboard/library",
+                    related_id=resource_id,
+                    category="academic",
+                )
+            else:
+                feedback_msg = f' Feedback: {approve_data.feedback}' if approve_data.feedback else ''
+                await create_notification(
+                    user_id=uploader_id,
+                    type="resource_rejected",
+                    title="Resource Not Approved",
+                    message=f'Your resource "{res_title}" was not approved.{feedback_msg}',
+                    link="/dashboard/library",
+                    related_id=resource_id,
+                    category="academic",
+                )
+    except Exception:
+        pass  # Non-critical
+
     # Audit log
     from app.core.audit import AuditLogger
     await AuditLogger.log(
@@ -542,6 +576,22 @@ async def bulk_approve_resources(
     if not valid_ids:
         raise HTTPException(status_code=400, detail="No valid resource IDs")
 
+    # Fetch uploader IDs before updating so we can notify them
+    resources = db["resources"]
+    uploader_map: dict[str, str] = {}  # resource_id -> uploadedBy
+    title_map: dict[str, str] = {}     # resource_id -> title
+    try:
+        cursor = resources.find(
+            {"_id": {"$in": valid_ids}},
+            {"uploadedBy": 1, "title": 1},
+        )
+        async for doc in cursor:
+            rid = str(doc["_id"])
+            uploader_map[rid] = str(doc.get("uploadedBy", ""))
+            title_map[rid] = doc.get("title", "a resource")
+    except Exception:
+        pass  # Non-critical
+
     resources = db["resources"]
     update_fields: dict = {"isApproved": body.approved}
     if body.feedback:
@@ -565,8 +615,57 @@ async def bulk_approve_resources(
         user_agent=request.headers.get("user-agent"),
     )
 
+    # Fire-and-forget notifications to uploaders
+    if uploader_map:
+        import asyncio
+        asyncio.create_task(_notify_bulk_uploaders(uploader_map, title_map, body.approved, body.feedback))
+
     return {"message": f"{result.modified_count} resource(s) {'approved' if body.approved else 'rejected'}",
             "modifiedCount": result.modified_count}
+
+
+# Async helper fired after bulk-approve to notify each uploader
+async def _notify_bulk_uploaders(
+    uploader_map: dict[str, str],
+    title_map: dict[str, str],
+    approved: bool,
+    feedback: str | None,
+):
+    """Send a notification to each unique uploader in a bulk approve/reject."""
+    try:
+        from app.routers.notifications import create_notification
+
+        # Deduplicate: group resource titles by uploader
+        uploader_resources: dict[str, list[str]] = {}
+        for rid, uid in uploader_map.items():
+            if uid:
+                uploader_resources.setdefault(uid, []).append(title_map.get(rid, "a resource"))
+
+        for uid, titles in uploader_resources.items():
+            names = ", ".join(f'"{t}"' for t in titles[:3])
+            if len(titles) > 3:
+                names += f" and {len(titles) - 3} more"
+            if approved:
+                await create_notification(
+                    user_id=uid,
+                    type="resource_approved",
+                    title="Resources Approved",
+                    message=f"Your resources {names} have been approved and are now visible in the library.",
+                    link="/dashboard/library",
+                    category="academic",
+                )
+            else:
+                fb = f" Feedback: {feedback}" if feedback else ""
+                await create_notification(
+                    user_id=uid,
+                    type="resource_rejected",
+                    title="Resources Not Approved",
+                    message=f"Your resources {names} were not approved.{fb}",
+                    link="/dashboard/library",
+                    category="academic",
+                )
+    except Exception:
+        pass  # Non-critical
 
 
 @router.delete("/{resource_id}")

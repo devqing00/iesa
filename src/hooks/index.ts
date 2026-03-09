@@ -18,4 +18,5 @@ export {
 } from './useData';
 
 export { useGrowthData } from './useGrowthData';
+export { usePushNotifications } from './usePushNotifications';
 export { useOnlineStatus } from './useOnlineStatus';

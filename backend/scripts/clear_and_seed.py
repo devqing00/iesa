@@ -88,6 +88,13 @@ ALL_COLLECTIONS = [
     # AI
     "ai_feedback",
     "ai_rate_limits",
+    # Class Rep Portal
+    "class_rep_deadlines",
+    "class_rep_polls",
+    "class_rep_relay",
+    # Unit Head Portal
+    "unit_noticeboard",
+    "unit_tasks",
 ]
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────

@@ -55,6 +55,7 @@ google-api-python-client>=2.100.0
 # Advanced Features (Phase 2)
 redis==5.2.1  # For distributed rate limiting (falls back to in-memory)
 resend==2.7.0  # Email notifications
+pywebpush==2.0.1  # Web Push notifications (VAPID)
 
 # Testing (not installed in production)
 # pytest>=9.0.0

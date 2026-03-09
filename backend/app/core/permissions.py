@@ -154,6 +154,21 @@ PERMISSIONS = {
 
     # System / infrastructure permissions
     "system:health": "Access API health dashboard (super admin only)",
+
+    # Class Rep Portal permissions
+    "class_rep:view_cohort": "View student directory for own level",
+    "class_rep:export_cohort": "Export level cohort contact list as CSV",
+    "class_rep:manage_deadlines": "Create/edit/delete deadline board entries",
+    "class_rep:manage_polls": "Create/edit/delete quick polls for level",
+    "class_rep:manage_relay": "Create/edit/delete lecturer relay board posts",
+    "class_rep:pin_relay": "Pin/unpin relay board posts",
+    "class_rep:view_stats": "View cohort stats (enrollment, payments)",
+
+    # Unit Head Portal permissions
+    "unit_head:view_members": "View member list for own unit",
+    "unit_head:manage_noticeboard": "Create/edit/delete noticeboard posts for own unit",
+    "unit_head:manage_tasks": "Create/edit/delete tasks for unit members",
+    "unit_head:announce": "Send announcements targeted to own unit members",
 }
 
 
@@ -278,9 +293,28 @@ DEFAULT_PERMISSIONS = {
 
     # ── Class Representatives ────────────────────────────────────────
     "class_rep": [
-        "announcement:view",
+        "announcement:create", "announcement:edit", "announcement:delete", "announcement:view",
         "event:view",
         "payment:view_all",
+        "enrollment:view",
+        "timetable:view",
+        "class_rep:view_cohort", "class_rep:export_cohort",
+        "class_rep:manage_deadlines", "class_rep:manage_polls",
+        "class_rep:manage_relay", "class_rep:pin_relay",
+        "class_rep:view_stats",
+    ],
+
+    # ── Assistant Class Representatives ──────────────────────────────
+    "asst_class_rep": [
+        "announcement:create", "announcement:view",
+        "event:view",
+        "payment:view_all",
+        "enrollment:view",
+        "timetable:view",
+        "class_rep:view_cohort",
+        "class_rep:manage_deadlines",
+        "class_rep:manage_relay",
+        "class_rep:view_stats",
     ],
 
     # ── Committee Heads (more permissions than members) ──────────────
@@ -289,25 +323,36 @@ DEFAULT_PERMISSIONS = {
         "event:create", "event:view",
         "resource:view",
         "unit_application:review",
+        "unit_head:view_members", "unit_head:manage_noticeboard",
+        "unit_head:manage_tasks", "unit_head:announce",
     ],
     "committee_head_welfare": [
         "announcement:create", "announcement:view",
         "user:view_all",
         "unit_application:review",
+        "unit_head:view_members", "unit_head:manage_noticeboard",
+        "unit_head:manage_tasks", "unit_head:announce",
     ],
     "committee_head_sports": [
         "event:create", "event:edit", "event:view",
         "announcement:create", "announcement:view",
         "unit_application:review",
+        "unit_head:view_members", "unit_head:manage_noticeboard",
+        "unit_head:manage_tasks", "unit_head:announce",
     ],
     "committee_head_social": [
         "event:create", "event:edit", "event:view",
         "announcement:create", "announcement:view",
         "unit_application:review",
+        "unit_head:view_members", "unit_head:manage_noticeboard",
+        "unit_head:manage_tasks", "unit_head:announce",
     ],
     "committee_head_technical": [
         "announcement:create", "announcement:view",
         "resource:view", "resource:create",
+        "unit_head:view_members", "unit_head:manage_noticeboard",
+        "unit_head:manage_tasks", "unit_head:announce",
+        "unit_application:review",
     ],
     # Legacy aliases — old keys kept for backward compatibility
     "committee_academic": [
@@ -373,6 +418,8 @@ DEFAULT_PERMISSIONS = {
         "announcement:create", "announcement:view",
         "user:view_all",
         "unit_application:review",
+        "unit_head:view_members", "unit_head:manage_noticeboard",
+        "unit_head:manage_tasks", "unit_head:announce",
     ],
     "press_member": [
         "press:access", "press:create", "press:edit",
@@ -382,10 +429,20 @@ DEFAULT_PERMISSIONS = {
         "event:view",
         "user:view_all",
         "unit_application:review",
+        "unit_head:view_members", "unit_head:manage_noticeboard",
+        "unit_head:manage_tasks", "unit_head:announce",
     ],
     "ics_member": [
         "announcement:view",
         "event:view",
+    ],
+
+    # ── Custom Unit Head (base defaults for unit_head_custom_* positions) ────
+    "unit_head_custom": [
+        "announcement:create", "announcement:view",
+        "event:view",
+        "unit_head:view_members", "unit_head:manage_noticeboard",
+        "unit_head:manage_tasks", "unit_head:announce",
     ],
 }
 
@@ -524,8 +581,12 @@ async def get_user_permissions(
             if position in DEFAULT_PERMISSIONS:
                 all_permissions.update(DEFAULT_PERMISSIONS[position])
             elif position.startswith("class_rep") or position.startswith("asst_class_rep"):
-                # All class_rep/asst_class_rep variants inherit base class_rep permissions
-                all_permissions.update(DEFAULT_PERMISSIONS.get("class_rep", []))
+                # class_rep_100L → class_rep defaults, asst_class_rep_100L → asst_class_rep defaults
+                base = "asst_class_rep" if position.startswith("asst_class_rep") else "class_rep"
+                all_permissions.update(DEFAULT_PERMISSIONS.get(base, []))
+            elif position.startswith("unit_head_custom_"):
+                # Custom unit heads get the base unit_head_custom defaults
+                all_permissions.update(DEFAULT_PERMISSIONS.get("unit_head_custom", []))
     
     result = list(all_permissions)
     # Only cache non-empty permission sets.

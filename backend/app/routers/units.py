@@ -387,18 +387,46 @@ async def set_unit_head(
 
         # Invalidate permissions cache for the new head
         from app.core.permissions import invalidate_permissions_cache
-        await invalidate_permissions_cache(payload.userId)
+        invalidate_permissions_cache(payload.userId)
 
     else:
-        # Custom unit: store headUserId on doc
+        # Custom unit: store headUserId on doc AND create a role record
         if not ObjectId.is_valid(unit_id):
             raise HTTPException(status_code=400, detail="Invalid unit ID")
-        res = await db["custom_units"].update_one(
-            {"_id": ObjectId(unit_id), "isActive": True},
+
+        unit_doc = await db["custom_units"].find_one(
+            {"_id": ObjectId(unit_id), "isActive": True}
+        )
+        if not unit_doc:
+            raise HTTPException(status_code=404, detail="Unit not found")
+
+        # Update the headUserId on the unit doc
+        await db["custom_units"].update_one(
+            {"_id": ObjectId(unit_id)},
             {"$set": {"headUserId": payload.userId, "updatedAt": datetime.now(timezone.utc)}},
         )
-        if res.matched_count == 0:
-            raise HTTPException(status_code=404, detail="Unit not found")
+
+        # Create a role record so the head gets permissions
+        head_position = f"unit_head_custom_{unit_doc['slug']}"
+
+        # Deactivate any previous head role for this custom unit
+        await db["roles"].update_many(
+            {"position": head_position, "sessionId": session_id, "isActive": True},
+            {"$set": {"isActive": False, "updatedAt": datetime.now(timezone.utc)}},
+        )
+
+        await db["roles"].insert_one({
+            "userId": payload.userId,
+            "position": head_position,
+            "sessionId": session_id,
+            "isActive": True,
+            "assignedBy": str(user.get("_id", user.get("id", ""))),
+            "createdAt": datetime.now(timezone.utc),
+            "updatedAt": datetime.now(timezone.utc),
+        })
+
+        from app.core.permissions import invalidate_permissions_cache
+        invalidate_permissions_cache(payload.userId)
 
     await AuditLogger.log(
         action="unit_head_assigned",
@@ -444,12 +472,31 @@ async def remove_unit_head(
     else:
         if not ObjectId.is_valid(unit_id):
             raise HTTPException(status_code=400, detail="Invalid unit ID")
-        res = await db["custom_units"].update_one(
-            {"_id": ObjectId(unit_id), "isActive": True},
+        unit_doc = await db["custom_units"].find_one(
+            {"_id": ObjectId(unit_id), "isActive": True}
+        )
+        if not unit_doc:
+            raise HTTPException(status_code=404, detail="Unit not found")
+
+        # Clear headUserId on unit doc
+        await db["custom_units"].update_one(
+            {"_id": ObjectId(unit_id)},
             {"$set": {"headUserId": None, "updatedAt": datetime.now(timezone.utc)}},
         )
-        if res.matched_count == 0:
-            raise HTTPException(status_code=404, detail="Unit not found")
+
+        # Deactivate the custom unit head role
+        head_position = f"unit_head_custom_{unit_doc['slug']}"
+        old_roles = await db["roles"].find(
+            {"position": head_position, "sessionId": session_id, "isActive": True}
+        ).to_list(length=10)
+        if old_roles:
+            await db["roles"].update_many(
+                {"position": head_position, "sessionId": session_id, "isActive": True},
+                {"$set": {"isActive": False, "updatedAt": datetime.now(timezone.utc)}},
+            )
+            from app.core.permissions import invalidate_permissions_cache
+            for r in old_roles:
+                invalidate_permissions_cache(r["userId"])
 
     await AuditLogger.log(
         action="unit_head_removed",

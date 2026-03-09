@@ -11,7 +11,7 @@ from app.core.security import verify_token
 from app.core.permissions import require_permission as _require_permission
 from app.core.rate_limiting import setup_rate_limiting
 from app.core.error_handling import setup_exception_handlers, setup_logging
-from app.routers import sessions, users, payments, events, announcements, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press, unit_applications, units, academic_calendar, timp, bank_transfers, settings, contact_messages, iepod, admin_stats, student_dashboard, sse, notifications, search, growth, messages, two_factor
+from app.routers import sessions, users, payments, events, announcements, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press, unit_applications, units, academic_calendar, timp, bank_transfers, settings, contact_messages, iepod, admin_stats, student_dashboard, sse, notifications, search, growth, messages, two_factor, class_rep, unit_head, push_notifications
 from app.db import connect_to_mongo, close_mongo_connection, get_database
 
 # Setup logging first
@@ -107,6 +107,11 @@ async def lifespan(app: FastAPI):
             await db["transactions"].create_index("reference", unique=True, sparse=True, background=True)
         else:
             raise
+
+    # Push notification subscriptions — compound index for user+endpoint dedup
+    await db["push_subscriptions"].create_index(
+        [("userId", 1), ("endpoint", 1)], unique=True, background=True
+    )
 
     yield
     # Shutdown
@@ -300,6 +305,9 @@ app.include_router(messages._admin_router)     # Admin Message Reports & Mutes
 app.include_router(messages._ws_router)        # Messages WebSocket (no HTTTPBearer dep)
 app.include_router(study_groups._ws_router)    # Study Groups WebSocket (no HTTPBearer dep)
 app.include_router(two_factor.router)          # Two-Factor Authentication (TOTP)
+app.include_router(class_rep.router)             # Class Rep Portal
+app.include_router(unit_head.router)               # Unit Head Portal
+app.include_router(push_notifications.router)        # Web Push Notifications
 
 @app.get("/api/protected")
 async def protected_route(user_data: dict = Depends(verify_token)):

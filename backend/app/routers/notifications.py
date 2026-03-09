@@ -77,6 +77,21 @@ async def create_notification(
     except Exception:
         pass  # SSE is non-critical
 
+    # Fire Web Push notification (fire-and-forget)
+    try:
+        from app.routers.push_notifications import send_push_to_user, is_push_enabled
+        if is_push_enabled():
+            import asyncio
+            asyncio.create_task(send_push_to_user(
+                user_id=user_id,
+                title=title,
+                body=message,
+                url=link,
+                tag=type,
+            ))
+    except Exception:
+        pass  # Non-critical
+
     return str(result.inserted_id)
 
 
@@ -143,6 +158,21 @@ async def create_bulk_notifications(
         })
     except Exception:
         pass  # SSE is non-critical
+
+    # Fire Web Push notifications (fire-and-forget)
+    try:
+        from app.routers.push_notifications import send_push_to_users, is_push_enabled
+        if is_push_enabled():
+            import asyncio
+            asyncio.create_task(send_push_to_users(
+                user_ids=user_ids,
+                title=title,
+                body=message,
+                url=link,
+                tag=type,
+            ))
+    except Exception:
+        pass  # Non-critical
 
     return len(result.inserted_ids)
 
