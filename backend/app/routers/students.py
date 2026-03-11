@@ -173,12 +173,13 @@ async def complete_student_registration(
     
     # Update user profile
     resolved_dept = data.department or "Industrial Engineering"
-    # Parse dateOfBirth string to date object if provided
+    # Parse dateOfBirth string to datetime (MongoDB/BSON requires datetime, not date)
     parsed_dob = None
     if data.dateOfBirth:
-        from datetime import date as date_type
         try:
-            parsed_dob = date_type.fromisoformat(data.dateOfBirth)
+            from datetime import date as date_type
+            d = date_type.fromisoformat(data.dateOfBirth)
+            parsed_dob = datetime(d.year, d.month, d.day, tzinfo=timezone.utc)
         except (ValueError, TypeError):
             pass
 
