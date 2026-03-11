@@ -1,5 +1,3 @@
-"use client";
-
 import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
@@ -158,7 +156,7 @@ export default function IepodLandingPage() {
                 </div>
                 <div className="bg-lavender border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] rotate-[-1deg]">
                   <div className="text-snow font-display font-black text-5xl mb-2">
-                    <svg className="w-12 h-12" viewBox="0 0 24 24" fill="currentColor">
+                    <svg className="w-12 h-12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                       <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
                     </svg>
                   </div>
@@ -166,7 +164,7 @@ export default function IepodLandingPage() {
                 </div>
                 <div className="bg-teal border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] rotate-[2deg]">
                   <div className="text-navy font-display font-black text-5xl mb-2">
-                    <svg className="w-12 h-12" viewBox="0 0 24 24" fill="currentColor">
+                    <svg className="w-12 h-12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                       <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A18.034 18.034 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" clipRule="evenodd" />
                     </svg>
                   </div>
@@ -190,7 +188,7 @@ export default function IepodLandingPage() {
                   Future
                 </span>
               </h2>
-              <p className="text-navy/60 font-medium mt-4 max-w-xl">
+              <p className="text-slate font-medium mt-4 max-w-xl">
                 A three-phase journey that transforms how you think, build, and present solutions.
               </p>
             </div>
@@ -209,16 +207,16 @@ export default function IepodLandingPage() {
                     </span>
                     <h3 className="font-display font-black text-xl text-navy">{phase.label}</h3>
                   </div>
-                  <p className="text-navy/80 font-medium text-sm leading-relaxed mb-6">
+                  <p className="text-navy-muted font-medium text-sm leading-relaxed mb-6">
                     {phase.description}
                   </p>
                   <ul className="space-y-2">
                     {phase.features.map((feat) => (
                       <li key={feat} className="flex items-center gap-2">
-                        <svg className="w-4 h-4 text-navy/60 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <svg className="w-4 h-4 text-slate shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                           <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
                         </svg>
-                        <span className="text-navy/80 font-bold text-sm">{feat}</span>
+                        <span className="text-navy-muted font-bold text-sm">{feat}</span>
                       </li>
                     ))}
                   </ul>
@@ -241,7 +239,7 @@ export default function IepodLandingPage() {
                   Pipeline
                 </span>
               </h2>
-              <p className="text-navy/60 font-medium mt-4 max-w-xl">
+              <p className="text-slate font-medium mt-4 max-w-xl">
                 IEPOD connects you to campus societies where you&apos;ll commit, contribute, and grow.
               </p>
             </div>
@@ -298,7 +296,7 @@ export default function IepodLandingPage() {
                   { icon: "M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z", title: "Show the How", sub: "Process is the product" },
                 ].map((item) => (
                   <div key={item.title} className="flex flex-col items-center bg-navy-light border-[3px] border-lime/30 rounded-2xl p-6">
-                    <svg className="w-8 h-8 text-lime mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                    <svg className="w-8 h-8 text-lime mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
                     </svg>
                     <h4 className="font-display font-black text-base text-lime mb-1">{item.title}</h4>
@@ -318,7 +316,7 @@ export default function IepodLandingPage() {
             <h2 className="font-display font-black text-3xl sm:text-5xl text-navy">
               Ready to Forge Your Future?
             </h2>
-            <p className="text-navy/70 font-medium text-lg max-w-xl mx-auto">
+            <p className="text-navy-muted font-medium text-lg max-w-xl mx-auto">
               Registration opens in the first 3 weeks of each session. Sign in to your IESA account and apply for the IEPOD program.
             </p>
             <div className="flex flex-wrap justify-center gap-4">

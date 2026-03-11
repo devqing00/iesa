@@ -121,7 +121,7 @@ export default function BlogArticlePage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-12">
           {/* Back link */}
           <Link href="/blog" className="inline-flex items-center gap-2 text-sm font-display font-bold text-navy/60 hover:text-navy transition-colors mb-8">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             Back to Blog
@@ -178,14 +178,14 @@ export default function BlogArticlePage() {
                 </div>
                 <div className="ml-auto flex items-center gap-4 text-xs text-slate">
                   <span className="flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" /><path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41z" clipRule="evenodd" /></svg>
+                    <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" /><path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41z" clipRule="evenodd" /></svg>
                     {article.viewCount} views
                   </span>
                   <button
                     onClick={handleLike}
                     className={`flex items-center gap-1 transition-colors ${liked ? "text-coral font-bold" : "hover:text-coral"}`}
                   >
-                    <svg className="w-4 h-4" fill={liked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                    <svg aria-hidden="true" className="w-4 h-4" fill={liked ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                     </svg>
                     {likeCount}
@@ -230,7 +230,7 @@ export default function BlogArticlePage() {
 
               {/* Back to blog CTA */}
               <div className="mt-12 text-center">
-                <Link href="/blog" className="inline-flex bg-navy border-[2px] border-ghost/20 px-8 py-3 rounded-2xl font-display font-bold text-snow press-4 press-navy transition-all">
+                <Link href="/blog" className="inline-flex bg-navy border-[2px] border-ghost/20 px-8 py-3 rounded-2xl font-display font-bold text-snow press-4 press-lime transition-all">
                   More Articles
                 </Link>
               </div>

@@ -335,7 +335,7 @@ function AdminTimetablePage() {
                 onClick={openCreateModal}
                 className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
                 </svg>
                 Add Class
@@ -346,7 +346,7 @@ function AdminTimetablePage() {
                 onClick={openExamCreate}
                 className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
                 </svg>
                 Add Exam
@@ -362,7 +362,7 @@ function AdminTimetablePage() {
           onClick={() => setActiveTab("classes")}
           className={`px-5 py-2.5 rounded-2xl font-display font-bold text-sm transition-all border-[3px] ${
             activeTab === "classes"
-              ? "bg-navy border-navy text-snow"
+              ? "bg-navy border-lime text-snow"
               : "bg-ghost border-navy text-navy hover:bg-cloud"
           }`}
         >
@@ -372,7 +372,7 @@ function AdminTimetablePage() {
           onClick={() => setActiveTab("exams")}
           className={`px-5 py-2.5 rounded-2xl font-display font-bold text-sm transition-all border-[3px] ${
             activeTab === "exams"
-              ? "bg-navy border-navy text-snow"
+              ? "bg-navy border-lime text-snow"
               : "bg-ghost border-navy text-navy hover:bg-cloud"
           }`}
         >
@@ -382,7 +382,7 @@ function AdminTimetablePage() {
           onClick={() => setActiveTab("calendar")}
           className={`px-5 py-2.5 rounded-2xl font-display font-bold text-sm transition-all border-[3px] ${
             activeTab === "calendar"
-              ? "bg-navy border-navy text-snow"
+              ? "bg-navy border-lime text-snow"
               : "bg-ghost border-navy text-navy hover:bg-cloud"
           }`}
         >
@@ -453,7 +453,7 @@ function AdminTimetablePage() {
       ) : classes.length === 0 ? (
         <div className="bg-snow border-[3px] border-navy rounded-3xl p-16 text-center shadow-[4px_4px_0_0_#000] space-y-4">
           <div className="w-16 h-16 bg-sunny-light rounded-2xl flex items-center justify-center mx-auto">
-            <svg className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
             </svg>
           </div>
@@ -497,27 +497,27 @@ function AdminTimetablePage() {
 
                         <div className="space-y-1.5 text-sm text-navy/70 mb-4">
                           <div className="flex items-center gap-2">
-                            <svg className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                            <svg aria-hidden="true" className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
                               <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
                             </svg>
                             <span className="font-medium">{cls.startTime} – {cls.endTime}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <svg className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                            <svg aria-hidden="true" className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
                               <path fillRule="evenodd" d="m11.54 22.351.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 3.834 3.025ZM12 12.75a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" />
                             </svg>
                             <span>{cls.venue}</span>
                           </div>
                           {cls.lecturer && (
                             <div className="flex items-center gap-2">
-                              <svg className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                              <svg aria-hidden="true" className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
                                 <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clipRule="evenodd" />
                               </svg>
                               <span>{cls.lecturer}</span>
                             </div>
                           )}
                           <div className="flex items-center gap-2">
-                            <svg className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                            <svg aria-hidden="true" className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
                               <path d="M11.7 2.805a.75.75 0 0 1 .6 0A60.65 60.65 0 0 1 22.83 8.72a.75.75 0 0 1-.231 1.337 49.949 49.949 0 0 0-9.902 3.912l-.003.002-.34.18a.75.75 0 0 1-.707 0A50.009 50.009 0 0 0 7.5 12.174v-.224c0-.131.067-.248.172-.311a54.614 54.614 0 0 1 4.653-2.52.75.75 0 0 0-.65-1.352 56.129 56.129 0 0 0-4.78 2.589 1.858 1.858 0 0 0-.859 1.228 49.803 49.803 0 0 0-4.634-1.527.75.75 0 0 1-.231-1.337A60.653 60.653 0 0 1 11.7 2.805Z" />
                               <path d="M13.06 15.473a48.45 48.45 0 0 1 7.666-3.282c.134 1.414.22 2.843.255 4.285a.75.75 0 0 1-.46.71 47.878 47.878 0 0 0-8.105 4.342.75.75 0 0 1-.832 0 47.877 47.877 0 0 0-8.104-4.342.75.75 0 0 1-.461-.71c.035-1.442.121-2.87.255-4.286A48.4 48.4 0 0 1 6 13.18v1.27a1.5 1.5 0 0 0-.14 2.508c-.09.38-.222.753-.397 1.11.452.213.901.434 1.346.661a6.729 6.729 0 0 0 .551-1.608 1.5 1.5 0 0 0 .14-2.67v-.645a48.549 48.549 0 0 1 3.44 1.668 2.25 2.25 0 0 0 2.12 0Z" />
                               <path d="M4.462 19.462c.42-.419.753-.89 1-1.394.453.213.902.434 1.347.661a6.743 6.743 0 0 1-1.286 1.794.75.75 0 0 1-1.06-1.06Z" />
@@ -530,7 +530,7 @@ function AdminTimetablePage() {
                           <div className="flex gap-2">
                             <button
                               onClick={() => openEditModal(cls)}
-                              className="flex-1 px-4 py-2 rounded-xl bg-ghost border-[3px] border-navy text-navy text-xs font-bold hover:bg-navy hover:text-snow transition-all"
+                              className="flex-1 px-4 py-2 rounded-xl bg-ghost border-[3px] border-navy text-navy text-xs font-bold press-3 press-navy hover:bg-navy hover:text-lime transition-all"
                             >
                               Edit
                             </button>
@@ -568,7 +568,7 @@ function AdminTimetablePage() {
                 </h3>
               </div>
               <button onClick={closeModal} className="p-2 rounded-xl hover:bg-cloud transition-colors" aria-label="Close">
-                <svg className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                 </svg>
               </button>
@@ -703,7 +703,7 @@ function AdminTimetablePage() {
                 <div
                   onClick={() => setFormData({ ...formData, recurring: !formData.recurring })}
                   className={`relative w-11 h-6 rounded-full transition-colors border-[2px] ${
-                    formData.recurring ? "bg-navy border-navy" : "bg-cloud border-navy/20"
+                    formData.recurring ? "bg-navy border-lime" : "bg-cloud border-navy/20"
                   }`}
                 >
                   <div className={`absolute top-0.5 w-4 h-4 rounded-full shadow transition-transform ${
@@ -724,7 +724,7 @@ function AdminTimetablePage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy transition-all"
+                  className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-4 press-lime transition-all"
                 >
                   {editingClass ? "Update Class" : "Create Class"}
                 </button>
@@ -773,7 +773,7 @@ function AdminTimetablePage() {
           ) : exams.length === 0 ? (
             <div className="bg-snow border-[3px] border-navy rounded-3xl p-16 text-center shadow-[4px_4px_0_0_#000] space-y-4">
               <div className="w-16 h-16 bg-coral-light rounded-2xl flex items-center justify-center mx-auto">
-                <svg className="w-8 h-8 text-coral" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-8 h-8 text-coral" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25a3.75 3.75 0 0 0-3-3.75H5.625Z" />
                 </svg>
               </div>
@@ -797,25 +797,25 @@ function AdminTimetablePage() {
                     </div>
                     <div className="space-y-1.5 text-sm text-navy/70 mb-4">
                       <div className="flex items-center gap-2">
-                        <svg className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
                         </svg>
                         <span className="font-medium">{new Date(ex.date + "T00:00").toLocaleDateString("en-NG", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <svg className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
                         </svg>
                         <span>{ex.startTime} – {ex.endTime}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <svg className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="m11.54 22.351.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 3.834 3.025ZM12 12.75a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" />
                         </svg>
                         <span>{ex.venue}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <svg className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M11.7 2.805a.75.75 0 0 1 .6 0A60.65 60.65 0 0 1 22.83 8.72a.75.75 0 0 1-.231 1.337 49.949 49.949 0 0 0-9.902 3.912l-.003.002-.34.18a.75.75 0 0 1-.707 0A50.009 50.009 0 0 0 7.5 12.174v-.224c0-.131.067-.248.172-.311a54.614 54.614 0 0 1 4.653-2.52.75.75 0 0 0-.65-1.352 56.129 56.129 0 0 0-4.78 2.589 1.858 1.858 0 0 0-.859 1.228 49.803 49.803 0 0 0-4.634-1.527.75.75 0 0 1-.231-1.337A60.653 60.653 0 0 1 11.7 2.805Z" />
                         </svg>
                         <span>{ex.level} Level</span>
@@ -823,7 +823,7 @@ function AdminTimetablePage() {
                     </div>
                     <PermissionGate permission="timetable:edit">
                       <div className="flex gap-2">
-                        <button onClick={() => openExamEdit(ex)} className="flex-1 px-4 py-2 rounded-xl bg-ghost border-[3px] border-navy text-navy text-xs font-bold hover:bg-navy hover:text-snow transition-all">Edit</button>
+                        <button onClick={() => openExamEdit(ex)} className="flex-1 px-4 py-2 rounded-xl bg-ghost border-[3px] border-navy text-navy text-xs font-bold press-3 press-navy hover:bg-navy hover:text-lime transition-all">Edit</button>
                         <button onClick={() => setExamDeleteConfirm({ isOpen: true, id: ex._id })} disabled={deletingExam === ex._id} className="px-4 py-2 rounded-xl bg-coral-light border-[3px] border-coral text-coral text-xs font-bold hover:bg-coral hover:text-snow transition-all disabled:opacity-50">
                           {deletingExam === ex._id ? "..." : "Delete"}
                         </button>
@@ -848,7 +848,7 @@ function AdminTimetablePage() {
                     </h3>
                   </div>
                   <button onClick={() => { setShowExamModal(false); setEditingExam(null); }} className="p-2 rounded-xl hover:bg-cloud transition-colors" aria-label="Close">
-                    <svg className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
+                    <svg aria-hidden="true" className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
                       <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                     </svg>
                   </button>
@@ -898,7 +898,7 @@ function AdminTimetablePage() {
                   </div>
                   <div className="flex gap-3 pt-4">
                     <button type="button" onClick={() => { setShowExamModal(false); setEditingExam(null); }} className="flex-1 px-5 py-2.5 rounded-2xl border-[3px] border-navy text-navy text-sm font-bold hover:bg-cloud transition-colors">Cancel</button>
-                    <button type="submit" className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy transition-all">{editingExam ? "Update Exam" : "Create Exam"}</button>
+                    <button type="submit" className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-4 press-lime transition-all">{editingExam ? "Update Exam" : "Create Exam"}</button>
                   </div>
                 </form>
               </div>

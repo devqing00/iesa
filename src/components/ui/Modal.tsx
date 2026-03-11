@@ -117,7 +117,7 @@ export function Modal({
                 className="p-1.5 rounded-xl hover:bg-cloud text-slate hover:text-navy border-[2px] border-transparent hover:border-navy transition-all"
                 aria-label="Close modal"
               >
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>

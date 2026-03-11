@@ -253,7 +253,7 @@ function AdminResourcesPage() {
             onClick={() => setShowAddForm((v) => !v)}
             className="shrink-0 bg-lime border-[3px] border-navy press-3 press-navy px-5 py-3 rounded-2xl font-display text-navy text-sm transition-all flex items-center gap-2"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
             {showAddForm ? "Cancel" : "Add Resource"}
@@ -415,7 +415,7 @@ function AdminResourcesPage() {
             onClick={() => setTab(t)}
             className={`px-5 py-2.5 rounded-xl border-[3px] font-display text-sm capitalize transition-all ${
               tab === t
-                ? "bg-navy border-navy text-snow shadow-[3px_3px_0_0_#0F0F2D]"
+                ? "bg-navy border-lime text-snow shadow-[3px_3px_0_0_#C8F31D]"
                 : "bg-ghost border-navy text-navy hover:bg-cloud"
             }`}
           >
@@ -472,7 +472,7 @@ function AdminResourcesPage() {
           </div>
         ) : resources.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <svg className="w-10 h-10 text-cloud" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-10 h-10 text-cloud" viewBox="0 0 24 24" fill="currentColor">
               <path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
             </svg>
             <p className="font-display font-black text-xl text-navy">No {tab} resources</p>

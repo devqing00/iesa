@@ -100,7 +100,7 @@ async def get_timp_settings(
 @router.patch("/settings", dependencies=[Depends(require_permission("timp:manage"))])
 async def update_timp_settings(
     request: Request,
-    user: dict = Depends(require_ipe_student),
+    user: dict = Depends(get_current_user),
     session: dict = Depends(get_current_session),
     formOpen: bool = Query(..., description="Whether the TIMP application form is open"),
 ):
@@ -178,10 +178,18 @@ async def apply_as_mentor(
             detail="You already have an active mentor application for this session",
         )
 
+    raw_level = user.get("level") or user.get("currentLevel")
+    stored_level = None
+    if raw_level:
+        try:
+            stored_level = int(str(raw_level).replace("L", "").replace("l", "").strip())
+        except (ValueError, TypeError):
+            pass
+
     doc = {
         "userId": uid,
         "userName": f"{user.get('firstName', '')} {user.get('lastName', '')}".strip(),
-        "userLevel": user.get("level") or user.get("currentLevel"),
+        "userLevel": stored_level,
         "motivation": data.motivation,
         "skills": data.skills,
         "availability": data.availability,
@@ -227,12 +235,34 @@ async def review_mentor_application(
     data: MentorApplicationReview,
     request: Request,
     user: dict = Depends(require_ipe_student),
+    session: dict = Depends(get_current_session),
     _perm=Depends(require_permission("timp:manage")),
 ):
     """TIMP lead approves or rejects a mentor application."""
     db = get_database()
     if not ObjectId.is_valid(app_id):
         raise HTTPException(status_code=400, detail="Invalid application ID")
+
+    # Only allow approving or rejecting (not setting back to pending)
+    if data.status == MentorApplicationStatus.pending:
+        raise HTTPException(status_code=400, detail="Review status must be 'approved' or 'rejected'")
+
+    # Fetch current application to validate state
+    current = await db.timpApplications.find_one({"_id": ObjectId(app_id)})
+    if not current:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    # Session gating — prevent modifying apps from other sessions
+    session_id = str(session["_id"])
+    if current.get("sessionId") != session_id:
+        raise HTTPException(status_code=403, detail="Cannot modify applications from a different session")
+
+    # Prevent re-reviewing already reviewed applications
+    if current.get("status") != "pending":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Application has already been {current['status']}. Only pending applications can be reviewed.",
+        )
 
     result = await db.timpApplications.find_one_and_update(
         {"_id": ObjectId(app_id)},
@@ -259,6 +289,23 @@ async def review_mentor_application(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
+
+    # Notify the applicant about the review result
+    applicant_id = result.get("userId")
+    if applicant_id:
+        try:
+            from app.routers.notifications import create_notification
+            status_label = "approved" if data.status.value == "approved" else "rejected"
+            await create_notification(
+                user_id=applicant_id,
+                type="timp",
+                title=f"TIMP Application {status_label.title()}",
+                message=f"Your TIMP mentor application has been {status_label}.{(' Feedback: ' + data.feedback) if data.feedback else ''}",
+                link="/dashboard/timp",
+                category="timp",
+            )
+        except Exception:
+            pass  # Non-critical
 
     return _app_to_response(result)
 
@@ -489,6 +536,10 @@ async def create_pair(
         raise HTTPException(status_code=400, detail="This pair already exists")
 
     # Get user names
+    if not ObjectId.is_valid(data.mentorId) or not ObjectId.is_valid(data.menteeId):
+        raise HTTPException(status_code=400, detail="Invalid mentor or mentee ID")
+    if data.mentorId == data.menteeId:
+        raise HTTPException(status_code=400, detail="Mentor and mentee cannot be the same person")
     mentor = await db.users.find_one({"_id": ObjectId(data.mentorId)})
     mentee = await db.users.find_one({"_id": ObjectId(data.menteeId)})
     if not mentor or not mentee:
@@ -541,13 +592,21 @@ async def list_pairs(
     query: dict = {"sessionId": sid}
     if status:
         query["status"] = status
-    if search:
-        search_regex = {"$regex": re.escape(search), "$options": "i"}
-        query["$or"] = [{"mentorName": search_regex}, {"menteeName": search_regex}]
 
     # Non-admin/exco users only see pairs they're part of
     if role not in ("admin", "exco"):
-        query["$or"] = [{"mentorId": uid}, {"menteeId": uid}]
+        auth_filter = [{"mentorId": uid}, {"menteeId": uid}]
+        if search:
+            search_regex = {"$regex": re.escape(search), "$options": "i"}
+            query["$and"] = [
+                {"$or": auth_filter},
+                {"$or": [{"mentorName": search_regex}, {"menteeName": search_regex}]},
+            ]
+        else:
+            query["$or"] = auth_filter
+    elif search:
+        search_regex = {"$regex": re.escape(search), "$options": "i"}
+        query["$or"] = [{"mentorName": search_regex}, {"menteeName": search_regex}]
 
     total = await db.timpPairs.count_documents(query)
     cursor = db.timpPairs.find(query).sort("createdAt", -1).skip(skip).limit(limit)
@@ -561,12 +620,21 @@ async def update_pair_status(
     status: PairStatus,
     request: Request,
     user: dict = Depends(require_ipe_student),
+    session: dict = Depends(get_current_session),
     _perm=Depends(require_permission("timp:manage")),
 ):
     """Update pair status (pause, complete, reactivate)."""
     db = get_database()
     if not ObjectId.is_valid(pair_id):
         raise HTTPException(status_code=400, detail="Invalid pair ID")
+
+    # Session gating — prevent modifying pairs from other sessions
+    current = await db.timpPairs.find_one({"_id": ObjectId(pair_id)})
+    if not current:
+        raise HTTPException(status_code=404, detail="Pair not found")
+    session_id = str(session["_id"])
+    if current.get("sessionId") != session_id:
+        raise HTTPException(status_code=403, detail="Cannot modify pairs from a different session")
 
     result = await db.timpPairs.find_one_and_update(
         {"_id": ObjectId(pair_id)},
@@ -586,6 +654,23 @@ async def update_pair_status(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
+
+    # Notify both mentor and mentee about the pair status change
+    try:
+        from app.routers.notifications import create_bulk_notifications
+        pair_user_ids = [uid for uid in [result.get("mentorId"), result.get("menteeId")] if uid]
+        if pair_user_ids:
+            import asyncio
+            asyncio.create_task(create_bulk_notifications(
+                user_ids=pair_user_ids,
+                type="timp",
+                title=f"TIMP Pair {status.value.title()}",
+                message=f"Your mentorship pair has been {status.value}.",
+                link="/dashboard/timp",
+                category="timp",
+            ))
+    except Exception:
+        pass  # Non-critical
 
     return _pair_to_response(result)
 
@@ -636,6 +721,7 @@ async def submit_feedback(
 
     doc = {
         "pairId": pair_id,
+        "sessionId": str(pair.get("sessionId", "")),
         "submittedBy": uid,
         "submitterName": f"{user.get('firstName', '')} {user.get('lastName', '')}".strip(),
         "submitterRole": role,
@@ -740,10 +826,10 @@ async def get_my_timp_info(
 @router.get("/analytics")
 async def get_timp_analytics(
     user: dict = Depends(require_permission("timp:manage")),
+    session: dict = Depends(get_current_session),
 ):
     """TIMP programme health dashboard."""
     db = get_database()
-    session = await get_current_session(db)
     sid = str(session["_id"])
 
     import asyncio
@@ -820,6 +906,10 @@ async def send_pair_message(
     pair = await db.timpPairs.find_one({"_id": ObjectId(pair_id)})
     if not pair:
         raise HTTPException(status_code=404, detail="Pair not found")
+
+    # Only active pairs allow messaging
+    if pair.get("status") != "active":
+        raise HTTPException(status_code=400, detail="Messaging is only available for active pairs")
 
     # Only mentor or mentee of this pair can send messages
     if uid not in (pair["mentorId"], pair["menteeId"]):

@@ -443,3 +443,33 @@ export {
 } from './growth';
 
 export type { GrowthTool } from './growth';
+
+// Google Drive Resource Browser
+export {
+  browseDriveFolder,
+  getDriveFileMeta,
+  getDriveStreamUrl,
+  searchDrive,
+  saveDriveProgress,
+  getAllDriveProgress,
+  getRecentDriveFiles,
+  createDriveBookmark,
+  deleteDriveBookmark,
+  formatFileSize as formatDriveFileSize,
+  formatDuration,
+  formatSeconds,
+  getFileTypeColor,
+  getFileTypeLabel,
+} from './drive';
+
+export type {
+  DriveItem,
+  DriveBreadcrumb,
+  BrowseResponse,
+  FileMetaResponse,
+  FileProgress,
+  FileBookmark,
+  SearchResponse as DriveSearchResponse,
+  ProgressUpdatePayload,
+  BookmarkPayload,
+} from './drive';

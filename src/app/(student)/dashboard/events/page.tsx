@@ -12,7 +12,7 @@ import {
   NIGERIAN_BANKS,
   BankAccount,
 } from "@/lib/api";
-import { useToast } from "@/components/ui/Toast";
+import { toast } from "sonner";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import dynamic from "next/dynamic";
 
@@ -53,19 +53,19 @@ interface Event {
 const CATEGORIES = ["All", "Academic", "Social", "Career", "Workshop", "General"];
 
 const categoryPills: Record<string, { active: string }> = {
-  All: { active: "bg-navy text-snow border-navy" },
+  All: { active: "bg-navy text-snow border-lime" },
   Academic: { active: "bg-lavender text-snow border-navy" },
   Social: { active: "bg-coral text-snow border-navy" },
   Career: { active: "bg-teal text-snow border-navy" },
   Workshop: { active: "bg-sunny text-navy border-navy" },
-  General: { active: "bg-navy text-snow border-navy" },
+  General: { active: "bg-navy text-snow border-lime" },
 };
 
 const cardAccents = [
   { header: "bg-coral", dateBg: "bg-snow/15", dateText: "text-snow", catBg: "bg-snow/20", catText: "text-snow", border: "border-navy" },
   { header: "bg-lavender", dateBg: "bg-snow/15", dateText: "text-snow", catBg: "bg-snow/20", catText: "text-snow", border: "border-navy" },
   { header: "bg-teal", dateBg: "bg-navy/15", dateText: "text-navy", catBg: "bg-navy/15", catText: "text-navy", border: "border-navy" },
-  { header: "bg-navy", dateBg: "bg-teal/20", dateText: "text-snow", catBg: "bg-snow/15", catText: "text-snow/80", border: "border-navy" },
+  { header: "bg-navy", dateBg: "bg-teal/20", dateText: "text-snow", catBg: "bg-snow/15", catText: "text-snow/80", border: "border-lime" },
   { header: "bg-sunny", dateBg: "bg-navy/10", dateText: "text-navy", catBg: "bg-navy/10", catText: "text-navy", border: "border-navy" },
 ];
 
@@ -116,7 +116,6 @@ function EventsPage() {
     transferDate: new Date().toISOString().split("T")[0],
     narration: "",
   });
-  const toast = useToast();
   const [downloadingReceipt, setDownloadingReceipt] = useState<string | null>(null);
   const [downloadingTicket, setDownloadingTicket] = useState<string | null>(null);
   // Platform settings
@@ -160,10 +159,10 @@ function EventsPage() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast.success("Receipt Downloaded", "Your payment receipt has been downloaded successfully.");
+      toast.success("Receipt Downloaded", { description: "Your payment receipt has been downloaded successfully." });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Failed to download receipt";
-      toast.error("Download Failed", errorMessage);
+      toast.error("Download Failed", { description: errorMessage });
     } finally {
       setDownloadingReceipt(null);
     }
@@ -190,10 +189,10 @@ function EventsPage() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast.success("Ticket Downloaded", "Your event ticket has been downloaded successfully.");
+      toast.success("Ticket Downloaded", { description: "Your event ticket has been downloaded successfully." });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Failed to download ticket";
-      toast.error("Download Failed", errorMessage);
+      toast.error("Download Failed", { description: errorMessage });
     } finally {
       setDownloadingTicket(null);
     }
@@ -329,10 +328,10 @@ function EventsPage() {
       }
       setRegisteredEvents((prev) => new Set([...prev, eventId]));
       setEvents((prev) => prev.map((e) => (e.id === eventId ? { ...e, attendeeCount: e.attendeeCount + 1 } : e)));
-      toast.success("Registered!", "You've been registered for this event");
+      toast.success("Registered!", { description: "You've been registered for this event" });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to register for event";
-      toast.error("Registration Failed", message);
+      toast.error("Registration Failed", { description: message });
     } finally {
       setRegistering(null);
     }
@@ -354,9 +353,9 @@ function EventsPage() {
         return newSet;
       });
       setEvents((prev) => prev.map((e) => (e.id === eventId ? { ...e, attendeeCount: Math.max(0, e.attendeeCount - 1) } : e)));
-      toast.success("Unregistered", "You've been removed from this event");
+      toast.success("Unregistered", { description: "You've been removed from this event" });
     } catch (err) {
-      toast.error("Unregister Failed", "Failed to unregister from event");
+      toast.error("Unregister Failed", { description: "Failed to unregister from event" });
     } finally {
       setRegistering(null);
     }
@@ -386,7 +385,7 @@ function EventsPage() {
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to initiate payment";
-      toast.error("Payment Error", message);
+      toast.error("Payment Error", { description: message });
       setPaying(null);
     }
   };
@@ -396,11 +395,11 @@ function EventsPage() {
 
     if (!transferForm.bankAccountId || !transferForm.senderName || !transferForm.senderBank
         || !transferForm.transactionReference || !transferForm.transferDate) {
-      toast.error("Missing Fields", "Please fill in all required fields");
+      toast.error("Missing Fields", { description: "Please fill in all required fields" });
       return;
     }
     if (refExistsError) {
-      toast.error("Duplicate Reference", "Please fix the transaction reference before submitting.");
+      toast.error("Duplicate Reference", { description: "Please fix the transaction reference before submitting." });
       return;
     }
     setShowConfirmTransfer(true);
@@ -419,12 +418,12 @@ function EventsPage() {
         transferDate: transferForm.transferDate,
         narration: transferForm.narration || undefined,
       });
-      toast.success("Transfer Submitted", "Your bank transfer proof has been submitted for admin review.");
+      toast.success("Transfer Submitted", { description: "Your bank transfer proof has been submitted for admin review." });
       setBankTransferEvent(null);
       setPendingTransfers(prev => new Set([...prev, bankTransferEvent.id]));
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Failed to submit transfer proof";
-      toast.error("Submission Failed", msg);
+      toast.error("Submission Failed", { description: msg });
     } finally {
       setTransferSubmitting(false);
     }
@@ -476,16 +475,16 @@ function EventsPage() {
       if (!res.ok) throw new Error("Failed to verify payment");
       const data = await res.json();
       if (data.status === "success") {
-        toast.success("Payment Verified", "Your event payment was successful! You are now registered.");
+        toast.success("Payment Verified", { description: "Your event payment was successful! You are now registered." });
       } else if (data.status === "failed") {
-        toast.error("Payment Declined", "Your payment was declined. Please try again or use a different payment method.");
+        toast.error("Payment Declined", { description: "Your payment was declined. Please try again or use a different payment method." });
       } else if (data.status === "abandoned") {
-        toast.warning("Payment Cancelled", "You cancelled the payment. No charges were made.");
+        toast.warning("Payment Cancelled", { description: "You cancelled the payment. No charges were made." });
       } else {
-        toast.warning("Payment Pending", `Your payment is being processed. Please check back shortly.`);
+        toast.warning("Payment Pending", { description: `Your payment is being processed. Please check back shortly.` });
       }
     } catch (err) {
-      toast.error("Verification Failed", "Could not verify your event payment. Please check your payment history or contact support.");
+      toast.error("Verification Failed", { description: "Could not verify your event payment. Please check your payment history or contact support." });
     } finally {
       // Tell the useEffect not to re-fetch when router.replace fires
       skipFetch.current = true;
@@ -548,10 +547,10 @@ function EventsPage() {
           {/* Title block */}
           <div className="md:col-span-8 bg-coral border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[180px] flex flex-col justify-between">
             <div className="absolute -bottom-12 -right-12 w-40 h-40 rounded-full bg-navy/8 pointer-events-none" />
-            <svg className="absolute top-6 right-10 w-5 h-5 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="absolute top-6 right-10 w-5 h-5 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
             </svg>
-            <svg className="absolute bottom-10 right-24 w-4 h-4 text-snow/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="absolute bottom-10 right-24 w-4 h-4 text-snow/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
             </svg>
 
@@ -575,7 +574,7 @@ function EventsPage() {
           <div className="md:col-span-4 grid grid-cols-2 md:grid-cols-1 gap-3">
             <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-lavender-light flex items-center justify-center mb-2">
-                <svg className="w-4.5 h-4.5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-4.5 h-4.5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -584,7 +583,7 @@ function EventsPage() {
             </div>
             <div className="bg-teal-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-teal/20 flex items-center justify-center mb-2">
-                <svg className="w-4.5 h-4.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-4.5 h-4.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -600,7 +599,7 @@ function EventsPage() {
         {error && (
           <div className="bg-coral-light border-[3px] border-navy rounded-2xl p-4 mb-5 shadow-[3px_3px_0_0_#000] flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-coral flex items-center justify-center shrink-0">
-              <svg className="w-4 h-4 text-snow" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-4 h-4 text-snow" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
               </svg>
             </div>
@@ -635,7 +634,7 @@ function EventsPage() {
           <div className="flex shrink-0 gap-1 bg-ghost border-[3px] border-navy/20 rounded-xl p-1">
             <button
               onClick={() => setViewMode("list")}
-              className={`p-2 rounded-lg transition-all ${viewMode === "list" ? "bg-navy text-snow shadow-[2px_2px_0_0_#000]" : "text-slate hover:text-navy"}`}
+              className={`p-2 rounded-lg transition-all ${viewMode === "list" ? "bg-navy text-snow shadow-[2px_2px_0_0_#C8F31D]" : "text-slate hover:text-navy"}`}
               aria-label="List view"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -644,7 +643,7 @@ function EventsPage() {
             </button>
             <button
               onClick={() => setViewMode("calendar")}
-              className={`p-2 rounded-lg transition-all ${viewMode === "calendar" ? "bg-navy text-snow shadow-[2px_2px_0_0_#000]" : "text-slate hover:text-navy"}`}
+              className={`p-2 rounded-lg transition-all ${viewMode === "calendar" ? "bg-navy text-snow shadow-[2px_2px_0_0_#C8F31D]" : "text-slate hover:text-navy"}`}
               aria-label="Calendar view"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -669,7 +668,7 @@ function EventsPage() {
         {filteredEvents.length === 0 ? (
           <div className="bg-snow border-[3px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-sunny-light flex items-center justify-center">
-              <svg className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
               </svg>
             </div>
@@ -759,19 +758,19 @@ function EventsPage() {
                     {/* Meta */}
                     <div className="space-y-2">
                       <div className="flex items-center gap-2.5 text-xs text-navy/60">
-                        <svg className="w-4 h-4 text-slate shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-4 h-4 text-slate shrink-0" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
                         </svg>
                         <span className="font-medium">{formatTime(event.date)} &middot; {formatDate(event.date)}</span>
                       </div>
                       <div className="flex items-center gap-2.5 text-xs text-navy/60">
-                        <svg className="w-4 h-4 text-slate shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-4 h-4 text-slate shrink-0" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 2.682 2.282 16.975 16.975 0 0 0 1.145.742ZM12 13.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" />
                         </svg>
                         <span className="font-medium truncate">{event.location}</span>
                       </div>
                       <div className="flex items-center gap-2.5 text-xs text-navy/60">
-                        <svg className="w-4 h-4 text-slate shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-4 h-4 text-slate shrink-0" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
                         </svg>
                         <span className="font-medium">
@@ -789,7 +788,7 @@ function EventsPage() {
                           ? "bg-sunny-light border-sunny/30"
                           : "bg-sunny-light border-sunny/30"
                       }`}>
-                        <svg className={`w-3.5 h-3.5 ${paidEvents.has(event.id) ? "text-teal" : "text-sunny"}`} fill="currentColor" viewBox="0 0 24 24">
+                        <svg aria-hidden="true" className={`w-3.5 h-3.5 ${paidEvents.has(event.id) ? "text-teal" : "text-sunny"}`} fill="currentColor" viewBox="0 0 24 24">
                           <path d="M12 7.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" />
                           <path fillRule="evenodd" d="M1.5 4.875C1.5 3.839 2.34 3 3.375 3h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 17.625V4.875z" clipRule="evenodd" />
                         </svg>
@@ -816,7 +815,7 @@ function EventsPage() {
                               {downloadingReceipt === paymentRefs[event.id] ? (
                                 <div className="w-3.5 h-3.5 border-2 border-navy border-t-transparent rounded-full animate-spin" />
                               ) : (
-                                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
                                   <path fillRule="evenodd" d="M12 2.25a.75.75 0 01.75.75v11.69l3.22-3.22a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 111.06-1.06l3.22 3.22V3a.75.75 0 01.75-.75zm-9 13.5a.75.75 0 01.75.75v2.25a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5V16.5a.75.75 0 011.5 0v2.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V16.5a.75.75 0 01.75-.75z" clipRule="evenodd" />
                                 </svg>
                               )}
@@ -830,7 +829,7 @@ function EventsPage() {
                               {downloadingTicket === paymentRefs[event.id] ? (
                                 <div className="w-3.5 h-3.5 border-2 border-snow border-t-transparent rounded-full animate-spin" />
                               ) : (
-                                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
                                   <path fillRule="evenodd" d="M12 2.25a.75.75 0 01.75.75v11.69l3.22-3.22a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 111.06-1.06l3.22 3.22V3a.75.75 0 01.75-.75zm-9 13.5a.75.75 0 01.75.75v2.25a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5V16.5a.75.75 0 011.5 0v2.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V16.5a.75.75 0 01.75-.75z" clipRule="evenodd" />
                                 </svg>
                               )}
@@ -850,7 +849,7 @@ function EventsPage() {
                             </>
                           ) : (
                             <>
-                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                              <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                                 <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                               </svg>
                               Unregister
@@ -883,7 +882,7 @@ function EventsPage() {
                             "Event Full"
                           ) : (
                             <>
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                              <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M12 7.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" />
                                 <path fillRule="evenodd" d="M1.5 4.875C1.5 3.839 2.34 3 3.375 3h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 17.625V4.875z" clipRule="evenodd" />
                               </svg>
@@ -913,7 +912,7 @@ function EventsPage() {
                         ) : (
                           <>
                             Register Now
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                            <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                               <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                             </svg>
                           </>
@@ -953,7 +952,7 @@ function EventsPage() {
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-navy flex items-center justify-center shrink-0">
-                    <svg className="w-5 h-5 text-snow" fill="currentColor" viewBox="0 0 24 24"><path d="M4.5 3.75a3 3 0 00-3 3v.75h21v-.75a3 3 0 00-3-3h-15z" /><path fillRule="evenodd" d="M22.5 9.75h-21v7.5a3 3 0 003 3h15a3 3 0 003-3v-7.5zm-18 3.75a.75.75 0 01.75-.75h6a.75.75 0 010 1.5h-6a.75.75 0 01-.75-.75zm.75 2.25a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3z" clipRule="evenodd" /></svg>
+                    <svg aria-hidden="true" className="w-5 h-5 text-snow" fill="currentColor" viewBox="0 0 24 24"><path d="M4.5 3.75a3 3 0 00-3 3v.75h21v-.75a3 3 0 00-3-3h-15z" /><path fillRule="evenodd" d="M22.5 9.75h-21v7.5a3 3 0 003 3h15a3 3 0 003-3v-7.5zm-18 3.75a.75.75 0 01.75-.75h6a.75.75 0 010 1.5h-6a.75.75 0 01-.75-.75zm.75 2.25a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3z" clipRule="evenodd" /></svg>
                   </div>
                   <div>
                     <p className="font-display font-black text-navy">Pay Online</p>
@@ -965,7 +964,7 @@ function EventsPage() {
                 <div className="w-full bg-cloud border-[3px] border-navy/10 rounded-2xl p-4 cursor-not-allowed opacity-60" title="Online payments are currently disabled by admin">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-navy/20 flex items-center justify-center shrink-0">
-                      <svg className="w-5 h-5 text-navy/40" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" /></svg>
+                      <svg aria-hidden="true" className="w-5 h-5 text-navy/40" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" /></svg>
                     </div>
                     <div>
                       <p className="font-display font-black text-navy/40">Pay Online</p>
@@ -980,7 +979,7 @@ function EventsPage() {
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-navy flex items-center justify-center shrink-0">
-                    <svg className="w-5 h-5 text-snow" fill="currentColor" viewBox="0 0 24 24"><path d="M11.584 2.376a.75.75 0 01.832 0l9 6a.75.75 0 01-.832 1.248L12 3.901 3.416 9.624a.75.75 0 01-.832-1.248l9-6z" /><path fillRule="evenodd" d="M20.25 10.332v9.918H21a.75.75 0 010 1.5H3a.75.75 0 010-1.5h.75v-9.918a.75.75 0 01.634-.74A49.109 49.109 0 0112 9c2.59 0 5.134.202 7.616.592a.75.75 0 01.634.74zm-7.5 2.418a.75.75 0 00-1.5 0v6.75a.75.75 0 001.5 0v-6.75zm3-.75a.75.75 0 01.75.75v6.75a.75.75 0 01-1.5 0v-6.75a.75.75 0 01.75-.75zm-9 .75a.75.75 0 00-1.5 0v6.75a.75.75 0 001.5 0v-6.75z" clipRule="evenodd" /></svg>
+                    <svg aria-hidden="true" className="w-5 h-5 text-snow" fill="currentColor" viewBox="0 0 24 24"><path d="M11.584 2.376a.75.75 0 01.832 0l9 6a.75.75 0 01-.832 1.248L12 3.901 3.416 9.624a.75.75 0 01-.832-1.248l9-6z" /><path fillRule="evenodd" d="M20.25 10.332v9.918H21a.75.75 0 010 1.5H3a.75.75 0 010-1.5h.75v-9.918a.75.75 0 01.634-.74A49.109 49.109 0 0112 9c2.59 0 5.134.202 7.616.592a.75.75 0 01.634.74zm-7.5 2.418a.75.75 0 00-1.5 0v6.75a.75.75 0 001.5 0v-6.75zm3-.75a.75.75 0 01.75.75v6.75a.75.75 0 01-1.5 0v-6.75a.75.75 0 01.75-.75zm-9 .75a.75.75 0 00-1.5 0v6.75a.75.75 0 001.5 0v-6.75z" clipRule="evenodd" /></svg>
                   </div>
                   <div>
                     <p className="font-display font-black text-navy">Bank Transfer</p>
@@ -1079,13 +1078,13 @@ function EventsPage() {
                   />
                   {checkingRef && (
                     <span className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <svg className="w-4 h-4 animate-spin text-navy/40" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                      <svg aria-hidden="true" className="w-4 h-4 animate-spin text-navy/40" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                     </span>
                   )}
                 </div>
                 {refExistsError && (
                   <div className="flex items-start gap-2 bg-coral-light border-2 border-coral rounded-xl px-3 py-2.5 mt-2">
-                    <svg className="w-4 h-4 text-coral mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" /></svg>
+                    <svg aria-hidden="true" className="w-4 h-4 text-coral mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" /></svg>
                     <p className="font-display font-medium text-xs text-coral">{refExistsError}</p>
                   </div>
                 )}
@@ -1151,7 +1150,7 @@ function EventsPage() {
             <div className="px-6 pt-6 pb-4 border-b-[3px] border-navy/10">
               <div className="flex items-center gap-3 mb-1">
                 <div className="w-10 h-10 bg-sunny-light border-[3px] border-navy rounded-xl flex items-center justify-center">
-                  <svg className="w-5 h-5 text-navy" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" /></svg>
+                  <svg aria-hidden="true" className="w-5 h-5 text-navy" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" /></svg>
                 </div>
                 <h2 className="font-display font-black text-xl text-navy">Confirm Submission</h2>
               </div>

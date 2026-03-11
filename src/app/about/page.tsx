@@ -79,7 +79,7 @@ export default function AboutPage() {
             {/* Mission */}
             <div className="bg-coral border-[2px] border-navy rounded-3xl p-8 sm:p-10 shadow-[3px_3px_0_0_#000] rotate-[-1deg] hover:rotate-0 transition-transform">
               <div className="w-14 h-14 bg-navy rounded-full flex items-center justify-center mb-5">
-                <svg className="w-7 h-7 text-snow" fill="currentColor" viewBox="0 0 20 20">
+                <svg aria-hidden="true" className="w-7 h-7 text-snow" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -97,7 +97,7 @@ export default function AboutPage() {
             {/* Vision */}
             <div className="bg-sunny border-[2px] border-navy rounded-3xl p-8 sm:p-10 shadow-[3px_3px_0_0_#000] rotate-[1deg] hover:rotate-0 transition-transform">
               <div className="w-14 h-14 bg-navy rounded-full flex items-center justify-center mb-5">
-                <svg className="w-7 h-7 text-sunny" fill="currentColor" viewBox="0 0 20 20">
+                <svg aria-hidden="true" className="w-7 h-7 text-sunny" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -134,7 +134,7 @@ export default function AboutPage() {
                 description: "Tutorial sessions, study groups, past question resources, and academic mentorship programs.",
                 bg: "bg-lavender",
                 icon: (
-                  <svg className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                  <svg aria-hidden="true" className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
                   </svg>
                 ),
@@ -144,7 +144,7 @@ export default function AboutPage() {
                 description: "Networking events, company visits, internship placements, and career guidance sessions.",
                 bg: "bg-teal",
                 icon: (
-                  <svg className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                  <svg aria-hidden="true" className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
                   </svg>
                 ),
@@ -154,7 +154,7 @@ export default function AboutPage() {
                 description: "Technical workshops, soft skills training, and seminars featuring industry experts.",
                 bg: "bg-coral",
                 icon: (
-                  <svg className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                  <svg aria-hidden="true" className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z" />
                   </svg>
                 ),
@@ -164,7 +164,7 @@ export default function AboutPage() {
                 description: "Orientation programs, social gatherings, sports competitions, and cultural celebrations.",
                 bg: "bg-sunny",
                 icon: (
-                  <svg className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                  <svg aria-hidden="true" className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
                   </svg>
                 ),
@@ -174,7 +174,7 @@ export default function AboutPage() {
                 description: "IESA magazine, newsletters, academic journals, and digital content creation.",
                 bg: "bg-snow",
                 icon: (
-                  <svg className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                  <svg aria-hidden="true" className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
                   </svg>
                 ),
@@ -184,7 +184,7 @@ export default function AboutPage() {
                 description: "Outreach programs, volunteering initiatives, and projects that give back to society.",
                 bg: "bg-lime-light",
                 icon: (
-                  <svg className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                  <svg aria-hidden="true" className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
                   </svg>
                 ),
@@ -224,7 +224,7 @@ export default function AboutPage() {
 
           {/* Team teaser card */}
           <Link href="/team" className="block group">
-            <div className="bg-navy border-[4px] border-lime rounded-3xl p-10 sm:p-16 text-center shadow-[8px_8px_0_0_#C8F31D] hover:shadow-[12px_12px_0_0_#C8F31D] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all">
+            <div className="bg-navy border-[4px] border-lime rounded-3xl p-10 sm:p-16 text-center press-8 press-lime transition-all">
               <div className="w-20 h-20 mx-auto bg-lime border-[3px] border-navy rounded-full flex items-center justify-center mb-6 shadow-[3px_3px_0_0_#C8F31D]">
                 <svg className="w-9 h-9 text-navy" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A18.034 18.034 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" clipRule="evenodd" />
@@ -265,7 +265,7 @@ export default function AboutPage() {
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link
               href="/register"
-              className="font-display font-black bg-navy border-[2px] border-navy rounded-full px-10 py-4 text-base text-snow uppercase tracking-wide press-3 press-navy transition-all text-center"
+              className="font-display font-black bg-navy border-[2px] border-lime rounded-full px-10 py-4 text-base text-snow uppercase tracking-wide press-3 press-lime transition-all text-center"
             >
               Join IESA →
             </Link>

@@ -206,7 +206,7 @@ export function HelpButton({ onClick }: { onClick: () => void }) {
       aria-label="How to use this tool"
       title="How to use"
     >
-      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+      <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
         <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm11.378-3.917c-.89-.777-2.366-.777-3.255 0a.75.75 0 01-.988-1.129c1.454-1.272 3.776-1.272 5.23 0 1.513 1.324 1.513 3.518 0 4.842a3.75 3.75 0 01-.837.552c-.676.37-1.028.768-1.028 1.152a.75.75 0 01-1.5 0c0-1.064.852-1.808 1.41-2.113.248-.135.51-.318.674-.49.486-.425.486-1.39 0-1.814zM12 17.25a.75.75 0 100 1.5.75.75 0 000-1.5z" clipRule="evenodd" />
       </svg>
     </button>
@@ -251,7 +251,7 @@ export function ToolHelpModal({ toolId, isOpen, onClose }: ToolHelpModalProps) {
               className="w-8 h-8 rounded-lg bg-snow/60 flex items-center justify-center text-navy/50 hover:text-navy hover:bg-snow transition-all shrink-0 mt-0.5"
               aria-label="Close help"
             >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd" />
               </svg>
             </button>
@@ -281,7 +281,7 @@ export function ToolHelpModal({ toolId, isOpen, onClose }: ToolHelpModalProps) {
           {content.tips && content.tips.length > 0 && (
             <div className="mt-4 pt-4 border-t-[2px] border-navy/10">
               <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/40 mb-3 flex items-center gap-1.5">
-                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 .75a8.25 8.25 0 00-4.135 15.39c.686.398 1.115 1.008 1.134 1.623a.75.75 0 00.577.706c.352.083.71.148 1.074.195.323.041.6-.218.6-.544v-4.661a6.714 6.714 0 01-.937-.171.75.75 0 11.374-1.453 5.261 5.261 0 002.626 0 .75.75 0 11.374 1.452 6.712 6.712 0 01-.937.172v4.66c0 .327.277.586.6.545.364-.047.722-.112 1.074-.195a.75.75 0 00.577-.706c.02-.615.448-1.225 1.134-1.623A8.25 8.25 0 0012 .75z" />
                   <path fillRule="evenodd" d="M9.013 19.9a.75.75 0 01.877-.597 11.319 11.319 0 004.22 0 .75.75 0 11.28 1.473 12.819 12.819 0 01-4.78 0 .75.75 0 01-.597-.876zM9.754 22.344a.75.75 0 01.824-.668 13.682 13.682 0 002.844 0 .75.75 0 11.156 1.492 15.156 15.156 0 01-3.156 0 .75.75 0 01-.668-.824z" clipRule="evenodd" />
                 </svg>
@@ -290,7 +290,7 @@ export function ToolHelpModal({ toolId, isOpen, onClose }: ToolHelpModalProps) {
               <div className="space-y-2">
                 {content.tips.map((tip, i) => (
                   <div key={i} className="flex items-start gap-2 text-xs text-navy/60">
-                    <svg className="w-3 h-3 text-teal mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                    <svg aria-hidden="true" className="w-3 h-3 text-teal mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
                       <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
                     </svg>
                     <span>{tip}</span>

@@ -44,6 +44,8 @@ export interface UserProfile {
   notificationEmailPreference?: "primary" | "secondary" | "both";
   notificationChannelPreference?: "email" | "in_app" | "both";
   notificationCategories?: Record<string, boolean>;
+  dateOfBirth?: string;
+  isExternalStudent?: boolean;
 }
 
 interface AuthContextType {
@@ -65,6 +67,7 @@ interface AuthContextType {
       admissionYear?: number;
       role?: string;
       department?: string;
+      dateOfBirth?: string;
     }
   ) => Promise<void>;
   signOut: () => Promise<void>;
@@ -200,6 +203,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         admissionYear?: number;
         role?: string;
         department?: string;
+        dateOfBirth?: string;
       }
     ) => {
       const token = await fbUser.getIdToken();
@@ -216,6 +220,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           admissionYear: extra?.admissionYear || null,
           role: extra?.role || null,
           department: extra?.department || null,
+          dateOfBirth: extra?.dateOfBirth || null,
         }),
       });
 
@@ -340,6 +345,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         admissionYear?: number;
         role?: string;
         department?: string;
+        dateOfBirth?: string;
       }
     ) => {
       let credential;

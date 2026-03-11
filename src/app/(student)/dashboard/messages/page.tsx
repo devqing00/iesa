@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
 import { useDM } from "@/context/DMContext";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
-import { useToast } from "@/components/ui/Toast";
+import { toast } from "sonner";
 import { ConfirmModal } from "@/components/ui/Modal";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
@@ -155,7 +155,6 @@ type SidebarTab = "chats" | "requests" | "connections";
 export default function MessagesPage() {
   const { getAccessToken, userProfile } = useAuth();
   const { showHelp, openHelp, closeHelp } = useToolHelp("messages");
-  const toast = useToast();
   const { subscribe, setMessagesPageOpen, syncTotalUnread, sendWsMessage } = useDM();
   const currentUserId = userProfile?.id || "";
   // Stable ref so event handler closures always read the latest value
@@ -1120,7 +1119,7 @@ export default function MessagesPage() {
         {/* ── Mute Banner ── */}
         {muteInfo?.muted && (
           <div className="mb-4 bg-coral-light border-[3px] border-coral rounded-2xl p-4 flex items-start gap-3">
-            <svg className="w-5 h-5 text-coral shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-5 h-5 text-coral shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.499-2.599 4.499H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
             </svg>
             <div>
@@ -1276,7 +1275,7 @@ export default function MessagesPage() {
                   ) : conversations.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
                       <div className="w-14 h-14 rounded-2xl bg-lavender-light flex items-center justify-center mb-3">
-                        <svg className="w-7 h-7 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-7 h-7 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 0 0-1.032-.211 50.89 50.89 0 0 0-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 0 0 2.433 3.984L7.28 21.53A.75.75 0 0 1 6 21v-2.234a4.75 4.75 0 0 1-1.087-3.275V10.66a4.795 4.795 0 0 1 0-7.893Z" />
                           <path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.814 2.67 2.94 1.243.102 2.5.157 3.768.165l2.782 2.781a.75.75 0 0 0 1.28-.53v-2.39l.33-.026c1.542-.125 2.67-1.433 2.67-2.94v-4.286c0-1.505-1.125-2.811-2.664-2.94A49.392 49.392 0 0 0 15.75 7.5Z" />
                         </svg>
@@ -1349,7 +1348,7 @@ export default function MessagesPage() {
                 ) : msgRequests.length === 0 && connRequests.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
                     <div className="w-14 h-14 rounded-2xl bg-teal-light flex items-center justify-center mb-3">
-                      <svg className="w-7 h-7 text-teal" viewBox="0 0 24 24" fill="currentColor">
+                      <svg aria-hidden="true" className="w-7 h-7 text-teal" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M6.25 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM3.25 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122ZM19.75 7.5a.75.75 0 0 0-1.5 0v2.25H16a.75.75 0 0 0 0 1.5h2.25v2.25a.75.75 0 0 0 1.5 0v-2.25H22a.75.75 0 0 0 0-1.5h-2.25V7.5Z" />
                       </svg>
                     </div>
@@ -1456,7 +1455,7 @@ export default function MessagesPage() {
                 ) : connections.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
                     <div className="w-14 h-14 rounded-2xl bg-lime-light flex items-center justify-center mb-3">
-                      <svg className="w-7 h-7 text-lime-dark" viewBox="0 0 24 24" fill="currentColor">
+                      <svg aria-hidden="true" className="w-7 h-7 text-lime-dark" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
                       </svg>
                     </div>
@@ -1514,7 +1513,7 @@ export default function MessagesPage() {
                     className="md:hidden p-1 rounded-lg hover:bg-ghost transition-colors"
                     aria-label="Back to conversations"
                   >
-                    <svg className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <svg aria-hidden="true" className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                       <path d="M15 19l-7-7 7-7" />
                     </svg>
                   </button>
@@ -1549,7 +1548,7 @@ export default function MessagesPage() {
                       className="p-1.5 rounded-lg text-slate hover:text-navy hover:bg-ghost transition-colors"
                       title="Search messages"
                     >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                         <circle cx="11" cy="11" r="8" />
                         <path d="M21 21l-4.35-4.35" />
                       </svg>
@@ -1560,7 +1559,7 @@ export default function MessagesPage() {
                       className="p-1.5 rounded-lg text-slate hover:text-navy hover:bg-ghost transition-colors"
                       title="Pinned messages"
                     >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                      <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M16 4a1 1 0 00-1.4.2L12 8l-2.6-3.8A1 1 0 008 4a1 1 0 00-1 1v6.28l-2.6 3.12a1 1 0 00.2 1.4 1 1 0 00.6.2H11v5a1 1 0 002 0v-5h5.8a1 1 0 00.6-.2 1 1 0 00.2-1.4L17 11.28V5a1 1 0 00-1-1z" />
                       </svg>
                     </button>
@@ -1571,7 +1570,7 @@ export default function MessagesPage() {
                         className="p-1.5 rounded-lg text-slate hover:text-coral hover:bg-coral-light transition-colors"
                         title="Report user"
                       >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M3 2.25a.75.75 0 0 1 .75.75v.54l1.838-.46a9.75 9.75 0 0 1 6.725.738l.108.054a8.25 8.25 0 0 0 5.58.652l3.109-.732a.75.75 0 0 1 .917.81 47.784 47.784 0 0 0 .005 10.337.75.75 0 0 1-.574.812l-3.114.733a9.75 9.75 0 0 1-6.594-.77l-.108-.054a8.25 8.25 0 0 0-5.69-.625l-1.81.452A.75.75 0 0 1 3 14.175V3a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
                         </svg>
                       </button>
@@ -1596,7 +1595,7 @@ export default function MessagesPage() {
                         className="p-1.5 rounded-lg text-slate hover:text-coral hover:bg-coral-light transition-colors"
                         title="Block user"
                       >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z" clipRule="evenodd" />
                         </svg>
                       </button>
@@ -1613,7 +1612,7 @@ export default function MessagesPage() {
                   ) : messages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-center">
                       <div className="w-16 h-16 rounded-2xl bg-lime-light flex items-center justify-center mb-3">
-                        <svg className="w-8 h-8 text-lime-dark" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-8 h-8 text-lime-dark" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 0 0-1.032-.211 50.89 50.89 0 0 0-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 0 0 2.433 3.984L7.28 21.53A.75.75 0 0 1 6 21v-2.234a4.75 4.75 0 0 1-1.087-3.275V10.66a4.795 4.795 0 0 1 0-7.893Z" />
                           <path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.814 2.67 2.94 1.243.102 2.5.157 3.768.165l2.782 2.781a.75.75 0 0 0 1.28-.53v-2.39l.33-.026c1.542-.125 2.67-1.433 2.67-2.94v-4.286c0-1.505-1.125-2.811-2.664-2.94A49.392 49.392 0 0 0 15.75 7.5Z" />
                         </svg>
@@ -1683,7 +1682,7 @@ export default function MessagesPage() {
                                   <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
                                     swipeOffsets[msg.id] >= SWIPE_THRESHOLD ? "bg-lime text-navy" : "bg-cloud text-slate"
                                   }`}>
-                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                    <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                                       <path d="M9 17l-5-5 5-5M4 12h16" />
                                     </svg>
                                   </div>
@@ -1708,7 +1707,7 @@ export default function MessagesPage() {
                                 {/* Pin indicator */}
                                 {msg.isPinned && !isDeleted && (
                                   <div className={`flex items-center gap-1 text-[9px] text-sunny font-bold mb-0.5 ${isMine ? "justify-end" : "justify-start"}`}>
-                                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                                    <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                                       <path d="M16 4a1 1 0 00-1.4.2L12 8l-2.6-3.8A1 1 0 008 4a1 1 0 00-1 1v6.28l-2.6 3.12a1 1 0 00.2 1.4 1 1 0 00.6.2H11v5a1 1 0 002 0v-5h5.8a1 1 0 00.6-.2 1 1 0 00.2-1.4L17 11.28V5a1 1 0 00-1-1z" />
                                     </svg>
                                     Pinned
@@ -1739,7 +1738,7 @@ export default function MessagesPage() {
                                         className="p-1 rounded-lg hover:bg-ghost text-slate hover:text-navy transition-colors"
                                         title="React"
                                       >
-                                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                        <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                                           <circle cx="12" cy="12" r="10" />
                                           <path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" />
                                         </svg>
@@ -1750,7 +1749,7 @@ export default function MessagesPage() {
                                         className="p-1 rounded-lg hover:bg-ghost text-slate hover:text-navy transition-colors"
                                         title="Reply"
                                       >
-                                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                        <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                                           <path d="M9 17l-5-5 5-5M4 12h16" />
                                         </svg>
                                       </button>
@@ -1760,7 +1759,7 @@ export default function MessagesPage() {
                                         className="p-1 rounded-lg hover:bg-ghost text-slate hover:text-navy transition-colors"
                                         title={msg.isPinned ? "Unpin" : "Pin"}
                                       >
-                                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                                        <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                                           <path d="M16 4a1 1 0 00-1.4.2L12 8l-2.6-3.8A1 1 0 008 4a1 1 0 00-1 1v6.28l-2.6 3.12a1 1 0 00.2 1.4 1 1 0 00.6.2H11v5a1 1 0 002 0v-5h5.8a1 1 0 00.6-.2 1 1 0 00.2-1.4L17 11.28V5a1 1 0 00-1-1z" />
                                         </svg>
                                       </button>
@@ -1771,7 +1770,7 @@ export default function MessagesPage() {
                                           className="p-1 rounded-lg hover:bg-coral-light text-slate hover:text-coral transition-colors"
                                           title="Delete message"
                                         >
-                                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                          <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                                             <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                           </svg>
                                         </button>
@@ -1825,7 +1824,7 @@ export default function MessagesPage() {
                                                 rel="noopener noreferrer"
                                                 className="flex items-center gap-2 px-3 py-2 bg-snow/50 rounded-xl border-[2px] border-cloud hover:border-navy transition-colors"
                                               >
-                                                <svg className="w-4 h-4 text-lavender shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                                <svg aria-hidden="true" className="w-4 h-4 text-lavender shrink-0" viewBox="0 0 24 24" fill="currentColor">
                                                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
                                                   <path d="M14 2v6h6" />
                                                 </svg>
@@ -1945,7 +1944,7 @@ export default function MessagesPage() {
                             onClick={() => { setReplyTo(ctxMsg); setContextMenu(null); }}
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-navy hover:bg-ghost transition-colors"
                           >
-                            <svg className="w-4 h-4 text-slate" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                            <svg aria-hidden="true" className="w-4 h-4 text-slate" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                               <path d="M9 17l-5-5 5-5M4 12h16" />
                             </svg>
                             Reply
@@ -1956,7 +1955,7 @@ export default function MessagesPage() {
                             onClick={() => { setEmojiPickerMsgId(contextMenu.msgId); setActiveMsgId(contextMenu.msgId); setContextMenu(null); }}
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-navy hover:bg-ghost transition-colors"
                           >
-                            <svg className="w-4 h-4 text-slate" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                            <svg aria-hidden="true" className="w-4 h-4 text-slate" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                               <circle cx="12" cy="12" r="10" />
                               <path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" />
                             </svg>
@@ -1968,7 +1967,7 @@ export default function MessagesPage() {
                             onClick={() => { handlePinMessage(contextMenu.msgId, !!ctxMsg.isPinned); setContextMenu(null); }}
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-navy hover:bg-ghost transition-colors"
                           >
-                            <svg className="w-4 h-4 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                            <svg aria-hidden="true" className="w-4 h-4 text-slate" viewBox="0 0 24 24" fill="currentColor">
                               <path d="M16 4a1 1 0 00-1.4.2L12 8l-2.6-3.8A1 1 0 008 4a1 1 0 00-1 1v6.28l-2.6 3.12a1 1 0 00.2 1.4 1 1 0 00.6.2H11v5a1 1 0 002 0v-5h5.8a1 1 0 00.6-.2 1 1 0 00.2-1.4L17 11.28V5a1 1 0 00-1-1z" />
                             </svg>
                             {ctxMsg.isPinned ? "Unpin" : "Pin message"}
@@ -1982,7 +1981,7 @@ export default function MessagesPage() {
                                 onClick={() => { handleDeleteMessage(contextMenu.msgId); setContextMenu(null); }}
                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-coral hover:bg-coral-light transition-colors"
                               >
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                                   <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
                                 Delete message
@@ -2012,7 +2011,7 @@ export default function MessagesPage() {
                   <div className="px-4 py-3 border-t-[2px] border-cloud">
                     {!isConnected && (
                       <div className="mb-2 flex items-center gap-2 px-3 py-1.5 bg-sunny-light rounded-xl">
-                        <svg className="w-3.5 h-3.5 text-sunny shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-3.5 h-3.5 text-sunny shrink-0" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
                         </svg>
                         <span className="text-[10px] text-navy-muted">
@@ -2037,7 +2036,7 @@ export default function MessagesPage() {
                           className="p-1 rounded-lg hover:bg-ghost text-slate hover:text-navy transition-colors shrink-0"
                           aria-label="Cancel reply"
                         >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                             <path d="M18 6L6 18M6 6l12 12" />
                           </svg>
                         </button>
@@ -2075,7 +2074,7 @@ export default function MessagesPage() {
                             {uploading ? (
                               <div className="w-4 h-4 border-2 border-navy border-t-transparent rounded-full animate-spin" />
                             ) : (
-                              <svg className="w-5 h-5 text-slate" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                              <svg aria-hidden="true" className="w-5 h-5 text-slate" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                                 <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                               </svg>
                             )}
@@ -2112,7 +2111,7 @@ export default function MessagesPage() {
                         {sending ? (
                           <div className="w-4 h-4 border-2 border-navy border-t-transparent rounded-full animate-spin" />
                         ) : (
-                          <svg className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                          <svg aria-hidden="true" className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
                           </svg>
                         )}
@@ -2125,7 +2124,7 @@ export default function MessagesPage() {
               /* No conversation selected */
               <div className="flex flex-col items-center justify-center h-full text-center px-6">
                 <div className="w-20 h-20 rounded-2xl bg-lavender-light flex items-center justify-center mb-4">
-                  <svg className="w-10 h-10 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-10 h-10 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 0 0-1.032-.211 50.89 50.89 0 0 0-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 0 0 2.433 3.984L7.28 21.53A.75.75 0 0 1 6 21v-2.234a4.75 4.75 0 0 1-1.087-3.275V10.66a4.795 4.795 0 0 1 0-7.893Z" />
                     <path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.814 2.67 2.94 1.243.102 2.5.157 3.768.165l2.782 2.781a.75.75 0 0 0 1.28-.53v-2.39l.33-.026c1.542-.125 2.67-1.433 2.67-2.94v-4.286c0-1.505-1.125-2.811-2.664-2.94A49.392 49.392 0 0 0 15.75 7.5Z" />
                   </svg>
@@ -2217,7 +2216,7 @@ export default function MessagesPage() {
           >
             <div className="p-4 border-b-[2px] border-cloud">
               <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-slate shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <svg aria-hidden="true" className="w-5 h-5 text-slate shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <circle cx="11" cy="11" r="8" />
                   <path d="M21 21l-4.35-4.35" />
                 </svg>
@@ -2234,7 +2233,7 @@ export default function MessagesPage() {
                   className="p-1 rounded-lg hover:bg-ghost text-slate"
                   title="Close search"
                 >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                     <path d="M18 6L6 18M6 6l12 12" />
                   </svg>
                 </button>
@@ -2317,7 +2316,7 @@ export default function MessagesPage() {
           >
             <div className="px-4 py-3 border-b-[2px] border-cloud flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-sunny" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-5 h-5 text-sunny" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M16 4a1 1 0 00-1.4.2L12 8l-2.6-3.8A1 1 0 008 4a1 1 0 00-1 1v6.28l-2.6 3.12a1 1 0 00.2 1.4 1 1 0 00.6.2H11v5a1 1 0 002 0v-5h5.8a1 1 0 00.6-.2 1 1 0 00.2-1.4L17 11.28V5a1 1 0 00-1-1z" />
                 </svg>
                 <h3 className="font-display font-black text-base text-navy">Pinned Messages</h3>
@@ -2327,7 +2326,7 @@ export default function MessagesPage() {
                 className="p-1 rounded-lg hover:bg-ghost text-slate"
                 title="Close pinned messages"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path d="M18 6L6 18M6 6l12 12" />
                 </svg>
               </button>
@@ -2402,7 +2401,7 @@ export default function MessagesPage() {
             onClick={() => setAttachmentPreview(null)}
             aria-label="Close preview"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-5 h-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>

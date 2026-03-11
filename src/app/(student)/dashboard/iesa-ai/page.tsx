@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useSidebar } from "@/context/SidebarContext";
 import { getApiUrl } from "@/lib/api";
-import { useToast } from "@/components/ui/Toast";
+import { toast } from "sonner";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ═══════════════════════════════════════════
@@ -226,7 +226,6 @@ export default function IESAAIPage() {
   const messagesLengthRef = useRef(0);
   // Ref so the save effect always reads current conversations without being in its deps
   const conversationsRef = useRef(conversations);
-  const toast = useToast();
 
   /* ── scroll helper ── */
   const scrollToBottom = useCallback(() => {
@@ -242,7 +241,7 @@ export default function IESAAIPage() {
     if (!("speechSynthesis" in window)) {
       toast.warning(
         "Not Supported",
-        "Text-to-speech is not supported in your browser",
+        { description: "Text-to-speech is not supported in your browser" },
       );
       return;
     }
@@ -448,7 +447,7 @@ export default function IESAAIPage() {
     if (messages.length === 0 && user) {
       const welcomeMsg: Message = {
         id: Date.now(),
-        text: `Hey ${user.firstName || "there"}! I'm IESA AI, your smart campus assistant. I already know everything about you — your level, payment status, upcoming events, and more. Just ask me anything, and I'll give you personalized answers without needing to ask for details. What would you like to know?`,
+        text: `Hey ${user.firstName || "there"}! What can I help you with?`,
         sender: "ai",
         time: new Date().toLocaleTimeString([], {
           hour: "2-digit",
@@ -1517,7 +1516,7 @@ export default function IESAAIPage() {
                 <button
                   onClick={() => sendMessage()}
                   disabled={loading || !input.trim()}
-                  className="px-4 py-3.5 bg-navy border-[3px] border-lavender press-3 press-black font-display font-black text-xs uppercase tracking-wider text-lavender disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 shrink-0 rounded-xl"
+                  className="px-4 py-3.5 bg-navy border-[3px] border-lavender press-3 press-lime font-display font-black text-xs uppercase tracking-wider text-lavender disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 shrink-0 rounded-xl"
                   aria-label="Send message"
                 >
                   <svg

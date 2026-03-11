@@ -51,6 +51,28 @@ class GrowthDataPayload(BaseModel):
 
 # ─── Endpoints ───────────────────────────────────────────────────────────
 
+@router.get("/all")
+async def get_all_growth_data(
+    user: dict = Depends(verify_token),
+):
+    """Get all growth data for the current user (used by hub index page)."""
+    db = get_database()
+    cursor = db[COLLECTION].find(
+        {"userId": user["sub"]},
+        {"_id": 0, "tool": 1, "data": 1, "updatedAt": 1},
+    )
+    docs = await cursor.to_list(length=20)
+
+    result = {}
+    for doc in docs:
+        result[doc["tool"]] = {
+            "data": doc.get("data"),
+            "updatedAt": doc.get("updatedAt"),
+        }
+
+    return result
+
+
 @router.get("/{tool}")
 async def get_growth_data(
     tool: str,
@@ -122,25 +144,3 @@ async def delete_growth_data(
     )
 
     return {"ok": True, "deleted": result.deleted_count > 0}
-
-
-@router.get("/")
-async def get_all_growth_data(
-    user: dict = Depends(verify_token),
-):
-    """Get all growth data for the current user (used by hub index page)."""
-    db = get_database()
-    cursor = db[COLLECTION].find(
-        {"userId": user["sub"]},
-        {"_id": 0, "tool": 1, "data": 1, "updatedAt": 1},
-    )
-    docs = await cursor.to_list(length=20)
-
-    result = {}
-    for doc in docs:
-        result[doc["tool"]] = {
-            "data": doc.get("data"),
-            "updatedAt": doc.get("updatedAt"),
-        }
-
-    return result

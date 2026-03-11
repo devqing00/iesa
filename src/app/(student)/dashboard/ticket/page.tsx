@@ -142,7 +142,7 @@ function TicketContent() {
       <div className="min-h-[60vh] flex items-center justify-center px-4">
         <div className="bg-snow border-[3px] border-navy rounded-3xl p-8 max-w-md text-center shadow-[8px_8px_0_0_#000]">
           <div className="w-16 h-16 rounded-full bg-coral-light flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-coral" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-8 h-8 text-coral" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z" clipRule="evenodd" />
             </svg>
           </div>
@@ -184,7 +184,7 @@ function TicketContent() {
           onClick={handlePrint}
           className="bg-lime border-[3px] border-navy rounded-xl px-5 py-2 font-display font-bold text-sm text-navy press-2 press-navy flex items-center gap-2"
         >
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+          <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
             <path fillRule="evenodd" d="M7.875 1.5C6.839 1.5 6 2.34 6 3.375v2.99c-.426.053-.851.11-1.274.174-1.454.218-2.476 1.483-2.476 2.917v6.294a3 3 0 0 0 3 3h.27l-.092 1.086a1.875 1.875 0 0 0 1.865 2.063h9.414a1.875 1.875 0 0 0 1.865-2.063l-.092-1.086h.27a3 3 0 0 0 3-3V9.456c0-1.434-1.022-2.7-2.476-2.917A48.716 48.716 0 0 0 18 6.366V3.375c0-1.036-.84-1.875-1.875-1.875h-8.25ZM16.5 6.205v-2.83A.375.375 0 0 0 16.125 3h-8.25a.375.375 0 0 0-.375.375v2.83a49.353 49.353 0 0 1 9 0Zm-2.218 9.907a18.36 18.36 0 0 0-4.564 0l-.467.054a1.875 1.875 0 0 0-1.633 1.847l.092 4.122a.375.375 0 0 0 .373.413h9.834a.375.375 0 0 0 .373-.413l.092-4.122a1.875 1.875 0 0 0-1.633-1.847l-.467-.054Z" clipRule="evenodd" />
           </svg>
           Print Ticket
@@ -199,13 +199,13 @@ function TicketContent() {
         {/* ─ Top: Event Hero ─ */}
         <div className="relative bg-navy p-7 pb-10 overflow-hidden">
           {/* Decorative diamonds */}
-          <svg className="absolute top-4 right-6 w-5 h-5 text-navy/15" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="absolute top-4 right-6 w-5 h-5 text-navy/15" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
           </svg>
-          <svg className="absolute bottom-6 right-16 w-4 h-4 text-coral/20" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="absolute bottom-6 right-16 w-4 h-4 text-coral/20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
           </svg>
-          <svg className="absolute top-6 left-[40%] w-3 h-3 text-sunny/20" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="absolute top-6 left-[40%] w-3 h-3 text-sunny/20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
           </svg>
 
@@ -288,7 +288,7 @@ function TicketContent() {
           {/* Status */}
           <div className="flex items-center gap-3 pt-2">
             <div className="w-10 h-10 rounded-full bg-teal flex items-center justify-center">
-              <svg className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
               </svg>
             </div>

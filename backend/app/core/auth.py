@@ -155,4 +155,5 @@ class RegisterProfileRequest(BaseModel):
     level: Optional[str] = Field(None, pattern=r"^\d{3}L$")
     admissionYear: Optional[int] = Field(None, ge=2000, le=2040)
     department: Optional[str] = Field(None, max_length=200)
+    dateOfBirth: Optional[str] = Field(None, description="Date of birth in YYYY-MM-DD format")
 

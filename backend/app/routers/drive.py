@@ -1,0 +1,430 @@
+"""
+Google Drive Browser Router
+
+Exposes the departmental Google Drive folder as a navigable resource tree.
+Students can browse folders, view file metadata, stream files (PDF, video),
+and track their reading progress — all without leaving the app.
+
+Endpoints:
+    GET  /api/v1/drive/browse          — List folder contents (cached)
+    GET  /api/v1/drive/file/{id}/meta  — Detailed file metadata + embed URL
+    GET  /api/v1/drive/file/{id}/stream — Proxy file bytes (PDF, video, image)
+    GET  /api/v1/drive/search          — Search files by name
+    GET  /api/v1/drive/progress        — Get user's reading progress (all files)
+    POST /api/v1/drive/progress        — Upsert reading progress for a file
+    GET  /api/v1/drive/recent          — Recently viewed resources
+    POST /api/v1/drive/bookmark        — Bookmark a page in a file
+    DELETE /api/v1/drive/bookmark      — Remove a bookmark
+"""
+
+import asyncio
+import logging
+import os
+from datetime import datetime, timezone
+from typing import Optional, List
+
+from bson import ObjectId
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+
+from app.db import get_database
+from app.core.security import get_current_user, require_ipe_student
+from app.core.error_handling import safe_detail
+from app.core.drive import (
+    DRIVE_ROOT_FOLDER_ID,
+    list_folder,
+    get_file_metadata,
+    download_file_bytes,
+    search_files,
+    get_folder_breadcrumbs,
+    classify_mime,
+    is_previewable,
+    get_embed_url,
+    get_thumbnail_url,
+    get_cached_folder,
+    set_folder_cache,
+)
+
+logger = logging.getLogger("iesa_backend")
+
+router = APIRouter(
+    prefix="/api/v1/drive",
+    tags=["drive"],
+    dependencies=[Depends(require_ipe_student)],
+)
+
+
+# ── Pydantic models ─────────────────────────────────────────
+
+class ProgressUpdate(BaseModel):
+    fileId: str
+    fileName: str
+    fileMimeType: str = ""
+    currentPage: Optional[int] = None
+    totalPages: Optional[int] = None
+    currentTime: Optional[float] = None  # For videos — seconds
+    totalDuration: Optional[float] = None  # For videos — seconds
+    scrollPercent: Optional[float] = None  # For docs — 0-100
+
+
+class BookmarkCreate(BaseModel):
+    fileId: str
+    fileName: str
+    page: Optional[int] = None
+    timestamp: Optional[float] = None  # For videos — seconds
+    label: Optional[str] = None
+
+
+class BookmarkDelete(BaseModel):
+    fileId: str
+    bookmarkId: str
+
+
+# ── Helpers ──────────────────────────────────────────────────
+
+def _serialize_item(item: dict) -> dict:
+    """Transform a Drive API file dict into a clean frontend-ready dict."""
+    mime = item.get("mimeType", "")
+    file_type = classify_mime(mime)
+    is_folder = file_type == "folder"
+    size = int(item.get("size", 0)) if item.get("size") else None
+
+    result = {
+        "id": item["id"],
+        "name": item["name"],
+        "mimeType": mime,
+        "fileType": file_type,
+        "isFolder": is_folder,
+        "size": size,
+        "modifiedTime": item.get("modifiedTime"),
+        "thumbnailUrl": item.get("thumbnailLink") or (
+            get_thumbnail_url(item["id"]) if not is_folder else None
+        ),
+        "previewable": is_previewable(mime),
+    }
+
+    # Video duration if available
+    video_meta = item.get("videoMediaMetadata")
+    if video_meta:
+        result["durationMs"] = video_meta.get("durationMillis")
+
+    # Image dimensions
+    image_meta = item.get("imageMediaMetadata")
+    if image_meta:
+        result["width"] = image_meta.get("width")
+        result["height"] = image_meta.get("height")
+
+    return result
+
+
+# ── Endpoints ────────────────────────────────────────────────
+
+@router.get("/browse")
+async def browse_folder(
+    folderId: Optional[str] = Query(None, description="Folder ID (omit for root)"),
+    pageToken: Optional[str] = Query(None),
+    pageSize: int = Query(100, ge=1, le=200),
+    user: dict = Depends(require_ipe_student),
+):
+    """
+    List the contents of a Drive folder.
+    Results are cached in MongoDB for DRIVE_CACHE_TTL seconds.
+    """
+    root_id = DRIVE_ROOT_FOLDER_ID
+    if not root_id:
+        raise HTTPException(
+            status_code=503,
+            detail="Drive integration not configured. Set DRIVE_ROOT_FOLDER_ID.",
+        )
+
+    target_id = folderId or root_id
+    db = get_database()
+
+    # Check cache (only for first page)
+    if not pageToken:
+        cached = await get_cached_folder(db, target_id)
+        if cached:
+            return {
+                "items": cached["items"],
+                "breadcrumbs": cached["breadcrumbs"],
+                "folderId": target_id,
+                "rootId": root_id,
+                "nextPageToken": None,
+                "fromCache": True,
+            }
+
+    loop = asyncio.get_event_loop()
+    try:
+        items_raw, next_token = await loop.run_in_executor(
+            None, lambda: list_folder(target_id, pageToken, pageSize)
+        )
+        breadcrumbs = await loop.run_in_executor(
+            None, lambda: get_folder_breadcrumbs(target_id, root_id)
+        )
+    except Exception as e:
+        logger.error("Drive browse error: %s", e)
+        raise HTTPException(status_code=502, detail=safe_detail("Failed to browse Drive folder", e))
+
+    items = [_serialize_item(i) for i in items_raw]
+
+    # Cache first-page results
+    if not pageToken:
+        try:
+            await set_folder_cache(db, target_id, items, breadcrumbs)
+        except Exception as cache_err:
+            logger.warning("Failed to cache Drive folder %s: %s", target_id, cache_err)
+
+    return {
+        "items": items,
+        "breadcrumbs": breadcrumbs,
+        "folderId": target_id,
+        "rootId": root_id,
+        "nextPageToken": next_token,
+        "fromCache": False,
+    }
+
+
+@router.get("/file/{file_id}/meta")
+async def file_metadata(
+    file_id: str,
+    user: dict = Depends(require_ipe_student),
+):
+    """Get detailed metadata for a single file, including embed URL and progress."""
+    loop = asyncio.get_event_loop()
+    try:
+        meta = await loop.run_in_executor(None, lambda: get_file_metadata(file_id))
+    except Exception as e:
+        logger.error("Drive file metadata error: %s", e)
+        raise HTTPException(status_code=502, detail=safe_detail("Failed to fetch file metadata", e))
+
+    mime = meta.get("mimeType", "")
+    embed = get_embed_url(file_id, mime)
+
+    # Get user's progress for this file
+    db = get_database()
+    user_id = user.get("_id") if isinstance(user.get("_id"), str) else str(user.get("_id", ""))
+    progress = await db["drive_progress"].find_one(
+        {"userId": user_id, "fileId": file_id},
+        {"_id": 0, "userId": 0},
+    )
+    bookmarks = await db["drive_bookmarks"].find(
+        {"userId": user_id, "fileId": file_id}
+    ).sort("createdAt", 1).to_list(length=50)
+    for b in bookmarks:
+        b["_id"] = str(b["_id"])
+        b.pop("userId", None)
+
+    return {
+        "id": meta["id"],
+        "name": meta["name"],
+        "mimeType": mime,
+        "fileType": classify_mime(mime),
+        "size": int(meta.get("size", 0)) if meta.get("size") else None,
+        "modifiedTime": meta.get("modifiedTime"),
+        "createdTime": meta.get("createdTime"),
+        "description": meta.get("description"),
+        "previewable": is_previewable(mime),
+        "embedUrl": embed,
+        "thumbnailUrl": meta.get("thumbnailLink") or get_thumbnail_url(file_id),
+        "webViewLink": meta.get("webViewLink"),
+        "progress": progress,
+        "bookmarks": bookmarks,
+    }
+
+
+@router.get("/file/{file_id}/stream")
+async def stream_file(
+    file_id: str,
+    user: dict = Depends(require_ipe_student),
+):
+    """
+    Proxy-stream a Drive file's bytes to the browser.
+    Used for PDFs (via react-pdf), videos (via <video>), and images.
+    """
+    loop = asyncio.get_event_loop()
+
+    # Fetch metadata to get MIME type
+    try:
+        meta = await loop.run_in_executor(None, lambda: get_file_metadata(file_id))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=safe_detail("Failed to fetch file", e))
+
+    mime = meta.get("mimeType", "application/octet-stream")
+
+    # Google-native docs can't be streamed directly — redirect to export
+    if mime.startswith("application/vnd.google-apps."):
+        embed = get_embed_url(file_id, mime)
+        if embed:
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(url=embed)
+        raise HTTPException(status_code=400, detail="This file type cannot be streamed directly. Use the embed URL.")
+
+    # Download file bytes
+    try:
+        buf = await loop.run_in_executor(None, lambda: download_file_bytes(file_id))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=safe_detail("Failed to download file", e))
+
+    file_size = buf.getbuffer().nbytes
+    file_name = meta.get("name", "download")
+
+    headers = {
+        "Content-Disposition": f'inline; filename="{file_name}"',
+        "Content-Length": str(file_size),
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "private, max-age=3600",
+    }
+
+    return StreamingResponse(
+        buf,
+        media_type=mime,
+        headers=headers,
+    )
+
+
+@router.get("/search")
+async def search_drive(
+    q: str = Query(..., min_length=2, max_length=100, description="Search query"),
+    folderId: Optional[str] = Query(None, description="Restrict search to folder"),
+    user: dict = Depends(require_ipe_student),
+):
+    """Search files by name within the departmental Drive."""
+    loop = asyncio.get_event_loop()
+    try:
+        results = await loop.run_in_executor(
+            None, lambda: search_files(q, folderId)
+        )
+    except Exception as e:
+        logger.error("Drive search error: %s", e)
+        raise HTTPException(status_code=502, detail=safe_detail("Drive search failed", e))
+
+    return {
+        "results": [_serialize_item(r) for r in results],
+        "query": q,
+    }
+
+
+# ── Progress Tracking ────────────────────────────────────────
+
+@router.get("/progress")
+async def get_all_progress(
+    user: dict = Depends(require_ipe_student),
+):
+    """Get reading/viewing progress for all files the user has opened."""
+    db = get_database()
+    user_id = user.get("_id") if isinstance(user.get("_id"), str) else str(user.get("_id", ""))
+    docs = await db["drive_progress"].find(
+        {"userId": user_id},
+        {"_id": 0, "userId": 0},
+    ).sort("lastOpenedAt", -1).to_list(length=500)
+    return {"progress": docs}
+
+
+@router.post("/progress")
+async def upsert_progress(
+    body: ProgressUpdate,
+    user: dict = Depends(require_ipe_student),
+):
+    """Create or update reading/viewing progress for a file."""
+    db = get_database()
+    user_id = user.get("_id") if isinstance(user.get("_id"), str) else str(user.get("_id", ""))
+    now = datetime.now(timezone.utc)
+
+    # Calculate percent complete
+    pct = None
+    if body.currentPage and body.totalPages and body.totalPages > 0:
+        pct = round((body.currentPage / body.totalPages) * 100, 1)
+    elif body.currentTime and body.totalDuration and body.totalDuration > 0:
+        pct = round((body.currentTime / body.totalDuration) * 100, 1)
+    elif body.scrollPercent is not None:
+        pct = round(body.scrollPercent, 1)
+
+    update: dict = {
+        "$set": {
+            "fileName": body.fileName,
+            "fileMimeType": body.fileMimeType,
+            "lastOpenedAt": now,
+            "percentComplete": pct,
+        },
+        "$setOnInsert": {
+            "userId": user_id,
+            "fileId": body.fileId,
+            "firstOpenedAt": now,
+        },
+        "$inc": {"openCount": 1},
+    }
+
+    # Only set fields that are provided
+    if body.currentPage is not None:
+        update["$set"]["currentPage"] = body.currentPage
+    if body.totalPages is not None:
+        update["$set"]["totalPages"] = body.totalPages
+    if body.currentTime is not None:
+        update["$set"]["currentTime"] = body.currentTime
+    if body.totalDuration is not None:
+        update["$set"]["totalDuration"] = body.totalDuration
+
+    await db["drive_progress"].update_one(
+        {"userId": user_id, "fileId": body.fileId},
+        update,
+        upsert=True,
+    )
+
+    return {"ok": True}
+
+
+@router.get("/recent")
+async def get_recent(
+    limit: int = Query(10, ge=1, le=50),
+    user: dict = Depends(require_ipe_student),
+):
+    """Get recently viewed files sorted by last opened."""
+    db = get_database()
+    user_id = user.get("_id") if isinstance(user.get("_id"), str) else str(user.get("_id", ""))
+    docs = await db["drive_progress"].find(
+        {"userId": user_id},
+        {"_id": 0, "userId": 0},
+    ).sort("lastOpenedAt", -1).to_list(length=limit)
+    return {"recent": docs}
+
+
+# ── Bookmarks ────────────────────────────────────────────────
+
+@router.post("/bookmark")
+async def create_bookmark(
+    body: BookmarkCreate,
+    user: dict = Depends(require_ipe_student),
+):
+    """Bookmark a specific page/timestamp in a file."""
+    db = get_database()
+    user_id = user.get("_id") if isinstance(user.get("_id"), str) else str(user.get("_id", ""))
+    now = datetime.now(timezone.utc)
+
+    doc = {
+        "userId": user_id,
+        "fileId": body.fileId,
+        "fileName": body.fileName,
+        "page": body.page,
+        "timestamp": body.timestamp,
+        "label": body.label or (f"Page {body.page}" if body.page else f"{body.timestamp:.0f}s"),
+        "createdAt": now,
+    }
+    result = await db["drive_bookmarks"].insert_one(doc)
+    return {"ok": True, "bookmarkId": str(result.inserted_id)}
+
+
+@router.delete("/bookmark")
+async def delete_bookmark(
+    body: BookmarkDelete,
+    user: dict = Depends(require_ipe_student),
+):
+    """Remove a bookmark."""
+    db = get_database()
+    user_id = user.get("_id") if isinstance(user.get("_id"), str) else str(user.get("_id", ""))
+    result = await db["drive_bookmarks"].delete_one(
+        {"_id": ObjectId(body.bookmarkId), "userId": user_id, "fileId": body.fileId}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Bookmark not found")
+    return {"ok": True}

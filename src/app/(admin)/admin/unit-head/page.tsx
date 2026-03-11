@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { getApiUrl } from "@/lib/api";
 import { withAuth } from "@/lib/withAuth";
+import { toast } from "sonner";
 
 /* ═══════════════════════════════════════════════════════════
    Types
@@ -92,7 +93,7 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
     key: "overview",
     label: "Overview",
     icon: (
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+      <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
         <path d="M6 3a3 3 0 0 0-3 3v2.25a3 3 0 0 0 3 3h2.25a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3H6ZM15.75 3a3 3 0 0 0-3 3v2.25a3 3 0 0 0 3 3H18a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3h-2.25ZM6 12.75a3 3 0 0 0-3 3V18a3 3 0 0 0 3 3h2.25a3 3 0 0 0 3-3v-2.25a3 3 0 0 0-3-3H6ZM15.75 12.75a3 3 0 0 0-3 3V18a3 3 0 0 0 3 3H18a3 3 0 0 0 3-3v-2.25a3 3 0 0 0-3-3h-2.25Z" />
       </svg>
     ),
@@ -101,7 +102,7 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
     key: "members",
     label: "Members",
     icon: (
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+      <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
         <path
           fillRule="evenodd"
           d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z"
@@ -114,7 +115,7 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
     key: "noticeboard",
     label: "Noticeboard",
     icon: (
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+      <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
         <path d="M16.881 4.345A23.112 23.112 0 0 1 8.25 6H7.5a5.25 5.25 0 0 0-.88 10.427 21.593 21.593 0 0 0 1.378 3.94c.464 1.004 1.674 1.32 2.582.796l.657-.379c.88-.508 1.165-1.593.772-2.468a17.116 17.116 0 0 1-.628-1.607c1.918.258 3.76.75 5.5 1.446A21.727 21.727 0 0 0 18 11.25c0-2.414-.393-4.735-1.119-6.905Z" />
       </svg>
     ),
@@ -123,7 +124,7 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
     key: "tasks",
     label: "Tasks",
     icon: (
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+      <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
         <path
           fillRule="evenodd"
           d="M7.502 6h7.128A3.375 3.375 0 0 1 18 9.375v9.375a3 3 0 0 0 3-3V6.108c0-1.505-1.125-2.811-2.664-2.94a48.972 48.972 0 0 0-8.672 0C8.539 3.297 7.502 4.603 7.502 6ZM3.75 9.375a1.875 1.875 0 0 1 1.875-1.875h9.75a1.875 1.875 0 0 1 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-9.75A1.875 1.875 0 0 1 3.75 20.625V9.375Z"
@@ -136,7 +137,7 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
     key: "analytics",
     label: "Analytics",
     icon: (
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+      <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
         <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75ZM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 0 1-1.875-1.875V8.625ZM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 0 1 3 19.875v-6.75Z" />
       </svg>
     ),
@@ -145,7 +146,7 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
     key: "announce",
     label: "Announce",
     icon: (
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+      <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
         <path d="M5.25 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM2.25 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122Z" />
       </svg>
     ),
@@ -348,8 +349,9 @@ function UnitHeadPortal() {
       setNPinned(false);
       setShowNoticeForm(false);
       await loadNotices(activeUnit.unitSlug);
+      toast.success("Notice created");
     } catch {
-      /* swallow */
+      toast.error("Failed to create notice");
     } finally {
       setFormLoading(false);
     }
@@ -391,8 +393,9 @@ function UnitHeadPortal() {
       setTPriority("normal");
       setShowTaskForm(false);
       await loadTasks(activeUnit.unitSlug);
+      toast.success("Task created");
     } catch {
-      /* swallow */
+      toast.error("Failed to create task");
     } finally {
       setFormLoading(false);
     }
@@ -424,9 +427,9 @@ function UnitHeadPortal() {
       setAnnTitle("");
       setAnnContent("");
       setAnnPriority("normal");
-      alert(data.message || "Announcement sent!");
+      toast.success(data.message || "Announcement sent!");
     } catch {
-      /* swallow */
+      toast.error("Failed to send announcement");
     } finally {
       setFormLoading(false);
     }
@@ -496,7 +499,7 @@ function UnitHeadPortal() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 py-6">
       {/* ░░░ Header ░░░ */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>

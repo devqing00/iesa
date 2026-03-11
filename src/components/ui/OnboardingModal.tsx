@@ -122,7 +122,7 @@ function ConfettiParticles() {
 const FEATURES = [
   {
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
       </svg>
     ),
@@ -132,7 +132,7 @@ const FEATURES = [
   },
   {
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
         <path d="M13 10V3L4 14h7v7l9-11h-7z" />
       </svg>
     ),
@@ -142,7 +142,7 @@ const FEATURES = [
   },
   {
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
       </svg>
     ),
@@ -152,7 +152,7 @@ const FEATURES = [
   },
   {
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
         <path d="M17 20c0-2.76-2.24-4-5-4s-5 1.24-5 4m5-7a3 3 0 100-6 3 3 0 000 6z" /><circle cx="12" cy="12" r="10" />
       </svg>
     ),
@@ -162,7 +162,7 @@ const FEATURES = [
   },
   {
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 2a7 7 0 00-4 12.7V17a1 1 0 001 1h6a1 1 0 001-1v-2.3A7 7 0 0012 2z" /><path d="M9 21h6" />
       </svg>
     ),
@@ -172,7 +172,7 @@ const FEATURES = [
   },
   {
     icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+      <svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 6.5a8.5 8.5 0 00-6-2.5C4.5 4 3 4.5 3 4.5v14s1.5-.5 3-.5a8.5 8.5 0 016 2.5m0-14.5a8.5 8.5 0 016-2.5c1.5 0 3 .5 3 .5v14s-1.5-.5-3-.5a8.5 8.5 0 00-6 2.5m0-14.5v14.5" />
       </svg>
     ),
@@ -203,6 +203,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
   const [lastName, setLastName] = useState("");
   const [matricNumber, setMatricNumber] = useState("");
   const [phone, setPhone] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [admittedSession, setAdmittedSession] = useState("");
   const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [isExternal, setIsExternal] = useState(false);
@@ -270,6 +271,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
     setLastName(userProfile.lastName || "");
     if (userProfile.matricNumber) setMatricNumber(userProfile.matricNumber);
     if (userProfile.phone) setPhone(userProfile.phone);
+    if (userProfile.dateOfBirth) setDateOfBirth(typeof userProfile.dateOfBirth === "string" ? userProfile.dateOfBirth.split("T")[0] : "");
     if (userProfile.admissionYear) {
       const ay = userProfile.admissionYear;
       setAdmittedSession(`${ay - 1}/${ay}`);
@@ -330,6 +332,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
           level: userProfile.currentLevel,
           admissionYear: userProfile.admissionYear,
           department: userProfile.department || "Industrial Engineering",
+          dateOfBirth: userProfile.dateOfBirth ? String(userProfile.dateOfBirth).split("T")[0] : undefined,
         }),
       });
       if (res.ok || res.status === 409) {
@@ -367,6 +370,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
           level: calculatedLevel,
           admissionYear: derivedAdmissionYear,
           department: isExternal && department.trim() ? department.trim() : "Industrial Engineering",
+          dateOfBirth: dateOfBirth || undefined,
         }),
       });
 
@@ -439,7 +443,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
             <div className="text-center space-y-5">
               {/* Decorative diamond */}
               <div className="w-16 h-16 bg-lime border-[3px] border-navy rounded-2xl flex items-center justify-center mx-auto shadow-[4px_4px_0_0_#000]">
-                <svg className="w-8 h-8 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <svg aria-hidden="true" className="w-8 h-8 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z" />
                 </svg>
               </div>
@@ -478,6 +482,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
                 { label: "Matric Number", value: userProfile?.matricNumber },
                 { label: "Phone", value: userProfile?.phone },
                 { label: "Level", value: userProfile?.currentLevel },
+                { label: "Birthday", value: userProfile?.dateOfBirth ? new Date(userProfile.dateOfBirth + "T00:00:00").toLocaleDateString("en-NG", { day: "numeric", month: "long" }) : "Not set" },
                 { label: "Department", value: userProfile?.department || "Industrial Engineering" },
               ].map(({ label, value }) => (
                 <div key={label} className="flex items-center justify-between px-4 py-3 bg-ghost border-[2px] border-cloud rounded-2xl">
@@ -488,7 +493,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
 
               {formError && (
                 <div className="p-3 border-[2px] border-coral bg-coral-light text-coral text-xs rounded-xl font-medium flex items-start gap-2">
-                  <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><circle cx="12" cy="12" r="10" /><path strokeLinecap="round" d="M12 8v4m0 4h.01" /></svg>
+                  <svg aria-hidden="true" className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><circle cx="12" cy="12" r="10" /><path strokeLinecap="round" d="M12 8v4m0 4h.01" /></svg>
                   {formError}
                 </div>
               )}
@@ -532,6 +537,13 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
               <div className="space-y-1.5">
                 <label className="font-display font-bold text-[10px] uppercase tracking-[0.1em] text-navy/40">Phone Number</label>
                 <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+234 812 345 6789" className={inputClass} />
+              </div>
+
+              {/* Date of Birth */}
+              <div className="space-y-1.5">
+                <label className="font-display font-bold text-[10px] uppercase tracking-[0.1em] text-navy/40">Date of Birth <span className="normal-case tracking-normal font-medium">(optional)</span></label>
+                <input type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} max={new Date().toISOString().split("T")[0]} className={inputClass} />
+                <p className="text-[10px] text-slate">We&apos;ll celebrate your birthday on the platform</p>
               </div>
 
               {/* External toggle */}
@@ -611,7 +623,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
               {/* Form error */}
               {formError && (
                 <div className="p-3 border-[2px] border-coral bg-coral-light text-coral text-xs rounded-xl font-medium flex items-start gap-2">
-                  <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <svg aria-hidden="true" className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <circle cx="12" cy="12" r="10" />
                     <path strokeLinecap="round" d="M12 8v4m0 4h.01" />
                   </svg>
@@ -652,7 +664,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
               {/* Celebration icon */}
               <div className="relative w-20 h-20 mx-auto">
                 <div className="w-20 h-20 bg-lime border-[4px] border-navy rounded-3xl flex items-center justify-center shadow-[5px_5px_0_0_#000] rotate-[-3deg]">
-                  <svg className="w-10 h-10 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <svg aria-hidden="true" className="w-10 h-10 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                     <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
                     <path d="M22 4L12 14.01l-3-3" />
                   </svg>

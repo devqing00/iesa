@@ -33,7 +33,7 @@ class MentorApplicationCreate(BaseModel):
 
 class MentorApplicationReview(BaseModel):
     """TIMP lead reviews a mentor application."""
-    status: MentorApplicationStatus
+    status: MentorApplicationStatus = Field(..., description="Must be 'approved' or 'rejected'")
     feedback: Optional[str] = Field(None, max_length=500)
 
 

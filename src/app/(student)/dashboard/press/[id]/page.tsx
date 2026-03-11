@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
-import { useToast } from "@/components/ui/Toast";
+import { toast } from "sonner";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 
 interface FeedbackItem {
@@ -53,7 +53,6 @@ export default function ArticleDetailPage() {
   const params = useParams();
   const articleId = params?.id as string;
   const { user, getAccessToken } = useAuth();
-  const toast = useToast();
 
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -145,7 +144,7 @@ export default function ArticleDetailPage() {
       {/* Back + Status */}
       <div className="flex items-center justify-between">
         <Link href="/dashboard/press" className="inline-flex items-center gap-1 text-xs font-display font-bold text-slate hover:text-navy transition-colors">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Back to Press
@@ -226,7 +225,7 @@ export default function ArticleDetailPage() {
       {article.feedback.length > 0 && (
         <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
           <h2 className="font-display font-black text-lg text-navy mb-4 flex items-center gap-2">
-            <svg className="w-5 h-5 text-coral" fill="currentColor" viewBox="0 0 20 20">
+            <svg aria-hidden="true" className="w-5 h-5 text-coral" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zM7 8H5v2h2V8zm2 0h2v2H9V8zm6 0h-2v2h2V8z" clipRule="evenodd" />
             </svg>
             Reviewer Feedback ({article.feedback.length})

@@ -176,7 +176,7 @@ function AuditLogsPage() {
             onClick={exportCSV}
             className="shrink-0 bg-lime border-[3px] border-navy press-3 press-navy px-5 py-3 rounded-2xl font-display text-navy text-sm transition-all flex items-center gap-2"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
             Export CSV
@@ -217,7 +217,7 @@ function AuditLogsPage() {
               />
               <button
                 onClick={() => setActorQuery(actorSearch)}
-                className="bg-navy text-snow border-[3px] border-navy rounded-xl px-3 py-2 text-sm font-display hover:bg-navy-light transition-colors"
+                className="bg-navy text-snow border-[3px] border-lime rounded-xl px-3 py-2 text-sm font-display press-3 press-lime transition-all"
               >
                 Go
               </button>
@@ -294,7 +294,7 @@ function AuditLogsPage() {
           </div>
         ) : displayedLogs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3">
-            <svg className="w-12 h-12 text-cloud" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-12 h-12 text-cloud" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
             </svg>
             <p className="font-display font-black text-xl text-navy">No logs found</p>

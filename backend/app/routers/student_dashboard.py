@@ -161,6 +161,46 @@ async def _fetch_today_classes(db, session_id: str, user_level: int | None):
 
 # ── main endpoint ────────────────────────────────────────────────
 
+
+async def _fetch_todays_birthdays(db, current_user_id: str, limit: int = 10):
+    """Return students whose birthday is today (month + day match)."""
+    today = date.today()
+    month = today.month
+    day = today.day
+
+    pipeline = [
+        {
+            "$match": {
+                "dateOfBirth": {"$exists": True, "$ne": None},
+                "isActive": {"$ne": False},
+            }
+        },
+        {
+            "$addFields": {
+                "birthMonth": {"$month": "$dateOfBirth"},
+                "birthDay": {"$dayOfMonth": "$dateOfBirth"},
+            }
+        },
+        {"$match": {"birthMonth": month, "birthDay": day}},
+        {
+            "$project": {
+                "_id": {"$toString": "$_id"},
+                "firstName": 1,
+                "lastName": 1,
+                "profilePictureUrl": 1,
+                "currentLevel": 1,
+                "department": 1,
+            }
+        },
+        {"$limit": limit},
+    ]
+
+    birthdays = await db["users"].aggregate(pipeline).to_list(length=limit)
+    for b in birthdays:
+        b["isCurrentUser"] = b["_id"] == current_user_id
+    return birthdays
+
+
 @router.get("/dashboard")
 async def get_student_dashboard(
     current_user: dict = Depends(get_current_user),
@@ -203,29 +243,39 @@ async def get_student_dashboard(
     is_external = user_department != "Industrial Engineering" and not is_admin
 
     if is_external:
-        announcements = await _fetch_announcements(
-            db, session_id, user_id, user_level, is_admin, user_department
+        announcements, birthdays = await asyncio.gather(
+            _fetch_announcements(
+                db, session_id, user_id, user_level, is_admin, user_department
+            ),
+            _fetch_todays_birthdays(db, user_id),
         )
+        is_my_birthday = any(b["isCurrentUser"] for b in birthdays)
         result = {
             "announcements": announcements,
             "events": [],
             "payments": [],
             "todayClasses": [],
+            "birthdays": birthdays,
+            "isMyBirthday": is_my_birthday,
             "activeSession": session_name,
         }
     else:
         # Fetch all in parallel for IPE students
-        announcements, events, payments, today_classes = await asyncio.gather(
+        announcements, events, payments, today_classes, birthdays = await asyncio.gather(
             _fetch_announcements(db, session_id, user_id, user_level, is_admin, user_department),
             _fetch_upcoming_events(db, session_id, user_id),
             _fetch_payments(db, session_id, user_id),
             _fetch_today_classes(db, session_id, user_level),
+            _fetch_todays_birthdays(db, user_id),
         )
+        is_my_birthday = any(b["isCurrentUser"] for b in birthdays)
         result = {
             "announcements": announcements,
             "events": events,
             "payments": payments,
             "todayClasses": today_classes,
+            "birthdays": birthdays,
+            "isMyBirthday": is_my_birthday,
             "activeSession": session_name,
         }
     await cache_set(cache_key, result, ttl=CACHE_TTL)

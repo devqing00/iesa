@@ -4,7 +4,7 @@ import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { useGrowthData } from "@/hooks/useGrowthData";
 import Link from "next/link";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, ReactNode } from "react";
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -23,12 +23,12 @@ interface JournalEntry {
 
 const STORAGE_KEY = "iesa-journal-entries";
 
-const MOODS: { value: number; emoji: string; label: string }[] = [
-  { value: 1, emoji: "😞", label: "Tough" },
-  { value: 2, emoji: "😕", label: "Okay" },
-  { value: 3, emoji: "😊", label: "Good" },
-  { value: 4, emoji: "😄", label: "Great" },
-  { value: 5, emoji: "🤩", label: "Amazing" },
+const MOODS: { value: number; icon: ReactNode; label: string }[] = [
+  { value: 1, icon: <svg aria-hidden="true" className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-2.625 6c-.54 0-.828.419-.936.634a1.96 1.96 0 0 0-.189.866c0 .298.059.605.189.866.108.215.395.634.936.634.54 0 .828-.419.936-.634.13-.26.189-.568.189-.866 0-.298-.059-.605-.189-.866-.108-.215-.395-.634-.936-.634Zm4.314.634c.108-.215.395-.634.936-.634.54 0 .828.419.936.634.13.26.189.568.189.866 0 .298-.059.605-.189.866-.108.215-.395.634-.936.634-.54 0-.828-.419-.936-.634a1.96 1.96 0 0 1-.189-.866c0-.298.059-.605.189-.866Zm-4.34 7.244a.75.75 0 0 1-1.061-1.06 5.236 5.236 0 0 1 3.73-1.538 5.236 5.236 0 0 1 3.695 1.538.75.75 0 1 1-1.061 1.06 3.736 3.736 0 0 0-2.634-1.098 3.736 3.736 0 0 0-2.67 1.098Z"/></svg>, label: "Tough" },
+  { value: 2, icon: <svg aria-hidden="true" className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-2.625 6c-.54 0-.828.419-.936.634a1.96 1.96 0 0 0-.189.866c0 .298.059.605.189.866.108.215.395.634.936.634.54 0 .828-.419.936-.634.13-.26.189-.568.189-.866 0-.298-.059-.605-.189-.866-.108-.215-.395-.634-.936-.634Zm4.314.634c.108-.215.395-.634.936-.634.54 0 .828.419.936.634.13.26.189.568.189.866 0 .298-.059.605-.189.866-.108.215-.395.634-.936.634-.54 0-.828-.419-.936-.634a1.96 1.96 0 0 1-.189-.866c0-.298.059-.605.189-.866ZM9 15.75a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5H9Z" clipRule="evenodd"/></svg>, label: "Okay" },
+  { value: 3, icon: <svg aria-hidden="true" className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-2.625 6c-.54 0-.828.419-.936.634a1.96 1.96 0 0 0-.189.866c0 .298.059.605.189.866.108.215.395.634.936.634.54 0 .828-.419.936-.634.13-.26.189-.568.189-.866 0-.298-.059-.605-.189-.866-.108-.215-.395-.634-.936-.634Zm4.314.634c.108-.215.395-.634.936-.634.54 0 .828.419.936.634.13.26.189.568.189.866 0 .298-.059.605-.189.866-.108.215-.395.634-.936.634-.54 0-.828-.419-.936-.634a1.96 1.96 0 0 1-.189-.866c0-.298.059-.605.189-.866Zm2.023 7.378a.75.75 0 1 0-1.06-1.06 3.736 3.736 0 0 1-2.634 1.098 3.736 3.736 0 0 1-2.67-1.098.75.75 0 0 0-1.06 1.06 5.236 5.236 0 0 0 3.73 1.538 5.236 5.236 0 0 0 3.695-1.538Z" clipRule="evenodd"/></svg>, label: "Good" },
+  { value: 4, icon: <svg aria-hidden="true" className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-2.625 6c-.54 0-.828.419-.936.634a1.96 1.96 0 0 0-.189.866c0 .298.059.605.189.866.108.215.395.634.936.634.54 0 .828-.419.936-.634.13-.26.189-.568.189-.866 0-.298-.059-.605-.189-.866-.108-.215-.395-.634-.936-.634Zm4.314.634c.108-.215.395-.634.936-.634.54 0 .828.419.936.634.13.26.189.568.189.866 0 .298-.059.605-.189.866-.108.215-.395.634-.936.634-.54 0-.828-.419-.936-.634a1.96 1.96 0 0 1-.189-.866c0-.298.059-.605.189-.866ZM8.25 16.5a.75.75 0 0 1 .75-.75h6a.75.75 0 0 1 0 1.5h-6a.75.75 0 0 1-.75-.75Zm.75-3a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5h-6Z" clipRule="evenodd"/></svg>, label: "Great" },
+  { value: 5, icon: <svg aria-hidden="true" className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM9.763 4.108a.75.75 0 0 1 .396.985L9.397 7.03a5.526 5.526 0 0 1 5.206 0l-.762-1.937a.75.75 0 0 1 1.381-.584l1.5 3.75a.75.75 0 0 1-.518 1.017A5.496 5.496 0 0 1 17.5 12a5.5 5.5 0 0 1-11 0c0-1.004.27-1.947.74-2.756a.75.75 0 0 1-.458-.985l1.5-3.75a.75.75 0 0 1 .981-.401ZM12 18a3 3 0 0 0 2.85-2.05.75.75 0 0 0-1.423-.47A1.5 1.5 0 0 1 12 16.5a1.5 1.5 0 0 1-1.427-.98.75.75 0 0 0-1.423.46A3 3 0 0 0 12 18Z" clipRule="evenodd"/></svg>, label: "Amazing" },
 ];
 
 const PROMPTS: { key: keyof Pick<JournalEntry, "wentWell" | "toImprove" | "nextWeekFocus" | "gratitude">; label: string; placeholder: string; color: string }[] = [
@@ -203,7 +203,7 @@ export default function JournalPage() {
             href="/dashboard/growth"
             className="group inline-flex items-center gap-2 text-sm font-bold text-slate hover:text-navy transition-colors"
           >
-            <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-4 h-4 group-hover:-translate-x-1 transition-transform" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M11.03 3.97a.75.75 0 010 1.06l-6.22 6.22H21a.75.75 0 010 1.5H4.81l6.22 6.22a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0z" clipRule="evenodd" />
             </svg>
             Back to Growth Hub
@@ -215,7 +215,7 @@ export default function JournalPage() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
           <div className="md:col-span-7 bg-sunny border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[180px] flex flex-col justify-between">
             <div className="absolute -bottom-14 -right-14 w-40 h-40 rounded-full bg-navy/8 pointer-events-none" />
-            <svg className="absolute top-6 right-10 w-5 h-5 text-navy/10 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="absolute top-6 right-10 w-5 h-5 text-navy/10 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
             </svg>
             <div>
@@ -243,14 +243,14 @@ export default function JournalPage() {
             <div className="bg-sunny-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Avg Mood</p>
               <p className="font-display font-black text-3xl text-navy mt-2">
-                {avgMood > 0 ? MOODS[Math.round(avgMood) - 1]?.emoji || "—" : "—"}
+                {avgMood > 0 ? MOODS[Math.round(avgMood) - 1]?.icon || "—" : "—"}
               </p>
             </div>
             <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
               <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">This Week</p>
               <p className="font-display font-black text-2xl text-navy mt-2">
                 {hasCurrentWeek ? (
-                  <svg className="w-7 h-7 text-teal inline-block" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-7 h-7 text-teal inline-block" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
                   </svg>
                 ) : (
@@ -291,7 +291,7 @@ export default function JournalPage() {
                           : "bg-snow border-navy/10 hover:border-navy/30"
                       }`}
                     >
-                      <span className="text-2xl">{m.emoji}</span>
+                      <span className="text-2xl">{m.icon}</span>
                       <span className="text-[9px] font-bold text-navy/50 uppercase">{m.label}</span>
                     </button>
                   ))}
@@ -339,7 +339,7 @@ export default function JournalPage() {
                   onClick={() => setViewingId(null)}
                   className="w-8 h-8 rounded-lg bg-ghost border-[2px] border-navy/20 hover:border-navy flex items-center justify-center transition-colors"
                 >
-                  <svg className="w-4 h-4 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-4 h-4 text-navy" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M11.03 3.97a.75.75 0 010 1.06l-6.22 6.22H21a.75.75 0 010 1.5H4.81l6.22 6.22a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0z" clipRule="evenodd" />
                   </svg>
                 </button>
@@ -354,7 +354,7 @@ export default function JournalPage() {
             <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] overflow-hidden">
               {/* Mood */}
               <div className="border-b-[3px] border-navy px-6 py-4 bg-ghost flex items-center gap-3">
-                <span className="text-2xl">{MOODS[viewingEntry.mood - 1]?.emoji}</span>
+                <span className="text-2xl">{MOODS[viewingEntry.mood - 1]?.icon}</span>
                 <p className="text-sm font-bold text-navy">{MOODS[viewingEntry.mood - 1]?.label} week</p>
               </div>
 
@@ -379,7 +379,7 @@ export default function JournalPage() {
             {!hasCurrentWeek && (
               <div className="bg-sunny-light border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] p-6 mb-6 flex items-center gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-sunny border-[3px] border-navy flex items-center justify-center shrink-0">
-                  <svg className="w-7 h-7 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-7 h-7 text-navy" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
                   </svg>
                 </div>
@@ -414,7 +414,7 @@ export default function JournalPage() {
             {sortedEntries.length === 0 ? (
               <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] p-10 text-center">
                 <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-sunny-light flex items-center justify-center">
-                  <svg className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M4.125 3C3.089 3 2.25 3.84 2.25 4.875V18a3 3 0 0 0 3 3h15a3 3 0 0 1-3-3V4.875C17.25 3.839 16.41 3 15.375 3H4.125ZM12 9.75a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5H12Zm-.75-2.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5H12a.75.75 0 0 1-.75-.75ZM6 12.75a.75.75 0 0 0 0 1.5h7.5a.75.75 0 0 0 0-1.5H6Zm-.75 3.75a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H6a.75.75 0 0 1-.75-.75ZM6 6.75a.75.75 0 0 0-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 0 0 .75-.75v-3A.75.75 0 0 0 9 6.75H6Z" clipRule="evenodd" />
                     <path d="M18.75 6.75h1.875c.621 0 1.125.504 1.125 1.125V18a1.5 1.5 0 0 1-3 0V6.75Z" />
                   </svg>
@@ -441,14 +441,14 @@ export default function JournalPage() {
                       className="w-full group bg-snow border-[3px] border-navy rounded-2xl press-3 press-black transition-all overflow-hidden text-left"
                     >
                       <div className="flex items-center gap-4 p-4">
-                        <span className="text-2xl shrink-0">{moodData?.emoji}</span>
+                        <span className="text-2xl shrink-0">{moodData?.icon}</span>
                         <div className="flex-1 min-w-0">
                           <p className="font-display font-black text-sm text-navy">{entry.weekLabel}</p>
                           <p className="text-xs text-slate mt-0.5 truncate">
                             {entry.wentWell ? entry.wentWell.slice(0, 80) + (entry.wentWell.length > 80 ? "…" : "") : "No notes"}
                           </p>
                         </div>
-                        <svg className="w-4 h-4 text-navy/20 group-hover:text-navy group-hover:translate-x-1 transition-all shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-4 h-4 text-navy/20 group-hover:text-navy group-hover:translate-x-1 transition-all shrink-0" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 011.06 0l7.5 7.5a.75.75 0 010 1.06l-7.5 7.5a.75.75 0 11-1.06-1.06l6.22-6.22H3a.75.75 0 010-1.5h16.19l-6.22-6.22a.75.75 0 010-1.06z" clipRule="evenodd" />
                         </svg>
                       </div>
@@ -462,7 +462,7 @@ export default function JournalPage() {
 
         {/* Privacy */}
         <div className="mt-8 text-center flex items-center justify-center gap-1.5">
-          <svg className="w-3 h-3 text-teal" fill="currentColor" viewBox="0 0 24 24">
+          <svg aria-hidden="true" className="w-3 h-3 text-teal" fill="currentColor" viewBox="0 0 24 24">
             <path fillRule="evenodd" d="M4.5 9.75a6 6 0 0111.573-2.226 3.75 3.75 0 014.133 4.303A4.5 4.5 0 0118 20.25H6.75a5.25 5.25 0 01-.75-10.5z" clipRule="evenodd" />
           </svg>
           <span className="text-[10px] font-bold text-teal uppercase tracking-wider">Synced to your account</span>

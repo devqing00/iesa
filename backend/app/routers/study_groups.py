@@ -1,16 +1,19 @@
 """
 Study Groups Router - Find and join study partners
 
-REST API endpoints (no WebSockets - compatible with Render free tier).
-Frontend uses polling for real-time updates.
+REST API endpoints with WebSocket real-time chat.
+Supports join-request approval flow, invite links, and head controls.
 """
 
 from datetime import datetime, timezone
 from typing import Optional, List
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field, field_validator
 from bson import ObjectId
 import re
+import secrets
 
 from ..core.security import verify_token, get_current_user
 from ..core.sanitization import sanitize_html
@@ -61,6 +64,7 @@ class StudyGroupCreate(BaseModel):
     level: Optional[str] = None
     tags: Optional[List[str]] = Field(None, max_length=5)
     isOpen: bool = True
+    requireApproval: bool = False
 
     @field_validator("name", "courseCode")
     @classmethod
@@ -85,6 +89,7 @@ class StudyGroupUpdate(BaseModel):
     isOpen: Optional[bool] = None
     maxMembers: Optional[int] = Field(None, ge=2, le=20)
     pinnedNote: Optional[str] = Field(None, max_length=500)
+    requireApproval: Optional[bool] = None
 
 
 class MessageCreate(BaseModel):
@@ -139,11 +144,17 @@ class ChatManager:
             ]
 
     async def broadcast(self, group_id: str, data: dict):
+        dead: list[WebSocket] = []
         for ws in list(self.connections.get(group_id, [])):
             try:
                 await ws.send_json(data)
             except Exception:
-                pass
+                dead.append(ws)
+        # Prune dead connections
+        if dead and group_id in self.connections:
+            self.connections[group_id] = [
+                c for c in self.connections[group_id] if c not in dead
+            ]
 
 
 chat_manager = ChatManager()
@@ -159,7 +170,15 @@ def serialize(doc: dict) -> dict:
     for m in doc.get("members", []):
         if isinstance(m.get("joinedAt"), datetime):
             m["joinedAt"] = m["joinedAt"].isoformat()
+    for jr in doc.get("joinRequests", []):
+        if isinstance(jr.get("requestedAt"), datetime):
+            jr["requestedAt"] = jr["requestedAt"].isoformat()
     return doc
+
+
+def _generate_invite_code() -> str:
+    """Generate a short URL-safe invite code."""
+    return secrets.token_urlsafe(8)  # 11-char random code
 
 
 # ─── LIST / SEARCH ─────────────────────────────────────────────────────
@@ -225,6 +244,23 @@ async def my_groups(
     return groups
 
 
+# ─── LOOKUP BY INVITE CODE ──────────────────────────────────────────────
+
+@router.get("/join-by-code/{invite_code}")
+async def get_group_by_invite_code(
+    invite_code: str,
+    user: dict = Depends(get_current_user),
+):
+    """Look up a study group by its invite code"""
+    db = get_database()
+
+    doc = await db[COLLECTION].find_one({"inviteCode": invite_code})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Invalid or expired invite code")
+
+    return serialize(doc)
+
+
 # ─── GET ONE ────────────────────────────────────────────────────────────
 
 @router.get("/{group_id}")
@@ -274,6 +310,7 @@ async def create_study_group(
         "level": body.level,
         "tags": body.tags or [],
         "isOpen": body.isOpen,
+        "requireApproval": body.requireApproval,
         "createdBy": user_id,
         "creatorName": creator_name,
         "members": [
@@ -285,6 +322,8 @@ async def create_study_group(
                 "joinedAt": now,
             }
         ],
+        "joinRequests": [],
+        "inviteCode": _generate_invite_code(),
         "createdAt": now,
         "updatedAt": now,
     }
@@ -331,7 +370,7 @@ async def join_study_group(
     group_id: str,
     user: dict = Depends(get_current_user),
 ):
-    """Join a study group"""
+    """Join a study group (or request to join if approval is required)"""
     db = get_database()
     user_id = user["_id"]
 
@@ -349,6 +388,10 @@ async def join_study_group(
     if any(m["userId"] == user_id for m in doc.get("members", [])):
         raise HTTPException(status_code=400, detail="Already a member of this group")
 
+    # Check if already has a pending request
+    if any(jr["userId"] == user_id for jr in doc.get("joinRequests", [])):
+        raise HTTPException(status_code=400, detail="You already have a pending join request")
+
     # Check max members
     if len(doc.get("members", [])) >= doc.get("maxMembers", 8):
         raise HTTPException(status_code=400, detail="Group is full")
@@ -357,6 +400,42 @@ async def join_study_group(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # If approval is required, add to joinRequests instead of members
+    if doc.get("requireApproval", False):
+        join_request = {
+            "userId": user_id,
+            "firstName": user.get("firstName", ""),
+            "lastName": user.get("lastName", ""),
+            "matricNumber": user.get("matricNumber"),
+            "requestedAt": datetime.now(timezone.utc),
+        }
+        await db[COLLECTION].update_one(
+            {"_id": ObjectId(group_id)},
+            {
+                "$push": {"joinRequests": join_request},
+                "$set": {"updatedAt": datetime.now(timezone.utc)},
+            },
+        )
+        updated = await db[COLLECTION].find_one({"_id": ObjectId(group_id)})
+
+        # Notify group creator about the join request
+        try:
+            from app.routers.notifications import create_notification
+            joiner_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
+            asyncio.create_task(create_notification(
+                user_id=doc["createdBy"],
+                type="study_group",
+                title="New Join Request",
+                message=f"{joiner_name} wants to join {doc.get('name', 'your study group')}.",
+                link="/dashboard/growth/study-groups",
+                category="study_groups",
+            ))
+        except Exception:
+            pass
+
+        return {"message": "Join request sent. The group head will review your request.", "status": "pending", "group": serialize(updated)}
+
+    # Direct join (no approval needed)
     member = {
         "userId": user_id,
         "firstName": user.get("firstName", ""),
@@ -368,6 +447,289 @@ async def join_study_group(
     await db[COLLECTION].update_one(
         {"_id": ObjectId(group_id)},
         {
+            "$push": {"members": member},
+            "$set": {"updatedAt": datetime.now(timezone.utc)},
+        },
+    )
+
+    # Auto-close if full
+    if len(doc["members"]) + 1 >= doc.get("maxMembers", 8):
+        await db[COLLECTION].update_one(
+            {"_id": ObjectId(group_id)},
+            {"$set": {"isOpen": False}},
+        )
+
+    updated = await db[COLLECTION].find_one({"_id": ObjectId(group_id)})
+
+    # Notify group creator about the new member
+    try:
+        from app.routers.notifications import create_notification
+        joiner_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
+        asyncio.create_task(create_notification(
+            user_id=doc["createdBy"],
+            type="study_group",
+            title="New Member Joined",
+            message=f"{joiner_name} joined {doc.get('name', 'your study group')}.",
+            link="/dashboard/growth/study-groups",
+            category="study_groups",
+        ))
+    except Exception:
+        pass
+
+    return serialize(updated)
+
+
+# ─── JOIN REQUEST MANAGEMENT ────────────────────────────────────────────
+
+@router.post("/{group_id}/approve/{user_id}")
+async def approve_join_request(
+    group_id: str,
+    user_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Approve a pending join request (group head only)"""
+    db = get_database()
+    current_user_id = current_user["_id"]
+
+    if not ObjectId.is_valid(group_id):
+        raise HTTPException(status_code=400, detail="Invalid group ID")
+
+    doc = await db[COLLECTION].find_one({"_id": ObjectId(group_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Study group not found")
+
+    if doc["createdBy"] != current_user_id:
+        raise HTTPException(status_code=403, detail="Only the group head can approve join requests")
+
+    # Find the join request
+    join_request = next(
+        (jr for jr in doc.get("joinRequests", []) if jr["userId"] == user_id), None
+    )
+    if not join_request:
+        raise HTTPException(status_code=404, detail="Join request not found")
+
+    # Check max members
+    if len(doc.get("members", [])) >= doc.get("maxMembers", 8):
+        raise HTTPException(status_code=400, detail="Group is full. Cannot approve more members.")
+
+    # Move from joinRequests to members
+    member = {
+        "userId": join_request["userId"],
+        "firstName": join_request.get("firstName", ""),
+        "lastName": join_request.get("lastName", ""),
+        "matricNumber": join_request.get("matricNumber"),
+        "joinedAt": datetime.now(timezone.utc),
+    }
+
+    await db[COLLECTION].update_one(
+        {"_id": ObjectId(group_id)},
+        {
+            "$pull": {"joinRequests": {"userId": user_id}},
+            "$push": {"members": member},
+            "$set": {"updatedAt": datetime.now(timezone.utc)},
+        },
+    )
+
+    # Auto-close if full
+    if len(doc["members"]) + 1 >= doc.get("maxMembers", 8):
+        await db[COLLECTION].update_one(
+            {"_id": ObjectId(group_id)},
+            {"$set": {"isOpen": False}},
+        )
+
+    updated = await db[COLLECTION].find_one({"_id": ObjectId(group_id)})
+
+    # Notify the approved user
+    try:
+        from app.routers.notifications import create_notification
+        asyncio.create_task(create_notification(
+            user_id=user_id,
+            type="study_group",
+            title="Join Request Approved",
+            message=f"You've been accepted into {doc.get('name', 'a study group')}!",
+            link="/dashboard/growth/study-groups",
+            category="study_groups",
+        ))
+    except Exception:
+        pass
+
+    return serialize(updated)
+
+
+@router.post("/{group_id}/reject/{user_id}")
+async def reject_join_request(
+    group_id: str,
+    user_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Reject a pending join request (group head only)"""
+    db = get_database()
+    current_user_id = current_user["_id"]
+
+    if not ObjectId.is_valid(group_id):
+        raise HTTPException(status_code=400, detail="Invalid group ID")
+
+    doc = await db[COLLECTION].find_one({"_id": ObjectId(group_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Study group not found")
+
+    if doc["createdBy"] != current_user_id:
+        raise HTTPException(status_code=403, detail="Only the group head can reject join requests")
+
+    if not any(jr["userId"] == user_id for jr in doc.get("joinRequests", [])):
+        raise HTTPException(status_code=404, detail="Join request not found")
+
+    await db[COLLECTION].update_one(
+        {"_id": ObjectId(group_id)},
+        {
+            "$pull": {"joinRequests": {"userId": user_id}},
+            "$set": {"updatedAt": datetime.now(timezone.utc)},
+        },
+    )
+
+    updated = await db[COLLECTION].find_one({"_id": ObjectId(group_id)})
+
+    # Notify the rejected user
+    try:
+        from app.routers.notifications import create_notification
+        asyncio.create_task(create_notification(
+            user_id=user_id,
+            type="study_group",
+            title="Join Request Declined",
+            message=f"Your request to join {doc.get('name', 'a study group')} was not approved.",
+            link="/dashboard/growth/study-groups",
+            category="study_groups",
+        ))
+    except Exception:
+        pass
+
+    return serialize(updated)
+
+
+# ─── MEMBER MANAGEMENT ─────────────────────────────────────────────────
+
+@router.delete("/{group_id}/members/{user_id}")
+async def remove_member(
+    group_id: str,
+    user_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Remove a member from the group (group head only)"""
+    db = get_database()
+    current_user_id = current_user["_id"]
+
+    if not ObjectId.is_valid(group_id):
+        raise HTTPException(status_code=400, detail="Invalid group ID")
+
+    doc = await db[COLLECTION].find_one({"_id": ObjectId(group_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Study group not found")
+
+    if doc["createdBy"] != current_user_id:
+        raise HTTPException(status_code=403, detail="Only the group head can remove members")
+
+    if user_id == current_user_id:
+        raise HTTPException(status_code=400, detail="Cannot remove yourself. Delete the group instead.")
+
+    if not any(m["userId"] == user_id for m in doc.get("members", [])):
+        raise HTTPException(status_code=404, detail="User is not a member of this group")
+
+    await db[COLLECTION].update_one(
+        {"_id": ObjectId(group_id)},
+        {
+            "$pull": {"members": {"userId": user_id}},
+            "$set": {"updatedAt": datetime.now(timezone.utc)},
+        },
+    )
+
+    # Re-open if was full
+    if not doc.get("isOpen") and len(doc.get("members", [])) - 1 < doc.get("maxMembers", 8):
+        await db[COLLECTION].update_one(
+            {"_id": ObjectId(group_id)},
+            {"$set": {"isOpen": True}},
+        )
+
+    updated = await db[COLLECTION].find_one({"_id": ObjectId(group_id)})
+    return serialize(updated)
+
+
+# ─── INVITE SYSTEM ──────────────────────────────────────────────────────
+
+@router.post("/{group_id}/regenerate-invite")
+async def regenerate_invite_code(
+    group_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Regenerate the invite code (group head only)"""
+    db = get_database()
+    current_user_id = current_user["_id"]
+
+    if not ObjectId.is_valid(group_id):
+        raise HTTPException(status_code=400, detail="Invalid group ID")
+
+    doc = await db[COLLECTION].find_one({"_id": ObjectId(group_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Study group not found")
+
+    if doc["createdBy"] != current_user_id:
+        raise HTTPException(status_code=403, detail="Only the group head can regenerate the invite code")
+
+    new_code = _generate_invite_code()
+    await db[COLLECTION].update_one(
+        {"_id": ObjectId(group_id)},
+        {"$set": {"inviteCode": new_code, "updatedAt": datetime.now(timezone.utc)}},
+    )
+
+    return {"inviteCode": new_code}
+
+
+@router.post("/{group_id}/join-by-invite")
+async def join_by_invite(
+    group_id: str,
+    body: dict,
+    user: dict = Depends(get_current_user),
+):
+    """Join a study group using an invite code (bypasses approval requirement)"""
+    db = get_database()
+    user_id = user["_id"]
+    invite_code = body.get("inviteCode", "")
+
+    if not ObjectId.is_valid(group_id):
+        raise HTTPException(status_code=400, detail="Invalid group ID")
+
+    doc = await db[COLLECTION].find_one({"_id": ObjectId(group_id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Study group not found")
+
+    if doc.get("inviteCode") != invite_code:
+        raise HTTPException(status_code=400, detail="Invalid invite code")
+
+    if not doc.get("isOpen", True):
+        raise HTTPException(status_code=400, detail="This group is not accepting new members")
+
+    if any(m["userId"] == user_id for m in doc.get("members", [])):
+        raise HTTPException(status_code=400, detail="Already a member of this group")
+
+    if len(doc.get("members", [])) >= doc.get("maxMembers", 8):
+        raise HTTPException(status_code=400, detail="Group is full")
+
+    user_doc = await db["users"].find_one({"_id": ObjectId(user_id)})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    member = {
+        "userId": user_id,
+        "firstName": user_doc.get("firstName", ""),
+        "lastName": user_doc.get("lastName", ""),
+        "matricNumber": user_doc.get("matricNumber"),
+        "joinedAt": datetime.now(timezone.utc),
+    }
+
+    # Remove from joinRequests if they had a pending request
+    await db[COLLECTION].update_one(
+        {"_id": ObjectId(group_id)},
+        {
+            "$pull": {"joinRequests": {"userId": user_id}},
             "$push": {"members": member},
             "$set": {"updatedAt": datetime.now(timezone.utc)},
         },
@@ -668,6 +1030,23 @@ async def add_session(
         },
     )
     session["createdAt"] = session["createdAt"].isoformat()
+
+    # Notify other group members about the new session
+    try:
+        from app.routers.notifications import create_bulk_notifications
+        member_ids = [m["userId"] for m in doc.get("members", []) if m["userId"] != user_id]
+        if member_ids:
+            asyncio.create_task(create_bulk_notifications(
+                user_ids=member_ids,
+                type="study_group",
+                title="New Study Session",
+                message=f"{creator_name} scheduled \"{body.title}\" in {doc.get('name', 'your study group')}.",
+                link="/dashboard/growth/study-groups",
+                category="study_groups",
+            ))
+    except Exception:
+        pass
+
     return session
 
 
@@ -787,6 +1166,24 @@ async def add_resource(
         },
     )
     resource["createdAt"] = resource["createdAt"].isoformat()
+
+    # Notify other group members about the shared resource
+    try:
+        from app.routers.notifications import create_bulk_notifications
+        sharer_name = resource.get("addedByName", "Someone")
+        member_ids = [m["userId"] for m in doc.get("members", []) if m["userId"] != user_id]
+        if member_ids:
+            asyncio.create_task(create_bulk_notifications(
+                user_ids=member_ids,
+                type="study_group",
+                title="New Resource Shared",
+                message=f"{sharer_name} shared \"{body.title}\" in {doc.get('name', 'your study group')}.",
+                link="/dashboard/growth/study-groups",
+                category="study_groups",
+            ))
+    except Exception:
+        pass
+
     return resource
 
 

@@ -22,6 +22,7 @@ import re
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from pymongo.errors import DuplicateKeyError
 
 from ..core.permissions import (
     get_current_user,
@@ -192,6 +193,12 @@ async def delete_society(
     if result.deleted_count == 0:
         raise HTTPException(404, "Society not found")
 
+    # Nullify societyId on registrations referencing this society
+    await db.iepod_registrations.update_many(
+        {"societyId": society_id},
+        {"$set": {"societyId": None}},
+    )
+
     await AuditLogger.log(
         action="iepod.society_deleted",
         actor_id=str(user["_id"]),
@@ -247,16 +254,14 @@ async def register_for_iepod(
     doc["createdAt"] = datetime.now(timezone.utc)
     doc["updatedAt"] = datetime.now(timezone.utc)
 
-    result = await db.iepod_registrations.insert_one(doc)
+    try:
+        result = await db.iepod_registrations.insert_one(doc)
+    except DuplicateKeyError:
+        raise HTTPException(400, "You have already registered for this session's IEPOD program")
     created = await db.iepod_registrations.find_one({"_id": result.inserted_id})
     created["_id"] = str(created["_id"])
 
-    # Award registration points
-    await _award_points(
-        db, user_id, doc["userName"], session_id,
-        "registration", 10, "Registered for IEPOD",
-        str(result.inserted_id),
-    )
+    # Points are awarded when admin approves the registration (not here)
 
     return created
 
@@ -310,7 +315,7 @@ async def get_my_iepod_profile(
 
     # Quiz results
     quiz_cursor = db.iepod_quiz_responses.find(
-        {"userId": user_id}
+        {"userId": user_id, "sessionId": session_id}
     ).sort("submittedAt", -1).limit(10)
     quiz_results = []
     async for q in quiz_cursor:
@@ -375,17 +380,66 @@ async def update_registration(
     data: RegistrationUpdate,
     request: Request,
     user: dict = Depends(require_permission("iepod:manage")),
+    session: dict = Depends(get_current_session),
 ):
     """Admin: approve/reject registration, update phase, add note."""
     db = get_database()
+    session_id = str(session["_id"])
+
+    # Fetch current registration first (needed for validation)
+    current = await db.iepod_registrations.find_one({"_id": _oid(reg_id)})
+    if not current:
+        raise HTTPException(404, "Registration not found")
+
+    # Session gating — prevent modifying registrations from other sessions
+    if current.get("sessionId") != session_id:
+        raise HTTPException(403, "Cannot modify registrations from a different session")
+
     updates = {k: v for k, v in data.model_dump(exclude_unset=True).items()}
     if not updates:
         raise HTTPException(400, "No fields to update")
+
+    # Status transition validation
+    new_status = updates.get("status")
+    current_status = current.get("status", "pending")
+    if new_status:
+        valid_transitions = {
+            "pending": {"approved", "rejected"},
+            "approved": {"rejected", "completed"},
+            "rejected": {"approved"},
+            "completed": set(),
+        }
+        allowed = valid_transitions.get(current_status, set())
+        if new_status not in allowed:
+            raise HTTPException(
+                400,
+                f"Cannot change status from '{current_status}' to '{new_status}'. "
+                f"Allowed: {', '.join(sorted(allowed)) if allowed else 'none'}"
+            )
+
+    # Phase progression tracking — push old phase into completedPhases
+    new_phase = updates.get("phase")
+    mongo_ops: dict = {"$set": {}}
+    if new_phase and new_phase != current.get("phase"):
+        # Validate forward movement only (unless admin deliberately overrides)
+        phase_order = ["stimulate", "carve", "pitch"]
+        old_idx = phase_order.index(current["phase"]) if current.get("phase") in phase_order else -1
+        new_idx = phase_order.index(new_phase) if new_phase in phase_order else -1
+        if new_idx <= old_idx:
+            raise HTTPException(400, f"Phase can only advance forward. Current: {current.get('phase')}")
+
+        # Mark old phase as completed
+        completed_phases = list(current.get("completedPhases", []))
+        old_phase = current.get("phase")
+        if old_phase and old_phase not in completed_phases:
+            completed_phases.append(old_phase)
+        mongo_ops["$set"]["completedPhases"] = completed_phases
+
     updates["updatedAt"] = datetime.now(timezone.utc)
-    await db.iepod_registrations.update_one({"_id": _oid(reg_id)}, {"$set": updates})
+    mongo_ops["$set"].update(updates)
+
+    await db.iepod_registrations.update_one({"_id": _oid(reg_id)}, mongo_ops)
     updated = await db.iepod_registrations.find_one({"_id": _oid(reg_id)})
-    if not updated:
-        raise HTTPException(404, "Registration not found")
     updated["_id"] = str(updated["_id"])
 
     await AuditLogger.log(
@@ -398,6 +452,33 @@ async def update_registration(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
+
+    # Award points on approval + send notification
+    student_uid = updated.get("userId")
+    if new_status and student_uid:
+        # Award registration points when approved (not at registration time)
+        if new_status == "approved" and current_status != "approved":
+            user_name = updated.get("userName", "")
+            await _award_points(
+                db, student_uid, user_name, session_id,
+                "registration", 10, "IEPOD registration approved",
+                reg_id,
+            )
+
+        try:
+            from app.routers.notifications import create_notification
+            status_labels = {"approved": "approved", "rejected": "rejected", "completed": "completed"}
+            status_label = status_labels.get(new_status, "updated")
+            await create_notification(
+                user_id=student_uid,
+                type="iepod",
+                title=f"IEPOD Registration {status_label.title()}",
+                message=f"Your IEPOD registration has been {status_label}.",
+                link="/dashboard/iepod",
+                category="iepod",
+            )
+        except Exception:
+            pass  # Non-critical
 
     return updated
 
@@ -475,6 +556,8 @@ async def create_niche_audit(
     reg = await _get_registration(db, user_id, session_id)
     if not reg:
         raise HTTPException(400, "You must register for IEPOD first")
+    if reg["status"] != "approved":
+        raise HTTPException(400, "Your IEPOD registration must be approved before submitting a Niche Audit")
 
     # External students cannot create niche audits (IPE-only feature)
     if reg.get("isExternalStudent"):
@@ -605,6 +688,8 @@ async def create_team(
     reg = await _get_registration(db, user_id, session_id)
     if not reg:
         raise HTTPException(400, "You must register for IEPOD first")
+    if reg["status"] != "approved":
+        raise HTTPException(400, "Your IEPOD registration must be approved before creating a team")
     if reg.get("teamId"):
         raise HTTPException(400, "You are already on a team")
 
@@ -710,6 +795,8 @@ async def join_team(
     reg = await _get_registration(db, user_id, session_id)
     if not reg:
         raise HTTPException(400, "You must register for IEPOD first")
+    if reg["status"] != "approved":
+        raise HTTPException(400, "Your IEPOD registration must be approved before joining a team")
     if reg.get("teamId"):
         raise HTTPException(400, "You are already on a team")
 
@@ -735,6 +822,13 @@ async def join_team(
     await db.iepod_registrations.update_one(
         {"_id": reg["_id"]},
         {"$set": {"teamId": team_id, "updatedAt": datetime.now(timezone.utc)}},
+    )
+
+    # Award points for joining a team
+    await _award_points(
+        db, user_id, user_name, session_id,
+        "team_formed", 10, f"Joined team '{team['name']}'",
+        team_id,
     )
 
     return {"message": f"Joined team '{team['name']}'"}
@@ -783,8 +877,17 @@ async def update_team(
     if not team:
         raise HTTPException(404, "Team not found")
 
-    # Check if leader or admin
-    if team["leaderId"] != user["_id"] and user.get("role") not in ("admin", "exco"):
+    # Check if leader or admin (use permission check, not stale JWT role)
+    is_admin = False
+    try:
+        from ..core.permissions import get_user_permissions
+        active_session = await db.sessions.find_one({"isActive": True})
+        if active_session:
+            perms = await get_user_permissions(str(user["_id"]), str(active_session["_id"]))
+            is_admin = "iepod:manage" in perms
+    except Exception:
+        pass
+    if team["leaderId"] != user["_id"] and not is_admin:
         raise HTTPException(403, "Only the team leader or admins can edit the team")
 
     updates = {k: v for k, v in data.model_dump(exclude_unset=True).items()}
@@ -1061,7 +1164,14 @@ async def list_quizzes(
     if quiz_type:
         query["quizType"] = quiz_type
 
-    is_admin = user.get("role") in ("admin", "exco")
+    # Check admin via permissions (not stale JWT role)
+    is_admin = False
+    try:
+        from ..core.permissions import get_user_permissions
+        perms = await get_user_permissions(str(user["_id"]), str(session["_id"]))
+        is_admin = "iepod:manage" in perms
+    except Exception:
+        pass
     cursor = db.iepod_quizzes.find(query).sort("createdAt", -1)
     items = []
     async for doc in cursor:
@@ -1095,7 +1205,16 @@ async def get_quiz(
     if not doc:
         raise HTTPException(404, "Quiz not found")
 
-    is_admin = user.get("role") in ("admin", "exco")
+    # Check admin via permissions (not stale JWT role)
+    is_admin = False
+    try:
+        from ..core.permissions import get_user_permissions
+        active_session = await db.sessions.find_one({"isActive": True})
+        if active_session:
+            perms = await get_user_permissions(str(user["_id"]), str(active_session["_id"]))
+            is_admin = "iepod:manage" in perms
+    except Exception:
+        pass
 
     if is_admin:
         doc["_id"] = str(doc["_id"])
@@ -1145,6 +1264,12 @@ async def submit_quiz_answers(
     if not quiz:
         raise HTTPException(404, "Quiz not found")
 
+    # Must have an approved IEPOD registration
+    session_id = str(session["_id"])
+    reg = await _get_registration(db, user_id, session_id)
+    if not reg or reg["status"] != "approved":
+        raise HTTPException(400, "You must have an approved IEPOD registration to take quizzes")
+
     # Prevent double-take
     existing = await db.iepod_quiz_responses.find_one(
         {"quizId": quiz_id, "userId": user_id}
@@ -1169,6 +1294,7 @@ async def submit_quiz_answers(
         "quizId": quiz_id,
         "userId": user_id,
         "userName": user_name,
+        "sessionId": session_id,
         "answers": [a.model_dump() for a in data.answers],
         "score": score,
         "maxScore": max_score,
@@ -1186,7 +1312,6 @@ async def submit_quiz_answers(
     )
 
     # Award points based on score
-    session_id = str(session["_id"])
     pts = max(5, int(score * 0.5))  # Minimum 5 points for participating
     await _award_points(
         db, user_id, user_name, session_id,
@@ -1243,6 +1368,9 @@ async def delete_quiz(
     result = await db.iepod_quizzes.delete_one({"_id": _oid(quiz_id)})
     if result.deleted_count == 0:
         raise HTTPException(404, "Quiz not found")
+
+    # Clean up quiz responses
+    await db.iepod_quiz_responses.delete_many({"quizId": quiz_id})
 
     await AuditLogger.log(
         action="iepod.quiz_deleted",
@@ -1381,6 +1509,7 @@ async def get_iepod_stats(
     pending = await db.iepod_registrations.count_documents({**reg_query, "status": "pending"})
     approved = await db.iepod_registrations.count_documents({**reg_query, "status": "approved"})
     rejected = await db.iepod_registrations.count_documents({**reg_query, "status": "rejected"})
+    completed = await db.iepod_registrations.count_documents({**reg_query, "status": "completed"})
 
     # Phase breakdown
     phase_stimulate = await db.iepod_registrations.count_documents({**reg_query, "phase": "stimulate"})
@@ -1413,6 +1542,7 @@ async def get_iepod_stats(
         "pending": pending,
         "approved": approved,
         "rejected": rejected,
+        "completed": completed,
         "phases": {
             "stimulate": phase_stimulate,
             "carve": phase_carve,

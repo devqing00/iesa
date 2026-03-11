@@ -3,6 +3,7 @@
 import { useAuth } from "@/context/AuthContext";
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { getTimeGreeting } from "@/lib/greeting";
 import {
@@ -11,11 +12,16 @@ import {
   type UpcomingEvent,
   type PaymentItem,
   type ClassSession,
+  type BirthdayCelebrant,
 } from "@/hooks/useData";
 import { StudentDashboardSkeleton } from "@/components/ui/Skeleton";
 import dynamic from "next/dynamic";
 const OnboardingModal = dynamic(
   () => import("@/components/ui/OnboardingModal").then((m) => m.OnboardingModal),
+  { ssr: false }
+);
+const BirthdayConfetti = dynamic(
+  () => import("@/components/ui/BirthdayConfetti").then((m) => m.BirthdayConfetti),
   { ssr: false }
 );
 import { getQuoteOfTheDay } from "@/lib/quotes";
@@ -55,6 +61,13 @@ export default function StudentDashboardPage() {
     () => data?.todayClasses ?? [],
     [data],
   );
+
+  const birthdays: BirthdayCelebrant[] = useMemo(
+    () => data?.birthdays ?? [],
+    [data],
+  );
+
+  const isMyBirthday = data?.isMyBirthday ?? false;
 
   // ── Onboarding localStorage keys scoped to the logged-in user so that
   //    other users / dev testing on the same browser never prevent the
@@ -96,7 +109,7 @@ export default function StudentDashboardPage() {
   // Full-page shimmer skeleton while initial data loads (after all hooks)
   if (loading && !data) return <StudentDashboardSkeleton />;
 
-  const greeting = getTimeGreeting;
+  const greeting = () => getTimeGreeting(isMyBirthday);
   const quoteOfTheDay = getQuoteOfTheDay();
 
   const getContextTagline = () => {
@@ -221,6 +234,9 @@ export default function StudentDashboardPage() {
       <DashboardHeader title="Dashboard" />
       <ToolHelpModal toolId="student-dashboard" isOpen={showHelp} onClose={closeHelp} />
 
+      {/* Birthday confetti overlay */}
+      {isMyBirthday && <BirthdayConfetti />}
+
       <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
         <div className="flex justify-end mb-3"><HelpButton onClick={openHelp} /></div>
 
@@ -237,7 +253,7 @@ export default function StudentDashboardPage() {
         {showOnboarding && (
           <div className="mb-5 bg-sunny border-[4px] border-navy rounded-3xl p-5 md:p-6 shadow-[6px_6px_0_0_#000] relative overflow-hidden">
             <div className="absolute -top-4 -right-4 w-24 h-24 rounded-full bg-coral/15 pointer-events-none" />
-            <svg className="absolute top-3 right-16 w-5 h-5 text-navy/10 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="absolute top-3 right-16 w-5 h-5 text-navy/10 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
             </svg>
             <button
@@ -245,11 +261,11 @@ export default function StudentDashboardPage() {
               aria-label="Dismiss onboarding banner"
               className="absolute md:hidden top-4 right-4 w-7 h-7 rounded-lg bg-navy/10 hover:bg-navy/20 flex items-center justify-center transition-colors z-10"
             >
-              <svg className="w-3.5 h-3.5 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+              <svg aria-hidden="true" className="w-3.5 h-3.5 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 relative z-10">
               <div className="w-12 h-12 bg-snow border-[3px] border-navy rounded-2xl flex items-center justify-center shrink-0 shadow-[3px_3px_0_0_#000]">
-                <svg className="w-6 h-6 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <svg aria-hidden="true" className="w-6 h-6 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-display font-black text-lg text-navy leading-tight">Complete your profile</h3>
@@ -259,7 +275,7 @@ export default function StudentDashboardPage() {
               </div>
               <Link
                 href="/dashboard/profile"
-                className="bg-navy border-[3px] border-navy px-5 py-2.5 rounded-xl font-display font-bold text-sm text-lime press-3 press-black shrink-0"
+                className="bg-navy border-[3px] border-lime px-5 py-2.5 rounded-xl font-display font-bold text-sm text-lime press-3 press-lime shrink-0"
               >
                 Go to Profile
               </Link>
@@ -268,7 +284,7 @@ export default function StudentDashboardPage() {
               aria-label="Dismiss onboarding banner"
               className="hidden md:flex w-7 h-7 rounded-lg bg-navy/10 hover:bg-navy/20 items-center justify-center transition-colors z-10"
             >
-              <svg className="w-3.5 h-3.5 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+              <svg aria-hidden="true" className="w-3.5 h-3.5 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             </div>
           </div>
@@ -286,11 +302,11 @@ export default function StudentDashboardPage() {
               aria-label="Dismiss welcome banner"
               className="absolute md:hidden top-4 right-4 w-7 h-7 rounded-lg bg-navy/10 hover:bg-navy/20 flex items-center justify-center transition-colors z-10"
             >
-              <svg className="w-3.5 h-3.5 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+              <svg aria-hidden="true" className="w-3.5 h-3.5 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 relative z-10">
               <div className="w-12 h-12 bg-lavender border-[3px] border-navy rounded-2xl flex items-center justify-center shrink-0 shadow-[3px_3px_0_0_#000]">
-                <svg className="w-6 h-6 text-snow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg aria-hidden="true" className="w-6 h-6 text-snow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
                 </svg>
               </div>
@@ -302,7 +318,7 @@ export default function StudentDashboardPage() {
               </div>
               <Link
                 href="/dashboard/iepod"
-                className="bg-navy border-[3px] border-navy px-5 py-2.5 rounded-xl font-display font-bold text-sm text-lime press-3 press-black shrink-0"
+                className="bg-navy border-[3px] border-lime px-5 py-2.5 rounded-xl font-display font-bold text-sm text-lime press-3 press-lime shrink-0"
               >
                 Go to IEPOD
               </Link>
@@ -311,7 +327,7 @@ export default function StudentDashboardPage() {
                 aria-label="Dismiss welcome banner"
                 className="hidden md:flex w-7 h-7 rounded-lg bg-navy/10 hover:bg-navy/20 items-center justify-center transition-colors z-10"
               >
-                <svg className="w-3.5 h-3.5 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                <svg aria-hidden="true" className="w-3.5 h-3.5 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
           </div>
@@ -323,16 +339,16 @@ export default function StudentDashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-5">
 
           {/* — Greeting Hero — */}
-          <div className={`${external ? "lg:col-span-12" : "lg:col-span-8"} bg-navy border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[230px] flex flex-col justify-between`}>
+          <div className={`${external ? "lg:col-span-12" : "lg:col-span-8"} bg-navy border-[3px] border-lime rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[230px] flex flex-col justify-between`}>
             {/* Decorative shapes */}
             <div className="absolute top-6 right-8 w-20 h-20 rounded-full bg-coral/15 pointer-events-none" />
             <div className="absolute bottom-8 right-32 w-10 h-10 rounded-lg bg-lavender/10 rotate-12 pointer-events-none" />
             <div className="absolute top-1/2 right-16 w-6 h-6 rounded-full bg-teal/15 pointer-events-none" />
             {/* Diamond sparkle */}
-            <svg className="absolute top-5 right-24 w-5 h-5 text-navy/12 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="absolute top-5 right-24 w-5 h-5 text-navy/12 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
             </svg>
-            <svg className="absolute bottom-12 right-12 w-4 h-4 text-coral/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="absolute bottom-12 right-12 w-4 h-4 text-coral/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
             </svg>
 
@@ -381,7 +397,7 @@ export default function StudentDashboardPage() {
           <div className="lg:col-span-4 bg-coral border-[3px] border-navy rounded-[2rem] p-8 relative overflow-hidden flex flex-col justify-between min-h-[230px] shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
             {/* Decorative shapes */}
             <div className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full bg-navy/10 pointer-events-none" />
-            <svg className="absolute top-4 right-5 w-5 h-5 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="absolute top-4 right-5 w-5 h-5 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
             </svg>
 
@@ -393,7 +409,7 @@ export default function StudentDashboardPage() {
             </div>
             <Link href="/dashboard/timetable" className="relative z-10 inline-flex items-center gap-2 text-snow/80 text-xs font-bold hover:text-snow transition-colors group mt-4">
               View full timetable
-              <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-4 h-4 group-hover:translate-x-1 transition-transform" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
               </svg>
             </Link>
@@ -405,7 +421,7 @@ export default function StudentDashboardPage() {
         {!external && (
           <Link
             href="/dashboard/iepod"
-            className="block bg-coral border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] mb-5 relative overflow-hidden group hover:shadow-[6px_6px_0_0_#000] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+            className="block bg-coral border-[3px] border-navy rounded-3xl p-5 press-4 press-black mb-5 relative overflow-hidden group transition-all"
           >
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-snow/20 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
@@ -432,7 +448,7 @@ export default function StudentDashboardPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
             <Link href="/dashboard/announcements" className="bg-sunny-light border-[3px] border-navy rounded-2xl p-4 press-3 press-black group">
               <div className="w-9 h-9 rounded-xl bg-sunny/20 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                <svg className="w-5 h-5 text-sunny" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-5 h-5 text-sunny" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M5.25 9a6.75 6.75 0 0113.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 01-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 11-7.48 0 24.585 24.585 0 01-4.831-1.244.75.75 0 01-.298-1.205A8.217 8.217 0 005.25 9.75V9zm4.502 8.9a2.25 2.25 0 004.496 0 25.057 25.057 0 01-4.496 0z" />
                 </svg>
               </div>
@@ -442,7 +458,7 @@ export default function StudentDashboardPage() {
 
             <Link href="/dashboard/iepod" className="bg-lavender-light border-[3px] border-navy rounded-2xl p-4 press-3 press-black group">
               <div className="w-9 h-9 rounded-xl bg-lavender/20 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                <svg className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM15.75 9.75a3 3 0 116 0 3 3 0 01-6 0zM2.25 9.75a3 3 0 116 0 3 3 0 01-6 0zM6.31 15.117A6.745 6.745 0 0112 12a6.745 6.745 0 016.709 7.498.75.75 0 01-.372.568A12.696 12.696 0 0112 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 01-.372-.568 6.787 6.787 0 011.019-4.38z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -452,7 +468,7 @@ export default function StudentDashboardPage() {
 
             <Link href="/dashboard/growth" className="bg-teal-light border-[3px] border-navy rounded-2xl p-4 press-3 press-black group">
               <div className="w-9 h-9 rounded-xl bg-teal/20 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                <svg className="w-5 h-5 text-teal" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-5 h-5 text-teal" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M15.22 6.268a.75.75 0 01.968-.432l5.942 2.28a.75.75 0 01.431.97l-2.28 5.941a.75.75 0 11-1.4-.537l1.63-4.251-1.086.483a11.2 11.2 0 00-5.45 5.174.75.75 0 01-1.199.19L9 12.31l-6.22 6.22a.75.75 0 11-1.06-1.06l6.75-6.75a.75.75 0 011.06 0l3.606 3.605a12.694 12.694 0 015.68-4.973l1.086-.484-4.251-1.631a.75.75 0 01-.432-.97z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -462,7 +478,7 @@ export default function StudentDashboardPage() {
 
             <Link href="/dashboard/profile" className="bg-coral-light border-[3px] border-navy rounded-2xl p-4 press-3 press-black group">
               <div className="w-9 h-9 rounded-xl bg-coral/20 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                <svg className="w-5 h-5 text-coral" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-5 h-5 text-coral" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -490,7 +506,7 @@ export default function StudentDashboardPage() {
                 </div>
                 <Link href="/dashboard/timetable" className="text-xs font-bold text-slate hover:text-navy transition-colors flex items-center gap-1">
                   Full timetable
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z" clipRule="evenodd" />
                   </svg>
                 </Link>
@@ -500,7 +516,7 @@ export default function StudentDashboardPage() {
                 : todayClasses.length === 0
                 ? <div className="text-center py-12 bg-teal-light rounded-2xl border-[3px] border-navy/10">
                     <div className="w-14 h-14 rounded-2xl bg-teal/20 flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-7 h-7 text-teal" viewBox="0 0 24 24" fill="currentColor">
+                      <svg aria-hidden="true" className="w-7 h-7 text-teal" viewBox="0 0 24 24" fill="currentColor">
                         <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
                       </svg>
                     </div>
@@ -544,7 +560,7 @@ export default function StudentDashboardPage() {
                 </div>
                 <Link href="/dashboard/announcements" className="text-xs font-bold text-navy/50 hover:text-navy transition-colors flex items-center gap-1">
                   View all
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z" clipRule="evenodd" />
                   </svg>
                 </Link>
@@ -581,7 +597,7 @@ export default function StudentDashboardPage() {
                       {ann.priority === "urgent" && (
                         <span className="text-[10px] font-bold text-snow bg-coral rounded-full px-2.5 py-0.5 shrink-0">URGENT</span>
                       )}
-                      <svg className="w-4 h-4 text-slate group-hover:text-navy transition-colors shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                      <svg aria-hidden="true" className="w-4 h-4 text-slate group-hover:text-navy transition-colors shrink-0" viewBox="0 0 24 24" fill="currentColor">
                         <path fillRule="evenodd" d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z" clipRule="evenodd" />
                       </svg>
                     </Link>
@@ -594,12 +610,12 @@ export default function StudentDashboardPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* First CTA: IESA AI (IPE) or IEPOD (External) */}
               {external ? (
-                <Link href="/dashboard/iepod" className="block bg-navy border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group">
-                  <svg className="absolute top-4 right-5 w-5 h-5 text-lime/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                <Link href="/dashboard/iepod" className="block bg-navy border-[3px] border-lime rounded-3xl p-6 relative overflow-hidden group">
+                  <svg aria-hidden="true" className="absolute top-4 right-5 w-5 h-5 text-lime/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
                   </svg>
                   <div className="w-10 h-10 rounded-xl bg-lime/20 flex items-center justify-center mb-3">
-                    <svg className="w-5 h-5 text-lime" viewBox="0 0 24 24" fill="currentColor">
+                    <svg aria-hidden="true" className="w-5 h-5 text-lime" viewBox="0 0 24 24" fill="currentColor">
                       <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
                       <path d="M5.082 14.254a8.287 8.287 0 0 0-1.308 5.135 9.687 9.687 0 0 1-1.764-.44l-.115-.04a.563.563 0 0 1-.373-.487l-.01-.121a3.75 3.75 0 0 1 3.57-4.047ZM20.226 19.389a8.287 8.287 0 0 0-1.308-5.135 3.75 3.75 0 0 1 3.57 4.047l-.01.121a.563.563 0 0 1-.373.486l-.115.04c-.567.2-1.156.349-1.764.441Z" />
                     </svg>
@@ -608,19 +624,19 @@ export default function StudentDashboardPage() {
                   <p className="text-ghost/40 text-xs font-medium mb-3">Orientation programme — quizzes, teams &amp; more</p>
                   <span className="inline-flex items-center gap-1.5 text-lime text-xs font-bold group-hover:gap-2.5 transition-all">
                     Go to IEPOD
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                    <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                       <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                     </svg>
                   </span>
                 </Link>
               ) : (
               /* IESA AI CTA */
-              <Link href="/dashboard/iesa-ai" className="block bg-navy border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group">
-                <svg className="absolute top-4 right-5 w-5 h-5 text-lavender/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+              <Link href="/dashboard/iesa-ai" className="block bg-navy border-[3px] border-lime rounded-3xl p-6 relative overflow-hidden group">
+                <svg aria-hidden="true" className="absolute top-4 right-5 w-5 h-5 text-lavender/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
                 </svg>
                 <div className="w-10 h-10 rounded-xl bg-lavender/20 flex items-center justify-center mb-3">
-                  <svg className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5Z" clipRule="evenodd" />
                   </svg>
                 </div>
@@ -628,7 +644,7 @@ export default function StudentDashboardPage() {
                 <p className="text-ghost/40 text-xs font-medium mb-3">Ask anything about the department</p>
                 <span className="inline-flex items-center gap-1.5 text-lavender text-xs font-bold group-hover:gap-2.5 transition-all">
                   Start chatting
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                   </svg>
                 </span>
@@ -638,14 +654,14 @@ export default function StudentDashboardPage() {
               {/* Growth CTA */}
               <Link href="/dashboard/growth" className="block bg-teal border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
                 <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full bg-navy/10 pointer-events-none" />
-                <svg className="absolute top-3 right-4 w-4 h-4 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="absolute top-3 right-4 w-4 h-4 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
                 </svg>
                 <h3 className="font-display font-black text-xl text-navy mb-1 relative z-10">Growth Tools</h3>
                 <p className="text-navy/60 text-xs font-medium relative z-10 mb-3">CGPA, planner, goals &amp; more</p>
                 <span className="inline-flex items-center gap-1.5 text-navy text-xs font-bold relative z-10 group-hover:gap-2.5 transition-all bg-snow/30 rounded-full px-3 py-1.5">
                   Explore
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                   </svg>
                 </span>
@@ -669,7 +685,7 @@ export default function StudentDashboardPage() {
                 </div>
                 <Link href="/dashboard/payments" className="text-[10px] font-bold text-navy/50 hover:text-navy transition-colors uppercase tracking-wider">
                   Pay
-                  <svg className="w-3 h-3 inline ml-0.5" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-3 h-3 inline ml-0.5" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z" clipRule="evenodd" />
                   </svg>
                 </Link>
@@ -682,7 +698,7 @@ export default function StudentDashboardPage() {
                 </div>
               ) : pendingPayments.length === 0 ? (
                 <div className="bg-teal-light rounded-2xl p-5 text-center border-[3px] border-navy/10">
-                  <svg className="w-8 h-8 text-teal mx-auto mb-2" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-8 h-8 text-teal mx-auto mb-2" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
                   </svg>
                   <p className="text-sm font-bold text-teal">All clear!</p>
@@ -719,7 +735,7 @@ export default function StudentDashboardPage() {
                 </div>
                 <Link href="/dashboard/events" className="text-[10px] font-bold text-slate hover:text-navy transition-colors uppercase tracking-wider">
                   All
-                  <svg className="w-3 h-3 inline ml-0.5" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-3 h-3 inline ml-0.5" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z" clipRule="evenodd" />
                   </svg>
                 </Link>
@@ -762,7 +778,7 @@ export default function StudentDashboardPage() {
             {/* Study Groups Card */}
             <Link
               href="/dashboard/growth/study-groups"
-              className="block bg-lavender border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] group hover:shadow-[6px_6px_0_0_#000] hover:-translate-x-px hover:-translate-y-px transition-all"
+              className="block bg-lavender border-[3px] border-navy rounded-3xl p-6 press-4 press-black group transition-all"
             >
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-10 h-10 rounded-xl bg-snow/20 flex items-center justify-center shrink-0">
@@ -789,6 +805,75 @@ export default function StudentDashboardPage() {
         </div>
 
         {/* ═══════════════════════════════════════════════════════════
+            BIRTHDAY CELEBRANTS
+            ═══════════════════════════════════════════════════════════ */}
+        {birthdays.length > 0 && (
+          <div className="mt-5 bg-sunny-light border-[3px] border-navy rounded-3xl p-5 md:p-6 shadow-[4px_4px_0_0_#000] relative overflow-hidden">
+            <svg className="absolute top-3 right-8 w-5 h-5 text-sunny/30 pointer-events-none" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+            </svg>
+            <svg className="absolute bottom-4 left-6 w-4 h-4 text-coral/15 pointer-events-none" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+            </svg>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-sunny/30 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-sunny" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M15 1.784l-.796.796a1.125 1.125 0 1 0 1.591 0L15 1.784ZM12 1.784l-.796.796a1.125 1.125 0 1 0 1.591 0L12 1.784ZM9 1.784l-.796.796a1.125 1.125 0 1 0 1.591 0L9 1.784ZM9.75 7.547c.498-.021.998-.035 1.5-.042V6.75a.75.75 0 0 1 1.5 0v.755c.502.007 1.002.021 1.5.042V6.75a.75.75 0 0 1 1.5 0v.88l.307.022c1.55.117 2.693 1.427 2.693 2.946v1.018a62.182 62.182 0 0 0-13.5 0v-1.018c0-1.519 1.143-2.829 2.693-2.946l.307-.022v-.88a.75.75 0 0 1 1.5 0v.797ZM12 12.22c-4.128 0-8.154.328-12 .966v6.564A2.25 2.25 0 0 0 2.25 22h19.5A2.25 2.25 0 0 0 24 19.75v-6.564c-3.846-.638-7.872-.966-12-.966Z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-display font-black text-lg text-navy">
+                  {isMyBirthday ? "It\u2019s your birthday!" : "Birthday Celebrants"}
+                </h3>
+                <p className="text-[10px] text-slate font-medium">
+                  {isMyBirthday
+                    ? "The department celebrates you today!"
+                    : `${birthdays.length} student${birthdays.length !== 1 ? "s" : ""} celebrating today`}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              {birthdays.map((b) => (
+                <div
+                  key={b._id}
+                  className={`flex items-center gap-3 rounded-2xl border-[3px] px-4 py-3 transition-all ${
+                    b.isCurrentUser
+                      ? "bg-lime border-navy shadow-[3px_3px_0_0_#000]"
+                      : "bg-snow border-navy/15"
+                  }`}
+                >
+                  {b.profilePictureUrl ? (
+                    <Image
+                      src={b.profilePictureUrl}
+                      alt=""
+                      width={36}
+                      height={36}
+                      className="w-9 h-9 rounded-full object-cover border-2 border-navy/20 shrink-0"
+                    />
+                  ) : (
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-display font-black shrink-0 ${
+                      b.isCurrentUser ? "bg-navy text-lime" : "bg-coral/15 text-coral"
+                    }`}>
+                      {b.firstName?.[0]}{b.lastName?.[0]}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className={`text-sm font-bold truncate ${b.isCurrentUser ? "text-navy" : "text-navy"}`}>
+                      {b.isCurrentUser ? "You!" : `${b.firstName} ${b.lastName}`}
+                    </p>
+                    {b.currentLevel && (
+                      <p className="text-[10px] text-slate">{String(b.currentLevel).replace(/L$/i, "")}L</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════
             QUOTE OF THE DAY
             ═══════════════════════════════════════════════════════════ */}
         <div className="mt-5 bg-ghost border-[3px] border-navy/10 rounded-3xl px-6 py-5 md:px-8 md:py-6 relative overflow-hidden">
@@ -800,7 +885,7 @@ export default function StudentDashboardPage() {
           </svg>
           <div className="flex items-start gap-3 md:gap-4">
             <div className="shrink-0 w-8 h-8 rounded-xl bg-lavender/15 flex items-center justify-center mt-0.5">
-              <svg className="w-4 h-4 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-4 h-4 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M4.583 17.321C3.553 16.227 3 15 3 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311C9.591 11.69 11 13.2 11 15c0 1.866-1.567 3.5-3.5 3.5-.924 0-1.88-.378-2.917-1.179zM14.583 17.321C13.553 16.227 13 15 13 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311C19.591 11.69 21 13.2 21 15c0 1.866-1.567 3.5-3.5 3.5-.924 0-1.88-.378-2.917-1.179z" />
               </svg>
             </div>

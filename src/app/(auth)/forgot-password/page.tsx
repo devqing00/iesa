@@ -82,7 +82,7 @@ export default function ForgotPasswordPage() {
             /* Success State */
             <div className="space-y-6">
               <div className="w-16 h-16 bg-teal-light border-[3px] border-navy rounded-2xl flex items-center justify-center">
-                <svg className="w-8 h-8 text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <svg aria-hidden="true" className="w-8 h-8 text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
@@ -116,8 +116,8 @@ export default function ForgotPasswordPage() {
       {/* Right - Decorative Section */}
       <div className="hidden lg:flex flex-1 bg-navy items-center justify-center relative overflow-hidden rounded-l-[2rem]">
         <div className="absolute inset-0 bg-dots opacity-20 pointer-events-none" />
-        <svg className="absolute top-12 right-[15%] w-5 h-5 text-lime/12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="absolute bottom-20 left-[10%] w-4 h-4 text-coral/15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg aria-hidden="true" className="absolute top-12 right-[15%] w-5 h-5 text-lime/12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg aria-hidden="true" className="absolute bottom-20 left-[10%] w-4 h-4 text-coral/15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
 
         <div className="relative z-10 max-w-md p-12 text-center space-y-8">
           <div className="space-y-4">

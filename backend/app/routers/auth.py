@@ -91,6 +91,15 @@ async def register_profile(request: Request, data: RegisterProfileRequest):
     INSTITUTIONAL_DOMAIN = "@stu.ui.edu.ng"
     email_type = "institutional" if email.lower().endswith(INSTITUTIONAL_DOMAIN) else "personal"
 
+    # Parse dateOfBirth string to date object if provided
+    parsed_dob = None
+    if data.dateOfBirth:
+        from datetime import date as date_type
+        try:
+            parsed_dob = date_type.fromisoformat(data.dateOfBirth)
+        except (ValueError, TypeError):
+            pass
+
     user_doc = {
         "firebaseUid": firebase_uid,
         "email": email,
@@ -102,6 +111,7 @@ async def register_profile(request: Request, data: RegisterProfileRequest):
         "admissionYear": data.admissionYear,
         "department": data.department or "Industrial Engineering",
         "isExternalStudent": (data.department or "Industrial Engineering") != "Industrial Engineering",
+        "dateOfBirth": parsed_dob,
         "role": "student",
         "bio": None,
         "profilePictureUrl": None,

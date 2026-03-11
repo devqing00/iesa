@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import Link from "next/link";
@@ -39,7 +39,9 @@ export default function TeamPage() {
   const [submissions, setSubmissions] = useState<IepodSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Create team form
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -61,7 +63,7 @@ export default function TeamPage() {
     try {
       const [profileRes, teamsRes] = await Promise.allSettled([
         getMyIepodProfile(),
-        listTeams({ status: statusFilter || undefined, search: searchTerm || undefined }),
+        listTeams({ status: statusFilter || undefined, search: debouncedSearch || undefined }),
       ]);
 
       if (profileRes.status === "fulfilled") {
@@ -84,7 +86,14 @@ export default function TeamPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, searchTerm]);
+  }, [statusFilter, debouncedSearch]);
+
+  // Debounce search input (400ms)
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(searchTerm), 400);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [searchTerm]);
 
   useEffect(() => {
     if (user) fetchData();
@@ -132,6 +141,8 @@ export default function TeamPage() {
 
   async function handleLeaveTeam() {
     if (!myTeam) return;
+    const confirmed = window.confirm("Are you sure you want to leave this team? This action cannot be undone.");
+    if (!confirmed) return;
     try {
       const res = await leaveTeam(myTeam._id);
       toast.success(res.message);
@@ -228,7 +239,7 @@ export default function TeamPage() {
               disabled={!hasTeam && t !== "browse"}
               className={`px-4 py-2 rounded-xl border-[3px] font-display font-black text-xs whitespace-nowrap transition-all ${
                 tab === t
-                  ? "bg-navy border-navy text-lime"
+                  ? "bg-navy border-lime text-lime"
                   : !hasTeam && t !== "browse"
                   ? "bg-cloud border-cloud text-slate cursor-not-allowed"
                   : "bg-snow border-navy text-navy hover:bg-ghost"
@@ -296,10 +307,10 @@ export default function TeamPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-label text-navy text-xs mb-1 block">Max Members (3-8)</label>
+                  <label className="text-label text-navy text-xs mb-1 block">Max Members (2-8)</label>
                   <input
                     type="number"
-                    min={3}
+                    min={2}
                     max={8}
                     value={maxMembers}
                     onChange={(e) => setMaxMembers(Number(e.target.value))}
@@ -329,7 +340,7 @@ export default function TeamPage() {
                         {style.label}
                       </span>
                     </div>
-                    <p className="text-navy/70 text-sm mb-3 line-clamp-2">{t.problemStatement}</p>
+                    <p className="text-slate text-sm mb-3 line-clamp-2">{t.problemStatement}</p>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-slate text-xs font-medium">
@@ -380,13 +391,13 @@ export default function TeamPage() {
                 {!isLeader && (
                   <button
                     onClick={handleLeaveTeam}
-                    className="bg-snow border-[2px] border-coral text-coral font-bold text-xs px-3 py-1 rounded-xl hover:bg-coral-light transition-colors"
+                    className="bg-snow border-[2px] border-coral text-coral font-bold text-xs px-3 py-1 rounded-xl press-2 press-black hover:bg-coral-light transition-colors"
                   >
                     Leave Team
                   </button>
                 )}
               </div>
-              <p className="text-navy/80 text-sm">{myTeam.problemStatement}</p>
+              <p className="text-navy-muted text-sm">{myTeam.problemStatement}</p>
             </div>
 
             {/* Members */}
@@ -503,19 +514,19 @@ export default function TeamPage() {
                         {style.label}
                       </span>
                     </div>
-                    <p className="text-navy/70 text-sm mb-3 line-clamp-2">{sub.description}</p>
+                    <p className="text-slate text-sm mb-3 line-clamp-2">{sub.description}</p>
 
                     <details className="mb-3">
                       <summary className="text-lavender font-bold text-xs cursor-pointer hover:underline">
                         View Process Log
                       </summary>
-                      <p className="text-navy/60 text-sm mt-2 whitespace-pre-wrap">{sub.processLog}</p>
+                      <p className="text-slate text-sm mt-2 whitespace-pre-wrap">{sub.processLog}</p>
                     </details>
 
                     {sub.feedback && (
                       <div className="bg-teal-light rounded-xl px-4 py-3 mb-3">
                         <p className="text-label text-teal text-xs mb-1">Reviewer Feedback</p>
-                        <p className="text-navy/80 text-sm">{sub.feedback}</p>
+                        <p className="text-navy-muted text-sm">{sub.feedback}</p>
                         {sub.score !== null && sub.score !== undefined && (
                           <p className="text-teal font-display font-black text-sm mt-1">
                             Score: {sub.score}/100
@@ -527,7 +538,7 @@ export default function TeamPage() {
                     {sub.status === "draft" && (
                       <button
                         onClick={() => handleSubmitIteration(sub._id)}
-                        className="bg-navy border-[2px] border-navy text-lime font-bold text-xs px-4 py-2 rounded-xl press-2 press-navy"
+                        className="bg-navy border-[2px] border-lime text-lime font-bold text-xs px-4 py-2 rounded-xl press-2 press-lime"
                       >
                         Submit for Review
                       </button>

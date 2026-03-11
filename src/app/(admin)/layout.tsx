@@ -8,6 +8,7 @@ import { SidebarProvider, useSidebar } from "@/context/SidebarContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useSSE } from "@/hooks/useSSE";
+import { hasAdminAccess as checkAdminAccess } from "@/lib/studentAccess";
 
 function AdminContent({ children }: { children: React.ReactNode }) {
   const { isExpanded } = useSidebar();
@@ -41,25 +42,9 @@ export default function AdminLayout({
   const { permissions, loading: permissionsLoading } = usePermissions();
   const router = useRouter();
 
-  // Permissions that committee members / press members get — these alone do NOT
-  // qualify a user for admin dashboard access. Any permission outside this set does.
-  const STUDENT_ONLY_PERMISSIONS = new Set([
-    "announcement:view",
-    "event:view",
-    "press:access",
-    "press:create",
-    "press:edit",
-    "resource:view",
-    "resource:create",
-  ]);
-
   // User has admin access if their role is admin/exco OR they have at least one
   // permission that goes beyond basic student-level view/access.
-  const hasAdminAccess =
-    userProfile &&
-    (userProfile.role === "admin" ||
-      userProfile.role === "exco" ||
-      permissions.some((p) => !STUDENT_ONLY_PERMISSIONS.has(p)));
+  const userHasAdminAccess = userProfile && checkAdminAccess(userProfile.role, permissions);
 
   useEffect(() => {
     if (loading || permissionsLoading) return;
@@ -69,10 +54,10 @@ export default function AdminLayout({
       return;
     }
     // Redirect users with no admin access
-    if (userProfile && !hasAdminAccess) {
+    if (userProfile && !userHasAdminAccess) {
       router.push("/dashboard");
     }
-  }, [user, userProfile, loading, permissionsLoading, hasAdminAccess, router]);
+  }, [user, userProfile, loading, permissionsLoading, userHasAdminAccess, router]);
 
   if (loading || permissionsLoading) {
     return (
@@ -85,7 +70,7 @@ export default function AdminLayout({
   if (!user) return null;
 
   // Block access for users without admin access while redirect is pending
-  if (userProfile && !hasAdminAccess) {
+  if (userProfile && !userHasAdminAccess) {
     return null;
   }
 

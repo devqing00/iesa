@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { getApiUrl, listBankAccounts, submitTransferProof, getMyTransfers, checkTransactionReference, NIGERIAN_BANKS, TRANSFER_STATUS_STYLES } from "@/lib/api";
 import type { BankAccount, BankTransfer } from "@/lib/api";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
-import { useToast } from "@/components/ui/Toast";
+import { toast } from "sonner";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Types ─── */
@@ -61,7 +61,6 @@ function PaymentsContent() {
   const [resendingReceipt, setResendingReceipt] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const toast = useToast();
 
   // Bank transfer state
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -202,7 +201,7 @@ function PaymentsContent() {
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Failed to initiate payment";
-      toast.error("Payment Error", errorMessage);
+      toast.error("Payment Error", { description: errorMessage });
       setProcessingId(null);
     }
   };
@@ -215,16 +214,16 @@ function PaymentsContent() {
       if (!res.ok) throw new Error("Failed to verify payment");
       const data = await res.json();
       if (data.status === "success") {
-        toast.success("Payment Verified", "Your payment has been verified successfully!");
+        toast.success("Payment Verified", { description: "Your payment has been verified successfully!" });
       } else if (data.status === "failed") {
-        toast.error("Payment Declined", "Your payment was declined. Please try again or use a different payment method.");
+        toast.error("Payment Declined", { description: "Your payment was declined. Please try again or use a different payment method." });
       } else if (data.status === "abandoned") {
-        toast.warning("Payment Cancelled", "You cancelled the payment. No charges were made.");
+        toast.warning("Payment Cancelled", { description: "You cancelled the payment. No charges were made." });
       } else {
-        toast.warning("Payment Pending", `Your payment is being processed. Please check back shortly.`);
+        toast.warning("Payment Pending", { description: `Your payment is being processed. Please check back shortly.` });
       }
     } catch (error) {
-      toast.error("Verification Failed", "Could not verify your payment. Please check your payment history or contact support.");
+      toast.error("Verification Failed", { description: "Could not verify your payment. Please check your payment history or contact support." });
     } finally {
       // Tell the useEffect not to re-fetch when router.replace fires
       skipFetch.current = true;
@@ -258,10 +257,10 @@ function PaymentsContent() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      toast.success("Download Complete", "Receipt downloaded successfully");
+      toast.success("Download Complete", { description: "Receipt downloaded successfully" });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Failed to download receipt";
-      toast.error("Download Failed", errorMessage);
+      toast.error("Download Failed", { description: errorMessage });
     } finally {
       setDownloadingReceipt(null);
     }
@@ -323,11 +322,11 @@ function PaymentsContent() {
   const handleTransferSubmit = () => {
     if (!showTransferModal || transferSubmitting) return;
     if (!transferForm.bankAccountId || !transferForm.senderName || !transferForm.senderBank || !transferForm.transactionReference || !transferForm.transferDate) {
-      toast.error("Missing Fields", "Please fill in all required fields");
+      toast.error("Missing Fields", { description: "Please fill in all required fields" });
       return;
     }
     if (refExistsError) {
-      toast.error("Duplicate Reference", "Please fix the transaction reference before submitting.");
+      toast.error("Duplicate Reference", { description: "Please fix the transaction reference before submitting." });
       return;
     }
     setShowConfirmModal(true);
@@ -363,17 +362,17 @@ function PaymentsContent() {
           });
         } catch {
           // Non-critical — transfer was submitted successfully
-          toast.info("Note", "Transfer submitted but receipt image upload failed. You can re-upload later.");
+          toast.info("Note", { description: "Transfer submitted but receipt image upload failed. You can re-upload later." });
         }
       }
 
-      toast.success("Transfer Submitted", "Your bank transfer proof has been submitted for admin review.");
+      toast.success("Transfer Submitted", { description: "Your bank transfer proof has been submitted for admin review." });
       setReceiptImage(null);
       setShowTransferModal(null);
       fetchMyTransfers();
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Failed to submit transfer proof";
-      toast.error("Submission Failed", msg);
+      toast.error("Submission Failed", { description: msg });
     } finally {
       setTransferSubmitting(false);
     }
@@ -426,7 +425,7 @@ function PaymentsContent() {
           /* ── Error State ── */
           <div className="flex flex-col items-center justify-center py-16">
             <div className="bg-coral-light border-[3px] border-coral rounded-3xl p-8 max-w-md text-center shadow-[6px_6px_0_0_#000]">
-              <svg className="w-12 h-12 text-coral mx-auto mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg aria-hidden="true" className="w-12 h-12 text-coral mx-auto mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="10" />
                 <line x1="12" y1="8" x2="12" y2="12" />
                 <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -448,7 +447,7 @@ function PaymentsContent() {
               {/* Title Card — sunny theme */}
               <div className="md:col-span-7 bg-sunny border-[3px] border-navy rounded-[2rem] p-8 shadow-[4px_4px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
                 <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/70 flex items-center gap-2 mb-3">
-                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+                  <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
                   Finance Portal
                 </span>
                 <h1 className="font-display font-black text-3xl md:text-4xl text-navy mb-2">
@@ -471,7 +470,7 @@ function PaymentsContent() {
                     <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-navy/40">{pendingPayments.length} due{pendingPayments.length !== 1 ? "s" : ""} remaining</span>
                   </div>
                   <div className="w-10 h-10 rounded-xl bg-coral/20 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-coral" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" /></svg>
+                    <svg aria-hidden="true" className="w-5 h-5 text-coral" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" /></svg>
                   </div>
                 </div>
                 {/* Completed */}
@@ -481,7 +480,7 @@ function PaymentsContent() {
                     <p className="font-display font-black text-2xl text-navy">{paidPayments.length}<span className="text-base font-bold text-navy/40">/{payments.length}</span></p>
                   </div>
                   <div className="w-10 h-10 rounded-xl bg-teal/20 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>
+                    <svg aria-hidden="true" className="w-5 h-5 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>
                   </div>
                 </div>
                 {/* Total Paid */}
@@ -491,7 +490,7 @@ function PaymentsContent() {
                     <p className="font-display font-black text-2xl text-snow">₦{paidPayments.reduce((s, p) => s + p.amount, 0).toLocaleString()}</p>
                   </div>
                   <div className="w-10 h-10 rounded-xl bg-teal/20 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-snow" fill="currentColor" viewBox="0 0 24 24"><path d="M12 7.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" /><path fillRule="evenodd" d="M1.5 4.875C1.5 3.839 2.34 3 3.375 3h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 17.625V4.875zM8.25 9.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM18.75 9a.75.75 0 00-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 00.75-.75V9.75a.75.75 0 00-.75-.75h-.008zM4.5 9.75A.75.75 0 015.25 9h.008a.75.75 0 01.75.75v.008a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75V9.75z" clipRule="evenodd" /></svg>
+                    <svg aria-hidden="true" className="w-5 h-5 text-snow" fill="currentColor" viewBox="0 0 24 24"><path d="M12 7.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" /><path fillRule="evenodd" d="M1.5 4.875C1.5 3.839 2.34 3 3.375 3h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 17.625V4.875zM8.25 9.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM18.75 9a.75.75 0 00-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 00.75-.75V9.75a.75.75 0 00-.75-.75h-.008zM4.5 9.75A.75.75 0 015.25 9h.008a.75.75 0 01.75.75v.008a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75V9.75z" clipRule="evenodd" /></svg>
                   </div>
                 </div>
               </div>
@@ -502,7 +501,7 @@ function PaymentsContent() {
               <div className="bg-snow border-[3px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] p-5">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-2">
-                    <svg className="w-3.5 h-3.5 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>
+                    <svg aria-hidden="true" className="w-3.5 h-3.5 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>
                     Payment Completion
                   </span>
                   <span className="font-display font-black text-sm text-navy">
@@ -554,7 +553,7 @@ function PaymentsContent() {
                 {pendingPayments.length === 0 ? (
                   <div className="bg-navy border-[3px] border-lime rounded-[2rem] shadow-[3px_3px_0_0_#C8F31D] p-12 text-center">
                     <div className="w-14 h-14 bg-teal/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-7 h-7 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>
+                      <svg aria-hidden="true" className="w-7 h-7 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>
                     </div>
                     <p className="font-display font-black text-xl text-snow mb-2">All Caught Up!</p>
                     <p className="font-display font-normal text-sm text-snow/50">You have no pending payments. Well done!</p>
@@ -586,7 +585,7 @@ function PaymentsContent() {
                               <h3 className="font-display font-black text-lg text-navy">{payment.title}</h3>
                               <p className="font-display font-normal text-sm text-navy/50">{payment.description}</p>
                               <p className="font-display font-bold text-xs text-slate uppercase tracking-wider flex items-center gap-1.5">
-                                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M6.75 2.25A.75.75 0 017.5 3v1.5h9V3A.75.75 0 0118 3v1.5h.75a3 3 0 013 3v11.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V7.5a3 3 0 013-3H6V3a.75.75 0 01.75-.75zm13.5 9a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5v7.5a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5v-7.5z" clipRule="evenodd" /></svg>
+                                <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M6.75 2.25A.75.75 0 017.5 3v1.5h9V3A.75.75 0 0118 3v1.5h.75a3 3 0 013 3v11.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V7.5a3 3 0 013-3H6V3a.75.75 0 01.75-.75zm13.5 9a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5v7.5a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5v-7.5z" clipRule="evenodd" /></svg>
                                 Due: {new Date(payment.deadline).toLocaleDateString()}
                               </p>
                             </div>
@@ -598,7 +597,7 @@ function PaymentsContent() {
                                 if (pending) {
                                   return (
                                     <span className="px-4 py-2 bg-sunny-light text-navy border-[3px] border-navy/20 rounded-xl font-display font-bold text-xs uppercase tracking-wider flex items-center gap-2">
-                                      <svg className="w-3.5 h-3.5 text-sunny" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" /></svg>
+                                      <svg aria-hidden="true" className="w-3.5 h-3.5 text-sunny" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" /></svg>
                                       Transfer Under Review
                                     </span>
                                   );
@@ -613,19 +612,19 @@ function PaymentsContent() {
                                     >
                                       {processingId === (payment.id || payment._id) ? (
                                         <>
-                                          <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
+                                          <svg aria-hidden="true" className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
                                           Processing...
                                         </>
                                       ) : (
                                         <>
-                                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 7.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" /><path fillRule="evenodd" d="M1.5 4.875C1.5 3.839 2.34 3 3.375 3h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 17.625V4.875zM8.25 9.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM18.75 9a.75.75 0 00-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 00.75-.75V9.75a.75.75 0 00-.75-.75h-.008zM4.5 9.75A.75.75 0 015.25 9h.008a.75.75 0 01.75.75v.008a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75V9.75z" clipRule="evenodd" /></svg>
+                                          <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 7.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" /><path fillRule="evenodd" d="M1.5 4.875C1.5 3.839 2.34 3 3.375 3h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 17.625V4.875zM8.25 9.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM18.75 9a.75.75 0 00-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 00.75-.75V9.75a.75.75 0 00-.75-.75h-.008zM4.5 9.75A.75.75 0 015.25 9h.008a.75.75 0 01.75.75v.008a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75V9.75z" clipRule="evenodd" /></svg>
                                           Pay Online
                                         </>
                                       )}
                                     </button>
                                     ) : (
                                       <div title="Online payments are currently disabled by admin" className="px-5 py-2.5 bg-cloud text-navy/35 border-[3px] border-navy/15 rounded-2xl font-display font-bold text-[11px] uppercase tracking-wider cursor-not-allowed flex items-center gap-2">
-                                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" /></svg>
+                                        <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" /></svg>
                                         Pay Online
                                         <span className="text-[9px] font-normal lowercase tracking-normal opacity-60">(disabled)</span>
                                       </div>
@@ -635,7 +634,7 @@ function PaymentsContent() {
                                         onClick={() => openTransferModal(payment)}
                                         className="px-5 py-2.5 bg-ghost text-navy border-[3px] border-navy rounded-2xl font-display font-bold text-[11px] uppercase tracking-wider transition-all hover:bg-cloud flex items-center gap-2"
                                       >
-                                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M11.47 1.72a.75.75 0 011.06 0l3 3a.75.75 0 01-1.06 1.06l-1.72-1.72V7.5h-1.5V4.06L9.53 5.78a.75.75 0 01-1.06-1.06l3-3zM11.25 7.5V15a.75.75 0 001.5 0V7.5h-1.5z" /><path d="M3.375 3C2.339 3 1.5 3.84 1.5 4.875v11.25C1.5 17.16 2.34 18 3.375 18H9.75v1.5H6a.75.75 0 000 1.5h12a.75.75 0 000-1.5h-3.75V18h6.375c1.035 0 1.875-.84 1.875-1.875V4.875C22.5 3.839 21.66 3 20.625 3H3.375z" /></svg>
+                                        <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M11.47 1.72a.75.75 0 011.06 0l3 3a.75.75 0 01-1.06 1.06l-1.72-1.72V7.5h-1.5V4.06L9.53 5.78a.75.75 0 01-1.06-1.06l3-3zM11.25 7.5V15a.75.75 0 001.5 0V7.5h-1.5z" /><path d="M3.375 3C2.339 3 1.5 3.84 1.5 4.875v11.25C1.5 17.16 2.34 18 3.375 18H9.75v1.5H6a.75.75 0 000 1.5h12a.75.75 0 000-1.5h-3.75V18h6.375c1.035 0 1.875-.84 1.875-1.875V4.875C22.5 3.839 21.66 3 20.625 3H3.375z" /></svg>
                                         Bank Transfer
                                       </button>
                                     )}
@@ -659,7 +658,7 @@ function PaymentsContent() {
                 {myTransfers.length > 0 && (
                   <div className="space-y-3">
                     <h2 className="font-display font-black text-lg text-navy flex items-center gap-2">
-                      <svg className="w-5 h-5 text-lavender" fill="currentColor" viewBox="0 0 24 24"><path d="M11.47 1.72a.75.75 0 011.06 0l3 3a.75.75 0 01-1.06 1.06l-1.72-1.72V7.5h-1.5V4.06L9.53 5.78a.75.75 0 01-1.06-1.06l3-3zM11.25 7.5V15a.75.75 0 001.5 0V7.5h-1.5z" /><path d="M3.375 3C2.339 3 1.5 3.84 1.5 4.875v11.25C1.5 17.16 2.34 18 3.375 18H9.75v1.5H6a.75.75 0 000 1.5h12a.75.75 0 000-1.5h-3.75V18h6.375c1.035 0 1.875-.84 1.875-1.875V4.875C22.5 3.839 21.66 3 20.625 3H3.375z" /></svg>
+                      <svg aria-hidden="true" className="w-5 h-5 text-lavender" fill="currentColor" viewBox="0 0 24 24"><path d="M11.47 1.72a.75.75 0 011.06 0l3 3a.75.75 0 01-1.06 1.06l-1.72-1.72V7.5h-1.5V4.06L9.53 5.78a.75.75 0 01-1.06-1.06l3-3zM11.25 7.5V15a.75.75 0 001.5 0V7.5h-1.5z" /><path d="M3.375 3C2.339 3 1.5 3.84 1.5 4.875v11.25C1.5 17.16 2.34 18 3.375 18H9.75v1.5H6a.75.75 0 000 1.5h12a.75.75 0 000-1.5h-3.75V18h6.375c1.035 0 1.875-.84 1.875-1.875V4.875C22.5 3.839 21.66 3 20.625 3H3.375z" /></svg>
                       Bank Transfers
                     </h2>
                     {myTransfers.map((transfer, i) => {
@@ -705,12 +704,12 @@ function PaymentsContent() {
                                       className="px-4 py-2 bg-lime border-[3px] border-navy rounded-xl font-display font-bold text-xs text-navy uppercase tracking-wider press-2 press-navy disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                     >
                                       {downloadingReceipt === transfer.transactionReference ? (
-                                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <svg aria-hidden="true" className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                         </svg>
                                       ) : (
-                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25a.75.75 0 01.75.75v11.69l3.22-3.22a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 111.06-1.06l3.22 3.22V3a.75.75 0 01.75-.75zm-9 13.5a.75.75 0 01.75.75v2.25a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5V16.5a.75.75 0 011.5 0v2.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V16.5a.75.75 0 01.75-.75z" clipRule="evenodd" /></svg>
+                                        <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25a.75.75 0 01.75.75v11.69l3.22-3.22a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 111.06-1.06l3.22 3.22V3a.75.75 0 01.75-.75zm-9 13.5a.75.75 0 01.75.75v2.25a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5V16.5a.75.75 0 011.5 0v2.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V16.5a.75.75 0 01.75-.75z" clipRule="evenodd" /></svg>
                                       )}
                                       {downloadingReceipt === transfer.transactionReference ? "..." : "PDF"}
                                     </button>
@@ -720,7 +719,7 @@ function PaymentsContent() {
                                       className="px-4 py-2 bg-lavender/30 border-[3px] border-navy/30 rounded-xl font-display font-bold text-xs text-navy uppercase tracking-wider hover:bg-lavender/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
                                       title="Resend receipt to your email"
                                     >
-                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z" /><path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" /></svg>
+                                      <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z" /><path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" /></svg>
                                       {resendingReceipt === transfer.transactionReference ? "..." : "Email"}
                                     </button>
                                   </div>
@@ -739,7 +738,7 @@ function PaymentsContent() {
                   <div className="space-y-3">
                     {myTransfers.length > 0 && (
                       <h2 className="font-display font-black text-lg text-navy flex items-center gap-2">
-                        <svg className="w-5 h-5 text-teal" fill="currentColor" viewBox="0 0 24 24"><path d="M12 7.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" /><path fillRule="evenodd" d="M1.5 4.875C1.5 3.839 2.34 3 3.375 3h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 17.625V4.875zM8.25 9.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM18.75 9a.75.75 0 00-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 00.75-.75V9.75a.75.75 0 00-.75-.75h-.008zM4.5 9.75A.75.75 0 015.25 9h.008a.75.75 0 01.75.75v.008a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75V9.75z" clipRule="evenodd" /></svg>
+                        <svg aria-hidden="true" className="w-5 h-5 text-teal" fill="currentColor" viewBox="0 0 24 24"><path d="M12 7.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" /><path fillRule="evenodd" d="M1.5 4.875C1.5 3.839 2.34 3 3.375 3h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 17.625V4.875zM8.25 9.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM18.75 9a.75.75 0 00-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 00.75-.75V9.75a.75.75 0 00-.75-.75h-.008zM4.5 9.75A.75.75 0 015.25 9h.008a.75.75 0 01.75.75v.008a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75V9.75z" clipRule="evenodd" /></svg>
                         Online Payments
                       </h2>
                     )}
@@ -791,12 +790,12 @@ function PaymentsContent() {
                                       className="px-4 py-2.5 bg-lime border-[3px] border-navy rounded-xl font-display font-bold text-xs text-navy uppercase tracking-wider press-2 press-navy disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                     >
                                       {downloadingReceipt === txn.reference ? (
-                                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <svg aria-hidden="true" className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                         </svg>
                                       ) : (
-                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25a.75.75 0 01.75.75v11.69l3.22-3.22a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 111.06-1.06l3.22 3.22V3a.75.75 0 01.75-.75zm-9 13.5a.75.75 0 01.75.75v2.25a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5V16.5a.75.75 0 011.5 0v2.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V16.5a.75.75 0 01.75-.75z" clipRule="evenodd" /></svg>
+                                        <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25a.75.75 0 01.75.75v11.69l3.22-3.22a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 111.06-1.06l3.22 3.22V3a.75.75 0 01.75-.75zm-9 13.5a.75.75 0 01.75.75v2.25a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5V16.5a.75.75 0 011.5 0v2.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V16.5a.75.75 0 01.75-.75z" clipRule="evenodd" /></svg>
                                       )}
                                       {downloadingReceipt === txn.reference ? "..." : "PDF"}
                                     </button>
@@ -806,7 +805,7 @@ function PaymentsContent() {
                                       className="px-4 py-2.5 bg-lavender/30 border-[3px] border-navy/30 rounded-xl font-display font-bold text-xs text-navy uppercase tracking-wider hover:bg-lavender/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
                                       title="Resend receipt to your email"
                                     >
-                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z" /><path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" /></svg>
+                                      <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z" /><path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" /></svg>
                                       {resendingReceipt === txn.reference ? "..." : "Email"}
                                     </button>
                                   </div>
@@ -824,7 +823,7 @@ function PaymentsContent() {
                 {transactions.length === 0 && myTransfers.length === 0 && (
                   <div className="bg-navy border-[3px] border-lime rounded-[2rem] shadow-[3px_3px_0_0_#C8F31D] p-12 text-center">
                     <div className="w-14 h-14 bg-teal/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-7 h-7 text-snow" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd" /></svg>
+                      <svg aria-hidden="true" className="w-7 h-7 text-snow" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd" /></svg>
                     </div>
                     <p className="font-display font-black text-xl text-snow mb-2">No Transactions Yet</p>
                     <p className="font-display font-normal text-sm text-snow/50">Your payment history will appear here.</p>
@@ -851,7 +850,7 @@ function PaymentsContent() {
                 title="Close modal"
                 className="w-10 h-10 bg-ghost border-[3px] border-navy rounded-xl flex items-center justify-center hover:bg-coral-light transition-colors"
               >
-                <svg className="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                <svg aria-hidden="true" className="w-5 h-5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
@@ -935,13 +934,13 @@ function PaymentsContent() {
                       />
                       {checkingRef && (
                         <span className="absolute right-3 top-1/2 -translate-y-1/2">
-                          <svg className="w-4 h-4 animate-spin text-navy/40" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                          <svg aria-hidden="true" className="w-4 h-4 animate-spin text-navy/40" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                         </span>
                       )}
                     </div>
                     {refExistsError && (
                       <div className="flex items-start gap-2 bg-coral-light border-2 border-coral rounded-xl px-3 py-2.5">
-                        <svg className="w-4 h-4 text-coral mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" /></svg>
+                        <svg aria-hidden="true" className="w-4 h-4 text-coral mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" /></svg>
                         <p className="font-display font-medium text-xs text-coral">{refExistsError}</p>
                       </div>
                     )}
@@ -977,7 +976,7 @@ function PaymentsContent() {
                     <div className="relative">
                       {receiptImage ? (
                         <div className="flex items-center gap-3 bg-teal-light border-[3px] border-teal/30 rounded-xl px-4 py-3">
-                          <svg className="w-5 h-5 text-teal shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+                          <svg aria-hidden="true" className="w-5 h-5 text-teal shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
                           <span className="font-display font-medium text-sm text-navy truncate flex-1">{receiptImage.name}</span>
                           <button
                             type="button"
@@ -985,12 +984,12 @@ function PaymentsContent() {
                             aria-label="Remove receipt image"
                             className="w-6 h-6 rounded-lg bg-coral/20 hover:bg-coral/40 flex items-center justify-center transition-colors shrink-0"
                           >
-                            <svg className="w-3.5 h-3.5 text-coral" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                            <svg aria-hidden="true" className="w-3.5 h-3.5 text-coral" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
                           </button>
                         </div>
                       ) : (
                         <label className="flex items-center gap-3 bg-ghost border-[3px] border-dashed border-navy/20 rounded-xl px-4 py-4 cursor-pointer hover:border-navy/40 hover:bg-cloud transition-colors">
-                          <svg className="w-6 h-6 text-navy/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                          <svg aria-hidden="true" className="w-6 h-6 text-navy/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                           <div>
                             <span className="font-display font-bold text-sm text-navy/60">Upload receipt screenshot</span>
                             <span className="block font-display text-xs text-navy/30 mt-0.5">JPEG, PNG or WebP — max 5MB</span>
@@ -1003,7 +1002,7 @@ function PaymentsContent() {
                               const file = e.target.files?.[0];
                               if (file) {
                                 if (file.size > 5 * 1024 * 1024) {
-                                  toast.error("File Too Large", "Receipt image must be under 5MB");
+                                  toast.error("File Too Large", { description: "Receipt image must be under 5MB" });
                                   return;
                                 }
                                 setReceiptImage(file);
@@ -1045,7 +1044,7 @@ function PaymentsContent() {
             <div className="px-6 pt-6 pb-4 border-b-[3px] border-navy/10">
               <div className="flex items-center gap-3 mb-1">
                 <div className="w-10 h-10 bg-sunny-light border-[3px] border-navy rounded-xl flex items-center justify-center">
-                  <svg className="w-5 h-5 text-navy" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" /></svg>
+                  <svg aria-hidden="true" className="w-5 h-5 text-navy" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" /></svg>
                 </div>
                 <h2 className="font-display font-black text-xl text-navy">Confirm Submission</h2>
               </div>

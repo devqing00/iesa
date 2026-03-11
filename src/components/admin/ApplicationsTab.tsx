@@ -315,7 +315,7 @@ export default function ApplicationsTab() {
               <button
                 onClick={() => setReviewingApp(null)}
                 className="bg-transparent border-[3px] border-navy px-5 py-2 rounded-xl font-display font-bold text-sm text-navy
-                  hover:bg-navy hover:text-snow transition-all"
+                  hover:bg-navy hover:text-lime hover:border-lime transition-all"
               >
                 Cancel
               </button>

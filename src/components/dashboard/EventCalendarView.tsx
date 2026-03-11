@@ -203,7 +203,7 @@ export default function EventCalendarView() {
               className="w-9 h-9 rounded-xl border-[3px] border-navy bg-snow flex items-center justify-center hover:bg-cloud transition-colors"
               aria-label="Previous"
             >
-              <svg className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
             </button>
@@ -212,7 +212,7 @@ export default function EventCalendarView() {
               className="w-9 h-9 rounded-xl border-[3px] border-navy bg-snow flex items-center justify-center hover:bg-cloud transition-colors"
               aria-label="Next"
             >
-              <svg className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
             </button>
@@ -232,7 +232,7 @@ export default function EventCalendarView() {
                 onClick={() => setCurrentView(v)}
                 className={`px-4 py-2 rounded-xl border-[3px] font-display text-sm capitalize transition-all ${
                   currentView === v
-                    ? "bg-navy border-navy text-snow shadow-[3px_3px_0_0_#0F0F2D]"
+                    ? "bg-navy border-lime text-snow shadow-[3px_3px_0_0_#C8F31D]"
                     : "bg-ghost border-navy text-navy hover:bg-cloud"
                 }`}
               >
@@ -384,7 +384,7 @@ export default function EventCalendarView() {
                     onClick={() => setSelectedEvent(null)}
                     className="shrink-0 w-8 h-8 rounded-xl border-[3px] border-navy flex items-center justify-center hover:bg-coral-light transition-colors"
                   >
-                    <svg className="w-4 h-4 text-navy" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg aria-hidden="true" className="w-4 h-4 text-navy" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
                   </button>
@@ -445,7 +445,7 @@ export default function EventCalendarView() {
                     onClick={() => setSelectedEvent(null)}
                     className="shrink-0 w-8 h-8 rounded-xl border-[3px] border-navy flex items-center justify-center hover:bg-coral-light transition-colors"
                   >
-                    <svg className="w-4 h-4 text-navy" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg aria-hidden="true" className="w-4 h-4 text-navy" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
                   </button>
@@ -496,7 +496,7 @@ export default function EventCalendarView() {
 
                   {(selectedEvent as IESAEvent).requiresPayment && (
                     <div className="bg-coral-light border-[3px] border-coral rounded-2xl p-4 flex items-center gap-3">
-                      <svg className="w-5 h-5 text-coral shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                      <svg aria-hidden="true" className="w-5 h-5 text-coral shrink-0" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M4.5 3.75a3 3 0 0 0-3 3v.75h21v-.75a3 3 0 0 0-3-3h-15Z" />
                         <path fillRule="evenodd" d="M22.5 9.75h-21v7.5a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3v-7.5Zm-18 3.75a.75.75 0 0 1 .75-.75h6a.75.75 0 0 1 0 1.5h-6a.75.75 0 0 1-.75-.75Zm.75 2.25a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z" clipRule="evenodd" />
                       </svg>

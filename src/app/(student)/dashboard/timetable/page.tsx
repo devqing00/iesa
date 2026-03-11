@@ -13,7 +13,7 @@ import { enUS } from "date-fns/locale/en-US";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { addDays, isSameDay, parseISO } from "date-fns";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
-import { useToast } from "@/components/ui/Toast";
+import { toast } from "sonner";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Calendar setup ────────────────────────────────────────────── */
@@ -116,7 +116,6 @@ export default function TimetablePage() {
   const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null);
   const [exams, setExams] = useState<ExamEntry[]>([]);
   const calendarRef = useRef<HTMLDivElement>(null);
-  const toast = useToast();
 
   // Parse level from userProfile (stored as "200L", "300L", etc.)
   const userLevel = parseInt(String(userProfile?.level || userProfile?.currentLevel || "300")) || 300;
@@ -156,6 +155,7 @@ export default function TimetablePage() {
         if (examsRes.ok) setExams(await examsRes.json());
       } catch { /* exam fetch non-critical */ }
     } catch (error) {
+      toast.error("Failed to load timetable. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -224,11 +224,22 @@ export default function TimetablePage() {
   /* ── Download ── */
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const downloadSchedule = () => {
-    const rows = classes.map((cls) => ({ Course: `${cls.courseCode} - ${cls.courseTitle}`, Day: cls.day, Time: `${cls.startTime} - ${cls.endTime}`, Venue: cls.venue, Lecturer: cls.lecturer, Type: cls.classType }));
-    const csv = [Object.keys(rows[0]).join(","), ...rows.map((r) => Object.values(r).join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+    if (classes.length === 0) { toast.warning("No Classes", { description: "No timetable data to export." }); return; }
+    // Quote fields that may contain commas
+    const quote = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+    const headers = ["Course", "Day", "Time", "Venue", "Lecturer", "Type"];
+    const rows = classes.map((cls) => [
+      quote(`${cls.courseCode} - ${cls.courseTitle}`),
+      quote(cls.day),
+      quote(`${cls.startTime} - ${cls.endTime}`),
+      quote(cls.venue),
+      quote(cls.lecturer),
+      quote(cls.classType),
+    ]);
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = `timetable-level-${userLevel}.csv`; a.click();
+    const a = document.createElement("a"); a.href = url; a.download = `IESA_Timetable_Level${userLevel}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -245,7 +256,7 @@ export default function TimetablePage() {
       const a = document.createElement("a"); a.href = url; a.download = `IESA_Timetable_Level${userLevel}.pdf`; a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      toast.error("PDF Error", err instanceof Error ? err.message : "Failed to download PDF");
+      toast.error("PDF Error", { description: err instanceof Error ? err.message : "Failed to download PDF" });
     } finally {
       setDownloadingPdf(false);
     }
@@ -253,7 +264,7 @@ export default function TimetablePage() {
 
   /* ── Cancel class ── */
   const handleCancelClass = async () => {
-    if (!selectedClass || !cancelDate || !cancelReason) { toast.warning("Missing Fields", "Please fill in all fields"); return; }
+    if (!selectedClass || !cancelDate || !cancelReason) { toast.warning("Missing Fields", { description: "Please fill in all fields" }); return; }
     setCancelling(true);
     try {
       const token = await getAccessToken();
@@ -262,12 +273,12 @@ export default function TimetablePage() {
         body: JSON.stringify({ date: cancelDate, reason: cancelReason }),
       });
       if (!res.ok) { const error = await res.json(); throw new Error(error.detail || "Failed to cancel class"); }
-      toast.success("Class Cancelled", "The class has been cancelled successfully");
+      toast.success("Class Cancelled", { description: "The class has been cancelled successfully" });
       setShowCancelModal(false); setCancelDate(""); setCancelReason(""); setSelectedClass(null);
       fetchTimetable();
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Failed to cancel class";
-      toast.error("Cancellation Failed", msg);
+      toast.error("Cancellation Failed", { description: msg });
     } finally { setCancelling(false); }
   };
 
@@ -328,7 +339,7 @@ export default function TimetablePage() {
           {/* Title card */}
           <div className="lg:col-span-7 bg-sunny border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[200px] flex flex-col justify-between">
             <div className="absolute -bottom-12 -right-12 w-36 h-36 rounded-full bg-navy/8 pointer-events-none" />
-            <svg className="absolute top-6 right-10 w-5 h-5 text-navy/12 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="absolute top-6 right-10 w-5 h-5 text-navy/12 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
             </svg>
 
@@ -361,7 +372,7 @@ export default function TimetablePage() {
           <div className="lg:col-span-5 grid grid-cols-2 gap-3">
             <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-sunny-light flex items-center justify-center mb-3">
-                <svg className="w-4.5 h-4.5 text-sunny" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-4.5 h-4.5 text-sunny" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -371,7 +382,7 @@ export default function TimetablePage() {
 
             <div className="bg-teal-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-teal/20 flex items-center justify-center mb-3">
-                <svg className="w-4.5 h-4.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-4.5 h-4.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -380,9 +391,9 @@ export default function TimetablePage() {
             </div>
 
             {/* Download buttons */}
-            <button onClick={downloadSchedule} className="bg-navy border-[3px] border-navy rounded-2xl p-4 flex items-center gap-3 hover:bg-navy-light transition-colors group">
+            <button onClick={downloadSchedule} disabled={classes.length === 0} className="bg-navy border-[3px] border-lime press-3 press-lime rounded-2xl p-4 flex items-center gap-3 group disabled:opacity-40">
               <div className="w-9 h-9 rounded-xl bg-teal/15 flex items-center justify-center shrink-0">
-                <svg className="w-5 h-5 text-snow" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-5 h-5 text-snow" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -391,9 +402,9 @@ export default function TimetablePage() {
                 <p className="text-[10px] text-ghost/40">Spreadsheet</p>
               </div>
             </button>
-            <button onClick={downloadPdf} disabled={downloadingPdf} className="bg-lime border-[3px] border-navy rounded-2xl p-4 flex items-center gap-3 hover:bg-lime-dark transition-colors group disabled:opacity-50">
+            <button onClick={downloadPdf} disabled={downloadingPdf || classes.length === 0} className="bg-lime border-[3px] border-navy press-3 press-navy rounded-2xl p-4 flex items-center gap-3 group disabled:opacity-40">
               <div className="w-9 h-9 rounded-xl bg-navy/10 flex items-center justify-center shrink-0">
-                <svg className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625ZM7.5 15a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7.5 15Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H8.25Z" clipRule="evenodd" />
                   <path d="M12.971 1.816A5.23 5.23 0 0 1 14.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 0 1 3.434 1.279 9.768 9.768 0 0 0-6.963-6.963Z" />
                 </svg>
@@ -440,16 +451,16 @@ export default function TimetablePage() {
                       </div>
                       <div className="space-y-1.5 text-[10px] font-bold text-slate uppercase tracking-wider">
                         <p className="flex items-center gap-1.5">
-                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" /></svg>
+                          <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" /></svg>
                           {examDate.toLocaleDateString("en-NG", { weekday: "short", day: "numeric", month: "short" })}
                           {daysUntil > 0 && <span className="ml-1 text-coral normal-case">({daysUntil}d away)</span>}
                         </p>
                         <p className="flex items-center gap-1.5">
-                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" /></svg>
+                          <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" /></svg>
                           {ex.startTime} – {ex.endTime}
                         </p>
                         <p className="flex items-center gap-1.5">
-                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="m11.54 22.351.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 3.834 3.025ZM12 12.75a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" /></svg>
+                          <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="m11.54 22.351.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 3.834 3.025ZM12 12.75a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" /></svg>
                           {ex.venue}
                         </p>
                       </div>
@@ -496,19 +507,19 @@ export default function TimetablePage() {
                     <p className={`text-xs ${card.sub} mb-3`}>{classSession.courseTitle}</p>
                     <div className={`flex flex-wrap items-center gap-3 text-[10px] font-bold uppercase tracking-wider ${card.sub}`}>
                       <span className="flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
                         </svg>
                         {format(event.start, "h:mm a")} – {format(event.end, "h:mm a")}
                       </span>
                       <span className="flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 2.682 2.282 16.975 16.975 0 0 0 1.145.742ZM12 13.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" />
                         </svg>
                         {classSession.venue}
                       </span>
                       <span className="flex items-center gap-1.5">
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clipRule="evenodd" />
                         </svg>
                         {classSession.lecturer}
@@ -643,7 +654,7 @@ export default function TimetablePage() {
                       label: "Time",
                       value: `${format(detailEvent.start, "h:mm a")} – ${format(detailEvent.end, "h:mm a")}`,
                       icon: (
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
                         </svg>
                       ),
@@ -652,7 +663,7 @@ export default function TimetablePage() {
                       label: "Day",
                       value: `${classSession.day} · ${format(detailEvent.start, "MMM d, yyyy")}`,
                       icon: (
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
                         </svg>
                       ),
@@ -661,7 +672,7 @@ export default function TimetablePage() {
                       label: "Venue",
                       value: classSession.venue,
                       icon: (
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 2.682 2.282 16.975 16.975 0 0 0 1.145.742ZM12 13.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" />
                         </svg>
                       ),
@@ -670,7 +681,7 @@ export default function TimetablePage() {
                       label: "Lecturer",
                       value: classSession.lecturer,
                       icon: (
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clipRule="evenodd" />
                         </svg>
                       ),
@@ -722,7 +733,7 @@ export default function TimetablePage() {
             onClick={() => setShowCancelModal(true)}
             className="fixed bottom-24 md:bottom-8 right-6 bg-coral border-[3px] border-navy rounded-2xl px-5 py-3 press-3 press-black transition-all flex items-center gap-2 z-30"
           >
-            <svg className="w-5 h-5 text-snow" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-5 h-5 text-snow" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z" clipRule="evenodd" />
             </svg>
             <span className="font-bold text-xs text-snow uppercase tracking-wider">Cancel Class</span>
@@ -736,7 +747,7 @@ export default function TimetablePage() {
               <div className="p-6 border-b-[3px] border-navy/10 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-coral-light flex items-center justify-center">
-                    <svg className="w-5 h-5 text-coral" viewBox="0 0 24 24" fill="currentColor">
+                    <svg aria-hidden="true" className="w-5 h-5 text-coral" viewBox="0 0 24 24" fill="currentColor">
                       <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
                     </svg>
                   </div>
@@ -746,7 +757,7 @@ export default function TimetablePage() {
                   </div>
                 </div>
                 <button onClick={() => { setShowCancelModal(false); setSelectedClass(null); setCancelDate(""); setCancelReason(""); }} className="w-10 h-10 rounded-xl hover:bg-cloud flex items-center justify-center transition-colors" disabled={cancelling} aria-label="Close">
-                  <svg className="w-5 h-5 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-5 h-5 text-slate" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                   </svg>
                 </button>

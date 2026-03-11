@@ -112,12 +112,24 @@ export interface ClassSession {
   classType: string;
 }
 
+export interface BirthdayCelebrant {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  profilePictureUrl?: string;
+  currentLevel?: string;
+  department?: string;
+  isCurrentUser?: boolean;
+}
+
 export interface StudentDashboardResponse {
   announcements: (Announcement & { isRead?: boolean })[];
   events: (UpcomingEvent & { isRegistered?: boolean })[];
   payments: PaymentItem[];
   todayClasses: ClassSession[];
   activeSession: string | null;
+  birthdays?: BirthdayCelebrant[];
+  isMyBirthday?: boolean;
 }
 
 // ──────────────────────────────────────────────

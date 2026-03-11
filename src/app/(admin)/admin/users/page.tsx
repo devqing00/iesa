@@ -179,7 +179,7 @@ function AdminUsersPage() {
           <div className="flex items-center justify-between mb-3">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Total</p>
             <div className="w-10 h-10 rounded-xl bg-lime border-[3px] border-navy flex items-center justify-center">
-              <svg className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
               </svg>
             </div>
@@ -193,7 +193,7 @@ function AdminUsersPage() {
           <div className="flex items-center justify-between mb-3">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60">Active</p>
             <div className="w-10 h-10 rounded-xl bg-snow/20 flex items-center justify-center">
-              <svg className="w-5 h-5 text-snow" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-5 h-5 text-snow" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
               </svg>
             </div>
@@ -207,7 +207,7 @@ function AdminUsersPage() {
           <div className="flex items-center justify-between mb-3">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">External</p>
             <div className="w-10 h-10 rounded-xl bg-lavender-light flex items-center justify-center">
-              <svg className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418" />
               </svg>
             </div>
@@ -221,7 +221,7 @@ function AdminUsersPage() {
       <div className="flex flex-col md:flex-row gap-3">
         <div className="flex-1">
           <div className="relative">
-            <svg className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z" clipRule="evenodd" />
             </svg>
             <input
@@ -277,10 +277,10 @@ function AdminUsersPage() {
             a.click();
             URL.revokeObjectURL(url);
           }}
-          className="px-5 py-3 bg-navy border-[3px] border-navy rounded-2xl text-snow text-sm font-bold flex items-center gap-2 hover:bg-navy-light transition-colors"
+          className="px-5 py-3 bg-navy border-[3px] border-lime rounded-2xl text-snow text-sm font-bold flex items-center gap-2 press-3 press-lime transition-all"
           title="Export filtered users as CSV"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
           Export CSV
@@ -324,7 +324,7 @@ function AdminUsersPage() {
                   <tr>
                     <td colSpan={6} className="p-12 text-center">
                       <div className="w-14 h-14 mx-auto rounded-2xl bg-cloud flex items-center justify-center mb-3">
-                        <svg className="w-6 h-6 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-6 h-6 text-slate" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0Z" clipRule="evenodd" />
                         </svg>
                       </div>

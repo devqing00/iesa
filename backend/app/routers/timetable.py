@@ -14,8 +14,38 @@ from ..core.security import get_current_user, require_ipe_student
 from ..core.permissions import require_permission
 from ..core.database import get_database
 from ..core.audit import AuditLogger
+from ..core.error_handling import fire_and_forget
 
 router = APIRouter(prefix="/api/v1/timetable", tags=["timetable"])
+
+
+# ── Timetable change notification helper ───────────────────────────
+
+async def _notify_level_students(
+    db, level: int, session_id: str,
+    title: str, message: str, link: str = "/dashboard/timetable",
+):
+    """Send push notification about timetable changes to all students at a level."""
+    try:
+        from app.routers.notifications import create_bulk_notifications
+        # Find enrolled students at this level
+        cursor = db.users.find(
+            {"currentLevel": {"$regex": f"^{level}"},
+             "role": "student", "isActive": {"$ne": False}},
+            {"_id": 1},
+        )
+        user_ids = [str(u["_id"]) async for u in cursor]
+        if user_ids:
+            await create_bulk_notifications(
+                user_ids=user_ids,
+                type="timetable",
+                title=title,
+                message=message,
+                link=link,
+                category="timetable",
+            )
+    except Exception:
+        pass  # Non-critical
 
 
 # Pydantic Models
@@ -166,7 +196,14 @@ async def create_class_session(
     class_doc["_id"] = str(result.inserted_id)
     class_doc["sessionId"] = str(class_doc["sessionId"])
     class_doc["createdBy"] = str(class_doc["createdBy"])
-    
+
+    # Notify students at this level
+    fire_and_forget(_notify_level_students(
+        db, class_data.level, str(session["_id"]),
+        "New Class Added",
+        f"{class_data.courseCode.upper()} — {class_data.day} {class_data.startTime}–{class_data.endTime} at {class_data.venue}",
+    ))
+
     return ClassSessionResponse(**class_doc)
 
 
@@ -427,6 +464,13 @@ async def cancel_class(
     cancellation_doc["classSessionId"] = class_id
     cancellation_doc["cancelledBy"] = str(cancellation_doc["cancelledBy"])
 
+    # Notify students at this level about the cancellation
+    fire_and_forget(_notify_level_students(
+        db, class_session.get("level", 0), class_session.get("sessionId", ""),
+        "Class Cancelled",
+        f"{class_session.get('courseCode', '')} on {cancellation_data.date} is cancelled: {cancellation_data.reason}",
+    ))
+
     await AuditLogger.log(
         action="timetable.class_cancelled",
         actor_id=str(user["_id"]),
@@ -477,6 +521,13 @@ async def update_class_session(
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Class not found")
+
+    # Notify students at this level about the update
+    fire_and_forget(_notify_level_students(
+        db, class_data.level, "",
+        "Timetable Updated",
+        f"{class_data.courseCode.upper()} — {class_data.day} {class_data.startTime}–{class_data.endTime} at {class_data.venue}",
+    ))
 
     await AuditLogger.log(
         action="timetable.class_updated",

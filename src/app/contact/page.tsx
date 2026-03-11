@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { useToast } from "@/components/ui/Toast";
+import { toast } from "sonner";
 import { getApiUrl } from "@/lib/api";
 
 export default function ContactPage() {
@@ -15,7 +15,6 @@ export default function ContactPage() {
     message: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const toast = useToast();
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,11 +30,11 @@ export default function ContactPage() {
         const err = await res.json().catch(() => null);
         throw new Error(err?.detail || "Failed to send message");
       }
-      toast.success("Message Sent", "We'll get back to you soon.");
+      toast.success("Message Sent", { description: "We'll get back to you soon." });
       setFormData({ name: "", email: "", subject: "", message: "" });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to send message";
-      toast.error("Send Failed", msg);
+      toast.error("Send Failed", { description: msg });
     } finally {
       setIsSubmitting(false);
     }
@@ -181,7 +180,7 @@ export default function ContactPage() {
               {/* Address Card */}
               <div className="bg-lavender border-[2px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
                 <div className="w-12 h-12 bg-snow border-[2px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[2px_2px_0_0_#000]">
-                  <svg className="w-6 h-6 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                  <svg aria-hidden="true" className="w-6 h-6 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                   </svg>
                 </div>
@@ -198,7 +197,7 @@ export default function ContactPage() {
               {/* Email Card */}
               <div className="bg-teal border-[2px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
                 <div className="w-12 h-12 bg-snow border-[2px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[2px_2px_0_0_#000]">
-                  <svg className="w-6 h-6 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                  <svg aria-hidden="true" className="w-6 h-6 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                     <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
                   </svg>
@@ -215,7 +214,7 @@ export default function ContactPage() {
               {/* Social Card */}
               <div className="bg-sunny border-[2px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
                 <div className="w-12 h-12 bg-snow border-[2px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[2px_2px_0_0_#000]">
-                  <svg className="w-6 h-6 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                  <svg aria-hidden="true" className="w-6 h-6 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
                   </svg>
                 </div>
@@ -234,7 +233,7 @@ export default function ContactPage() {
                       className="w-10 h-10 bg-snow border-[2px] border-navy rounded-full flex items-center justify-center hover:bg-ghost hover:scale-110 transition-all duration-200 shadow-[2px_2px_0_0_#000]"
                       aria-label={social.label}
                     >
-                      <svg className="w-5 h-5 text-navy" fill="currentColor" viewBox="0 0 24 24">
+                      <svg aria-hidden="true" className="w-5 h-5 text-navy" fill="currentColor" viewBox="0 0 24 24">
                         {social.icon}
                       </svg>
                     </a>

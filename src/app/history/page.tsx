@@ -193,7 +193,7 @@ export default function HistoryPage() {
           ============================================ */}
       <section className="py-16 sm:py-24 bg-lavender">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-block bg-navy border-[3px] border-navy rounded-full px-4 py-1.5 mb-6">
+          <div className="inline-block bg-navy border-[3px] border-lime rounded-full px-4 py-1.5 mb-6">
             <span className="font-display text-xs font-black text-snow uppercase tracking-widest">✦ Be Part of History ✦</span>
           </div>
 

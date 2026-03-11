@@ -654,7 +654,7 @@ function AdminPaymentsPage() {
             onClick={() => setShowCreateModal(true)}
             className="self-start bg-lime border-[3px] border-navy press-3 press-black px-6 py-2.5 rounded-2xl text-sm font-bold text-navy transition-all flex items-center gap-2"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
             </svg>
             Create Payment Due
@@ -668,9 +668,9 @@ function AdminPaymentsPage() {
           <div className="flex items-center gap-4">
             <div className={`w-10 h-10 rounded-xl border-[3px] border-navy flex items-center justify-center shrink-0 ${onlinePaymentEnabled ? "bg-teal" : "bg-coral"}`}>
               {onlinePaymentEnabled ? (
-                <svg className="w-5 h-5 text-snow" fill="currentColor" viewBox="0 0 24 24"><path d="M4.5 3.75a3 3 0 00-3 3v.75h21v-.75a3 3 0 00-3-3h-15z" /><path fillRule="evenodd" d="M22.5 9.75h-21v7.5a3 3 0 003 3h15a3 3 0 003-3v-7.5zm-18 3.75a.75.75 0 01.75-.75h6a.75.75 0 010 1.5h-6a.75.75 0 01-.75-.75zm.75 2.25a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3z" clipRule="evenodd" /></svg>
+                <svg aria-hidden="true" className="w-5 h-5 text-snow" fill="currentColor" viewBox="0 0 24 24"><path d="M4.5 3.75a3 3 0 00-3 3v.75h21v-.75a3 3 0 00-3-3h-15z" /><path fillRule="evenodd" d="M22.5 9.75h-21v7.5a3 3 0 003 3h15a3 3 0 003-3v-7.5zm-18 3.75a.75.75 0 01.75-.75h6a.75.75 0 010 1.5h-6a.75.75 0 01-.75-.75zm.75 2.25a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3z" clipRule="evenodd" /></svg>
               ) : (
-                <svg className="w-5 h-5 text-snow" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" /></svg>
+                <svg aria-hidden="true" className="w-5 h-5 text-snow" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" /></svg>
               )}
             </div>
             <div>
@@ -714,7 +714,7 @@ function AdminPaymentsPage() {
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60">Paid</p>
             <div className="w-9 h-9 rounded-xl bg-snow/20 flex items-center justify-center">
-              <svg className="w-4.5 h-4.5 text-snow" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-4.5 h-4.5 text-snow" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
               </svg>
             </div>
@@ -728,7 +728,7 @@ function AdminPaymentsPage() {
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Pending</p>
             <div className="w-9 h-9 rounded-xl bg-sunny-light flex items-center justify-center">
-              <svg className="w-4.5 h-4.5 text-sunny" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-4.5 h-4.5 text-sunny" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
               </svg>
             </div>
@@ -742,7 +742,7 @@ function AdminPaymentsPage() {
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60">Overdue</p>
             <div className="w-9 h-9 rounded-xl bg-snow/20 flex items-center justify-center">
-              <svg className="w-4.5 h-4.5 text-snow" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-4.5 h-4.5 text-snow" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
               </svg>
             </div>
@@ -857,10 +857,10 @@ function AdminPaymentsPage() {
                 a.click();
                 URL.revokeObjectURL(url);
               }}
-              className="ml-auto px-4 py-2.5 bg-navy border-[3px] border-navy rounded-2xl text-snow text-sm font-bold flex items-center gap-2 hover:bg-navy-light transition-colors"
+              className="ml-auto px-4 py-2.5 bg-navy border-[3px] border-lime rounded-2xl text-snow text-sm font-bold flex items-center gap-2 press-3 press-lime transition-all"
               title="Export payments as CSV"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               Export
@@ -873,7 +873,7 @@ function AdminPaymentsPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b-[4px] border-navy bg-navy">
+                  <tr className="border-b-[4px] border-lime bg-navy">
                     <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Title</th>
                     <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Category</th>
                     <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Amount</th>
@@ -894,7 +894,7 @@ function AdminPaymentsPage() {
                     <tr>
                       <td colSpan={6} className="p-12 text-center">
                         <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-sunny-light flex items-center justify-center">
-                          <svg className="w-7 h-7 text-sunny" viewBox="0 0 24 24" fill="currentColor">
+                          <svg aria-hidden="true" className="w-7 h-7 text-sunny" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M10.464 8.746c.227-.18.497-.311.786-.394v2.795a2.252 2.252 0 0 1-.786-.393c-.394-.313-.546-.681-.546-1.004 0-.323.152-.691.546-1.004ZM12.75 15.662v-2.824c.347.085.664.228.921.421.427.32.579.686.579.991 0 .305-.152.671-.579.991a2.534 2.534 0 0 1-.921.42Z" />
                             <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v.816a3.128 3.128 0 0 0-1.071.267 3.248 3.248 0 0 0-1.634 2.917c0 .98.627 1.834 1.287 2.358.36.286.764.508 1.168.64v3.281c-.508-.135-.951-.397-1.223-.706a.75.75 0 0 0-1.134.982c.596.689 1.454 1.114 2.357 1.263V18a.75.75 0 0 0 1.5 0v-.766a3.5 3.5 0 0 0 1.202-.317 3.299 3.299 0 0 0 1.548-2.917c0-.98-.627-1.834-1.287-2.358-.36-.286-.764-.508-1.168-.64V7.999c.401.135.77.377 1.01.689A.75.75 0 0 0 15.372 7.7c-.596-.689-1.455-1.114-2.357-1.263V6Z" clipRule="evenodd" />
                           </svg>
@@ -987,9 +987,9 @@ function AdminPaymentsPage() {
                   aria-label={`Sort direction: ${txnSortDir}`}
                 >
                   {txnSortDir === "asc" ? (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h5.25m5.25-.75L17.25 9m0 0L21 12.75M17.25 9v12" /></svg>
+                    <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h5.25m5.25-.75L17.25 9m0 0L21 12.75M17.25 9v12" /></svg>
                   ) : (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h9.75m4.5-4.5v12m0 0l-3.75-3.75M17.25 21L21 17.25" /></svg>
+                    <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h9.75m4.5-4.5v12m0 0l-3.75-3.75M17.25 21L21 17.25" /></svg>
                   )}
                 </button>
                 {statusFilter !== "all" && (
@@ -1022,10 +1022,10 @@ function AdminPaymentsPage() {
                     a.click();
                     URL.revokeObjectURL(url);
                   }}
-                  className="px-4 py-2.5 bg-navy border-[3px] border-navy rounded-2xl text-snow text-sm font-bold flex items-center gap-2 hover:bg-navy-light transition-colors"
+                  className="px-4 py-2.5 bg-navy border-[3px] border-lime rounded-2xl text-snow text-sm font-bold flex items-center gap-2 press-3 press-lime transition-all"
                   title="Export transactions as CSV"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   Export
@@ -1040,7 +1040,7 @@ function AdminPaymentsPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b-[4px] border-navy bg-navy">
+                  <tr className="border-b-[4px] border-lime bg-navy">
                     <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Reference</th>
                     <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">User</th>
                     <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Category</th>
@@ -1061,7 +1061,7 @@ function AdminPaymentsPage() {
                     <tr>
                       <td colSpan={6} className="p-12 text-center">
                         <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-lavender-light flex items-center justify-center">
-                          <svg className="w-7 h-7 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+                          <svg aria-hidden="true" className="w-7 h-7 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                             <path fillRule="evenodd" d="M15.97 2.47a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1 0 1.06l-4.5 4.5a.75.75 0 1 1-1.06-1.06l3.22-3.22H7.5a.75.75 0 0 1 0-1.5h11.69l-3.22-3.22a.75.75 0 0 1 0-1.06Zm-7.94 9a.75.75 0 0 1 0 1.06l-3.22 3.22H16.5a.75.75 0 0 1 0 1.5H4.81l3.22 3.22a.75.75 0 1 1-1.06 1.06l-4.5-4.5a.75.75 0 0 1 0-1.06l4.5-4.5a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
                           </svg>
                         </div>
@@ -1123,7 +1123,7 @@ function AdminPaymentsPage() {
                 onClick={openCreateBankAccount}
                 className="bg-lime border-[3px] border-navy press-3 press-black px-5 py-2 rounded-2xl text-sm font-bold text-navy transition-all flex items-center gap-2"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" /></svg>
+                <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" /></svg>
                 Add Account
               </button>
             </PermissionGate>
@@ -1161,14 +1161,14 @@ function AdminPaymentsPage() {
                           title="Edit account"
                           className="w-8 h-8 rounded-xl bg-ghost border-[2px] border-navy/20 flex items-center justify-center hover:bg-cloud transition-colors"
                         >
-                          <svg className="w-3.5 h-3.5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                          <svg aria-hidden="true" className="w-3.5 h-3.5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                         </button>
                         <button
                           onClick={() => setBankAcctDeleteId(account._id)}
                           title="Delete account"
                           className="w-8 h-8 rounded-xl bg-ghost border-[2px] border-navy/20 flex items-center justify-center hover:bg-coral-light transition-colors"
                         >
-                          <svg className="w-3.5 h-3.5 text-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          <svg aria-hidden="true" className="w-3.5 h-3.5 text-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                       </div>
                     </PermissionGate>
@@ -1219,9 +1219,9 @@ function AdminPaymentsPage() {
               aria-label={`Sort direction: ${btSortDir}`}
             >
               {btSortDir === "asc" ? (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h5.25m5.25-.75L17.25 9m0 0L21 12.75M17.25 9v12" /></svg>
+                <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h5.25m5.25-.75L17.25 9m0 0L21 12.75M17.25 9v12" /></svg>
               ) : (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h9.75m4.5-4.5v12m0 0l-3.75-3.75M17.25 21L21 17.25" /></svg>
+                <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h9.75m4.5-4.5v12m0 0l-3.75-3.75M17.25 21L21 17.25" /></svg>
               )}
             </button>
             {transferStatusFilter !== "all" && (
@@ -1240,7 +1240,7 @@ function AdminPaymentsPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b-[4px] border-navy bg-navy">
+                  <tr className="border-b-[4px] border-lime bg-navy">
                     <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Student</th>
                     <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Payment</th>
                     <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Amount</th>
@@ -1262,7 +1262,7 @@ function AdminPaymentsPage() {
                     <tr>
                       <td colSpan={7} className="p-12 text-center">
                         <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-lavender-light flex items-center justify-center">
-                          <svg className="w-7 h-7 text-lavender" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M15.97 2.47a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1 0 1.06l-4.5 4.5a.75.75 0 1 1-1.06-1.06l3.22-3.22H7.5a.75.75 0 0 1 0-1.5h11.69l-3.22-3.22a.75.75 0 0 1 0-1.06Zm-7.94 9a.75.75 0 0 1 0 1.06l-3.22 3.22H16.5a.75.75 0 0 1 0 1.5H4.81l3.22 3.22a.75.75 0 1 1-1.06 1.06l-4.5-4.5a.75.75 0 0 1 0-1.06l4.5-4.5a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" /></svg>
+                          <svg aria-hidden="true" className="w-7 h-7 text-lavender" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M15.97 2.47a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1 0 1.06l-4.5 4.5a.75.75 0 1 1-1.06-1.06l3.22-3.22H7.5a.75.75 0 0 1 0-1.5h11.69l-3.22-3.22a.75.75 0 0 1 0-1.06Zm-7.94 9a.75.75 0 0 1 0 1.06l-3.22 3.22H16.5a.75.75 0 0 1 0 1.5H4.81l3.22 3.22a.75.75 0 1 1-1.06 1.06l-4.5-4.5a.75.75 0 0 1 0-1.06l4.5-4.5a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" /></svg>
                         </div>
                         <p className="text-sm text-navy/60 font-medium">No bank transfers found</p>
                       </td>
@@ -1294,7 +1294,7 @@ function AdminPaymentsPage() {
                               <span className="font-mono text-xs px-2 py-1 rounded-lg bg-cloud border-[2px] border-navy/20 text-navy">{transfer.transactionReference}</span>
                               {transfer.receiptImageUrl && (
                                 <button onClick={(e) => { e.stopPropagation(); setPreviewImage(transfer.receiptImageUrl!); }} title="View receipt image" className="hover:opacity-70 transition-opacity">
-                                  <svg className="w-4 h-4 text-teal" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+                                  <svg aria-hidden="true" className="w-4 h-4 text-teal" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
                                 </button>
                               )}
                             </div>
@@ -1354,7 +1354,7 @@ function AdminPaymentsPage() {
                 className="w-8 h-8 rounded-xl bg-cloud hover:bg-navy/10 flex items-center justify-center transition-colors"
                 aria-label="Close modal"
               >
-                <svg className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -1487,7 +1487,7 @@ function AdminPaymentsPage() {
                   type="button"
                   onClick={() => setShowCreateModal(false)}
                   disabled={submitting}
-                  className="flex-1 px-6 py-3 bg-transparent border-[3px] border-navy rounded-2xl font-display font-black text-navy hover:bg-navy hover:text-snow transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-6 py-3 bg-transparent border-[3px] border-navy rounded-2xl font-display font-black text-navy hover:bg-navy hover:text-lime hover:border-lime transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
@@ -1517,7 +1517,7 @@ function AdminPaymentsPage() {
                 className="w-8 h-8 rounded-xl bg-cloud hover:bg-navy/10 flex items-center justify-center transition-colors"
                 aria-label="Close modal"
               >
-                <svg className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
@@ -1587,7 +1587,7 @@ function AdminPaymentsPage() {
                   type="button"
                   onClick={() => setShowBankAccountModal(false)}
                   disabled={bankAccountSubmitting}
-                  className="flex-1 px-6 py-3 bg-transparent border-[3px] border-navy rounded-2xl font-display font-black text-navy hover:bg-navy hover:text-snow transition-all disabled:opacity-50"
+                  className="flex-1 px-6 py-3 bg-transparent border-[3px] border-navy rounded-2xl font-display font-black text-navy hover:bg-navy hover:text-lime hover:border-lime transition-all disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -1618,7 +1618,7 @@ function AdminPaymentsPage() {
                 className="w-8 h-8 rounded-xl bg-cloud hover:bg-navy/10 flex items-center justify-center transition-colors"
                 aria-label="Close modal"
               >
-                <svg className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
@@ -1691,7 +1691,7 @@ function AdminPaymentsPage() {
                 type="button"
                 onClick={() => setReviewingTransfer(null)}
                 disabled={reviewSubmitting}
-                className="flex-1 px-6 py-3 bg-transparent border-[3px] border-navy rounded-2xl font-display font-black text-navy hover:bg-navy hover:text-snow transition-all disabled:opacity-50"
+                className="flex-1 px-6 py-3 bg-transparent border-[3px] border-navy rounded-2xl font-display font-black text-navy hover:bg-navy hover:text-lime hover:border-lime transition-all disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1723,7 +1723,7 @@ function AdminPaymentsPage() {
                 className="w-8 h-8 rounded-xl bg-cloud hover:bg-navy/10 flex items-center justify-center transition-colors"
                 aria-label="Close modal"
               >
-                <svg className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
@@ -1785,7 +1785,7 @@ function AdminPaymentsPage() {
             <div className="mt-6">
               <button
                 onClick={() => setSelectedTransaction(null)}
-                className="w-full px-6 py-3 bg-transparent border-[3px] border-navy rounded-2xl font-display font-black text-navy hover:bg-navy hover:text-snow transition-all"
+                className="w-full px-6 py-3 bg-transparent border-[3px] border-navy rounded-2xl font-display font-black text-navy hover:bg-navy hover:text-lime hover:border-lime transition-all"
               >
                 Close
               </button>
@@ -1805,7 +1805,7 @@ function AdminPaymentsPage() {
                 className="w-8 h-8 rounded-xl bg-cloud hover:bg-navy/10 flex items-center justify-center transition-colors"
                 aria-label="Close modal"
               >
-                <svg className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
@@ -1906,7 +1906,7 @@ function AdminPaymentsPage() {
               )}
               <button
                 onClick={() => setSelectedTransfer(null)}
-                className={`${selectedTransfer.status === "pending" ? "" : "w-full "}px-6 py-3 bg-transparent border-[3px] border-navy rounded-2xl font-display font-black text-navy hover:bg-navy hover:text-snow transition-all`}
+                className={`${selectedTransfer.status === "pending" ? "" : "w-full "}px-6 py-3 bg-transparent border-[3px] border-navy rounded-2xl font-display font-black text-navy hover:bg-navy hover:text-lime hover:border-lime transition-all`}
               >
                 Close
               </button>
@@ -1924,7 +1924,7 @@ function AdminPaymentsPage() {
               className="absolute -top-2 -right-2 z-10 w-10 h-10 bg-snow border-[3px] border-navy rounded-full flex items-center justify-center shadow-[3px_3px_0_0_#000] hover:bg-cloud transition-colors"
               aria-label="Close preview"
             >
-              <svg className="w-5 h-5 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+              <svg aria-hidden="true" className="w-5 h-5 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <img
               src={previewImage}
@@ -1937,7 +1937,7 @@ function AdminPaymentsPage() {
               rel="noopener noreferrer"
               className="mt-4 px-6 py-2.5 bg-snow border-[3px] border-navy rounded-2xl font-bold text-navy text-sm hover:bg-cloud transition-colors flex items-center gap-2"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
+              <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
               Open in New Tab
             </a>
           </div>
@@ -1956,7 +1956,7 @@ function AdminPaymentsPage() {
                 className="w-8 h-8 rounded-xl bg-cloud hover:bg-navy/10 flex items-center justify-center transition-colors"
                 aria-label="Close modal"
               >
-                <svg className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
@@ -1976,7 +1976,7 @@ function AdminPaymentsPage() {
                         onClick={() => setEditingPayment(true)}
                         className="px-4 py-2 bg-sunny-light border-[2px] border-navy/20 rounded-xl text-xs font-bold text-navy hover:border-navy transition-colors flex items-center gap-1.5"
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                        <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                         Edit
                       </button>
                     </PermissionGate>
@@ -2069,7 +2069,7 @@ function AdminPaymentsPage() {
                     <button
                       onClick={() => setEditingPayment(false)}
                       disabled={editSubmitting}
-                      className="flex-1 px-5 py-2.5 bg-transparent border-[3px] border-navy rounded-2xl font-bold text-navy text-sm hover:bg-navy hover:text-snow transition-all disabled:opacity-50"
+                      className="flex-1 px-5 py-2.5 bg-transparent border-[3px] border-navy rounded-2xl font-bold text-navy text-sm hover:bg-navy hover:text-lime hover:border-lime transition-all disabled:opacity-50"
                     >
                       Cancel
                     </button>
@@ -2094,7 +2094,7 @@ function AdminPaymentsPage() {
                   disabled={reminderSending}
                   className="px-5 py-2.5 bg-coral border-[3px] border-navy rounded-2xl font-bold text-snow text-sm press-3 press-navy transition-all disabled:opacity-50 flex items-center gap-2"
                 >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M5.25 6.31a7.5 7.5 0 0 1 11.916-2.77l.09.07H14.25a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 .75-.75v-4.5a.75.75 0 0 0-1.5 0v2.033A9 9 0 0 0 3.876 5.508a.75.75 0 0 0 1.374.602ZM18.75 17.69a7.5 7.5 0 0 1-11.916 2.77l-.09-.07H9.75a.75.75 0 0 0 0-1.5h-4.5a.75.75 0 0 0-.75.75v4.5a.75.75 0 0 0 1.5 0v-2.033a9 9 0 0 0 14.124-4.608.75.75 0 0 0-1.374-.602Z" />
                   </svg>
                   {reminderSending ? "Sending..." : "Send Payment Reminder"}
@@ -2130,9 +2130,9 @@ function AdminPaymentsPage() {
                           toast.error(getErrorMessage(err, "Failed to download PDF report"));
                         }
                       }}
-                      className="px-3 py-1.5 bg-navy border-[2px] border-navy rounded-xl text-snow text-xs font-bold flex items-center gap-1.5 hover:bg-navy-light transition-colors"
+                      className="px-3 py-1.5 bg-navy border-[2px] border-lime rounded-xl text-snow text-xs font-bold flex items-center gap-1.5 press-2 press-lime transition-all"
                     >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                       PDF Report

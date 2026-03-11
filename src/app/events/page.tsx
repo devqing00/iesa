@@ -144,7 +144,7 @@ export default function EventsPage() {
                         {event.description}
                       </p>
                       <p className="font-display font-bold text-xs text-navy/60 flex items-center gap-2">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                         </svg>
                         {event.location}
@@ -213,10 +213,10 @@ export default function EventsPage() {
           {/* Categories Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {[
-              { name: "Conferences", count: "3/year", bg: "bg-lavender", icon: <svg className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" /></svg> },
-              { name: "Workshops", count: "10+/year", bg: "bg-teal", icon: <svg className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" /></svg> },
-              { name: "Industry Visits", count: "5+/year", bg: "bg-sunny", icon: <svg className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd" /></svg> },
-              { name: "Social Events", count: "8+/year", bg: "bg-coral", icon: <svg className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" /></svg> },
+              { name: "Conferences", count: "3/year", bg: "bg-lavender", icon: <svg aria-hidden="true" className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" /></svg> },
+              { name: "Workshops", count: "10+/year", bg: "bg-teal", icon: <svg aria-hidden="true" className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" /></svg> },
+              { name: "Industry Visits", count: "5+/year", bg: "bg-sunny", icon: <svg aria-hidden="true" className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd" /></svg> },
+              { name: "Social Events", count: "8+/year", bg: "bg-coral", icon: <svg aria-hidden="true" className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" /></svg> },
             ].map((category, i) => (
               <div key={i} className={`${category.bg} border-[2px] border-navy rounded-3xl p-6 text-center press-4 press-black transition-all`}>
                 <div className="w-14 h-14 mx-auto bg-snow border-[2px] border-navy rounded-full flex items-center justify-center mb-4 shadow-[2px_2px_0_0_#000]">
@@ -235,7 +235,7 @@ export default function EventsPage() {
           ============================================ */}
       <section className="py-16 sm:py-24 bg-sunny">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-block bg-navy border-[3px] border-navy rounded-full px-4 py-1.5 mb-6">
+          <div className="inline-block bg-navy border-[3px] border-lime rounded-full px-4 py-1.5 mb-6">
             <span className="font-display text-xs font-black text-snow uppercase tracking-widest">✦ Stay Updated ✦</span>
           </div>
 

@@ -211,7 +211,7 @@ export default function AcademicCalendarTab() {
           onClick={openCreate}
           className="bg-lime border-4 border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
         >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
           </svg>
           Add Calendar Event
@@ -231,7 +231,7 @@ export default function AcademicCalendarTab() {
       ) : displayEvents.length === 0 ? (
         <div className="bg-snow border-4 border-navy rounded-3xl p-16 text-center shadow-[4px_4px_0_0_#000] space-y-4">
           <div className="w-16 h-16 bg-lavender-light rounded-2xl flex items-center justify-center mx-auto">
-            <svg className="w-8 h-8 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-8 h-8 text-lavender" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
             </svg>
           </div>
@@ -278,7 +278,7 @@ export default function AcademicCalendarTab() {
                               <p className="text-sm text-navy/60 mb-2">{ev.description}</p>
                             )}
                             <div className="flex items-center gap-2 text-sm text-navy/70">
-                              <svg className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                              <svg aria-hidden="true" className="w-4 h-4 shrink-0 text-slate" viewBox="0 0 24 24" fill="currentColor">
                                 <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
                               </svg>
                               <span className="font-medium">
@@ -292,7 +292,7 @@ export default function AcademicCalendarTab() {
                             <div className="flex gap-2 shrink-0">
                               <button
                                 onClick={() => openEdit(ev)}
-                                className="px-4 py-2 rounded-xl bg-ghost border-[3px] border-navy text-navy text-xs font-bold hover:bg-navy hover:text-snow transition-all"
+                                className="px-4 py-2 rounded-xl bg-ghost border-[3px] border-navy text-navy text-xs font-bold hover:bg-navy hover:text-lime hover:border-lime transition-all"
                               >
                                 Edit
                               </button>
@@ -331,7 +331,7 @@ export default function AcademicCalendarTab() {
                 </h3>
               </div>
               <button onClick={closeModal} className="p-2 rounded-xl hover:bg-cloud transition-colors" aria-label="Close">
-                <svg className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                 </svg>
               </button>
@@ -439,7 +439,7 @@ export default function AcademicCalendarTab() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy transition-all disabled:opacity-50"
+                  className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-4 press-lime transition-all disabled:opacity-50"
                 >
                   {saving ? "Saving..." : editing ? "Update Event" : "Create Event"}
                 </button>

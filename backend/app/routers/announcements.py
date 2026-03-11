@@ -606,6 +606,30 @@ async def update_announcement(
         resource_id=announcement_id,
         details={"updated_fields": list(update_data.keys())}
     )
+
+    # For already-published announcements: emit SSE, invalidate cache, sync notification content
+    if updated_announcement.get("isPublished"):
+        from app.routers.sse import publish
+        from app.core.cache import cache_delete, cache_delete_pattern
+        publish("announcement_updated", {
+            "id": announcement_id,
+            "title": updated_announcement.get("title", ""),
+        })
+        await cache_delete("admin_stats")
+        await cache_delete_pattern("student_dashboard:*")
+        # Keep existing notification title/message in sync if text changed
+        notif_patch: dict = {}
+        if "title" in update_data:
+            notif_patch["title"] = f"📢 {update_data['title']}"
+        if "content" in update_data:
+            notif_patch["message"] = (update_data["content"] or "")[:200]
+        if notif_patch:
+            notif_patch["updatedAt"] = datetime.now(timezone.utc)
+            await db.notifications.update_many(
+                {"type": "announcement", "relatedId": announcement_id},
+                {"$set": notif_patch}
+            )
+
     return Announcement(**updated_announcement)
 
 

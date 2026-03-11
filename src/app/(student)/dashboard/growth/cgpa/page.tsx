@@ -282,7 +282,7 @@ export default function CgpaPage() {
               href="/dashboard/growth"
               className="inline-flex items-center gap-2 font-display font-bold text-xs text-slate uppercase tracking-wider hover:text-navy transition-colors group"
             >
-              <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+              <svg aria-hidden="true" className="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 24 24">
                 <path fillRule="evenodd" d="M11.03 3.97a.75.75 0 010 1.06l-6.22 6.22H21a.75.75 0 010 1.5H4.81l6.22 6.22a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0z" clipRule="evenodd"/>
               </svg>
               Back to Growth Hub
@@ -331,13 +331,13 @@ export default function CgpaPage() {
                 </span>
                 {trend === "up" && (
                   <div className="flex items-center gap-1 text-teal text-xs font-bold">
-                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M11.47 2.47a.75.75 0 011.06 0l7.5 7.5a.75.75 0 11-1.06 1.06l-6.22-6.22V21a.75.75 0 01-1.5 0V4.81l-6.22 6.22a.75.75 0 01-1.06-1.06l7.5-7.5z" clipRule="evenodd"/></svg>
+                    <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M11.47 2.47a.75.75 0 011.06 0l7.5 7.5a.75.75 0 11-1.06 1.06l-6.22-6.22V21a.75.75 0 01-1.5 0V4.81l-6.22 6.22a.75.75 0 01-1.06-1.06l7.5-7.5z" clipRule="evenodd"/></svg>
                     Up
                   </div>
                 )}
                 {trend === "down" && (
                   <div className="flex items-center gap-1 text-coral text-xs font-bold">
-                    <svg className="w-3.5 h-3.5 rotate-180" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M11.47 2.47a.75.75 0 011.06 0l7.5 7.5a.75.75 0 11-1.06 1.06l-6.22-6.22V21a.75.75 0 01-1.5 0V4.81l-6.22 6.22a.75.75 0 01-1.06-1.06l7.5-7.5z" clipRule="evenodd"/></svg>
+                    <svg aria-hidden="true" className="w-3.5 h-3.5 rotate-180" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M11.47 2.47a.75.75 0 011.06 0l7.5 7.5a.75.75 0 11-1.06 1.06l-6.22-6.22V21a.75.75 0 01-1.5 0V4.81l-6.22 6.22a.75.75 0 01-1.06-1.06l7.5-7.5z" clipRule="evenodd"/></svg>
                     Dip
                   </div>
                 )}
@@ -390,7 +390,7 @@ export default function CgpaPage() {
               <section className="bg-lavender-light border-[3px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] p-5 md:p-6 rotate-[0.3deg] hover:rotate-0 transition-transform">
                 <div className="flex items-center gap-2.5 mb-4">
                   <div className="w-8 h-8 rounded-xl bg-lavender border-[3px] border-navy flex items-center justify-center">
-                    <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 13.5a8.25 8.25 0 018.25-8.25.75.75 0 01.75.75v6.75H18a.75.75 0 01.75.75 8.25 8.25 0 01-16.5 0z" clipRule="evenodd"/><path fillRule="evenodd" d="M12.75 3a.75.75 0 01.75-.75 8.25 8.25 0 018.25 8.25.75.75 0 01-.75.75h-8.25V3z" clipRule="evenodd"/></svg>
+                    <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 13.5a8.25 8.25 0 018.25-8.25.75.75 0 01.75.75v6.75H18a.75.75 0 01.75.75 8.25 8.25 0 01-16.5 0z" clipRule="evenodd"/><path fillRule="evenodd" d="M12.75 3a.75.75 0 01.75-.75 8.25 8.25 0 018.25 8.25.75.75 0 01-.75.75h-8.25V3z" clipRule="evenodd"/></svg>
                   </div>
                   <h3 className="font-display font-black text-lg text-navy">Grading System</h3>
                 </div>
@@ -401,7 +401,7 @@ export default function CgpaPage() {
                       onClick={() => handleGradingSystemChange(system)}
                       className={`px-4 py-3.5 rounded-2xl text-center transition-all border-[3px] ${
                         gradingSystem === system
-                          ? "bg-navy text-ghost border-navy shadow-[3px_3px_0_0_#000]"
+                          ? "bg-navy text-ghost border-lime shadow-[3px_3px_0_0_#C8F31D]"
                           : "bg-snow text-navy/60 border-navy/20 hover:border-navy hover:bg-snow"
                       }`}
                     >
@@ -418,7 +418,7 @@ export default function CgpaPage() {
               <section className="bg-coral-light border-[3px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] p-5 md:p-6 rotate-[-0.3deg] hover:rotate-0 transition-transform">
                 <div className="flex items-center gap-2.5 mb-4">
                   <div className="w-8 h-8 rounded-xl bg-coral border-[3px] border-navy flex items-center justify-center">
-                    <svg className="w-4 h-4 text-snow" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd"/></svg>
+                    <svg aria-hidden="true" className="w-4 h-4 text-snow" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd"/></svg>
                   </div>
                   <h3 className="font-display font-black text-lg text-navy">Previous Record</h3>
                   <span className="ml-auto text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40 bg-snow/60 px-2 py-1 rounded-full">Optional</span>
@@ -456,7 +456,7 @@ export default function CgpaPage() {
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-xl bg-lime border-[3px] border-navy flex items-center justify-center">
-                      <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 24 24"><path d="M11.7 2.805a.75.75 0 01.6 0A60.65 60.65 0 0122.83 8.72a.75.75 0 01-.231 1.337 49.949 49.949 0 00-9.902 3.912l-.003.002-.34.18a.75.75 0 01-.707 0A50.009 50.009 0 007.5 12.174v-.224c0-.131.067-.248.172-.311a.75.75 0 00.328-.658.75.75 0 00-.5-.707 49.009 49.009 0 00-4.347-1.353.75.75 0 01-.231-1.337A60.653 60.653 0 0111.7 2.805z"/><path d="M13.06 15.473a48.45 48.45 0 017.666-3.282c.134 1.414.22 2.843.255 4.285a.75.75 0 01-.46.711 47.878 47.878 0 00-8.105 4.342.75.75 0 01-.832 0 47.877 47.877 0 00-8.104-4.342.75.75 0 01-.461-.71c.035-1.442.121-2.87.255-4.286A48.4 48.4 0 016 13.18v1.27a1.5 1.5 0 00-.14 2.508c-.09.38-.222.753-.397 1.11.452.213.901.434 1.346.661a6.729 6.729 0 00.551-1.608 1.5 1.5 0 00.14-2.67v-.645a48.549 48.549 0 013.44 1.668 2.25 2.25 0 002.12 0z"/><path d="M4.462 19.462c.42-.419.753-.89 1-1.395.453.213.902.434 1.347.661a6.743 6.743 0 01-1.286 1.794.75.75 0 11-1.06-1.06z"/></svg>
+                      <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 24 24"><path d="M11.7 2.805a.75.75 0 01.6 0A60.65 60.65 0 0122.83 8.72a.75.75 0 01-.231 1.337 49.949 49.949 0 00-9.902 3.912l-.003.002-.34.18a.75.75 0 01-.707 0A50.009 50.009 0 007.5 12.174v-.224c0-.131.067-.248.172-.311a.75.75 0 00.328-.658.75.75 0 00-.5-.707 49.009 49.009 0 00-4.347-1.353.75.75 0 01-.231-1.337A60.653 60.653 0 0111.7 2.805z"/><path d="M13.06 15.473a48.45 48.45 0 017.666-3.282c.134 1.414.22 2.843.255 4.285a.75.75 0 01-.46.711 47.878 47.878 0 00-8.105 4.342.75.75 0 01-.832 0 47.877 47.877 0 00-8.104-4.342.75.75 0 01-.461-.71c.035-1.442.121-2.87.255-4.286A48.4 48.4 0 016 13.18v1.27a1.5 1.5 0 00-.14 2.508c-.09.38-.222.753-.397 1.11.452.213.901.434 1.346.661a6.729 6.729 0 00.551-1.608 1.5 1.5 0 00.14-2.67v-.645a48.549 48.549 0 013.44 1.668 2.25 2.25 0 002.12 0z"/><path d="M4.462 19.462c.42-.419.753-.89 1-1.395.453.213.902.434 1.347.661a6.743 6.743 0 01-1.286 1.794.75.75 0 11-1.06-1.06z"/></svg>
                     </div>
                     <h3 className="font-display font-black text-lg text-navy">Current Semester</h3>
                     <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/40 bg-cloud px-2 py-1 rounded-full">
@@ -467,7 +467,7 @@ export default function CgpaPage() {
                     onClick={addCourse}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-lime border-[3px] border-navy press-3 press-navy font-display font-bold text-xs text-navy uppercase tracking-wider transition-all"
                   >
-                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                    <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
                       <path fillRule="evenodd" d="M12 3.75a.75.75 0 01.75.75v6.75h6.75a.75.75 0 010 1.5h-6.75v6.75a.75.75 0 01-1.5 0v-6.75H4.5a.75.75 0 010-1.5h6.75V4.5a.75.75 0 01.75-.75z" clipRule="evenodd"/>
                     </svg>
                     Add
@@ -511,7 +511,7 @@ export default function CgpaPage() {
                               className="w-7 h-7 rounded-lg bg-snow border-[2px] border-navy/20 flex items-center justify-center text-slate hover:text-navy hover:border-navy transition-all"
                               aria-label="Decrease credits"
                             >
-                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M3.75 12a.75.75 0 01.75-.75h15a.75.75 0 010 1.5h-15a.75.75 0 01-.75-.75z" clipRule="evenodd"/></svg>
+                              <svg aria-hidden="true" className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M3.75 12a.75.75 0 01.75-.75h15a.75.75 0 010 1.5h-15a.75.75 0 01-.75-.75z" clipRule="evenodd"/></svg>
                             </button>
                             <span className="w-7 text-center font-display font-black text-lg text-navy">{course.credits}</span>
                             <button
@@ -519,7 +519,7 @@ export default function CgpaPage() {
                               className="w-7 h-7 rounded-lg bg-snow border-[2px] border-navy/20 flex items-center justify-center text-slate hover:text-navy hover:border-navy transition-all"
                               aria-label="Increase credits"
                             >
-                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 3.75a.75.75 0 01.75.75v6.75h6.75a.75.75 0 010 1.5h-6.75v6.75a.75.75 0 01-1.5 0v-6.75H4.5a.75.75 0 010-1.5h6.75V4.5a.75.75 0 01.75-.75z" clipRule="evenodd"/></svg>
+                              <svg aria-hidden="true" className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 3.75a.75.75 0 01.75.75v6.75h6.75a.75.75 0 010 1.5h-6.75v6.75a.75.75 0 01-1.5 0v-6.75H4.5a.75.75 0 010-1.5h6.75V4.5a.75.75 0 01.75-.75z" clipRule="evenodd"/></svg>
                             </button>
                           </div>
                         </div>
@@ -533,7 +533,7 @@ export default function CgpaPage() {
                                 onClick={() => updateCourse(course.id, "grade", grade)}
                                 className={`px-2.5 py-1 rounded-full font-display font-bold text-xs transition-all ${
                                   course.grade === grade
-                                    ? `${GRADE_COLORS[grade] || "bg-navy text-ghost"} border-[2px] border-navy shadow-[2px_2px_0_0_#000]`
+                                    ? `${GRADE_COLORS[grade] || "bg-navy text-ghost"} border-[2px] border-navy shadow-[2px_2px_0_0_#C8F31D]`
                                     : "bg-snow text-navy/40 border-[2px] border-navy/15 hover:border-navy/40"
                                 }`}
                               >
@@ -551,7 +551,7 @@ export default function CgpaPage() {
                             className="p-1.5 text-slate hover:text-coral transition-colors disabled:opacity-20"
                             aria-label="Remove course"
                           >
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 013.878.512.75.75 0 11-.256 1.478l-.209-.035-1.005 13.07a3 3 0 01-2.991 2.77H8.084a3 3 0 01-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 01-.256-1.478A48.567 48.567 0 017.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 013.369 0c1.603.051 2.815 1.387 2.815 2.951zm-6.136-1.452a51.196 51.196 0 013.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 00-6 0v-.113c0-.794.609-1.428 1.364-1.452zm-.355 5.945a.75.75 0 10-1.5.058l.347 9a.75.75 0 101.499-.058l-.346-9zm5.48.058a.75.75 0 10-1.498-.058l-.347 9a.75.75 0 001.5.058l.345-9z" clipRule="evenodd"/></svg>
+                            <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 013.878.512.75.75 0 11-.256 1.478l-.209-.035-1.005 13.07a3 3 0 01-2.991 2.77H8.084a3 3 0 01-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 01-.256-1.478A48.567 48.567 0 017.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 013.369 0c1.603.051 2.815 1.387 2.815 2.951zm-6.136-1.452a51.196 51.196 0 013.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 00-6 0v-.113c0-.794.609-1.428 1.364-1.452zm-.355 5.945a.75.75 0 10-1.5.058l.347 9a.75.75 0 101.499-.058l-.346-9zm5.48.058a.75.75 0 10-1.498-.058l-.347 9a.75.75 0 001.5.058l.345-9z" clipRule="evenodd"/></svg>
                           </button>
                         </div>
                       </div>
@@ -565,7 +565,7 @@ export default function CgpaPage() {
                     onClick={resetCalculator}
                     className="flex items-center gap-1.5 text-slate hover:text-navy font-display font-bold text-xs uppercase tracking-wider transition-colors"
                   >
-                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M4.755 10.059a7.5 7.5 0 0112.548-3.364l1.903 1.903H14.25a.75.75 0 000 1.5h6a.75.75 0 00.75-.75v-6a.75.75 0 00-1.5 0v4.956l-1.903-1.903A9 9 0 003.306 9.67a.75.75 0 101.45.388zm14.49 3.882a7.5 7.5 0 01-12.548 3.364l-1.902-1.903h4.955a.75.75 0 000-1.5h-6a.75.75 0 00-.75.75v6a.75.75 0 001.5 0v-4.956l1.903 1.903A9 9 0 0020.694 14.33a.75.75 0 10-1.45-.388z" clipRule="evenodd"/></svg>
+                    <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M4.755 10.059a7.5 7.5 0 0112.548-3.364l1.903 1.903H14.25a.75.75 0 000 1.5h6a.75.75 0 00.75-.75v-6a.75.75 0 00-1.5 0v4.956l-1.903-1.903A9 9 0 003.306 9.67a.75.75 0 101.45.388zm14.49 3.882a7.5 7.5 0 01-12.548 3.364l-1.902-1.903h4.955a.75.75 0 000-1.5h-6a.75.75 0 00-.75.75v6a.75.75 0 001.5 0v-4.956l1.903 1.903A9 9 0 0020.694 14.33a.75.75 0 10-1.45-.388z" clipRule="evenodd"/></svg>
                     Reset All
                   </button>
                   <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/30">
@@ -578,7 +578,7 @@ export default function CgpaPage() {
               <section className="bg-sunny-light border-[3px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] p-5 md:p-6 rotate-[-0.3deg] hover:rotate-0 transition-transform">
                 <div className="flex items-center gap-2.5 mb-4">
                   <div className="w-8 h-8 rounded-xl bg-sunny border-[3px] border-navy flex items-center justify-center">
-                    <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M5.166 2.621v.858c-1.035.148-2.059.33-3.071.543a.75.75 0 00-.584.859 6.753 6.753 0 006.138 5.6 6.73 6.73 0 002.743 1.346A6.707 6.707 0 019.279 15H8.54c-1.036 0-1.875.84-1.875 1.875V19.5h-.75a2.25 2.25 0 00-2.25 2.25c0 .414.336.75.75.75h15.75a.75.75 0 00.75-.75 2.25 2.25 0 00-2.25-2.25h-.75v-2.625c0-1.036-.84-1.875-1.875-1.875h-.739a6.706 6.706 0 01-1.112-3.173 6.73 6.73 0 002.743-1.347 6.753 6.753 0 006.139-5.6.75.75 0 00-.585-.858 47.077 47.077 0 00-3.07-.543V2.62a.75.75 0 00-.658-.744 49.22 49.22 0 00-6.093-.377c-2.063 0-4.096.128-6.093.377a.75.75 0 00-.657.744z" clipRule="evenodd"/></svg>
+                    <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M5.166 2.621v.858c-1.035.148-2.059.33-3.071.543a.75.75 0 00-.584.859 6.753 6.753 0 006.138 5.6 6.73 6.73 0 002.743 1.346A6.707 6.707 0 019.279 15H8.54c-1.036 0-1.875.84-1.875 1.875V19.5h-.75a2.25 2.25 0 00-2.25 2.25c0 .414.336.75.75.75h15.75a.75.75 0 00.75-.75 2.25 2.25 0 00-2.25-2.25h-.75v-2.625c0-1.036-.84-1.875-1.875-1.875h-.739a6.706 6.706 0 01-1.112-3.173 6.73 6.73 0 002.743-1.347 6.753 6.753 0 006.139-5.6.75.75 0 00-.585-.858 47.077 47.077 0 00-3.07-.543V2.62a.75.75 0 00-.658-.744 49.22 49.22 0 00-6.093-.377c-2.063 0-4.096.128-6.093.377a.75.75 0 00-.657.744z" clipRule="evenodd"/></svg>
                   </div>
                   <h3 className="font-display font-black text-lg text-navy">Set Your Target</h3>
                 </div>
@@ -624,7 +624,7 @@ export default function CgpaPage() {
               {/* Motivation card — coral */}
               <div className="bg-coral border-[3px] border-navy rounded-[1.5rem] shadow-[4px_4px_0_0_#000] p-5 rotate-[0.5deg] hover:rotate-0 transition-transform">
                 <div className="flex items-center gap-2 mb-2">
-                  <svg className="w-4 h-4 text-snow/60" fill="currentColor" viewBox="0 0 24 24"><path d="M9 4.5a.75.75 0 01.721.544l.813 2.846a3.75 3.75 0 002.576 2.576l2.846.813a.75.75 0 010 1.442l-2.846.813a3.75 3.75 0 00-2.576 2.576l-.813 2.846a.75.75 0 01-1.442 0l-.813-2.846a3.75 3.75 0 00-2.576-2.576l-2.846-.813a.75.75 0 010-1.442l2.846-.813A3.75 3.75 0 007.466 7.89l.813-2.846A.75.75 0 019 4.5zM18 1.5a.75.75 0 01.728.568l.258 1.036c.236.94.97 1.674 1.91 1.91l1.036.258a.75.75 0 010 1.456l-1.036.258c-.94.236-1.674.97-1.91 1.91l-.258 1.036a.75.75 0 01-1.456 0l-.258-1.036a2.625 2.625 0 00-1.91-1.91l-1.036-.258a.75.75 0 010-1.456l1.036-.258a2.625 2.625 0 001.91-1.91l.258-1.036A.75.75 0 0118 1.5z"/></svg>
+                  <svg aria-hidden="true" className="w-4 h-4 text-snow/60" fill="currentColor" viewBox="0 0 24 24"><path d="M9 4.5a.75.75 0 01.721.544l.813 2.846a3.75 3.75 0 002.576 2.576l2.846.813a.75.75 0 010 1.442l-2.846.813a3.75 3.75 0 00-2.576 2.576l-.813 2.846a.75.75 0 01-1.442 0l-.813-2.846a3.75 3.75 0 00-2.576-2.576l-2.846-.813a.75.75 0 010-1.442l2.846-.813A3.75 3.75 0 007.466 7.89l.813-2.846A.75.75 0 019 4.5zM18 1.5a.75.75 0 01.728.568l.258 1.036c.236.94.97 1.674 1.91 1.91l1.036.258a.75.75 0 010 1.456l-1.036.258c-.94.236-1.674.97-1.91 1.91l-.258 1.036a.75.75 0 01-1.456 0l-.258-1.036a2.625 2.625 0 00-1.91-1.91l-1.036-.258a.75.75 0 010-1.456l1.036-.258a2.625 2.625 0 001.91-1.91l.258-1.036A.75.75 0 0118 1.5z"/></svg>
                   <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-snow/60">Motivation</span>
                 </div>
                 <p className="font-display font-black text-base text-snow leading-snug">{hasInteracted ? motivation : "Add your courses to get started!"}</p>
@@ -642,7 +642,7 @@ export default function CgpaPage() {
                 onClick={saveToHistory}
                 className="w-full py-4 rounded-2xl bg-lime text-navy border-[3px] border-navy press-3 press-navy font-display font-black text-base transition-all flex items-center justify-center gap-2"
               >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M6.32 2.577a49.255 49.255 0 0111.36 0c1.497.174 2.57 1.46 2.57 2.93V21a.75.75 0 01-1.085.67L12 18.089l-7.165 3.583A.75.75 0 013.75 21V5.507c0-1.47 1.073-2.756 2.57-2.93z" clipRule="evenodd"/></svg>
+                <svg aria-hidden="true" className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M6.32 2.577a49.255 49.255 0 0111.36 0c1.497.174 2.57 1.46 2.57 2.93V21a.75.75 0 01-1.085.67L12 18.089l-7.165 3.583A.75.75 0 013.75 21V5.507c0-1.47 1.073-2.756 2.57-2.93z" clipRule="evenodd"/></svg>
                 Save to Progress
               </button>
 
@@ -654,7 +654,7 @@ export default function CgpaPage() {
                 >
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-lg bg-lavender-light border-[2px] border-navy/20 flex items-center justify-center">
-                      <svg className="w-3.5 h-3.5 text-lavender" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0118 9.375v9.375a3 3 0 003-3V6.108c0-1.505-1.125-2.811-2.664-2.94A48.972 48.972 0 0012 3c-2.227 0-4.406.148-6.336.432A2.96 2.96 0 003 6.108V8.25a3 3 0 003-3h1.502zM6 13.5V6.75a.75.75 0 01.75-.75h8.5a.75.75 0 01.75.75v6.75a.75.75 0 01-.75.75h-8.5a.75.75 0 01-.75-.75z" clipRule="evenodd"/><path d="M5.25 15.375A3.375 3.375 0 018.625 12h8.25a.75.75 0 01.75.75v6.375a3.375 3.375 0 01-3.375 3.375h-6a3.375 3.375 0 01-3-3.375v-3.75z"/></svg>
+                      <svg aria-hidden="true" className="w-3.5 h-3.5 text-lavender" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0118 9.375v9.375a3 3 0 003-3V6.108c0-1.505-1.125-2.811-2.664-2.94A48.972 48.972 0 0012 3c-2.227 0-4.406.148-6.336.432A2.96 2.96 0 003 6.108V8.25a3 3 0 003-3h1.502zM6 13.5V6.75a.75.75 0 01.75-.75h8.5a.75.75 0 01.75.75v6.75a.75.75 0 01-.75.75h-8.5a.75.75 0 01-.75-.75z" clipRule="evenodd"/><path d="M5.25 15.375A3.375 3.375 0 018.625 12h8.25a.75.75 0 01.75.75v6.375a3.375 3.375 0 01-3.375 3.375h-6a3.375 3.375 0 01-3-3.375v-3.75z"/></svg>
                     </div>
                     <span className="font-display font-bold text-sm text-navy">Progress History</span>
                     {history.length > 0 && (
@@ -663,7 +663,7 @@ export default function CgpaPage() {
                       </span>
                     )}
                   </div>
-                  <svg className={`w-4 h-4 text-slate transition-transform ${showHistory ? "rotate-180" : ""}`} fill="currentColor" viewBox="0 0 24 24">
+                  <svg aria-hidden="true" className={`w-4 h-4 text-slate transition-transform ${showHistory ? "rotate-180" : ""}`} fill="currentColor" viewBox="0 0 24 24">
                     <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 01-1.06 0l-7.5-7.5a.75.75 0 011.06-1.06L12 14.69l6.97-6.97a.75.75 0 111.06 1.06l-7.5 7.5z" clipRule="evenodd"/>
                   </svg>
                 </button>
@@ -673,7 +673,7 @@ export default function CgpaPage() {
                     {history.length === 0 ? (
                       <div className="text-center py-8">
                         <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-cloud flex items-center justify-center">
-                          <svg className="w-5 h-5 text-slate" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M6.32 2.577a49.255 49.255 0 0111.36 0c1.497.174 2.57 1.46 2.57 2.93V21a.75.75 0 01-1.085.67L12 18.089l-7.165 3.583A.75.75 0 013.75 21V5.507c0-1.47 1.073-2.756 2.57-2.93z" clipRule="evenodd"/></svg>
+                          <svg aria-hidden="true" className="w-5 h-5 text-slate" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M6.32 2.577a49.255 49.255 0 0111.36 0c1.497.174 2.57 1.46 2.57 2.93V21a.75.75 0 01-1.085.67L12 18.089l-7.165 3.583A.75.75 0 013.75 21V5.507c0-1.47 1.073-2.756 2.57-2.93z" clipRule="evenodd"/></svg>
                         </div>
                         <p className="text-xs font-display font-bold text-slate">No saved calculations yet</p>
                       </div>
@@ -716,7 +716,7 @@ export default function CgpaPage() {
                                 className="p-1.5 text-slate hover:text-coral opacity-0 group-hover:opacity-100 transition-all"
                                 aria-label="Delete record"
                               >
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 013.878.512.75.75 0 11-.256 1.478l-.209-.035-1.005 13.07a3 3 0 01-2.991 2.77H8.084a3 3 0 01-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 01-.256-1.478A48.567 48.567 0 017.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 013.369 0c1.603.051 2.815 1.387 2.815 2.951zm-6.136-1.452a51.196 51.196 0 013.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 00-6 0v-.113c0-.794.609-1.428 1.364-1.452zm-.355 5.945a.75.75 0 10-1.5.058l.347 9a.75.75 0 101.499-.058l-.346-9zm5.48.058a.75.75 0 10-1.498-.058l-.347 9a.75.75 0 001.5.058l.345-9z" clipRule="evenodd"/></svg>
+                                <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 013.878.512.75.75 0 11-.256 1.478l-.209-.035-1.005 13.07a3 3 0 01-2.991 2.77H8.084a3 3 0 01-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 01-.256-1.478A48.567 48.567 0 017.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 013.369 0c1.603.051 2.815 1.387 2.815 2.951zm-6.136-1.452a51.196 51.196 0 013.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 00-6 0v-.113c0-.794.609-1.428 1.364-1.452zm-.355 5.945a.75.75 0 10-1.5.058l.347 9a.75.75 0 101.499-.058l-.346-9zm5.48.058a.75.75 0 10-1.498-.058l-.347 9a.75.75 0 001.5.058l.345-9z" clipRule="evenodd"/></svg>
                               </button>
                             </div>
                           );
@@ -729,7 +729,7 @@ export default function CgpaPage() {
 
               {/* Privacy note */}
               <div className="flex items-center justify-center gap-2 py-2">
-                <svg className="w-3 h-3 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M4.5 9.75a6 6 0 0111.573-2.226 3.75 3.75 0 014.133 4.303A4.5 4.5 0 0118 20.25H6.75a5.25 5.25 0 01-.75-10.5z" clipRule="evenodd"/></svg>
+                <svg aria-hidden="true" className="w-3 h-3 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M4.5 9.75a6 6 0 0111.573-2.226 3.75 3.75 0 014.133 4.303A4.5 4.5 0 0118 20.25H6.75a5.25 5.25 0 01-.75-10.5z" clipRule="evenodd"/></svg>
                 <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-teal">Synced to your account</span>
               </div>
             </div>

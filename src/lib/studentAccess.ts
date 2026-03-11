@@ -48,7 +48,8 @@ export function isRouteAllowedForExternal(pathname: string): boolean {
  */
 export const EXTERNAL_HIDDEN_HREFS = new Set([
   "/dashboard/events",
-  "/dashboard/library",
+  "/dashboard/resources",
+  "/dashboard/drive",
   "/dashboard/timetable",
   "/dashboard/hubs",
   "/dashboard/units",
@@ -62,4 +63,33 @@ export const EXTERNAL_HIDDEN_HREFS = new Set([
   "/dashboard/archive",
   "/dashboard/receipt",
   "/dashboard/calendar",
+  "/dashboard/messages",
 ]);
+
+/**
+ * Permissions that are "student-level" — committee members, press members etc.
+ * get these but they do NOT grant admin dashboard access.
+ * Mirrors the set in (admin)/layout.tsx.
+ */
+export const STUDENT_ONLY_PERMISSIONS = new Set([
+  "announcement:view",
+  "event:view",
+  "press:access",
+  "press:create",
+  "press:edit",
+  "resource:view",
+  "resource:create",
+]);
+
+/**
+ * Check if a user should see the "Switch to Admin" button.
+ * Requires admin/exco role OR at least one permission that goes
+ * beyond basic student-level view/access.
+ */
+export function hasAdminAccess(
+  role?: string | null,
+  permissions: string[] = [],
+): boolean {
+  if (role === "admin" || role === "exco") return true;
+  return permissions.some((p) => !STUDENT_ONLY_PERMISSIONS.has(p));
+}

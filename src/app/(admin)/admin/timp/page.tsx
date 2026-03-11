@@ -34,6 +34,7 @@ import { Modal } from "@/components/ui/Modal";
 import Pagination from "@/components/ui/Pagination";
 import Image from "next/image";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { toast } from "sonner";
 
 /* ── Types ────────────────────────────────────── */
 type Tab = "applications" | "assignment" | "pairs" | "analytics";
@@ -134,7 +135,7 @@ function AdminTimpPage() {
   useEffect(() => {
     getTimpSettings()
       .then((s) => setFormOpen(s.formOpen))
-      .catch(() => {});
+      .catch(() => toast.error("Failed to load TIMP settings"));
   }, []);
 
   const handleToggleForm = async () => {
@@ -142,7 +143,7 @@ function AdminTimpPage() {
     try {
       const updated = await updateTimpSettings(!formOpen);
       setFormOpen(updated.formOpen);
-    } catch { /* handled */ } finally {
+    } catch { toast.error("Failed to toggle application form"); } finally {
       setTogglingForm(false);
     }
   };
@@ -205,7 +206,7 @@ function AdminTimpPage() {
       });
       setApps(data.items ?? []);
       setTotalApps(data.total ?? 0);
-    } catch { /* handled */ } finally {
+    } catch { toast.error("Failed to load applications"); } finally {
       setLoadingApps(false);
     }
   }, [appSubTab, appPage]);
@@ -220,7 +221,7 @@ function AdminTimpPage() {
       ]);
       setMentors(mentorsRes.items ?? []);
       setMentees(menteesRes.items ?? []);
-    } catch { /* handled */ } finally {
+    } catch { toast.error("Failed to load assignment data"); } finally {
       setLoadingAssignment(false);
     }
   }, []);
@@ -236,7 +237,7 @@ function AdminTimpPage() {
       });
       setPairs(data.items ?? []);
       setTotalPairs(data.total ?? 0);
-    } catch { /* handled */ } finally {
+    } catch { toast.error("Failed to load pairs"); } finally {
       setLoadingPairs(false);
     }
   }, [pairSubTab, pairPage]);
@@ -247,7 +248,7 @@ function AdminTimpPage() {
     try {
       const data = await getTimpAnalytics();
       setAnalytics(data);
-    } catch { /* handled */ } finally {
+    } catch { toast.error("Failed to load analytics"); } finally {
       setLoadingAnalytics(false);
     }
   }, []);
@@ -260,7 +261,7 @@ function AdminTimpPage() {
       const msgs = await getPairMessages(pairId, 100);
       setPairMessages(msgs);
       setMessagesPairId(pairId);
-    } catch { /* handled */ } finally {
+    } catch { toast.error("Failed to load messages"); } finally {
       setLoadingMessages(false);
     }
   };
@@ -309,7 +310,8 @@ function AdminTimpPage() {
       setReviewApp(null);
       setReviewFeedback("");
       await fetchApps();
-    } catch { /* handled */ } finally {
+      toast.success(`Application ${reviewAction}`);
+    } catch { toast.error("Failed to review application"); } finally {
       setSubmittingReview(false);
     }
   };
@@ -322,7 +324,8 @@ function AdminTimpPage() {
       setSelectedMentor(null);
       setSelectedMentee(null);
       await fetchAssignment();
-    } catch { /* handled */ } finally {
+      toast.success("Mentorship pair created");
+    } catch { toast.error("Failed to create pair"); } finally {
       setCreatingPair(false);
     }
   };
@@ -331,7 +334,8 @@ function AdminTimpPage() {
     try {
       await updatePairStatus(pairId, status);
       await fetchPairs();
-    } catch { /* handled */ }
+      toast.success(`Pair status updated to ${status}`);
+    } catch { toast.error("Failed to update pair status"); }
   };
 
   const loadFeedback = async (pairId: string) => {
@@ -340,7 +344,7 @@ function AdminTimpPage() {
       const fb = await getPairFeedback(pairId);
       setFeedbackHistory(fb);
       setFeedbackPairId(pairId);
-    } catch { /* handled */ }
+    } catch { toast.error("Failed to load feedback"); }
   };
 
   const openUserDetail = async (userId: string) => {
@@ -349,7 +353,7 @@ function AdminTimpPage() {
     try {
       const detail = await getTimpUserDetails(userId);
       setDetailUser(detail);
-    } catch { /* handled */ } finally {
+    } catch { toast.error("Failed to load user details"); } finally {
       setLoadingDetail(false);
     }
   };
@@ -435,7 +439,7 @@ function AdminTimpPage() {
             onClick={() => setTab(t.key)}
             className={`px-5 py-2 rounded-xl font-display font-bold text-sm border-[3px] transition-all ${
               tab === t.key
-                ? "bg-navy border-navy text-snow"
+                ? "bg-navy border-lime text-snow"
                 : "bg-ghost border-cloud text-navy hover:border-navy"
             }`}
           >
@@ -554,11 +558,11 @@ function AdminTimpPage() {
                   <h3 className="font-display font-black text-lg text-navy mb-3">Approval Rate</h3>
                   <div className="flex items-center gap-4">
                     <div className="relative w-20 h-20">
-                      <svg viewBox="0 0 36 36" className="w-20 h-20 -rotate-90">
-                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#E5E7EB" strokeWidth="3" />
+                      <svg aria-hidden="true" viewBox="0 0 36 36" className="w-20 h-20 -rotate-90">
+                        <circle cx="18" cy="18" r="15.9" fill="none" className="stroke-cloud" strokeWidth="3" />
                         <circle
                           cx="18" cy="18" r="15.9" fill="none"
-                          stroke={analytics.applications.approvalRate >= 50 ? "#72D5C0" : "#F08E7D"}
+                          className={analytics.applications.approvalRate >= 50 ? "stroke-teal" : "stroke-coral"}
                           strokeWidth="3"
                           strokeDasharray={`${analytics.applications.approvalRate} ${100 - analytics.applications.approvalRate}`}
                           strokeLinecap="round"
@@ -602,15 +606,15 @@ function AdminTimpPage() {
                 <div className="flex items-center gap-6">
                   <div>
                     <p className="font-display font-black text-4xl text-navy">{analytics.feedback.total}</p>
-                    <p className="text-xs font-bold text-navy/60 uppercase">Total Entries</p>
+                    <p className="text-xs font-bold text-slate uppercase">Total Entries</p>
                   </div>
-                  <div className="w-px h-12 bg-navy/20" />
+                  <div className="w-px h-12 bg-cloud" />
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="font-display font-black text-4xl text-navy">{analytics.feedback.averageRating}</p>
                       <Stars rating={Math.round(analytics.feedback.averageRating)} />
                     </div>
-                    <p className="text-xs font-bold text-navy/60 uppercase">Avg Rating</p>
+                    <p className="text-xs font-bold text-slate uppercase">Avg Rating</p>
                   </div>
                 </div>
               </div>
@@ -636,7 +640,7 @@ function AdminTimpPage() {
             <button
               onClick={handleReview}
               disabled={submittingReview}
-              className={`px-5 py-2.5 rounded-2xl border-[3px] border-navy text-snow text-sm font-bold transition-all disabled:opacity-50 ${
+              className={`px-5 py-2.5 rounded-2xl border-[3px] border-navy text-snow text-sm font-bold press-3 press-navy transition-all disabled:opacity-50 ${
                 reviewAction === "approved" ? "bg-teal" : "bg-coral"
               }`}
             >
@@ -895,9 +899,9 @@ function ApplicationsTab({
                       <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold ${style.bg} ${style.text}`}>
                         {style.label}
                       </span>
-                      {app.userLevel && (
+                      {app.userLevel != null && (
                         <span className="px-2 py-0.5 rounded-md bg-ghost border border-cloud text-[10px] font-bold text-slate">
-                          {app.userLevel}L
+                          {typeof app.userLevel === "number" ? `${app.userLevel}L` : app.userLevel}
                         </span>
                       )}
                     </div>
@@ -1022,7 +1026,7 @@ function AssignmentTab({
                   className="p-1 rounded-lg hover:bg-navy text-snow/60 hover:text-snow transition-all shrink-0"
                   aria-label="Deselect mentor"
                 >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -1055,7 +1059,7 @@ function AssignmentTab({
                   className="p-1 rounded-lg hover:bg-navy text-snow/60 hover:text-snow transition-all shrink-0"
                   aria-label="Deselect mentee"
                 >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>

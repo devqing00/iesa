@@ -80,7 +80,7 @@ export default function UrgentBar() {
       <div className="flex items-center gap-3">
         {/* Icon */}
         <div className="shrink-0">
-          <svg className="w-5 h-5 text-snow animate-pulse" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 text-snow animate-pulse" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
           </svg>
         </div>
@@ -120,7 +120,7 @@ export default function UrgentBar() {
             className="p-1.5 rounded-lg hover:bg-snow/20 transition-colors"
             aria-label="Dismiss urgent notifications"
           >
-            <svg className="w-4 h-4 text-snow" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-4 h-4 text-snow" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
             </svg>
           </button>

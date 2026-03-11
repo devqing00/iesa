@@ -220,7 +220,7 @@ function AnnouncementsContent() {
           <div className="md:col-span-7 bg-lavender border-[3px] border-navy rounded-[2rem] p-8 relative overflow-hidden min-h-[170px] flex flex-col justify-between">
             {/* decorative */}
             <div className="absolute -bottom-10 -right-10 w-36 h-36 rounded-full bg-navy/8 pointer-events-none" />
-            <svg className="absolute top-5 right-8 w-5 h-5 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="absolute top-5 right-8 w-5 h-5 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
             </svg>
 
@@ -239,7 +239,7 @@ function AnnouncementsContent() {
           <div className="md:col-span-5 grid grid-cols-2 gap-3">
             <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-coral-light flex items-center justify-center mb-3">
-                <svg className="w-4.5 h-4.5 text-coral" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-4.5 h-4.5 text-coral" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -248,7 +248,7 @@ function AnnouncementsContent() {
             </div>
             <div className="bg-teal-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
               <div className="w-9 h-9 rounded-xl bg-teal/20 flex items-center justify-center mb-3">
-                <svg className="w-4.5 h-4.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-4.5 h-4.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -264,7 +264,7 @@ function AnnouncementsContent() {
         {error && (
           <div className="bg-coral-light border-[3px] border-navy rounded-2xl p-4 mb-5 shadow-[3px_3px_0_0_#000] flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-coral flex items-center justify-center shrink-0">
-              <svg className="w-4 h-4 text-snow" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-4 h-4 text-snow" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
               </svg>
             </div>
@@ -311,7 +311,7 @@ function AnnouncementsContent() {
                 onClick={() => setPriorityFilter(p.key)}
                 className={`flex items-center gap-1.5 px-3.5 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg border-2 transition-all whitespace-nowrap ${
                   priorityFilter === p.key
-                    ? "bg-navy text-snow border-navy"
+                    ? "bg-navy text-snow border-lime"
                     : "bg-snow text-slate border-navy/15 hover:border-navy"
                 }`}
               >
@@ -340,7 +340,7 @@ function AnnouncementsContent() {
         {sorted.length === 0 ? (
           <div className="bg-snow border-[3px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-lavender-light flex items-center justify-center">
-              <svg className="w-8 h-8 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-8 h-8 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clipRule="evenodd" />
               </svg>
             </div>
@@ -418,7 +418,7 @@ function AnnouncementsContent() {
 
                         {/* Author */}
                         <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate uppercase tracking-[0.1em]">
-                          <svg className="w-3 h-3 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                          <svg aria-hidden="true" className="w-3 h-3 text-slate" viewBox="0 0 24 24" fill="currentColor">
                             <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clipRule="evenodd" />
                           </svg>
                           {announcement.authorName ||
@@ -439,7 +439,7 @@ function AnnouncementsContent() {
                     {/* Indicators */}
                     <div className="flex items-center gap-2 shrink-0 mt-1">
                       {!isRead && <span className="w-2 h-2 bg-coral rounded-full animate-pulse" />}
-                      <svg className={`w-5 h-5 text-slate transition-transform ${isOpen ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="currentColor">
+                      <svg aria-hidden="true" className={`w-5 h-5 text-slate transition-transform ${isOpen ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="currentColor">
                         <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clipRule="evenodd" />
                       </svg>
                     </div>
@@ -454,14 +454,14 @@ function AnnouncementsContent() {
                         </p>
                         <div className="mt-4 pt-4 border-t border-navy/10 flex items-center gap-3">
                           <span className="text-[10px] font-bold text-slate uppercase tracking-wider flex items-center gap-1.5">
-                            <svg className="w-3 h-3 text-teal" viewBox="0 0 24 24" fill="currentColor">
+                            <svg aria-hidden="true" className="w-3 h-3 text-teal" viewBox="0 0 24 24" fill="currentColor">
                               <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
                             </svg>
                             Read
                           </span>
                           {announcement.viewCount > 0 && (
                             <span className="text-[10px] font-bold text-slate uppercase tracking-wider flex items-center gap-1.5">
-                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                              <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
                                 <path fillRule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 0 1 0-1.113ZM17.25 12a5.25 5.25 0 1 1-10.5 0 5.25 5.25 0 0 1 10.5 0Z" clipRule="evenodd" />
                               </svg>

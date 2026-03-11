@@ -26,6 +26,7 @@ interface UserProfile {
   personalEmail?: string;
   institutionalEmail?: string;
   skills?: string[];
+  dateOfBirth?: string;
   hasCompletedOnboarding?: boolean;
   emailVerified?: boolean;
   createdAt: string;
@@ -72,6 +73,7 @@ export default function ProfilePage() {
     phone: "",
     bio: "",
     personalEmail: "",
+    dateOfBirth: "",
   });
 
   /* ─── fetch profile ─── */
@@ -93,6 +95,7 @@ export default function ProfilePage() {
           phone: data.phone || "",
           bio: data.bio || "",
           personalEmail: data.personalEmail || "",
+          dateOfBirth: data.dateOfBirth || "",
         });
       } catch {
         setError("Failed to load profile data");
@@ -155,6 +158,7 @@ export default function ProfilePage() {
         phone: profileData.phone || "",
         bio: profileData.bio || "",
         personalEmail: profileData.personalEmail || "",
+        dateOfBirth: profileData.dateOfBirth || "",
       });
     }
     setIsEditing(false);
@@ -191,6 +195,7 @@ export default function ProfilePage() {
           phone: profileData.phone,
           level: profileData.currentLevel || "100L",
           admissionYear: profileData.admissionYear,
+          dateOfBirth: profileData.dateOfBirth ? String(profileData.dateOfBirth).split("T")[0] : undefined,
         }),
       });
       const responseData = await res.json();
@@ -447,7 +452,7 @@ export default function ProfilePage() {
         "top-[60%] right-[6%] w-5 h-5 text-sunny/16",
         "bottom-24 left-[14%] w-4 h-4 text-navy/8",
       ].map((cls, i) => (
-        <svg key={i} className={`fixed ${cls} pointer-events-none z-0`} viewBox="0 0 24 24" fill="currentColor">
+        <svg aria-hidden="true" key={i} className={`fixed ${cls} pointer-events-none z-0`} viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
         </svg>
       ))}
@@ -459,7 +464,7 @@ export default function ProfilePage() {
             href="/dashboard"
             className="inline-flex items-center gap-2 text-sm font-display font-bold text-navy hover:text-coral transition-colors"
           >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />
             </svg>
             Back to Dashboard
@@ -471,7 +476,7 @@ export default function ProfilePage() {
         {successMessage && (
           <div className="bg-teal-light border-[3px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-teal/30 flex items-center justify-center flex-shrink-0">
-              <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+              <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
               </svg>
             </div>
@@ -481,13 +486,13 @@ export default function ProfilePage() {
         {error && (
           <div className="bg-coral-light border-[3px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-coral/30 flex items-center justify-center flex-shrink-0">
-              <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+              <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
               </svg>
             </div>
             <span className="font-display font-bold text-sm text-navy">{error}</span>
             <button onClick={() => setError("")} className="ml-auto">
-              <svg className="w-4 h-4 text-navy/40 hover:text-navy" fill="currentColor" viewBox="0 0 20 20">
+              <svg aria-hidden="true" className="w-4 h-4 text-navy/40 hover:text-navy" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
               </svg>
             </button>
@@ -503,7 +508,7 @@ export default function ProfilePage() {
             <div className="flex items-start gap-5">
               {/* avatar */}
               <div className="relative flex-shrink-0">
-                <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl border-[3px] border-navy overflow-hidden bg-navy">
+                <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl border-[3px] border-lime overflow-hidden bg-navy">
                   {profileData.profilePictureUrl ? (
                     <img src={profileData.profilePictureUrl} alt={fullName} className="w-full h-full object-cover" />
                   ) : (
@@ -518,7 +523,7 @@ export default function ProfilePage() {
                   {uploadingImage ? (
                     <div className="w-4 h-4 border-2 border-navy border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <svg className="w-4 h-4 text-navy" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
                       <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
                     </svg>
@@ -556,7 +561,7 @@ export default function ProfilePage() {
           <div className="col-span-12 md:col-span-5 grid grid-cols-2 gap-3">
             <div className="bg-teal-light border-[3px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
               <div className="w-8 h-8 rounded-xl bg-teal/30 flex items-center justify-center mb-2">
-                <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" />
                 </svg>
               </div>
@@ -568,7 +573,7 @@ export default function ProfilePage() {
 
             <div className="bg-lavender-light border-[3px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.6deg] hover:rotate-0 transition-transform">
               <div className="w-8 h-8 rounded-xl bg-lavender/30 flex items-center justify-center mb-2">
-                <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -580,7 +585,7 @@ export default function ProfilePage() {
 
             <div className="bg-sunny-light border-[3px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.7deg] hover:rotate-0 transition-transform">
               <div className="w-8 h-8 rounded-xl bg-sunny/30 flex items-center justify-center mb-2">
-                <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M1 2.75A.75.75 0 011.75 2h16.5a.75.75 0 010 1.5H18v8.75A2.75 2.75 0 0115.25 15h-1.072l.798 3.06a.75.75 0 01-1.452.38L13.41 18H6.59l-.114.44a.75.75 0 01-1.452-.38L5.822 15H4.75A2.75 2.75 0 012 12.25V3.5h-.25A.75.75 0 011 2.75zM7.373 15l-.391 1.5h6.037l-.392-1.5H7.373zm.879-6.206a.75.75 0 00-.146 1.49A13.94 13.94 0 0010 10.5c.65 0 1.286-.056 1.894-.216a.75.75 0 10-.382-1.45A12.41 12.41 0 0110 9c-.59 0-1.18-.043-1.748-.206z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -592,7 +597,7 @@ export default function ProfilePage() {
 
             <div className="bg-coral-light border-[3px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
               <div className="w-8 h-8 rounded-xl bg-coral/30 flex items-center justify-center mb-2">
-                <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M4.214 3.227a.75.75 0 00-1.156-.955 8.97 8.97 0 00-1.856 3.825.75.75 0 001.466.316 7.47 7.47 0 011.546-3.186zM16.942 2.272a.75.75 0 00-1.157.955 7.47 7.47 0 011.547 3.186.75.75 0 001.466-.316 8.97 8.97 0 00-1.856-3.825z" />
                   <path fillRule="evenodd" d="M10 2a6 6 0 00-5.547 8.247l-.634 4.217a1 1 0 001.136 1.136l3.153-.474A6 6 0 1010 2zM6.5 8a3.5 3.5 0 117 0 3.5 3.5 0 01-7 0z" clipRule="evenodd" />
                 </svg>
@@ -623,7 +628,7 @@ export default function ProfilePage() {
                   <div key={role.id} className={`${meta.bg} border-[3px] border-navy rounded-[1.5rem] p-5 shadow-[4px_4px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform`}>
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-xl bg-navy/10 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M12.516 2.17a.75.75 0 0 0-1.032 0 11.209 11.209 0 0 1-7.877 3.08.75.75 0 0 0-.722.515A12.74 12.74 0 0 0 2.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 0 0 .374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 0 0-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08Zm3.094 8.016a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
                         </svg>
                       </div>
@@ -646,7 +651,7 @@ export default function ProfilePage() {
                   <div key={role.id} className={`${meta.bg} border-[3px] border-navy rounded-[1.5rem] p-5 shadow-[4px_4px_0_0_#000] rotate-[0.3deg] hover:rotate-0 transition-transform`}>
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-xl bg-navy/10 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A18.034 18.034 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" clipRule="evenodd" />
                         </svg>
                       </div>
@@ -668,7 +673,7 @@ export default function ProfilePage() {
                   <div key={role.id} className={`${meta.bg} border-[3px] border-navy rounded-[1.5rem] p-5 shadow-[4px_4px_0_0_#000] rotate-[-0.2deg] hover:rotate-0 transition-transform`}>
                     <div className="flex items-start gap-3">
                       <div className="w-10 h-10 rounded-xl bg-navy/10 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M11.7 2.805a.75.75 0 0 1 .6 0A60.65 60.65 0 0 1 22.83 8.72a.75.75 0 0 1-.231 1.337 49.948 49.948 0 0 0-9.902 3.912l-.003.002-.34.18a.75.75 0 0 1-.707 0A50.88 50.88 0 0 0 7.5 12.173v-.224c0-.131.067-.248.172-.311a54.615 54.615 0 0 1 4.653-2.52.75.75 0 0 0-.65-1.352 56.123 56.123 0 0 0-4.78 2.589 1.858 1.858 0 0 0-.859 1.228 49.803 49.803 0 0 0-4.634-1.527.75.75 0 0 1-.231-1.337A60.653 60.653 0 0 1 11.7 2.805Z" />
                           <path d="M13.06 15.473a48.45 48.45 0 0 1 7.666-3.282c.134 1.414.22 2.843.255 4.284a.75.75 0 0 1-.46.711 47.87 47.87 0 0 0-8.105 4.342.75.75 0 0 1-.832 0 47.87 47.87 0 0 0-8.104-4.342.75.75 0 0 1-.461-.71c.035-1.442.121-2.87.255-4.286a48.4 48.4 0 0 1 6.39 2.57l.09.045a3.11 3.11 0 0 0 2.823.19l.195-.098a48.6 48.6 0 0 1 .288-.139Z" />
                         </svg>
@@ -704,7 +709,7 @@ export default function ProfilePage() {
                   onClick={() => setIsEditing(true)}
  className="bg-snow border-[3px] border-navy rounded-xl px-4 py-2 font-display font-bold text-[10px] text-navy uppercase tracking-[0.08em] press-3 press-black transition-all inline-flex items-center gap-2"
                 >
-                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                  <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
                   </svg>
                   Edit
@@ -889,6 +894,14 @@ export default function ProfilePage() {
                   <input id="p-ph" type="tel" value={isEditing ? formData.phone : profileData.phone || ""} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} disabled={!isEditing} placeholder="+234..." className={isEditing ? inputEditing : inputDisabled} />
                 </div>
 
+                {/* Date of Birth */}
+                <div className="space-y-1.5">
+                  <label htmlFor="p-dob" className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-lavender" />Date of Birth
+                  </label>
+                  <input id="p-dob" type="date" value={isEditing ? formData.dateOfBirth : profileData.dateOfBirth || ""} onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} disabled={!isEditing} className={isEditing ? inputEditing : inputDisabled} />
+                </div>
+
                 {/* Department */}
                 <div className="space-y-1.5">
                   <label htmlFor="p-dept" className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
@@ -923,7 +936,7 @@ export default function ProfilePage() {
               <div className="bg-snow border-[3px] border-navy rounded-[2rem] p-6 md:p-8 shadow-[3px_3px_0_0_#000] space-y-4">
                 <div className="space-y-1">
                   <h3 className="font-display font-black text-lg text-navy flex items-center gap-2">
-                    <svg className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
+                    <svg aria-hidden="true" className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
                     Notification Email
                   </h3>
                   <p className="text-[11px] text-slate">Choose where you receive email notifications</p>
@@ -975,7 +988,7 @@ export default function ProfilePage() {
               {/* profile status */}
               <div className="flex items-center justify-between p-3 bg-teal-light border-[3px] border-navy rounded-xl">
                 <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                  <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" />
                   </svg>
                   <span className="font-display font-bold text-xs text-navy">Profile</span>
@@ -989,7 +1002,7 @@ export default function ProfilePage() {
               {/* email status */}
               <div className="flex items-center justify-between p-3 bg-lavender-light border-[3px] border-navy rounded-xl">
                 <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                  <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M3 4a2 2 0 00-2 2v1.161l8.441 4.221a1.25 1.25 0 001.118 0L19 7.162V6a2 2 0 00-2-2H3z" />
                     <path d="M19 8.839l-7.77 3.885a2.75 2.75 0 01-2.46 0L1 8.839V14a2 2 0 002 2h14a2 2 0 002-2V8.839z" />
                   </svg>
@@ -1035,7 +1048,7 @@ export default function ProfilePage() {
               {/* onboarding status */}
               <div className="flex items-center justify-between p-3 bg-sunny-light border-[3px] border-navy rounded-xl">
                 <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                  <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
                   </svg>
                   <span className="font-display font-bold text-xs text-navy">Onboarding</span>
@@ -1081,7 +1094,7 @@ export default function ProfilePage() {
               <div className="space-y-2">
 
                 <Link href="/dashboard/payments" className="flex items-center gap-2 text-sm font-display font-bold text-snow hover:text-teal transition-colors">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M2.5 4A1.5 1.5 0 001 5.5V6h18v-.5A1.5 1.5 0 0017.5 4h-15zM19 8.5H1v6A1.5 1.5 0 002.5 16h15a1.5 1.5 0 001.5-1.5v-6z" />
                   </svg>
                   Payments
@@ -1151,7 +1164,7 @@ export default function ProfilePage() {
                 {selectedFile ? "Preview New Photo" : "Profile Picture"}
               </h2>
               <button onClick={cancelImageUpload} disabled={uploadingImage} className="w-8 h-8 flex items-center justify-center bg-snow border-[3px] border-navy rounded-xl hover:bg-cloud transition-colors" aria-label="Close">
-                <svg className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
+                <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
                 </svg>
               </button>
@@ -1189,7 +1202,7 @@ export default function ProfilePage() {
                 <button
                   onClick={cancelImageUpload}
                   disabled={uploadingImage}
-                  className="flex-1 bg-transparent border-[3px] border-navy px-4 py-3 rounded-xl font-display font-bold text-xs text-navy uppercase tracking-[0.08em] hover:bg-navy hover:text-snow transition-all"
+                  className="flex-1 bg-transparent border-[3px] border-navy px-4 py-3 rounded-xl font-display font-bold text-xs text-navy uppercase tracking-[0.08em] hover:bg-navy hover:text-lime hover:border-lime transition-all"
                 >
                   Cancel
                 </button>
@@ -1203,7 +1216,7 @@ export default function ProfilePage() {
                       <><div className="w-4 h-4 border-2 border-navy border-t-transparent rounded-full animate-spin" />Uploading...</>
                     ) : (
                       <>
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                           <path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 101.09 1.03L9.25 4.636v8.614z" />
                           <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
                         </svg>

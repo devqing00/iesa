@@ -606,11 +606,11 @@ function UnitsPage() {
       <div className="flex gap-2 mb-6">
         <button
           onClick={() => setTab("overview")}
-          className={`px-5 py-2.5 rounded-xl font-bold text-sm border-[3px] transition-all ${tab === "overview" ? "bg-navy text-snow border-navy" : "bg-snow text-navy border-navy/20 hover:border-navy/40"}`}
+          className={`px-5 py-2.5 rounded-xl font-bold text-sm border-[3px] transition-all ${tab === "overview" ? "bg-navy text-snow border-lime" : "bg-snow text-navy border-navy/20 hover:border-navy/40"}`}
         >Overview</button>
         <button
           onClick={() => setTab("applications")}
-          className={`px-5 py-2.5 rounded-xl font-bold text-sm border-[3px] transition-all flex items-center gap-2 ${tab === "applications" ? "bg-navy text-snow border-navy" : "bg-snow text-navy border-navy/20 hover:border-navy/40"}`}
+          className={`px-5 py-2.5 rounded-xl font-bold text-sm border-[3px] transition-all flex items-center gap-2 ${tab === "applications" ? "bg-navy text-snow border-lime" : "bg-snow text-navy border-navy/20 hover:border-navy/40"}`}
         >
           Applications
           {totalPending > 0 && (
@@ -619,7 +619,7 @@ function UnitsPage() {
         </button>
         <button
           onClick={() => setTab("content")}
-          className={`px-5 py-2.5 rounded-xl font-bold text-sm border-[3px] transition-all ${tab === "content" ? "bg-navy text-snow border-navy" : "bg-snow text-navy border-navy/20 hover:border-navy/40"}`}
+          className={`px-5 py-2.5 rounded-xl font-bold text-sm border-[3px] transition-all ${tab === "content" ? "bg-navy text-snow border-lime" : "bg-snow text-navy border-navy/20 hover:border-navy/40"}`}
         >Content</button>
       </div>
 
@@ -1105,7 +1105,7 @@ function UnitsPage() {
             <div className="flex flex-wrap gap-2">
               {COLOR_OPTIONS.map((c) => (
                 <button key={c.key} onClick={() => setCreateForm((f) => ({ ...f, colorKey: c.key }))}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-[2px] text-xs font-bold transition-all ${createForm.colorKey === c.key ? "border-navy bg-navy text-snow" : "border-navy/20 text-navy hover:border-navy/40"}`}>
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-[2px] text-xs font-bold transition-all ${createForm.colorKey === c.key ? "border-lime bg-navy text-snow" : "border-navy/20 text-navy hover:border-navy/40"}`}>
                   <span className={`w-3 h-3 rounded-full ${c.dot}`} />{c.label}
                 </button>
               ))}
@@ -1136,7 +1136,7 @@ function UnitsPage() {
             <div className="flex flex-wrap gap-2">
               {COLOR_OPTIONS.map((c) => (
                 <button key={c.key} onClick={() => setEditForm((f) => ({ ...f, colorKey: c.key }))}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-[2px] text-xs font-bold transition-all ${editForm.colorKey === c.key ? "border-navy bg-navy text-snow" : "border-navy/20 text-navy hover:border-navy/40"}`}>
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-[2px] text-xs font-bold transition-all ${editForm.colorKey === c.key ? "border-lime bg-navy text-snow" : "border-navy/20 text-navy hover:border-navy/40"}`}>
                   <span className={`w-3 h-3 rounded-full ${c.dot}`} />{c.label}
                 </button>
               ))}

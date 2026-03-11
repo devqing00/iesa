@@ -75,6 +75,20 @@ async def create_role(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
+    # C3: Prevent self-assignment
+    assigner_id = str(current_user.get("_id") or current_user.get("id", ""))
+    if role.userId == assigner_id:
+        raise HTTPException(status_code=400, detail="Cannot assign a role to yourself")
+    
+    # C2+M4: Validate permission keys against the registry
+    if role.permissions:
+        invalid_perms = set(role.permissions) - set(PERMISSIONS.keys())
+        if invalid_perms:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid permission keys: {', '.join(sorted(invalid_perms))}"
+            )
+    
     # Positions that allow multiple holders (admin roles)
     MULTI_HOLDER_POSITIONS = {"super_admin", "admin"}
     
@@ -209,7 +223,7 @@ def _session_info(session_map: dict, session_id: str) -> dict | None:
     return {"id": str(s["_id"]), "name": s.get("name", ""), "isActive": s.get("isActive", False)}
 
 
-@router.get("/")
+@router.get("/", dependencies=[Depends(require_permission("role:view"))])
 async def list_roles(
     session_id: Optional[str] = Query(None, description="Filter by session ID"),
     user_id: Optional[str] = Query(None, description="Filter by user ID"),
@@ -254,7 +268,7 @@ async def list_roles(
     return result
 
 
-@router.get("/executives")
+@router.get("/executives", dependencies=[Depends(require_permission("role:view"))])
 async def get_executives(
     session_id: Optional[str] = Query(None, description="Filter by session ID. Defaults to active session."),
     current_user: User = Depends(get_current_user)
@@ -315,7 +329,7 @@ async def get_executives(
     return result
 
 
-@router.get("/committees")
+@router.get("/committees", dependencies=[Depends(require_permission("role:view"))])
 async def get_committees(
     session_id: Optional[str] = Query(None, description="Filter by session ID. Defaults to active session."),
     current_user: User = Depends(get_current_user)
@@ -438,6 +452,15 @@ async def update_role(
     update_data = role_update.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
+    
+    # C2: Validate permission keys against the registry
+    if "permissions" in update_data and update_data["permissions"] is not None:
+        invalid_perms = set(update_data["permissions"]) - set(PERMISSIONS.keys())
+        if invalid_perms:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid permission keys: {', '.join(sorted(invalid_perms))}"
+            )
     
     # If changing position, check if new position is available
     if "position" in update_data:

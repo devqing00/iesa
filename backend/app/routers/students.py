@@ -48,6 +48,7 @@ class CompleteRegistrationRequest(BaseModel):
     admissionYear: int
     institutionalEmail: Optional[str] = None  # If different from account email
     department: Optional[str] = None  # Defaults to "Industrial Engineering" if not set
+    dateOfBirth: Optional[str] = None  # Date of birth in YYYY-MM-DD format
     
     @validator("firstName", "lastName")
     def validate_name(cls, v):
@@ -172,6 +173,15 @@ async def complete_student_registration(
     
     # Update user profile
     resolved_dept = data.department or "Industrial Engineering"
+    # Parse dateOfBirth string to date object if provided
+    parsed_dob = None
+    if data.dateOfBirth:
+        from datetime import date as date_type
+        try:
+            parsed_dob = date_type.fromisoformat(data.dateOfBirth)
+        except (ValueError, TypeError):
+            pass
+
     update_data = {
         "firstName": data.firstName,
         "lastName": data.lastName,
@@ -189,6 +199,10 @@ async def complete_student_registration(
         "registrationCompletedAt": datetime.now(timezone.utc),
         "updatedAt": datetime.now(timezone.utc)
     }
+
+    # Only set dateOfBirth if provided (don't null it if omitted)
+    if parsed_dob is not None:
+        update_data["dateOfBirth"] = parsed_dob
     
     result = await users.update_one(
         {"_id": ObjectId(user_id)},
@@ -339,6 +353,65 @@ async def initialize_student_data(db, user: dict, level: str):
             "updatedAt": datetime.now(timezone.utc)
         }
         await roles.insert_one(role_data)
+
+    # 4. Backfill in-app notifications for published announcements the student missed
+    try:
+        import logging as _logging
+        from datetime import timezone as _tz
+        from app.routers.notifications import create_notification
+
+        _log = _logging.getLogger("iesa_backend")
+        ann_query: dict = {
+            "sessionId": session_id,
+            "isPublished": True,
+            "$or": [
+                {"expiresAt": None},
+                {"expiresAt": {"$gt": datetime.now(timezone.utc)}},
+            ],
+        }
+        existing_anns = await db.announcements.find(ann_query).to_list(length=None)
+        user_dept = user.get("department", "Industrial Engineering")
+
+        for ann in existing_anns:
+            ann_id = str(ann["_id"])
+
+            # Level targeting — normalise stored values the same way
+            target_levels = ann.get("targetLevels") or []
+            if target_levels:
+                normalised = [
+                    f"{str(l).strip().rstrip('Ll')}L" for l in target_levels
+                ]
+                if level not in normalised:
+                    continue
+
+            # Audience targeting
+            target_audience = ann.get("targetAudience", "all")
+            if target_audience == "ipe" and user_dept != "Industrial Engineering":
+                continue
+            if target_audience == "external" and user_dept == "Industrial Engineering":
+                continue
+
+            # Skip if notification already exists
+            existing_notif = await db.notifications.find_one(
+                {"userId": user_id_str, "type": "announcement", "relatedId": ann_id}
+            )
+            if existing_notif:
+                continue
+
+            await create_notification(
+                user_id=user_id_str,
+                type="announcement",
+                title=f"📢 {ann['title']}",
+                message=(ann.get("content") or "")[:200],
+                link=f"/dashboard/announcements?highlight={ann_id}",
+                related_id=ann_id,
+                category="announcements",
+            )
+    except Exception as _exc:
+        import logging as _log2
+        _log2.getLogger("iesa_backend").warning(
+            f"Backfill announcement notifications failed for {user_id_str}: {_exc}"
+        )
 
 
 @router.get("/check-matric/{matric_number}")
@@ -631,4 +704,70 @@ async def update_notification_preference(
     return {
         "message": f"Notification preference updated to '{data.preference}'.",
         "notificationEmailPreference": data.preference
+    }
+
+
+# ──────────────────────────────────────────────
+# BIRTHDAYS
+# ──────────────────────────────────────────────
+
+@router.get("/birthdays/today")
+async def get_todays_birthdays(
+    user: dict = Depends(get_current_user),
+):
+    """
+    Return students whose birthday is today (matches month + day of dateOfBirth).
+    Returns up to 50 birthday users with basic profile info.
+    """
+    from datetime import date as date_type
+    db = get_database()
+    today = date_type.today()
+    month = today.month
+    day = today.day
+
+    # MongoDB aggregation: extract month and day from dateOfBirth field
+    pipeline = [
+        {
+            "$match": {
+                "dateOfBirth": {"$exists": True, "$ne": None},
+                "isActive": {"$ne": False},
+            }
+        },
+        {
+            "$addFields": {
+                "birthMonth": {"$month": "$dateOfBirth"},
+                "birthDay": {"$dayOfMonth": "$dateOfBirth"},
+            }
+        },
+        {
+            "$match": {
+                "birthMonth": month,
+                "birthDay": day,
+            }
+        },
+        {
+            "$project": {
+                "_id": {"$toString": "$_id"},
+                "firstName": 1,
+                "lastName": 1,
+                "profilePictureUrl": 1,
+                "currentLevel": 1,
+                "department": 1,
+            }
+        },
+        {"$limit": 50},
+    ]
+
+    cursor = db["users"].aggregate(pipeline)
+    birthdays = await cursor.to_list(length=50)
+
+    # Mark which one is the current user
+    current_user_id = str(user["_id"])
+    for b in birthdays:
+        b["isCurrentUser"] = b["_id"] == current_user_id
+
+    return {
+        "birthdays": birthdays,
+        "count": len(birthdays),
+        "isMyBirthday": any(b["isCurrentUser"] for b in birthdays),
     }

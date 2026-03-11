@@ -214,7 +214,7 @@ export default function StudentLoginPage() {
                 {error && (
                   <div role="alert" className="p-4 border-[3px] border-coral bg-coral-light rounded-2xl">
                     <div className="flex items-start gap-3">
-                      <svg className="w-5 h-5 text-coral shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <svg aria-hidden="true" className="w-5 h-5 text-coral shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                         <circle cx="12" cy="12" r="10" />
                         <path strokeLinecap="round" d="M12 8v4m0 4h.01" />
                       </svg>

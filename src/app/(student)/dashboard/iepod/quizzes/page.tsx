@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import Link from "next/link";
@@ -40,9 +40,40 @@ export default function QuizzesPage() {
   const [currentQ, setCurrentQ] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null); // seconds remaining
+  const submitRef = useRef<() => void>(() => {});
 
   // Result state
   const [result, setResult] = useState<QuizResult | null>(null);
+
+  // Keep submitRef current so timer callback always calls latest handleSubmitQuiz
+  useEffect(() => { submitRef.current = () => handleSubmitQuiz(true); });
+
+  // ── Quiz Countdown Timer ──
+  useEffect(() => {
+    if (view !== "quiz" || !activeQuiz?.timeLimitMinutes) { setTimeLeft(null); return; }
+    setTimeLeft(activeQuiz.timeLimitMinutes * 60);
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval);
+          toast.error("Time's up! Submitting your answers.");
+          submitRef.current();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [view, activeQuiz]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Beforeunload guard during quiz ──
+  useEffect(() => {
+    if (view !== "quiz") return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [view]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -88,7 +119,7 @@ export default function QuizzesPage() {
     }
   }
 
-  async function handleSubmitQuiz() {
+  async function handleSubmitQuiz(force = false) {
     if (!activeQuiz) return;
 
     const quizId = activeQuiz._id || activeQuiz.id;
@@ -101,7 +132,7 @@ export default function QuizzesPage() {
     }));
 
     const unanswered = answersList.filter((a) => a.selectedOption === -1).length;
-    if (unanswered > 0) {
+    if (!force && unanswered > 0) {
       toast.error(`${unanswered} question${unanswered > 1 ? "s" : ""} unanswered. Please answer all questions.`);
       return;
     }
@@ -179,7 +210,7 @@ export default function QuizzesPage() {
               <div className="flex-1" />
               <button
                 onClick={() => setView("leaderboard")}
-                className="bg-navy border-[3px] border-navy px-5 py-2 rounded-xl font-display font-black text-sm text-lime press-3 press-navy whitespace-nowrap"
+                className="bg-navy border-[3px] border-lime px-5 py-2 rounded-xl font-display font-black text-sm text-lime press-3 press-lime whitespace-nowrap"
               >
                 Leaderboard
               </button>
@@ -202,7 +233,7 @@ export default function QuizzesPage() {
                     </div>
 
                     {q.description && (
-                      <p className="text-navy/70 text-sm mb-3 line-clamp-2">{q.description}</p>
+                      <p className="text-slate text-sm mb-3 line-clamp-2">{q.description}</p>
                     )}
 
                     <div className="flex items-center gap-3 text-slate text-xs mb-4 mt-auto">
@@ -238,9 +269,18 @@ export default function QuizzesPage() {
             {/* Quiz header */}
             <div className="bg-navy border-[4px] border-lime rounded-3xl p-6 shadow-[6px_6px_0_0_#C8F31D]">
               <h3 className="font-display font-black text-xl text-lime">{activeQuiz.title}</h3>
-              <p className="text-lime/60 text-sm mt-1">
-                Question {currentQ + 1} of {questions.length}
-              </p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-lime/80 text-sm">
+                  Question {currentQ + 1} of {questions.length}
+                </p>
+                {timeLeft !== null && (
+                  <span className={`font-display font-black text-sm px-3 py-1 rounded-lg ${
+                    timeLeft <= 60 ? "bg-coral text-snow animate-pulse" : "bg-navy-light text-lime"
+                  }`}>
+                    {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, "0")}
+                  </span>
+                )}
+              </div>
               {/* Progress bar */}
               <div className="mt-3 bg-navy-light rounded-full h-2 overflow-hidden">
                 <div
@@ -280,7 +320,7 @@ export default function QuizzesPage() {
                       }`}>
                         {String.fromCharCode(65 + oi)}
                       </span>
-                      <span className={`font-medium text-sm ${selected ? "text-navy" : "text-navy/80"}`}>
+                      <span className={`font-medium text-sm ${selected ? "text-navy" : "text-navy-muted"}`}>
                         {opt}
                       </span>
                     </button>
@@ -294,7 +334,7 @@ export default function QuizzesPage() {
                   type="button"
                   onClick={() => setCurrentQ(Math.max(0, currentQ - 1))}
                   disabled={currentQ === 0}
-                  className="bg-transparent border-[3px] border-navy px-5 py-2 rounded-xl font-display font-bold text-sm text-navy hover:bg-navy hover:text-lime transition-all disabled:opacity-30"
+                  className="bg-transparent border-[3px] border-navy px-5 py-2 rounded-xl font-display font-bold text-sm text-navy hover:bg-navy hover:text-lime transition-all disabled:opacity-50"
                 >
                   Previous
                 </button>
@@ -305,6 +345,7 @@ export default function QuizzesPage() {
                     <button
                       key={qi}
                       onClick={() => setCurrentQ(qi)}
+                      aria-label={`Go to question ${qi + 1}`}
                       className={`w-3 h-3 rounded-full transition-all ${
                         qi === currentQ
                           ? "bg-navy scale-125"
@@ -320,14 +361,14 @@ export default function QuizzesPage() {
                   <button
                     type="button"
                     onClick={() => setCurrentQ(currentQ + 1)}
-                    className="bg-navy border-[3px] border-navy px-5 py-2 rounded-xl font-display font-bold text-sm text-lime press-3 press-navy"
+                    className="bg-navy border-[3px] border-lime px-5 py-2 rounded-xl font-display font-bold text-sm text-lime press-3 press-lime"
                   >
                     Next &rarr;
                   </button>
                 ) : (
                   <button
                     type="button"
-                    onClick={handleSubmitQuiz}
+                    onClick={() => handleSubmitQuiz()}
                     disabled={submitting}
                     className="bg-lime border-[4px] border-navy press-5 press-navy px-6 py-2.5 rounded-xl font-display font-black text-sm text-navy transition-all disabled:opacity-50"
                   >
@@ -346,8 +387,8 @@ export default function QuizzesPage() {
               <h3 className="font-display font-black text-3xl text-navy mb-2">
                 {result.score}/{result.maxScore}
               </h3>
-              <p className="font-display font-black text-xl text-navy/80">{result.percentage}%</p>
-              <p className="text-navy/60 text-sm mt-2">
+              <p className="font-display font-black text-xl text-navy-muted">{result.percentage}%</p>
+              <p className="text-slate text-sm mt-2">
                 {result.percentage >= 70
                   ? "Excellent work! You've demonstrated strong understanding."
                   : result.percentage >= 50
@@ -365,7 +406,7 @@ export default function QuizzesPage() {
               </button>
               <button
                 onClick={() => setView("leaderboard")}
-                className="bg-navy border-[3px] border-navy px-6 py-2.5 rounded-xl font-display font-bold text-sm text-lime press-3 press-navy"
+                className="bg-navy border-[3px] border-lime px-6 py-2.5 rounded-xl font-display font-bold text-sm text-lime press-3 press-lime"
               >
                 View Leaderboard
               </button>
@@ -400,7 +441,7 @@ export default function QuizzesPage() {
                           ? "text-cloud"
                           : entry.rank === 3
                           ? "text-coral"
-                          : "text-lime/40"
+                          : "text-slate"
                       }`}>
                         #{entry.rank}
                       </span>

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
-import { useToast } from "@/components/ui/Toast";
+import { toast } from "sonner";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { ConfirmModal } from "@/components/ui/Modal";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
@@ -39,7 +39,6 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }>
 export default function PressDashboardPage() {
   const { user, getAccessToken } = useAuth();
   const { showHelp, openHelp, closeHelp } = useToolHelp("press");
-  const toast = useToast();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>("all");
@@ -144,7 +143,7 @@ export default function PressDashboardPage() {
 
     {accessDenied ? (
       <div className="bg-snow border-[3px] border-navy rounded-3xl p-10 shadow-[4px_4px_0_0_#000] text-center max-w-lg mx-auto mt-8">
-        <svg className="w-14 h-14 text-lavender/40 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg aria-hidden="true" className="w-14 h-14 text-lavender/40 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 0 1-2.25 2.25M16.5 7.5V18a2.25 2.25 0 0 0 2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 0 0 2.25 2.25h13.5M6 7.5h3v3H6V7.5Z" />
         </svg>
         <h3 className="font-display font-black text-xl text-navy mb-2">Press Unit Access Required</h3>
@@ -170,7 +169,7 @@ export default function PressDashboardPage() {
               href="/dashboard/press/review"
               className="inline-flex items-center gap-2 bg-lavender-light border-[3px] border-navy px-5 py-2.5 rounded-2xl font-display font-bold text-sm text-navy hover:bg-lavender transition-all"
             >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path fillRule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0 1 18 9.375v9.375a3 3 0 0 0 3-3V6.108c0-1.505-1.125-2.811-2.664-2.94a48.972 48.972 0 0 0-.673-.05A3 3 0 0 0 15 1.5h-1.5a3 3 0 0 0-2.663 1.618c-.225.015-.45.032-.673.05C8.662 3.295 7.554 4.542 7.502 6ZM13.5 3A1.5 1.5 0 0 0 12 4.5h4.5A1.5 1.5 0 0 0 15 3h-1.5Z" clipRule="evenodd" />
                 <path fillRule="evenodd" d="M3 9.375C3 8.339 3.84 7.5 4.875 7.5h9.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-9.75A1.875 1.875 0 0 1 3 20.625V9.375Zm9.586 4.594a.75.75 0 0 0-1.172-.938l-2.476 3.096-.908-.907a.75.75 0 0 0-1.06 1.06l1.5 1.5a.75.75 0 0 0 1.116-.062l3-3.75Z" clipRule="evenodd" />
               </svg>
@@ -181,7 +180,7 @@ export default function PressDashboardPage() {
             href="/dashboard/press/write"
           className="inline-flex items-center gap-2 bg-lime border-[3px] border-navy px-6 py-3 rounded-2xl font-display font-bold text-navy press-3 press-navy transition-all"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
           New Article
@@ -213,7 +212,7 @@ export default function PressDashboardPage() {
             onClick={() => setActiveTab(tab.key)}
             className={`px-4 py-1.5 text-[11px] font-display font-bold uppercase tracking-wider rounded-xl border-[2px] transition-all ${
               activeTab === tab.key
-                ? "bg-navy text-snow border-navy"
+                ? "bg-navy text-snow border-lime"
                 : "bg-snow text-navy border-navy/20 hover:border-navy"
             }`}
           >
@@ -234,7 +233,7 @@ export default function PressDashboardPage() {
         </div>
       ) : articles.length === 0 ? (
         <div className="bg-snow border-[3px] border-navy rounded-3xl p-10 shadow-[4px_4px_0_0_#000] text-center">
-          <svg className="w-14 h-14 text-slate/30 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg aria-hidden="true" className="w-14 h-14 text-slate/30 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
           </svg>
           <h3 className="font-display font-black text-xl text-navy mb-2">No articles yet</h3>
@@ -277,11 +276,11 @@ export default function PressDashboardPage() {
                       {article.status === "published" && (
                         <>
                           <span className="flex items-center gap-0.5">
-                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" /><path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41z" clipRule="evenodd" /></svg>
+                            <svg aria-hidden="true" className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" /><path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41z" clipRule="evenodd" /></svg>
                             {article.viewCount}
                           </span>
                           <span className="flex items-center gap-0.5">
-                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.653 16.915l-.005-.003-.019-.01a20.759 20.759 0 01-1.162-.682 22.045 22.045 0 01-2.582-1.9C4.045 12.733 2 10.352 2 7.5a4.5 4.5 0 018-2.828A4.5 4.5 0 0118 7.5c0 2.852-2.044 5.233-3.885 6.82a22.049 22.049 0 01-3.744 2.582l-.019.01-.005.003h-.002a.723.723 0 01-.692 0l-.002-.001z" /></svg>
+                            <svg aria-hidden="true" className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.653 16.915l-.005-.003-.019-.01a20.759 20.759 0 01-1.162-.682 22.045 22.045 0 01-2.582-1.9C4.045 12.733 2 10.352 2 7.5a4.5 4.5 0 018-2.828A4.5 4.5 0 0118 7.5c0 2.852-2.044 5.233-3.885 6.82a22.049 22.049 0 01-3.744 2.582l-.019.01-.005.003h-.002a.723.723 0 01-.692 0l-.002-.001z" /></svg>
                             {article.likeCount}
                           </span>
                         </>

@@ -83,7 +83,7 @@ export default function Footer() {
                   className="w-9 h-9 bg-ghost/10 border-[2px] border-ghost/20 rounded-full flex items-center justify-center hover:bg-ghost/20 hover:scale-110 transition-all duration-200"
                   aria-label={social.label}
                 >
-                  <svg className="w-4 h-4 text-ghost/70" fill="currentColor" viewBox="0 0 24 24">
+                  <svg aria-hidden="true" className="w-4 h-4 text-ghost/70" fill="currentColor" viewBox="0 0 24 24">
                     {social.icon}
                   </svg>
                 </a>

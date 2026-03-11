@@ -33,7 +33,7 @@ IepodPhase = Literal[
     "pitch",       # Phase 3 – Pitch Your Process
 ]
 
-RegistrationStatus = Literal["pending", "approved", "rejected"]
+RegistrationStatus = Literal["pending", "approved", "rejected", "completed"]
 TeamStatus = Literal["forming", "active", "submitted", "disqualified"]
 SubmissionStatus = Literal["draft", "submitted", "reviewed", "finalist"]
 QuizType = Literal["unfractured_focus", "process_breakdown", "general", "live"]

@@ -2,9 +2,11 @@
 
 import Sidebar from "@/components/dashboard/Sidebar";
 import MobileNav from "@/components/dashboard/MobileNav";
+import FloatingToolPopup from "@/components/ui/FloatingToolPopup";
 import { useAuth } from "@/context/AuthContext";
 import { SidebarProvider, useSidebar } from "@/context/SidebarContext";
 import { DMProvider } from "@/context/DMContext";
+import { FloatingToolProvider } from "@/context/FloatingToolContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useSSE } from "@/hooks/useSSE";
@@ -28,6 +30,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <MobileNav />
+      <FloatingToolPopup />
     </div>
   );
 }
@@ -72,7 +75,9 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <DMProvider>
-        <DashboardContent>{children}</DashboardContent>
+        <FloatingToolProvider>
+          <DashboardContent>{children}</DashboardContent>
+        </FloatingToolProvider>
       </DMProvider>
     </SidebarProvider>
   );

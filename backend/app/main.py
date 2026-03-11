@@ -11,7 +11,7 @@ from app.core.security import verify_token
 from app.core.permissions import require_permission as _require_permission
 from app.core.rate_limiting import setup_rate_limiting
 from app.core.error_handling import setup_exception_handlers, setup_logging
-from app.routers import sessions, users, payments, events, announcements, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press, unit_applications, units, academic_calendar, timp, bank_transfers, settings, contact_messages, iepod, admin_stats, student_dashboard, sse, notifications, search, growth, messages, class_rep, unit_head, push_notifications
+from app.routers import sessions, users, payments, events, announcements, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press, unit_applications, units, academic_calendar, timp, bank_transfers, settings, contact_messages, iepod, admin_stats, student_dashboard, sse, notifications, search, growth, messages, class_rep, unit_head, push_notifications, drive
 from app.db import connect_to_mongo, close_mongo_connection, get_database
 
 # Setup logging first
@@ -104,6 +104,22 @@ async def lifespan(app: FastAPI):
     # Push notification subscriptions — compound index for user+endpoint dedup
     await db["push_subscriptions"].create_index(
         [("userId", 1), ("endpoint", 1)], unique=True, background=True
+    )
+
+    # Drive progress — compound index for fast user+file lookups
+    await db["drive_progress"].create_index(
+        [("userId", 1), ("fileId", 1)], unique=True, background=True
+    )
+    await db["drive_progress"].create_index(
+        [("userId", 1), ("lastOpenedAt", -1)], background=True
+    )
+    # Drive bookmarks — compound index for user+file
+    await db["drive_bookmarks"].create_index(
+        [("userId", 1), ("fileId", 1)], background=True
+    )
+    # Drive cache — TTL auto-cleanup (10 min default, configurable via DRIVE_CACHE_TTL)
+    await db["drive_cache"].create_index(
+        "expiresAt", expireAfterSeconds=0, background=True
     )
 
     # ── Startup migration: backfill null-level enrollments ──────────────────
@@ -332,6 +348,7 @@ app.include_router(study_groups._ws_router)    # Study Groups WebSocket (no HTTP
 app.include_router(class_rep.router)             # Class Rep Portal
 app.include_router(unit_head.router)               # Unit Head Portal
 app.include_router(push_notifications.router)        # Web Push Notifications
+app.include_router(drive.router)                       # Google Drive Resource Browser
 
 @app.get("/api/protected")
 async def protected_route(user_data: dict = Depends(verify_token)):

@@ -4,6 +4,7 @@ import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import Link from "next/link";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl, getWsUrl } from "@/lib/api";
 
@@ -15,6 +16,14 @@ interface StudyGroupMember {
   lastName: string;
   matricNumber?: string;
   joinedAt: string;
+}
+
+interface JoinRequest {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  matricNumber?: string;
+  requestedAt: string;
 }
 
 interface GroupMessage {
@@ -62,9 +71,12 @@ interface StudyGroup {
   level?: string;
   tags: string[];
   isOpen: boolean;
+  requireApproval: boolean;
   createdBy: string;
   creatorName: string;
   members: StudyGroupMember[];
+  joinRequests: JoinRequest[];
+  inviteCode?: string;
   pinnedNote?: string;
   messages?: GroupMessage[];
   sessions?: GroupSession[];
@@ -256,7 +268,7 @@ function GroupChatPanel({ groupId, userId, getAccessToken }: ChatPanelProps) {
         <button
           onClick={sendMessage}
           disabled={wsStatus !== "open" || !inputValue.trim()}
-          className="bg-navy text-snow px-5 py-3 rounded-xl font-display font-bold text-sm disabled:opacity-40 hover:bg-navy-light transition-colors shrink-0"
+          className="bg-navy text-snow px-5 py-3 rounded-xl font-display font-bold text-sm disabled:opacity-40 border-[3px] border-lime press-3 press-lime transition-all shrink-0"
         >
           Send
         </button>
@@ -270,6 +282,7 @@ function GroupChatPanel({ groupId, userId, getAccessToken }: ChatPanelProps) {
 export default function StudyGroupFinderPage() {
   const { showHelp, openHelp, closeHelp } = useToolHelp("study-groups");
   const { user, getAccessToken } = useAuth();
+  const searchParams = useSearchParams();
   const [view, setView] = useState<ViewMode>("browse");
   const [groups, setGroups] = useState<StudyGroup[]>([]);
   const [myGroups, setMyGroups] = useState<StudyGroup[]>([]);
@@ -292,6 +305,7 @@ export default function StudyGroupFinderPage() {
   const [formMeetingLocation, setFormMeetingLocation] = useState("");
   const [formLevel, setFormLevel] = useState("");
   const [formTags, setFormTags] = useState("");
+  const [formRequireApproval, setFormRequireApproval] = useState(false);
 
   // ─── New feature state ────────────────────────────────────
   const [detailTab, setDetailTab] = useState<DetailTab>("overview");
@@ -318,6 +332,7 @@ export default function StudyGroupFinderPage() {
   const [editIsOpen, setEditIsOpen] = useState(true);
   const [editMaxMembers, setEditMaxMembers] = useState(8);
   const [editTags, setEditTags] = useState("");
+  const [editRequireApproval, setEditRequireApproval] = useState(false);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -396,6 +411,58 @@ export default function StudyGroupFinderPage() {
     fetchGroups();
   }, [searchQuery, filterLevel, fetchGroups]);
 
+  // Handle invite code from URL
+  const inviteHandledRef = useRef(false);
+  useEffect(() => {
+    const inviteCode = searchParams.get("invite");
+    if (!inviteCode || !user || inviteHandledRef.current) return;
+    inviteHandledRef.current = true;
+
+    const handleInvite = async () => {
+      try {
+        const h = await headers();
+        // Look up group by invite code
+        const lookupRes = await fetch(getApiUrl(`/api/v1/study-groups/join-by-code/${inviteCode}`), { headers: h });
+        if (!lookupRes.ok) {
+          showToast("Invalid or expired invite link");
+          return;
+        }
+        const group: StudyGroup = await lookupRes.json();
+
+        // Check if already a member
+        if (group.members.some((m) => m.userId === user.id)) {
+          openGroupDetail(group);
+          showToast("You're already a member of this group!");
+          return;
+        }
+
+        // Join by invite
+        const joinRes = await fetch(getApiUrl(`/api/v1/study-groups/${group.id}/join-by-invite`), {
+          method: "POST",
+          headers: h,
+          body: JSON.stringify({ inviteCode }),
+        });
+        if (joinRes.ok) {
+          const updated = await joinRes.json();
+          openGroupDetail(updated);
+          showToast("Joined group via invite link!");
+          fetchGroups();
+          fetchMyGroups();
+        } else {
+          const err = await joinRes.json();
+          showToast(err.detail || "Failed to join via invite");
+          openGroupDetail(group);
+        }
+      } catch {
+        showToast("Failed to process invite link");
+      }
+    };
+
+    handleInvite();
+    // Clean the URL
+    window.history.replaceState({}, "", window.location.pathname);
+  }, [searchParams, user, headers, fetchGroups, fetchMyGroups]); // eslint-disable-line react-hooks/exhaustive-deps
+
   /* ─── Actions ───────────────────────────────────────────── */
 
   const createGroup = async () => {
@@ -425,6 +492,7 @@ export default function StudyGroupFinderPage() {
             .filter(Boolean)
             .slice(0, 5),
           isOpen: true,
+          requireApproval: formRequireApproval,
         }),
       });
       if (res.ok) {
@@ -453,13 +521,16 @@ export default function StudyGroupFinderPage() {
         headers: h,
       });
       if (res.ok) {
-        showToast("Joined group!");
+        const data = await res.json();
+        if (data.status === "pending") {
+          showToast(data.message || "Join request sent!");
+          if (data.group) setSelectedGroup(data.group);
+        } else {
+          showToast("Joined group!");
+          if (selectedGroup?.id === groupId) setSelectedGroup(data);
+        }
         fetchGroups();
         fetchMyGroups();
-        if (selectedGroup?.id === groupId) {
-          const data = await res.json();
-          setSelectedGroup(data);
-        }
       } else {
         const err = await res.json();
         showToast(err.detail || "Failed to join");
@@ -524,6 +595,111 @@ export default function StudyGroupFinderPage() {
     }
   };
 
+  const approveRequest = async (groupId: string, reqUserId: string) => {
+    setActionLoading(true);
+    try {
+      const h = await headers();
+      const res = await fetch(getApiUrl(`/api/v1/study-groups/${groupId}/approve/${reqUserId}`), {
+        method: "POST",
+        headers: h,
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setSelectedGroup(updated);
+        showToast("Request approved!");
+        fetchGroups();
+        fetchMyGroups();
+      } else {
+        const err = await res.json();
+        showToast(err.detail || "Failed to approve");
+      }
+    } catch {
+      showToast("Network error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const rejectRequest = async (groupId: string, reqUserId: string) => {
+    setActionLoading(true);
+    try {
+      const h = await headers();
+      const res = await fetch(getApiUrl(`/api/v1/study-groups/${groupId}/reject/${reqUserId}`), {
+        method: "POST",
+        headers: h,
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setSelectedGroup(updated);
+        showToast("Request rejected");
+        fetchGroups();
+        fetchMyGroups();
+      } else {
+        const err = await res.json();
+        showToast(err.detail || "Failed to reject");
+      }
+    } catch {
+      showToast("Network error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const removeMember = async (groupId: string, memberId: string) => {
+    if (!confirm("Remove this member from the group?")) return;
+    setActionLoading(true);
+    try {
+      const h = await headers();
+      const res = await fetch(getApiUrl(`/api/v1/study-groups/${groupId}/members/${memberId}`), {
+        method: "DELETE",
+        headers: h,
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setSelectedGroup(updated);
+        showToast("Member removed");
+        fetchGroups();
+        fetchMyGroups();
+      } else {
+        const err = await res.json();
+        showToast(err.detail || "Failed to remove");
+      }
+    } catch {
+      showToast("Network error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const regenerateInvite = async (groupId: string) => {
+    setActionLoading(true);
+    try {
+      const h = await headers();
+      const res = await fetch(getApiUrl(`/api/v1/study-groups/${groupId}/regenerate-invite`), {
+        method: "POST",
+        headers: h,
+      });
+      if (res.ok) {
+        const { inviteCode } = await res.json();
+        if (selectedGroup) setSelectedGroup({ ...selectedGroup, inviteCode });
+        showToast("Invite code regenerated!");
+      } else {
+        const err = await res.json();
+        showToast(err.detail || "Failed to regenerate");
+      }
+    } catch {
+      showToast("Network error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const copyInviteLink = (code: string) => {
+    const link = `${window.location.origin}/dashboard/growth/study-groups?invite=${code}`;
+    navigator.clipboard.writeText(link);
+    showToast("Invite link copied!");
+  };
+
   const resetForm = () => {
     setFormName("");
     setFormCourseCode("");
@@ -535,6 +711,7 @@ export default function StudyGroupFinderPage() {
     setFormMeetingLocation("");
     setFormLevel("");
     setFormTags("");
+    setFormRequireApproval(false);
   };
 
   /* ─── Edit group ────────────────────────────────────────── */
@@ -549,6 +726,7 @@ export default function StudyGroupFinderPage() {
     setEditIsOpen(g.isOpen);
     setEditMaxMembers(g.maxMembers);
     setEditTags(g.tags.join(", "));
+    setEditRequireApproval(g.requireApproval ?? false);
     setEditMode(true);
   };
 
@@ -570,6 +748,7 @@ export default function StudyGroupFinderPage() {
           isOpen: editIsOpen,
           maxMembers: editMaxMembers,
           tags: editTags.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 5),
+          requireApproval: editRequireApproval,
         }),
       });
       if (res.ok) {
@@ -747,19 +926,21 @@ export default function StudyGroupFinderPage() {
 
   const isMember = (g: StudyGroup) => g.members.some((m) => m.userId === userId);
   const isCreator = (g: StudyGroup) => g.createdBy === userId;
+  const hasPendingRequest = (g: StudyGroup) => (g.joinRequests || []).some((jr) => jr.userId === userId);
 
   /* ─── Render helpers ────────────────────────────────────── */
 
   const renderGroupCard = (group: StudyGroup, compact?: boolean) => {
     const member = isMember(group);
     const creator = isCreator(group);
+    const pending = hasPendingRequest(group);
     const full = group.members.length >= group.maxMembers;
     const spots = group.maxMembers - group.members.length;
 
     return (
       <div
         className={`bg-snow border-[3px] border-navy rounded-3xl p-5 press-4 press-black cursor-pointer transition-all ${
- member ?"ring-4 ring-lime/40" :""
+ member ?"ring-4 ring-lime/40" : pending ? "ring-4 ring-sunny/40" : ""
  }`}
         onClick={() => openGroupDetail(group)}
       >
@@ -775,6 +956,11 @@ export default function StudyGroupFinderPage() {
                   {group.level}
                 </span>
               )}
+              {group.requireApproval && (
+                <span className="bg-sunny-light text-navy text-label-sm px-2 py-0.5 rounded-lg" title="Requires approval to join">
+                  <svg aria-hidden="true" className="w-3 h-3 inline -mt-0.5 mr-0.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd"/></svg>
+                </span>
+              )}
             </div>
             <h3 className="font-display font-black text-navy text-lg leading-tight truncate">
               {group.name}
@@ -785,6 +971,10 @@ export default function StudyGroupFinderPage() {
             {member ? (
               <span className="bg-teal text-navy text-label-sm px-2 py-0.5 rounded-lg font-bold">
                 Joined
+              </span>
+            ) : pending ? (
+              <span className="bg-sunny text-navy text-label-sm px-2 py-0.5 rounded-lg font-bold">
+                Pending
               </span>
             ) : full ? (
               <span className="bg-coral-light text-coral text-label-sm px-2 py-0.5 rounded-lg font-bold">
@@ -805,14 +995,14 @@ export default function StudyGroupFinderPage() {
         {/* Meta */}
         <div className="flex flex-wrap gap-2 text-xs text-slate mb-3">
           <span className="flex items-center gap-1">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             {group.members.length}/{group.maxMembers}
           </span>
           {group.meetingDay && (
             <span className="flex items-center gap-1">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               {group.meetingDay} {group.meetingTime && `@ ${group.meetingTime}`}
@@ -820,7 +1010,7 @@ export default function StudyGroupFinderPage() {
           )}
           {group.meetingLocation && (
             <span className="flex items-center gap-1">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
@@ -855,6 +1045,7 @@ export default function StudyGroupFinderPage() {
     const g = selectedGroup;
     const member = isMember(g);
     const creator = isCreator(g);
+    const pending = hasPendingRequest(g);
     const full = g.members.length >= g.maxMembers;
 
     const DETAIL_TABS: { key: DetailTab; label: string; count?: number }[] = [
@@ -871,7 +1062,7 @@ export default function StudyGroupFinderPage() {
           onClick={() => { setView("browse"); setEditMode(false); }}
           className="flex items-center gap-2 text-navy/70 font-bold hover:text-navy transition-colors"
         >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg aria-hidden="true" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
           Back to groups
@@ -898,6 +1089,11 @@ export default function StudyGroupFinderPage() {
                 <span className={`text-label px-3 py-1 rounded-xl font-bold ${g.isOpen ? "bg-lime-light text-navy" : "bg-coral-light text-coral"}`}>
                   {g.isOpen ? "Open" : "Closed"}
                 </span>
+                {g.requireApproval && (
+                  <span className="bg-sunny-light text-navy text-label px-3 py-1 rounded-xl font-bold">
+                    Approval Required
+                  </span>
+                )}
               </div>
               <h2 className="font-display font-black text-navy text-2xl sm:text-3xl">{g.name}</h2>
               {g.courseName && <p className="text-slate mt-1">{g.courseName}</p>}
@@ -905,14 +1101,20 @@ export default function StudyGroupFinderPage() {
 
             {/* Actions */}
             <div className="flex gap-2 shrink-0 flex-wrap">
-              {!member && !full && g.isOpen && (
+              {!member && !pending && !full && g.isOpen && (
                 <button
                   onClick={() => joinGroup(g.id)}
                   disabled={actionLoading}
                   className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-3 rounded-2xl font-display text-base text-navy transition-all disabled:opacity-50"
                 >
-                  {actionLoading ? "..." : "Join Group"}
+                  {actionLoading ? "..." : g.requireApproval ? "Request to Join" : "Join Group"}
                 </button>
+              )}
+              {!member && pending && (
+                <span className="bg-sunny-light border-[3px] border-navy/20 px-5 py-2.5 rounded-xl font-display text-sm text-navy">
+                  <svg aria-hidden="true" className="w-4 h-4 inline -mt-0.5 mr-1" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd"/></svg>
+                  Pending Approval
+                </span>
               )}
               {creator && (
                 <button
@@ -947,7 +1149,7 @@ export default function StudyGroupFinderPage() {
           {g.pinnedNote && (
             <div className="bg-sunny-light border-[3px] border-navy/10 rounded-2xl p-4 mb-4">
               <div className="flex items-center gap-2 mb-1">
-                <svg className="w-4 h-4 text-sunny" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" clipRule="evenodd"/></svg>
+                <svg aria-hidden="true" className="w-4 h-4 text-sunny" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" clipRule="evenodd"/></svg>
                 <span className="text-[10px] font-bold uppercase tracking-widest text-navy/50">Pinned Note</span>
               </div>
               <p className="text-navy text-sm whitespace-pre-wrap">{g.pinnedNote}</p>
@@ -1027,6 +1229,14 @@ export default function StudyGroupFinderPage() {
                   </label>
                 </div>
               </div>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" checked={editRequireApproval} onChange={(e) => setEditRequireApproval(e.target.checked)}
+                    className="w-5 h-5 rounded accent-sunny" />
+                  <span className="font-display font-bold text-sm text-navy">Require Approval to Join</span>
+                </label>
+                <span className="text-xs text-slate">(New members must be approved by you)</span>
+              </div>
               <button onClick={saveEdit} disabled={actionLoading}
                 className="bg-lime border-[3px] border-navy press-3 press-navy px-8 py-3 rounded-2xl font-display text-navy transition-all disabled:opacity-50">
                 {actionLoading ? "Saving..." : "Save Changes"}
@@ -1045,7 +1255,7 @@ export default function StudyGroupFinderPage() {
                   onClick={() => setDetailTab(tab.key)}
                   className={`px-5 py-2.5 rounded-xl font-display font-bold text-sm border-[3px] transition-all whitespace-nowrap ${
                     detailTab === tab.key
-                      ? "bg-navy text-snow border-navy"
+                      ? "bg-navy text-snow border-lime"
                       : "bg-snow text-navy border-navy/15 hover:border-navy"
                   }`}
                 >
@@ -1069,9 +1279,9 @@ export default function StudyGroupFinderPage() {
                         Regular Meeting Schedule
                       </h3>
                       <div className="flex flex-wrap gap-4 text-sm text-navy/80">
-                        {g.meetingDay && <span className="flex items-center gap-1.5"><svg className="w-4 h-4 text-navy/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>{g.meetingDay}</span>}
-                        {g.meetingTime && <span className="flex items-center gap-1.5"><svg className="w-4 h-4 text-navy/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>{g.meetingTime}</span>}
-                        {g.meetingLocation && <span className="flex items-center gap-1.5"><svg className="w-4 h-4 text-navy/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>{g.meetingLocation}</span>}
+                        {g.meetingDay && <span className="flex items-center gap-1.5"><svg aria-hidden="true" className="w-4 h-4 text-navy/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>{g.meetingDay}</span>}
+                        {g.meetingTime && <span className="flex items-center gap-1.5"><svg aria-hidden="true" className="w-4 h-4 text-navy/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>{g.meetingTime}</span>}
+                        {g.meetingLocation && <span className="flex items-center gap-1.5"><svg aria-hidden="true" className="w-4 h-4 text-navy/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>{g.meetingLocation}</span>}
                       </div>
                     </div>
                   )}
@@ -1094,23 +1304,107 @@ export default function StudyGroupFinderPage() {
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {g.members.map((m) => (
-                        <div key={m.userId} className="flex items-center gap-3 bg-ghost rounded-xl px-4 py-3">
+                        <div key={m.userId} className="flex items-center gap-3 bg-ghost rounded-xl px-4 py-3 group">
                           <div className="w-8 h-8 rounded-full bg-navy text-snow flex items-center justify-center font-display font-bold text-sm">
                             {m.firstName?.[0]}{m.lastName?.[0]}
                           </div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className="font-medium text-navy text-sm truncate">
                               {m.firstName} {m.lastName}
                               {m.userId === g.createdBy && (
-                                <span className="ml-1 text-[9px] font-bold uppercase text-lavender bg-lavender-light px-1.5 py-0.5 rounded">Creator</span>
+                                <span className="ml-1 text-[9px] font-bold uppercase text-lavender bg-lavender-light px-1.5 py-0.5 rounded">Head</span>
                               )}
                             </p>
                             {m.matricNumber && <p className="text-xs text-slate">{m.matricNumber}</p>}
                           </div>
+                          {creator && m.userId !== g.createdBy && (
+                            <button
+                              onClick={() => removeMember(g.id, m.userId)}
+                              disabled={actionLoading}
+                              className="p-1.5 text-slate hover:text-coral opacity-0 group-hover:opacity-100 transition-all shrink-0"
+                              aria-label={`Remove ${m.firstName}`}
+                            >
+                              <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd"/></svg>
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
                   </div>
+
+                  {/* Join Requests (creator only) */}
+                  {creator && (g.joinRequests || []).length > 0 && (
+                    <div>
+                      <h3 className="font-display font-bold text-navy mb-3">
+                        Join Requests ({g.joinRequests.length})
+                      </h3>
+                      <div className="space-y-2">
+                        {g.joinRequests.map((jr) => (
+                          <div key={jr.userId} className="flex items-center gap-3 bg-sunny-light border-[3px] border-navy/10 rounded-xl px-4 py-3">
+                            <div className="w-8 h-8 rounded-full bg-sunny text-navy flex items-center justify-center font-display font-bold text-sm shrink-0">
+                              {jr.firstName?.[0]}{jr.lastName?.[0]}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-navy text-sm truncate">
+                                {jr.firstName} {jr.lastName}
+                              </p>
+                              {jr.matricNumber && <p className="text-xs text-slate">{jr.matricNumber}</p>}
+                              <p className="text-[10px] text-navy/30">
+                                Requested {new Date(jr.requestedAt).toLocaleDateString("en-NG", { month: "short", day: "numeric" })}
+                              </p>
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                              <button
+                                onClick={() => approveRequest(g.id, jr.userId)}
+                                disabled={actionLoading}
+                                className="bg-teal border-[2px] border-navy press-2 press-navy px-3 py-1.5 rounded-lg font-display text-xs text-navy transition-all disabled:opacity-50"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => rejectRequest(g.id, jr.userId)}
+                                disabled={actionLoading}
+                                className="bg-coral-light border-[2px] border-navy/30 px-3 py-1.5 rounded-lg font-display text-xs text-navy hover:border-navy transition-all disabled:opacity-50"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Invite Link (creator only) */}
+                  {creator && g.inviteCode && (
+                    <div className="bg-lavender-light border-[3px] border-navy/10 rounded-2xl p-4">
+                      <h3 className="font-display font-bold text-navy text-sm mb-2 uppercase tracking-wider">
+                        Invite Link
+                      </h3>
+                      <p className="text-xs text-slate mb-3">Share this link to let others join directly (bypasses approval).</p>
+                      <div className="flex gap-2 items-stretch">
+                        <div className="flex-1 bg-snow border-[2px] border-navy/15 rounded-lg px-3 py-2 text-sm text-navy/70 truncate font-mono">
+                          {typeof window !== "undefined"
+                            ? `${window.location.origin}/dashboard/growth/study-groups?invite=${g.inviteCode}`
+                            : `...?invite=${g.inviteCode}`}
+                        </div>
+                        <button
+                          onClick={() => copyInviteLink(g.inviteCode!)}
+                          className="bg-navy text-snow px-4 py-2 rounded-lg font-display font-bold text-xs border-[2px] border-lime press-2 press-lime transition-all shrink-0"
+                        >
+                          Copy
+                        </button>
+                        <button
+                          onClick={() => regenerateInvite(g.id)}
+                          disabled={actionLoading}
+                          className="bg-snow border-[2px] border-navy/20 px-3 py-2 rounded-lg text-xs text-navy hover:border-navy transition-all shrink-0 disabled:opacity-50"
+                          title="Generate new invite code"
+                        >
+                          <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1170,7 +1464,7 @@ export default function StudyGroupFinderPage() {
                                       className="p-1.5 text-slate hover:text-coral transition-colors"
                                       aria-label="Cancel session"
                                     >
-                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 013.878.512.75.75 0 11-.256 1.478l-.209-.035-1.005 13.07a3 3 0 01-2.991 2.77H8.084a3 3 0 01-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 01-.256-1.478A48.567 48.567 0 017.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 013.369 0c1.603.051 2.815 1.387 2.815 2.951zm-6.136-1.452a51.196 51.196 0 013.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 00-6 0v-.113c0-.794.609-1.428 1.364-1.452zm-.355 5.945a.75.75 0 10-1.5.058l.347 9a.75.75 0 101.499-.058l-.346-9zm5.48.058a.75.75 0 10-1.498-.058l-.347 9a.75.75 0 001.5.058l.345-9z" clipRule="evenodd"/></svg>
+                                      <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 013.878.512.75.75 0 11-.256 1.478l-.209-.035-1.005 13.07a3 3 0 01-2.991 2.77H8.084a3 3 0 01-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 01-.256-1.478A48.567 48.567 0 017.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 013.369 0c1.603.051 2.815 1.387 2.815 2.951zm-6.136-1.452a51.196 51.196 0 013.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 00-6 0v-.113c0-.794.609-1.428 1.364-1.452zm-.355 5.945a.75.75 0 10-1.5.058l.347 9a.75.75 0 101.499-.058l-.346-9zm5.48.058a.75.75 0 10-1.498-.058l-.347 9a.75.75 0 001.5.058l.345-9z" clipRule="evenodd"/></svg>
                                     </button>
                                   )}
                                 </div>
@@ -1221,11 +1515,11 @@ export default function StudyGroupFinderPage() {
                           <div key={r.id} className="flex items-center gap-3 bg-ghost rounded-xl px-4 py-3 group">
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${typeIcons[r.type] || typeIcons.link}`}>
                               {r.type === "video" ? (
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd"/></svg>
+                                <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd"/></svg>
                               ) : r.type === "document" ? (
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625z" clipRule="evenodd"/></svg>
+                                <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625z" clipRule="evenodd"/></svg>
                               ) : (
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M19.902 4.098a3.75 3.75 0 00-5.304 0l-4.5 4.5a3.75 3.75 0 001.035 6.037.75.75 0 01-.646 1.353 5.25 5.25 0 01-1.449-8.45l4.5-4.5a5.25 5.25 0 117.424 7.424l-1.757 1.757a.75.75 0 11-1.06-1.06l1.757-1.757a3.75 3.75 0 000-5.304zm-7.389 4.267a.75.75 0 011-.353 5.25 5.25 0 011.449 8.45l-4.5 4.5a5.25 5.25 0 11-7.424-7.424l1.757-1.757a.75.75 0 111.06 1.06l-1.757 1.757a3.75 3.75 0 105.304 5.304l4.5-4.5a3.75 3.75 0 00-1.035-6.037.75.75 0 01-.354-1z" clipRule="evenodd"/></svg>
+                                <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M19.902 4.098a3.75 3.75 0 00-5.304 0l-4.5 4.5a3.75 3.75 0 001.035 6.037.75.75 0 01-.646 1.353 5.25 5.25 0 01-1.449-8.45l4.5-4.5a5.25 5.25 0 117.424 7.424l-1.757 1.757a.75.75 0 11-1.06-1.06l1.757-1.757a3.75 3.75 0 000-5.304zm-7.389 4.267a.75.75 0 011-.353 5.25 5.25 0 011.449 8.45l-4.5 4.5a5.25 5.25 0 11-7.424-7.424l1.757-1.757a.75.75 0 111.06 1.06l-1.757 1.757a3.75 3.75 0 105.304 5.304l4.5-4.5a3.75 3.75 0 00-1.035-6.037.75.75 0 01-.354-1z" clipRule="evenodd"/></svg>
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -1241,7 +1535,7 @@ export default function StudyGroupFinderPage() {
                               <button onClick={() => removeResource(r.id)}
                                 className="p-1.5 text-slate hover:text-coral opacity-0 group-hover:opacity-100 transition-all"
                                 aria-label="Remove resource">
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd"/></svg>
+                                <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd"/></svg>
                               </button>
                             )}
                           </div>
@@ -1292,7 +1586,7 @@ export default function StudyGroupFinderPage() {
                   </div>
                   <p className="font-medium text-navy text-sm truncate">
                     {m.firstName} {m.lastName}
-                    {m.userId === g.createdBy && <span className="ml-1 text-[9px] font-bold uppercase text-lavender bg-lavender-light px-1.5 py-0.5 rounded">Creator</span>}
+                    {m.userId === g.createdBy && <span className="ml-1 text-[9px] font-bold uppercase text-lavender bg-lavender-light px-1.5 py-0.5 rounded">Head</span>}
                   </p>
                 </div>
               ))}
@@ -1312,7 +1606,7 @@ export default function StudyGroupFinderPage() {
         onClick={() => setView("browse")}
         className="flex items-center gap-2 text-navy font-bold hover:text-snow transition-colors"
       >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg aria-hidden="true" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
         </svg>
         Back
@@ -1450,6 +1744,20 @@ export default function StudyGroupFinderPage() {
             />
           </div>
 
+          {/* Require Approval */}
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formRequireApproval}
+                onChange={(e) => setFormRequireApproval(e.target.checked)}
+                className="w-5 h-5 rounded accent-sunny"
+              />
+              <span className="font-display font-bold text-sm text-navy">Require Approval to Join</span>
+            </label>
+            <span className="text-xs text-slate">(New members must be approved by you)</span>
+          </div>
+
           {/* Submit */}
           <button
             onClick={createGroup}
@@ -1483,7 +1791,7 @@ export default function StudyGroupFinderPage() {
             href="/dashboard/growth"
             className="inline-flex items-center gap-2 text-navy/70 font-bold hover:text-navy transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg aria-hidden="true" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
             Growth Hub
@@ -1555,7 +1863,7 @@ export default function StudyGroupFinderPage() {
               onClick={() => setView("browse")}
               className={`px-5 py-2.5 rounded-xl font-display text-sm border-[3px] transition-all ${
                 view === "browse"
-                  ? "bg-navy text-snow border-navy"
+                  ? "bg-navy text-snow border-lime"
                   : "bg-snow text-navy border-navy/20 hover:border-navy"
               }`}
             >
@@ -1565,7 +1873,7 @@ export default function StudyGroupFinderPage() {
               onClick={() => setView("my-groups")}
               className={`px-5 py-2.5 rounded-xl font-display text-sm border-[3px] transition-all ${
                 view === "my-groups"
-                  ? "bg-navy text-snow border-navy"
+                  ? "bg-navy text-snow border-lime"
                   : "bg-snow text-navy border-navy/20 hover:border-navy"
               }`}
             >
@@ -1616,7 +1924,7 @@ export default function StudyGroupFinderPage() {
               </div>
             ) : groups.length === 0 ? (
               <div className="bg-snow border-[3px] border-navy/10 rounded-3xl p-12 text-center">
-                <svg className="w-16 h-16 mx-auto text-cloud mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <svg aria-hidden="true" className="w-16 h-16 mx-auto text-cloud mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
                 </svg>
                 <p className="text-navy font-display font-bold text-lg mb-2">No study groups found</p>
@@ -1652,7 +1960,7 @@ export default function StudyGroupFinderPage() {
                 <p className="text-slate mb-4">Browse available groups or create your own!</p>
                 <button
                   onClick={() => setView("browse")}
-                  className="bg-transparent border-[3px] border-navy px-6 py-3 rounded-xl font-display text-navy hover:bg-navy hover:text-snow transition-all"
+                  className="bg-transparent border-[3px] border-navy px-6 py-3 rounded-xl font-display text-navy hover:bg-navy hover:text-lime hover:border-lime transition-all"
                 >
                   Browse Groups
                 </button>

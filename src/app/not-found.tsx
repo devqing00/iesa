@@ -49,7 +49,7 @@ export default function NotFound() {
             </Link>
             <Link
               href="/dashboard"
-              className="bg-transparent border-[3px] border-navy px-8 py-4 rounded-2xl font-display font-black text-base text-navy hover:bg-navy hover:text-snow transition-all"
+              className="bg-transparent border-[3px] border-navy px-8 py-4 rounded-2xl font-display font-black text-base text-navy hover:bg-navy hover:text-lime hover:border-lime transition-all"
             >
               Dashboard
             </Link>

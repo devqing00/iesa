@@ -87,7 +87,7 @@ function VerifySecondaryEmailContent() {
             <div className="space-y-6 text-center">
               <div className="flex justify-center">
                 <div className="w-16 h-16 rounded-full bg-teal border-[3px] border-navy flex items-center justify-center">
-                  <svg className="w-8 h-8 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg aria-hidden="true" className="w-8 h-8 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
@@ -109,7 +109,7 @@ function VerifySecondaryEmailContent() {
             <div className="space-y-6 text-center">
               <div className="flex justify-center">
                 <div className="w-16 h-16 rounded-full bg-sunny border-[3px] border-navy flex items-center justify-center">
-                  <svg className="w-8 h-8 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg aria-hidden="true" className="w-8 h-8 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
@@ -131,7 +131,7 @@ function VerifySecondaryEmailContent() {
             <div className="space-y-6 text-center">
               <div className="flex justify-center">
                 <div className="w-16 h-16 rounded-full bg-coral border-[3px] border-navy flex items-center justify-center">
-                  <svg className="w-8 h-8 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg aria-hidden="true" className="w-8 h-8 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </div>
@@ -149,7 +149,7 @@ function VerifySecondaryEmailContent() {
                 </button>
                 <Link
                   href="/contact"
-                  className="block w-full bg-transparent border-[3px] border-navy px-8 py-3 rounded-xl font-display font-bold text-base text-navy hover:bg-navy hover:text-snow transition-all text-center"
+                  className="block w-full bg-transparent border-[3px] border-navy px-8 py-3 rounded-xl font-display font-bold text-base text-navy hover:bg-navy hover:text-lime hover:border-lime transition-all text-center"
                 >
                   Contact Support
                 </Link>

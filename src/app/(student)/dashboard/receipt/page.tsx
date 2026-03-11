@@ -5,13 +5,13 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { getReceiptData, ReceiptData, getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { IesaLogo } from "@/components/ui/IesaLogo";
-import { useToast } from "@/components/ui";
+import { toast } from "sonner";
 
 function ReceiptContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { getAccessToken } = useAuth();
-  const { error: toastError } = useToast();
+
   const reference = searchParams.get("ref");
   
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
@@ -61,7 +61,7 @@ function ReceiptContent() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      toastError("Download failed", "Please try Print / Save PDF instead.");
+      toast.error("Download failed", { description: "Please try Print / Save PDF instead." });
     } finally {
       setDownloadingPdf(false);
     }
@@ -83,7 +83,7 @@ function ReceiptContent() {
       <div className="min-h-[60vh] flex items-center justify-center px-4">
         <div className="bg-snow border-[3px] border-navy rounded-3xl p-8 max-w-md text-center shadow-[8px_8px_0_0_#000]">
           <div className="w-16 h-16 rounded-full bg-coral-light flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-coral" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-8 h-8 text-coral" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z" clipRule="evenodd" />
             </svg>
           </div>
@@ -151,7 +151,7 @@ function ReceiptContent() {
             onClick={() => router.back()}
             className="flex items-center gap-2 text-navy hover:text-navy/70 font-bold transition-colors"
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M11.03 3.97a.75.75 0 0 1 0 1.06l-6.22 6.22H21a.75.75 0 0 1 0 1.5H4.81l6.22 6.22a.75.75 0 1 1-1.06 1.06l-7.5-7.5a.75.75 0 0 1 0-1.06l7.5-7.5a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
             </svg>
             Back
@@ -162,16 +162,16 @@ function ReceiptContent() {
               disabled={downloadingPdf}
               className="bg-lime text-navy border-[3px] border-navy rounded-2xl px-6 py-3 font-display font-bold flex items-center gap-2 press-3 press-navy disabled:opacity-50"
             >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
               </svg>
               {downloadingPdf ? "Downloading..." : "Download PDF"}
             </button>
             <button
               onClick={handlePrint}
-              className="bg-navy text-snow border-[3px] border-ghost/20 rounded-2xl px-6 py-3 font-display font-bold flex items-center gap-2 press-3 press-navy"
+              className="bg-navy text-snow border-[3px] border-lime rounded-2xl px-6 py-3 font-display font-bold flex items-center gap-2 press-3 press-lime"
             >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M7.875 1.5C6.839 1.5 6 2.34 6 3.375v2.99c-.426.053-.851.11-1.274.174-1.454.218-2.476 1.483-2.476 2.917v6.294a3 3 0 0 0 3 3h.27l-.155 1.705A1.875 1.875 0 0 0 7.232 22.5h9.536a1.875 1.875 0 0 0 1.867-2.045l-.155-1.705h.27a3 3 0 0 0 3-3V9.456c0-1.434-1.022-2.7-2.476-2.917A48.716 48.716 0 0 0 18 6.366V3.375c0-1.036-.84-1.875-1.875-1.875h-8.25ZM16.5 6.205v-2.83A.375.375 0 0 0 16.125 3h-8.25a.375.375 0 0 0-.375.375v2.83a49.353 49.353 0 0 1 9 0Zm-.217 8.265c.178.018.317.16.333.337l.526 5.784a.375.375 0 0 1-.374.409H7.232a.375.375 0 0 1-.374-.409l.526-5.784a.373.373 0 0 1 .333-.337 41.741 41.741 0 0 1 8.566 0Zm.967-3.97a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75H18a.75.75 0 0 1-.75-.75V10.5ZM15 9.75a.75.75 0 0 0-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 0 0 .75-.75V10.5a.75.75 0 0 0-.75-.75H15Z" clipRule="evenodd" />
               </svg>
               Print
@@ -203,7 +203,7 @@ function ReceiptContent() {
               </div>
               <div className="px-4 py-2 bg-teal-light border-[3px] border-teal rounded-xl shrink-0">
                 <p className="text-teal font-display font-black text-sm flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" /></svg>
+                  <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" /></svg>
                   {receipt.transaction.status}
                 </p>
               </div>

@@ -82,7 +82,7 @@ export default function Header() {
             {/* CTA button — desktop only */}
             <Link
               href={user ? "/dashboard" : "/login"}
-              className="hidden md:inline-flex items-center gap-2 bg-navy hover:bg-coral border border-navy rounded-lg px-5 py-3 font-display font-black text-sm text-snow transition-colors"
+              className="hidden md:inline-flex items-center gap-2 bg-navy hover:bg-coral border border-lime rounded-lg px-5 py-3 font-display font-black text-sm text-snow transition-colors"
             >
               {user ? "Dashboard" : "Get Started"}
               <svg

@@ -7,6 +7,7 @@ import { usePermissions } from "@/context/PermissionsContext";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { toast } from "sonner";
 
 /* ── Types ─────────────────────────────────────────────── */
 
@@ -138,6 +139,8 @@ export default function UnitsPage() {
   const [unitData, setUnitData] = useState<MemberUnitData[]>([]);
   const [loadingMemberships, setLoadingMemberships] = useState(true);
   const [updatingTask, setUpdatingTask] = useState<string | null>(null);
+  // Track whether this user heads any unit
+  const isUnitHead = hasPermission("unit_head:view_members");
 
   /* ── API helper ──────────────────────────────────────────── */
   const apiFetch = useCallback(
@@ -192,13 +195,14 @@ export default function UnitsPage() {
         method: "PATCH",
         body: JSON.stringify({ status }),
       });
+      toast.success("Updated", { description: "Task status updated." });
       // Refresh unit data
       const view = await apiFetch(`/${unitSlug}/member-view`);
       if (view) {
         setUnitData((prev) => prev.map((d) => (d.unitSlug === unitSlug ? view : d)));
       }
     } catch {
-      /* swallow */
+      toast.error("Error", { description: "Failed to update task status." });
     } finally {
       setUpdatingTask(null);
     }
@@ -250,6 +254,28 @@ export default function UnitsPage() {
           </div>
           <HelpButton onClick={openHelp} />
         </div>
+
+        {/* ── Unit Head Banner ─────────────────────────────── */}
+        {isUnitHead && (
+          <div className="bg-lime border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex-1">
+              <p className="text-label uppercase tracking-wider text-navy/60 mb-1">Unit Head</p>
+              <h2 className="font-display font-black text-xl text-navy">You head a unit this session</h2>
+              <p className="text-sm text-navy/70 mt-1">
+                Manage your unit members, assign tasks, post notices, and send announcements from the Unit Head Portal.
+              </p>
+            </div>
+            <Link
+              href="/admin/unit-head"
+              className="shrink-0 bg-navy border-[3px] border-lime press-4 press-lime text-lime font-display font-black text-sm px-6 py-3 rounded-2xl inline-flex items-center gap-2"
+            >
+              Open Portal
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+              </svg>
+            </Link>
+          </div>
+        )}
 
         {/* ── My Memberships ──────────────────────────────── */}
         {memberships.length > 0 && (
@@ -383,6 +409,28 @@ export default function UnitsPage() {
           <div className="flex items-center gap-3 py-6">
             <div className="w-5 h-5 border-[3px] border-lime border-t-transparent rounded-full animate-spin" />
             <span className="text-sm text-slate">Loading your unit memberships...</span>
+          </div>
+        )}
+
+        {/* ── No memberships empty state ───────────────────── */}
+        {!loadingMemberships && memberships.length === 0 && (
+          <div className="bg-snow border-[4px] border-navy rounded-3xl p-8 shadow-[8px_8px_0_0_#000] text-center">
+            <div className="w-14 h-14 bg-lavender-light rounded-2xl flex items-center justify-center mx-auto mb-4 border-[3px] border-navy">
+              <svg className="w-7 h-7 text-navy" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <h3 className="font-display font-black text-navy text-lg mb-1">Not a member of any unit yet</h3>
+            <p className="text-sm text-slate mb-4">Apply for a unit through the Applications page to join a committee or unit.</p>
+            <Link
+              href="/dashboard/applications"
+              className="inline-flex items-center gap-2 bg-lime border-[3px] border-navy press-3 press-navy px-5 py-2.5 rounded-2xl font-bold text-sm text-navy"
+            >
+              Browse Applications
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+              </svg>
+            </Link>
           </div>
         )}
 

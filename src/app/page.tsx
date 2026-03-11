@@ -189,7 +189,7 @@ export default function Home() {
             </div>
 
             {/* CTA card */}
-            <div className="mt-6 sm:mt-10 bg-navy border-[3px] border-navy rounded-3xl p-8 sm:p-12 lg:p-16 text-center">
+            <div className="mt-6 sm:mt-10 bg-navy border-[3px] border-lime rounded-3xl p-8 sm:p-12 lg:p-16 text-center">
               <h3 className="font-display text-3xl sm:text-5xl lg:text-6xl text-snow mb-4 sm:mb-6 font-black">
                 Join 500+ Students
               </h3>

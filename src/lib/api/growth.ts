@@ -53,5 +53,5 @@ export async function deleteGrowthData(tool: GrowthTool): Promise<DeleteResponse
  * Get all growth data for the hub index page.
  */
 export async function getAllGrowthData(): Promise<Record<string, GrowthDataResponse>> {
-  return api.get<Record<string, GrowthDataResponse>>('/api/v1/growth/', { showErrorToast: false });
+  return api.get<Record<string, GrowthDataResponse>>('/api/v1/growth/all', { showErrorToast: false });
 }

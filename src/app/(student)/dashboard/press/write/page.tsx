@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
-import { useToast } from "@/components/ui/Toast";
+import { toast } from "sonner";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
@@ -41,7 +41,6 @@ function WriteArticleContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
-  const toast = useToast();
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -220,7 +219,7 @@ function WriteArticleContent() {
       <div className="flex items-center justify-between">
         <div>
           <Link href="/dashboard/press" className="inline-flex items-center gap-1 text-xs font-display font-bold text-slate hover:text-navy transition-colors mb-2">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             Back to Press
@@ -293,7 +292,7 @@ function WriteArticleContent() {
                 aria-label="Remove cover image"
                 className="absolute top-3 right-3 w-8 h-8 rounded-xl bg-navy/70 hover:bg-navy flex items-center justify-center transition-colors"
               >
-                <svg className="w-4 h-4 text-snow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                <svg aria-hidden="true" className="w-4 h-4 text-snow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
           ) : (
@@ -301,7 +300,7 @@ function WriteArticleContent() {
               {uploadingCover ? (
                 <div className="w-8 h-8 border-3 border-navy border-t-transparent rounded-full animate-spin" />
               ) : (
-                <svg className="w-8 h-8 text-navy/30 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                <svg aria-hidden="true" className="w-8 h-8 text-navy/30 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
               )}
               <div>
                 <span className="font-display font-bold text-sm text-navy/60">{uploadingCover ? "Uploading..." : "Upload a cover image"}</span>

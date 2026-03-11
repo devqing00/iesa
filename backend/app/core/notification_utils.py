@@ -25,6 +25,7 @@ VALID_NOTIFICATION_CATEGORIES = {
     "timetable",
     "academic",
     "mentoring",
+    "study_groups",
 }
 
 DEFAULT_NOTIFICATION_CATEGORIES = {cat: True for cat in VALID_NOTIFICATION_CATEGORIES}

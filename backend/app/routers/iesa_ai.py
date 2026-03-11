@@ -287,12 +287,27 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
         return {}
     
     level = user.get("currentLevel", "Unknown")
+
+    # ── Birthday check ──
+    is_birthday = False
+    dob = user.get("dateOfBirth")
+    if dob:
+        try:
+            if isinstance(dob, str):
+                from datetime import date as _date_cls
+                dob = _date_cls.fromisoformat(dob)
+            today = date.today()
+            is_birthday = dob.month == today.month and dob.day == today.day
+        except Exception:
+            pass
+
     context = {
         "level": level,
         "name": f"{user.get('firstName', '')} {user.get('lastName', '')}".strip(),
         "matric": user.get("matricNumber", "Unknown"),
         "email": user.get("institutionalEmail") or user.get("email", ""),
         "admission_year": user.get("admissionYear", ""),
+        "is_birthday": is_birthday,
     }
     
     # Get active session (needed by most subsequent queries)
@@ -978,6 +993,11 @@ IMPORTANT: You MUST maintain Yoruba style throughout ALL responses in this conve
             user_data_section += "\n\n## ⚡ PRIORITY ACTIONS (most urgent first)"
             for i, pa in enumerate(user_context['priority_actions'], 1):
                 user_data_section += f"\n{i}. {pa['action']}"
+
+        # Birthday
+        if user_context.get('is_birthday'):
+            user_data_section += "\n\n## 🎂 TODAY IS THIS STUDENT'S BIRTHDAY!"
+            user_data_section += "\nMake your greeting extra warm and celebratory. Wish them a happy birthday naturally in your first response."
     
     # Build unpaid / paid payment details for the prompt
     payment_detail_section = ""

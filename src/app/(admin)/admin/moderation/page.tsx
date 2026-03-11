@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { withAuth } from "@/lib/withAuth";
-import { useToast } from "@/components/ui/Toast";
+import { toast } from "sonner";
 import { ConfirmModal } from "@/components/ui/Modal";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
@@ -42,7 +42,6 @@ type Tab = "reports" | "muted";
 
 function ModerationPage() {
   const { getAccessToken } = useAuth();
-  const toast = useToast();
   const { showHelp, openHelp, closeHelp } = useToolHelp("admin-moderation");
 
   const [tab, setTab] = useState<Tab>("reports");
@@ -229,7 +228,7 @@ function ModerationPage() {
           reports.length === 0 ? (
             <div className="bg-snow border-[3px] border-navy rounded-2xl shadow-[6px_6px_0_0_#000] p-12 text-center">
               <div className="w-16 h-16 rounded-2xl bg-teal-light flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-teal" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-8 h-8 text-teal" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -278,7 +277,7 @@ function ModerationPage() {
                         <span className="text-xs font-bold text-navy">
                           {report.reporterName}
                         </span>
-                        <svg className="w-3.5 h-3.5 text-slate" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                        <svg aria-hidden="true" className="w-3.5 h-3.5 text-slate" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                           <path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                         </svg>
                         <span className="text-xs font-bold text-coral">

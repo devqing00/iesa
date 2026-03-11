@@ -4,7 +4,7 @@ import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { useGrowthData } from "@/hooks/useGrowthData";
 import Link from "next/link";
-import { useState, useCallback } from "react";
+import { useState, useCallback, ReactNode } from "react";
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -21,7 +21,44 @@ interface Habit {
 }
 
 const STORAGE_KEY = "iesa-habits-data";
-const ICONS = ["📖", "💪", "🧘", "💧", "🏃", "✍️", "🎯", "🔬", "📝", "🧪", "⏰", "🍎"];
+
+/* ─── SVG Icon System (replaces emoji) ──────────────────────────── */
+
+const ICON_SVGS: Record<string, ReactNode> = {
+  book: <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z"/></svg>,
+  fitness: <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M12.963 2.286a.75.75 0 0 0-1.071-.136 9.742 9.742 0 0 0-3.539 6.176 7.547 7.547 0 0 1-1.705-1.715.75.75 0 0 0-1.152-.082A9 9 0 1 0 15.68 4.534a7.46 7.46 0 0 1-2.717-2.248ZM15.75 14.25a3.75 3.75 0 1 1-7.313-1.172c.628.465 1.35.81 2.133 1a5.99 5.99 0 0 1 1.925-3.546 3.75 3.75 0 0 1 3.255 3.718Z" clipRule="evenodd"/></svg>,
+  mindful: <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-2.625 6c-.54 0-.828.419-.936.634a1.96 1.96 0 0 0-.189.866c0 .298.059.605.189.866.108.215.395.634.936.634.54 0 .828-.419.936-.634.13-.26.189-.568.189-.866 0-.298-.059-.605-.189-.866-.108-.215-.395-.634-.936-.634Zm4.314.634c.108-.215.395-.634.936-.634.54 0 .828.419.936.634.13.26.189.568.189.866 0 .298-.059.605-.189.866-.108.215-.395.634-.936.634-.54 0-.828-.419-.936-.634a1.96 1.96 0 0 1-.189-.866c0-.298.059-.605.189-.866Zm-4.34 7.244a.75.75 0 0 1-1.061-1.06 5.236 5.236 0 0 1 3.73-1.538 5.236 5.236 0 0 1 3.695 1.538.75.75 0 1 1-1.061 1.06 3.736 3.736 0 0 0-2.634-1.098 3.736 3.736 0 0 0-2.67 1.098Z"/></svg>,
+  water: <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M12 2.25c-2.429 0-4.817.178-7.152.521C2.87 3.061 1.5 4.795 1.5 6.741v6.018c0 1.946 1.37 3.68 3.348 3.97 1.094.16 2.2.284 3.316.37a4.52 4.52 0 0 0 2.142 3.341l.252.168a.75.75 0 0 0 .884 0l.252-.168a4.52 4.52 0 0 0 2.142-3.341 51.38 51.38 0 0 0 3.316-.37c1.978-.29 3.348-2.024 3.348-3.97V6.741c0-1.946-1.37-3.68-3.348-3.97A49.145 49.145 0 0 0 12 2.25ZM8.25 8.625a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Zm2.625 1.125a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Zm4.875-1.125a1.125 1.125 0 1 0 0 2.25 1.125 1.125 0 0 0 0-2.25Z" clipRule="evenodd"/></svg>,
+  run: <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M14.615 1.595a.75.75 0 0 1 .359.852L12.982 9.75h7.268a.75.75 0 0 1 .548 1.262l-10.5 11.25a.75.75 0 0 1-1.272-.71l1.992-7.302H3.75a.75.75 0 0 1-.548-1.262l10.5-11.25a.75.75 0 0 1 .913-.143Z" clipRule="evenodd"/></svg>,
+  write: <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32l8.4-8.4Z"/><path d="M5.25 5.25a3 3 0 0 0-3 3v10.5a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3V13.5a.75.75 0 0 0-1.5 0v5.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5v-10.5a1.5 1.5 0 0 1 1.5-1.5h5.25a.75.75 0 0 0 0-1.5H5.25Z"/></svg>,
+  target: <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd"/></svg>,
+  science: <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.644 1.59a.75.75 0 0 1 .712 0l9.75 5.25a.75.75 0 0 1 0 1.32l-9.75 5.25a.75.75 0 0 1-.712 0l-9.75-5.25a.75.75 0 0 1 0-1.32l9.75-5.25Z"/><path d="m3.265 10.602 7.668 4.129a2.25 2.25 0 0 0 2.134 0l7.668-4.13 1.37.739a.75.75 0 0 1 0 1.32l-9.75 5.25a.75.75 0 0 1-.71 0l-9.75-5.25a.75.75 0 0 1 0-1.32l1.37-.738Z"/><path d="m10.933 19.231-7.668-4.13-1.37.739a.75.75 0 0 0 0 1.32l9.75 5.25c.221.12.489.12.71 0l9.75-5.25a.75.75 0 0 0 0-1.32l-1.37-.738-7.668 4.13a2.25 2.25 0 0 1-2.134 0Z"/></svg>,
+  notes: <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625ZM7.5 15a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7.5 15Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H8.25Z" clipRule="evenodd"/><path d="M12.971 1.816A5.23 5.23 0 0 1 14.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 0 1 3.434 1.279 9.768 9.768 0 0 0-6.963-6.963Z"/></svg>,
+  lab: <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M10.5 3.798v5.02a3 3 0 0 1-.879 2.121l-2.377 2.377a9.845 9.845 0 0 1 5.091 1.013 8.315 8.315 0 0 0 5.713.636l.285-.071-3.954-3.955A3 3 0 0 1 13.5 8.818v-5.02a.75.75 0 0 0-.75-.75h-1.5a.75.75 0 0 0-.75.75ZM8.75 1.5a.75.75 0 0 0 0 1.5h.75v5.318a1.5 1.5 0 0 1-.44 1.06L6.19 12.248A10.056 10.056 0 0 0 3 12a.75.75 0 0 0 0 1.5c.027 0 .054.001.08.002 1.093.043 2.143.335 3.08.842.529.286 1.097.524 1.697.706C9.39 18.792 10.654 21 12 21c1.346 0 2.61-2.208 4.143-5.95a9.838 9.838 0 0 0 1.697-.706c.937-.507 1.987-.8 3.08-.842.027-.001.054-.002.08-.002a.75.75 0 0 0 0-1.5c-1.024 0-2.02.166-2.952.469l-.285.071a9.815 9.815 0 0 1-6.768-.753 8.344 8.344 0 0 0-3.045-.881l2.94-2.94A3 3 0 0 0 12 6.818V3h.75a.75.75 0 0 0 0-1.5h-4Z" clipRule="evenodd"/></svg>,
+  clock: <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd"/></svg>,
+  health: <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="m11.645 20.91-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.219l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z"/></svg>,
+};
+
+// Legacy emoji → new key fallback (for existing stored data)
+const EMOJI_TO_KEY: Record<string, string> = {
+  "📖": "book", "💪": "fitness", "🧘": "mindful", "💧": "water",
+  "🏃": "run", "✍️": "write", "🎯": "target", "🔬": "science",
+  "📝": "notes", "🧪": "lab", "⏰": "clock", "🍎": "health",
+};
+
+const ICON_KEYS = Object.keys(ICON_SVGS);
+
+/** Render an icon — handles both new SVG keys and legacy emojis. */
+function HabitIcon({ icon, className = "" }: { icon: string; className?: string }) {
+  // Direct SVG key match
+  if (ICON_SVGS[icon]) return <span className={className}>{ICON_SVGS[icon]}</span>;
+  // Legacy emoji → SVG
+  const mapped = EMOJI_TO_KEY[icon];
+  if (mapped && ICON_SVGS[mapped]) return <span className={className}>{ICON_SVGS[mapped]}</span>;
+  // Ultimate fallback: render the raw string
+  return <span className={className}>{icon}</span>;
+}
+
 const COLORS: Habit["color"][] = ["lime", "coral", "lavender", "teal", "sunny"];
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const DAY_LABELS_SHORT = ["S", "M", "T", "W", "T", "F", "S"];
@@ -127,7 +164,7 @@ export default function HabitTrackerPage() {
 
   // Form state
   const [formName, setFormName] = useState("");
-  const [formIcon, setFormIcon] = useState("📖");
+  const [formIcon, setFormIcon] = useState("book");
   const [formColor, setFormColor] = useState<Habit["color"]>("lime");
   const [formFreq, setFormFreq] = useState<Habit["frequency"]>("daily");
   const [formCustomDays, setFormCustomDays] = useState<number[]>([1, 2, 3, 4, 5]);
@@ -138,7 +175,7 @@ export default function HabitTrackerPage() {
 
   const resetForm = () => {
     setFormName("");
-    setFormIcon("📖");
+    setFormIcon("book");
     setFormColor("lime");
     setFormFreq("daily");
     setFormCustomDays([1, 2, 3, 4, 5]);
@@ -231,7 +268,7 @@ export default function HabitTrackerPage() {
             href="/dashboard/growth"
             className="group inline-flex items-center gap-2 text-sm font-bold text-slate hover:text-navy transition-colors"
           >
-            <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-4 h-4 group-hover:-translate-x-1 transition-transform" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M11.03 3.97a.75.75 0 010 1.06l-6.22 6.22H21a.75.75 0 010 1.5H4.81l6.22 6.22a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0z" clipRule="evenodd" />
             </svg>
             Back to Growth Hub
@@ -244,7 +281,7 @@ export default function HabitTrackerPage() {
           {/* Title card */}
           <div className="md:col-span-7 bg-teal border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[180px] flex flex-col justify-between">
             <div className="absolute -bottom-14 -right-14 w-40 h-40 rounded-full bg-navy/8 pointer-events-none" />
-            <svg className="absolute top-6 right-10 w-5 h-5 text-navy/12 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="absolute top-6 right-10 w-5 h-5 text-navy/12 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
             </svg>
             <div>
@@ -323,11 +360,11 @@ export default function HabitTrackerPage() {
                       done ? `${c.bg} border-[3px] border-navy scale-110` : "bg-ghost border-[3px] border-navy/20"
                     }`}>
                       {done ? (
-                        <svg className="w-6 h-6 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-6 h-6 text-navy" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
                         </svg>
                       ) : (
-                        <span>{habit.icon}</span>
+                        <HabitIcon icon={habit.icon} />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -395,13 +432,13 @@ export default function HabitTrackerPage() {
                             <span className="w-6 h-6 rounded-lg bg-cloud/50" />
                           ) : completed ? (
                             <span className={`w-6 h-6 rounded-lg ${c.bg} border-[2px] border-navy flex items-center justify-center`}>
-                              <svg className="w-3.5 h-3.5 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                              <svg aria-hidden="true" className="w-3.5 h-3.5 text-navy" viewBox="0 0 24 24" fill="currentColor">
                                 <path fillRule="evenodd" d="M19.916 4.626a.75.75 0 0 1 .208 1.04l-9 13.5a.75.75 0 0 1-1.154.114l-6-6a.75.75 0 0 1 1.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 0 1 1.04-.208Z" clipRule="evenodd" />
                               </svg>
                             </span>
                           ) : isPast ? (
                             <span className="w-6 h-6 rounded-lg border-[2px] border-coral/30 flex items-center justify-center">
-                              <svg className="w-3 h-3 text-coral/40" viewBox="0 0 24 24" fill="currentColor">
+                              <svg aria-hidden="true" className="w-3 h-3 text-coral/40" viewBox="0 0 24 24" fill="currentColor">
                                 <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                               </svg>
                             </span>
@@ -445,7 +482,7 @@ export default function HabitTrackerPage() {
                     {/* Header */}
                     <div className={`${c.light} border-b-[3px] border-navy px-5 py-4 flex items-center justify-between`}>
                       <div className="flex items-center gap-3">
-                        <span className="text-xl">{habit.icon}</span>
+                        <HabitIcon icon={habit.icon} className="text-xl" />
                         <div>
                           <h3 className="font-display font-black text-base text-navy">{habit.name}</h3>
                           <p className="text-[10px] font-bold text-navy/40 uppercase tracking-wider">{habit.frequency}</p>
@@ -453,12 +490,12 @@ export default function HabitTrackerPage() {
                       </div>
                       <div className="flex gap-1">
                         <button onClick={() => startEdit(habit)} className="w-8 h-8 rounded-lg bg-snow/60 hover:bg-snow flex items-center justify-center transition-colors">
-                          <svg className="w-3.5 h-3.5 text-navy/50" viewBox="0 0 24 24" fill="currentColor">
+                          <svg aria-hidden="true" className="w-3.5 h-3.5 text-navy/50" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-12.15 12.15a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32L19.513 8.2Z" />
                           </svg>
                         </button>
                         <button onClick={() => toggleArchive(habit.id)} className="w-8 h-8 rounded-lg bg-snow/60 hover:bg-snow flex items-center justify-center transition-colors">
-                          <svg className="w-3.5 h-3.5 text-navy/50" viewBox="0 0 24 24" fill="currentColor">
+                          <svg aria-hidden="true" className="w-3.5 h-3.5 text-navy/50" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M3.53 2.47a.75.75 0 0 0-1.06 1.06l18 18a.75.75 0 1 0 1.06-1.06l-18-18ZM20.57 16.476c-.223.082-.448.161-.674.238L7.319 4.137A6.75 6.75 0 0 1 18.75 9v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206Z" />
                             <path d="M13.73 21.474a.75.75 0 1 1-1.46 0 3.75 3.75 0 0 0-3.479-3.098l2.09 2.09a3.754 3.754 0 0 0 2.849 1.008Z" />
                           </svg>
@@ -513,7 +550,7 @@ export default function HabitTrackerPage() {
                   {editId ? "Edit Habit" : "New Habit"}
                 </h3>
                 <button onClick={resetForm} className="text-slate hover:text-navy">
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                     <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
@@ -537,15 +574,15 @@ export default function HabitTrackerPage() {
                 <div>
                   <label className="text-[10px] font-bold text-slate uppercase tracking-wider block mb-2">Icon</label>
                   <div className="flex flex-wrap gap-2">
-                    {ICONS.map((icon) => (
+                    {ICON_KEYS.map((key) => (
                       <button
-                        key={icon}
-                        onClick={() => setFormIcon(icon)}
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all ${
-                          formIcon === icon ? "bg-lime border-[3px] border-navy scale-110" : "bg-ghost border-[2px] border-navy/10 hover:border-navy/30"
+                        key={key}
+                        onClick={() => setFormIcon(key)}
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                          formIcon === key ? "bg-lime border-[3px] border-navy scale-110" : "bg-ghost border-[2px] border-navy/10 hover:border-navy/30"
                         }`}
                       >
-                        {icon}
+                        <HabitIcon icon={key} />
                       </button>
                     ))}
                   </div>
@@ -577,7 +614,7 @@ export default function HabitTrackerPage() {
                         onClick={() => setFormFreq(f)}
                         className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border-[3px] transition-all ${
                           formFreq === f
-                            ? "bg-navy text-snow border-navy"
+                            ? "bg-navy text-snow border-lime"
                             : "bg-snow text-navy border-navy/15 hover:border-navy"
                         }`}
                       >
@@ -640,7 +677,7 @@ export default function HabitTrackerPage() {
         {activeHabits.length === 0 && !showForm && (
           <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] p-10 text-center">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-teal-light flex items-center justify-center">
-              <svg className="w-8 h-8 text-teal" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-8 h-8 text-teal" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 9a.75.75 0 0 0-1.5 0v2.25H9a.75.75 0 0 0 0 1.5h2.25V15a.75.75 0 0 0 1.5 0v-2.25H15a.75.75 0 0 0 0-1.5h-2.25V9Z" clipRule="evenodd" />
               </svg>
             </div>
@@ -664,7 +701,7 @@ export default function HabitTrackerPage() {
               onClick={() => setShowArchived(!showArchived)}
               className="flex items-center gap-2 text-sm font-bold text-slate hover:text-navy transition-colors mb-3"
             >
-              <svg className={`w-4 h-4 transition-transform ${showArchived ? "rotate-90" : ""}`} viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className={`w-4 h-4 transition-transform ${showArchived ? "rotate-90" : ""}`} viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clipRule="evenodd" />
               </svg>
               Archived ({archivedHabits.length})
@@ -694,7 +731,7 @@ export default function HabitTrackerPage() {
 
         {/* Privacy */}
         <div className="mt-8 text-center flex items-center justify-center gap-1.5">
-          <svg className="w-3 h-3 text-teal" fill="currentColor" viewBox="0 0 24 24">
+          <svg aria-hidden="true" className="w-3 h-3 text-teal" fill="currentColor" viewBox="0 0 24 24">
             <path fillRule="evenodd" d="M4.5 9.75a6 6 0 0111.573-2.226 3.75 3.75 0 014.133 4.303A4.5 4.5 0 0118 20.25H6.75a5.25 5.25 0 01-.75-10.5z" clipRule="evenodd" />
           </svg>
           <span className="text-[10px] font-bold text-teal uppercase tracking-wider">Synced to your account</span>

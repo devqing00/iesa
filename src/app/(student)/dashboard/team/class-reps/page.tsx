@@ -112,7 +112,7 @@ export default function ClassRepsPage() {
         <div className="flex items-center gap-3">
           <HelpButton onClick={openHelp} />
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cloud border-[3px] border-navy font-display font-bold text-xs text-navy">
-          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+          <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
             <path d="M10 9a3 3 0 100-6 3 3 0 000 6zM6 8a2 2 0 11-4 0 2 2 0 014 0zM1.49 15.326a.78.78 0 01-.358-.442 3 3 0 014.308-3.516 6.484 6.484 0 00-1.905 3.959c-.023.222-.014.442.025.654a4.97 4.97 0 01-2.07-.655zM16.44 15.98a4.97 4.97 0 002.07-.654.78.78 0 00.357-.442 3 3 0 00-4.308-3.517 6.484 6.484 0 011.907 3.96 2.32 2.32 0 01-.026.654zM18 8a2 2 0 11-4 0 2 2 0 014 0zM5.304 16.19a.844.844 0 01-.277-.71 5 5 0 019.947 0 .843.843 0 01-.277.71A6.975 6.975 0 0110 18a6.974 6.974 0 01-4.696-1.81z" />
           </svg>
           {filteredReps.length} {filteredReps.length === 1 ? "Rep" : "Reps"}
@@ -155,7 +155,7 @@ export default function ClassRepsPage() {
       {!loading && filteredReps.length === 0 && (
         <div className="bg-snow border-[3px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
           <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-lavender-light flex items-center justify-center">
-            <svg className="w-7 h-7 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-7 h-7 text-lavender" viewBox="0 0 24 24" fill="currentColor">
               <path d="M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM14.25 8.625a3.375 3.375 0 1 1 6.75 0 3.375 3.375 0 0 1-6.75 0ZM1.5 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122Z" />
             </svg>
           </div>
@@ -230,7 +230,7 @@ function RepCard({ rep, accent, index }: { rep: ClassRep; accent: typeof ACCENT_
       </div>
       <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t-[3px] border-navy/15">
         <a href={`mailto:${rep.user.email}`} className="inline-flex items-center gap-1.5 text-navy/50 hover:text-navy transition-colors text-sm font-medium">
-          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a2 2 0 00-2 2v1.161l8.441 4.221a1.25 1.25 0 001.118 0L19 7.162V6a2 2 0 00-2-2H3z" /><path d="M19 8.839l-7.77 3.885a2.75 2.75 0 01-2.46 0L1 8.839V14a2 2 0 002 2h14a2 2 0 002-2V8.839z" /></svg>
+          <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a2 2 0 00-2 2v1.161l8.441 4.221a1.25 1.25 0 001.118 0L19 7.162V6a2 2 0 00-2-2H3z" /><path d="M19 8.839l-7.77 3.885a2.75 2.75 0 01-2.46 0L1 8.839V14a2 2 0 002 2h14a2 2 0 002-2V8.839z" /></svg>
           <span className="truncate">{rep.user.email}</span>
         </a>
       </div>

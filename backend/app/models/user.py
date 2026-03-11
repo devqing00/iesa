@@ -7,7 +7,7 @@ They represent the permanent identity of a person.
 
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, Literal
-from datetime import datetime
+from datetime import datetime, date
 from bson import ObjectId
 
 
@@ -44,6 +44,7 @@ class UserBase(BaseModel):
     admissionYear: Optional[int] = Field(None, ge=2000, le=2030, description="Year student was admitted")
     currentLevel: Optional[Literal["100L", "200L", "300L", "400L", "500L"]] = Field(None, description="Current academic level")
     skills: Optional[list[str]] = Field(default_factory=list, max_length=20, description="Student skills/interests")
+    dateOfBirth: Optional[date] = Field(None, description="Student date of birth (YYYY-MM-DD)")
 
     # Dual Email System
     emailType: Optional[Literal["institutional", "personal"]] = Field(None, description="Type of primary email (auto-detected)")
@@ -74,6 +75,7 @@ class UserUpdate(BaseModel):
     bio: Optional[str] = Field(None, max_length=500)
     # profilePictureUrl intentionally excluded - use /me/profile-picture endpoint
     skills: Optional[list[str]] = Field(None, max_length=20)
+    dateOfBirth: Optional[date] = Field(None, description="Student date of birth (YYYY-MM-DD)")
     # Notification preference only — secondary email itself is managed via dedicated endpoints
     notificationEmailPreference: Optional[Literal["primary", "secondary", "both"]] = None
     notificationChannelPreference: Optional[Literal["email", "in_app", "both"]] = None

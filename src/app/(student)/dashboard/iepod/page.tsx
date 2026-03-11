@@ -341,18 +341,18 @@ export default function IepodStudentPage() {
           <div className="max-w-2xl mx-auto">
             <div className="bg-sunny border-[4px] border-navy rounded-3xl p-8 shadow-[8px_8px_0_0_#000] text-center space-y-4">
               <div className="w-16 h-16 bg-navy rounded-2xl flex items-center justify-center mx-auto">
-                <svg className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
+                <svg className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
                 </svg>
               </div>
               <h2 className="font-display font-black text-2xl text-navy">Application Pending</h2>
-              <p className="text-navy/70 font-medium">
+              <p className="text-slate font-medium">
                 Your IEPOD application has been submitted. You&apos;ll be notified once an admin reviews it.
               </p>
               {reg.adminNote && (
                 <div className="bg-snow/50 rounded-xl p-4 text-left">
                   <p className="text-label text-navy mb-1">Admin Note</p>
-                  <p className="text-navy/80 text-sm">{reg.adminNote}</p>
+                  <p className="text-navy-muted text-sm">{reg.adminNote}</p>
                 </div>
               )}
             </div>
@@ -364,13 +364,13 @@ export default function IepodStudentPage() {
           <div className="max-w-2xl mx-auto">
             <div className="bg-coral-light border-[4px] border-navy rounded-3xl p-8 shadow-[8px_8px_0_0_#000] text-center space-y-4">
               <h2 className="font-display font-black text-2xl text-navy">Application Not Approved</h2>
-              <p className="text-navy/70 font-medium">
+              <p className="text-slate font-medium">
                 Unfortunately your application was not approved this session.
               </p>
               {reg.adminNote && (
                 <div className="bg-snow/50 rounded-xl p-4 text-left">
                   <p className="text-label text-navy mb-1">Reason</p>
-                  <p className="text-navy/80 text-sm">{reg.adminNote}</p>
+                  <p className="text-navy-muted text-sm">{reg.adminNote}</p>
                 </div>
               )}
             </div>
@@ -417,8 +417,8 @@ export default function IepodStudentPage() {
                 {profile?.society ? (
                   <div>
                     <p className="font-display font-black text-xl text-navy">{profile.society.shortName}</p>
-                    <p className="text-navy/80 text-sm font-medium mt-1">{profile.society.name}</p>
-                    <p className="text-navy/60 text-xs font-medium mt-1">{profile.society.focusArea}</p>
+                    <p className="text-navy-muted text-sm font-medium mt-1">{profile.society.name}</p>
+                    <p className="text-slate text-xs font-medium mt-1">{profile.society.focusArea}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -431,9 +431,9 @@ export default function IepodStudentPage() {
                       >
                         <span className="font-bold text-xs text-navy">{s.shortName}</span>
                         {committingSociety === s._id ? (
-                          <span className="text-[10px] text-navy/60">Joining...</span>
+                          <span className="text-[10px] text-slate">Joining...</span>
                         ) : (
-                          <span className="text-[10px] text-navy/60">Commit &rarr;</span>
+                          <span className="text-[10px] text-slate">Commit &rarr;</span>
                         )}
                       </button>
                     ))}
@@ -458,7 +458,7 @@ export default function IepodStudentPage() {
                     <div className="bg-teal-light rounded-xl px-3 py-1 inline-block mb-2">
                       <span className="text-teal font-bold text-xs">Completed</span>
                     </div>
-                    <p className="text-navy/80 text-sm font-medium line-clamp-3">
+                    <p className="text-navy-muted text-sm font-medium line-clamp-3">
                       {profile.nicheAudit.focusProblem}
                     </p>
                     <Link
@@ -470,7 +470,7 @@ export default function IepodStudentPage() {
                   </div>
                 ) : (
                   <div>
-                    <p className="text-navy/60 text-sm mb-3">
+                    <p className="text-slate text-sm mb-3">
                       Define your focus, constraints, and target problem.
                     </p>
                     <Link
@@ -489,10 +489,10 @@ export default function IepodStudentPage() {
                 {profile?.team ? (
                   <div>
                     <p className="font-display font-black text-lg text-navy">{profile.team.name}</p>
-                    <p className="text-navy/70 text-xs font-medium mt-1">
+                    <p className="text-slate text-xs font-medium mt-1">
                       {profile.team.members.length}/{profile.team.maxMembers} members
                     </p>
-                    <p className="text-navy/60 text-xs mt-1">
+                    <p className="text-slate text-xs mt-1">
                       {profile.team.submissionCount} submission{profile.team.submissionCount !== 1 ? "s" : ""}
                     </p>
                     <Link
@@ -504,14 +504,14 @@ export default function IepodStudentPage() {
                   </div>
                 ) : (
                   <div>
-                    <p className="text-navy/70 text-sm mb-3">
+                    <p className="text-slate text-sm mb-3">
                       {reg.isExternalStudent
                         ? "Browse and join an existing team for the hackathon."
                         : "Form or join a team for the hackathon finale."}
                     </p>
                     <Link
                       href="/dashboard/iepod/team"
-                      className="bg-navy border-[2px] border-navy text-coral font-bold text-xs px-4 py-2 rounded-xl press-2 press-navy inline-block"
+                      className="bg-navy border-[2px] border-lime text-coral font-bold text-xs px-4 py-2 rounded-xl press-2 press-lime inline-block"
                     >
                       {reg.isExternalStudent ? "Join a Team" : "Find a Team"}
                     </Link>

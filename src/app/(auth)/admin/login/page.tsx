@@ -39,8 +39,8 @@ export default function AdminLoginPage() {
         <div className="absolute inset-0 bg-cross-grid opacity-20 pointer-events-none" />
 
         {/* Diamond Sparkles */}
-        <svg className="absolute top-12 right-[15%] w-5 h-5 text-coral/20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="absolute bottom-20 left-[10%] w-4 h-4 text-navy/10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg aria-hidden="true" className="absolute top-12 right-[15%] w-5 h-5 text-coral/20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg aria-hidden="true" className="absolute bottom-20 left-[10%] w-4 h-4 text-navy/10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
 
         <div className="relative z-10 max-w-md p-12 text-center space-y-8">
           <div className="space-y-4">
@@ -65,7 +65,7 @@ export default function AdminLoginPage() {
           {/* Warning */}
           <div className="p-4 border-[3px] border-navy/20 rounded-2xl space-y-2">
             <p className="font-display font-bold text-xs uppercase tracking-wider text-snow/50 flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
               </svg>
               Restricted Access
@@ -99,7 +99,7 @@ export default function AdminLoginPage() {
           {/* Info Card */}
           <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
             <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-slate shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <svg aria-hidden="true" className="w-5 h-5 text-slate shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
               </svg>
               <p className="text-sm text-navy/60">

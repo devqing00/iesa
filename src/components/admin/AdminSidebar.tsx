@@ -35,7 +35,7 @@ const navGroups: NavGroup[] = [
         name: "Dashboard",
         href: "/admin/dashboard",
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path d="M6 3a3 3 0 0 0-3 3v2.25a3 3 0 0 0 3 3h2.25a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3H6ZM15.75 3a3 3 0 0 0-3 3v2.25a3 3 0 0 0 3 3H18a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3h-2.25ZM6 12.75a3 3 0 0 0-3 3V18a3 3 0 0 0 3 3h2.25a3 3 0 0 0 3-3v-2.25a3 3 0 0 0-3-3H6ZM15.75 12.75a3 3 0 0 0-3 3V18a3 3 0 0 0 3 3H18a3 3 0 0 0 3-3v-2.25a3 3 0 0 0-3-3h-2.25Z" />
           </svg>
         ),
@@ -45,7 +45,7 @@ const navGroups: NavGroup[] = [
         href: "/admin/users",
         anyPermission: ["user:view_all", "user:edit"],
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
             <path d="M5.082 14.254a8.287 8.287 0 0 0-1.308 5.135 9.687 9.687 0 0 1-1.764-.44l-.115-.04a.563.563 0 0 1-.373-.487l-.01-.121a3.75 3.75 0 0 1 3.57-4.047ZM20.226 19.389a8.287 8.287 0 0 0-1.308-5.135 3.75 3.75 0 0 1 3.57 4.047l-.01.121a.563.563 0 0 1-.373.486l-.115.04c-.567.2-1.156.349-1.764.441Z" />
           </svg>
@@ -56,7 +56,7 @@ const navGroups: NavGroup[] = [
         href: "/admin/sessions",
         anyPermission: ["session:create", "session:edit", "session:view"],
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
           </svg>
         ),
@@ -72,7 +72,7 @@ const navGroups: NavGroup[] = [
         href: "/admin/announcements",
         anyPermission: ["announcement:create", "announcement:edit", "announcement:view"],
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path d="M16.881 4.345A23.112 23.112 0 0 1 8.25 6H7.5a5.25 5.25 0 0 0-.88 10.427 21.593 21.593 0 0 0 1.378 3.94c.464 1.004 1.674 1.32 2.582.796l.657-.379c.88-.508 1.165-1.593.772-2.468a17.116 17.116 0 0 1-.628-1.607c1.918.258 3.76.75 5.5 1.446A21.727 21.727 0 0 0 18 11.25c0-2.414-.393-4.735-1.119-6.905ZM18.26 3.74a23.22 23.22 0 0 1 1.24 7.51 23.22 23.22 0 0 1-1.24 7.51c-.055.161.044.348.206.404a.75.75 0 0 0 .974-.518 24.725 24.725 0 0 0 0-14.792.75.75 0 0 0-.974-.518.348.348 0 0 0-.206.404Z" />
           </svg>
         ),
@@ -82,7 +82,7 @@ const navGroups: NavGroup[] = [
         href: "/admin/events",
         anyPermission: ["event:create", "event:edit", "event:view", "event:manage"],
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" clipRule="evenodd" />
             <path d="M14.625 13.5a1.125 1.125 0 0 0-1.125 1.125v4.5c0 .621.504 1.125 1.125 1.125h4.5c.621 0 1.125-.504 1.125-1.125v-4.5c0-.621-.504-1.125-1.125-1.125h-4.5Z" />
           </svg>
@@ -93,7 +93,7 @@ const navGroups: NavGroup[] = [
         href: "/admin/enrollments",
         anyPermission: ["enrollment:view", "enrollment:create", "enrollment:edit"],
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25a3.75 3.75 0 0 0-3-3.75H5.625ZM7.5 15a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7.5 15Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H8.25Z" />
             <path d="M12.971 1.816A5.23 5.23 0 0 1 14.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 0 1 3.434 1.279 9.768 9.768 0 0 0-6.963-6.963Z" />
           </svg>
@@ -104,7 +104,7 @@ const navGroups: NavGroup[] = [
         href: "/admin/resources",
         anyPermission: ["resource:view", "resource:approve", "resource:create"],
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
           </svg>
         ),
@@ -114,7 +114,7 @@ const navGroups: NavGroup[] = [
         href: "/admin/timetable",
         anyPermission: ["timetable:create", "timetable:edit", "timetable:view"],
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
           </svg>
         ),
@@ -130,7 +130,7 @@ const navGroups: NavGroup[] = [
         href: "/admin/class-rep",
         anyPermission: ["class_rep:view_cohort"],
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path d="M11.7 2.805a.75.75 0 0 1 .6 0A60.65 60.65 0 0 1 22.83 8.72a.75.75 0 0 1-.231 1.337 49.948 49.948 0 0 0-9.902 3.912l-.003.002-.34.18a.75.75 0 0 1-.707 0A50.88 50.88 0 0 0 7.5 12.173v-.224c0-.131.067-.248.172-.311a54.615 54.615 0 0 1 4.653-2.52.75.75 0 0 0-.65-1.352 56.123 56.123 0 0 0-4.78 2.589 1.858 1.858 0 0 0-.859 1.228 49.803 49.803 0 0 0-4.634-1.527.75.75 0 0 1-.231-1.337A60.653 60.653 0 0 1 11.7 2.805Z" />
             <path d="M13.06 15.473a48.45 48.45 0 0 1 7.666-3.282c.134 1.414.22 2.843.255 4.284a.75.75 0 0 1-.46.711 47.87 47.87 0 0 0-8.105 4.342.75.75 0 0 1-.832 0 47.87 47.87 0 0 0-8.104-4.342.75.75 0 0 1-.461-.71c.035-1.442.121-2.87.255-4.286a48.4 48.4 0 0 1 6.862 2.977l.895.474.896-.474c.26-.138.525-.27.79-.4Z" />
           </svg>
@@ -147,7 +147,7 @@ const navGroups: NavGroup[] = [
         href: "/admin/unit-head",
         anyPermission: ["unit_head:view_members"],
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
           </svg>
         ),
@@ -163,7 +163,7 @@ const navGroups: NavGroup[] = [
         href: "/admin/payments",
         anyPermission: ["payment:view_all", "payment:create", "payment:approve", "bank_transfer:review", "bank_transfer:manage_accounts"],
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path d="M4.5 3.75a3 3 0 0 0-3 3v.75h21v-.75a3 3 0 0 0-3-3h-15Z" />
             <path fillRule="evenodd" d="M22.5 9.75h-21v7.5a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3v-7.5Zm-18 3.75a.75.75 0 0 1 .75-.75h6a.75.75 0 0 1 0 1.5h-6a.75.75 0 0 1-.75-.75Zm.75 2.25a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z" clipRule="evenodd" />
           </svg>
@@ -174,7 +174,7 @@ const navGroups: NavGroup[] = [
         href: "/admin/roles",
         anyPermission: ["role:view", "role:create", "role:edit", "user:edit"],
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
           </svg>
         ),
@@ -184,7 +184,7 @@ const navGroups: NavGroup[] = [
         href: "/admin/units",
         anyPermission: ["unit_application:review"],
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path d="M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM14.25 8.625a3.375 3.375 0 1 1 6.75 0 3.375 3.375 0 0 1-6.75 0ZM1.5 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122ZM17.25 19.128l-.001.144a2.25 2.25 0 0 1-.233.96 10.088 10.088 0 0 0 5.06-1.01.75.75 0 0 0 .42-.643 4.875 4.875 0 0 0-6.957-4.611 8.586 8.586 0 0 1 1.71 5.157v.003Z" />
           </svg>
         ),
@@ -194,7 +194,7 @@ const navGroups: NavGroup[] = [
         href: "/admin/timp",
         anyPermission: ["timp:manage"],
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A18.034 18.034 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" clipRule="evenodd" />
           </svg>
         ),
@@ -204,7 +204,7 @@ const navGroups: NavGroup[] = [
         href: "/admin/iepod",
         anyPermission: ["iepod:manage", "iepod:view"],
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M12.963 2.286a.75.75 0 0 0-1.071-.136 9.742 9.742 0 0 0-3.539 6.176 7.547 7.547 0 0 1-1.705-1.715.75.75 0 0 0-1.152-.082A9 9 0 1 0 15.68 4.534a7.46 7.46 0 0 1-2.717-2.248ZM15.75 14.25a3.75 3.75 0 1 1-7.313-1.172c.628.465 1.35.81 2.133 1a5.99 5.99 0 0 1 1.925-3.546 3.75 3.75 0 0 1 3.255 3.718Z" clipRule="evenodd" />
           </svg>
         ),
@@ -214,7 +214,7 @@ const navGroups: NavGroup[] = [
         href: "/admin/messages",
         anyPermission: ["contact:view", "contact:manage"],
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path d="M1.5 8.67v8.58a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3V8.67l-8.928 5.493a3 3 0 0 1-3.144 0L1.5 8.67Z" />
             <path d="M22.5 6.908V6.75a3 3 0 0 0-3-3h-15a3 3 0 0 0-3 3v.158l9.714 5.978a1.5 1.5 0 0 0 1.572 0L22.5 6.908Z" />
           </svg>
@@ -225,7 +225,7 @@ const navGroups: NavGroup[] = [
         href: "/admin/moderation",
         anyPermission: ["message:moderate"],
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-2.625 6c-.54 0-.828.419-.936.634a1.96 1.96 0 0 0-.189.866c0 .298.059.605.189.866.108.215.395.634.936.634.54 0 .828-.419.936-.634.13-.26.189-.568.189-.866 0-.298-.059-.605-.189-.866-.108-.215-.395-.634-.936-.634Zm4.314.634c.108-.215.395-.634.936-.634.54 0 .828.419.936.634.13.26.189.568.189.866 0 .298-.059.605-.189.866-.108.215-.395.634-.936.634-.54 0-.828-.419-.936-.634a1.96 1.96 0 0 1-.189-.866c0-.298.059-.605.189-.866Zm-4.34 7.244a.75.75 0 0 1-1.061-1.06 5.236 5.236 0 0 1 3.73-1.538h.008a5.236 5.236 0 0 1 3.724 1.538.75.75 0 1 1-1.061 1.06 3.736 3.736 0 0 0-2.663-1.098 3.736 3.736 0 0 0-2.677 1.098Z" clipRule="evenodd" />
           </svg>
         ),
@@ -235,7 +235,7 @@ const navGroups: NavGroup[] = [
         href: "/admin/audit-logs",
         anyPermission: ["audit:view", "audit:export"],
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M9 1.5H5.625c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5Zm6.75 12a.75.75 0 0 0-1.5 0v2.25H12a.75.75 0 0 0 0 1.5h2.25v2.25a.75.75 0 0 0 1.5 0v-2.25H18a.75.75 0 0 0 0-1.5h-2.25V13.5Z" clipRule="evenodd" />
             <path d="M12.971 1.816A5.23 5.23 0 0 1 14.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 0 1 3.434 1.279 9.768 9.768 0 0 0-6.963-6.963Z" />
           </svg>
@@ -246,7 +246,7 @@ const navGroups: NavGroup[] = [
         href: "/admin/health",
         anyPermission: ["system:health"],
         icon: (
-          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M10.5 3.798v5.02a3 3 0 0 1-.879 2.121l-2.377 2.377a9.845 9.845 0 0 1 5.091 1.013 8.315 8.315 0 0 0 5.713.636l.285-.071-3.954-3.955a3 3 0 0 1-.879-2.121v-5.02a23.614 23.614 0 0 0-3 0Zm4.5.138a.75.75 0 0 0 .093-1.495A24.837 24.837 0 0 0 12 2.25a25.048 25.048 0 0 0-3.093.191A.75.75 0 0 0 9 3.936v4.882a1.5 1.5 0 0 1-.44 1.06l-6.293 6.294c-1.62 1.621-.903 4.475 1.471 4.88 2.686.46 5.447.698 8.262.698 2.816 0 5.576-.239 8.262-.697 2.373-.406 3.092-3.26 1.47-4.881L15.44 9.879A1.5 1.5 0 0 1 15 8.818V3.936Z" clipRule="evenodd" />
           </svg>
         ),
@@ -412,7 +412,7 @@ export default function AdminSidebar() {
           {isExpanded ? (
             <Link
               href="/admin/sessions"
- className="flex items-center gap-3 rounded-2xl bg-navy border-[3px] border-ghost/20 p-3 press-3 press-navy transition-all group"
+ className="flex items-center gap-3 rounded-2xl bg-navy border-[3px] border-ghost/20 p-3 press-3 press-lime transition-all group"
             >
               <span className="relative flex-shrink-0">
                 <span className="w-2 h-2 rounded-full bg-lime block" />
@@ -424,7 +424,7 @@ export default function AdminSidebar() {
                   {activeSession?.name ?? "No active session"}
                 </p>
               </div>
-              <svg className="w-3.5 h-3.5 text-snow/30 group-hover:text-snow transition-colors shrink-0" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-3.5 h-3.5 text-snow/30 group-hover:text-snow transition-colors shrink-0" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z" clipRule="evenodd" />
               </svg>
             </Link>
@@ -451,7 +451,7 @@ export default function AdminSidebar() {
               isExpanded ? "px-3 py-2.5" : "justify-center px-2 py-2.5"
             }`}
           >
-            <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
               <path d="M11.7 2.805a.75.75 0 0 1 .6 0A60.65 60.65 0 0 1 22.83 8.72a.75.75 0 0 1-.231 1.337 49.948 49.948 0 0 0-9.902 3.912l-.003.002-.34.18a.75.75 0 0 1-.707 0A50.88 50.88 0 0 0 7.5 12.174v-.224c0-.131.067-.248.172-.311a54.615 54.615 0 0 1 4.653-2.52.75.75 0 0 0-.65-1.352 56.123 56.123 0 0 0-4.78 2.589 1.858 1.858 0 0 0-.859 1.228 49.803 49.803 0 0 0-4.634-1.527.75.75 0 0 1-.231-1.337A60.653 60.653 0 0 1 11.7 2.805Z" />
               <path d="M13.06 15.473a48.45 48.45 0 0 1 7.666-3.282c.134 1.414.22 2.843.255 4.284a.75.75 0 0 1-.46.711 47.87 47.87 0 0 0-8.105 4.342.75.75 0 0 1-.832 0 47.87 47.87 0 0 0-8.104-4.342.75.75 0 0 1-.461-.71c.035-1.442.121-2.87.255-4.286a48.4 48.4 0 0 1 6.463 2.806l.203.107a2.25 2.25 0 0 0 2.12 0l.203-.107Z" />
               <path d="M6.75 14.771V16.5a.75.75 0 0 0 .375.65 48.34 48.34 0 0 1 3.27 2.012 38.7 38.7 0 0 0-.61-3.225.75.75 0 0 0-.449-.547 47.818 47.818 0 0 0-2.586-1.118Z" />
@@ -469,7 +469,7 @@ export default function AdminSidebar() {
               isExpanded ? "px-3 py-2.5" : "justify-center px-2 py-2.5"
             }`}
           >
-            <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M7.5 3.75A1.5 1.5 0 0 0 6 5.25v13.5a1.5 1.5 0 0 0 1.5 1.5h6a1.5 1.5 0 0 0 1.5-1.5V15a.75.75 0 0 1 1.5 0v3.75a3 3 0 0 1-3 3h-6a3 3 0 0 1-3-3V5.25a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3V9a.75.75 0 0 1-1.5 0V5.25a1.5 1.5 0 0 0-1.5-1.5h-6Zm10.72 4.72a.75.75 0 0 1 1.06 0l3 3a.75.75 0 0 1 0 1.06l-3 3a.75.75 0 1 1-1.06-1.06l1.72-1.72H9a.75.75 0 0 1 0-1.5h10.94l-1.72-1.72a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
             </svg>
             {isExpanded && <span>Sign Out</span>}

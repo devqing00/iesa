@@ -448,7 +448,7 @@ function AdminIepodPage() {
       <Modal isOpen={showSocModal} onClose={closeSocModal} title={editingSociety ? "Edit Society" : "New Society"} size="lg"
         footer={<>
           <button onClick={closeSocModal} className="px-5 py-2.5 rounded-2xl border-[3px] border-navy text-navy text-sm font-bold hover:bg-cloud transition-colors">Cancel</button>
-          <button onClick={(e) => handleSaveSociety(e as unknown as React.FormEvent)} disabled={socSubmitting} className="px-5 py-2.5 rounded-2xl border-[3px] border-navy bg-lime text-navy text-sm font-bold transition-all disabled:opacity-50">
+          <button onClick={(e) => handleSaveSociety(e as unknown as React.FormEvent)} disabled={socSubmitting} className="px-5 py-2.5 rounded-2xl border-[3px] border-navy bg-lime text-navy text-sm font-bold press-3 press-navy transition-all disabled:opacity-50">
             {socSubmitting ? "Saving…" : editingSociety ? "Update" : "Create"}
           </button>
         </>}>
@@ -479,7 +479,7 @@ function AdminIepodPage() {
       <Modal isOpen={showQuizModal} onClose={closeQuizModal} title="New Quiz" size="xl"
         footer={<>
           <button onClick={closeQuizModal} className="px-5 py-2.5 rounded-2xl border-[3px] border-navy text-navy text-sm font-bold hover:bg-cloud transition-colors">Cancel</button>
-          <button onClick={(e) => handleSaveQuiz(e as unknown as React.FormEvent)} disabled={quizSubmitting} className="px-5 py-2.5 rounded-2xl border-[3px] border-navy bg-lime text-navy text-sm font-bold transition-all disabled:opacity-50">
+          <button onClick={(e) => handleSaveQuiz(e as unknown as React.FormEvent)} disabled={quizSubmitting} className="px-5 py-2.5 rounded-2xl border-[3px] border-navy bg-lime text-navy text-sm font-bold press-3 press-navy transition-all disabled:opacity-50">
             {quizSubmitting ? "Saving…" : "Create Quiz"}
           </button>
         </>}>
@@ -536,7 +536,7 @@ function AdminIepodPage() {
       <Modal isOpen={!!reviewingSub} onClose={() => setReviewingSub(null)} title={`Review — ${reviewingSub?.title ?? ""}`} size="lg"
         footer={<>
           <button onClick={() => setReviewingSub(null)} className="px-5 py-2.5 rounded-2xl border-[3px] border-navy text-navy text-sm font-bold hover:bg-cloud transition-colors">Cancel</button>
-          <button onClick={handleReviewSubmission} disabled={reviewSubmitting} className="px-5 py-2.5 rounded-2xl border-[3px] border-navy bg-teal text-snow text-sm font-bold transition-all disabled:opacity-50">
+          <button onClick={handleReviewSubmission} disabled={reviewSubmitting} className="px-5 py-2.5 rounded-2xl border-[3px] border-navy bg-teal text-snow text-sm font-bold press-3 press-navy transition-all disabled:opacity-50">
             {reviewSubmitting ? "Saving…" : "Save Review"}
           </button>
         </>}>
@@ -879,7 +879,7 @@ function QuizzesTab({ quizzes, loading, onAdd, onToggleLive, onDelete, onViewRes
                       quizResults.map((r, i) => (
                         <div key={r._id} className="flex items-center justify-between bg-ghost rounded-xl px-4 py-2 border-2 border-cloud">
                           <div className="flex items-center gap-3">
-                            <span className={`font-display font-black text-sm w-6 text-center ${i === 0 ? "text-sunny" : i === 1 ? "text-slate" : i === 2 ? "text-coral" : "text-navy/40"}`}>#{i + 1}</span>
+                            <span className={`font-display font-black text-sm w-6 text-center ${i === 0 ? "text-sunny" : i === 1 ? "text-slate" : i === 2 ? "text-coral" : "text-slate"}`}>#{i + 1}</span>
                             <span className="font-bold text-sm text-navy">{r.userName}</span>
                           </div>
                           <div className="text-right">

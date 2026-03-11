@@ -88,6 +88,31 @@ async def create_event(
     publish("event_created", {"id": str(result.inserted_id), "title": event_data.title}, ipe_only=True)
     await cache_delete("admin_stats")
     await cache_delete_pattern("student_dashboard:*")
+
+    # Notify all enrolled students about the new event
+    try:
+        from app.routers.notifications import create_bulk_notifications
+        active_session = await sessions.find_one({"isActive": True})
+        if active_session:
+            enrollments = db["enrollments"]
+            enrolled = await enrollments.find(
+                {"sessionId": str(active_session["_id"])},
+                {"userId": 1},
+            ).to_list(length=None)
+            user_ids = [e["userId"] for e in enrolled if e.get("userId")]
+            if user_ids:
+                import asyncio
+                asyncio.create_task(create_bulk_notifications(
+                    user_ids=user_ids,
+                    type="event",
+                    title=f"New Event: {event_data.title}",
+                    message=f"A new event has been created. Check it out!",
+                    link=f"/dashboard/events",
+                    category="event",
+                ))
+    except Exception:
+        pass  # Notifications are non-critical
+
     return Event(**created_event)
 
 

@@ -407,6 +407,30 @@ async def list_resources(
     )
 
 
+@router.get("/bookmarked", response_model=List[dict])
+async def get_bookmarked_resources(
+    user: dict = Depends(require_ipe_student),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Get all resources bookmarked by the current user."""
+    user_id = str(user["_id"])
+    resources = db["resources"]
+    cursor = resources.find(
+        {"bookmarkedBy": user_id, "isApproved": True},
+    ).sort("title", 1)
+    results = []
+    async for doc in cursor:
+        doc["_id"] = str(doc["_id"])
+        doc["id"] = doc["_id"]
+        doc["uploadedBy"] = str(doc.get("uploadedBy", ""))
+        if doc.get("sessionId"):
+            doc["sessionId"] = str(doc["sessionId"])
+        if doc.get("approvedBy"):
+            doc["approvedBy"] = str(doc["approvedBy"])
+        results.append(doc)
+    return results
+
+
 @router.get("/{resource_id}", response_model=ResourceResponse)
 async def get_resource(
     resource_id: str,
@@ -792,23 +816,3 @@ async def toggle_bookmark(
             {"$addToSet": {"bookmarkedBy": user_id}},
         )
         return {"bookmarked": True}
-
-
-@router.get("/bookmarked", response_model=List[dict])
-async def get_bookmarked_resources(
-    user: dict = Depends(require_ipe_student),
-    db: AsyncIOMotorDatabase = Depends(get_database),
-):
-    """Get all resources bookmarked by the current user."""
-    user_id = str(user["_id"])
-    resources = db["resources"]
-    cursor = resources.find(
-        {"bookmarkedBy": user_id, "status": "approved"},
-    ).sort("title", 1)
-    results = []
-    async for doc in cursor:
-        doc["_id"] = str(doc["_id"])
-        doc["id"] = doc["_id"]
-        doc["uploadedBy"] = str(doc.get("uploadedBy", ""))
-        results.append(doc)
-    return results

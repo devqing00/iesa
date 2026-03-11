@@ -301,7 +301,7 @@ function AdminAnnouncementsPage() {
           <div className="bg-coral-light border-[3px] border-coral rounded-2xl p-6 shadow-[4px_4px_0_0_#000]">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-xl bg-coral/20 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-coral" fill="currentColor" viewBox="0 0 20 20">
+                <svg aria-hidden="true" className="w-5 h-5 text-coral" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
                 </svg>
               </div>
@@ -339,7 +339,7 @@ function AdminAnnouncementsPage() {
  :"bg-slate/30 text-slate/50 cursor-not-allowed"
  }`}
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
               </svg>
               New Announcement
@@ -366,7 +366,7 @@ function AdminAnnouncementsPage() {
         {/* ── Filters ─────────────────── */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z" clipRule="evenodd" />
             </svg>
             <input
@@ -400,7 +400,7 @@ function AdminAnnouncementsPage() {
           ) : announcements.length === 0 ? (
             <div className="bg-snow rounded-3xl border-[3px] border-navy p-16 text-center shadow-[4px_4px_0_0_#000] space-y-4">
               <div className="w-16 h-16 mx-auto rounded-2xl bg-sunny-light flex items-center justify-center">
-                <svg className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M16.881 4.345A23.112 23.112 0 0 1 8.25 6H7.5a5.25 5.25 0 0 0-.88 10.427 21.593 21.593 0 0 0 1.378 3.94c.464 1.004 1.674 1.32 2.582.796l.657-.379c.88-.508 1.165-1.593.772-2.468a17.116 17.116 0 0 1-.628-1.607c1.918.258 3.76.75 5.5 1.446A21.727 21.727 0 0 0 18 11.25c0-2.414-.393-4.735-1.119-6.905Z" />
                 </svg>
               </div>
@@ -408,7 +408,7 @@ function AdminAnnouncementsPage() {
               <PermissionGate permission="announcement:create">
                 <button
                   onClick={openCreate}
- className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy transition-all"
+ className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-4 press-lime transition-all"
                 >
                   Create your first announcement
                 </button>
@@ -433,7 +433,7 @@ function AdminAnnouncementsPage() {
                       </span>
                       {a.isPinned && (
                         <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-sunny-light text-sunny">
-                          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                          <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
                           </svg>
                           Pinned
@@ -441,7 +441,7 @@ function AdminAnnouncementsPage() {
                       )}
                       {a.isPublished === false && (
                         <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-lavender-light text-lavender">
-                          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                          <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                             <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" />
                           </svg>
                           Scheduled{a.scheduledFor ? ` · ${new Date(a.scheduledFor).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : ""}
@@ -456,7 +456,7 @@ function AdminAnnouncementsPage() {
                             aria-label="Edit announcement"
                             className="p-2 rounded-xl hover:bg-cloud transition-colors"
                           >
-                            <svg className="w-4 h-4 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
+                            <svg aria-hidden="true" className="w-4 h-4 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
                               <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32l8.4-8.4Z" />
                               <path d="M5.25 5.25a3 3 0 0 0-3 3v10.5a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3V13.5a.75.75 0 0 0-1.5 0v5.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5V8.25a1.5 1.5 0 0 1 1.5-1.5h5.25a.75.75 0 0 0 0-1.5H5.25Z" />
                             </svg>
@@ -474,7 +474,7 @@ function AdminAnnouncementsPage() {
                               aria-label="Delete announcement"
                               className="p-2 rounded-xl hover:bg-coral-light transition-colors"
                             >
-                              <svg className="w-4 h-4 text-navy/60 hover:text-coral" viewBox="0 0 24 24" fill="currentColor">
+                              <svg aria-hidden="true" className="w-4 h-4 text-navy/60 hover:text-coral" viewBox="0 0 24 24" fill="currentColor">
                                 <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
                               </svg>
                             </button>
@@ -534,7 +534,7 @@ function AdminAnnouncementsPage() {
                 className="p-2 rounded-xl hover:bg-cloud transition-colors"
                 aria-label="Close modal"
               >
-                <svg className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                 </svg>
               </button>
@@ -579,7 +579,7 @@ function AdminAnnouncementsPage() {
                     onClick={() => setForm((f) => ({ ...f, priority: p }))}
                     className={`px-4 py-2 rounded-xl text-xs font-bold border-[3px] transition-colors ${
                       form.priority === p
-                        ? "bg-navy border-navy text-snow"
+                        ? "bg-navy border-lime text-snow"
                         : "border-navy/20 text-navy/60 hover:border-navy/40"
                     }`}
                   >
@@ -600,7 +600,7 @@ function AdminAnnouncementsPage() {
                     onClick={() => setForm((f) => ({ ...f, targetAudience: opt.value }))}
                     className={`px-4 py-2 rounded-xl text-xs font-bold border-[3px] transition-colors ${
                       form.targetAudience === opt.value
-                        ? "bg-navy border-navy text-snow"
+                        ? "bg-navy border-lime text-snow"
                         : "border-navy/20 text-navy/60 hover:border-navy/40"
                     }`}
                     title={opt.desc}
@@ -623,7 +623,7 @@ function AdminAnnouncementsPage() {
                     onClick={() => toggleLevel(level)}
                     className={`px-4 py-2 rounded-xl text-xs font-bold border-[3px] transition-colors ${
                       form.targetLevels.includes(level)
-                        ? "bg-navy border-navy text-snow"
+                        ? "bg-navy border-lime text-snow"
                         : "border-navy/20 text-navy/60 hover:border-navy/40"
                     }`}
                   >
@@ -639,7 +639,7 @@ function AdminAnnouncementsPage() {
                 <div
                   onClick={() => setForm((f) => ({ ...f, isPinned: !f.isPinned }))}
                   className={`relative w-11 h-6 rounded-full transition-colors border-[2px] ${
-                    form.isPinned ? "bg-navy border-navy" : "bg-cloud border-navy/20"
+                    form.isPinned ? "bg-navy border-lime" : "bg-cloud border-navy/20"
                   }`}
                 >
                   <div className={`absolute top-0.5 w-4 h-4 rounded-full shadow transition-transform ${
@@ -653,7 +653,7 @@ function AdminAnnouncementsPage() {
                 <div
                   onClick={() => setForm((f) => ({ ...f, sendEmail: !f.sendEmail }))}
                   className={`relative w-11 h-6 rounded-full transition-colors border-[2px] ${
-                    form.sendEmail ? "bg-navy border-navy" : "bg-cloud border-navy/20"
+                    form.sendEmail ? "bg-navy border-lime" : "bg-cloud border-navy/20"
                   }`}
                 >
                   <div className={`absolute top-0.5 w-4 h-4 rounded-full shadow transition-transform ${
@@ -677,7 +677,7 @@ function AdminAnnouncementsPage() {
                 />
                 {form.scheduledFor && (
                   <p className="text-[10px] text-sunny font-bold flex items-center gap-1">
-                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                    <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                       <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" />
                     </svg>
                     Will be published automatically at scheduled time
@@ -708,7 +708,7 @@ function AdminAnnouncementsPage() {
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
- className="px-6 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy disabled:opacity-40 transition-all"
+ className="px-6 py-2.5 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-4 press-lime disabled:opacity-40 transition-all"
               >
                 {submitting ? "Saving..." : editingId ? "Save Changes" : form.scheduledFor ? "Schedule" : "Publish"}
               </button>

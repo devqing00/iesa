@@ -25,6 +25,7 @@ import { API_BASE_URL } from "@/lib/api/client";
 // Map SSE event types → SWR cache keys that should be revalidated
 const EVENT_KEY_MAP: Record<string, string[]> = {
   announcement_created: ["/api/v1/announcements/", "/api/v1/student/dashboard", "/api/v1/admin/stats"],
+  announcement_updated: ["/api/v1/announcements/", "/api/v1/student/dashboard"],
   announcement_deleted: ["/api/v1/announcements/", "/api/v1/student/dashboard", "/api/v1/admin/stats"],
   event_created:        ["/api/v1/events/", "/api/v1/student/dashboard", "/api/v1/admin/stats"],
   event_updated:        ["/api/v1/events/", "/api/v1/student/dashboard", "/api/v1/admin/stats"],
@@ -39,6 +40,8 @@ const EVENT_KEY_MAP: Record<string, string[]> = {
 const NOTIFICATION_EVENTS = new Set([
   "notification_created",
   "announcement_created",
+  "announcement_updated",
+  "announcement_deleted",
   "event_created",
   "payment_created",
 ]);

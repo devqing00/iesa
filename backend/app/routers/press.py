@@ -66,11 +66,12 @@ def _slugify(text: str) -> str:
 
 
 async def _check_press_member(user: dict, db) -> bool:
-    """Check if user is a press unit member (has any press permission in their role).
+    """Check if user is a press unit member (has any press permission in their active-session role).
     Super admins always have access."""
     roles = db["roles"]
+    sessions = db["sessions"]
     
-    # Check for super admin (omnipotent access)
+    # Check for super admin (omnipotent access — session-agnostic)
     super_admin = await roles.find_one({
         "userId": user["_id"],
         "position": "super_admin",
@@ -79,9 +80,17 @@ async def _check_press_member(user: dict, db) -> bool:
     if super_admin:
         return True
     
-    # Check for press-specific permissions or position
+    # Get active session for session-scoped check
+    active_session = await sessions.find_one({"isActive": True})
+    if not active_session:
+        return False
+    session_id = str(active_session["_id"])
+    
+    # Check for press-specific permissions or position in the active session
     user_role = await roles.find_one({
         "userId": user["_id"],
+        "sessionId": session_id,
+        "isActive": True,
         "$or": [
             {"permissions": {"$in": ["press:create", "press:edit", "press:review", "press:publish", "press:manage"]}},
             {"position": {"$regex": "press", "$options": "i"}},
@@ -91,11 +100,12 @@ async def _check_press_member(user: dict, db) -> bool:
 
 
 async def _check_press_head(user: dict, db) -> bool:
-    """Check if user has press review/publish permissions (unit head).
+    """Check if user has press review/publish permissions (unit head) in the active session.
     Super admins always have access."""
     roles = db["roles"]
+    sessions = db["sessions"]
     
-    # Check for super admin (omnipotent access)
+    # Check for super admin (omnipotent access — session-agnostic)
     super_admin = await roles.find_one({
         "userId": user["_id"],
         "position": "super_admin",
@@ -104,9 +114,17 @@ async def _check_press_head(user: dict, db) -> bool:
     if super_admin:
         return True
     
-    # Check for press head permissions
+    # Get active session for session-scoped check
+    active_session = await sessions.find_one({"isActive": True})
+    if not active_session:
+        return False
+    session_id = str(active_session["_id"])
+    
+    # Check for press head permissions in the active session
     user_role = await roles.find_one({
         "userId": user["_id"],
+        "sessionId": session_id,
+        "isActive": True,
         "permissions": {"$in": ["press:review", "press:publish", "press:manage"]},
     })
     return user_role is not None

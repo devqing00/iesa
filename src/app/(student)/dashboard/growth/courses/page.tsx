@@ -163,7 +163,7 @@ export default function CourseProgressPage() {
             href="/dashboard/growth"
             className="group inline-flex items-center gap-2 text-sm font-bold text-slate hover:text-navy transition-colors"
           >
-            <svg className="w-4 h-4 group-hover:-translate-x-1 transition-transform" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-4 h-4 group-hover:-translate-x-1 transition-transform" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M11.03 3.97a.75.75 0 010 1.06l-6.22 6.22H21a.75.75 0 010 1.5H4.81l6.22 6.22a.75.75 0 11-1.06 1.06l-7.5-7.5a.75.75 0 010-1.06l7.5-7.5a.75.75 0 011.06 0z" clipRule="evenodd" />
             </svg>
             Back to Growth Hub
@@ -175,7 +175,7 @@ export default function CourseProgressPage() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
           <div className="md:col-span-7 bg-coral border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[180px] flex flex-col justify-between">
             <div className="absolute -bottom-14 -right-14 w-40 h-40 rounded-full bg-navy/8 pointer-events-none" />
-            <svg className="absolute top-6 right-10 w-5 h-5 text-snow/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="absolute top-6 right-10 w-5 h-5 text-snow/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
             </svg>
             <div>
@@ -249,7 +249,7 @@ export default function CourseProgressPage() {
           {courses.length === 0 ? (
             <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] p-10 text-center">
               <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-coral-light flex items-center justify-center">
-                <svg className="w-8 h-8 text-coral" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-8 h-8 text-coral" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M11.7 2.805a.75.75 0 0 1 .6 0A60.65 60.65 0 0 1 22.83 8.72a.75.75 0 0 1-.231 1.337 49.949 49.949 0 0 0-9.902 3.912l-.003.002-.34.18a.75.75 0 0 1-.707 0A50.009 50.009 0 0 0 7.5 12.174v-.224c0-.131.067-.248.172-.311a54.614 54.614 0 0 1 4.653-2.52.75.75 0 0 0-.65-1.352 56.129 56.129 0 0 0-4.78 2.589 1.858 1.858 0 0 0-.859 1.228 49.803 49.803 0 0 0-4.634-1.527.75.75 0 0 1-.231-1.337A60.653 60.653 0 0 1 11.7 2.805Z" />
                   <path d="M13.06 15.473a48.45 48.45 0 0 1 7.666-3.282c.134 1.414.22 2.843.255 4.284a.75.75 0 0 1-.46.71 47.878 47.878 0 0 0-8.105 4.342.75.75 0 0 1-.832 0 47.877 47.877 0 0 0-8.104-4.342.75.75 0 0 1-.461-.71c.035-1.442.121-2.87.255-4.286A48.4 48.4 0 0 1 6 13.18v1.27a1.5 1.5 0 0 0-.14 2.508c-.09.38-.222.753-.397 1.11.452.213.901.434 1.346.661a6.729 6.729 0 0 0 .551-1.607 1.5 1.5 0 0 0 .14-2.67v-.645a48.549 48.549 0 0 1 3.44 1.667 2.25 2.25 0 0 0 2.12 0Z" />
                 </svg>
@@ -297,7 +297,7 @@ export default function CourseProgressPage() {
                           <p className={`font-display font-black text-lg ${isComplete ? "text-teal" : "text-navy"}`}>{pct}%</p>
                           <p className="text-[10px] font-bold text-slate">{completed}/{total}</p>
                         </div>
-                        <svg className={`w-5 h-5 text-navy/30 transition-transform ${isExpanded ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className={`w-5 h-5 text-navy/30 transition-transform ${isExpanded ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clipRule="evenodd" />
                         </svg>
                       </div>
@@ -328,7 +328,7 @@ export default function CourseProgressPage() {
                                   }`}
                                 >
                                   {topic.completed && (
-                                    <svg className="w-3.5 h-3.5 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                                    <svg aria-hidden="true" className="w-3.5 h-3.5 text-navy" viewBox="0 0 24 24" fill="currentColor">
                                       <path fillRule="evenodd" d="M19.916 4.626a.75.75 0 0 1 .208 1.04l-9 13.5a.75.75 0 0 1-1.154.114l-6-6a.75.75 0 0 1 1.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 0 1 1.04-.208Z" clipRule="evenodd" />
                                     </svg>
                                   )}
@@ -341,7 +341,7 @@ export default function CourseProgressPage() {
                                   onClick={() => deleteTopic(course.id, topic.id)}
                                   className="opacity-0 group-hover:opacity-100 text-coral/50 hover:text-coral transition-all"
                                 >
-                                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                                  <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                                     <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                                   </svg>
                                 </button>
@@ -373,7 +373,7 @@ export default function CourseProgressPage() {
                                 onClick={() => { setAddingTopicTo(null); setInlineTopic(""); }}
                                 className="text-slate hover:text-navy px-2"
                               >
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                                 </svg>
                               </button>
@@ -415,7 +415,7 @@ export default function CourseProgressPage() {
                   {editId ? "Edit Course" : "Add Course"}
                 </h3>
                 <button onClick={resetForm} className="text-slate hover:text-navy">
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                     <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
@@ -504,7 +504,7 @@ export default function CourseProgressPage() {
 
         {/* Privacy */}
         <div className="mt-8 text-center flex items-center justify-center gap-1.5">
-          <svg className="w-3 h-3 text-teal" fill="currentColor" viewBox="0 0 24 24">
+          <svg aria-hidden="true" className="w-3 h-3 text-teal" fill="currentColor" viewBox="0 0 24 24">
             <path fillRule="evenodd" d="M4.5 9.75a6 6 0 0111.573-2.226 3.75 3.75 0 014.133 4.303A4.5 4.5 0 0118 20.25H6.75a5.25 5.25 0 01-.75-10.5z" clipRule="evenodd" />
           </svg>
           <span className="text-[10px] font-bold text-teal uppercase tracking-wider">Synced to your account</span>

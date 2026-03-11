@@ -36,7 +36,10 @@ def invalidate_permissions_cache(user_id: str | None = None):
     """Call after role assign/revoke. Pass user_id for targeted bust, or None for all."""
     global _permissions_cache
     if user_id:
-        _permissions_cache.pop(user_id, None)
+        # Cache keys are "user_id:session_id" — remove all entries for this user
+        keys_to_remove = [k for k in _permissions_cache if k.startswith(f"{user_id}:")]
+        for k in keys_to_remove:
+            _permissions_cache.pop(k, None)
     else:
         _permissions_cache.clear()
 
@@ -161,6 +164,10 @@ PERMISSIONS = {
     "unit_head:manage_noticeboard": "Create/edit/delete noticeboard posts for own unit",
     "unit_head:manage_tasks": "Create/edit/delete tasks for unit members",
     "unit_head:announce": "Send announcements targeted to own unit members",
+
+    # Messaging & Moderation permissions
+    "messages:manage": "Manage DM reports (list, review, mute/unmute users)",
+    "message:moderate": "Access moderation dashboard (content moderation)",
 }
 
 
@@ -209,6 +216,7 @@ DEFAULT_PERMISSIONS = {
         "contact:view", "contact:manage",
         "unit_application:review", "unit_application:manage",
         "audit:view", "audit:export",
+        "messages:manage", "message:moderate",
     ],
     "vice_president": [
         "announcement:create", "announcement:edit", "announcement:view",
@@ -223,6 +231,7 @@ DEFAULT_PERMISSIONS = {
         "iepod:manage", "iepod:view",
         "contact:view", "contact:manage",
         "unit_application:review", "unit_application:manage",
+        "messages:manage", "message:moderate",
     ],
     "general_secretary": [
         "announcement:create", "announcement:edit", "announcement:view",
@@ -230,6 +239,7 @@ DEFAULT_PERMISSIONS = {
         "timetable:view",
         "contact:view", "contact:manage",
         "unit_application:review",
+        "messages:manage", "message:moderate",
     ],
     "assistant_general_secretary": [
         "announcement:create", "announcement:view",
@@ -381,20 +391,22 @@ DEFAULT_PERMISSIONS = {
 
     # ── Unit Heads ───────────────────────────────────────────────────
     "unit_head_photography": [
-        "announcement:view",
+        "announcement:create", "announcement:view",
         "event:view",
+        "unit_head:view_members", "unit_head:manage_noticeboard",
+        "unit_head:manage_tasks", "unit_head:announce",
     ],
     "unit_head_logistics": [
-        "announcement:view",
+        "announcement:create", "announcement:view",
         "event:view",
-    ],
-    "unit_head_security": [
-        "announcement:view",
-        "event:view",
+        "unit_head:view_members", "unit_head:manage_noticeboard",
+        "unit_head:manage_tasks", "unit_head:announce",
     ],
     "unit_head_decoration": [
-        "announcement:view",
+        "announcement:create", "announcement:view",
         "event:view",
+        "unit_head:view_members", "unit_head:manage_noticeboard",
+        "unit_head:manage_tasks", "unit_head:announce",
     ],
 
     # ── Special Roles ────────────────────────────────────────────────
@@ -423,6 +435,16 @@ DEFAULT_PERMISSIONS = {
         "unit_head:manage_tasks", "unit_head:announce",
     ],
     "ics_member": [
+        "announcement:view",
+        "event:view",
+    ],
+
+    # ── Alumni & Relations ───────────────────────────────────────────
+    "alumni": [
+        "announcement:view",
+        "event:view",
+    ],
+    "relations_committee": [
         "announcement:view",
         "event:view",
     ],

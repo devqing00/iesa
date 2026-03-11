@@ -59,13 +59,20 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
     db = get_database()
     user = await db["users"].find_one(
         {"firebaseUid": firebase_uid},
-        {"_id": 1, "role": 1, "email": 1},
+        {"_id": 1, "role": 1, "email": 1, "isActive": 1},
     )
 
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User profile not found. Please complete your profile setup.",
+        )
+
+    # Block deactivated users
+    if user.get("isActive") is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been deactivated. Please contact an administrator.",
         )
 
     return {
@@ -103,12 +110,18 @@ async def verify_firebase_id_token_raw(token: str) -> dict:
     db = get_database()
     user = await db["users"].find_one(
         {"firebaseUid": firebase_uid},
-        {"_id": 1, "role": 1, "email": 1},
+        {"_id": 1, "role": 1, "email": 1, "isActive": 1},
     )
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User profile not found.",
+        )
+
+    if user.get("isActive") is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been deactivated.",
         )
 
     return {

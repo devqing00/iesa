@@ -112,7 +112,7 @@ export default function DeadlineWidget({ payments, events }: DeadlineWidgetProps
         <h3 className="font-display font-black text-lg text-navy">Deadlines</h3>
         {entries.some((e) => e.urgency === "overdue" || e.urgency === "urgent") && (
           <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-coral text-snow text-[10px] font-bold">
-            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
             </svg>
             Attention
@@ -133,12 +133,12 @@ export default function DeadlineWidget({ payments, events }: DeadlineWidgetProps
               {/* Dot + type icon */}
               <div className={`w-8 h-8 rounded-xl ${s.badge} flex items-center justify-center shrink-0`}>
                 {entry.type === "payment" ? (
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M4.5 3.75a3 3 0 0 0-3 3v.75h21v-.75a3 3 0 0 0-3-3h-15Z" />
                     <path fillRule="evenodd" d="M22.5 9.75H1.5v7.5a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3v-7.5Zm-15 3a.75.75 0 0 0-.75.75v1.5c0 .414.336.75.75.75h3a.75.75 0 0 0 .75-.75v-1.5a.75.75 0 0 0-.75-.75h-3Z" clipRule="evenodd" />
                   </svg>
                 ) : (
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
                   </svg>
                 )}

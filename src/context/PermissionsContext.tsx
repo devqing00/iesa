@@ -84,17 +84,14 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
 
   // Stabilize permission check functions to prevent unnecessary re-renders
   const hasPermission = useCallback((permission: string): boolean => {
-    if (permissions.includes("*")) return true; // Admin wildcard
     return permissions.includes(permission);
   }, [permissions]);
 
   const hasAnyPermission = useCallback((perms: string[]): boolean => {
-    if (permissions.includes("*")) return true;
     return perms.some((p) => permissions.includes(p));
   }, [permissions]);
 
   const hasAllPermissions = useCallback((perms: string[]): boolean => {
-    if (permissions.includes("*")) return true;
     return perms.every((p) => permissions.includes(p));
   }, [permissions]);
 

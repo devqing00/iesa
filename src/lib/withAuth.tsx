@@ -4,7 +4,7 @@ import { useEffect, useRef, ComponentType } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { usePermissions } from "@/context/PermissionsContext";
-import { useToast } from "@/components/ui/Toast";
+import { toast } from "sonner";
 
 interface WithAuthOptions {
   requiredPermission?: string;
@@ -50,7 +50,6 @@ export function withAuth<P extends object>(
     const { user, userProfile, loading: authLoading } = useAuth();
     const { hasPermission, hasAnyPermission, hasAllPermissions, loading: permissionsLoading } = usePermissions();
     const router = useRouter();
-    const toast = useToast();
     const toastFiredRef = useRef(false);
 
     const {
@@ -80,7 +79,7 @@ export function withAuth<P extends object>(
       const denyAccess = () => {
         if (!toastFiredRef.current) {
           toastFiredRef.current = true;
-          toast.error("Access denied", "You don't have permission to access this page.");
+          toast.error("Access denied", { description: "You don't have permission to access this page." });
         }
         router.push(dashboardPath);
       };

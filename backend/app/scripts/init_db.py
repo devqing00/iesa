@@ -184,9 +184,18 @@ async def create_indexes(db):
     await db.resources.create_index([("status", 1), ("createdAt", -1)])
     
     # IEPOD collection indexes
-    await db.iepod_registrations.create_index("studentId")
+    # Drop legacy indexes that used wrong field name (studentId instead of userId)
+    try:
+        await db.iepod_registrations.drop_index("studentId_1")
+    except Exception:
+        pass
+    try:
+        await db.iepod_registrations.drop_index("studentId_1_sessionId_1")
+    except Exception:
+        pass
+    await db.iepod_registrations.create_index("userId")
     await db.iepod_registrations.create_index("sessionId")
-    await db.iepod_registrations.create_index([("studentId", 1), ("sessionId", 1)], unique=True)
+    await db.iepod_registrations.create_index([("userId", 1), ("sessionId", 1)], unique=True)
     await db.iepod_societies.create_index("sessionId")
     await db.iepod_points.create_index([("registrationId", 1), ("phase", 1)])
     await db.iepod_quiz_responses.create_index([("registrationId", 1), ("quizId", 1)])

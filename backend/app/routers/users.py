@@ -388,6 +388,14 @@ async def update_user_role(
             detail="Invalid user ID format"
         )
     
+    # C1: Prevent self-role-elevation
+    admin_id = str(admin_user.get("_id") or admin_user.get("id", ""))
+    if user_id == admin_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot change your own role"
+        )
+    
     # Get current user data for audit trail
     target_user = await users.find_one({"_id": ObjectId(user_id)})
     if not target_user:
@@ -424,6 +432,10 @@ async def update_user_role(
         new_role=new_role,
         ip_address=request.client.host if request.client else None
     )
+    
+    # M3: Bust permissions cache after role change
+    from app.core.permissions import invalidate_permissions_cache
+    invalidate_permissions_cache(user_id)
     
     updated_user = await users.find_one({"_id": ObjectId(user_id)})
     if not updated_user:

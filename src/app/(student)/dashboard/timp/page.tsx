@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { toast } from "sonner";
@@ -30,10 +30,11 @@ function formatDate(d: string) {
 
 function Stars({ rating }: { rating: number }) {
   return (
-    <div className="flex gap-0.5">
+    <div className="flex gap-0.5" role="img" aria-label={`${rating} out of 5 stars`}>
       {[1, 2, 3, 4, 5].map((s) => (
         <svg
           key={s}
+          aria-hidden="true"
           className={`w-4 h-4 ${s <= rating ? "text-sunny" : "text-cloud"}`}
           viewBox="0 0 24 24"
           fill="currentColor"
@@ -43,6 +44,54 @@ function Stars({ rating }: { rating: number }) {
       ))}
     </div>
   );
+}
+
+/* ── Journey Progress helpers ── */
+type JourneyStep = { label: string; desc: string };
+
+const MENTOR_STEPS: JourneyStep[] = [
+  { label: "Applied", desc: "Submitted application" },
+  { label: "Approved", desc: "Ready to mentor" },
+  { label: "Paired", desc: "Matched with mentee" },
+  { label: "Check-in", desc: "First feedback" },
+  { label: "Mentoring", desc: "Actively guiding" },
+];
+
+const MENTEE_STEPS: JourneyStep[] = [
+  { label: "Enrolled", desc: "Joined TIMP" },
+  { label: "Paired", desc: "Matched with mentor" },
+  { label: "Check-in", desc: "First feedback" },
+  { label: "Growing", desc: "Making progress" },
+];
+
+function computeJourneyStep(info: MyTimpInfo): number {
+  const totalFb = info.pairs.reduce((s, p) => s + p.feedbackCount, 0);
+  if (info.application) {
+    // Mentor: 0=Applied 1=Approved 2=Paired 3=Check-in 4=Mentoring
+    if (totalFb >= 1 && info.pairs.some((p) => p.status === "active")) return 4;
+    if (totalFb >= 1) return 3;
+    if (info.pairs.length > 0) return 2;
+    if (info.application.status === "approved") return 1;
+    return 0;
+  }
+  // Mentee: 0=Enrolled 1=Paired 2=Check-in 3=Growing
+  if (totalFb >= 3) return 3;
+  if (totalFb >= 1) return 2;
+  if (info.pairs.length > 0) return 1;
+  return 0;
+}
+
+function getPairMilestones(pair: MentorshipPair): { label: string; bg: string; text: string }[] {
+  const m: { label: string; bg: string; text: string }[] = [];
+  if (pair.feedbackCount >= 1)
+    m.push({ label: "First Check-in", bg: "bg-teal-light", text: "text-teal" });
+  if (pair.feedbackCount >= 3)
+    m.push({ label: "Consistent", bg: "bg-lime-light", text: "text-navy" });
+  if (pair.feedbackCount >= 5)
+    m.push({ label: "Dedicated", bg: "bg-sunny-light", text: "text-navy" });
+  if (pair.status === "completed")
+    m.push({ label: "Completed", bg: "bg-lavender-light", text: "text-lavender" });
+  return m;
 }
 
 /* ─── Component ──────────────────────────── */
@@ -83,6 +132,7 @@ export default function TimpPage() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (user) fetchInfo();
@@ -164,6 +214,7 @@ export default function TimpPage() {
       setPairMessages(msgs);
       setMessagesPairId(pairId);
       setNewMessage("");
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } catch {
       toast.error("Failed to load messages");
     } finally {
@@ -181,6 +232,7 @@ export default function TimpPage() {
       // Refresh messages
       const msgs = await getPairMessages(pairId, 50);
       setPairMessages(msgs);
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } catch {
       toast.error("Failed to send message");
     } finally {
@@ -208,6 +260,11 @@ export default function TimpPage() {
   const userLevel = info?.userLevel ?? null;
   const is100L = userLevel !== null && userLevel < 200;
 
+  // Journey progress
+  const showJourney = info != null && (hasApplication || info.pairs.length > 0);
+  const journeySteps = hasApplication ? MENTOR_STEPS : MENTEE_STEPS;
+  const currentStep = info ? computeJourneyStep(info) : -1;
+
   return (
     <div className="min-h-screen bg-ghost">
       <DashboardHeader title="TIMP" />
@@ -218,7 +275,7 @@ export default function TimpPage() {
         {/* ── Hero ── */}
         <div className="bg-teal border-4 border-navy rounded-3xl p-8 shadow-[6px_6px_0_0_#000] relative overflow-hidden">
           <div className="absolute -bottom-10 -right-10 w-36 h-36 rounded-full bg-navy/10 pointer-events-none" />
-          <svg className="absolute top-5 right-8 w-5 h-5 text-snow/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="absolute top-5 right-8 w-5 h-5 text-snow/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
           </svg>
           <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-snow/60 mb-2">Mentoring Program</p>
@@ -229,6 +286,45 @@ export default function TimpPage() {
             The IESA Mentoring Project pairs experienced students with newcomers for academic guidance, career advice, and personal growth.
           </p>
         </div>
+
+        {/* ── Journey Progress ── */}
+        {showJourney && (
+          <div className="bg-snow border-4 border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+            <h2 className="font-display font-black text-lg text-navy mb-5">Your TIMP Journey</h2>
+            <div className="flex items-center" role="list" aria-label="TIMP progress steps">
+              {journeySteps.map((step, i) => {
+                const done = i <= currentStep;
+                const isCurrent = i === currentStep;
+                return (
+                  <div key={step.label} className={`flex items-center ${i < journeySteps.length - 1 ? "flex-1" : ""}`} role="listitem">
+                    <div className="flex flex-col items-center text-center min-w-12 sm:min-w-16">
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center border-[3px] transition-all ${
+                          done ? "bg-lime border-navy" : "bg-ghost border-cloud"
+                        } ${isCurrent ? "ring-2 ring-lime ring-offset-2" : ""}`}
+                      >
+                        {done ? (
+                          <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 24 24">
+                            <path fillRule="evenodd" d="M19.916 4.626a.75.75 0 0 1 .208 1.04l-9 13.5a.75.75 0 0 1-1.154.114l-6-6a.75.75 0 0 1 1.06-1.06l5.353 5.353 8.493-12.74a.75.75 0 0 1 1.04-.207Z" clipRule="evenodd" />
+                          </svg>
+                        ) : (
+                          <span className="text-xs font-bold text-slate">{i + 1}</span>
+                        )}
+                      </div>
+                      <span className={`text-[10px] font-bold mt-1.5 leading-tight ${done ? "text-navy" : "text-slate"}`}>
+                        {step.label}
+                      </span>
+                      <span className="text-[9px] text-slate hidden sm:block leading-tight">{step.desc}</span>
+                    </div>
+                    {i < journeySteps.length - 1 && (
+                      <div className={`flex-1 h-0.75 mx-1 rounded-full min-w-3 ${i < currentStep ? "bg-lime" : "bg-cloud"}`} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ── Application Status ── */}
         {hasApplication && (
@@ -241,7 +337,7 @@ export default function TimpPage() {
               <span className="text-xs text-slate">{formatDate(info!.application!.createdAt)}</span>
             </div>
             {info!.application!.feedback && (
-              <p className="text-sm text-navy/60 italic bg-ghost rounded-xl p-3 border-2 border-cloud">
+              <p className="text-sm text-slate italic bg-ghost rounded-xl p-3 border-2 border-cloud">
                 {info!.application!.feedback}
               </p>
             )}
@@ -255,12 +351,12 @@ export default function TimpPage() {
               /* 100L students — can only be mentees */
               <div className="text-center space-y-3 py-4">
                 <div className="w-14 h-14 bg-lavender-light rounded-2xl flex items-center justify-center mx-auto">
-                  <svg className="w-7 h-7 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-7 h-7 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A18.034 18.034 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" clipRule="evenodd" />
                   </svg>
                 </div>
                 <h2 className="font-display font-black text-lg text-navy">You&apos;ll be Matched with a Mentor</h2>
-                <p className="text-sm text-navy/60 max-w-md mx-auto">
+                <p className="text-sm text-slate max-w-md mx-auto">
                   As a 100-level student, you&apos;ll be paired with an experienced mentor by the TIMP lead.
                   Sit tight — your mentor will be assigned to you soon!
                 </p>
@@ -269,12 +365,12 @@ export default function TimpPage() {
               /* Form is closed */
               <div className="text-center space-y-3 py-4">
                 <div className="w-14 h-14 bg-coral-light rounded-2xl flex items-center justify-center mx-auto">
-                  <svg className="w-7 h-7 text-coral" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-7 h-7 text-coral" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
                   </svg>
                 </div>
                 <h2 className="font-display font-black text-lg text-navy">Applications Closed</h2>
-                <p className="text-sm text-navy/60 max-w-md mx-auto">
+                <p className="text-sm text-slate max-w-md mx-auto">
                   TIMP mentor applications are currently closed. Check back later or wait to be paired as a mentee.
                 </p>
               </div>
@@ -284,7 +380,7 @@ export default function TimpPage() {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h2 className="font-display font-black text-lg text-navy">Become a Mentor</h2>
-                    <p className="text-sm text-navy/60">Share your experience and guide junior students</p>
+                    <p className="text-sm text-slate">Share your experience and guide junior students</p>
                   </div>
                   {!showApply && (
                     <button
@@ -357,7 +453,7 @@ export default function TimpPage() {
                       <button
                         type="submit"
                         disabled={submitting}
-                        className="px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-3 press-navy transition-all disabled:opacity-50"
+                        className="px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-3 press-lime transition-all disabled:opacity-50"
                       >
                         {submitting ? "Submitting\u2026" : "Submit Application"}
                       </button>
@@ -377,8 +473,6 @@ export default function TimpPage() {
             </h2>
 
             {info.pairs.map((pair) => {
-              const userId = user?.id;
-              const isMentor = pair.mentorId !== pair.menteeId; // always true
               const otherName = info.isMentor ? pair.menteeName : pair.mentorName;
               const otherRole = info.isMentor ? "Mentee" : "Mentor";
               const statusStyle = PAIR_STATUS_STYLES[pair.status];
@@ -402,8 +496,7 @@ export default function TimpPage() {
                       </p>
                     </div>
 
-                    {pair.status === "active" && (
-                      <div className="flex gap-2 flex-wrap">
+                    <div className="flex gap-2 flex-wrap">
                         <button
                           onClick={() => loadMessages(pair.id)}
                           className={`border-[3px] px-4 py-2 rounded-xl font-display font-bold text-xs transition-all ${
@@ -413,19 +506,21 @@ export default function TimpPage() {
                           }`}
                         >
                           <span className="flex items-center gap-1.5">
-                            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 00-1.032-.211 50.89 50.89 0 00-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 002.433 3.984L7.28 21.53A.75.75 0 016 21v-4.03a48.527 48.527 0 01-1.087-.128C2.905 16.58 1.5 14.833 1.5 12.862V6.638c0-1.97 1.405-3.718 3.413-3.979z" /><path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.814 2.67 2.94 1.243.102 2.5.157 3.768.165l2.782 2.781a.75.75 0 001.28-.53v-2.39l.33-.026c1.542-.125 2.67-1.433 2.67-2.94v-4.286c0-1.505-1.125-2.811-2.664-2.94A49.392 49.392 0 0015.75 7.5z" /></svg>
+                            <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 00-1.032-.211 50.89 50.89 0 00-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 002.433 3.984L7.28 21.53A.75.75 0 016 21v-4.03a48.527 48.527 0 01-1.087-.128C2.905 16.58 1.5 14.833 1.5 12.862V6.638c0-1.97 1.405-3.718 3.413-3.979z" /><path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.814 2.67 2.94 1.243.102 2.5.157 3.768.165l2.782 2.781a.75.75 0 001.28-.53v-2.39l.33-.026c1.542-.125 2.67-1.433 2.67-2.94v-4.286c0-1.505-1.125-2.811-2.664-2.94A49.392 49.392 0 0015.75 7.5z" /></svg>
                             {messagesPairId === pair.id ? "Hide Chat" : "Messages"}
                           </span>
                         </button>
-                        <button
-                          onClick={() => {
-                            setFeedbackPair(pair);
-                            setFeedbackForm({ rating: 4, notes: "", concerns: "", topicsCovered: "" });
-                          }}
-                          className="bg-lime border-[3px] border-navy press-3 press-navy px-4 py-2 rounded-xl font-display font-bold text-xs text-navy transition-all"
-                        >
-                          Submit Feedback
-                        </button>
+                        {pair.status === "active" && (
+                          <button
+                            onClick={() => {
+                              setFeedbackPair(pair);
+                              setFeedbackForm({ rating: 4, notes: "", concerns: "", topicsCovered: "" });
+                            }}
+                            className="bg-lime border-[3px] border-navy press-3 press-navy px-4 py-2 rounded-xl font-display font-bold text-xs text-navy transition-all"
+                          >
+                            Submit Feedback
+                          </button>
+                        )}
                         <button
                           onClick={() => loadFeedbackHistory(pair.id)}
                           className="bg-ghost border-[3px] border-navy rounded-xl px-4 py-2 font-display font-bold text-xs text-navy hover:bg-cloud transition-all"
@@ -433,8 +528,22 @@ export default function TimpPage() {
                           {viewFeedback === pair.id ? "Hide" : "View"} History
                         </button>
                       </div>
-                    )}
                   </div>
+
+                  {/* Pair milestones */}
+                  {getPairMilestones(pair).length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap mb-3">
+                      <span className="text-[10px] font-bold text-slate uppercase tracking-wider">Milestones</span>
+                      {getPairMilestones(pair).map((ms) => (
+                        <span key={ms.label} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold ${ms.bg} ${ms.text}`}>
+                          <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+                          </svg>
+                          {ms.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Feedback history */}
                   {viewFeedback === pair.id && feedbackHistory.length > 0 && (
@@ -450,7 +559,7 @@ export default function TimpPage() {
                             </div>
                             <Stars rating={fb.rating} />
                           </div>
-                          <p className="text-sm text-navy/70">{fb.notes}</p>
+                          <p className="text-sm text-navy-muted">{fb.notes}</p>
                           {fb.concerns && (
                             <p className="text-xs text-coral mt-2 italic">Concern: {fb.concerns}</p>
                           )}
@@ -475,7 +584,7 @@ export default function TimpPage() {
                   {messagesPairId === pair.id && (
                     <div className="mt-4 pt-4 border-t-[3px] border-cloud">
                       <h4 className="font-display font-bold text-sm text-navy mb-3 flex items-center gap-2">
-                        <svg className="w-4 h-4 text-teal" fill="currentColor" viewBox="0 0 24 24"><path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 00-1.032-.211 50.89 50.89 0 00-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 002.433 3.984L7.28 21.53A.75.75 0 016 21v-4.03a48.527 48.527 0 01-1.087-.128C2.905 16.58 1.5 14.833 1.5 12.862V6.638c0-1.97 1.405-3.718 3.413-3.979z" /><path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.814 2.67 2.94 1.243.102 2.5.157 3.768.165l2.782 2.781a.75.75 0 001.28-.53v-2.39l.33-.026c1.542-.125 2.67-1.433 2.67-2.94v-4.286c0-1.505-1.125-2.811-2.664-2.94A49.392 49.392 0 0015.75 7.5z" /></svg>
+                        <svg aria-hidden="true" className="w-4 h-4 text-teal" fill="currentColor" viewBox="0 0 24 24"><path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 00-1.032-.211 50.89 50.89 0 00-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 002.433 3.984L7.28 21.53A.75.75 0 016 21v-4.03a48.527 48.527 0 01-1.087-.128C2.905 16.58 1.5 14.833 1.5 12.862V6.638c0-1.97 1.405-3.718 3.413-3.979z" /><path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.814 2.67 2.94 1.243.102 2.5.157 3.768.165l2.782 2.781a.75.75 0 001.28-.53v-2.39l.33-.026c1.542-.125 2.67-1.433 2.67-2.94v-4.286c0-1.505-1.125-2.811-2.664-2.94A49.392 49.392 0 0015.75 7.5z" /></svg>
                         Pair Chat
                       </h4>
 
@@ -518,6 +627,7 @@ export default function TimpPage() {
                           </div>
 
                           {/* Send message form */}
+                          <div ref={messagesEndRef} />
                           <div className="flex gap-2 items-end">
                             <textarea
                               value={newMessage}
@@ -530,18 +640,19 @@ export default function TimpPage() {
                               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(pair.id); } }}
                               placeholder="Type a message… (Shift+Enter for new line)"
                               rows={1}
-                              className="flex-1 resize-none px-4 py-2.5 bg-ghost border-[3px] border-navy/20 rounded-xl text-sm text-navy placeholder:text-slate focus:border-navy focus:outline-none transition-colors"
+                              className="flex-1 resize-none px-4 py-2.5 bg-ghost border-[3px] border-cloud rounded-xl text-sm text-navy placeholder:text-slate focus:border-navy focus:outline-none transition-colors"
                               style={{ maxHeight: "120px" }}
                             />
                             <button
                               onClick={() => handleSendMessage(pair.id)}
                               disabled={!newMessage.trim() || sendingMessage}
-                              className="bg-navy border-[3px] border-navy px-4 py-2.5 rounded-xl font-display font-bold text-xs text-snow press-2 press-navy transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                              aria-label="Send message"
+                              className="bg-navy border-[3px] border-lime px-4 py-2.5 rounded-xl font-display font-bold text-xs text-snow press-2 press-lime transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               {sendingMessage ? (
-                                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                                <svg aria-hidden="true" className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                               ) : (
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" /></svg>
+                                <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" /></svg>
                               )}
                             </button>
                           </div>
@@ -551,10 +662,6 @@ export default function TimpPage() {
                   )}
                 </div>
               );
-
-              // Silence unused variable warnings
-              void userId;
-              void isMentor;
             })}
           </div>
         )}
@@ -563,14 +670,14 @@ export default function TimpPage() {
         {info && !hasApplication && info.pairs.length === 0 && !showApply && (
           <div className="bg-lavender-light border-4 border-navy rounded-3xl p-10 text-center shadow-[4px_4px_0_0_#000] space-y-4">
             <div className="w-16 h-16 bg-teal-light rounded-2xl flex items-center justify-center mx-auto">
-              <svg className="w-8 h-8 text-teal" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="w-8 h-8 text-teal" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A18.034 18.034 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" clipRule="evenodd" />
               </svg>
             </div>
             <h3 className="font-display font-black text-lg text-navy">
               {is100L ? "TIMP Mentoring" : "Join TIMP"}
             </h3>
-            <p className="text-sm text-navy/60 max-w-md mx-auto">
+            <p className="text-sm text-slate max-w-md mx-auto">
               {is100L
                 ? "As a 100-level student, you'll be paired with a mentor by the TIMP lead. No action needed — stay tuned!"
                 : !formOpen
@@ -591,7 +698,7 @@ export default function TimpPage() {
                   <h3 className="font-display font-black text-xl text-navy">Submit Feedback</h3>
                 </div>
                 <button onClick={() => setFeedbackPair(null)} className="p-2 rounded-xl hover:bg-cloud transition-colors" aria-label="Close">
-                  <svg className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-5 h-5 text-slate" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                   </svg>
                 </button>
@@ -673,7 +780,7 @@ export default function TimpPage() {
                   <button
                     type="submit"
                     disabled={submittingFeedback}
-                    className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-3 press-navy transition-all disabled:opacity-50"
+                    className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-3 press-lime transition-all disabled:opacity-50"
                   >
                     {submittingFeedback ? "Submitting…" : "Submit Feedback"}
                   </button>

@@ -273,7 +273,7 @@ function AdminMessagesPage() {
             onClick={() => setStatusFilter(f)}
             className={`px-4 py-2 rounded-xl text-xs font-display font-bold border-[2px] transition-all ${
               statusFilter === f
-                ? "bg-navy text-snow border-navy"
+                ? "bg-navy text-snow border-lime"
                 : "bg-snow text-navy border-navy/20 hover:border-navy"
             }`}
           >
@@ -298,7 +298,7 @@ function AdminMessagesPage() {
             </div>
           ) : messages.length === 0 ? (
             <div className="bg-snow border-[3px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
-              <svg className="w-16 h-16 text-cloud mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg aria-hidden="true" className="w-16 h-16 text-cloud mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
               </svg>
               <h3 className="font-display font-black text-xl text-navy mb-1">No messages</h3>
@@ -367,7 +367,7 @@ function AdminMessagesPage() {
                     onClick={() => setSelected(null)}
                     className="p-1.5 rounded-lg hover:bg-ghost transition-colors shrink-0"
                   >
-                    <svg className="w-4 h-4 text-navy/40" viewBox="0 0 24 24" fill="currentColor">
+                    <svg aria-hidden="true" className="w-4 h-4 text-navy/40" viewBox="0 0 24 24" fill="currentColor">
                       <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                     </svg>
                   </button>
@@ -451,7 +451,7 @@ function AdminMessagesPage() {
                 <PermissionGate permission="contact:manage">
                   <a
                     href={`mailto:${selected.email}?subject=Re: ${encodeURIComponent(selected.subject)}`}
-                    className="block w-full text-center px-4 py-2.5 bg-navy border-[3px] border-navy rounded-xl text-xs font-display font-bold text-snow press-3 press-navy transition-all hover:bg-navy-light"
+                    className="block w-full text-center px-4 py-2.5 bg-navy border-[3px] border-lime rounded-xl text-xs font-display font-bold text-snow press-3 press-lime transition-all"
                   >
                     Reply via Email
                   </a>
@@ -460,7 +460,7 @@ function AdminMessagesPage() {
             </div>
           ) : (
             <div className="bg-snow border-[3px] border-navy/10 rounded-3xl p-10 text-center">
-              <svg className="w-12 h-12 text-cloud mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg aria-hidden="true" className="w-12 h-12 text-cloud mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
               </svg>
               <p className="font-display font-bold text-navy/40">Select a message to view details</p>

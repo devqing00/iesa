@@ -23,6 +23,7 @@ class StudyGroupBase(BaseModel):
     level: Optional[Literal["100L", "200L", "300L", "400L", "500L"]] = None
     tags: list[str] = Field(default_factory=list, max_length=5, description="Study topics or tags")
     isOpen: bool = Field(default=True, description="Whether new members can join")
+    requireApproval: bool = Field(default=False, description="Whether join requests need head approval")
 
 
 class StudyGroupCreate(StudyGroupBase):
@@ -40,6 +41,7 @@ class StudyGroupUpdate(BaseModel):
     meetingLocation: Optional[str] = Field(None, max_length=200)
     tags: Optional[list[str]] = None
     isOpen: Optional[bool] = None
+    requireApproval: Optional[bool] = None
 
 
 class StudyGroupMember(BaseModel):
@@ -51,10 +53,21 @@ class StudyGroupMember(BaseModel):
     joinedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class JoinRequest(BaseModel):
+    """Embedded join request"""
+    userId: str
+    firstName: str
+    lastName: str
+    matricNumber: Optional[str] = None
+    requestedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class StudyGroupInDB(StudyGroupBase):
     """Full study group document as stored in MongoDB"""
     createdBy: str  # user_id
     creatorName: str
     members: list[StudyGroupMember] = Field(default_factory=list)
+    joinRequests: list[JoinRequest] = Field(default_factory=list)
+    inviteCode: Optional[str] = None  # unique short code for invite links
     createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updatedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

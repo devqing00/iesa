@@ -115,7 +115,7 @@ export default function NicheAuditPage() {
       } else {
         const created = await createNicheAudit(data);
         setAudit(created);
-        toast.success("Niche audit submitted! +20 points 🎉");
+        toast.success("Niche audit submitted! +20 points");
       }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Save failed");
@@ -175,7 +175,7 @@ export default function NicheAuditPage() {
             </p>
             <Link
               href="/dashboard/iepod"
-              className="bg-navy border-[3px] border-navy text-lime font-display font-black text-sm px-6 py-3 rounded-xl press-4 press-navy inline-block transition-all mt-2"
+              className="bg-navy border-[3px] border-lime text-lime font-display font-black text-sm px-6 py-3 rounded-xl press-4 press-lime inline-block transition-all mt-2"
             >
               Back to Dashboard
             </Link>
@@ -214,23 +214,23 @@ export default function NicheAuditPage() {
           <div className="space-y-4">
             <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
               <h3 className="font-display font-black text-base text-navy mb-2">Focus Problem</h3>
-              <p className="text-navy/80 text-sm">{audit.focusProblem}</p>
+              <p className="text-navy-muted text-sm">{audit.focusProblem}</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-4">
               <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
                 <h3 className="font-display font-black text-base text-navy mb-2">Target Audience</h3>
-                <p className="text-navy/80 text-sm">{audit.targetAudience}</p>
+                <p className="text-navy-muted text-sm">{audit.targetAudience}</p>
               </div>
               <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
                 <h3 className="font-display font-black text-base text-navy mb-2">Constraints</h3>
-                <p className="text-navy/80 text-sm">{audit.constraints}</p>
+                <p className="text-navy-muted text-sm">{audit.constraints}</p>
               </div>
             </div>
 
             <div className="bg-lavender border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] rotate-[-0.5deg]">
               <h3 className="font-display font-black text-base text-navy mb-2">Proposed Approach</h3>
-              <p className="text-navy/80 text-sm">{audit.proposedApproach}</p>
+              <p className="text-navy-muted text-sm">{audit.proposedApproach}</p>
             </div>
 
             {audit.relevantSkills.length > 0 && (
@@ -251,13 +251,13 @@ export default function NicheAuditPage() {
                 {audit.relatedSociety && (
                   <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
                     <h3 className="font-display font-black text-base text-navy mb-2">Related Society</h3>
-                    <p className="text-navy/80 text-sm">{audit.relatedSociety}</p>
+                    <p className="text-navy-muted text-sm">{audit.relatedSociety}</p>
                   </div>
                 )}
                 {audit.inspirations && (
                   <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
                     <h3 className="font-display font-black text-base text-navy mb-2">Inspirations</h3>
-                    <p className="text-navy/80 text-sm">{audit.inspirations}</p>
+                    <p className="text-navy-muted text-sm">{audit.inspirations}</p>
                   </div>
                 )}
               </div>
@@ -337,11 +337,11 @@ export default function NicheAuditPage() {
                 value={targetAudience}
                 onChange={(e) => setTargetAudience(e.target.value)}
                 rows={5}
-                maxLength={1500}
+                maxLength={1000}
                 placeholder="Who would benefit from a solution? Think about stakeholders, end users, and communities affected..."
                 className="w-full border-[3px] border-navy rounded-xl px-4 py-3 font-medium text-navy bg-snow focus:outline-none focus:ring-2 focus:ring-lime resize-none"
               />
-              <p className="text-slate text-xs mt-2">{targetAudience.length}/1500 characters</p>
+              <p className="text-slate text-xs mt-2">{targetAudience.length}/1000 characters</p>
             </div>
           )}
 
@@ -352,11 +352,11 @@ export default function NicheAuditPage() {
                 value={constraints}
                 onChange={(e) => setConstraints(e.target.value)}
                 rows={5}
-                maxLength={1500}
+                maxLength={1000}
                 placeholder="What are the limitations? Consider budget, technology, time, regulations, geographical, social factors..."
                 className="w-full border-[3px] border-navy rounded-xl px-4 py-3 font-medium text-navy bg-snow focus:outline-none focus:ring-2 focus:ring-lime resize-none"
               />
-              <p className="text-slate text-xs mt-2">{constraints.length}/1500 characters</p>
+              <p className="text-slate text-xs mt-2">{constraints.length}/1000 characters</p>
             </div>
           )}
 
@@ -409,7 +409,7 @@ export default function NicheAuditPage() {
                 <button
                   type="button"
                   onClick={addCustomSkill}
-                  className="bg-navy text-lime font-bold text-xs px-4 rounded-xl"
+                  className="bg-navy text-lime font-bold text-xs px-4 py-2 rounded-xl border-[2px] border-lime press-2 press-lime"
                 >
                   Add
                 </button>
@@ -428,7 +428,7 @@ export default function NicheAuditPage() {
                         <button
                           type="button"
                           onClick={() => setRelevantSkills(relevantSkills.filter((sk) => sk !== s))}
-                          className="text-navy/40 hover:text-coral text-sm"
+                          className="text-slate hover:text-coral text-sm"
                         >
                           &times;
                         </button>
@@ -488,7 +488,7 @@ export default function NicheAuditPage() {
               <button
                 type="button"
                 onClick={() => setStep(step + 1)}
-                className="bg-navy border-[3px] border-navy px-5 py-2 rounded-xl font-display font-bold text-sm text-lime press-3 press-navy"
+                className="bg-navy border-[3px] border-lime px-5 py-2 rounded-xl font-display font-bold text-sm text-lime press-3 press-lime"
               >
                 Next &rarr;
               </button>

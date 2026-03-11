@@ -222,7 +222,7 @@ function AdminSessionsPage() {
             onClick={() => setShowCreateModal(true)}
             className="self-start bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
             </svg>
             New Session
@@ -277,7 +277,7 @@ function AdminSessionsPage() {
       ) : sessions.length === 0 ? (
         <div className="bg-snow border-[3px] border-navy rounded-3xl p-16 text-center shadow-[4px_4px_0_0_#000] space-y-4">
           <div className="w-16 h-16 bg-sunny-light rounded-2xl flex items-center justify-center mx-auto">
-            <svg className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
             </svg>
           </div>
@@ -292,10 +292,10 @@ function AdminSessionsPage() {
           {activeSession && (
             <div className="bg-navy border-[3px] border-ghost/20 rounded-3xl p-6 md:p-8 relative overflow-hidden">
               {/* Decorative diamonds */}
-              <svg className="absolute top-4 right-4 w-5 h-5 text-navy/12 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="absolute top-4 right-4 w-5 h-5 text-navy/12 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
               </svg>
-              <svg className="absolute bottom-6 right-16 w-4 h-4 text-navy/10 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+              <svg aria-hidden="true" className="absolute bottom-6 right-16 w-4 h-4 text-navy/10 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
               </svg>
 
@@ -314,7 +314,7 @@ function AdminSessionsPage() {
                     {activeSession.name}
                   </h2>
                   <div className="flex items-center gap-2 text-sm text-snow/50">
-                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <svg aria-hidden="true" className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                       <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
                     </svg>
                     <span>
@@ -327,7 +327,7 @@ function AdminSessionsPage() {
                     onClick={() => openEditModal(activeSession)}
                     className="bg-teal/20 border-[3px] border-ghost/20 text-snow px-6 py-2.5 rounded-2xl text-sm font-bold hover:bg-ghost hover:text-navy transition-all flex items-center gap-2"
                   >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32l8.4-8.4Z" />
                       <path d="M5.25 5.25a3 3 0 0 0-3 3v10.5a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3V13.5a.75.75 0 0 0-1.5 0v5.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5V8.25a1.5 1.5 0 0 1 1.5-1.5h5.25a.75.75 0 0 0 0-1.5H5.25Z" />
                     </svg>
@@ -359,7 +359,7 @@ function AdminSessionsPage() {
                     </div>
 
                     <div className="flex items-center gap-2 text-sm text-navy/60 mb-5">
-                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                      <svg aria-hidden="true" className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                         <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
                       </svg>
                       <span>
@@ -379,10 +379,10 @@ function AdminSessionsPage() {
                       <PermissionGate permission="session:edit">
                         <button
                           onClick={() => openEditModal(session)}
-                          className="p-2.5 bg-ghost border-[3px] border-navy text-navy rounded-2xl hover:bg-navy hover:text-snow transition-all"
+                          className="p-2.5 bg-ghost border-[3px] border-navy text-navy rounded-2xl hover:bg-navy hover:text-lime hover:border-lime transition-all"
                           aria-label="Edit session"
                         >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32l8.4-8.4Z" />
                             <path d="M5.25 5.25a3 3 0 0 0-3 3v10.5a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3V13.5a.75.75 0 0 0-1.5 0v5.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5V8.25a1.5 1.5 0 0 1 1.5-1.5h5.25a.75.75 0 0 0 0-1.5H5.25Z" />
                           </svg>
@@ -413,7 +413,7 @@ function AdminSessionsPage() {
                 className="p-2 rounded-xl hover:bg-cloud transition-colors"
                 aria-label="Close modal"
               >
-                <svg className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                 </svg>
               </button>
@@ -519,7 +519,7 @@ function AdminSessionsPage() {
                 <div
                   onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
                   className={`relative w-11 h-6 rounded-full transition-colors border-[2px] ${
-                    formData.isActive ? "bg-navy border-navy" : "bg-cloud border-navy/20"
+                    formData.isActive ? "bg-navy border-lime" : "bg-cloud border-navy/20"
                   }`}
                 >
                   <div className={`absolute top-0.5 w-4 h-4 rounded-full shadow transition-transform ${
@@ -539,7 +539,7 @@ function AdminSessionsPage() {
                 </button>
                 <button
                   type="submit"
- className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy transition-all"
+ className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-4 press-lime transition-all"
                 >
                   Create Session
                 </button>
@@ -565,7 +565,7 @@ function AdminSessionsPage() {
                 className="p-2 rounded-xl hover:bg-cloud transition-colors"
                 aria-label="Close modal"
               >
-                <svg className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                 </svg>
               </button>
@@ -671,7 +671,7 @@ function AdminSessionsPage() {
                 <div
                   onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
                   className={`relative w-11 h-6 rounded-full transition-colors border-[2px] ${
-                    formData.isActive ? "bg-navy border-navy" : "bg-cloud border-navy/20"
+                    formData.isActive ? "bg-navy border-lime" : "bg-cloud border-navy/20"
                   }`}
                 >
                   <div className={`absolute top-0.5 w-4 h-4 rounded-full shadow transition-transform ${
@@ -691,7 +691,7 @@ function AdminSessionsPage() {
                 </button>
                 <button
                   type="submit"
- className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy transition-all"
+ className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-4 press-lime transition-all"
                 >
                   Update Session
                 </button>

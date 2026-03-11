@@ -45,39 +45,39 @@ function UnitIcon({ unit, className = "w-8 h-8" }: { unit: UnitType; className?:
   switch (unit) {
     case "press":
       return (
-        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+        <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="currentColor">
           <path fillRule="evenodd" d="M4.125 3C3.089 3 2.25 3.84 2.25 4.875V18a3 3 0 0 0 3 3h15a3 3 0 0 1-3-3V4.875C17.25 3.839 16.41 3 15.375 3H4.125ZM12 9.75a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5H12Zm-.75-2.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5H12a.75.75 0 0 1-.75-.75ZM6 12.75a.75.75 0 0 0 0 1.5h7.5a.75.75 0 0 0 0-1.5H6Zm-.75 3.75a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H6a.75.75 0 0 1-.75-.75ZM6 6.75a.75.75 0 0 0-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 0 0 .75-.75v-3A.75.75 0 0 0 9 6.75H6Z" clipRule="evenodd" />
           <path d="M18.75 6.75h1.875c.621 0 1.125.504 1.125 1.125V18a1.5 1.5 0 0 1-3 0V6.75Z" />
         </svg>
       );
     case "ics":
       return (
-        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+        <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="currentColor">
           <path fillRule="evenodd" d="M20.599 1.5c-.376 0-.743.111-1.055.32l-5.08 3.385a18.747 18.747 0 0 0-3.471 2.987 10.04 10.04 0 0 1 4.815 4.815 18.748 18.748 0 0 0 2.987-3.472l3.386-5.079A1.902 1.902 0 0 0 20.599 1.5Zm-8.3 6.7a18.79 18.79 0 0 0-3.949 5.049 15.04 15.04 0 0 1-2.4-2.418A18.792 18.792 0 0 0 .96 14.834 18.05 18.05 0 0 0 5.07 19.13a18.05 18.05 0 0 0 4.297 4.11 18.792 18.792 0 0 0 4.503-5.35 15.04 15.04 0 0 1-2.418-2.4 18.79 18.79 0 0 0 5.049-3.949 10.04 10.04 0 0 0-4.202-3.341Z" clipRule="evenodd" />
         </svg>
       );
     case "committee_academic":
       return (
-        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+        <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="currentColor">
           <path d="M11.7 2.805a.75.75 0 0 1 .6 0A60.65 60.65 0 0 1 22.83 8.72a.75.75 0 0 1-.231 1.337 49.948 49.948 0 0 0-9.902 3.912l-.003.002-.34.18a.75.75 0 0 1-.707 0A50.88 50.88 0 0 0 7.5 12.173v-.224c0-.131.067-.248.172-.311a54.615 54.615 0 0 1 4.653-2.52.75.75 0 0 0-.65-1.352 56.123 56.123 0 0 0-4.78 2.589 1.858 1.858 0 0 0-.859 1.228 49.803 49.803 0 0 0-4.634-1.527.75.75 0 0 1-.231-1.337A60.653 60.653 0 0 1 11.7 2.805Z" />
           <path d="M13.06 15.473a48.45 48.45 0 0 1 7.666-3.282c.134 1.414.22 2.843.255 4.284a.75.75 0 0 1-.46.711 47.878 47.878 0 0 0-8.105 4.342.75.75 0 0 1-.832 0 47.205 47.205 0 0 0-1.346-.808c-.364-.216-.46-.555-.283-.885a6.7 6.7 0 0 0 .3-.643.75.75 0 0 0-.228-.876 48.316 48.316 0 0 0-4.681-3.281c-.21.5-.396 1.012-.557 1.535a.75.75 0 0 1-1.024.447 50.01 50.01 0 0 0-3.32-1.345.75.75 0 0 1-.46-.71c.035-1.442.121-2.87.255-4.286A48.354 48.354 0 0 1 5 13.238v3.858a13.09 13.09 0 0 0-1.138 1.397.75.75 0 0 1-1.268-.142 12.56 12.56 0 0 0-.472-.93l-.21.362a.75.75 0 0 1-.764.382A61.39 61.39 0 0 1 .5 17.996 60.976 60.976 0 0 1 5 13.238Z" />
         </svg>
       );
     case "committee_welfare":
       return (
-        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+        <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="currentColor">
           <path d="m11.645 20.91-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.219l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z" />
         </svg>
       );
     case "committee_sports":
       return (
-        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+        <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="currentColor">
           <path fillRule="evenodd" d="M12.963 2.286a.75.75 0 0 0-1.071-.136 9.742 9.742 0 0 0-3.539 6.176 7.547 7.547 0 0 1-1.705-1.715.75.75 0 0 0-1.152-.082A9 9 0 1 0 15.68 4.534a7.46 7.46 0 0 1-2.717-2.248ZM15.75 14.25a3.75 3.75 0 1 1-7.313-1.172c.628.465 1.35.81 2.133 1a5.99 5.99 0 0 1 1.925-3.546 3.75 3.75 0 0 1 3.255 3.718Z" clipRule="evenodd" />
         </svg>
       );
     case "committee_socials":
       return (
-        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+        <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="currentColor">
           <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
           <path d="M5.082 14.254a8.287 8.287 0 0 0-1.308 5.135 9.687 9.687 0 0 1-1.764-.44l-.115-.04a.563.563 0 0 1-.373-.487l-.01-.121a3.75 3.75 0 0 1 3.57-4.047ZM20.226 19.389a8.287 8.287 0 0 0-1.308-5.135 3.75 3.75 0 0 1 3.57 4.047l-.01.121a.563.563 0 0 1-.373.486l-.115.04c-.567.2-1.156.349-1.764.441Z" />
         </svg>
@@ -240,7 +240,7 @@ export default function ApplicationsPage() {
 
               {isMember ? (
                 <div className="flex items-center gap-2 text-sm font-medium">
-                  <svg className="w-5 h-5 text-teal" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-5 h-5 text-teal" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
                   </svg>
                   <span className="text-navy-muted">
@@ -258,8 +258,8 @@ export default function ApplicationsPage() {
                     setMotivation("");
                     setSkills("");
                   }}
-                  className="bg-navy border-[3px] border-navy text-snow px-5 py-2.5 rounded-xl font-display font-bold text-sm
-                    press-3 press-navy w-full"
+                  className="bg-navy border-[3px] border-lime text-snow px-5 py-2.5 rounded-xl font-display font-bold text-sm
+                    press-3 press-lime w-full"
                 >
                   Apply Now
                 </button>
@@ -272,7 +272,7 @@ export default function ApplicationsPage() {
       {/* ─── My Applications ────────────────── */}
       <div>
         <h2 className="font-display font-black text-display-sm text-navy mb-4 flex items-center gap-3">
-          <svg className="w-6 h-6 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+          <svg aria-hidden="true" className="w-6 h-6 text-lavender" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M7.502 6h7.128A3.375 3.375 0 0 1 18 9.375v9.375a3 3 0 0 0 3-3V6.108c0-1.505-1.125-2.811-2.664-2.94a48.972 48.972 0 0 0-8.583-.164 3.023 3.023 0 0 0-2.251 2.996Z" clipRule="evenodd" />
             <path fillRule="evenodd" d="M2.25 13.5a3 3 0 0 0 3 3h1.228a3.375 3.375 0 0 1-.978-2.375v-9.75a3.375 3.375 0 0 1 3-3.357H13.5a3 3 0 0 1 3 3v1.107a3.375 3.375 0 0 1 .878 2.618v6.007a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3v-1.25Z" clipRule="evenodd" />
           </svg>
@@ -355,7 +355,7 @@ export default function ApplicationsPage() {
                   title="Close"
                   className="w-8 h-8 rounded-full bg-navy/10 flex items-center justify-center hover:bg-navy/20 transition-colors"
                 >
-                  <svg className="w-4 h-4 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-4 h-4 text-navy" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                   </svg>
                 </button>
@@ -411,7 +411,7 @@ export default function ApplicationsPage() {
               <button
                 onClick={() => setSelectedUnit(null)}
                 className="bg-transparent border-[3px] border-navy px-5 py-2.5 rounded-xl font-display font-bold text-sm text-navy
-                  hover:bg-navy hover:text-snow transition-all"
+                  hover:bg-navy hover:text-lime hover:border-lime transition-all"
               >
                 Cancel
               </button>

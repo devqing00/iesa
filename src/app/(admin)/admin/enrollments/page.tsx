@@ -260,7 +260,7 @@ function EnrollmentsPage() {
             onClick={() => setShowModal(true)}
             className="self-start bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
             </svg>
             Enroll Student
@@ -352,7 +352,7 @@ function EnrollmentsPage() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b-[4px] border-navy bg-navy">
+                <tr className="border-b-[4px] border-lime bg-navy">
                   <th scope="col" className="text-left px-6 py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Student</th>
                   <th scope="col" className="hidden md:table-cell text-left px-6 py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Matric Number</th>
                   <th scope="col" className="hidden md:table-cell text-left px-6 py-3 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Session</th>
@@ -366,7 +366,7 @@ function EnrollmentsPage() {
                   <tr>
                     <td colSpan={6} className="px-6 py-16 text-center">
                       <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-sunny-light flex items-center justify-center">
-                        <svg className="w-7 h-7 text-sunny" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-7 h-7 text-sunny" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M5.25 6.31c0-.448.334-.81.75-.81h12c.416 0 .75.362.75.81v4.94c0 .448-.334.81-.75.81H6c-.416 0-.75-.362-.75-.81V6.31Z" />
                           <path fillRule="evenodd" d="M3.375 3C2.339 3 1.5 3.84 1.5 4.875v11.25C1.5 17.16 2.34 18 3.375 18H9.75v1.5H6a.75.75 0 0 0 0 1.5h12a.75.75 0 0 0 0-1.5h-3.75V18h6.375c1.035 0 1.875-.84 1.875-1.875V4.875C22.5 3.839 21.66 3 20.625 3H3.375Zm0 13.5h17.25a.375.375 0 0 0 .375-.375V4.875a.375.375 0 0 0-.375-.375H3.375A.375.375 0 0 0 3 4.875v11.25c0 .207.168.375.375.375Z" clipRule="evenodd" />
                         </svg>
@@ -420,7 +420,7 @@ function EnrollmentsPage() {
                               aria-label={`Delete enrollment for ${enrollment.student?.firstName || ""} ${enrollment.student?.lastName || ""}`}
                               title="Delete enrollment"
                             >
-                              <svg className="w-4 h-4 text-slate hover:text-coral" viewBox="0 0 24 24" fill="currentColor">
+                              <svg aria-hidden="true" className="w-4 h-4 text-slate hover:text-coral" viewBox="0 0 24 24" fill="currentColor">
                                 <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
                               </svg>
                             </button>
@@ -454,7 +454,7 @@ function EnrollmentsPage() {
                 className="p-2 rounded-xl hover:bg-cloud transition-colors"
                 aria-label="Close modal"
               >
-                <svg className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                 </svg>
               </button>
@@ -522,7 +522,7 @@ function EnrollmentsPage() {
                 </button>
                 <button
                   type="submit"
- className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy transition-all"
+ className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-4 press-lime transition-all"
                 >
                   Enroll
                 </button>

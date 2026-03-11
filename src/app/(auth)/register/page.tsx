@@ -21,6 +21,7 @@ export default function RegisterPage() {
   const [lastName, setLastName] = useState("");
   const [matricNumber, setMatricNumber] = useState("");
   const [phone, setPhone] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [admittedSession, setAdmittedSession] = useState("");
   const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [isExternalStudent, setIsExternalStudent] = useState(false);
@@ -145,6 +146,7 @@ export default function RegisterPage() {
         level: calculatedLevel,
         admissionYear: derivedAdmissionYear,
         department: isExternalStudent && department.trim() ? department.trim() : "Industrial Engineering",
+        dateOfBirth: dateOfBirth || undefined,
       });
       setRegistrationSuccess(true);
       toast.success("Account created!", { description: "Verification email sent. Check your inbox." });
@@ -176,9 +178,9 @@ export default function RegisterPage() {
         <div className="absolute inset-0 bg-dots opacity-20 pointer-events-none" />
 
         {/* Diamond Sparkles */}
-        <svg className="absolute top-16 left-[12%] w-5 h-5 text-navy/12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="absolute bottom-24 right-[15%] w-4 h-4 text-coral/15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="absolute top-[60%] left-[8%] w-3 h-3 text-sunny/20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg aria-hidden="true" className="absolute top-16 left-[12%] w-5 h-5 text-navy/12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg aria-hidden="true" className="absolute bottom-24 right-[15%] w-4 h-4 text-coral/15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg aria-hidden="true" className="absolute top-[60%] left-[8%] w-3 h-3 text-sunny/20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
 
         <div className="relative z-10 max-w-sm p-12 space-y-8">
           <div className="space-y-4">
@@ -262,12 +264,12 @@ export default function RegisterPage() {
                   <div className="flex items-center gap-2">
                     {isInstitutionalEmail(email) ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-teal-light border-[2px] border-navy text-navy font-display font-bold text-label-sm">
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342" /></svg>
+                        <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342" /></svg>
                         Institutional Email
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-lavender-light border-[2px] border-navy text-navy font-display font-bold text-label-sm">
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+                        <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
                         Personal Email
                       </span>
                     )}
@@ -316,6 +318,12 @@ export default function RegisterPage() {
               <div className="space-y-2">
                 <label htmlFor="register-phone" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Phone Number</label>
                 <input id="register-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+234 812 345 6789" required className={inputClass} />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="register-dob" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Date of Birth <span className="normal-case tracking-normal font-medium text-slate">(optional)</span></label>
+                <input id="register-dob" type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} max={new Date().toISOString().split("T")[0]} className={inputClass} />
+                <p className="text-xs text-slate">We&apos;ll celebrate your birthday on the platform</p>
               </div>
             </div>
 

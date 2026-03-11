@@ -344,6 +344,7 @@ function AdminEventsPage() {
       setDeleteConfirm(null);
       await fetchEvents();
       mutate("/api/v1/admin/stats");
+      toast.success("Event deleted");
     } catch (err) {
       toast.error(getErrorMessage(err, "delete event"));
     }
@@ -493,7 +494,7 @@ function AdminEventsPage() {
             onClick={openCreate}
             className="self-start bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
             </svg>
             Create Event
@@ -549,7 +550,7 @@ function AdminEventsPage() {
 
           {/* Search */}
           <div className="relative flex-1">
-            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+            <svg aria-hidden="true" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z" clipRule="evenodd" />
             </svg>
             <input
@@ -591,7 +592,7 @@ function AdminEventsPage() {
           ) : events.length === 0 ? (
             <div className="bg-snow rounded-3xl border-[3px] border-navy p-16 text-center shadow-[4px_4px_0_0_#000] space-y-4">
               <div className="w-16 h-16 mx-auto rounded-2xl bg-coral-light flex items-center justify-center">
-                <svg className="w-8 h-8 text-coral" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-8 h-8 text-coral" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12.75 12.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM7.5 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM8.25 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM9.75 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM10.5 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM12.75 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM14.25 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM15 17.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM16.5 15.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM15 12.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM16.5 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" />
                   <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
                 </svg>
@@ -608,7 +609,7 @@ function AdminEventsPage() {
                 <PermissionGate permission="event:create">
                 <button
                   onClick={openCreate}
- className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy transition-all"
+ className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-4 press-lime transition-all"
                 >
                   Create Event
                 </button>
@@ -637,7 +638,7 @@ function AdminEventsPage() {
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                         <span className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-snow/90 text-xs font-bold text-navy backdrop-blur-sm">
-                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                          <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                             <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
                           </svg>
                           {formatDate(event.date)}
@@ -658,14 +659,14 @@ function AdminEventsPage() {
                         )}
                         {!event.imageUrl && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-cloud text-xs font-bold text-navy/60">
-                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                            <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                               <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
                             </svg>
                             {formatDate(event.date)}
                           </span>
                         )}
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-cloud text-xs font-bold text-navy/60">
-                          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                          <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                             <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
                           </svg>
                           {formatTime(event.date)}
@@ -677,7 +678,7 @@ function AdminEventsPage() {
 
                       {/* Location */}
                       <div className="flex items-center gap-1.5 text-sm text-slate">
-                        <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 0 0-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 0 0 3.827 3.024ZM12 13.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" />
                         </svg>
                         {event.location}
@@ -704,7 +705,7 @@ function AdminEventsPage() {
                         <PermissionGate permission="event:edit">
                         <button
                           onClick={() => openEdit(event)}
-                          className="flex-1 px-4 py-2 rounded-xl bg-ghost border-[3px] border-navy text-sm text-navy font-bold hover:bg-navy hover:text-snow transition-colors"
+                          className="flex-1 px-4 py-2 rounded-xl bg-ghost border-[3px] border-navy text-sm text-navy font-bold press-3 press-navy hover:bg-navy hover:text-lime transition-colors"
                         >
                           Edit
                         </button>
@@ -715,7 +716,7 @@ function AdminEventsPage() {
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-lavender-light border-[3px] border-lavender text-lavender text-sm font-bold hover:bg-lavender hover:text-snow transition-colors"
                           title="View registered students"
                         >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                             <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
                           </svg>
                           <span className="hidden sm:inline">{attendeeCount(event)}</span>
@@ -733,7 +734,7 @@ function AdminEventsPage() {
                             className="p-2 rounded-xl bg-ghost border-[3px] border-navy/20 text-slate hover:border-coral hover:text-coral transition-colors"
                             aria-label="Delete event"
                           >
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                            <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                               <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
                             </svg>
                           </button>
@@ -766,7 +767,7 @@ function AdminEventsPage() {
                 aria-label="Close modal"
                 className="p-2 rounded-xl hover:bg-cloud transition-colors"
               >
-                <svg className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                 </svg>
               </button>
@@ -862,7 +863,7 @@ function AdminEventsPage() {
                       className="absolute top-2 right-2 p-1.5 rounded-lg bg-navy/80 text-snow hover:bg-coral transition-colors"
                       aria-label="Remove image"
                     >
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                      <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                         <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                       </svg>
                     </button>
@@ -882,7 +883,7 @@ function AdminEventsPage() {
                       </>
                     ) : (
                       <>
-                        <svg className="w-6 h-6 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-6 h-6 text-slate" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M1.5 6a2.25 2.25 0 0 1 2.25-2.25h16.5A2.25 2.25 0 0 1 22.5 6v12a2.25 2.25 0 0 1-2.25 2.25H3.75A2.25 2.25 0 0 1 1.5 18V6ZM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0 0 21 18v-1.94l-2.69-2.689a1.5 1.5 0 0 0-2.12 0l-.88.879.97.97a.75.75 0 1 1-1.06 1.06l-5.16-5.159a1.5 1.5 0 0 0-2.12 0L3 16.061Zm10.125-7.81a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Z" clipRule="evenodd" />
                         </svg>
                         <span className="text-xs font-bold text-slate">Click to upload image</span>
@@ -950,7 +951,7 @@ function AdminEventsPage() {
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="px-6 py-2.5 rounded-2xl bg-navy border-[3px] border-navy text-snow text-sm font-bold press-4 press-navy disabled:opacity-40 transition-all"
+                className="px-6 py-2.5 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-4 press-lime disabled:opacity-40 transition-all"
               >
                 {submitting ? "Saving..." : editingEvent ? "Save Changes" : "Create Event"}
               </button>
@@ -973,13 +974,13 @@ function AdminEventsPage() {
                 {registrantsData && (
                   <div className="flex items-center gap-3 mt-2">
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-lavender-light text-lavender text-xs font-bold">
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                      <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                         <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
                       </svg>
                       {registrantsData.totalRegistered} registered
                     </span>
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-light text-teal text-xs font-bold">
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                      <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                         <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0 1 12 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 0 1 3.498 1.307 4.491 4.491 0 0 1 1.307 3.497A4.49 4.49 0 0 1 21.75 12a4.49 4.49 0 0 1-1.549 3.397 4.491 4.491 0 0 1-1.307 3.497 4.491 4.491 0 0 1-3.497 1.307A4.49 4.49 0 0 1 12 21.75a4.49 4.49 0 0 1-3.397-1.549 4.491 4.491 0 0 1-3.498-1.307 4.491 4.491 0 0 1-1.307-3.497A4.49 4.49 0 0 1 2.25 12a4.49 4.49 0 0 1 1.549-3.397 4.491 4.491 0 0 1 1.307-3.498A4.491 4.491 0 0 1 8.603 3.8Zm7.44 1.994a3 3 0 0 0-2.25-1.043 3 3 0 0 0-2.25 1.043 3 3 0 0 0-2.344.88 3 3 0 0 0-.878 2.344 3 3 0 0 0-1.043 2.25 3 3 0 0 0 1.043 2.25 3 3 0 0 0 .879 2.344 3 3 0 0 0 2.343.88 3 3 0 0 0 2.25 1.043 3 3 0 0 0 2.25-1.043 3 3 0 0 0 2.344-.879 3 3 0 0 0 .878-2.344 3 3 0 0 0 1.043-2.25 3 3 0 0 0-1.043-2.25 3 3 0 0 0-.878-2.344 3 3 0 0 0-2.344-.879Zm-1.44 5.706a.75.75 0 0 1 0 1.06l-3 3a.75.75 0 0 1-1.06-1.06l3-3a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
                       </svg>
                       {registrantsData.totalAttended} attended
@@ -992,7 +993,7 @@ function AdminEventsPage() {
                 className="p-2 rounded-xl hover:bg-cloud transition-colors"
                 aria-label="Close"
               >
-                <svg className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                 </svg>
               </button>
@@ -1001,7 +1002,7 @@ function AdminEventsPage() {
             {/* Search */}
             <div className="px-6 pt-4">
               <div className="relative">
-                <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                <svg aria-hidden="true" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z" clipRule="evenodd" />
                 </svg>
                 <input
@@ -1024,7 +1025,7 @@ function AdminEventsPage() {
               ) : !registrantsData || registrantsData.registrants.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
                   <div className="w-14 h-14 rounded-2xl bg-cloud flex items-center justify-center">
-                    <svg className="w-7 h-7 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                    <svg aria-hidden="true" className="w-7 h-7 text-slate" viewBox="0 0 24 24" fill="currentColor">
                       <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
                     </svg>
                   </div>
@@ -1084,7 +1085,7 @@ function AdminEventsPage() {
                               : "border-navy/20 text-navy/40 hover:border-teal hover:text-teal hover:bg-teal-light"
                           }`}
                         >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                             <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
                           </svg>
                         </button>
@@ -1094,7 +1095,7 @@ function AdminEventsPage() {
                           title="Remove registration"
                           className="p-1.5 rounded-lg border-2 border-navy/20 text-navy/40 hover:border-coral hover:text-coral hover:bg-coral-light transition-colors"
                         >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                             <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
                           </svg>
                         </button>
@@ -1119,7 +1120,7 @@ function AdminEventsPage() {
                   disabled={markingAll || !registrantsData || registrantsData.registrants.every((r) => r.hasAttended)}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal border-[3px] border-navy text-snow text-xs font-bold press-3 press-black transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                  <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0 1 12 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 0 1 3.498 1.307 4.491 4.491 0 0 1 1.307 3.497A4.49 4.49 0 0 1 21.75 12a4.49 4.49 0 0 1-1.549 3.397 4.491 4.491 0 0 1-1.307 3.497 4.491 4.491 0 0 1-3.497 1.307A4.49 4.49 0 0 1 12 21.75a4.49 4.49 0 0 1-3.397-1.549 4.491 4.491 0 0 1-3.498-1.307 4.491 4.491 0 0 1-1.307-3.497A4.49 4.49 0 0 1 2.25 12a4.49 4.49 0 0 1 1.549-3.397 4.491 4.491 0 0 1 1.307-3.498A4.491 4.491 0 0 1 8.603 3.8Zm7.44 1.994a3 3 0 0 0-2.25-1.043 3 3 0 0 0-2.25 1.043 3 3 0 0 0-2.344.88 3 3 0 0 0-.878 2.344 3 3 0 0 0-1.043 2.25 3 3 0 0 0 1.043 2.25 3 3 0 0 0 .879 2.344 3 3 0 0 0 2.343.88 3 3 0 0 0 2.25 1.043 3 3 0 0 0 2.25-1.043 3 3 0 0 0 2.344-.879 3 3 0 0 0 .878-2.344 3 3 0 0 0 1.043-2.25 3 3 0 0 0-1.043-2.25 3 3 0 0 0-.878-2.344 3 3 0 0 0-2.344-.879Zm-1.44 5.706a.75.75 0 0 1 0 1.06l-3 3a.75.75 0 0 1-1.06-1.06l3-3a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
                   </svg>
                   {markingAll ? "Marking…" : "Mark all attended"}
@@ -1134,7 +1135,7 @@ function AdminEventsPage() {
                     disabled={!registrantsData || registrantsData.registrants.length === 0}
                     className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-lime border-[3px] border-navy text-navy text-xs font-bold press-3 press-navy transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                    <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                       <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
                     </svg>
                     Download ▾
@@ -1145,7 +1146,7 @@ function AdminEventsPage() {
                         onClick={() => downloadRegistrants("csv")}
                         className="w-full px-4 py-2.5 text-left text-xs font-bold text-navy hover:bg-cloud transition-colors flex items-center gap-2"
                       >
-                        <svg className="w-3.5 h-3.5 text-teal shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-3.5 h-3.5 text-teal shrink-0" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875ZM9.75 14.25a.75.75 0 0 0 0 1.5H15a.75.75 0 0 0 0-1.5H9.75Z" clipRule="evenodd" />
                         </svg>
                         CSV (.csv)
@@ -1155,7 +1156,7 @@ function AdminEventsPage() {
                         onClick={() => downloadRegistrants("json")}
                         className="w-full px-4 py-2.5 text-left text-xs font-bold text-navy hover:bg-lavender-light transition-colors flex items-center gap-2"
                       >
-                        <svg className="w-3.5 h-3.5 text-lavender shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                        <svg aria-hidden="true" className="w-3.5 h-3.5 text-lavender shrink-0" viewBox="0 0 24 24" fill="currentColor">
                           <path fillRule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875ZM9.75 17.25a.75.75 0 0 0 0 1.5H15a.75.75 0 0 0 0-1.5H9.75Zm0-3a.75.75 0 0 0 0 1.5H15a.75.75 0 0 0 0-1.5H9.75Z" clipRule="evenodd" />
                         </svg>
                         JSON (.json)
