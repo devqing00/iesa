@@ -11,6 +11,7 @@ from app.core.security import verify_token
 from app.core.permissions import require_permission as _require_permission
 from app.core.rate_limiting import setup_rate_limiting
 from app.core.error_handling import setup_exception_handlers, setup_logging
+from app.core.scheduler import start_scheduler, stop_scheduler
 from app.routers import sessions, users, payments, events, announcements, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press, unit_applications, units, academic_calendar, timp, bank_transfers, settings, contact_messages, iepod, admin_stats, student_dashboard, sse, notifications, search, growth, messages, class_rep, unit_head, push_notifications, drive
 from app.db import connect_to_mongo, close_mongo_connection, get_database
 
@@ -33,6 +34,21 @@ async def lifespan(app: FastAPI):
     db = get_database()
     await db["article_views"].create_index(
         "viewedAt", expireAfterSeconds=86400, background=True
+    )
+    # Compound index for deduplication check (articleId + fingerprint + viewedAt)
+    await db["article_views"].create_index(
+        [("articleId", 1), ("fingerprint", 1), ("viewedAt", -1)], background=True
+    )
+
+    # Press articles — indexes for common query patterns
+    await db["press_articles"].create_index("status", background=True)
+    await db["press_articles"].create_index("authorId", background=True)
+    try:
+        await db["press_articles"].create_index("slug", unique=True, sparse=True, background=True)
+    except Exception:
+        pass  # Ignore if duplicate key issue on existing data
+    await db["press_articles"].create_index(
+        [("status", 1), ("publishedAt", -1)], background=True  # public blog listing
     )
 
     # AI rate limits — unique userId index for fast upserts
@@ -122,6 +138,14 @@ async def lifespan(app: FastAPI):
         "expiresAt", expireAfterSeconds=0, background=True
     )
 
+    # Press / blog indexes
+    await db["press_articles"].create_index("status", background=True)
+    await db["press_articles"].create_index("authorId", background=True)
+    await db["press_articles"].create_index("slug", unique=True, sparse=True, background=True)
+    await db["press_articles"].create_index(
+        [("status", 1), ("publishedAt", -1)], background=True
+    )
+
     # ── Startup migration: backfill null-level enrollments ──────────────────
     # Enrollments created during Google sign-up have level=null because the
     # user's level is unknown at that point. Once they complete onboarding their
@@ -154,8 +178,12 @@ async def lifespan(app: FastAPI):
     except Exception as _mig_e:
         _mig_logger.warning("Startup migration (enrollment level backfill) failed: %s", _mig_e)
 
+    # Start background scheduler (birthday wishes, event/payment reminders, planner alerts)
+    start_scheduler()
+
     yield
     # Shutdown
+    stop_scheduler()
     await close_mongo_connection()
 
 

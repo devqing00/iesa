@@ -48,7 +48,7 @@ class CompleteRegistrationRequest(BaseModel):
     admissionYear: int
     institutionalEmail: Optional[str] = None  # If different from account email
     department: Optional[str] = None  # Defaults to "Industrial Engineering" if not set
-    dateOfBirth: Optional[str] = None  # Date of birth in YYYY-MM-DD format
+    dateOfBirth: str  # Date of birth in YYYY-MM-DD format (required)
     
     @validator("firstName", "lastName")
     def validate_name(cls, v):
@@ -174,14 +174,15 @@ async def complete_student_registration(
     # Update user profile
     resolved_dept = data.department or "Industrial Engineering"
     # Parse dateOfBirth string to datetime (MongoDB/BSON requires datetime, not date)
-    parsed_dob = None
-    if data.dateOfBirth:
-        try:
-            from datetime import date as date_type
-            d = date_type.fromisoformat(data.dateOfBirth)
-            parsed_dob = datetime(d.year, d.month, d.day, tzinfo=timezone.utc)
-        except (ValueError, TypeError):
-            pass
+    try:
+        from datetime import date as date_type
+        d = date_type.fromisoformat(data.dateOfBirth)
+        parsed_dob = datetime(d.year, d.month, d.day, tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid date of birth format. Use YYYY-MM-DD."
+        )
 
     update_data = {
         "firstName": data.firstName,
@@ -201,9 +202,7 @@ async def complete_student_registration(
         "updatedAt": datetime.now(timezone.utc)
     }
 
-    # Only set dateOfBirth if provided (don't null it if omitted)
-    if parsed_dob is not None:
-        update_data["dateOfBirth"] = parsed_dob
+    update_data["dateOfBirth"] = parsed_dob
     
     result = await users.update_one(
         {"_id": ObjectId(user_id)},

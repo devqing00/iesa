@@ -91,14 +91,14 @@ async def register_profile(request: Request, data: RegisterProfileRequest):
     INSTITUTIONAL_DOMAIN = "@stu.ui.edu.ng"
     email_type = "institutional" if email.lower().endswith(INSTITUTIONAL_DOMAIN) else "personal"
 
-    # Parse dateOfBirth string to date object if provided
+    # Parse dateOfBirth string to date object (optional at this stage — Google OAuth users supply it later)
+    from datetime import date as date_type
     parsed_dob = None
     if data.dateOfBirth:
-        from datetime import date as date_type
         try:
             parsed_dob = date_type.fromisoformat(data.dateOfBirth)
         except (ValueError, TypeError):
-            pass
+            raise HTTPException(status_code=400, detail="Invalid date of birth format. Use YYYY-MM-DD.")
 
     user_doc = {
         "firebaseUid": firebase_uid,

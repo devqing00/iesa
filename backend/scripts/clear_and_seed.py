@@ -100,6 +100,10 @@ ALL_COLLECTIONS = [
     # AI
     "ai_feedback",
     "ai_rate_limits",
+    # Drive
+    "drive_bookmarks",
+    "drive_cache",
+    "drive_progress",
     # Class Rep Portal
     "class_rep_deadlines",
     "class_rep_polls",

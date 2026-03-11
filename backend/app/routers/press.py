@@ -40,10 +40,10 @@ from app.models.press import (
     ArticlePublic, Feedback, FeedbackCreate,
 )
 from app.db import get_database
-from app.core.security import get_current_user, verify_token
-from app.core.security import verify_firebase_id_token_raw
+from app.core.security import get_current_user, verify_token, verify_firebase_id_token_raw
 from app.core.sanitization import sanitize_html, validate_no_scripts
 from app.core.audit import AuditLogger
+from app.routers.notifications import create_notification
 
 router = APIRouter(prefix="/api/v1/press", tags=["Press"])
 
@@ -133,6 +133,9 @@ async def _check_press_head(user: dict, db) -> bool:
 def _article_dict(doc: dict) -> dict:
     """Convert MongoDB document to serialisable dict."""
     doc["_id"] = str(doc["_id"])
+    # Ensure authorId is a string (may be ObjectId from older documents)
+    if "authorId" in doc and not isinstance(doc["authorId"], str):
+        doc["authorId"] = str(doc["authorId"])
     return doc
 
 
@@ -207,13 +210,16 @@ async def get_published_article(slug: str, request: Request):
     liked_by = result.pop("likedBy", []) or []
 
     # If caller is authenticated, include their like state
+    # liked_by stores string IDs (get_current_user stringifies _id before saving)
+    # so compare user_id as string, not ObjectId
     auth_header = request.headers.get("authorization", "")
     if auth_header.startswith("Bearer "):
         try:
             token_data = await verify_firebase_id_token_raw(auth_header.split(" ", 1)[1])
-            user_id = token_data.get("sub")
+            user_id = token_data.get("sub")  # always a string (str(ObjectId))
             if user_id:
-                result["userHasLiked"] = ObjectId(user_id) in liked_by
+                liked_by_strs = [str(x) for x in liked_by]
+                result["userHasLiked"] = user_id in liked_by_strs
         except Exception:
             pass  # Invalid token — serve as unauthenticated
 
@@ -573,6 +579,20 @@ async def approve_article(article_id: str, request: Request, user: dict = Depend
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
+
+    # Notify the author
+    author_id = str(doc.get("authorId", ""))
+    if author_id:
+        await create_notification(
+            user_id=author_id,
+            type="press",
+            title="Article Approved",
+            message=f'Your article "{doc.get("title", "Untitled")}" has been approved.',
+            link="/dashboard/press",
+            related_id=article_id,
+            category="press",
+        )
+
     return {"message": "Article approved", "status": "approved"}
 
 
@@ -622,6 +642,20 @@ async def reject_article(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
+
+    # Notify the author
+    author_id = str(doc.get("authorId", ""))
+    if author_id:
+        await create_notification(
+            user_id=author_id,
+            type="press",
+            title="Article Rejected",
+            message=f'Your article "{doc.get("title", "Untitled")}" was rejected. Check feedback for details.',
+            link="/dashboard/press",
+            related_id=article_id,
+            category="press",
+        )
+
     return {"message": "Article rejected", "status": "rejected"}
 
 
@@ -659,6 +693,20 @@ async def request_revision(
             "$push": {"feedback": fb.model_dump()},
         },
     )
+
+    # Notify the author
+    author_id = str(doc.get("authorId", ""))
+    if author_id:
+        await create_notification(
+            user_id=author_id,
+            type="press",
+            title="Revision Requested",
+            message=f'Your article "{doc.get("title", "Untitled")}" needs revisions. Check feedback for details.',
+            link="/dashboard/press",
+            related_id=article_id,
+            category="press",
+        )
+
     return {"message": "Revision requested — author has been notified", "status": "revision_requested"}
 
 
@@ -816,12 +864,13 @@ async def toggle_like(article_id: str, user: dict = Depends(get_current_user)):
 
     liked_by = doc.get("likedBy", [])
     if user["_id"] in liked_by:
-        # Unlike
+        # Unlike — prevent negative likeCount
+        new_count = max(0, doc.get("likeCount", 1) - 1)
         await articles.update_one(
             {"_id": ObjectId(article_id)},
-            {"$pull": {"likedBy": user["_id"]}, "$inc": {"likeCount": -1}},
+            {"$pull": {"likedBy": user["_id"]}, "$set": {"likeCount": new_count}},
         )
-        return {"liked": False, "likeCount": doc.get("likeCount", 1) - 1}
+        return {"liked": False, "likeCount": new_count}
     else:
         # Like
         await articles.update_one(

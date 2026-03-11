@@ -73,7 +73,8 @@ export default function BlogArticlePage() {
           setLiked(true);
         }
       }
-    } catch {
+    } catch (err) {
+      console.error("Failed to fetch article:", err);
     } finally {
       setLoading(false);
     }
@@ -120,7 +121,7 @@ export default function BlogArticlePage() {
       <main id="main-content" className="pt-14 sm:pt-16 pb-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-12">
           {/* Back link */}
-          <Link href="/blog" className="inline-flex items-center gap-2 text-sm font-display font-bold text-navy/60 hover:text-navy transition-colors mb-8">
+          <Link href="/blog" className="inline-flex items-center gap-2 text-sm font-display font-bold text-slate hover:text-navy transition-colors mb-8">
             <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
@@ -165,7 +166,7 @@ export default function BlogArticlePage() {
 
               {/* Author bar */}
               <div className="flex items-center gap-3 mb-8 pb-6 border-b-[2px] border-cloud">
-                <div className="w-10 h-10 rounded-full bg-navy/10 flex items-center justify-center overflow-hidden border-[2px] border-navy">
+                <div className="w-10 h-10 rounded-full bg-cloud flex items-center justify-center overflow-hidden border-[2px] border-navy">
                   {article.authorProfilePicture ? (
                     <Image src={article.authorProfilePicture} alt="" width={40} height={40} className="object-cover" />
                   ) : (
@@ -196,18 +197,18 @@ export default function BlogArticlePage() {
               {/* Cover Image */}
               {article.coverImageUrl && (
                 <div className="relative h-64 sm:h-80 lg:h-96 mb-10 rounded-3xl overflow-hidden border-[2px] border-navy shadow-[3px_3px_0_0_#000]">
-                  <Image src={article.coverImageUrl} alt={article.title} fill className="object-cover" />
+                  <Image src={article.coverImageUrl} alt={article.title} fill sizes="(max-width: 896px) 100vw, 896px" className="object-cover" />
                 </div>
               )}
 
               {/* Article body */}
               <article
-                className="prose prose-lg max-w-none leading-relaxed font-normal text-navy/90
+                className="prose prose-lg max-w-none leading-relaxed font-normal text-navy
                   [&_h2]:font-display [&_h2]:font-black [&_h2]:text-navy [&_h2]:mt-10 [&_h2]:mb-4
                   [&_h3]:font-display [&_h3]:font-bold [&_h3]:text-navy [&_h3]:mt-8 [&_h3]:mb-3
                   [&_p]:mb-4
                   [&_a]:text-lavender [&_a]:font-bold [&_a]:underline [&_a]:decoration-2
-                  [&_blockquote]:border-l-[4px] [&_blockquote]:border-ghost/20 [&_blockquote]:pl-6 [&_blockquote]:italic [&_blockquote]:text-navy/70
+                  [&_blockquote]:border-l-[4px] [&_blockquote]:border-cloud [&_blockquote]:pl-6 [&_blockquote]:italic [&_blockquote]:text-navy-muted
                   [&_img]:rounded-2xl [&_img]:border-[3px] [&_img]:border-navy
                   [&_ul]:list-disc [&_ul]:pl-6
                   [&_ol]:list-decimal [&_ol]:pl-6
@@ -221,7 +222,7 @@ export default function BlogArticlePage() {
                 <div className="flex flex-wrap gap-2 mt-10 pt-6 border-t-[2px] border-cloud">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate mr-2 self-center">Tags:</span>
                   {article.tags.map((tag) => (
-                    <span key={tag} className="px-3 py-1 bg-ghost border-[2px] border-navy/15 rounded-xl text-xs font-display font-bold text-navy/70">
+                    <span key={tag} className="px-3 py-1 bg-ghost border-[2px] border-cloud rounded-xl text-xs font-display font-bold text-navy-muted">
                       #{tag}
                     </span>
                   ))}
@@ -230,7 +231,7 @@ export default function BlogArticlePage() {
 
               {/* Back to blog CTA */}
               <div className="mt-12 text-center">
-                <Link href="/blog" className="inline-flex bg-navy border-[2px] border-ghost/20 px-8 py-3 rounded-2xl font-display font-bold text-snow press-4 press-lime transition-all">
+                <Link href="/blog" className="inline-flex bg-navy border-[2px] border-lime px-8 py-3 rounded-2xl font-display font-bold text-snow press-4 press-lime transition-all">
                   More Articles
                 </Link>
               </div>

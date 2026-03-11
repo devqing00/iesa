@@ -207,21 +207,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     ) => {
       const token = await fbUser.getIdToken();
+      const body: Record<string, unknown> = {
+        firebaseIdToken: token,
+        firstName: extra?.firstName || fbUser.displayName?.split(" ")[0] || "New",
+        lastName: extra?.lastName || fbUser.displayName?.split(" ").slice(1).join(" ") || "User",
+      };
+      // Only include optional fields when they have actual values
+      if (extra?.matricNumber) body.matricNumber = extra.matricNumber;
+      if (extra?.phone)        body.phone = extra.phone;
+      if (extra?.level)        body.level = extra.level;
+      if (extra?.admissionYear) body.admissionYear = extra.admissionYear;
+      if (extra?.role)         body.role = extra.role;
+      if (extra?.department)   body.department = extra.department;
+      if (extra?.dateOfBirth)  body.dateOfBirth = extra.dateOfBirth;
+
       const res = await fetch(getApiUrl("/api/v1/auth/register-profile"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          firebaseIdToken: token,
-          firstName: extra?.firstName || fbUser.displayName?.split(" ")[0] || "New",
-          lastName: extra?.lastName || fbUser.displayName?.split(" ").slice(1).join(" ") || "User",
-          matricNumber: extra?.matricNumber || null,
-          phone: extra?.phone || null,
-          level: extra?.level || null,
-          admissionYear: extra?.admissionYear || null,
-          role: extra?.role || null,
-          department: extra?.department || null,
-          dateOfBirth: extra?.dateOfBirth || null,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {

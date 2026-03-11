@@ -1,6 +1,6 @@
 "use client";
 
-
+import { useState, useEffect, useRef } from "react";
 import { 
   type DriveItem, 
   type DriveBreadcrumb,
@@ -88,9 +88,23 @@ interface BreadcrumbsProps {
 
 function Breadcrumbs({ breadcrumbs, folderId, onNavigate, onGoBack }: BreadcrumbsProps) {
   const isRoot = !folderId || breadcrumbs.length <= 1;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const check = () => setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+    check();
+    el.addEventListener("scroll", check, { passive: true });
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => { el.removeEventListener("scroll", check); ro.disconnect(); };
+  }, [breadcrumbs]);
 
   return (
-    <div className="flex items-center gap-2 px-0 py-2.5 overflow-x-auto scrollbar-hide">
+    <div className="relative">
+      <div ref={scrollRef} className="flex items-center gap-2 px-0 py-2.5 overflow-x-auto scrollbar-hide">
       {/* Back button — only shown when not at root */}
       {!isRoot && (
         <button
@@ -127,13 +141,13 @@ function Breadcrumbs({ breadcrumbs, folderId, onNavigate, onGoBack }: Breadcrumb
           <span key={crumb.id} className="flex items-center gap-2 shrink-0">
             <ChevronRightIcon className="w-3 h-3 text-cloud shrink-0" />
             {isLast ? (
-              <span className="px-2.5 py-1 rounded-lg bg-navy text-snow font-bold text-xs uppercase tracking-wider max-w-[160px] truncate">
+              <span className="px-2.5 py-1 rounded-lg bg-navy text-snow font-bold text-xs uppercase tracking-wider whitespace-nowrap">
                 {crumb.name}
               </span>
             ) : (
               <button
                 onClick={() => onNavigate(crumb.id)}
-                className="px-2.5 py-1 rounded-lg text-navy-muted hover:text-navy hover:bg-cloud font-bold text-xs uppercase tracking-wider transition-all max-w-[120px] truncate"
+                className="px-2.5 py-1 rounded-lg text-navy-muted hover:text-navy hover:bg-cloud font-bold text-xs uppercase tracking-wider transition-all whitespace-nowrap"
               >
                 {crumb.name}
               </button>
@@ -141,6 +155,11 @@ function Breadcrumbs({ breadcrumbs, folderId, onNavigate, onGoBack }: Breadcrumb
           </span>
         );
       })}
+      </div>
+      {/* Right-edge fade — signals there's more to scroll */}
+      {canScrollRight && (
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-linear-to-l from-ghost to-transparent" />
+      )}
     </div>
   );
 }
@@ -193,7 +212,7 @@ function FileCard({ item, progress, onClick, rotation = "" }: FileCardProps) {
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-navy text-sm truncate group-hover:text-lime-dark transition-colors">
+          <h3 className="font-bold text-navy text-sm wrap-break-word group-hover:text-lime-dark transition-colors">
             {item.name}
           </h3>
           <div className="flex items-center gap-2 mt-1">

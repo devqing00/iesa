@@ -207,26 +207,83 @@ def download_file_bytes(file_id: str) -> io.BytesIO:
     return buf
 
 
-def search_files(query_text: str, folder_id: Optional[str] = None, page_size: int = 20):
-    """Full-text search within a folder tree."""
+def search_files(query_text: str, folder_id: Optional[str] = None, page_size: int = 30):
+    """Search files by name across the entire departmental Drive folder tree.
+    
+    Uses Google Drive API's `name contains` query within the root folder's
+    accessible files. The service account only has access to files shared
+    with it, so results are inherently scoped to departmental resources.
+    
+    If folder_id is provided, restricts to that folder and its subfolders
+    by first collecting all descendant folder IDs recursively.
+    """
     service = get_drive_service()
     root = folder_id or DRIVE_ROOT_FOLDER_ID
-    # Drive API fullText search is limited to one level at a time;
-    # we use name contains for broader matching
-    q_parts = [f"name contains '{query_text}'", "trashed = false"]
-    # We don't restrict to root folder in search since it needs to be recursive
-    if root:
-        q_parts.append(f"'{root}' in parents or fullText contains '{query_text}'")
 
-    # Simpler approach: search by name within all files accessible to the service account
-    q = f"name contains '{query_text}' and trashed = false"
-    fields = "files(id, name, mimeType, size, modifiedTime, parents, thumbnailLink, webViewLink)"
-    result = (
-        service.files()
-        .list(q=q, fields=fields, pageSize=page_size, supportsAllDrives=True, includeItemsFromAllDrives=True)
-        .execute()
-    )
-    return result.get("files", [])
+    # Escape single quotes in search query for Drive API
+    safe_query = query_text.replace("'", "\\'")
+
+    if folder_id:
+        # Restricted search: collect all descendant folder IDs, then search within them
+        all_folder_ids = _collect_descendant_folders(service, root)
+        all_folder_ids.add(root)
+
+        # Drive API doesn't support OR on parents easily, so we batch search
+        # across folder groups (max ~10 parents per query to stay within limits)
+        all_results = []
+        folder_list = list(all_folder_ids)
+        batch_size = 10
+        for i in range(0, len(folder_list), batch_size):
+            batch = folder_list[i : i + batch_size]
+            parent_clauses = " or ".join(f"'{fid}' in parents" for fid in batch)
+            q = f"name contains '{safe_query}' and trashed = false and ({parent_clauses})"
+            fields = "files(id, name, mimeType, size, modifiedTime, parents, thumbnailLink, webViewLink)"
+            result = (
+                service.files()
+                .list(q=q, fields=fields, pageSize=page_size, supportsAllDrives=True, includeItemsFromAllDrives=True)
+                .execute()
+            )
+            all_results.extend(result.get("files", []))
+            if len(all_results) >= page_size:
+                break
+        return all_results[:page_size]
+    else:
+        # Global search within full root tree — use fullText contains for richer matching
+        # fullText searches file name, description, and indexable content
+        q = f"(name contains '{safe_query}' or fullText contains '{safe_query}') and trashed = false"
+        fields = "files(id, name, mimeType, size, modifiedTime, parents, thumbnailLink, webViewLink)"
+        result = (
+            service.files()
+            .list(q=q, fields=fields, pageSize=page_size, supportsAllDrives=True, includeItemsFromAllDrives=True)
+            .execute()
+        )
+        return result.get("files", [])
+
+
+def _collect_descendant_folders(service, parent_id: str, max_depth: int = 8) -> set:
+    """Recursively collect all subfolder IDs under a given parent folder."""
+    folder_ids = set()
+    queue = [parent_id]
+    depth = 0
+    while queue and depth < max_depth:
+        next_queue = []
+        for pid in queue:
+            q = f"'{pid}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+            try:
+                result = (
+                    service.files()
+                    .list(q=q, fields="files(id)", pageSize=200, supportsAllDrives=True, includeItemsFromAllDrives=True)
+                    .execute()
+                )
+                for f in result.get("files", []):
+                    if f["id"] not in folder_ids:
+                        folder_ids.add(f["id"])
+                        next_queue.append(f["id"])
+            except Exception:
+                continue
+        queue = next_queue
+        depth += 1
+    return folder_ids
 
 
 def get_folder_breadcrumbs(file_id: str, root_id: str) -> List[dict]:

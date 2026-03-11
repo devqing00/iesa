@@ -242,6 +242,58 @@ async def list_events(
     return {"items": result, "total": total}
 
 
+@router.get("/public")
+async def list_public_events(
+    limit: int = Query(20, ge=1, le=100),
+):
+    """
+    Public endpoint — no auth required.
+    Returns events from the active session for the public events page.
+    Splits into upcoming and past events. Does NOT return registrations/attendees arrays.
+    """
+    db = get_database()
+    sessions = db["sessions"]
+    events_col = db["events"]
+
+    active_session = await sessions.find_one({"isActive": True})
+    if not active_session:
+        return {"upcoming": [], "past": [], "sessionName": None}
+
+    session_id = str(active_session["_id"])
+    session_name = active_session.get("name", "")
+    now = datetime.now(timezone.utc)
+
+    # Projection: exclude registrations/attendees arrays for privacy
+    projection = {
+        "registrations": 0,
+        "attendees": 0,
+        "paymentId": 0,
+    }
+
+    # Upcoming events (date >= now), sorted ascending
+    upcoming_cursor = events_col.find(
+        {"sessionId": session_id, "date": {"$gte": now}},
+        projection,
+    ).sort("date", 1).limit(limit)
+    upcoming = await upcoming_cursor.to_list(length=limit)
+
+    # Past events (date < now), sorted descending (most recent first)
+    past_cursor = events_col.find(
+        {"sessionId": session_id, "date": {"$lt": now}},
+        projection,
+    ).sort("date", -1).limit(limit)
+    past = await past_cursor.to_list(length=limit)
+
+    for ev in upcoming + past:
+        ev["_id"] = str(ev["_id"])
+
+    return {
+        "upcoming": upcoming,
+        "past": past,
+        "sessionName": session_name,
+    }
+
+
 @router.post("/upload-image")
 async def upload_event_image(
     file: UploadFile = File(...),

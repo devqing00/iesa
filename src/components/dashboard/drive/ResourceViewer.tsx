@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Document, Page, pdfjs } from "react-pdf";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
 import {
   type FileMetaResponse,
   type FileBookmark,
@@ -13,6 +16,14 @@ import {
   getFileTypeColor,
   getFileTypeLabel,
 } from "@/lib/api/drive";
+import { useAuth } from "@/context/AuthContext";
+import { getCachedFile, cacheFile } from "@/lib/driveCache";
+
+// Configure PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url
+).toString();
 
 // ── Icons ──────────────────────────────────────────────────
 
@@ -87,7 +98,7 @@ function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
   );
 }
 
-// ── PDF Viewer ──────────────────────────────────────────────
+// ── PDF Viewer (react-pdf based — real page tracking) ───────
 
 interface PDFViewerProps {
   fileId: string;
@@ -95,23 +106,206 @@ interface PDFViewerProps {
   onProgressUpdate: (page: number, total: number) => void;
 }
 
+type CacheStatus = "checking" | "cached" | "downloading" | "ready";
+
 function PDFViewer({ fileId, meta, onProgressUpdate }: PDFViewerProps) {
+  const { getAccessToken } = useAuth();
   const [currentPage, setCurrentPage] = useState(meta.progress?.currentPage || 1);
   const [totalPages, setTotalPages] = useState(meta.progress?.totalPages || 0);
-  const [zoom, setZoom] = useState(100);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  // Google Drive PDF viewer URL with embedded=true for in-app viewing
-  const viewerUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+  const [zoom, setZoom] = useState(1);
+  const [pdfLoading, setPdfLoading] = useState(true);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [cacheStatus, setCacheStatus] = useState<CacheStatus>("checking");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
-  // Track page on an interval (since we can't communicate with the Google viewer iframe)
-  // Instead we provide manual page tracking controls
-  const handlePageChange = useCallback((page: number) => {
-    const p = Math.max(1, page);
+  // Refs for scroll-on-resume logic — must not be reactive state
+  const initialPageRef = useRef(meta.progress?.currentPage || 1);
+  const scrolledToInitialRef = useRef(initialPageRef.current <= 1); // no scroll needed if already at p1
+  const currentPageRef = useRef(currentPage);
+  const urlToRevokeRef = useRef<string | null>(null);
+  useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
+
+  const streamUrl = getDriveStreamUrl(fileId);
+
+  // Cache-aware file loader:
+  // 1. Check IndexedDB — if HIT, create object URL immediately (instant load)
+  // 2. If MISS, fetch with auth token, store in IDB, then create object URL
+  useEffect(() => {
+    let cancelled = false;
+    setCacheStatus("checking");
+    setPdfUrl(null);
+    setPdfLoading(true);
+    setPdfError(null);
+
+    (async () => {
+      // 1 — try cache
+      const cached = await getCachedFile(fileId);
+      if (cached && !cancelled) {
+        const url = URL.createObjectURL(cached);
+        urlToRevokeRef.current = url;
+        setPdfUrl(url);
+        setCacheStatus("cached");
+        return;
+      }
+
+      if (cancelled) return;
+
+      // 2 — download from server
+      setCacheStatus("downloading");
+      try {
+        const token = await getAccessToken();
+        if (cancelled) return;
+        const res = await fetch(streamUrl, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        if (cancelled) return;
+
+        // Cache for next time (fire-and-forget)
+        cacheFile(fileId, blob, meta.name, meta.mimeType).catch(() => {});
+
+        const url = URL.createObjectURL(blob);
+        urlToRevokeRef.current = url;
+        setPdfUrl(url);
+        setCacheStatus("ready");
+      } catch {
+        if (!cancelled) {
+          setPdfLoading(false);
+          setPdfError("Failed to load PDF. Check your connection or open in Google Drive.");
+          setCacheStatus("ready");
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (urlToRevokeRef.current) {
+        URL.revokeObjectURL(urlToRevokeRef.current);
+        urlToRevokeRef.current = null;
+      }
+    };
+  }, [fileId, streamUrl, getAccessToken, meta.name, meta.mimeType]);
+
+  const handleDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
+    setTotalPages(numPages);
+    setPdfLoading(false);
+    setPdfError(null);
+    const startPage = initialPageRef.current;
+    onProgressUpdate(startPage, numPages);
+    // Scroll to the saved page after the page divs are in the DOM
+    if (startPage > 1) {
+      setTimeout(() => {
+        const el = pageRefs.current.get(startPage);
+        if (el) {
+          el.scrollIntoView({ behavior: "auto", block: "start" });
+        }
+        scrolledToInitialRef.current = true;
+      }, 150);
+    } else {
+      scrolledToInitialRef.current = true;
+    }
+  }, [onProgressUpdate]);
+
+  const handleDocumentLoadError = useCallback(() => {
+    setPdfLoading(false);
+    setPdfError("Failed to load PDF. The file may be too large or inaccessible.");
+  }, []);
+
+  // Navigate to a specific page by scrolling to it
+  const goToPage = useCallback((page: number) => {
+    const p = Math.max(1, Math.min(page, totalPages || 1));
     setCurrentPage(p);
-    if (totalPages > 0) {
-      onProgressUpdate(p, totalPages);
+    currentPageRef.current = p;
+    if (totalPages > 0) onProgressUpdate(p, totalPages);
+    const el = pageRefs.current.get(p);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [totalPages, onProgressUpdate]);
+
+  // Cache page offsets once after all pages render, then use cheap scrollTop lookup.
+  const pageOffsetsRef = useRef<number[]>([]); // index 0 = page 1's offsetTop
+
+  // Re-cache page offsets (called after render & on zoom change)
+  const cachePageOffsets = useCallback(() => {
+    if (!containerRef.current || totalPages === 0) return;
+    const container = containerRef.current;
+    // getBoundingClientRect at cache time (no scroll happening) gives the true
+    // offset relative to the scroll container — offsetTop alone is relative to
+    // offsetParent which may not be the scroll container.
+    const containerTop = container.getBoundingClientRect().top;
+    const scrollTop = container.scrollTop;
+    const offsets: number[] = [];
+    for (let p = 1; p <= totalPages; p++) {
+      const el = pageRefs.current.get(p);
+      if (el) {
+        // offset from container's scroll origin
+        offsets.push(el.getBoundingClientRect().top - containerTop + scrollTop);
+      } else {
+        offsets.push(0);
+      }
+    }
+    pageOffsetsRef.current = offsets;
+  }, [totalPages]);
+
+  // Zoom changes page heights — invalidate cached offsets after react-pdf re-renders
+  useEffect(() => {
+    if (totalPages === 0) return;
+    pageOffsetsRef.current = [];
+    const t = setTimeout(cachePageOffsets, 350);
+    return () => clearTimeout(t);
+  }, [zoom, totalPages, cachePageOffsets]);
+
+  // Track current page via scroll — O(1): binary search on pre-cached offsets.
+  useEffect(() => {
+    if (totalPages === 0 || !containerRef.current) return;
+    const container = containerRef.current;
+
+    // Cache offsets shortly after pages render
+    const cacheTimer = setTimeout(cachePageOffsets, 300);
+
+    const handleScroll = () => {
+      if (!scrolledToInitialRef.current) return;
+
+      const offsets = pageOffsetsRef.current;
+      if (offsets.length === 0) { cachePageOffsets(); return; }
+
+      const mid = container.scrollTop + container.clientHeight / 2;
+
+      // Binary search for the page whose top is closest-but-not-past mid
+      let lo = 0, hi = offsets.length - 1;
+      while (lo < hi) {
+        const m = (lo + hi + 1) >> 1;
+        if (offsets[m] <= mid) lo = m;
+        else hi = m - 1;
+      }
+      const bestPage = lo + 1; // +1 because offsets is 0-indexed for page 1
+
+      if (bestPage !== currentPageRef.current) {
+        currentPageRef.current = bestPage;
+        setCurrentPage(bestPage);
+        onProgressUpdate(bestPage, totalPages);
+      }
+    };
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+      clearTimeout(cacheTimer);
+    };
+  }, [totalPages, onProgressUpdate, cachePageOffsets]);
+
+  // Register page ref callback
+  const setPageRef = useCallback((pageNum: number, el: HTMLDivElement | null) => {
+    if (el) {
+      pageRefs.current.set(pageNum, el);
+    } else {
+      pageRefs.current.delete(pageNum);
+    }
+  }, []);
 
   return (
     <div className="flex flex-col h-full">
@@ -120,7 +314,7 @@ function PDFViewer({ fileId, meta, onProgressUpdate }: PDFViewerProps) {
         {/* Page navigation */}
         <div className="flex items-center gap-1">
           <button
-            onClick={() => handlePageChange(currentPage - 1)}
+            onClick={() => goToPage(currentPage - 1)}
             disabled={currentPage <= 1}
             title="Previous page"
             className="w-7 h-7 rounded-lg bg-ghost flex items-center justify-center disabled:opacity-30 hover:bg-cloud transition-colors"
@@ -132,7 +326,7 @@ function PDFViewer({ fileId, meta, onProgressUpdate }: PDFViewerProps) {
             <input
               type="number"
               value={currentPage}
-              onChange={(e) => handlePageChange(parseInt(e.target.value) || 1)}
+              onChange={(e) => goToPage(parseInt(e.target.value) || 1)}
               className="w-12 text-center bg-ghost border border-cloud rounded-lg py-0.5 text-sm text-navy focus:outline-none focus:ring-1 focus:ring-lime"
               min={1}
               max={totalPages || undefined}
@@ -140,23 +334,11 @@ function PDFViewer({ fileId, meta, onProgressUpdate }: PDFViewerProps) {
               placeholder="Page"
             />
             <span className="text-slate">/</span>
-            <input
-              type="number"
-              value={totalPages || ""}
-              onChange={(e) => {
-                const t = parseInt(e.target.value) || 0;
-                setTotalPages(t);
-                if (t > 0) onProgressUpdate(currentPage, t);
-              }}
-              placeholder="Total"
-              title="Total pages"
-              className="w-12 text-center bg-ghost border border-cloud rounded-lg py-0.5 text-sm text-slate focus:outline-none focus:ring-1 focus:ring-lime"
-              min={1}
-            />
+            <span className="text-sm text-navy font-medium">{totalPages || "..."}</span>
           </div>
 
           <button
-            onClick={() => handlePageChange(currentPage + 1)}
+            onClick={() => goToPage(currentPage + 1)}
             disabled={totalPages > 0 && currentPage >= totalPages}
             title="Next page"
             className="w-7 h-7 rounded-lg bg-ghost flex items-center justify-center disabled:opacity-30 hover:bg-cloud transition-colors"
@@ -165,18 +347,25 @@ function PDFViewer({ fileId, meta, onProgressUpdate }: PDFViewerProps) {
           </button>
         </div>
 
+        {/* Cache status badge */}
+        {cacheStatus === "cached" && (
+          <span className="text-label-sm text-teal bg-teal-light px-1.5 py-0.5 rounded font-bold uppercase tracking-wide hidden sm:inline">
+            Cached
+          </span>
+        )}
+
         {/* Zoom */}
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setZoom(Math.max(50, zoom - 25))}
+            onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
             title="Zoom out"
             className="w-7 h-7 rounded-lg bg-ghost flex items-center justify-center hover:bg-cloud"
           >
             <ZoomOutIcon className="w-4 h-4" />
           </button>
-          <span className="text-xs text-slate w-10 text-center">{zoom}%</span>
+          <span className="text-xs text-slate w-10 text-center">{Math.round(zoom * 100)}%</span>
           <button
-            onClick={() => setZoom(Math.min(200, zoom + 25))}
+            onClick={() => setZoom(Math.min(3, zoom + 0.25))}
             title="Zoom in"
             className="w-7 h-7 rounded-lg bg-ghost flex items-center justify-center hover:bg-cloud"
           >
@@ -185,17 +374,68 @@ function PDFViewer({ fileId, meta, onProgressUpdate }: PDFViewerProps) {
         </div>
       </div>
 
-      {/* PDF iframe */}
-      <div className="flex-1 overflow-hidden bg-navy-light">
-        <iframe
-          ref={iframeRef}
-          src={viewerUrl}
-          className="w-full h-full border-0"
-          style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top left", width: `${10000 / zoom}%`, height: `${10000 / zoom}%` }}
-          title={meta.name}
-          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-          loading="lazy"
-        />
+      {/* PDF content area */}
+      <div ref={containerRef} className="flex-1 overflow-auto bg-navy-light">
+        {(cacheStatus === "checking" || cacheStatus === "downloading" || pdfLoading) && (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center space-y-3">
+              <div className="animate-spin rounded-full h-8 w-8 border-[3px] border-lime border-t-transparent mx-auto" />
+              <p className="text-snow text-sm">
+                {cacheStatus === "checking" && "Checking cache..."}
+                {cacheStatus === "downloading" && "Downloading PDF..."}
+                {(cacheStatus === "cached" || cacheStatus === "ready") && pdfLoading && "Rendering PDF..."}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {pdfError && (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center space-y-3 max-w-sm">
+              <p className="text-coral font-medium">{pdfError}</p>
+              <a
+                href={`https://drive.google.com/file/d/${fileId}/preview`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-lime border-[3px] border-navy rounded-xl font-display font-bold text-sm text-navy press-3 press-navy"
+              >
+                Open in Google Drive <ExternalLinkIcon className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
+        )}
+
+        {pdfUrl && (
+          <Document
+            file={pdfUrl}
+            onLoadSuccess={handleDocumentLoadSuccess}
+            onLoadError={handleDocumentLoadError}
+            loading={null}
+          >
+            <div className="flex flex-col items-center gap-2 py-4">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <div
+                  key={pageNum}
+                  ref={(el) => setPageRef(pageNum, el)}
+                  data-page-number={pageNum}
+                  className="shadow-lg"
+                >
+                  <Page
+                    pageNumber={pageNum}
+                    scale={zoom}
+                    renderTextLayer
+                    renderAnnotationLayer
+                    loading={
+                      <div className="flex items-center justify-center h-32">
+                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-lime border-t-transparent" />
+                      </div>
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </Document>
+        )}
       </div>
     </div>
   );

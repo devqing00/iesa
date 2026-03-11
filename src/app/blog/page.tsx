@@ -54,24 +54,32 @@ export default function BlogPage() {
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
   const fetchArticles = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
       if (activeCategory !== "all") params.set("category", activeCategory);
-      if (searchQuery) params.set("search", searchQuery);
+      if (debouncedSearch) params.set("search", debouncedSearch);
       const qs = params.toString();
       const res = await fetch(getApiUrl(`/api/v1/press/published${qs ? `?${qs}` : ""}`));
       if (res.ok) {
         const data = await res.json();
         setArticles(data);
       }
-    } catch {
+    } catch (err) {
+      console.error("Failed to fetch articles:", err);
+      setArticles([]);
     } finally {
       setLoading(false);
     }
-  }, [activeCategory, searchQuery]);
+  }, [activeCategory, debouncedSearch]);
 
   useEffect(() => {
     fetchArticles();
@@ -135,7 +143,7 @@ export default function BlogPage() {
                 placeholder="Search articles..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-snow border-[2px] border-navy rounded-2xl font-display text-sm text-navy placeholder:text-slate/60 focus:outline-none focus:ring-2 focus:ring-lime shadow-[3px_3px_0_0_#000]"
+                className="w-full pl-10 pr-4 py-3 bg-snow border-[2px] border-navy rounded-2xl font-display text-sm text-navy placeholder:text-slate focus:outline-none focus:ring-2 focus:ring-lime shadow-[3px_3px_0_0_#000]"
               />
             </div>
           </div>
@@ -149,7 +157,7 @@ export default function BlogPage() {
                 className={`px-4 py-1.5 text-[11px] font-display font-bold uppercase tracking-wider rounded-xl border-[2px] transition-all ${
  activeCategory === cat
  ?"bg-navy text-snow border-lime press-3 press-lime"
- :"bg-snow text-navy border-navy/20 hover:border-navy"
+ :"bg-snow text-navy border-cloud hover:border-navy"
  }`}
               >
                 {cat === "event_coverage" ? "Events" : cat === "campus_life" ? "Campus" : cat}
@@ -163,7 +171,7 @@ export default function BlogPage() {
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="bg-snow border-[2px] border-navy/10 rounded-3xl p-6 animate-pulse">
+                <div key={i} className="bg-snow border-[2px] border-cloud rounded-3xl p-6 animate-pulse">
                   <div className="h-40 bg-cloud rounded-2xl mb-4" />
                   <div className="h-4 bg-cloud rounded w-1/3 mb-3" />
                   <div className="h-6 bg-cloud rounded w-3/4 mb-2" />
@@ -193,11 +201,12 @@ export default function BlogPage() {
                             src={featured.coverImageUrl}
                             alt={featured.title}
                             fill
+                            sizes="(max-width: 1024px) 100vw, 50vw"
                             className="object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full bg-navy/10 flex items-center justify-center">
-                            <svg aria-hidden="true" className="w-20 h-20 text-navy/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="w-full h-full bg-cloud flex items-center justify-center">
+                            <svg aria-hidden="true" className="w-20 h-20 text-slate/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                             </svg>
                           </div>
@@ -209,16 +218,16 @@ export default function BlogPage() {
                           <span className={`px-2 py-0.5 text-[10px] font-display font-bold uppercase tracking-wider rounded-lg ${CATEGORY_COLORS[featured.category]?.bg || "bg-cloud"} ${CATEGORY_COLORS[featured.category]?.text || "text-navy"}`}>
                             {featured.category.replace("_", " ")}
                           </span>
-                          <span className="text-[10px] font-bold text-navy/40 uppercase tracking-wider">Featured</span>
+                          <span className="text-[10px] font-bold text-slate uppercase tracking-wider">Featured</span>
                         </div>
-                        <h2 className="font-display font-black text-2xl lg:text-3xl text-navy mb-3 group-hover:text-navy/80 transition-colors leading-tight">
+                        <h2 className="font-display font-black text-2xl lg:text-3xl text-navy mb-3 group-hover:text-navy-muted transition-colors leading-tight">
                           {featured.title}
                         </h2>
                         {featured.excerpt && (
-                          <p className="text-navy/70 text-sm mb-4 line-clamp-3">{featured.excerpt}</p>
+                          <p className="text-navy-muted text-sm mb-4 line-clamp-3">{featured.excerpt}</p>
                         )}
                         <div className="flex items-center gap-3 mt-auto">
-                          <div className="w-8 h-8 rounded-full bg-navy/10 flex items-center justify-center overflow-hidden border-[2px] border-navy">
+                          <div className="w-8 h-8 rounded-full bg-cloud flex items-center justify-center overflow-hidden border-[2px] border-navy">
                             {featured.authorProfilePicture ? (
                               <Image src={featured.authorProfilePicture} alt="" width={32} height={32} className="object-cover" />
                             ) : (
@@ -231,7 +240,7 @@ export default function BlogPage() {
                               {featured.publishedAt ? new Date(featured.publishedAt).toLocaleDateString("en-NG", { month: "short", day: "numeric", year: "numeric" }) : ""}
                             </p>
                           </div>
-                          <div className="ml-auto flex items-center gap-3 text-[10px] text-navy/40 font-bold">
+                          <div className="ml-auto flex items-center gap-3 text-[10px] text-slate font-bold">
                             <span className="flex items-center gap-1">
                               <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" /><path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41z" clipRule="evenodd" /></svg>
                               {featured.viewCount}
@@ -258,7 +267,7 @@ export default function BlogPage() {
                         {/* Cover */}
                         <div className="relative h-44">
                           {article.coverImageUrl ? (
-                            <Image src={article.coverImageUrl} alt={article.title} fill className="object-cover" />
+                            <Image src={article.coverImageUrl} alt={article.title} fill sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw" className="object-cover" />
                           ) : (
                             <div className={`w-full h-full ${CATEGORY_COLORS[article.category]?.bg || "bg-cloud"} flex items-center justify-center`}>
                               <svg aria-hidden="true" className="w-12 h-12 text-navy/15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -274,14 +283,14 @@ export default function BlogPage() {
                               {article.category.replace("_", " ")}
                             </span>
                           </div>
-                          <h3 className="font-display font-black text-lg text-navy mb-2 leading-tight line-clamp-2 group-hover:text-navy/80 transition-colors">
+                          <h3 className="font-display font-black text-lg text-navy mb-2 leading-tight line-clamp-2 group-hover:text-navy-muted transition-colors">
                             {article.title}
                           </h3>
                           {article.excerpt && (
                             <p className="text-sm text-slate line-clamp-2 mb-3">{article.excerpt}</p>
                           )}
                           <div className="flex items-center gap-2 mt-auto pt-3 border-t border-cloud">
-                            <div className="w-6 h-6 rounded-full bg-navy/10 flex items-center justify-center overflow-hidden border-[2px] border-navy">
+                            <div className="w-6 h-6 rounded-full bg-cloud flex items-center justify-center overflow-hidden border-[2px] border-navy">
                               {article.authorProfilePicture ? (
                                 <Image src={article.authorProfilePicture} alt="" width={24} height={24} className="object-cover" />
                               ) : (

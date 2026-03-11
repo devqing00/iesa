@@ -17,6 +17,16 @@ const nextConfig: NextConfig = {
     ],
   },
   devIndicators: false,
+
+  // Turbopack config (Next.js 16 default bundler)
+  // react-pdf's PDFViewer is a client component — no canvas SSR issue under Turbopack
+  turbopack: {},
+
+  // react-pdf needs canvas aliased for webpack builds (e.g. next build without turbopack)
+  webpack: (config) => {
+    config.resolve.alias.canvas = false;
+    return config;
+  },
   
   // Proxy API requests to backend
   // Development: localhost:8000
