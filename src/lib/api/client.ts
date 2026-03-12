@@ -19,10 +19,8 @@ function normalizeApiBaseUrl(rawUrl?: string): string {
   const fallback = 'http://localhost:8000';
   const configured = (rawUrl || fallback).trim().replace(/\/$/, '');
 
-  // Prevent mixed content when the frontend is served over HTTPS.
+  // Prevent mixed content: always upgrade non-localhost http URLs to https.
   if (
-    typeof window !== 'undefined' &&
-    window.location.protocol === 'https:' &&
     configured.startsWith('http://') &&
     !configured.startsWith('http://localhost') &&
     !configured.startsWith('http://127.0.0.1')

@@ -75,10 +75,13 @@ async def create_role(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    # C3: Prevent self-assignment
+    # C3: Prevent self-assignment except for super_admin bootstrap
     assigner_id = str(current_user.get("_id") or current_user.get("id", ""))
-    if role.userId == assigner_id:
-        raise HTTPException(status_code=400, detail="Cannot assign a role to yourself")
+    if role.userId == assigner_id and role.position != "super_admin":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot assign a role to yourself (except super_admin)"
+        )
     
     # C2+M4: Validate permission keys against the registry
     if role.permissions:

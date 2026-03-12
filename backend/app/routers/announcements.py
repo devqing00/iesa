@@ -329,6 +329,7 @@ async def create_announcement(
     return Announcement(**created_announcement)
 
 
+@router.get("")
 @router.get("/")
 async def list_announcements(
     session_id: Optional[str] = Query(None, description="Filter by session ID. Defaults to active session."),
