@@ -15,7 +15,30 @@ import { toast } from "sonner";
 // Configuration
 // ============================================
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+function normalizeApiBaseUrl(rawUrl?: string): string {
+  const fallback = 'http://localhost:8000';
+  const configured = (rawUrl || fallback).trim().replace(/\/$/, '');
+
+  // Prevent mixed content when the frontend is served over HTTPS.
+  if (
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'https:' &&
+    configured.startsWith('http://') &&
+    !configured.startsWith('http://localhost') &&
+    !configured.startsWith('http://127.0.0.1')
+  ) {
+    return configured.replace(/^http:\/\//, 'https://');
+  }
+
+  return configured;
+}
+
+const RAW_API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  'http://localhost:8000';
+
+export const API_BASE_URL = normalizeApiBaseUrl(RAW_API_BASE_URL);
 
 // Request timeout in milliseconds
 const REQUEST_TIMEOUT = 30000;

@@ -24,10 +24,28 @@ interface PublicEventsResponse {
   sessionName: string | null;
 }
 
+function getPublicApiBaseUrl(): string {
+  const configured = (
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    "http://localhost:8000"
+  ).replace(/\/$/, "");
+
+  if (
+    configured.startsWith("http://") &&
+    !configured.startsWith("http://localhost") &&
+    !configured.startsWith("http://127.0.0.1")
+  ) {
+    return configured.replace(/^http:\/\//, "https://");
+  }
+
+  return configured;
+}
+
 // ── Fetch events from the public API ────────────────────────
 
 async function fetchPublicEvents(): Promise<PublicEventsResponse> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const apiUrl = getPublicApiBaseUrl();
   try {
     const res = await fetch(`${apiUrl}/api/v1/events/public`, {
       next: { revalidate: 300 }, // revalidate every 5 minutes
