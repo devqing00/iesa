@@ -12,7 +12,7 @@ from app.core.permissions import require_permission as _require_permission
 from app.core.rate_limiting import setup_rate_limiting
 from app.core.error_handling import setup_exception_handlers, setup_logging
 from app.core.scheduler import start_scheduler, stop_scheduler
-from app.routers import sessions, users, payments, events, announcements, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press, unit_applications, units, academic_calendar, timp, bank_transfers, settings, contact_messages, iepod, admin_stats, student_dashboard, sse, notifications, search, growth, messages, class_rep, unit_head, push_notifications, drive
+from app.routers import sessions, users, payments, events, announcements, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press, team_applications, teams, academic_calendar, timp, bank_transfers, settings, contact_messages, iepod, admin_stats, student_dashboard, sse, notifications, search, growth, messages, class_rep, team_head, push_notifications, drive
 from app.db import connect_to_mongo, close_mongo_connection, get_database
 
 # Setup logging first
@@ -355,8 +355,8 @@ app.include_router(paystack.router)  # Paystack Payment Integration
 app.include_router(audit_logs.router)  # Audit Logs (Admin Only)
 app.include_router(study_groups.router)  # Study Group Finder
 app.include_router(press.router)  # Association Press / Blog
-app.include_router(unit_applications.router)  # Unit Applications
-app.include_router(units.router)              # Units & Committees Management
+app.include_router(team_applications.router)  # Team Applications
+app.include_router(teams.router)              # Teams Management
 app.include_router(academic_calendar.router)  # Academic Calendar Events
 app.include_router(timp.router)  # TIMP Mentoring Project
 app.include_router(bank_transfers.router)  # Bank Transfer Payments
@@ -374,7 +374,7 @@ app.include_router(messages._admin_router)     # Admin Message Reports & Mutes
 app.include_router(messages._ws_router)        # Messages WebSocket (no HTTTPBearer dep)
 app.include_router(study_groups._ws_router)    # Study Groups WebSocket (no HTTPBearer dep)
 app.include_router(class_rep.router)             # Class Rep Portal
-app.include_router(unit_head.router)               # Unit Head Portal
+app.include_router(team_head.router)               # Team Head Portal
 app.include_router(push_notifications.router)        # Web Push Notifications
 app.include_router(drive.router)                       # Google Drive Resource Browser
 

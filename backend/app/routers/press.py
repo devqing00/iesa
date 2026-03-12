@@ -1,11 +1,11 @@
 """
-Press Router — Association Blog / Press Unit
+Press Router — Association Blog / Press Team
 
 Public endpoints (no auth):
   GET  /api/v1/press/published          — published articles list
   GET  /api/v1/press/published/{slug}   — single published article (deduped views, optional auth for like state)
 
-Author endpoints (press unit member):
+Author endpoints (press team member):
   GET  /api/v1/press/my-articles        — author's own articles
   POST /api/v1/press/                   — create article (draft)
   PUT  /api/v1/press/{id}               — update draft/revision article
@@ -66,7 +66,7 @@ def _slugify(text: str) -> str:
 
 
 async def _check_press_member(user: dict, db) -> bool:
-    """Check if user is a press unit member (has any press permission in their active-session role).
+    """Check if user is a press team member (has any press permission in their active-session role).
     Super admins always have access."""
     roles = db["roles"]
     sessions = db["sessions"]
@@ -227,7 +227,7 @@ async def get_published_article(slug: str, request: Request):
 
 
 # ══════════════════════════════════════════════════════════
-# AUTHOR ENDPOINTS (press unit members)
+# AUTHOR ENDPOINTS (press team members)
 # ══════════════════════════════════════════════════════════
 
 @router.get("/my-articles", response_model=List[Article])
@@ -241,7 +241,7 @@ async def list_my_articles(
 
     is_member = await _check_press_member(user, db)
     if not is_member:
-        raise HTTPException(status_code=403, detail="You are not a press unit member")
+        raise HTTPException(status_code=403, detail="You are not a press team member")
 
     query: dict = {"authorId": user["_id"]}
     if article_status:
@@ -263,7 +263,7 @@ async def create_article(
 
     is_member = await _check_press_member(user, db)
     if not is_member:
-        raise HTTPException(status_code=403, detail="You are not a press unit member")
+        raise HTTPException(status_code=403, detail="You are not a press team member")
 
     # Sanitize
     if not validate_no_scripts(payload.title):
@@ -378,7 +378,7 @@ async def upload_cover_image(
     # Check press membership
     db = get_database()
     if not await _check_press_member(user, db):
-        raise HTTPException(status_code=403, detail="Only press unit members can upload cover images")
+        raise HTTPException(status_code=403, detail="Only press team members can upload cover images")
 
     ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "jpg"
     temp_id = str(uuid.uuid4())[:12]

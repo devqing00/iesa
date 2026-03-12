@@ -127,9 +127,9 @@ PERMISSIONS = {
     "contact:view": "View contact form submissions",
     "contact:manage": "Reply to, archive, and delete contact messages",
 
-    # Unit application permissions
-    "unit_application:review": "Review unit/committee applications",
-    "unit_application:manage": "Manage units & committees (create, edit, delete, assign heads)",
+    # Team management permissions
+    "team:review": "Review team applications",
+    "team:manage": "Manage teams (create, edit, delete, assign heads)",
 
     # TIMP permissions
     "timp:manage": "Manage TIMP mentoring (review applications, create pairs)",
@@ -159,11 +159,11 @@ PERMISSIONS = {
     "class_rep:pin_relay": "Pin/unpin relay board posts",
     "class_rep:view_stats": "View cohort stats (enrollment, payments)",
 
-    # Unit Head Portal permissions
-    "unit_head:view_members": "View member list for own unit",
-    "unit_head:manage_noticeboard": "Create/edit/delete noticeboard posts for own unit",
-    "unit_head:manage_tasks": "Create/edit/delete tasks for unit members",
-    "unit_head:announce": "Send announcements targeted to own unit members",
+    # Team Head Portal permissions
+    "team_head:view_members": "View member list for own team",
+    "team_head:manage_noticeboard": "Create/edit/delete noticeboard posts for own team",
+    "team_head:manage_tasks": "Create/edit/delete tasks for team members",
+    "team_head:announce": "Send announcements targeted to own team members",
 
     # Messaging & Moderation permissions
     "messages:manage": "Manage DM reports (list, review, mute/unmute users)",
@@ -214,7 +214,7 @@ DEFAULT_PERMISSIONS = {
         "bank_transfer:manage_accounts", "bank_transfer:review", "bank_transfer:view_all",
         "iepod:manage", "iepod:view",
         "contact:view", "contact:manage",
-        "unit_application:review", "unit_application:manage",
+        "team:review", "team:manage",
         "audit:view", "audit:export",
         "messages:manage", "message:moderate",
     ],
@@ -230,7 +230,7 @@ DEFAULT_PERMISSIONS = {
         "bank_transfer:review", "bank_transfer:view_all",
         "iepod:manage", "iepod:view",
         "contact:view", "contact:manage",
-        "unit_application:review", "unit_application:manage",
+        "team:review", "team:manage",
         "messages:manage", "message:moderate",
     ],
     "general_secretary": [
@@ -238,7 +238,7 @@ DEFAULT_PERMISSIONS = {
         "user:view_all", "role:view",
         "timetable:view",
         "contact:view", "contact:manage",
-        "unit_application:review",
+        "team:review",
         "messages:manage", "message:moderate",
     ],
     "assistant_general_secretary": [
@@ -317,42 +317,176 @@ DEFAULT_PERMISSIONS = {
         "class_rep:view_stats",
     ],
 
-    # ── Committee Heads (more permissions than members) ──────────────
+    # ── Team Heads ─────────────────────────────────────────────────
+    # New team structure — each built-in team has a head position
+    "ics_head": [
+        "announcement:create", "announcement:view",
+        "event:view",
+        "user:view_all",
+        "team:review",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
+    ],
+    "team_head_industrial_visit": [
+        "announcement:create", "announcement:view",
+        "event:create", "event:view",
+        "team:review",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
+    ],
+    "team_head_conference": [
+        "announcement:create", "announcement:view",
+        "event:create", "event:view",
+        "team:review",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
+    ],
+    "team_head_logistics": [
+        "announcement:create", "announcement:view",
+        "event:view",
+        "team:review",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
+    ],
+    "team_head_welfare": [
+        "announcement:create", "announcement:view",
+        "user:view_all",
+        "team:review",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
+    ],
+    "team_head_alumni_relations": [
+        "announcement:create", "announcement:view",
+        "event:create", "event:view",
+        "team:review",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
+    ],
+    "team_head_dinner_award": [
+        "announcement:create", "announcement:view",
+        "event:create", "event:edit", "event:view",
+        "team:review",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
+    ],
+
+    # ── Team Members ────────────────────────────────────────────────
+    "ics_member": [
+        "announcement:view",
+        "event:view",
+    ],
+    "team_industrial_visit_member": [
+        "announcement:view",
+        "event:view",
+    ],
+    "team_conference_member": [
+        "announcement:view",
+        "event:view",
+    ],
+    "team_logistics_member": [
+        "announcement:view",
+        "event:view",
+    ],
+    "team_welfare_member": [
+        "announcement:view",
+    ],
+    "team_alumni_relations_member": [
+        "announcement:view",
+        "event:view",
+    ],
+    "team_dinner_award_member": [
+        "announcement:view",
+        "event:view",
+    ],
+
+    # ── IEPOD Specialized Roles ──────────────────────────────────────
+    "iepod_hub_director": [
+        "iepod:manage", "iepod:view",
+        "announcement:create", "announcement:view",
+        "event:create", "event:view",
+        "user:view_all",
+        "team:review",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
+    ],
+    "iepod_hub_lead": [
+        "iepod:manage", "iepod:view",
+        "announcement:create", "announcement:view",
+        "team:review",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
+    ],
+    "iepod_conference_lead": [
+        "iepod:view",
+        "event:create", "event:view",
+        "announcement:create", "announcement:view",
+    ],
+    "iepod_program_coordinator": [
+        "iepod:view",
+        "announcement:view",
+        "event:view",
+    ],
+    "iepod_communications_officer": [
+        "iepod:view",
+        "announcement:create", "announcement:view",
+    ],
+
+    # ── TIMP Specialized Roles ───────────────────────────────────────
+    "timp_mentor": [
+        "timp:view",
+        "announcement:view",
+    ],
+    "timp_mentee": [
+        "timp:view",
+        "announcement:view",
+    ],
+
+    # ── Press Specialized Roles ──────────────────────────────────────
+    "press_niche_editor": [
+        "press:access", "press:create", "press:edit", "press:review",
+        "announcement:view",
+    ],
+    "press_pro": [
+        "press:access", "press:create",
+        "announcement:create", "announcement:view",
+    ],
+
+    # Legacy committee head positions — kept for backward compat with existing roles
     "committee_head_academic": [
         "announcement:create", "announcement:view",
         "event:create", "event:view",
         "resource:view",
-        "unit_application:review",
-        "unit_head:view_members", "unit_head:manage_noticeboard",
-        "unit_head:manage_tasks", "unit_head:announce",
+        "team:review",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
     ],
     "committee_head_welfare": [
         "announcement:create", "announcement:view",
         "user:view_all",
-        "unit_application:review",
-        "unit_head:view_members", "unit_head:manage_noticeboard",
-        "unit_head:manage_tasks", "unit_head:announce",
+        "team:review",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
     ],
     "committee_head_sports": [
         "event:create", "event:edit", "event:view",
         "announcement:create", "announcement:view",
-        "unit_application:review",
-        "unit_head:view_members", "unit_head:manage_noticeboard",
-        "unit_head:manage_tasks", "unit_head:announce",
+        "team:review",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
     ],
     "committee_head_social": [
         "event:create", "event:edit", "event:view",
         "announcement:create", "announcement:view",
-        "unit_application:review",
-        "unit_head:view_members", "unit_head:manage_noticeboard",
-        "unit_head:manage_tasks", "unit_head:announce",
+        "team:review",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
     ],
     "committee_head_technical": [
         "announcement:create", "announcement:view",
         "resource:view", "resource:create",
-        "unit_head:view_members", "unit_head:manage_noticeboard",
-        "unit_head:manage_tasks", "unit_head:announce",
-        "unit_application:review",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
+        "team:review",
     ],
     # Legacy aliases — old keys kept for backward compatibility
     "committee_academic": [
@@ -389,24 +523,24 @@ DEFAULT_PERMISSIONS = {
         "event:view",
     ],
 
-    # ── Unit Heads ───────────────────────────────────────────────────
+    # ── Legacy Unit Heads (kept for backward compat with existing roles) ────
     "unit_head_photography": [
         "announcement:create", "announcement:view",
         "event:view",
-        "unit_head:view_members", "unit_head:manage_noticeboard",
-        "unit_head:manage_tasks", "unit_head:announce",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
     ],
     "unit_head_logistics": [
         "announcement:create", "announcement:view",
         "event:view",
-        "unit_head:view_members", "unit_head:manage_noticeboard",
-        "unit_head:manage_tasks", "unit_head:announce",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
     ],
     "unit_head_decoration": [
         "announcement:create", "announcement:view",
         "event:view",
-        "unit_head:view_members", "unit_head:manage_noticeboard",
-        "unit_head:manage_tasks", "unit_head:announce",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
     ],
 
     # ── Special Roles ────────────────────────────────────────────────
@@ -419,9 +553,9 @@ DEFAULT_PERMISSIONS = {
         "press:access", "press:create", "press:edit", "press:review", "press:publish", "press:manage",
         "announcement:create", "announcement:view",
         "user:view_all",
-        "unit_application:review",
-        "unit_head:view_members", "unit_head:manage_noticeboard",
-        "unit_head:manage_tasks", "unit_head:announce",
+        "team:review",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
     ],
     "press_member": [
         "press:access", "press:create", "press:edit",
@@ -430,9 +564,9 @@ DEFAULT_PERMISSIONS = {
         "announcement:create", "announcement:view",
         "event:view",
         "user:view_all",
-        "unit_application:review",
-        "unit_head:view_members", "unit_head:manage_noticeboard",
-        "unit_head:manage_tasks", "unit_head:announce",
+        "team:review",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
     ],
     "ics_member": [
         "announcement:view",
@@ -449,12 +583,19 @@ DEFAULT_PERMISSIONS = {
         "event:view",
     ],
 
-    # ── Custom Unit Head (base defaults for unit_head_custom_* positions) ────
+    # ── Custom Team Head (base defaults for team_head_custom_* positions) ────
+    "team_head_custom": [
+        "announcement:create", "announcement:view",
+        "event:view",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
+    ],
+    # Legacy alias
     "unit_head_custom": [
         "announcement:create", "announcement:view",
         "event:view",
-        "unit_head:view_members", "unit_head:manage_noticeboard",
-        "unit_head:manage_tasks", "unit_head:announce",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
     ],
 }
 
@@ -596,9 +737,9 @@ async def get_user_permissions(
                 # class_rep_100L → class_rep defaults, asst_class_rep_100L → asst_class_rep defaults
                 base = "asst_class_rep" if position.startswith("asst_class_rep") else "class_rep"
                 all_permissions.update(DEFAULT_PERMISSIONS.get(base, []))
-            elif position.startswith("unit_head_custom_"):
-                # Custom unit heads get the base unit_head_custom defaults
-                all_permissions.update(DEFAULT_PERMISSIONS.get("unit_head_custom", []))
+            elif position.startswith("team_head_custom_") or position.startswith("unit_head_custom_"):
+                # Custom team heads get the base team_head_custom defaults
+                all_permissions.update(DEFAULT_PERMISSIONS.get("team_head_custom", []))
     
     result = list(all_permissions)
     # Only cache non-empty permission sets.

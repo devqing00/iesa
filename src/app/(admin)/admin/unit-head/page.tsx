@@ -190,7 +190,7 @@ const STATUS_STYLES: Record<string, { bg: string; dot: string; label: string }> 
    Main Page
    ═══════════════════════════════════════════════════════════ */
 
-function UnitHeadPortal() {
+function TeamHeadPortal() {
   const { getAccessToken } = useAuth();
   const { hasPermission } = usePermissions();
   const [tab, setTab] = useState<Tab>("overview");
@@ -238,7 +238,7 @@ function UnitHeadPortal() {
   const apiFetch = useCallback(
     async (path: string, options?: RequestInit) => {
       const token = await getAccessToken();
-      const res = await fetch(getApiUrl(`/api/v1/unit-head${path}`), {
+      const res = await fetch(getApiUrl(`/api/v1/team-head${path}`), {
         ...options,
         headers: {
           "Content-Type": "application/json",
@@ -436,10 +436,10 @@ function UnitHeadPortal() {
   }
 
   /* ── permission gates ────────────────────────────────────── */
-  const canViewMembers = hasPermission("unit_head:view_members");
-  const canManageNoticeboard = hasPermission("unit_head:manage_noticeboard");
-  const canManageTasks = hasPermission("unit_head:manage_tasks");
-  const canAnnounce = hasPermission("unit_head:announce");
+  const canViewMembers = hasPermission("team_head:view_members");
+  const canManageNoticeboard = hasPermission("team_head:manage_noticeboard");
+  const canManageTasks = hasPermission("team_head:manage_tasks");
+  const canAnnounce = hasPermission("team_head:announce");
 
   /* ── filtered members ────────────────────────────────────── */
   const filteredMembers = members.filter((m) => {
@@ -462,7 +462,7 @@ function UnitHeadPortal() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="bg-snow border-4 border-navy rounded-3xl p-10 shadow-[8px_8px_0_0_#000] text-center max-w-md">
           <h2 className="font-display font-black text-display-md text-navy mb-2">Access Denied</h2>
-          <p className="text-slate">You need a Unit Head role to access this page.</p>
+          <p className="text-slate">You need a Team Head role to access this page.</p>
         </div>
       </div>
     );
@@ -491,8 +491,8 @@ function UnitHeadPortal() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="bg-sunny-light border-4 border-navy rounded-3xl p-10 shadow-[8px_8px_0_0_#000] text-center max-w-md">
-          <h2 className="font-display font-black text-display-md text-navy mb-2">No Units</h2>
-          <p className="text-slate">You don&apos;t head any units this session.</p>
+          <h2 className="font-display font-black text-display-md text-navy mb-2">No Teams</h2>
+          <p className="text-slate">You don&apos;t head any teams this session.</p>
         </div>
       </div>
     );
@@ -503,7 +503,7 @@ function UnitHeadPortal() {
       {/* ░░░ Header ░░░ */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <p className="text-label text-slate">UNIT HEAD PORTAL</p>
+          <p className="text-label text-slate">TEAM HEAD PORTAL</p>
           <h1 className="font-display font-black text-display-lg text-navy">
             <span className="brush-highlight">{activeUnit?.unitLabel}</span> Dashboard
           </h1>
@@ -517,7 +517,7 @@ function UnitHeadPortal() {
               const u = headedUnits.find((h) => h.unitSlug === e.target.value) || null;
               setActiveUnit(u);
             }}
-            aria-label="Select unit"
+            aria-label="Select team"
             className="bg-snow border-[3px] border-navy rounded-2xl px-4 py-2.5 font-bold text-sm text-navy shadow-[3px_3px_0_0_#000]"
           >
             {headedUnits.map((u) => (
@@ -1116,7 +1116,7 @@ function UnitHeadPortal() {
               Send Announcement to {activeUnit?.unitLabel} Members
             </h3>
             <p className="text-sm text-slate">
-              This will create an announcement and notify all {members.length} member(s) of your unit.
+              This will create an announcement and notify all {members.length} member(s) of your team.
             </p>
             <input
               type="text"
@@ -1164,4 +1164,4 @@ function UnitHeadPortal() {
   );
 }
 
-export default withAuth(UnitHeadPortal, { requiredPermission: "unit_head:view_members" });
+export default withAuth(TeamHeadPortal, { requiredPermission: "team_head:view_members" });

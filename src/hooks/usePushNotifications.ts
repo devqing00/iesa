@@ -39,7 +39,7 @@ export function usePushNotifications() {
 
     // Register push service worker (separate from any app SW)
     navigator.serviceWorker
-      .register("/push-sw.js", { scope: "/push/" })
+      .register("/push-sw.js")
       .then((reg) => {
         registrationRef.current = reg;
         return reg.pushManager.getSubscription();
@@ -104,7 +104,7 @@ export function usePushNotifications() {
       // 3. Ensure SW is registered (re-register if the ref is still null due to async timing)
       let reg = registrationRef.current;
       if (!reg) {
-        reg = await navigator.serviceWorker.register("/push-sw.js", { scope: "/push/" });
+        reg = await navigator.serviceWorker.register("/push-sw.js");
         registrationRef.current = reg;
       }
 

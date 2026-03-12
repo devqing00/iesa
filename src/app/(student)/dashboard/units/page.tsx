@@ -82,13 +82,15 @@ const PRIORITY_STYLES: Record<string, string> = {
   urgent: "bg-coral text-snow",
 };
 
-const UNIT_ACCENTS: Record<string, { bg: string; light: string }> = {
+const TEAM_ACCENTS: Record<string, { bg: string; light: string }> = {
   press: { bg: "bg-coral", light: "bg-coral-light" },
   ics: { bg: "bg-lavender", light: "bg-lavender-light" },
-  committee_academic: { bg: "bg-lavender", light: "bg-lavender-light" },
-  committee_welfare: { bg: "bg-teal", light: "bg-teal-light" },
-  committee_sports: { bg: "bg-lime", light: "bg-lime-light" },
-  committee_socials: { bg: "bg-sunny", light: "bg-sunny-light" },
+  industrial_visit: { bg: "bg-teal", light: "bg-teal-light" },
+  conference: { bg: "bg-sunny", light: "bg-sunny-light" },
+  logistics: { bg: "bg-lime", light: "bg-lime-light" },
+  welfare: { bg: "bg-teal", light: "bg-teal-light" },
+  alumni_relations: { bg: "bg-lavender", light: "bg-lavender-light" },
+  dinner_award: { bg: "bg-coral", light: "bg-coral-light" },
 };
 
 /* ── Static nav cards ──────────────────────────────────── */
@@ -111,7 +113,7 @@ const STATIC_CARDS = [
   },
   {
     name: "Applications",
-    description: "Apply for unit roles within IESA — press, committee positions, and more.",
+    description: "Apply for team roles within IESA — press, teams, and more.",
     href: "/dashboard/applications",
     accent: "bg-coral",
     accentLight: "bg-coral-light",
@@ -130,23 +132,23 @@ const STATIC_CARDS = [
    Page
    ═══════════════════════════════════════════════════════════ */
 
-export default function UnitsPage() {
+export default function TeamsPage() {
   const { hasPermission } = usePermissions();
   const { getAccessToken } = useAuth();
-  const { showHelp, openHelp, closeHelp } = useToolHelp("units");
+  const { showHelp, openHelp, closeHelp } = useToolHelp("teams");
 
   const [memberships, setMemberships] = useState<Membership[]>([]);
-  const [unitData, setUnitData] = useState<MemberUnitData[]>([]);
+  const [teamData, setTeamData] = useState<MemberUnitData[]>([]);
   const [loadingMemberships, setLoadingMemberships] = useState(true);
   const [updatingTask, setUpdatingTask] = useState<string | null>(null);
-  // Track whether this user heads any unit
-  const isUnitHead = hasPermission("unit_head:view_members");
+  // Track whether this user heads any team
+  const isTeamHead = hasPermission("team_head:view_members");
 
   /* ── API helper ──────────────────────────────────────────── */
   const apiFetch = useCallback(
     async (path: string, options?: RequestInit) => {
       const token = await getAccessToken();
-      const res = await fetch(getApiUrl(`/api/v1/unit-head${path}`), {
+      const res = await fetch(getApiUrl(`/api/v1/team-head${path}`), {
         ...options,
         headers: {
           "Content-Type": "application/json",
@@ -169,14 +171,14 @@ export default function UnitsPage() {
         const list: Membership[] = data || [];
         setMemberships(list);
 
-        // Load member-view for each unit
+        // Load member-view for each team
         const views = await Promise.all(
           list.map(async (m) => {
             const view = await apiFetch(`/${m.unitSlug}/member-view`);
             return view as MemberUnitData | null;
           }),
         );
-        setUnitData(views.filter(Boolean) as MemberUnitData[]);
+        setTeamData(views.filter(Boolean) as MemberUnitData[]);
       } catch {
         /* silently fail */
       } finally {
@@ -196,10 +198,10 @@ export default function UnitsPage() {
         body: JSON.stringify({ status }),
       });
       toast.success("Updated", { description: "Task status updated." });
-      // Refresh unit data
+      // Refresh team data
       const view = await apiFetch(`/${unitSlug}/member-view`);
       if (view) {
-        setUnitData((prev) => prev.map((d) => (d.unitSlug === unitSlug ? view : d)));
+        setTeamData((prev) => prev.map((d) => (d.unitSlug === unitSlug ? view : d)));
       }
     } catch {
       toast.error("Error", { description: "Failed to update task status." });
@@ -214,9 +216,9 @@ export default function UnitsPage() {
     return u.anyPermission.some((p: string) => hasPermission(p));
   });
 
-  /* ── Collect all pending/in-progress tasks across units ──── */
+  /* ── Collect all pending/in-progress tasks across teams ──── */
   const allActiveTasks: (MemberTask & { unitSlug: string; unitLabel: string })[] = [];
-  for (const ud of unitData) {
+  for (const ud of teamData) {
     for (const t of ud.tasks) {
       if (t.status !== "done") {
         allActiveTasks.push({ ...t, unitSlug: ud.unitSlug, unitLabel: ud.unitLabel });
@@ -224,9 +226,9 @@ export default function UnitsPage() {
     }
   }
 
-  /* ── Collect recent notices across units ─────────────────── */
+  /* ── Collect recent notices across teams ───────────────── */
   const allNotices: (MemberNotice & { unitSlug: string; unitLabel: string })[] = [];
-  for (const ud of unitData) {
+  for (const ud of teamData) {
     for (const n of ud.notices) {
       allNotices.push({ ...n, unitSlug: ud.unitSlug, unitLabel: ud.unitLabel });
     }
@@ -240,33 +242,33 @@ export default function UnitsPage() {
   return (
     <>
       <DashboardHeader />
-      <ToolHelpModal toolId="units" isOpen={showHelp} onClose={closeHelp} />
+      <ToolHelpModal toolId="teams" isOpen={showHelp} onClose={closeHelp} />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display font-black text-display-lg text-navy">
-              <span className="brush-highlight">Units</span>
+              <span className="brush-highlight">Teams</span>
             </h1>
             <p className="mt-2 text-slate text-body">
-              IESA operational units — apply for roles or manage your unit work.
+              IESA operational teams — apply for roles or manage your team work.
             </p>
           </div>
           <HelpButton onClick={openHelp} />
         </div>
 
-        {/* ── Unit Head Banner ─────────────────────────────── */}
-        {isUnitHead && (
+        {/* ── Team Head Banner ─────────────────────────────── */}
+        {isTeamHead && (
           <div className="bg-lime border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex-1">
-              <p className="text-label uppercase tracking-wider text-navy/60 mb-1">Unit Head</p>
-              <h2 className="font-display font-black text-xl text-navy">You head a unit this session</h2>
+              <p className="text-label uppercase tracking-wider text-navy/60 mb-1">Team Head</p>
+              <h2 className="font-display font-black text-xl text-navy">You head a team this session</h2>
               <p className="text-sm text-navy/70 mt-1">
-                Manage your unit members, assign tasks, post notices, and send announcements from the Unit Head Portal.
+                Manage your team members, assign tasks, post notices, and send announcements from the Team Head Portal.
               </p>
             </div>
             <Link
-              href="/admin/unit-head"
+              href="/admin/team-head"
               className="shrink-0 bg-navy border-[3px] border-lime press-4 press-lime text-lime font-display font-black text-sm px-6 py-3 rounded-2xl inline-flex items-center gap-2"
             >
               Open Portal
@@ -280,10 +282,10 @@ export default function UnitsPage() {
         {/* ── My Memberships ──────────────────────────────── */}
         {memberships.length > 0 && (
           <section>
-            <h2 className="font-display font-black text-xl text-navy mb-4">My Units</h2>
+            <h2 className="font-display font-black text-xl text-navy mb-4">My Teams</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {memberships.map((m) => {
-                const accent = UNIT_ACCENTS[m.unitSlug] || { bg: "bg-teal", light: "bg-teal-light" };
+                const accent = TEAM_ACCENTS[m.unitSlug] || { bg: "bg-teal", light: "bg-teal-light" };
                 return (
                   <div
                     key={m.unitSlug}
@@ -372,7 +374,7 @@ export default function UnitsPage() {
         {/* ── Noticeboard ─────────────────────────────────── */}
         {allNotices.length > 0 && (
           <section>
-            <h2 className="font-display font-black text-xl text-navy mb-4">Unit Notices</h2>
+            <h2 className="font-display font-black text-xl text-navy mb-4">Team Notices</h2>
             <div className="space-y-3">
               {allNotices.slice(0, 10).map((n) => (
                 <div
@@ -408,7 +410,7 @@ export default function UnitsPage() {
         {loadingMemberships && memberships.length === 0 && (
           <div className="flex items-center gap-3 py-6">
             <div className="w-5 h-5 border-[3px] border-lime border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm text-slate">Loading your unit memberships...</span>
+            <span className="text-sm text-slate">Loading your team memberships...</span>
           </div>
         )}
 
@@ -420,8 +422,8 @@ export default function UnitsPage() {
                 <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
               </svg>
             </div>
-            <h3 className="font-display font-black text-navy text-lg mb-1">Not a member of any unit yet</h3>
-            <p className="text-sm text-slate mb-4">Apply for a unit through the Applications page to join a committee or unit.</p>
+            <h3 className="font-display font-black text-navy text-lg mb-1">Not a member of any team yet</h3>
+            <p className="text-sm text-slate mb-4">Apply for a team through the Applications page to join one.</p>
             <Link
               href="/dashboard/applications"
               className="inline-flex items-center gap-2 bg-lime border-[3px] border-navy press-3 press-navy px-5 py-2.5 rounded-2xl font-bold text-sm text-navy"
@@ -461,8 +463,8 @@ export default function UnitsPage() {
 
           {visibleCards.length === 0 && memberships.length === 0 && !loadingMemberships && (
             <div className="bg-snow border-[3px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
-              <p className="font-display font-black text-xl text-navy mb-2">No units available</p>
-              <p className="text-sm text-slate">You don&apos;t have access to any units yet. Apply or check back later.</p>
+              <p className="font-display font-black text-xl text-navy mb-2">No teams available</p>
+              <p className="text-sm text-slate">You don&apos;t have access to any teams yet. Apply or check back later.</p>
             </div>
           )}
         </section>

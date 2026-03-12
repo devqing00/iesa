@@ -289,7 +289,7 @@ export default function ContactPage() {
               },
               {
                 question: "How can I volunteer or join the executive team?",
-                answer: "Elections are held annually. You can also volunteer for committees by contacting the General Secretary.",
+                answer: "Elections are held annually. You can also volunteer for teams by contacting the General Secretary.",
               },
               {
                 question: "Can non-IPE students attend IESA events?",

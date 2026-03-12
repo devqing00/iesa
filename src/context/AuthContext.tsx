@@ -103,9 +103,12 @@ function mapFirebaseError(err: unknown): string {
   const rawMsg = (err as { message?: string })?.message ?? "";
 
   switch (code) {
-    case "auth/invalid-credential":
-    case "auth/wrong-password":
     case "auth/user-not-found":
+      return "No account found with this email address. Did you mean to register?";
+    case "auth/wrong-password":
+      return "Incorrect password. Please check it and try again.";
+    case "auth/invalid-credential":
+      // Firebase v9.22+ bundles both cases — show a safe combined message
       return "Incorrect email or password. Please check your credentials and try again.";
     case "auth/email-already-in-use":
       return "An account with this email already exists. Try signing in instead.";

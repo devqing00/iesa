@@ -235,18 +235,22 @@ export {
   isPaymentQuery,
   isEventQuery,
 } from './chat';
-// Unit Applications
+// Team Applications
 export {
   createApplication,
   getMyApplications,
   listApplications,
   reviewApplication,
+  fetchTeamRegistry,
+  getTeamColors,
   UNIT_LABELS,
   UNIT_DESCRIPTIONS,
   UNIT_COLORS,
 } from './applications';
 
 export type {
+  TeamApplication,
+  TeamRegistryEntry,
   UnitApplication,
   UnitType,
   ApplicationStatus,

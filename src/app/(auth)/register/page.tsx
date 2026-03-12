@@ -12,7 +12,7 @@ import { PasswordInput } from "@/components/ui/Input";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { user, loading, signUpWithEmail } = useAuth();
+  const { user, loading, signUpWithEmail, signInWithGoogle } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,6 +28,8 @@ export default function RegisterPage() {
   const [department, setDepartment] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [manualVisible, setManualVisible] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const submittingRef = useRef(false); // synchronous guard against double-submission
   const [currentSecondYear, setCurrentSecondYear] = useState<number | null>(null);
@@ -162,6 +164,25 @@ export default function RegisterPage() {
     // No finally — on success we intentionally keep isSubmitting true to lock the button
   };
 
+  const handleGoogleSignUp = async () => {
+    setError("");
+    setGoogleLoading(true);
+    try {
+      const success = await signInWithGoogle();
+      if (success) {
+        toast.success("Account ready!", { description: "Redirecting to your dashboard…" });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message || "Google sign-up failed" : "Google sign-up failed";
+      if (!msg.includes("popup-closed")) {
+        setError(msg);
+        toast.error("Google sign-up failed", { description: msg });
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-ghost">
@@ -175,45 +196,75 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-ghost flex">
       {/* Left - Decorative Section */}
-      <div className="hidden lg:flex w-2/5 bg-navy items-center justify-center relative overflow-hidden rounded-r-[2rem]">
-        <div className="absolute inset-0 bg-dots opacity-20 pointer-events-none" />
+      <div
+        className="hidden lg:flex w-2/5 sticky top-0 h-screen items-center justify-center relative overflow-hidden rounded-r-[2rem]"
+        style={{
+          backgroundImage: "url('https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&w=1200&q=80')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        {/* Dark overlay */}
+        <div className="absolute inset-0 bg-navy/85" />
+        <div className="absolute inset-0 bg-dots opacity-10 pointer-events-none" />
 
-        {/* Diamond Sparkles */}
-        <svg aria-hidden="true" className="absolute top-16 left-[12%] w-5 h-5 text-navy/12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg aria-hidden="true" className="absolute bottom-24 right-[15%] w-4 h-4 text-coral/15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg aria-hidden="true" className="absolute top-[60%] left-[8%] w-3 h-3 text-sunny/20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        {/* Diamond Sparkles — visible on navy */}
+        <svg aria-hidden="true" className="absolute top-16 left-[12%] w-6 h-6 text-lime/25" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg aria-hidden="true" className="absolute top-28 right-[10%] w-3 h-3 text-coral/30" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg aria-hidden="true" className="absolute bottom-32 right-[15%] w-5 h-5 text-lavender/30" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg aria-hidden="true" className="absolute top-[55%] left-[7%] w-4 h-4 text-sunny/25" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg aria-hidden="true" className="absolute bottom-20 left-[20%] w-2.5 h-2.5 text-teal/30" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
 
-        <div className="relative z-10 max-w-sm p-12 space-y-8">
-          <div className="space-y-4">
-            <span className="font-display font-bold text-xs uppercase tracking-wider text-snow/50 flex items-center gap-2">
-              <span>&#10022;</span> Join IESA
-            </span>
-            <h2 className="font-display font-black text-3xl md:text-4xl text-snow">
-              Create Your Account
+        <div className="relative z-10 max-w-sm p-10 space-y-8">
+          {/* Label */}
+          <span className="font-display font-bold text-xs uppercase tracking-wider text-snow/50 flex items-center gap-2">
+            <svg aria-hidden="true" className="w-3 h-3 text-lime" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+            Join IESA
+          </span>
+
+          {/* Headline */}
+          <div className="space-y-3">
+            <h2 className="font-display font-black text-4xl text-snow leading-tight">
+              Create Your<br />
+              <span className="text-lime">Account</span>
             </h2>
-            <p className="font-display font-normal text-snow/70 leading-relaxed">
-              Join the Industrial Engineering Students&apos; Association and access exclusive resources.
+            <p className="font-display font-normal text-snow/60 leading-relaxed text-sm">
+              Join the Industrial Engineering Students&apos; Association and unlock everything the platform has to offer.
             </p>
           </div>
 
-          <div className="space-y-4">
-            {["Access course materials", "Stay updated with events", "Connect with peers", "Track your progress"].map((benefit, i) => (
-              <div key={i} className="flex items-center gap-3 text-snow/80">
-                <span className="text-snow/30">&#9670;</span>
-                <span className="font-display font-normal text-sm">{benefit}</span>
+          {/* Lime accent card */}
+          <div className="bg-lime border-[3px] border-snow/20 rounded-2xl p-4 shadow-[4px_4px_0_0_#C8F31D] rotate-[-0.5deg]">
+            <p className="font-display font-black text-navy text-sm leading-snug">
+              &ldquo;Everything you need for your academic journey — in one place.&rdquo;
+            </p>
+            <p className="font-display font-bold text-navy/60 text-xs mt-2 uppercase tracking-wide">IESA Platform</p>
+          </div>
+
+          {/* Benefits */}
+          <div className="space-y-3">
+            {[
+              { label: "Access course materials & resources", color: "bg-teal" },
+              { label: "Stay updated with events & announcements", color: "bg-coral" },
+              { label: "Connect with peers & study groups", color: "bg-lavender" },
+              { label: "Track payments, progress & more", color: "bg-sunny" },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <span className={`w-2 h-2 rounded-full ${item.color} flex-shrink-0`} />
+                <span className="font-display font-normal text-sm text-snow/75">{item.label}</span>
               </div>
             ))}
           </div>
 
-          <div className="pt-8 border-t border-snow/20">
-            <p className="font-display font-bold text-xs uppercase tracking-wider text-snow/50">University of Ibadan, Nigeria</p>
+          <div className="pt-6 border-t border-snow/15">
+            <p className="font-display font-bold text-xs uppercase tracking-wider text-snow/40">University of Ibadan, Nigeria</p>
           </div>
         </div>
       </div>
 
       {/* Right - Form / Success Section */}
-      <main id="main-content" className="flex-1 flex items-center justify-center p-8 overflow-y-auto">
-        <div className="w-full max-w-xl space-y-8 py-8">
+      <main id="main-content" className="flex-1 h-screen overflow-y-auto flex flex-col p-8">
+        <div className="w-full max-w-xl space-y-8 py-8 mx-auto my-auto">
           {/* Logo */}
           <Link href="/" className="inline-flex items-center gap-3">
             <div className="w-10 h-10 flex items-center justify-center">
@@ -249,7 +300,50 @@ export default function RegisterPage() {
             <p className="font-display font-normal text-navy/60">Register with any email you own</p>
           </div>
 
-          {/* Form */}
+          {/* Google Sign-Up — primary CTA */}
+          <button
+            type="button"
+            onClick={handleGoogleSignUp}
+            disabled={googleLoading || isSubmitting}
+            className="w-full flex items-center justify-center gap-3 py-3.5 bg-snow border-[3px] border-navy rounded-2xl press-3 press-navy font-display font-bold text-navy transition-all disabled:opacity-50"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+            </svg>
+            {googleLoading ? "Signing up…" : "Continue with Google"}
+          </button>
+
+          {/* Divider */}
+          <div className="flex items-center gap-4">
+            <div className="flex-1 h-[3px] bg-cloud" />
+            <span className="font-display font-bold text-xs uppercase tracking-wider text-slate">or sign up with email</span>
+            <div className="flex-1 h-[3px] bg-cloud" />
+          </div>
+
+          {/* Google error (shown outside the hidden form so it’s always visible) */}
+          {error && !manualVisible && (
+            <div role="alert" className="p-4 border-[3px] border-coral bg-coral-light rounded-2xl">
+              <div className="flex items-start gap-3">
+                <svg aria-hidden="true" className="w-5 h-5 text-coral shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <circle cx="12" cy="12" r="10" />
+                  <path strokeLinecap="round" d="M12 8v4m0 4h.01" />
+                </svg>
+                <p className="text-coral text-sm font-medium">{error}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Manual email/password form — hidden until revealed */}
+          <div>
+            <div
+              className={`overflow-hidden transition-[max-height] duration-700 ease-in-out ${
+                manualVisible ? "max-h-[5000px]" : "max-h-[0px]"
+              }`}
+            >
+
           <form onSubmit={handleRegister} className="space-y-8">
             {/* Account Section */}
             <div className="space-y-4">
@@ -440,9 +534,41 @@ export default function RegisterPage() {
               )}
             </div>
 
-            {error && (
-              <div role="alert" className="p-4 border-[3px] border-coral bg-coral-light text-coral text-sm rounded-2xl font-medium">
-                {error}
+            {error && manualVisible && (
+              <div role="alert" className="p-4 border-[3px] border-coral bg-coral-light rounded-2xl">
+                <div className="flex items-start gap-3">
+                  <svg aria-hidden="true" className="w-5 h-5 text-coral shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <circle cx="12" cy="12" r="10" />
+                    <path strokeLinecap="round" d="M12 8v4m0 4h.01" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-coral text-sm font-medium">{error}</p>
+                    {/* Email already registered — offer to sign in */}
+                    {(error.includes("already exists") || error.includes("already in use")) && (
+                      <a href="/login" className="text-xs font-display font-bold text-navy/60 hover:text-navy hover:underline mt-2 inline-block transition-colors">
+                        Sign in to your account &rarr;
+                      </a>
+                    )}
+                    {/* Account exists via Google — offer Google sign-in */}
+                    {error.includes("different credential") && (
+                      <button
+                        type="button"
+                        onClick={handleGoogleSignUp}
+                        className="text-xs font-display font-bold text-navy/60 hover:text-navy hover:underline mt-2 block transition-colors"
+                      >
+                        Try Google sign-up instead &rarr;
+                      </button>
+                    )}
+                    {/* Weak password — hint */}
+                    {error.includes("weak") && (
+                      <p className="text-xs text-navy/50 mt-1">Use at least 8 characters with uppercase, lowercase, and a number.</p>
+                    )}
+                    {/* Network error */}
+                    {error.includes("Network") && (
+                      <p className="text-xs text-navy/50 mt-1">Check your internet connection and try again.</p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -450,6 +576,59 @@ export default function RegisterPage() {
               {isSubmitting ? "Creating Account..." : "Create Account"}
             </button>
           </form>
+
+            </div>{/* end overflow-hidden wrapper */}
+
+            {/* Reveal block — ghost form preview with gradient scrim; shown when form is hidden */}
+            {!manualVisible && (
+              <div className="relative rounded-3xl border-[3px] border-navy overflow-hidden shadow-[4px_4px_0_0_#000]">
+                {/* Decorative ghost form skeleton (non-interactive, aria-hidden) */}
+                <div className="px-5 pt-5 pb-2 space-y-3 pointer-events-none select-none" aria-hidden="true">
+                  {/* Step 1 heading */}
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-lime border-[2px] border-navy flex-shrink-0 flex items-center justify-center">
+                      <span className="text-[10px] font-black text-navy">1</span>
+                    </div>
+                    <div className="h-2.5 bg-navy/30 rounded-md w-20" />
+                  </div>
+                  {/* Email label + field */}
+                  <div className="space-y-1.5">
+                    <div className="h-2 bg-navy/20 rounded w-10" />
+                    <div className="h-12 bg-snow border-[2px] border-navy/40 rounded-2xl" />
+                  </div>
+                  {/* Password row */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <div className="h-2 bg-navy/20 rounded w-16" />
+                      <div className="h-12 bg-snow border-[2px] border-navy/40 rounded-2xl" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="h-2 bg-navy/20 rounded w-24" />
+                      <div className="h-12 bg-snow border-[2px] border-navy/40 rounded-2xl" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Gradient veil — transparent at top (skeleton shows) → fully opaque at bottom */}
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{ background: "linear-gradient(to bottom, transparent 0%, transparent 30%, oklch(97% 0.003 280) 80%)" }}
+                />
+
+                {/* Button — sits below the gradient */}
+                <div className="relative z-10 px-5 pb-5 space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setManualVisible(true)}
+                    className="w-full py-3.5 bg-snow border-[3px] border-navy rounded-2xl press-3 press-navy font-display font-black text-sm text-navy"
+                  >
+                    Continue with Email &amp; Password &#8595;
+                  </button>
+                  <p className="text-[11px] text-slate text-center">Takes about 2 minutes</p>
+                </div>
+              </div>
+            )}
+          </div>{/* end wrapper */}
 
           {/* Links */}
           <div className="pt-6 border-t-[3px] border-cloud">

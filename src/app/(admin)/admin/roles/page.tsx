@@ -22,7 +22,7 @@ function RolesPageInner() {
           <h1 className="font-display font-black text-3xl md:text-4xl text-navy">
             <span className="brush-highlight">Roles</span> Management
           </h1>
-          <p className="text-sm text-slate mt-1">Assign and manage executive, committee, and special roles</p>
+          <p className="text-sm text-slate mt-1">Assign and manage executive, team, and special roles</p>
         </div>
       </div>
 

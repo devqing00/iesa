@@ -201,7 +201,7 @@ Core Pages:
 - Events: View upcoming and past IESA events; RSVP to events
 - Calendar: Full academic calendar — exam dates, events, key dates. Navigate between months and switch between month/week views.
 - Announcements: Important notices from IESA EXCO and the department
-- Applications: Apply for unit/elective courses; track your application status
+- Applications: Apply for teams; track your application status
 - Archive: Browse announcements and events from past academic sessions. Select any session to see its historical data.
 - Settings: Manage notification preferences by category (events, schedule, academic, mentoring, community, admin). Update personal details.
 - Profile: Update personal info, profile picture, change password
@@ -227,7 +227,7 @@ IEPOD Hub (Dashboard → IEPOD):
 
 Team Pages:
 - Central EXCO: Current executive officers with names, roles, and contacts
-- Committees: Committee members and their roles
+- Committees: Team members and their roles
 - Class Reps: Class representatives for each level
 
 Resource Library:
@@ -715,7 +715,7 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
     context["unread_notifications"] = unread_notifs or 0
     context["unread_messages"] = unread_msgs or 0
 
-    # ── F16: Unit / committee applications ──
+    # ── F16: Team applications ──
     if unit_apps:
         context["unit_applications"] = [
             {
@@ -966,9 +966,9 @@ IMPORTANT: You MUST maintain Yoruba style throughout ALL responses in this conve
             if msg_count:
                 user_data_section += f"\n- Unread messages: {msg_count}"
 
-        # Unit / Committee Applications
+        # Team Applications
         if user_context.get('unit_applications'):
-            user_data_section += "\n\n## UNIT COURSE APPLICATIONS"
+            user_data_section += "\n\n## TEAM APPLICATIONS"
             for ua in user_context['unit_applications']:
                 status_tag = ua['status'].upper()
                 user_data_section += f"\n- {ua['code']} ({ua['title']}): {status_tag}"
@@ -1423,9 +1423,9 @@ def generate_suggestions(user_message: str, ai_response: str) -> List[str]:
     if any(w in combined for w in ["announcement", "notice", "update", "news"]):
         return ["Show all recent announcements", "What did EXCO announce this week?", "How do I get notified?"]
 
-    # Applications (unit courses)
-    if any(w in combined for w in ["application", "unit course", "apply", "pending", "approved", "rejected"]):
-        return ["Check my application status", "What unit courses are available?", "When do applications close?"]
+    # Applications (teams)
+    if any(w in combined for w in ["application", "team", "apply", "pending", "approved", "rejected"]):
+        return ["Check my application status", "What teams can I apply to?", "When do applications close?"]
 
     # Study groups
     if any(w in combined for w in ["study group", "group", "collaborate", "join"]):
@@ -1464,7 +1464,7 @@ async def get_quick_suggestions():
             "Who are the current EXCO members?",
             "What is the Niche Audit tool?",
             "Tips for exam preparation",
-            "How do I apply for a unit course?",
+            "How do I apply for a team?",
             "When is the next general meeting?"
         ]
     }

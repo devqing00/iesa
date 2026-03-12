@@ -89,7 +89,7 @@ export default function CommitteesPage() {
             Committees
           </div>
           <h2 className="font-display font-black text-2xl md:text-3xl text-navy">Committee Heads</h2>
-          <p className="text-sm text-navy/60 font-medium mt-1">Leading various committees to serve student interests</p>
+          <p className="text-sm text-navy/60 font-medium mt-1">Leading various teams to serve student interests</p>
         </div>
         <div className="flex items-center gap-3">
           <HelpButton onClick={openHelp} />
@@ -181,8 +181,8 @@ export default function CommitteesPage() {
             </svg>
           </div>
           <div>
-            <h4 className="font-display font-black text-sm text-snow">Want to join a committee?</h4>
-            <p className="text-xs text-snow/50 mt-1">Reach out to the committee head or the IESA Central team to express your interest.</p>
+            <h4 className="font-display font-black text-sm text-snow">Want to join a team?</h4>
+            <p className="text-xs text-snow/50 mt-1">Reach out to the team head or the IESA Central team to express your interest.</p>
           </div>
         </div>
         <div className="absolute -bottom-5 -right-5 w-20 h-20 rounded-full bg-teal/8" />

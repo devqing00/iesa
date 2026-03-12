@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import {
   listApplications,
   reviewApplication,
-  UNIT_LABELS,
-  UNIT_COLORS,
+  fetchTeamRegistry,
+  getTeamColors,
 } from "@/lib/api";
-import type { UnitApplication, UnitType } from "@/lib/api";
+import type { TeamApplication, TeamRegistryEntry } from "@/lib/api";
 import { PermissionGate } from "@/lib/withAuth";
 import Pagination from "@/components/ui/Pagination";
 
@@ -19,24 +19,28 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }>
   rejected: { bg: "bg-coral", text: "text-snow", label: "Rejected" },
 };
 
-const ALL_UNITS: UnitType[] = ["press", "committee_academic", "committee_welfare", "committee_sports", "committee_socials"];
-
 /* ─── Component ───────────────────────────── */
 
 export default function ApplicationsTab() {
-  const [applications, setApplications] = useState<UnitApplication[]>([]);
+  const [applications, setApplications] = useState<TeamApplication[]>([]);
   const [totalApplications, setTotalApplications] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [filterUnit, setFilterUnit] = useState<string>("");
+  const [filterTeam, setFilterTeam] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("pending");
+  const [teamOptions, setTeamOptions] = useState<TeamRegistryEntry[]>([]);
 
   // Review modal state
-  const [reviewingApp, setReviewingApp] = useState<UnitApplication | null>(null);
+  const [reviewingApp, setReviewingApp] = useState<TeamApplication | null>(null);
   const [reviewAction, setReviewAction] = useState<"accepted" | "rejected">("accepted");
   const [reviewFeedback, setReviewFeedback] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [appPage, setAppPage] = useState(1);
   const APP_PAGE_SIZE = 10;
+
+  /* ── Fetch registry ─────────────────────── */
+  useEffect(() => {
+    fetchTeamRegistry().then(setTeamOptions).catch(() => {});
+  }, []);
 
   /* ── Fetch ─────────────────────────────── */
   const fetchApplications = useCallback(async () => {
@@ -46,7 +50,7 @@ export default function ApplicationsTab() {
         limit: APP_PAGE_SIZE,
         skip: (appPage - 1) * APP_PAGE_SIZE,
       };
-      if (filterUnit) params.unit = filterUnit;
+      if (filterTeam) params.unit = filterTeam;
       if (filterStatus) params.status = filterStatus;
       const data = await listApplications(params);
       setApplications(data.items ?? []);
@@ -56,10 +60,10 @@ export default function ApplicationsTab() {
     } finally {
       setLoading(false);
     }
-  }, [filterUnit, filterStatus, appPage]);
+  }, [filterTeam, filterStatus, appPage]);
 
   // Reset page when filters change
-  useEffect(() => { setAppPage(1); }, [filterUnit, filterStatus]);
+  useEffect(() => { setAppPage(1); }, [filterTeam, filterStatus]);
 
   useEffect(() => {
     fetchApplications();
@@ -106,16 +110,16 @@ export default function ApplicationsTab() {
       {/* ─── Filters ───────────────────── */}
       <div className="bg-snow border-[3px] border-navy rounded-3xl p-4 shadow-[5px_5px_0_0_#000] flex flex-col sm:flex-row gap-3">
         <div className="flex-1">
-          <label className="block text-label text-navy mb-1">Unit</label>
+          <label className="block text-label text-navy mb-1">Team</label>
           <select
-            value={filterUnit}
-            onChange={(e) => setFilterUnit(e.target.value)}
-            title="Filter by unit"
+            value={filterTeam}
+            onChange={(e) => setFilterTeam(e.target.value)}
+            title="Filter by team"
             className="w-full border-[3px] border-navy rounded-xl px-3 py-2 text-sm text-navy font-medium focus:outline-none focus:ring-2 focus:ring-lime"
           >
-            <option value="">All Units</option>
-            {ALL_UNITS.map((u) => (
-              <option key={u} value={u}>{UNIT_LABELS[u]}</option>
+            <option value="">All Teams</option>
+            {teamOptions.map((t) => (
+              <option key={t.slug} value={t.slug}>{t.label}</option>
             ))}
           </select>
         </div>
@@ -147,7 +151,8 @@ export default function ApplicationsTab() {
       ) : (
         <div className="space-y-4">
           {applications.map((app) => {
-            const colors = UNIT_COLORS[app.unit as UnitType];
+            const teamEntry = teamOptions.find((t) => t.slug === app.team);
+            const colors = getTeamColors(teamEntry?.colorKey ?? "slate");
             const statusStyle = STATUS_STYLES[app.status];
 
             return (
@@ -155,12 +160,17 @@ export default function ApplicationsTab() {
                 key={app.id}
                 className="bg-snow border-[3px] border-navy rounded-3xl shadow-[5px_5px_0_0_#000] overflow-hidden"
               >
-                {/* Card header with unit color */}
+                {/* Card header with team color */}
                 <div className={`${colors.bg} border-b-[3px] border-navy px-5 py-3 flex items-center justify-between`}>
                   <div className="flex items-center gap-3">
                     <span className={`${colors.badge} text-navy text-label px-3 py-1 rounded-full border-[2px] border-navy`}>
-                      {app.unitLabel}
+                      {app.teamLabel}
                     </span>
+                    {app.subTeam && (
+                      <span className="bg-cloud text-navy text-label px-3 py-1 rounded-full border-[2px] border-navy">
+                        {app.subTeam}
+                      </span>
+                    )}
                     <span className={`${statusStyle.bg} ${statusStyle.text} text-label px-3 py-1 rounded-full border-[2px] border-navy`}>
                       {statusStyle.label}
                     </span>
@@ -179,7 +189,7 @@ export default function ApplicationsTab() {
                       <p className="text-sm text-slate">{app.userEmail}</p>
                       {app.userLevel && (
                         <span className="inline-block mt-1 text-label bg-cloud text-navy px-2 py-0.5 rounded-full">
-                          Level {app.userLevel * 100}
+                          {app.userLevel}
                         </span>
                       )}
 
@@ -197,6 +207,20 @@ export default function ApplicationsTab() {
                         </div>
                       )}
 
+                      {/* Custom Answers */}
+                      {app.customAnswers && Object.keys(app.customAnswers).length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-label text-navy mb-1">Additional Info</p>
+                          <div className="space-y-1">
+                            {Object.entries(app.customAnswers).map(([key, val]) => (
+                              <p key={key} className="text-sm text-navy-muted">
+                                <span className="font-medium text-navy">{key}:</span> {String(val)}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Feedback (if reviewed) */}
                       {app.feedback && (
                         <div className="mt-3 p-3 bg-ghost rounded-xl border-[2px] border-cloud">
@@ -211,7 +235,7 @@ export default function ApplicationsTab() {
 
                     {/* Action buttons (only for pending) */}
                     {app.status === "pending" && (
-                      <PermissionGate permission="unit_application:review">
+                      <PermissionGate permission="team:review">
                         <div className="flex sm:flex-col gap-2 shrink-0">
                           <button
                             onClick={() => {
@@ -261,7 +285,7 @@ export default function ApplicationsTab() {
                 {reviewAction === "accepted" ? "Accept" : "Reject"} Application
               </h3>
               <p className="text-sm text-navy-muted mt-1">
-                {reviewingApp.userName} — {reviewingApp.unitLabel}
+                {reviewingApp.userName} — {reviewingApp.teamLabel}
               </p>
             </div>
 

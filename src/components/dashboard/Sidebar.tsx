@@ -102,7 +102,7 @@ const navGroups: NavGroup[] = [
         ),
       },
       {
-        name: "Units",
+        name: "Teams",
         href: "/dashboard/units",
         icon: (
           <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">

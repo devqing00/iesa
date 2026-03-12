@@ -131,13 +131,15 @@ const COLOR_OPTIONS = [
   { key: "slate",    label: "Slate",    dot: "bg-slate"    },
 ];
 
-const UNIT_COLORS: Record<string, { bg: string; border: string; badge: string }> = {
-  press:               { bg: "bg-coral-light/60",    border: "border-coral",    badge: "bg-coral"    },
-  ics:                 { bg: "bg-lavender-light/60", border: "border-lavender", badge: "bg-lavender" },
-  committee_academic:  { bg: "bg-lavender-light/60", border: "border-lavender", badge: "bg-lavender" },
-  committee_welfare:   { bg: "bg-teal-light/60",     border: "border-teal",     badge: "bg-teal"     },
-  committee_sports:    { bg: "bg-sunny-light/60",    border: "border-sunny",    badge: "bg-sunny"    },
-  committee_socials:   { bg: "bg-lime-light/60",     border: "border-lime",     badge: "bg-lime"     },
+const TEAM_COLORS: Record<string, { bg: string; border: string; badge: string }> = {
+  press:              { bg: "bg-coral-light/60",    border: "border-coral",    badge: "bg-coral"    },
+  ics:                { bg: "bg-lavender-light/60", border: "border-lavender", badge: "bg-lavender" },
+  industrial_visit:   { bg: "bg-teal-light/60",     border: "border-teal",     badge: "bg-teal"     },
+  conference:         { bg: "bg-sunny-light/60",    border: "border-sunny",    badge: "bg-sunny"    },
+  logistics:          { bg: "bg-lime-light/60",     border: "border-lime",     badge: "bg-lime"     },
+  welfare:            { bg: "bg-teal-light/60",     border: "border-teal",     badge: "bg-teal"     },
+  alumni_relations:   { bg: "bg-lavender-light/60", border: "border-lavender", badge: "bg-lavender" },
+  dinner_award:       { bg: "bg-coral-light/60",    border: "border-coral",    badge: "bg-coral"    },
   lime:     { bg: "bg-lime-light/60",     border: "border-lime",     badge: "bg-lime"     },
   lavender: { bg: "bg-lavender-light/60", border: "border-lavender", badge: "bg-lavender" },
   coral:    { bg: "bg-coral-light/60",    border: "border-coral",    badge: "bg-coral"    },
@@ -146,8 +148,8 @@ const UNIT_COLORS: Record<string, { bg: string; border: string; badge: string }>
   slate:    { bg: "bg-ghost",             border: "border-cloud",    badge: "bg-slate"    },
 };
 
-function getUnitColors(slug: string, colorKey?: string) {
-  return UNIT_COLORS[slug] || (colorKey ? UNIT_COLORS[colorKey] : null) || UNIT_COLORS.slate;
+function getTeamColors(slug: string, colorKey?: string) {
+  return TEAM_COLORS[slug] || (colorKey ? TEAM_COLORS[colorKey] : null) || TEAM_COLORS.slate;
 }
 
 function formatDate(d: string) {
@@ -158,9 +160,9 @@ function formatDate(d: string) {
 
 type Tab = "overview" | "applications" | "content";
 
-function UnitsPage() {
+function TeamsPage() {
   const { getAccessToken } = useAuth();
-  const { showHelp, openHelp, closeHelp } = useToolHelp("admin-units");
+  const { showHelp, openHelp, closeHelp } = useToolHelp("admin-teams");
 
   const [tab, setTab] = useState<Tab>("overview");
   const [units, setUnits] = useState<UnitOverview[]>([]);
@@ -226,13 +228,13 @@ function UnitsPage() {
     try {
       const token = await getAccessToken();
       if (!token) return;
-      const res = await fetch(getApiUrl("/api/v1/unit-applications/overview"), {
+      const res = await fetch(getApiUrl("/api/v1/team-applications/overview"), {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) await throwApiError(res, "load units overview");
+      if (!res.ok) await throwApiError(res, "load teams overview");
       setUnits(await res.json());
     } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to load units overview"));
+      toast.error(getErrorMessage(err, "Failed to load teams overview"));
     } finally {
       setLoading(false);
     }
@@ -242,13 +244,13 @@ function UnitsPage() {
     try {
       const token = await getAccessToken();
       if (!token) return;
-      const res = await fetch(getApiUrl("/api/v1/units/"), {
+      const res = await fetch(getApiUrl("/api/v1/teams/"), {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) await throwApiError(res, "load unit configs");
+      if (!res.ok) await throwApiError(res, "load team configs");
       setUnitConfigs(await res.json());
     } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to load unit configurations"));
+      toast.error(getErrorMessage(err, "Failed to load team configurations"));
     }
   }, [getAccessToken]);
 
@@ -261,7 +263,7 @@ function UnitsPage() {
       if (filterUnit) params.set("unit", filterUnit);
       if (filterStatus) params.set("status", filterStatus);
       params.set("limit", "50");
-      const res = await fetch(getApiUrl(`/api/v1/unit-applications/?${params.toString()}`), {
+      const res = await fetch(getApiUrl(`/api/v1/team-applications/?${params.toString()}`), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) await throwApiError(res, "load applications");
@@ -281,7 +283,7 @@ function UnitsPage() {
     try {
       const token = await getAccessToken();
       if (!token) return;
-      const res = await fetch(getApiUrl(`/api/v1/unit-head/${unitSlug}/admin-content`), {
+      const res = await fetch(getApiUrl(`/api/v1/team-head/${unitSlug}/admin-content`), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -318,7 +320,7 @@ function UnitsPage() {
     try {
       const token = await getAccessToken();
       if (!token) return;
-      const res = await fetch(getApiUrl(`/api/v1/unit-applications/settings/${settingsUnit.unit}`), {
+      const res = await fetch(getApiUrl(`/api/v1/team-applications/settings/${settingsUnit.unit}`), {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ maxMembers: settingsMaxMembers, isOpen: settingsIsOpen }),
@@ -342,7 +344,7 @@ function UnitsPage() {
     try {
       const token = await getAccessToken();
       if (!token) return;
-      const res = await fetch(getApiUrl(`/api/v1/unit-applications/${reviewApp.id}/review`), {
+      const res = await fetch(getApiUrl(`/api/v1/team-applications/${reviewApp.id}/review`), {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ status: reviewStatus, feedback: reviewFeedback || null }),
@@ -370,13 +372,13 @@ function UnitsPage() {
       const token = await getAccessToken();
       if (!token) return;
       const params = new URLSearchParams({ unit: unit.unit, status: "accepted", search: member.email, limit: "1" });
-      const searchRes = await fetch(getApiUrl(`/api/v1/unit-applications/?${params}`), {
+      const searchRes = await fetch(getApiUrl(`/api/v1/team-applications/?${params}`), {
         headers: { Authorization: `Bearer ${token}` },
       });
       const searchData = await searchRes.json();
       const app = searchData.items?.[0];
       if (!app) { toast.error("Could not find the member's application"); return; }
-      const res = await fetch(getApiUrl(`/api/v1/unit-applications/${app.id}/revoke`), {
+      const res = await fetch(getApiUrl(`/api/v1/team-applications/${app.id}/revoke`), {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -399,19 +401,19 @@ function UnitsPage() {
     try {
       const token = await getAccessToken();
       if (!token) return;
-      const res = await fetch(getApiUrl("/api/v1/units/"), {
+      const res = await fetch(getApiUrl("/api/v1/teams/"), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify(createForm),
       });
-      if (!res.ok) await throwApiError(res, "create unit");
-      toast.success(`Unit "${createForm.label}" created`);
+      if (!res.ok) await throwApiError(res, "create team");
+      toast.success(`Team "${createForm.label}" created`);
       setShowCreateModal(false);
       setCreateForm({ label: "", description: "", colorKey: "teal" });
       fetchUnitConfigs();
       fetchOverview();
     } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to create unit"));
+      toast.error(getErrorMessage(err, "Failed to create team"));
     } finally {
       setCreating(false);
     }
@@ -430,18 +432,18 @@ function UnitsPage() {
     try {
       const token = await getAccessToken();
       if (!token) return;
-      const res = await fetch(getApiUrl(`/api/v1/units/${editingUnit.id}`), {
+      const res = await fetch(getApiUrl(`/api/v1/teams/${editingUnit.id}`), {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify(editForm),
       });
-      if (!res.ok) await throwApiError(res, "update unit");
-      toast.success("Unit updated");
+      if (!res.ok) await throwApiError(res, "update team");
+      toast.success("Team updated");
       setEditingUnit(null);
       fetchUnitConfigs();
       fetchOverview();
     } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to update unit"));
+      toast.error(getErrorMessage(err, "Failed to update team"));
     } finally {
       setEditSaving(false);
     }
@@ -455,17 +457,17 @@ function UnitsPage() {
     try {
       const token = await getAccessToken();
       if (!token) return;
-      const res = await fetch(getApiUrl(`/api/v1/units/${deleteConfirmUnit.id}`), {
+      const res = await fetch(getApiUrl(`/api/v1/teams/${deleteConfirmUnit.id}`), {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) await throwApiError(res, "delete unit");
-      toast.success(`Unit "${deleteConfirmUnit.label}" deleted`);
+      if (!res.ok) await throwApiError(res, "delete team");
+      toast.success(`Team "${deleteConfirmUnit.label}" deleted`);
       setDeleteConfirmUnit(null);
       fetchUnitConfigs();
       fetchOverview();
     } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to delete unit"));
+      toast.error(getErrorMessage(err, "Failed to delete team"));
     } finally {
       setDeleting(false);
     }
@@ -479,7 +481,7 @@ function UnitsPage() {
     try {
       const token = await getAccessToken();
       if (!token) return;
-      const res = await fetch(getApiUrl(`/api/v1/units/user-search?q=${encodeURIComponent(q)}`), {
+      const res = await fetch(getApiUrl(`/api/v1/teams/user-search?q=${encodeURIComponent(q)}`), {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) await throwApiError(res, "search users");
@@ -505,7 +507,7 @@ function UnitsPage() {
     try {
       const token = await getAccessToken();
       if (!token) return;
-      const res = await fetch(getApiUrl(`/api/v1/units/${setHeadUnit.id}/set-head`), {
+      const res = await fetch(getApiUrl(`/api/v1/teams/${setHeadUnit.id}/set-head`), {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ userId: u.id }),
@@ -531,7 +533,7 @@ function UnitsPage() {
     try {
       const token = await getAccessToken();
       if (!token) return;
-      const res = await fetch(getApiUrl(`/api/v1/units/${config.id}/head`), {
+      const res = await fetch(getApiUrl(`/api/v1/teams/${config.id}/head`), {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -589,7 +591,7 @@ function UnitsPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <ToolHelpModal toolId="admin-units" isOpen={showHelp} onClose={closeHelp} />
+      <ToolHelpModal toolId="admin-teams" isOpen={showHelp} onClose={closeHelp} />
       <div className="flex justify-end mb-3">
         <HelpButton onClick={openHelp} />
       </div>
@@ -597,9 +599,9 @@ function UnitsPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="font-display font-black text-display-lg text-navy">
-          Units & <span className="brush-highlight">Committees</span>
+          <span className="brush-highlight">Teams</span>
         </h1>
-        <p className="text-slate mt-2">Manage committee heads, members, applications, and capacity.</p>
+        <p className="text-slate mt-2">Manage team heads, members, applications, and capacity.</p>
       </div>
 
       {/* Tab Bar */}
@@ -627,7 +629,7 @@ function UnitsPage() {
       {tab === "overview" && (
         <>
           <div className="flex justify-end mb-5">
-            <PermissionGate permission="unit_application:manage">
+            <PermissionGate permission="team:manage">
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="flex items-center gap-2 bg-lime border-[4px] border-navy px-5 py-2.5 rounded-2xl font-display font-black text-base text-navy press-4 press-navy"
@@ -635,14 +637,14 @@ function UnitsPage() {
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
                 </svg>
-                New Unit
+                New Team
               </button>
             </PermissionGate>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {mergedUnits.map((unit) => {
-              const colors = getUnitColors(unit.slug, unit.config?.colorKey);
+              const colors = getTeamColors(unit.slug, unit.config?.colorKey);
               const isExpanded = expandedUnits.has(unit.slug);
               const config = unit.config;
 
@@ -671,9 +673,9 @@ function UnitsPage() {
 
                       {/* Card actions */}
                       <div className="flex items-center gap-1 shrink-0">
-                        <PermissionGate permission="unit_application:manage">
+                        <PermissionGate permission="team:manage">
                           {config && (
-                            <button onClick={() => openEditModal(config)} className="p-1.5 rounded-lg hover:bg-navy/10 transition-colors" title="Edit unit">
+                            <button onClick={() => openEditModal(config)} className="p-1.5 rounded-lg hover:bg-navy/10 transition-colors" title="Edit team">
                               <svg className="w-4 h-4 text-navy" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                 <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32l8.4-8.4Z" />
                                 <path d="M5.25 5.25a3 3 0 0 0-3 3v10.5a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3V13.5a.75.75 0 0 0-1.5 0v5.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5V8.25a1.5 1.5 0 0 1 1.5-1.5h5.25a.75.75 0 0 0 0-1.5H5.25Z" />
@@ -682,14 +684,14 @@ function UnitsPage() {
                           )}
                           <button
                             onClick={() => { const ov = units.find((u) => u.unit === unit.slug); if (ov) openSettings(ov); }}
-                            className="p-1.5 rounded-lg hover:bg-navy/10 transition-colors" title="Unit settings"
+                            className="p-1.5 rounded-lg hover:bg-navy/10 transition-colors" title="Team settings"
                           >
                             <svg className="w-4 h-4 text-navy" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                               <path fillRule="evenodd" d="M11.078 2.25c-.917 0-1.699.663-1.85 1.567L9.05 4.889c-.02.12-.115.26-.297.348a7.493 7.493 0 0 0-.986.57c-.166.115-.334.126-.45.083L6.3 5.508a1.875 1.875 0 0 0-2.282.819l-.922 1.597a1.875 1.875 0 0 0 .432 2.385l.84.692c.095.078.17.229.154.43a7.598 7.598 0 0 0 0 1.139c.015.2-.059.352-.153.43l-.841.692a1.875 1.875 0 0 0-.432 2.385l.922 1.597a1.875 1.875 0 0 0 2.282.818l1.019-.382c.115-.043.283-.031.45.082.312.214.641.405.985.57.182.088.277.228.297.35l.178 1.071c.151.904.933 1.567 1.85 1.567h1.844c.916 0 1.699-.663 1.85-1.567l.178-1.072c.02-.12.114-.26.297-.349.344-.165.673-.356.985-.57.167-.114.335-.125.45-.082l1.02.382a1.875 1.875 0 0 0 2.28-.819l.923-1.597a1.875 1.875 0 0 0-.432-2.385l-.84-.692c-.095-.078-.17-.229-.154-.43a7.614 7.614 0 0 0 0-1.139c-.016-.2.059-.352.153-.43l.84-.692c.708-.582.891-1.59.433-2.385l-.922-1.597a1.875 1.875 0 0 0-2.282-.818l-1.02.382c-.114.043-.282.031-.449-.083a7.49 7.49 0 0 0-.985-.57c-.183-.087-.277-.227-.297-.348l-.179-1.072a1.875 1.875 0 0 0-1.85-1.567h-1.843ZM12 15.75a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z" clipRule="evenodd" />
                             </svg>
                           </button>
                           {!unit.isStatic && config && (
-                            <button onClick={() => setDeleteConfirmUnit(config)} className="p-1.5 rounded-lg hover:bg-coral/20 transition-colors" title="Delete unit">
+                            <button onClick={() => setDeleteConfirmUnit(config)} className="p-1.5 rounded-lg hover:bg-coral/20 transition-colors" title="Delete team">
                               <svg className="w-4 h-4 text-coral" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                 <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
                               </svg>
@@ -703,7 +705,7 @@ function UnitsPage() {
                     <div className="mb-3">
                       <div className="flex items-center justify-between mb-1">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-navy/60">Head</p>
-                        <PermissionGate permission="unit_application:manage">
+                        <PermissionGate permission="team:manage">
                           <div className="flex items-center gap-2">
                             {unit.head && config && (
                               <button onClick={() => handleRemoveHead(config)} disabled={removingHead} className="text-[10px] font-bold text-coral hover:underline">Remove</button>
@@ -772,7 +774,7 @@ function UnitsPage() {
                                 {m.level && <span className="font-normal text-slate ml-1">({m.level})</span>}
                               </p>
                             </div>
-                            <PermissionGate permission="unit_application:manage">
+                            <PermissionGate permission="team:manage">
                               <button
                                 onClick={() => ov && setRevokeConfirm({ isOpen: true, member: m, unit: ov })}
                                 className="shrink-0 p-1 rounded hover:bg-coral/20 transition-colors" title="Remove member"
@@ -793,7 +795,7 @@ function UnitsPage() {
 
             {mergedUnits.length === 0 && (
               <div className="col-span-full text-center py-16">
-                <p className="text-slate font-medium">No units available</p>
+<p className="text-slate font-medium">No teams available</p>
               </div>
             )}
           </div>
@@ -804,9 +806,9 @@ function UnitsPage() {
       {tab === "applications" && (
         <div>
           <div className="flex flex-wrap gap-3 mb-5">
-            <select value={filterUnit} onChange={(e) => setFilterUnit(e.target.value)} aria-label="Filter by unit"
+            <select value={filterUnit} onChange={(e) => setFilterUnit(e.target.value)} aria-label="Filter by team"
               className="px-3 py-2 rounded-xl border-[3px] border-navy/20 bg-snow text-sm font-medium text-navy focus:border-navy outline-none">
-              <option value="">All Units</option>
+              <option value="">All Teams</option>
               {units.map((u) => <option key={u.unit} value={u.unit}>{u.unitLabel}</option>)}
             </select>
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} aria-label="Filter by status"
@@ -831,7 +833,7 @@ function UnitsPage() {
             <div className="space-y-3">
               <p className="text-xs font-bold text-slate uppercase tracking-wider">{appTotal} application{appTotal !== 1 ? "s" : ""}</p>
               {applications.map((app) => {
-                const colors = UNIT_COLORS[app.unit] || UNIT_COLORS.slate;
+                const colors = TEAM_COLORS[app.unit] || TEAM_COLORS.slate;
                 const statusColors: Record<string, string> = {
                   pending: "bg-sunny/20 text-navy",
                   accepted: "bg-teal/20 text-teal",
@@ -853,7 +855,7 @@ function UnitsPage() {
                         </div>
                       </div>
                       {app.status === "pending" && (
-                        <PermissionGate permission="unit_application:review">
+                        <PermissionGate permission="team:review">
                           <button
                             onClick={() => { setReviewApp(app); setReviewStatus("accepted"); setReviewFeedback(""); }}
                             className="shrink-0 bg-lime border-[3px] border-navy px-4 py-2 rounded-xl font-bold text-sm text-navy press-3 press-navy"
@@ -879,15 +881,15 @@ function UnitsPage() {
       {tab === "content" && (
         <div className="space-y-4">
           <p className="text-xs font-bold text-slate uppercase tracking-wider">
-            Noticeboard posts &amp; tasks across all units — viewable by admins with review access.
+            Noticeboard posts &amp; tasks across all teams — viewable by admins with review access.
           </p>
           {mergedUnits.length === 0 ? (
             <div className="text-center py-16 bg-snow border-[3px] border-navy/10 rounded-2xl">
-              <p className="text-slate font-medium">No units available</p>
+              <p className="text-slate font-medium">No teams available</p>
             </div>
           ) : (
             mergedUnits.map((unit) => {
-              const colors = getUnitColors(unit.slug, unit.config?.colorKey);
+              const colors = getTeamColors(unit.slug, unit.config?.colorKey);
               const isOpen = expandedContent.has(unit.slug);
               const content = unitContents[unit.slug];
               const isLoading = contentLoading[unit.slug];
@@ -1085,19 +1087,19 @@ function UnitsPage() {
         )}
       </Modal>
 
-      {/* Create Unit */}
-      <Modal isOpen={showCreateModal} onClose={() => { setShowCreateModal(false); setCreateForm({ label: "", description: "", colorKey: "teal" }); }} title="Create New Unit">
+      {/* Create Team */}
+      <Modal isOpen={showCreateModal} onClose={() => { setShowCreateModal(false); setCreateForm({ label: "", description: "", colorKey: "teal" }); }} title="Create New Team">
         <div className="space-y-4 p-1">
           <div>
             <label className="block text-sm font-bold text-navy mb-1">Name <span className="text-coral">*</span></label>
             <input type="text" value={createForm.label} onChange={(e) => setCreateForm((f) => ({ ...f, label: e.target.value }))}
-              placeholder="e.g. Entrepreneurship Committee" maxLength={80}
+              placeholder="e.g. Entrepreneurship Team" maxLength={80}
               className="w-full px-4 py-2.5 rounded-xl border-[3px] border-navy/20 bg-snow text-navy font-medium focus:border-navy outline-none" />
           </div>
           <div>
             <label className="block text-sm font-bold text-navy mb-1">Description <span className="text-slate font-normal">(optional)</span></label>
             <textarea value={createForm.description} onChange={(e) => setCreateForm((f) => ({ ...f, description: e.target.value }))}
-              placeholder="Brief description of this unit's purpose..." rows={3} maxLength={500}
+              placeholder="Brief description of this team's purpose..." rows={3} maxLength={500}
               className="w-full px-4 py-2.5 rounded-xl border-[3px] border-navy/20 bg-snow text-navy text-sm focus:border-navy outline-none resize-none" />
           </div>
           <div>
@@ -1113,12 +1115,12 @@ function UnitsPage() {
           </div>
           <button onClick={handleCreateUnit} disabled={creating || !createForm.label.trim()}
             className="w-full bg-lime border-[4px] border-navy px-6 py-3 rounded-2xl font-display font-black text-navy press-5 press-navy disabled:opacity-50">
-            {creating ? "Creating..." : "Create Unit"}
+            {creating ? "Creating..." : "Create Team"}
           </button>
         </div>
       </Modal>
 
-      {/* Edit Unit */}
+      {/* Edit Team */}
       <Modal isOpen={!!editingUnit} onClose={() => setEditingUnit(null)} title={`Edit: ${editingUnit?.label}`}>
         <div className="space-y-4 p-1">
           <div>
@@ -1154,9 +1156,9 @@ function UnitsPage() {
         isOpen={!!deleteConfirmUnit}
         onClose={() => setDeleteConfirmUnit(null)}
         onConfirm={handleDeleteUnit}
-        title="Delete Unit"
-        message={`Delete "${deleteConfirmUnit?.label}"? This cannot be undone. Units with active members cannot be deleted.`}
-        confirmLabel={deleting ? "Deleting..." : "Delete Unit"}
+        title="Delete Team"
+        message={`Delete "${deleteConfirmUnit?.label}"? This cannot be undone. Teams with active members cannot be deleted.`}
+        confirmLabel={deleting ? "Deleting..." : "Delete Team"}
         variant="danger"
       />
 
@@ -1262,4 +1264,4 @@ function UnitsPage() {
   );
 }
 
-export default withAuth(UnitsPage, { requiredPermission: "unit_application:review" });
+export default withAuth(TeamsPage, { requiredPermission: "team:review" });

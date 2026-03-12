@@ -1,6 +1,9 @@
 /**
- * Unit Applications Service
- * API functions for student unit/committee applications
+ * Team Applications Service
+ * API functions for student team applications.
+ *
+ * Teams are fetched dynamically from the backend registry —
+ * no hardcoded list of team slugs exists on the frontend.
  */
 
 import { api, buildQueryString } from './client';
@@ -9,53 +12,34 @@ import { api, buildQueryString } from './client';
 // Types
 // ============================================
 
-export type UnitType =
-  | 'press'
-  | 'ics'
-  | 'committee_academic'
-  | 'committee_welfare'
-  | 'committee_sports'
-  | 'committee_socials';
+export type ApplicationStatus = 'pending' | 'accepted' | 'rejected' | 'revoked';
 
-export type ApplicationStatus = 'pending' | 'accepted' | 'rejected';
+/** A single entry returned by GET /api/v1/teams/registry */
+export interface TeamRegistryEntry {
+  slug: string;
+  label: string;
+  description: string;
+  colorKey: string;
+  requiresSkills: boolean;
+  subTeams: string[] | null;
+  customQuestions: { key: string; label: string; type?: string }[] | null;
+  isHub: boolean;
+  hubPath: string | null;
+  isBuiltIn: boolean;
+}
 
-export const UNIT_LABELS: Record<UnitType, string> = {
-  press: 'The IESA Press',
-  ics: 'IESA Creative Studio',
-  committee_academic: 'Academic Committee',
-  committee_welfare: 'Welfare Committee',
-  committee_sports: 'Sports Committee',
-  committee_socials: 'Social Committee',
-};
-
-export const UNIT_DESCRIPTIONS: Record<UnitType, string> = {
-  press: 'Join the editorial team — write articles, cover events, and shape the narrative of our department.',
-  ics: 'Bring ideas to life — design graphics, create videos, and craft the visual identity of IESA.',
-  committee_academic: 'Drive academic excellence — organize tutorials, study groups, and academic workshops.',
-  committee_welfare: 'Champion student wellbeing — address welfare concerns and support fellow students.',
-  committee_sports: 'Lead the charge in sports — organize tournaments, training sessions, and inter-departmental competitions.',
-  committee_socials: 'Plan social events — parties, hangouts, and bonding activities that bring our department together.',
-};
-
-export const UNIT_COLORS: Record<UnitType, { bg: string; border: string; text: string; badge: string }> = {
-  press: { bg: 'bg-lavender-light', border: 'border-lavender', text: 'text-navy', badge: 'bg-lavender' },
-  ics: { bg: 'bg-coral-light', border: 'border-coral', text: 'text-navy', badge: 'bg-coral' },
-  committee_academic: { bg: 'bg-teal-light', border: 'border-teal', text: 'text-navy', badge: 'bg-teal' },
-  committee_welfare: { bg: 'bg-coral-light', border: 'border-coral', text: 'text-navy', badge: 'bg-coral' },
-  committee_sports: { bg: 'bg-sunny-light', border: 'border-sunny', text: 'text-navy', badge: 'bg-sunny' },
-  committee_socials: { bg: 'bg-lime-light', border: 'border-lime', text: 'text-navy', badge: 'bg-lime' },
-};
-
-export interface UnitApplication {
+export interface TeamApplication {
   id: string;
   userId: string;
   userName: string;
   userEmail: string;
-  userLevel: number | null;
-  unit: UnitType;
-  unitLabel: string;
+  userLevel: string | null;
+  team: string;
+  teamLabel: string;
   motivation: string;
   skills: string | null;
+  subTeam: string | null;
+  customAnswers: Record<string, unknown> | null;
   status: ApplicationStatus;
   feedback: string | null;
   reviewedBy: string | null;
@@ -66,9 +50,11 @@ export interface UnitApplication {
 }
 
 export interface CreateApplicationData {
-  unit: UnitType;
+  team: string;
   motivation: string;
   skills?: string;
+  subTeam?: string;
+  customAnswers?: Record<string, unknown>;
 }
 
 export interface ReviewApplicationData {
@@ -76,15 +62,57 @@ export interface ReviewApplicationData {
   feedback?: string;
 }
 
+// ── Color map ──────────────────────────────────────────────────
+// Maps colorKey (returned by registry) → Tailwind utility classes.
+const COLOR_MAP: Record<string, { bg: string; border: string; text: string; badge: string }> = {
+  coral:    { bg: 'bg-coral-light',    border: 'border-coral',    text: 'text-navy', badge: 'bg-coral' },
+  teal:    { bg: 'bg-teal-light',     border: 'border-teal',     text: 'text-navy', badge: 'bg-teal' },
+  lavender:{ bg: 'bg-lavender-light', border: 'border-lavender', text: 'text-navy', badge: 'bg-lavender' },
+  sunny:   { bg: 'bg-sunny-light',    border: 'border-sunny',    text: 'text-navy', badge: 'bg-sunny' },
+  lime:    { bg: 'bg-lime-light',     border: 'border-lime',     text: 'text-navy', badge: 'bg-lime' },
+  slate:   { bg: 'bg-ghost',          border: 'border-cloud',    text: 'text-navy', badge: 'bg-cloud' },
+};
+
+const FALLBACK_COLOR = { bg: 'bg-ghost', border: 'border-cloud', text: 'text-navy', badge: 'bg-cloud' };
+
+/** Resolve Tailwind color classes from a colorKey */
+export function getTeamColors(colorKey: string) {
+  return COLOR_MAP[colorKey] ?? FALLBACK_COLOR;
+}
+
+// ── Legacy re-exports (for pages that haven't migrated yet) ─────
+/** @deprecated Use TeamApplication */
+export type UnitApplication = TeamApplication;
+/** @deprecated Use string team slug */
+export type UnitType = string;
+
+/** @deprecated Use fetchTeamRegistry + getTeamColors */
+export const UNIT_LABELS: Record<string, string> = {};
+/** @deprecated */
+export const UNIT_DESCRIPTIONS: Record<string, string> = {};
+/** @deprecated Use getTeamColors */
+export const UNIT_COLORS: Record<string, { bg: string; border: string; text: string; badge: string }> = {};
+
+// ============================================
+// Registry Endpoint
+// ============================================
+
+/**
+ * Fetch the team registry (public — all built-in + custom teams)
+ */
+export async function fetchTeamRegistry(): Promise<TeamRegistryEntry[]> {
+  return api.get<TeamRegistryEntry[]>('/api/v1/teams/registry');
+}
+
 // ============================================
 // Student Endpoints
 // ============================================
 
 /**
- * Submit a new unit application
+ * Submit a new team application
  */
-export async function createApplication(data: CreateApplicationData): Promise<UnitApplication> {
-  return api.post<UnitApplication>('/api/v1/unit-applications/', data, {
+export async function createApplication(data: CreateApplicationData): Promise<TeamApplication> {
+  return api.post<TeamApplication>('/api/v1/team-applications/', data, {
     successMessage: 'Application submitted successfully!',
   });
 }
@@ -92,8 +120,8 @@ export async function createApplication(data: CreateApplicationData): Promise<Un
 /**
  * Get current user's applications
  */
-export async function getMyApplications(): Promise<UnitApplication[]> {
-  return api.get<UnitApplication[]>('/api/v1/unit-applications/my');
+export async function getMyApplications(): Promise<TeamApplication[]> {
+  return api.get<TeamApplication[]>('/api/v1/team-applications/my');
 }
 
 // ============================================
@@ -109,7 +137,7 @@ interface ListApplicationsParams {
 }
 
 export interface PaginatedApplications {
-  items: UnitApplication[];
+  items: TeamApplication[];
   total: number;
 }
 
@@ -118,14 +146,14 @@ export interface PaginatedApplications {
  */
 export async function listApplications(params: ListApplicationsParams = {}): Promise<PaginatedApplications> {
   const query = buildQueryString(params);
-  return api.get<PaginatedApplications>(`/api/v1/unit-applications/${query}`);
+  return api.get<PaginatedApplications>(`/api/v1/team-applications/${query}`);
 }
 
 /**
  * Review (accept/reject) an application
  */
-export async function reviewApplication(applicationId: string, data: ReviewApplicationData): Promise<UnitApplication> {
-  return api.patch<UnitApplication>(`/api/v1/unit-applications/${applicationId}/review`, data, {
+export async function reviewApplication(applicationId: string, data: ReviewApplicationData): Promise<TeamApplication> {
+  return api.patch<TeamApplication>(`/api/v1/team-applications/${applicationId}/review`, data, {
     successMessage: `Application ${data.status}!`,
   });
 }

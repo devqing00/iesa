@@ -79,8 +79,8 @@ export default function StudentLoginPage() {
   return (
     <div className="min-h-screen bg-ghost flex">
       {/* Left - Form Section */}
-      <main id="main-content" className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-md space-y-8">
+      <main id="main-content" className="flex-1 h-screen overflow-y-auto flex flex-col p-8">
+        <div className="w-full max-w-md space-y-8 mx-auto my-auto">
           {/* Logo */}
           <Link href="/" className="inline-flex items-center gap-3">
             <div className="w-10 h-10 flex items-center justify-center">
@@ -220,22 +220,44 @@ export default function StudentLoginPage() {
                       </svg>
                       <div className="flex-1">
                         <p className="text-coral text-sm font-medium">{error}</p>
-                        {(error.includes("Incorrect") || error.includes("credentials")) && (
-                          <button
-                            type="button"
-                            onClick={() => { setShowForgot(true); setForgotEmail(email); }}
-                            className="text-xs font-display font-bold text-navy/60 hover:text-navy hover:underline mt-2 transition-colors"
-                          >
-                            Forgot your password? Reset it here &rarr;
-                          </button>
-                        )}
-                        {error.includes("register") && (
+                        {/* No account found — offer to register */}
+                        {error.includes("No account found") && (
                           <a
                             href="/register"
                             className="text-xs font-display font-bold text-navy/60 hover:text-navy hover:underline mt-2 inline-block transition-colors"
                           >
                             Create an account &rarr;
                           </a>
+                        )}
+                        {/* Wrong password or bundled invalid-credential — offer reset */}
+                        {(error.includes("Incorrect password") || error.includes("Incorrect email or password") || error.includes("credentials")) && (
+                          <button
+                            type="button"
+                            onClick={() => { setShowForgot(true); setForgotEmail(email); }}
+                            className="text-xs font-display font-bold text-navy/60 hover:text-navy hover:underline mt-2 block transition-colors"
+                          >
+                            Forgot your password? Reset it here &rarr;
+                          </button>
+                        )}
+                        {/* Account exists with different provider — offer Google */}
+                        {error.includes("different credential") && (
+                          <button
+                            type="button"
+                            onClick={handleGoogleLogin}
+                            className="text-xs font-display font-bold text-navy/60 hover:text-navy hover:underline mt-2 block transition-colors"
+                          >
+                            Try signing in with Google instead &rarr;
+                          </button>
+                        )}
+                        {/* Too many attempts — offer reset */}
+                        {error.includes("Too many") && (
+                          <button
+                            type="button"
+                            onClick={() => { setShowForgot(true); setForgotEmail(email); }}
+                            className="text-xs font-display font-bold text-navy/60 hover:text-navy hover:underline mt-2 block transition-colors"
+                          >
+                            Reset your password &rarr;
+                          </button>
                         )}
                       </div>
                     </div>
@@ -266,50 +288,68 @@ export default function StudentLoginPage() {
       </main>
 
       {/* Right - Decorative Section */}
-      <div className="hidden lg:flex flex-1 bg-navy items-center justify-center relative overflow-hidden rounded-l-[2rem]">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 bg-dots opacity-20 pointer-events-none" />
+      <div
+        className="hidden lg:flex w-2/5 sticky top-0 h-screen items-center justify-center relative overflow-hidden rounded-l-[2rem]"
+        style={{
+          backgroundImage: "url('https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&w=1200&q=80')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      >
+        {/* Dark overlay */}
+        <div className="absolute inset-0 bg-navy/85" />
+        <div className="absolute inset-0 bg-dots opacity-10 pointer-events-none" />
 
-        {/* Diamond Sparkles */}
-        <svg className="absolute top-12 right-[15%] w-5 h-5 text-navy/12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="absolute bottom-20 left-[10%] w-4 h-4 text-coral/15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="absolute top-[40%] right-[8%] w-3 h-3 text-sunny/20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        {/* Diamond Sparkles — visible on navy */}
+        <svg aria-hidden="true" className="absolute top-14 left-[12%] w-6 h-6 text-lime/25" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg aria-hidden="true" className="absolute top-28 right-[10%] w-3 h-3 text-coral/30" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg aria-hidden="true" className="absolute bottom-32 right-[14%] w-5 h-5 text-lavender/30" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg aria-hidden="true" className="absolute top-[52%] left-[8%] w-4 h-4 text-sunny/25" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg aria-hidden="true" className="absolute bottom-20 left-[22%] w-2.5 h-2.5 text-teal/30" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
 
-        {/* Decorative Content */}
-        <div className="relative z-10 max-w-md p-12 text-center space-y-8">
-          <div className="space-y-4">
-            <span className="font-display font-bold text-xs uppercase tracking-wider text-snow/50 flex items-center justify-center gap-2">
-              <span>&#10022;</span> IESA Platform
-            </span>
-            <h2 className="font-display font-black text-3xl md:text-4xl text-snow">
-              Student Portal
+        <div className="relative z-10 max-w-sm p-10 space-y-8">
+          {/* Label */}
+          <span className="font-display font-bold text-xs uppercase tracking-wider text-snow/50 flex items-center gap-2">
+            <svg aria-hidden="true" className="w-3 h-3 text-lime" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+            IESA Platform
+          </span>
+
+          {/* Headline */}
+          <div className="space-y-3">
+            <h2 className="font-display font-black text-4xl text-snow leading-tight">
+              Welcome<br />
+              <span className="text-lime">Back.</span>
             </h2>
-            <p className="font-display font-normal text-snow/70 leading-relaxed">
-              Access your courses, track your payments, view announcements, and
-              connect with fellow students.
+            <p className="font-display font-normal text-snow/60 leading-relaxed text-sm">
+              Your dashboard, resources, payments, and everything IESA — all in one place.
             </p>
           </div>
 
-          {/* Feature List */}
-          <div className="space-y-4 text-left">
+          {/* Lime accent card */}
+          <div className="bg-lime border-[3px] border-snow/20 rounded-2xl p-4 shadow-[4px_4px_0_0_#C8F31D] rotate-[0.5deg]">
+            <p className="font-display font-black text-navy text-sm leading-snug">
+              &ldquo;Your entire student experience, organised and accessible.&rdquo;
+            </p>
+            <p className="font-display font-bold text-navy/60 text-xs mt-2 uppercase tracking-wide">IESA Student Portal</p>
+          </div>
+
+          {/* Features */}
+          <div className="space-y-3">
             {[
-              "Course enrollment & timetable",
-              "Payment history & receipts",
-              "Announcements & events",
-              "Student resources",
-            ].map((feature, i) => (
-              <div key={i} className="flex items-center gap-3 text-snow/80">
-                <span className="text-snow/30">&#9670;</span>
-                <span className="font-display font-normal text-sm">{feature}</span>
+              { label: "Course enrollment & timetable", color: "bg-teal" },
+              { label: "Payment history & receipts", color: "bg-coral" },
+              { label: "Announcements & events", color: "bg-lavender" },
+              { label: "Student resources & library", color: "bg-sunny" },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <span className={`w-2 h-2 rounded-full ${item.color} flex-shrink-0`} />
+                <span className="font-display font-normal text-sm text-snow/75">{item.label}</span>
               </div>
             ))}
           </div>
 
-          {/* Footer */}
-          <div className="pt-8 border-t border-snow/20">
-            <p className="font-display font-bold text-xs uppercase tracking-wider text-snow/50">
-              University of Ibadan, Nigeria
-            </p>
+          <div className="pt-6 border-t border-snow/15">
+            <p className="font-display font-bold text-xs uppercase tracking-wider text-snow/40">University of Ibadan, Nigeria</p>
           </div>
         </div>
       </div>

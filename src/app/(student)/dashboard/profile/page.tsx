@@ -412,13 +412,27 @@ export default function ProfilePage() {
     director_of_welfare: { label: "Director of Welfare", color: "text-coral", bg: "bg-coral-light", icon: "exec" },
     class_rep: { label: "Class Representative", color: "text-lavender", bg: "bg-lavender-light", icon: "class" },
     assistant_class_rep: { label: "Asst. Class Rep", color: "text-lavender", bg: "bg-lavender-light", icon: "class" },
-    press_head: { label: "Press Unit Head", color: "text-coral", bg: "bg-coral-light", icon: "unit" },
+    press_head: { label: "Press Team Head", color: "text-coral", bg: "bg-coral-light", icon: "unit" },
     press_member: { label: "Press Member", color: "text-coral", bg: "bg-coral-light", icon: "unit" },
     timp_lead: { label: "TIMP Lead", color: "text-teal", bg: "bg-teal-light", icon: "unit" },
-    committee_academic_member: { label: "Academic Committee", color: "text-sunny", bg: "bg-sunny-light", icon: "unit" },
-    committee_welfare_member: { label: "Welfare Committee", color: "text-coral", bg: "bg-coral-light", icon: "unit" },
-    committee_sports_member: { label: "Sports Committee", color: "text-teal", bg: "bg-teal-light", icon: "unit" },
-    committee_socials_member: { label: "Socials Committee", color: "text-lavender", bg: "bg-lavender-light", icon: "unit" },
+    ics_head: { label: "ICS Team Head", color: "text-coral", bg: "bg-coral-light", icon: "unit" },
+    ics_member: { label: "ICS Member", color: "text-coral", bg: "bg-coral-light", icon: "unit" },
+    team_head_industrial_visit: { label: "Industrial Visit Team Head", color: "text-teal", bg: "bg-teal-light", icon: "unit" },
+    team_industrial_visit_member: { label: "Industrial Visit Team", color: "text-teal", bg: "bg-teal-light", icon: "unit" },
+    team_head_conference: { label: "Conference Team Head", color: "text-lavender", bg: "bg-lavender-light", icon: "unit" },
+    team_conference_member: { label: "Conference Team", color: "text-lavender", bg: "bg-lavender-light", icon: "unit" },
+    team_head_logistics: { label: "Logistics Team Head", color: "text-sunny", bg: "bg-sunny-light", icon: "unit" },
+    team_logistics_member: { label: "Logistics Team", color: "text-sunny", bg: "bg-sunny-light", icon: "unit" },
+    team_head_welfare: { label: "Welfare Team Head", color: "text-coral", bg: "bg-coral-light", icon: "unit" },
+    team_welfare_member: { label: "Welfare Team", color: "text-coral", bg: "bg-coral-light", icon: "unit" },
+    team_head_alumni_relations: { label: "Alumni & External Relations Head", color: "text-teal", bg: "bg-teal-light", icon: "unit" },
+    team_alumni_relations_member: { label: "Alumni & External Relations", color: "text-teal", bg: "bg-teal-light", icon: "unit" },
+    team_head_dinner_award: { label: "Dinner & Award Team Head", color: "text-lavender", bg: "bg-lavender-light", icon: "unit" },
+    team_dinner_award_member: { label: "Dinner & Award Team", color: "text-lavender", bg: "bg-lavender-light", icon: "unit" },
+    committee_academic_member: { label: "Academic Team", color: "text-sunny", bg: "bg-sunny-light", icon: "unit" },
+    committee_welfare_member: { label: "Welfare Team (Legacy)", color: "text-coral", bg: "bg-coral-light", icon: "unit" },
+    committee_sports_member: { label: "Sports Team", color: "text-teal", bg: "bg-teal-light", icon: "unit" },
+    committee_socials_member: { label: "Socials Team", color: "text-lavender", bg: "bg-lavender-light", icon: "unit" },
   };
 
   function getRoleMeta(position: string) {
@@ -644,7 +658,7 @@ export default function ProfilePage() {
                 );
               })}
 
-              {/* Unit / Committee Roles */}
+              {/* Team Roles */}
               {unitRoles.map((role) => {
                 const meta = getRoleMeta(role.position);
                 return (
@@ -657,7 +671,7 @@ export default function ProfilePage() {
                       </div>
                       <div className="min-w-0">
                         <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50">
-                          {role.position.includes("head") || role.position.includes("lead") ? "Unit Lead" : "Member"}
+                          {role.position.includes("head") || role.position.includes("lead") ? "Team Lead" : "Member"}
                         </div>
                         <div className="font-display font-black text-sm text-navy leading-tight">{meta.label}</div>
                       </div>

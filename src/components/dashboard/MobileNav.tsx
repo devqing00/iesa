@@ -121,7 +121,7 @@ export default function MobileNav() {
       ),
     },
     {
-      name: "Units",
+      name: "Teams",
       href: "/dashboard/units",
       color: "bg-lavender-light",
       icon: (

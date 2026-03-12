@@ -235,7 +235,7 @@ export default function AboutPage() {
                 Curious who drives IESA?
               </h3>
               <p className="font-display font-medium text-base sm:text-lg text-snow/60 max-w-lg mx-auto mb-8">
-                Presidents, secretaries, committee chairs — the dedicated students steering every IESA initiative are just one click away.
+                Presidents, secretaries, team leads — the dedicated students steering every IESA initiative are just one click away.
               </p>
               <span className="inline-flex items-center gap-2 bg-lime border-[3px] border-navy rounded-full px-8 py-3.5 font-display font-black text-sm text-navy uppercase tracking-wide shadow-[4px_4px_0_0_#000] group-hover:shadow-[6px_6px_0_0_#000] transition-all">
                 Meet the Full Team →

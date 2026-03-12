@@ -238,7 +238,7 @@ export const PAGE_HELP_STUDENT: Record<string, ToolHelpContent> = {
   applications: {
     toolId: "applications",
     title: "Applications",
-    subtitle: "Apply for departmental roles, committees, and positions",
+    subtitle: "Apply for departmental roles, teams, and positions",
     accentColor: "bg-teal",
     steps: [
       { icon: "list", title: "Open Positions", desc: "Browse available positions and application windows" },
@@ -272,7 +272,7 @@ export const PAGE_HELP_STUDENT: Record<string, ToolHelpContent> = {
   "team-central": {
     toolId: "team-central",
     title: "Central Executives",
-    subtitle: "Meet the IESA central executive committee members",
+    subtitle: "Meet the IESA central executive members",
     accentColor: "bg-lime",
     steps: [
       { icon: "users", title: "View Executives", desc: "See all current central executive members and their roles" },
@@ -298,18 +298,18 @@ export const PAGE_HELP_STUDENT: Record<string, ToolHelpContent> = {
     ],
   },
 
-  /* ── Team – Committees ── */
+  /* ── Team – Teams ── */
   "team-committees": {
     toolId: "team-committees",
-    title: "Committees",
-    subtitle: "Explore active departmental committees and their members",
+    title: "Teams",
+    subtitle: "Explore active departmental teams and their members",
     accentColor: "bg-lavender",
     steps: [
-      { icon: "users", title: "Browse Committees", desc: "See all active committees with their descriptions" },
-      { icon: "list", title: "View Members", desc: "Click a committee to see its members and coordinators" },
+      { icon: "users", title: "Browse Teams", desc: "See all active teams with their descriptions" },
+      { icon: "list", title: "View Members", desc: "Click a team to see its members and coordinators" },
     ],
     tips: [
-      "Interested in joining a committee? Apply through the Applications page",
+      "Interested in joining a team? Apply through the Applications page",
     ],
   },
 
@@ -399,16 +399,16 @@ export const PAGE_HELP_STUDENT: Record<string, ToolHelpContent> = {
     ],
   },
 
-  /* ── Units ── */
+  /* ── Teams ── */
   units: {
     toolId: "units",
-    title: "Units",
-    subtitle: "Browse the organisational units of the department",
+    title: "Teams",
+    subtitle: "Browse the organisational teams of the department",
     accentColor: "bg-lime",
     steps: [
-      { icon: "list", title: "View Units", desc: "See all departmental units, committees, and bodies" },
-      { icon: "users", title: "Unit Members", desc: "Click a unit to see its members and coordinators" },
-      { icon: "search", title: "Explore Roles", desc: "Learn about what each unit does and how to get involved" },
+      { icon: "list", title: "View Teams", desc: "See all departmental teams and bodies" },
+      { icon: "users", title: "Team Members", desc: "Click a team to see its members and coordinators" },
+      { icon: "search", title: "Explore Roles", desc: "Learn about what each team does and how to get involved" },
     ],
     tips: [
       "Interested in joining? Apply through the Applications page when positions open",
@@ -759,21 +759,21 @@ export const PAGE_HELP_ADMIN: Record<string, ToolHelpContent> = {
     ],
   },
 
-  /* ── Admin Units ── */
+  /* ── Admin Teams ── */
   "admin-units": {
     toolId: "admin-units",
-    title: "Unit Management",
-    subtitle: "Manage departmental units, applications, and members",
+    title: "Team Management",
+    subtitle: "Manage departmental teams, applications, and members",
     accentColor: "bg-lime",
     steps: [
-      { icon: "plus", title: "Create Units", desc: "Set up new departmental units with descriptions and roles" },
-      { icon: "list", title: "Manage Applications", desc: "Review and process student applications for unit positions" },
-      { icon: "users", title: "Assign Members", desc: "Add or remove members from units" },
-      { icon: "pencil", title: "Edit Units", desc: "Update unit details, descriptions, and open positions" },
+      { icon: "plus", title: "Create Teams", desc: "Set up new departmental teams with descriptions and roles" },
+      { icon: "list", title: "Manage Applications", desc: "Review and process student applications for team positions" },
+      { icon: "users", title: "Assign Members", desc: "Add or remove members from teams" },
+      { icon: "pencil", title: "Edit Teams", desc: "Update team details, descriptions, and open positions" },
     ],
     tips: [
       "Student applications route here from the student Applications page",
-      "Units can have multiple coordinators and members",
+      "Teams can have multiple coordinators and members",
     ],
   },
 };

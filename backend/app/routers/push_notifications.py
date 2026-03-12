@@ -215,9 +215,9 @@ async def send_push_to_user(
                 status = getattr(e.response, "status_code", 0)
                 if status in (404, 410):
                     stale_ids.append(sub_doc["_id"])
-            logger.debug(f"Push failed for {sub_doc['endpoint'][:60]}…: {e}")
+            logger.warning(f"Push failed for {sub_doc['endpoint'][:60]}…: {e}")
         except Exception as e:
-            logger.debug(f"Push error: {e}")
+            logger.warning(f"Push error: {e}")
 
     # Clean up stale subscriptions
     if stale_ids:
