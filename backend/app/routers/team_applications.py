@@ -133,7 +133,7 @@ async def _notify_reviewers_bg(unit: str, session_id: str, student_name: str, ap
                 type="team_application",
                 title="New Team Application",
                 message=f"{student_name} applied to join {unit_label}",
-                link="/admin/units",
+                link="/admin/teams",
                 related_id=app_id,
             )
     except Exception:

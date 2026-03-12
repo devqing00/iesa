@@ -38,10 +38,16 @@ class EmailService:
     """Unified email service supporting multiple providers"""
     
     def __init__(self):
+        self.smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+        self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        self.smtp_user = os.getenv("SMTP_USER")
+        self.smtp_password = os.getenv("SMTP_PASSWORD")
+        self.smtp_use_tls = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
         self.provider = self._detect_provider()
         self.from_email = os.getenv("EMAIL_FROM", "noreply@iesa.com")
         self.from_name = os.getenv("EMAIL_FROM_NAME", "IESA Platform")
         self._healthy = False
+        self.smtp_fallback_enabled = False
         
         if self.provider == EmailProvider.SENDGRID:
             self._init_sendgrid()
@@ -52,18 +58,29 @@ class EmailService:
         elif self.provider == EmailProvider.CONSOLE:
             logger.warning("⚠️  Using console email provider (development mode)")
             self._healthy = True
+
+        # Keep SMTP as fallback path when available (attachments + provider outage fallback)
+        if self.provider != EmailProvider.SMTP and self._has_smtp_config():
+            self.smtp_fallback_enabled = True
+            logger.info(
+                f"✅ SMTP fallback enabled (Host: {self.smtp_host}, Port: {self.smtp_port})"
+            )
     
     def _detect_provider(self) -> EmailProvider:
         """Auto-detect email provider based on environment variables"""
-        # Check SMTP first (prioritize Gmail/custom SMTP over third-party services)
-        if os.getenv("SMTP_HOST") and os.getenv("SMTP_USER") and os.getenv("SMTP_PASSWORD"):
-            return EmailProvider.SMTP
+        # Prefer modern transactional providers first; keep SMTP as fallback path.
+        if os.getenv("RESEND_API_KEY"):
+            return EmailProvider.RESEND
         elif os.getenv("SENDGRID_API_KEY"):
             return EmailProvider.SENDGRID
-        elif os.getenv("RESEND_API_KEY"):
-            return EmailProvider.RESEND
+        elif self._has_smtp_config():
+            return EmailProvider.SMTP
         else:
             return EmailProvider.CONSOLE
+
+    def _has_smtp_config(self) -> bool:
+        """Return True if SMTP credentials are present."""
+        return bool(self.smtp_host and self.smtp_user and self.smtp_password)
     
     def _init_sendgrid(self):
         """Initialize SendGrid client"""
@@ -90,14 +107,7 @@ class EmailService:
     
     def _init_smtp(self):
         """Initialize SMTP client (Gmail or other SMTP servers)"""
-        import smtplib
-        self.smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")  # Default to Gmail
-        self.smtp_port = int(os.getenv("SMTP_PORT", "587"))  # TLS port
-        self.smtp_user = os.getenv("SMTP_USER")
-        self.smtp_password = os.getenv("SMTP_PASSWORD")  # Gmail App Password
-        self.smtp_use_tls = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
-        
-        if not self.smtp_user or not self.smtp_password:
+        if not self._has_smtp_config():
             logger.error("❌ SMTP credentials not configured. Set SMTP_USER and SMTP_PASSWORD in .env")
             self.provider = EmailProvider.CONSOLE
         else:
@@ -127,13 +137,33 @@ class EmailService:
         """
         try:
             if self.provider == EmailProvider.SENDGRID:
-                return await self._send_sendgrid(to, subject, html_content, text_content, attachments)
+                success = await self._send_sendgrid(to, subject, html_content, text_content, attachments)
+                if not success and self.smtp_fallback_enabled:
+                    logger.warning("⚠️ SendGrid failed — retrying with SMTP fallback")
+                    return await self._send_smtp(to, subject, html_content, text_content, attachments)
+                return success
             elif self.provider == EmailProvider.RESEND:
-                return await self._send_resend(to, subject, html_content, text_content)
+                # Resend is primary, but keep SMTP fallback for attachments and outages.
+                if attachments and self.smtp_fallback_enabled:
+                    logger.info("📎 Attachments detected — using SMTP fallback for attachment-safe delivery")
+                    return await self._send_smtp(to, subject, html_content, text_content, attachments)
+
+                success = await self._send_resend(to, subject, html_content, text_content)
+
+                if not success and self.smtp_fallback_enabled:
+                    logger.warning("⚠️ Resend failed — retrying with SMTP fallback")
+                    return await self._send_smtp(to, subject, html_content, text_content, attachments)
+
+                # If attachments exist but no SMTP fallback, send without attachment to avoid hard failure.
+                if attachments and not self.smtp_fallback_enabled and success:
+                    logger.warning("⚠️ Email sent via Resend without attachments (no SMTP fallback configured)")
+
+                return success
             elif self.provider == EmailProvider.SMTP:
                 return await self._send_smtp(to, subject, html_content, text_content, attachments)
             elif self.provider == EmailProvider.CONSOLE:
                 return await self._send_console(to, subject, html_content)
+            return False
             
         except Exception as e:
             logger.error(f"Failed to send email to {to}: {str(e)}")
@@ -703,6 +733,7 @@ async def check_email_health() -> dict:
         "healthy": service._healthy,
         "from_email": service.from_email,
         "from_name": service.from_name,
+        "smtp_fallback_enabled": service.smtp_fallback_enabled,
     }
 
     if service.provider == EmailProvider.SMTP:

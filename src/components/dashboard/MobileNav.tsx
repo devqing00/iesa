@@ -122,7 +122,7 @@ export default function MobileNav() {
     },
     {
       name: "Teams",
-      href: "/dashboard/units",
+      href: "/dashboard/teams",
       color: "bg-lavender-light",
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">

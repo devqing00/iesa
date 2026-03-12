@@ -35,8 +35,8 @@ interface UnitHead {
 }
 
 interface UnitOverview {
-  unit: string;
-  unitLabel: string;
+  team: string;
+  teamLabel: string;
   head: UnitHead | null;
   members: UnitMember[];
   memberCount: number;
@@ -61,8 +61,8 @@ interface Application {
   userName: string;
   userEmail: string;
   userLevel?: string;
-  unit: string;
-  unitLabel: string;
+  team: string;
+  teamLabel: string;
   motivation: string;
   skills?: string;
   status: string;
@@ -114,7 +114,7 @@ interface UnitTaskSummary {
 
 interface UnitContent {
   unitSlug: string;
-  unitLabel: string;
+  teamLabel: string;
   noticeboard: UnitNotice[];
   tasks: UnitTask[];
   taskSummary: UnitTaskSummary;
@@ -290,7 +290,7 @@ function TeamsPage() {
         // Silently skip units where head content isn't available
         setUnitContents((prev) => ({
           ...prev,
-          [unitSlug]: { unitSlug, unitLabel: unitSlug, noticeboard: [], tasks: [], taskSummary: { total: 0, pending: 0, in_progress: 0, done: 0, completionRate: 0 } },
+          [unitSlug]: { unitSlug, teamLabel: unitSlug, noticeboard: [], tasks: [], taskSummary: { total: 0, pending: 0, in_progress: 0, done: 0, completionRate: 0 } },
         }));
         return;
       }
@@ -320,7 +320,7 @@ function TeamsPage() {
     try {
       const token = await getAccessToken();
       if (!token) return;
-      const res = await fetch(getApiUrl(`/api/v1/team-applications/settings/${settingsUnit.unit}`), {
+      const res = await fetch(getApiUrl(`/api/v1/team-applications/settings/${settingsUnit.team}`), {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ maxMembers: settingsMaxMembers, isOpen: settingsIsOpen }),
@@ -371,7 +371,7 @@ function TeamsPage() {
     try {
       const token = await getAccessToken();
       if (!token) return;
-      const params = new URLSearchParams({ unit: unit.unit, status: "accepted", search: member.email, limit: "1" });
+      const params = new URLSearchParams({ unit: unit.team, status: "accepted", search: member.email, limit: "1" });
       const searchRes = await fetch(getApiUrl(`/api/v1/team-applications/?${params}`), {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -383,7 +383,7 @@ function TeamsPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) await throwApiError(res, "revoke membership");
-      toast.success(`Removed ${member.firstName} from ${unit.unitLabel}`);
+      toast.success(`Removed ${member.firstName} from ${unit.teamLabel}`);
       setRevokeConfirm({ isOpen: false, member: null, unit: null });
       fetchOverview();
     } catch (err) {
@@ -563,15 +563,15 @@ function TeamsPage() {
   const mergedUnits = (() => {
     const configMap = new Map(unitConfigs.map((c) => [c.slug, c]));
     const fromOverview = units.map((u) => ({
-      slug: u.unit, unitLabel: u.unitLabel, head: u.head, members: u.members,
+      slug: u.team, teamLabel: u.teamLabel, head: u.head, members: u.members,
       memberCount: u.memberCount, maxMembers: u.maxMembers, isOpen: u.isOpen,
-      pendingApplications: u.pendingApplications, config: configMap.get(u.unit) || null, isStatic: true,
+      pendingApplications: u.pendingApplications, config: configMap.get(u.team) || null, isStatic: true,
     }));
-    const overviewSlugs = new Set(units.map((u) => u.unit));
+    const overviewSlugs = new Set(units.map((u) => u.team));
     const customOnly = unitConfigs
       .filter((c) => !c.isStatic && !overviewSlugs.has(c.slug))
       .map((c) => ({
-        slug: c.slug, unitLabel: c.label, head: c.head, members: [], memberCount: 0,
+        slug: c.slug, teamLabel: c.label, head: c.head, members: [], memberCount: 0,
         maxMembers: 0, isOpen: true, pendingApplications: 0, config: c, isStatic: false,
       }));
     return [...fromOverview, ...customOnly];
@@ -654,7 +654,7 @@ function TeamsPage() {
                     {/* Card header row */}
                     <div className="flex items-start justify-between mb-3">
                       <div className="min-w-0 pr-2">
-                        <h3 className="font-display font-black text-lg text-navy">{unit.unitLabel}</h3>
+                        <h3 className="font-display font-black text-lg text-navy">{unit.teamLabel}</h3>
                         {config?.description && (
                           <p className="text-xs text-slate mt-0.5 line-clamp-1">{config.description}</p>
                         )}
@@ -683,7 +683,7 @@ function TeamsPage() {
                             </button>
                           )}
                           <button
-                            onClick={() => { const ov = units.find((u) => u.unit === unit.slug); if (ov) openSettings(ov); }}
+                            onClick={() => { const ov = units.find((u) => u.team === unit.slug); if (ov) openSettings(ov); }}
                             className="p-1.5 rounded-lg hover:bg-navy/10 transition-colors" title="Team settings"
                           >
                             <svg className="w-4 h-4 text-navy" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -758,7 +758,7 @@ function TeamsPage() {
                   {isExpanded && unit.members.length > 0 && (
                     <div className="border-t-[3px] border-navy/10 px-5 py-3 space-y-2 max-h-60 overflow-y-auto">
                       {unit.members.map((m) => {
-                        const ov = units.find((u) => u.unit === unit.slug);
+                        const ov = units.find((u) => u.team === unit.slug);
                         return (
                           <div key={m.id} className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
@@ -809,7 +809,7 @@ function TeamsPage() {
             <select value={filterUnit} onChange={(e) => setFilterUnit(e.target.value)} aria-label="Filter by team"
               className="px-3 py-2 rounded-xl border-[3px] border-navy/20 bg-snow text-sm font-medium text-navy focus:border-navy outline-none">
               <option value="">All Teams</option>
-              {units.map((u) => <option key={u.unit} value={u.unit}>{u.unitLabel}</option>)}
+              {units.map((u) => <option key={u.team} value={u.team}>{u.teamLabel}</option>)}
             </select>
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} aria-label="Filter by status"
               className="px-3 py-2 rounded-xl border-[3px] border-navy/20 bg-snow text-sm font-medium text-navy focus:border-navy outline-none">
@@ -833,7 +833,7 @@ function TeamsPage() {
             <div className="space-y-3">
               <p className="text-xs font-bold text-slate uppercase tracking-wider">{appTotal} application{appTotal !== 1 ? "s" : ""}</p>
               {applications.map((app) => {
-                const colors = TEAM_COLORS[app.unit] || TEAM_COLORS.slate;
+                const colors = TEAM_COLORS[app.team] || TEAM_COLORS.slate;
                 const statusColors: Record<string, string> = {
                   pending: "bg-sunny/20 text-navy",
                   accepted: "bg-teal/20 text-teal",
@@ -850,7 +850,7 @@ function TeamsPage() {
                         </div>
                         <p className="text-xs text-slate">{app.userEmail}{app.userLevel ? ` · ${app.userLevel}` : ""}</p>
                         <div className="flex items-center gap-2 mt-1.5">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-navy ${colors.bg}`}>{app.unitLabel}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-navy ${colors.bg}`}>{app.teamLabel}</span>
                           <span className="text-[11px] text-slate">{formatDate(app.createdAt)}</span>
                         </div>
                       </div>
@@ -929,7 +929,7 @@ function TeamsPage() {
                   >
                     <div className="flex items-center gap-3">
                       <div>
-                        <p className="font-display font-black text-base text-navy">{unit.unitLabel}</p>
+                        <p className="font-display font-black text-base text-navy">{unit.teamLabel}</p>
                         <p className="text-xs text-slate mt-0.5">
                           {unit.memberCount} member{unit.memberCount !== 1 ? "s" : ""}
                           {content && ` · ${content.taskSummary.total} task${content.taskSummary.total !== 1 ? "s" : ""} · ${content.noticeboard.length} notice${content.noticeboard.length !== 1 ? "s" : ""}`}
@@ -1063,7 +1063,7 @@ function TeamsPage() {
       {/* ══════════════ Modals ══════════════ */}
 
       {/* Settings */}
-      <Modal isOpen={!!settingsUnit} onClose={() => setSettingsUnit(null)} title={`${settingsUnit?.unitLabel} Settings`}>
+      <Modal isOpen={!!settingsUnit} onClose={() => setSettingsUnit(null)} title={`${settingsUnit?.teamLabel} Settings`}>
         {settingsUnit && (
           <div className="space-y-5 p-1">
             <div>
@@ -1215,7 +1215,7 @@ function TeamsPage() {
             <div>
               <p className="font-bold text-navy">{reviewApp.userName}</p>
               <p className="text-xs text-slate">{reviewApp.userEmail}{reviewApp.userLevel ? ` · ${reviewApp.userLevel}` : ""}</p>
-              <p className="text-xs font-bold text-navy/60 mt-1">{reviewApp.unitLabel}</p>
+              <p className="text-xs font-bold text-navy/60 mt-1">{reviewApp.teamLabel}</p>
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-navy/60 mb-1">Motivation</p>
@@ -1256,7 +1256,7 @@ function TeamsPage() {
         onClose={() => setRevokeConfirm({ isOpen: false, member: null, unit: null })}
         onConfirm={handleRevoke}
         title="Remove Member"
-        message={`Remove ${revokeConfirm.member?.firstName} ${revokeConfirm.member?.lastName} from ${revokeConfirm.unit?.unitLabel}? Their role will be deactivated and they will be notified.`}
+        message={`Remove ${revokeConfirm.member?.firstName} ${revokeConfirm.member?.lastName} from ${revokeConfirm.unit?.teamLabel}? Their role will be deactivated and they will be notified.`}
         confirmLabel={revoking ? "Removing..." : "Remove"}
         variant="danger"
       />

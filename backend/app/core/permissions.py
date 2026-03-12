@@ -236,7 +236,8 @@ DEFAULT_PERMISSIONS = {
     "general_secretary": [
         "announcement:create", "announcement:edit", "announcement:view",
         "user:view_all", "role:view",
-        "timetable:view",
+        "session:view", "timetable:view",
+        "enrollment:view",
         "contact:view", "contact:manage",
         "team:review",
         "messages:manage", "message:moderate",
@@ -244,7 +245,9 @@ DEFAULT_PERMISSIONS = {
     "assistant_general_secretary": [
         "announcement:create", "announcement:view",
         "user:view_all",
-        "timetable:view",
+        "role:view", "session:view", "timetable:view",
+        "enrollment:view",
+        "contact:view",
     ],
     "financial_secretary": [
         "payment:create", "payment:edit", "payment:approve", "payment:view_all",
@@ -258,22 +261,37 @@ DEFAULT_PERMISSIONS = {
     ],
     "pro": [
         "announcement:create", "announcement:edit", "announcement:view",
-        "event:view", "user:view_all",
+        "event:view",
         "press:access", "press:create", "press:edit", "press:review", "press:publish", "press:manage",
+    ],
+    "social_director": [
+        "event:create", "event:edit", "event:view", "event:manage",
+        "announcement:create", "announcement:edit", "announcement:view",
+    ],
+    "sports_secretary": [
+        "event:create", "event:edit", "event:view", "event:manage",
+        "announcement:create", "announcement:edit", "announcement:view",
+        "timetable:view",
+    ],
+    "assistant_sports_secretary": [
+        "event:create", "event:edit", "event:view",
+        "announcement:create", "announcement:view",
+    ],
+
+    # ── Directors ────────────────────────────────────────────────────
+    # Legacy aliases retained for existing records
+    "director_of_socials": [
+        "event:create", "event:edit", "event:view", "event:manage",
+        "announcement:create", "announcement:edit", "announcement:view",
+    ],
+    "director_of_sports": [
+        "event:create", "event:edit", "event:view", "event:manage",
+        "announcement:create", "announcement:edit", "announcement:view",
+        "timetable:view",
     ],
     "welfare_officer": [
         "announcement:create", "announcement:view",
         "user:view_all",
-    ],
-
-    # ── Directors ────────────────────────────────────────────────────
-    "director_of_socials": [
-        "event:create", "event:edit", "event:view", "event:manage",
-        "announcement:create", "announcement:view",
-    ],
-    "director_of_sports": [
-        "event:create", "event:edit", "event:view", "event:manage",
-        "announcement:create", "announcement:view",
     ],
     "director_of_academics": [
         "announcement:create", "announcement:view",

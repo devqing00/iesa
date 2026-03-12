@@ -52,7 +52,7 @@ export const EXTERNAL_HIDDEN_HREFS = new Set([
   "/dashboard/drive",
   "/dashboard/timetable",
   "/dashboard/hubs",
-  "/dashboard/units",
+  "/dashboard/teams",
   "/dashboard/payments",
   "/dashboard/iesa-ai",
   "/dashboard/press",

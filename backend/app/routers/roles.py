@@ -295,27 +295,40 @@ async def get_executives(
         "vice_president",
         "general_secretary",
         "assistant_general_secretary",
-        "financial_secretary",
         "treasurer",
-        "director_of_socials",
-        "director_of_sports",
-        "pro"
+        "social_director",
+        "sports_secretary",
+        "assistant_sports_secretary",
+        "pro",
+        "financial_secretary",
     ]
+    exec_position_aliases = {
+        "social_director": {"social_director", "director_of_socials"},
+        "sports_secretary": {"sports_secretary", "director_of_sports"},
+    }
     
     # Fetch roles for session
     cursor = roles_collection.find({"sessionId": session_id})
     roles_list = await cursor.to_list(length=None)
     
     # Organize by position (batch user lookup)
-    exec_roles = [r for r in roles_list if r["position"] in exec_positions]
+    exec_roles = [
+        r for r in roles_list
+        if r["position"] in exec_positions or any(r["position"] in aliases for aliases in exec_position_aliases.values())
+    ]
     user_map = await _batch_users(db, [r["userId"] for r in exec_roles])
 
     executives = {}
     for role in exec_roles:
+        canonical_position = role["position"]
+        for key, aliases in exec_position_aliases.items():
+            if role["position"] in aliases:
+                canonical_position = key
+                break
         info = _user_info(user_map, role["userId"])
         if info:
-            executives[role["position"]] = {
-                "position": role["position"],
+            executives[canonical_position] = {
+                "position": canonical_position,
                 "user": info,
                 "assignedAt": role.get("createdAt")
             }
@@ -614,23 +627,42 @@ async def get_public_executives():
     session_id = str(active_session["_id"])
 
     exec_positions = [
-        "president", "vice_president", "general_secretary",
-        "assistant_general_secretary", "financial_secretary",
-        "treasurer", "director_of_socials", "director_of_sports", "pro"
+        "president",
+        "vice_president",
+        "general_secretary",
+        "assistant_general_secretary",
+        "treasurer",
+        "social_director",
+        "sports_secretary",
+        "assistant_sports_secretary",
+        "pro",
+        "financial_secretary",
     ]
+    exec_position_aliases = {
+        "social_director": {"social_director", "director_of_socials"},
+        "sports_secretary": {"sports_secretary", "director_of_sports"},
+    }
 
     cursor = roles_collection.find({"sessionId": session_id})
     roles_list = await cursor.to_list(length=None)
 
     executives = {}
-    exec_roles = [r for r in roles_list if r["position"] in exec_positions]
+    exec_roles = [
+        r for r in roles_list
+        if r["position"] in exec_positions or any(r["position"] in aliases for aliases in exec_position_aliases.values())
+    ]
     user_map = await _batch_users(db, [r["userId"] for r in exec_roles], _USER_FIELDS_PUBLIC)
 
     for role in exec_roles:
+        canonical_position = role["position"]
+        for key, aliases in exec_position_aliases.items():
+            if role["position"] in aliases:
+                canonical_position = key
+                break
         info = _user_info(user_map, role["userId"], public=True)
         if info:
-            executives[role["position"]] = {
-                "position": role["position"],
+            executives[canonical_position] = {
+                "position": canonical_position,
                 "user": info,
             }
 

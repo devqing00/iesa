@@ -44,13 +44,13 @@ const POSITIONS = [
   { group: "Executive Officers",       value: "vice_president",                    label: "Vice President" },
   { group: "Executive Officers",       value: "general_secretary",                 label: "General Secretary" },
   { group: "Executive Officers",       value: "assistant_general_secretary",       label: "Asst. General Secretary" },
-  { group: "Executive Officers",       value: "financial_secretary",               label: "Financial Secretary" },
   { group: "Executive Officers",       value: "treasurer",                         label: "Treasurer" },
+  { group: "Executive Officers",       value: "social_director",                   label: "Social Director" },
+  { group: "Executive Officers",       value: "sports_secretary",                  label: "Sports Secretary" },
+  { group: "Executive Officers",       value: "assistant_sports_secretary",        label: "Asst. Sports Secretary" },
   { group: "Executive Officers",       value: "pro",                               label: "Public Relations Officer" },
-  { group: "Executive Officers",       value: "welfare_officer",                   label: "Welfare Officer" },
+  { group: "Executive Officers",       value: "financial_secretary",               label: "Financial Secretary" },
   // ── Directors ────────────────────────────────────────────────────── 
-  { group: "Directors",                value: "director_of_socials",               label: "Director of Socials" },
-  { group: "Directors",                value: "director_of_sports",                label: "Director of Sports" },
   { group: "Directors",                value: "director_of_academics",             label: "Director of Academics" },
   { group: "Directors",                value: "director_of_information",           label: "Director of Information" },
   // ── Class Representatives ─────────────────────────────────────────
@@ -101,6 +101,9 @@ const POSITIONS = [
   { group: "Legacy Roles",             value: "committee_head_social",             label: "Social Team Head (Legacy)" },
   { group: "Legacy Roles",             value: "committee_head_welfare",            label: "Welfare Team Head (Legacy)" },
   { group: "Legacy Roles",             value: "committee_head_sports",             label: "Sports Team Head (Legacy)" },
+  { group: "Legacy Roles",             value: "director_of_socials",               label: "Director of Socials (Legacy)" },
+  { group: "Legacy Roles",             value: "director_of_sports",                label: "Director of Sports (Legacy)" },
+  { group: "Legacy Roles",             value: "welfare_officer",                   label: "Welfare Officer (Legacy)" },
   { group: "Legacy Roles",             value: "committee_head_academic",           label: "Academic Team Head (Legacy)" },
   { group: "Legacy Roles",             value: "committee_academic_member",         label: "Academic Team Member (Legacy)" },
   { group: "Legacy Roles",             value: "committee_welfare_member",          label: "Welfare Team Member (Legacy)" },
@@ -369,14 +372,105 @@ export default function RolesTab() {
   const filteredRoles =
     filterSession === "all" ? roles : roles.filter((role) => role.sessionId === filterSession);
 
-  const executiveRoles = filteredRoles.filter((r) => {
-    const g = POSITIONS.find(p => p.value === r.position)?.group;
-    return !g || !["Class Representatives"].includes(g);
-  });
-  const classRepRoles = filteredRoles.filter((r) => {
-    const g = POSITIONS.find(p => p.value === r.position)?.group;
-    return g === "Class Representatives";
-  });
+  const getPositionGroup = (position: string) => POSITIONS.find((p) => p.value === position)?.group;
+
+  const executivePositionValues = new Set([
+    "president",
+    "vice_president",
+    "general_secretary",
+    "assistant_general_secretary",
+    "treasurer",
+    "social_director",
+    "sports_secretary",
+    "assistant_sports_secretary",
+    "pro",
+    "financial_secretary",
+    "director_of_socials",
+    "director_of_sports",
+  ]);
+
+  const executiveRoles = filteredRoles.filter((r) => executivePositionValues.has(r.position));
+
+  const administratorRoles = filteredRoles.filter((r) => getPositionGroup(r.position) === "Admin Roles");
+  const teamLeadRoles = filteredRoles.filter((r) => getPositionGroup(r.position) === "Team Heads");
+  const teamMemberRoles = filteredRoles.filter((r) => getPositionGroup(r.position) === "Team Members");
+  const classRepRoles = filteredRoles.filter((r) => getPositionGroup(r.position) === "Class Representatives");
+
+  const renderRoleCards = (
+    items: Role[],
+    emptyMessage: string,
+    badgeClassName: string,
+    avatarClassName: string,
+    emptyIconBgClassName: string,
+    emptyIconColorClassName: string,
+  ) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {items.length === 0 ? (
+        <div className="col-span-full bg-snow border-[3px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
+          <div className={`w-14 h-14 mx-auto mb-4 rounded-2xl flex items-center justify-center ${emptyIconBgClassName}`}>
+            <svg aria-hidden="true" className={`w-7 h-7 ${emptyIconColorClassName}`} viewBox="0 0 24 24" fill="currentColor">
+              <path d="M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM14.25 8.625a3.375 3.375 0 1 1 6.75 0 3.375 3.375 0 0 1-6.75 0ZM1.5 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122ZM17.25 19.128l-.001.144a2.25 2.25 0 0 1-.233.96 10.088 10.088 0 0 0 5.06-1.01.75.75 0 0 0 .42-.643 4.875 4.875 0 0 0-6.957-4.611 8.586 8.586 0 0 1 1.71 5.157v.003Z" />
+            </svg>
+          </div>
+          <p className="text-sm text-slate font-medium">{emptyMessage}</p>
+        </div>
+      ) : (
+        items.map((role) => {
+          const initials = role.user ? `${role.user.firstName[0]}${role.user.lastName[0]}` : "??";
+          return (
+            <div key={role.id} className="bg-snow border-[3px] border-navy rounded-3xl p-6 press-4 press-black transition-all group">
+              <div className="flex items-start justify-between mb-4">
+                <span className={`px-3 py-1 rounded-full text-xs font-bold ${badgeClassName}`}>
+                  {getPositionLabel(role.position)}
+                </span>
+                <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                  <PermissionGate permission="role:edit">
+                    <button
+                      onClick={() => openEditPerms(role)}
+                      className="p-1.5 rounded-xl hover:bg-lavender-light text-slate hover:text-lavender transition-colors"
+                      title="Edit permissions"
+                      aria-label={`Edit permissions for ${role.user?.firstName || ""} ${role.user?.lastName || ""}`}
+                    >
+                      <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </PermissionGate>
+                  <PermissionGate permission="role:delete">
+                    <button
+                      onClick={() => handleDeleteRole(role.id)}
+                      className="p-1.5 rounded-xl hover:bg-coral-light text-slate hover:text-coral transition-colors"
+                      title="Remove role"
+                      aria-label={`Remove ${role.user?.firstName || ""} ${role.user?.lastName || ""} from ${getPositionLabel(role.position)}`}
+                    >
+                      <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </PermissionGate>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 mb-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${avatarClassName}`}>
+                  {initials}
+                </div>
+                <div>
+                  <p className="font-display font-bold text-navy">{role.user?.firstName} {role.user?.lastName}</p>
+                  <p className="text-xs text-slate">{role.user?.email}</p>
+                </div>
+              </div>
+              {role.user?.matricNumber && (
+                <p className="text-xs text-slate mb-3">{role.user.matricNumber}</p>
+              )}
+              <div className="pt-3 border-t-[3px] border-navy/10">
+                <span className="text-xs text-slate">Assigned {new Date(role.createdAt).toLocaleDateString()}</span>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
 
   // Filtered users for the searchable dropdown
   const userSearchLower = userSearchQuery.toLowerCase();
@@ -478,74 +572,62 @@ export default function RolesTab() {
           <h2 className="font-display font-bold text-xl text-navy">Executive Team</h2>
           <span className="px-3 py-1 bg-cloud text-slate text-xs font-bold rounded-full">{executiveRoles.length}</span>
         </div>
+        {renderRoleCards(
+          executiveRoles,
+          "No executive positions assigned",
+          "bg-lime-light text-teal",
+          "bg-teal-light text-teal",
+          "bg-lime-light",
+          "text-teal"
+        )}
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {executiveRoles.length === 0 ? (
-            <div className="col-span-full bg-snow border-[3px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
-              <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-lime-light flex items-center justify-center">
-                <svg aria-hidden="true" className="w-7 h-7 text-snow-dark" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" />
-                  <path d="M5.082 14.254a8.287 8.287 0 0 0-1.308 5.135 9.687 9.687 0 0 1-1.764-.44l-.115-.04a.563.563 0 0 1-.373-.487l-.01-.121a3.75 3.75 0 0 1 3.57-4.047ZM20.226 19.389a8.287 8.287 0 0 0-1.308-5.135 3.75 3.75 0 0 1 3.57 4.047l-.01.121a.563.563 0 0 1-.373.486l-.115.04c-.567.2-1.156.349-1.764.441Z" />
-                </svg>
-              </div>
-              <p className="text-sm text-slate font-medium">No executive positions assigned</p>
-            </div>
-          ) : (
-            executiveRoles.map((role) => {
-              const initials = role.user ? `${role.user.firstName[0]}${role.user.lastName[0]}` : "??";
-              return (
-                <div key={role.id} className="bg-snow border-[3px] border-navy rounded-3xl p-6 press-4 press-black transition-all group">
-                  <div className="flex items-start justify-between mb-4">
-                    <span className="px-3 py-1 rounded-full bg-lime-light text-teal text-xs font-bold">
-                      {getPositionLabel(role.position)}
-                    </span>
-                    <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                      <PermissionGate permission="role:edit">
-                        <button
-                          onClick={() => openEditPerms(role)}
-                          className="p-1.5 rounded-xl hover:bg-lavender-light text-slate hover:text-lavender transition-colors"
-                          title="Edit permissions"
-                          aria-label={`Edit permissions for ${role.user?.firstName || ""} ${role.user?.lastName || ""}`}
-                        >
-                          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                            <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </PermissionGate>
-                      <PermissionGate permission="role:delete">
-                        <button
-                          onClick={() => handleDeleteRole(role.id)}
-                          className="p-1.5 rounded-xl hover:bg-coral-light text-slate hover:text-coral transition-colors"
-                          title="Remove role"
-                          aria-label={`Remove ${role.user?.firstName || ""} ${role.user?.lastName || ""} from ${getPositionLabel(role.position)}`}
-                        >
-                          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                            <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </PermissionGate>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-teal-light flex items-center justify-center text-sm font-bold text-teal shrink-0">
-                      {initials}
-                    </div>
-                    <div>
-                      <p className="font-display font-bold text-navy">{role.user?.firstName} {role.user?.lastName}</p>
-                      <p className="text-xs text-slate">{role.user?.email}</p>
-                    </div>
-                  </div>
-                  {role.user?.matricNumber && (
-                    <p className="text-xs text-slate mb-3">{role.user.matricNumber}</p>
-                  )}
-                  <div className="pt-3 border-t-[3px] border-navy/10">
-                    <span className="text-xs text-slate">Assigned {new Date(role.createdAt).toLocaleDateString()}</span>
-                  </div>
-                </div>
-              );
-            })
-          )}
+      {/* ── Administrators ── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <h2 className="font-display font-bold text-xl text-navy">Administrators</h2>
+          <span className="px-3 py-1 bg-cloud text-slate text-xs font-bold rounded-full">{administratorRoles.length}</span>
         </div>
+        {renderRoleCards(
+          administratorRoles,
+          "No administrator roles assigned",
+          "bg-coral-light text-coral",
+          "bg-coral-light text-coral",
+          "bg-coral-light",
+          "text-coral"
+        )}
+      </div>
+
+      {/* ── Team Leads ── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <h2 className="font-display font-bold text-xl text-navy">Team Leads</h2>
+          <span className="px-3 py-1 bg-cloud text-slate text-xs font-bold rounded-full">{teamLeadRoles.length}</span>
+        </div>
+        {renderRoleCards(
+          teamLeadRoles,
+          "No team leads assigned",
+          "bg-sunny-light text-navy",
+          "bg-sunny-light text-navy",
+          "bg-sunny-light",
+          "text-navy"
+        )}
+      </div>
+
+      {/* ── Team Members ── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <h2 className="font-display font-bold text-xl text-navy">Team Members</h2>
+          <span className="px-3 py-1 bg-cloud text-slate text-xs font-bold rounded-full">{teamMemberRoles.length}</span>
+        </div>
+        {renderRoleCards(
+          teamMemberRoles,
+          "No team members assigned",
+          "bg-teal-light text-teal",
+          "bg-teal-light text-teal",
+          "bg-teal-light",
+          "text-teal"
+        )}
       </div>
 
       {/* ── Class Representatives ── */}
@@ -554,73 +636,15 @@ export default function RolesTab() {
           <h2 className="font-display font-bold text-xl text-navy">Class Representatives</h2>
           <span className="px-3 py-1 bg-cloud text-slate text-xs font-bold rounded-full">{classRepRoles.length}</span>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {classRepRoles.length === 0 ? (
-            <div className="col-span-full bg-snow border-[3px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
-              <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-lavender-light flex items-center justify-center">
-                <svg aria-hidden="true" className="w-7 h-7 text-lavender" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM14.25 8.625a3.375 3.375 0 1 1 6.75 0 3.375 3.375 0 0 1-6.75 0ZM1.5 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122ZM17.25 19.128l-.001.144a2.25 2.25 0 0 1-.233.96 10.088 10.088 0 0 0 5.06-1.01.75.75 0 0 0 .42-.643 4.875 4.875 0 0 0-6.957-4.611 8.586 8.586 0 0 1 1.71 5.157v.003Z" />
-                </svg>
-              </div>
-              <p className="text-sm text-slate font-medium">No class representatives assigned</p>
-            </div>
-          ) : (
-            classRepRoles.map((role) => {
-              const initials = role.user ? `${role.user.firstName[0]}${role.user.lastName[0]}` : "??";
-              return (
-                <div key={role.id} className="bg-snow border-[3px] border-navy rounded-3xl p-6 press-4 press-black transition-all group">
-                  <div className="flex items-start justify-between mb-4">
-                    <span className="px-3 py-1 rounded-full bg-lavender-light text-lavender text-xs font-bold">
-                      {getPositionLabel(role.position)}
-                    </span>
-                    <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                      <PermissionGate permission="role:edit">
-                        <button
-                          onClick={() => openEditPerms(role)}
-                          className="p-1.5 rounded-xl hover:bg-lavender-light text-slate hover:text-lavender transition-colors"
-                          title="Edit permissions"
-                          aria-label={`Edit permissions for ${role.user?.firstName || ""} ${role.user?.lastName || ""}`}
-                        >
-                          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                            <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </PermissionGate>
-                      <PermissionGate permission="role:delete">
-                        <button
-                          onClick={() => handleDeleteRole(role.id)}
-                          className="p-1.5 rounded-xl hover:bg-coral-light text-slate hover:text-coral transition-colors"
-                          title="Remove role"
-                          aria-label={`Remove ${role.user?.firstName || ""} ${role.user?.lastName || ""} from ${getPositionLabel(role.position)}`}
-                        >
-                          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                            <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </PermissionGate>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-lavender-light flex items-center justify-center text-sm font-bold text-lavender shrink-0">
-                      {initials}
-                    </div>
-                    <div>
-                      <p className="font-display font-bold text-navy">{role.user?.firstName} {role.user?.lastName}</p>
-                      <p className="text-xs text-slate">{role.user?.email}</p>
-                    </div>
-                  </div>
-                  {role.user?.matricNumber && (
-                    <p className="text-xs text-slate mb-3">{role.user.matricNumber}</p>
-                  )}
-                  <div className="pt-3 border-t-[3px] border-navy/10">
-                    <span className="text-xs text-slate">Assigned {new Date(role.createdAt).toLocaleDateString()}</span>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+        <p className="text-xs text-slate">Includes Class Reps and Asst. Class Reps.</p>
+        {renderRoleCards(
+          classRepRoles,
+          "No class representatives assigned",
+          "bg-lavender-light text-lavender",
+          "bg-lavender-light text-lavender",
+          "bg-lavender-light",
+          "text-lavender"
+        )}
       </div>
 
       {/* ── Assign Role Modal ── */}

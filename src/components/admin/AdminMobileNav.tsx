@@ -109,7 +109,7 @@ export default function AdminMobileNav() {
     },
     {
       name: "Teams",
-      href: "/admin/units",
+      href: "/admin/teams",
       color: "bg-lavender-light",
       anyPermission: ["team:review"],
       icon: (
@@ -133,7 +133,7 @@ export default function AdminMobileNav() {
     },
     {
       name: "Team Head",
-      href: "/admin/unit-head",
+      href: "/admin/team-head",
       color: "bg-teal-light",
       anyPermission: ["team_head:view_members"],
       icon: (

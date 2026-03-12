@@ -302,7 +302,7 @@ function TeamHeadPortal() {
       setLoading(true);
       setError(null);
       try {
-        const units: HeadedUnit[] = await apiFetch("/my-units");
+        const units: HeadedUnit[] = await apiFetch("/my-teams");
         setHeadedUnits(units);
         if (units.length > 0) {
           setActiveUnit(units[0]);

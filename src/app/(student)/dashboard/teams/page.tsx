@@ -327,7 +327,7 @@ export default function TeamsPage() {
                 const isUpdating = updatingTask === t.id;
                 return (
                   <div
-                    key={t.id}
+                    key={`${t.unitSlug}-${t.id}`}
                     className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000]"
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -378,7 +378,7 @@ export default function TeamsPage() {
             <div className="space-y-3">
               {allNotices.slice(0, 10).map((n) => (
                 <div
-                  key={n.id}
+                  key={`${n.unitSlug}-${n.id}`}
                   className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000]"
                 >
                   <div className="flex items-start gap-3">

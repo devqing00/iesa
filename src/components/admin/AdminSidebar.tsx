@@ -144,7 +144,7 @@ const navGroups: NavGroup[] = [
     links: [
       {
         name: "Team Head Portal",
-        href: "/admin/unit-head",
+        href: "/admin/team-head",
         anyPermission: ["team_head:view_members"],
         icon: (
           <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
@@ -181,7 +181,7 @@ const navGroups: NavGroup[] = [
       },
       {
         name: "Teams",
-        href: "/admin/units",
+        href: "/admin/teams",
         anyPermission: ["team:review"],
         icon: (
           <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">

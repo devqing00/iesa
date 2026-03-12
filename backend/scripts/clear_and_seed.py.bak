@@ -3,16 +3,15 @@
 IESA Database Reset Script
 
 Usage:
-    # Clear all data and create fresh 2025/2026 session
+    # Clear all database data
     python scripts/clear_and_seed.py
 
-    # Clear data without confirmation prompt
+    # Clear data with --confirm flag (skip prompt)
     python scripts/clear_and_seed.py --confirm
 
 This script:
  1. Clears ALL collections in the database.
- 2. Creates and activates a new 2025/2026 session.
- 3. Prompts for confirmation before deleting.
+ 2. Prompts for confirmation before deleting.
 
 WARNING: This will DELETE data permanently. Use with care.
 """
@@ -134,8 +133,8 @@ def _current_semester() -> int:
     return 2 if datetime.now(timezone.utc).month in range(3, 9) else 1
 
 
-async def create_session(db, session_name: str = "2025/2026") -> str:
-    """Create and activate a new academic session."""
+async def create_session(db, session_name: str) -> str:
+    """Create (or reuse) the active academic session."""
     sessions = db["sessions"]
 
     # Deactivate any previously active sessions first
@@ -174,6 +173,9 @@ async def create_session(db, session_name: str = "2025/2026") -> str:
     sid = str(result.inserted_id)
     print(f"   + Created active session: '{session_name}' (semester {semester})")
     return sid
+
+
+
 
 
 # ─── Entry point ──────────────────────────────────────────────────────────────
@@ -228,16 +230,11 @@ async def main():
     db = client[db_name]
 
     try:
-        # ── 1. Clear all data ─────────────────────────────────────────────
+        # ── Clear all data ────────────────────────────────────────────────
         await clear_all_data(db, keep_users=False)
 
-        # ── 2. Create session ─────────────────────────────────────────────
-        print(f"\n   Setting up academic session...")
-        await create_session(db, "2025/2026")
-
         print(f"\n{'='*55}")
-        print(f"  Done! Database reset and freshly initialized.")
-        print(f"  Session: 2025/2026 (active)")
+        print(f"  Done! All data cleared.")
         print(f"{'='*55}\n")
 
     except Exception as e:

@@ -1,15 +1,15 @@
 """
 Team Head Portal Router
 
-Provides a workspace for unit/committee heads to manage their unit:
+Provides a workspace for team/committee heads to manage their team:
   - View member roster
   - Noticeboard (pinned posts visible to members)
   - Task board (assign tasks to members)
-  - Unit-targeted announcements
+  - Team-targeted announcements
   - Analytics (member activity, task completion rates)
 
 Endpoints:
-  GET    /api/v1/team-head/my-units                    — Which units this user heads
+  GET    /api/v1/team-head/my-teams                    — Which teams this user heads
   GET    /api/v1/team-head/{unit}/members               — Member roster
   GET    /api/v1/team-head/{unit}/noticeboard           — List noticeboard posts
   POST   /api/v1/team-head/{unit}/noticeboard           — Create noticeboard post
@@ -111,7 +111,7 @@ async def _get_user_headed_teams(user_id: str, session_id: str, db) -> list[dict
         if team_slug:
             result.append({
                 "unitSlug": team_slug,
-                "teamLabel": TEAM_LABELS.get(team_slug, team_slug),
+                "unitLabel": TEAM_LABELS.get(team_slug, team_slug),
                 "isCustom": False,
             })
 
@@ -122,8 +122,8 @@ async def _get_user_headed_teams(user_id: str, session_id: str, db) -> list[dict
             doc = await db["custom_units"].find_one({"slug": slug, "isActive": True})
             if doc:
                 result.append({
-                    "teamSlug": slug,
-                    "teamLabel": doc.get("label", slug),
+                    "unitSlug": slug,
+                    "unitLabel": doc.get("label", slug),
                     "isCustom": True,
                 })
 
@@ -133,7 +133,7 @@ async def _get_user_headed_teams(user_id: str, session_id: str, db) -> list[dict
 async def _verify_head_of_team(user_id: str, team_slug: str, session_id: str, db) -> dict:
     """Verify user is head of the given unit. Returns unit info dict or raises 403."""
     headed = await _get_user_headed_teams(user_id, session_id, db)
-    match = next((u for u in headed if u["teamSlug"] == team_slug), None)
+    match = next((u for u in headed if u["unitSlug"] == team_slug), None)
     if not match:
         raise HTTPException(403, "You are not the head of this team")
     return match
@@ -229,8 +229,8 @@ async def team_members(
     db = get_database()
     user_id = str(user.get("_id") or user.get("id"))
     session_id = str(session["_id"])
-    team_info = await _verify_head_of_team(user_id, unit, session_id, db)
-    members = await _get_team_members_full(unit, session_id, db)
+    team_info = await _verify_head_of_team(user_id, team, session_id, db)
+    members = await _get_team_members_full(team, session_id, db)
     return {"unit": team_info, "members": members}
 
 
@@ -245,10 +245,10 @@ async def list_notices(
     db = get_database()
     user_id = str(user.get("_id") or user.get("id"))
     session_id = str(session["_id"])
-    await _verify_head_of_team(user_id, unit, session_id, db)
+    await _verify_head_of_team(user_id, team, session_id, db)
 
     cursor = db["unit_noticeboard"].find({
-        "unitSlug": unit, "sessionId": session_id,
+        "unitSlug": team, "sessionId": session_id,
     }).sort([("isPinned", -1), ("createdAt", -1)])
     docs = await cursor.to_list(length=100)
     return {"posts": [_ser(d) for d in docs]}
@@ -264,12 +264,12 @@ async def create_notice(
     db = get_database()
     user_id = str(user.get("_id") or user.get("id"))
     session_id = str(session["_id"])
-    await _verify_head_of_team(user_id, unit, session_id, db)
+    await _verify_head_of_team(user_id, team, session_id, db)
 
     now = datetime.now(timezone.utc)
     user_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
     doc = {
-        "unitSlug": unit,
+        "unitSlug": team,
         "sessionId": session_id,
         "title": body.title.strip(),
         "content": body.content.strip(),
@@ -295,7 +295,7 @@ async def update_notice(
     db = get_database()
     user_id = str(user.get("_id") or user.get("id"))
     session_id = str(session["_id"])
-    await _verify_head_of_team(user_id, unit, session_id, db)
+    await _verify_head_of_team(user_id, team, session_id, db)
 
     if not ObjectId.is_valid(post_id):
         raise HTTPException(400, "Invalid post ID")
@@ -309,7 +309,7 @@ async def update_notice(
         updates["isPinned"] = body.isPinned
 
     res = await db["unit_noticeboard"].update_one(
-        {"_id": ObjectId(post_id), "unitSlug": unit, "sessionId": session_id},
+        {"_id": ObjectId(post_id), "unitSlug": team, "sessionId": session_id},
         {"$set": updates},
     )
     if res.matched_count == 0:
@@ -327,12 +327,12 @@ async def delete_notice(
     db = get_database()
     user_id = str(user.get("_id") or user.get("id"))
     session_id = str(session["_id"])
-    await _verify_head_of_team(user_id, unit, session_id, db)
+    await _verify_head_of_team(user_id, team, session_id, db)
 
     if not ObjectId.is_valid(post_id):
         raise HTTPException(400, "Invalid post ID")
     res = await db["unit_noticeboard"].delete_one(
-        {"_id": ObjectId(post_id), "unitSlug": unit, "sessionId": session_id},
+        {"_id": ObjectId(post_id), "unitSlug": team, "sessionId": session_id},
     )
     if res.deleted_count == 0:
         raise HTTPException(404, "Post not found")
@@ -351,9 +351,9 @@ async def list_tasks(
     db = get_database()
     user_id = str(user.get("_id") or user.get("id"))
     session_id = str(session["_id"])
-    await _verify_head_of_team(user_id, unit, session_id, db)
+    await _verify_head_of_team(user_id, team, session_id, db)
 
-    query: dict = {"unitSlug": unit, "sessionId": session_id}
+    query: dict = {"unitSlug": team, "sessionId": session_id}
     if status:
         query["status"] = status
     cursor = db["unit_tasks"].find(query).sort("createdAt", -1)
@@ -387,13 +387,13 @@ async def create_task(
     db = get_database()
     user_id = str(user.get("_id") or user.get("id"))
     session_id = str(session["_id"])
-    team_info = await _verify_head_of_team(user_id, unit, session_id, db)
+    team_info = await _verify_head_of_team(user_id, team, session_id, db)
 
     now = datetime.now(timezone.utc)
     user_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
 
     doc = {
-        "unitSlug": unit,
+        "unitSlug": team,
         "sessionId": session_id,
         "title": body.title.strip(),
         "description": body.description.strip(),
@@ -410,14 +410,14 @@ async def create_task(
     doc["_id"] = result.inserted_id
 
     # Notify assignee (or all members)
-    member_ids = await _get_team_member_ids(unit, session_id, db)
+    member_ids = await _get_team_member_ids(team, session_id, db)
     notify_ids = [body.assignedTo] if body.assignedTo else member_ids
     if notify_ids:
         fire_and_forget(create_bulk_notifications(
             user_ids=notify_ids,
             type="team_task",
             title=f"New Task: {body.title}",
-            message=f"[{team_info['teamLabel']}] {body.title}",
+            message=f"[{team_info['unitLabel']}] {body.title}",
             link="/dashboard/teams",
             related_id=str(result.inserted_id),
         ))
@@ -438,7 +438,7 @@ async def update_task(
     db = get_database()
     user_id = str(user.get("_id") or user.get("id"))
     session_id = str(session["_id"])
-    await _verify_head_of_team(user_id, unit, session_id, db)
+    await _verify_head_of_team(user_id, team, session_id, db)
 
     if not ObjectId.is_valid(task_id):
         raise HTTPException(400, "Invalid task ID")
@@ -450,7 +450,7 @@ async def update_task(
             updates[field] = val.strip() if isinstance(val, str) else val
 
     res = await db["unit_tasks"].update_one(
-        {"_id": ObjectId(task_id), "unitSlug": unit, "sessionId": session_id},
+        {"_id": ObjectId(task_id), "unitSlug": team, "sessionId": session_id},
         {"$set": updates},
     )
     if res.matched_count == 0:
@@ -468,12 +468,12 @@ async def delete_task(
     db = get_database()
     user_id = str(user.get("_id") or user.get("id"))
     session_id = str(session["_id"])
-    await _verify_head_of_team(user_id, unit, session_id, db)
+    await _verify_head_of_team(user_id, team, session_id, db)
 
     if not ObjectId.is_valid(task_id):
         raise HTTPException(400, "Invalid task ID")
     res = await db["unit_tasks"].delete_one(
-        {"_id": ObjectId(task_id), "unitSlug": unit, "sessionId": session_id},
+        {"_id": ObjectId(task_id), "unitSlug": team, "sessionId": session_id},
     )
     if res.deleted_count == 0:
         raise HTTPException(404, "Task not found")
@@ -493,7 +493,7 @@ async def create_team_announcement(
     db = get_database()
     user_id = str(user.get("_id") or user.get("id"))
     session_id = str(session["_id"])
-    team_info = await _verify_head_of_team(user_id, unit, session_id, db)
+    team_info = await _verify_head_of_team(user_id, team, session_id, db)
 
     now = datetime.now(timezone.utc)
     user_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
@@ -502,8 +502,8 @@ async def create_team_announcement(
         "title": body.title.strip(),
         "content": body.content.strip(),
         "priority": body.priority,
-        "targetTeam": unit,
-        "targetTeamLabel": team_info["teamLabel"],
+        "targetTeam": team,
+        "targetTeamLabel": team_info["unitLabel"],
         "author": user_name,
         "authorId": user_id,
         "sessionId": session_id,
@@ -513,12 +513,12 @@ async def create_team_announcement(
     result = await db["announcements"].insert_one(announcement)
 
     # Notify all members
-    member_ids = await _get_team_member_ids(unit, session_id, db)
+    member_ids = await _get_team_member_ids(team, session_id, db)
     if member_ids:
         fire_and_forget(create_bulk_notifications(
             user_ids=member_ids,
             type="announcement",
-            title=f"[{team_info['teamLabel']}] {body.title}",
+            title=f"[{team_info['unitLabel']}] {body.title}",
             message=body.content[:150],
             link="/dashboard/announcements",
             related_id=str(result.inserted_id),
@@ -542,15 +542,15 @@ async def get_team_analytics(
     db = get_database()
     user_id = str(user.get("_id") or user.get("id"))
     session_id = str(session["_id"])
-    team_info = await _verify_head_of_team(user_id, unit, session_id, db)
+    team_info = await _verify_head_of_team(user_id, team, session_id, db)
 
     # Member count
-    member_ids = await _get_team_member_ids(unit, session_id, db)
+    member_ids = await _get_team_member_ids(team, session_id, db)
     member_count = len(member_ids)
 
     # Task stats via aggregation
     task_pipeline = [
-        {"$match": {"unitSlug": unit, "sessionId": session_id}},
+        {"$match": {"unitSlug": team, "sessionId": session_id}},
         {"$group": {
             "_id": "$status",
             "count": {"$sum": 1},
@@ -572,7 +572,7 @@ async def get_team_analytics(
 
     # Priority breakdown
     priority_pipeline = [
-        {"$match": {"unitSlug": unit, "sessionId": session_id, "status": {"$ne": "done"}}},
+        {"$match": {"unitSlug": team, "sessionId": session_id, "status": {"$ne": "done"}}},
         {"$group": {"_id": "$priority", "count": {"$sum": 1}}},
     ]
     priority_agg = await db["unit_tasks"].aggregate(priority_pipeline).to_list(length=10)
@@ -581,15 +581,15 @@ async def get_team_analytics(
     # Overdue tasks (dueDate < now and not done)
     now = datetime.now(timezone.utc)
     overdue_count = await db["unit_tasks"].count_documents({
-        "unitSlug": unit,
+        "unitSlug": team,
         "sessionId": session_id,
         "status": {"$ne": "done"},
         "dueDate": {"$lt": now.isoformat()},
     })
 
     # Noticeboard stats
-    notice_total = await db["unit_noticeboard"].count_documents({"unitSlug": unit, "sessionId": session_id})
-    notice_pinned = await db["unit_noticeboard"].count_documents({"unitSlug": unit, "sessionId": session_id, "isPinned": True})
+    notice_total = await db["unit_noticeboard"].count_documents({"unitSlug": team, "sessionId": session_id})
+    notice_pinned = await db["unit_noticeboard"].count_documents({"unitSlug": team, "sessionId": session_id, "isPinned": True})
 
     notice_stats = {
         "total": notice_total,
@@ -598,12 +598,12 @@ async def get_team_analytics(
 
     # Recent activity — last 5 task completions + last 5 notice posts combined
     recent_tasks_cursor = db["unit_tasks"].find(
-        {"unitSlug": unit, "sessionId": session_id},
+        {"unitSlug": team, "sessionId": session_id},
     ).sort("updatedAt", -1).limit(5)
     recent_tasks = await recent_tasks_cursor.to_list(length=5)
 
     recent_notices_cursor = db["unit_noticeboard"].find(
-        {"unitSlug": unit, "sessionId": session_id},
+        {"unitSlug": team, "sessionId": session_id},
     ).sort("createdAt", -1).limit(5)
     recent_notices = await recent_notices_cursor.to_list(length=5)
 
@@ -612,7 +612,7 @@ async def get_team_analytics(
     if member_ids:
         member_pipeline = [
             {"$match": {
-                "unitSlug": unit,
+                "unitSlug": team,
                 "sessionId": session_id,
                 "assignedTo": {"$in": member_ids},
             }},
@@ -644,8 +644,8 @@ async def get_team_analytics(
         member_stats.sort(key=lambda x: x["completionRate"], reverse=True)
 
     return {
-        "unitSlug": unit,
-        "teamLabel": team_info["teamLabel"],
+        "unitSlug": team,
+        "unitLabel": team_info["unitLabel"],
         "memberCount": member_count,
         "taskStats": task_stats,
         "priorityBreakdown": priority_map,
@@ -676,13 +676,13 @@ async def admin_team_content(
 
     # Noticeboard (most recent 10)
     notice_cursor = db["unit_noticeboard"].find({
-        "unitSlug": unit, "sessionId": session_id,
+        "unitSlug": team, "sessionId": session_id,
     }).sort([("isPinned", -1), ("createdAt", -1)])
     notices = await notice_cursor.to_list(length=10)
 
     # Tasks (all tasks, newest first)
     task_cursor = db["unit_tasks"].find({
-        "unitSlug": unit, "sessionId": session_id,
+        "unitSlug": team, "sessionId": session_id,
     }).sort("createdAt", -1)
     tasks = await task_cursor.to_list(length=50)
 
@@ -695,8 +695,8 @@ async def admin_team_content(
     done = status_counts.get("done", 0)
 
     return {
-        "unitSlug": unit,
-        "teamLabel": TEAM_LABELS.get(unit, unit),
+        "unitSlug": team,
+        "unitLabel": TEAM_LABELS.get(team, team),
         "noticeboard": [_ser(n) for n in notices],
         "tasks": [_ser(t) for t in tasks],
         "taskSummary": {
@@ -773,8 +773,8 @@ async def my_memberships(
                 })
 
             result.append({
-                "teamSlug": slug,
-                "teamLabel": TEAM_LABELS.get(slug, slug),
+                "unitSlug": slug,
+                "unitLabel": TEAM_LABELS.get(slug, slug),
                 "head": head,
                 "memberCount": member_count,
                 "joinedAt": r.get("createdAt"),
@@ -798,19 +798,19 @@ async def member_view(
     session_id = str(session["_id"])
 
     # Verify membership
-    member_ids = await _get_team_member_ids(unit, session_id, db)
+    member_ids = await _get_team_member_ids(team, session_id, db)
     if not _check_membership(user_id, member_ids):
         raise HTTPException(403, "You are not a member of this team")
 
     # Noticeboard
     notice_cursor = db["unit_noticeboard"].find({
-        "unitSlug": unit, "sessionId": session_id,
+        "unitSlug": team, "sessionId": session_id,
     }).sort([("isPinned", -1), ("createdAt", -1)])
     notices = await notice_cursor.to_list(length=50)
 
     # Tasks (assigned to this user or to everyone)
     task_cursor = db["unit_tasks"].find({
-        "unitSlug": unit,
+        "unitSlug": team,
         "sessionId": session_id,
         "$or": [
             {"assignedTo": user_id},
@@ -821,8 +821,8 @@ async def member_view(
     tasks = await task_cursor.to_list(length=100)
 
     return {
-        "unitSlug": unit,
-        "teamLabel": TEAM_LABELS.get(unit, unit),
+        "unitSlug": team,
+        "unitLabel": TEAM_LABELS.get(team, team),
         "notices": [_ser(n) for n in notices],
         "tasks": [_ser(t) for t in tasks],
     }
@@ -842,7 +842,7 @@ async def member_update_task_status(
     session_id = str(session["_id"])
 
     # Verify membership
-    member_ids = await _get_team_member_ids(unit, session_id, db)
+    member_ids = await _get_team_member_ids(team, session_id, db)
     if not _check_membership(user_id, member_ids):
         raise HTTPException(403, "You are not a member of this team")
 
@@ -853,7 +853,7 @@ async def member_update_task_status(
     res = await db["unit_tasks"].update_one(
         {
             "_id": ObjectId(task_id),
-            "unitSlug": unit,
+            "unitSlug": team,
             "sessionId": session_id,
             "$or": [
                 {"assignedTo": user_id},
