@@ -68,17 +68,61 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         },
       });
 
+      const ensureAdminDashboardAccess = async (currentPermissions: string[]) => {
+        if (currentPermissions.includes("admin:dashboard")) return currentPermissions;
+
+        try {
+          const rolesRes = await fetch(getApiUrl("/api/v1/roles/my-roles/current"), {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (!rolesRes.ok) return currentPermissions;
+
+          const roles = await rolesRes.json();
+          const adminDashboardPositions = new Set([
+            "super_admin",
+            "admin",
+            "president",
+            "general_secretary",
+            "treasurer",
+            "financial_secretary",
+            "pro",
+          ]);
+
+          const hasEligibleActiveRole = Array.isArray(roles)
+            && roles.some((role: { position?: string; isActive?: boolean; session?: { isActive?: boolean } }) => {
+              const position = role?.position;
+              const roleIsActive = Boolean(role?.isActive);
+              const sessionIsActive = role?.session?.isActive;
+              return Boolean(
+                position
+                && adminDashboardPositions.has(position)
+                && roleIsActive
+                && (sessionIsActive === undefined || sessionIsActive === true)
+              );
+            });
+
+          if (!hasEligibleActiveRole) return currentPermissions;
+
+          return [...currentPermissions, "admin:dashboard"];
+        } catch {
+          return currentPermissions;
+        }
+      };
+
       if (response.ok) {
         const data = await response.json();
         const perms = data.permissions || [];
         // Trust the backend — it uses get_user_permissions() which checks
         // actual role assignments. super_admin gets all perms at the DB level,
         // regular admin/exco get only their position's defaults + overrides.
-        setPermissions(perms);
+        setPermissions(await ensureAdminDashboardAccess(perms));
       } else {
         // Backend failed to respond — give no permissions.
         // The user can retry by refreshing.  Never grant a wildcard as fallback.
-        setPermissions([]);
+        setPermissions(await ensureAdminDashboardAccess([]));
       }
     } catch {
       setPermissions([]);

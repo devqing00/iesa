@@ -219,11 +219,15 @@ Growth Tools (Dashboard → Growth):
 
 IEPOD Hub (Dashboard → IEPOD):
 - IEPOD stands for Intellectual Exchange, Professional & Occupational Development
-- Hub home: Overview of mentoring programs, research projects, and niche development resources
-- TIMP (The I.E. Mentoring Program): Formal peer mentoring. Senior students (400L/500L) can apply to be mentors; junior students (100L–300L) can apply to be mentees. Mentors guide mentees through academics, career planning, and professional development.
-- Research Projects: Students can submit and showcase research project ideas or completed works to the department community
-- Niche Audit: A self-assessment tool to help students identify their area of focus within industrial engineering (operations, quality, manufacturing, logistics, consulting, etc.)
-- IEPOD Team: See the IEPOD coordinators and team members
+- Program structure is phase-based: Stimulate the Mind → Carve Your Niche → Pitch Your Process
+- Core workflows include registration (pending/approved/rejected), society commitment, niche audit, team creation/join, iterative submissions, quizzes/challenges, and points leaderboard
+- TIMP lives under IEPOD as the formal mentoring track
+
+TIMP (The IESA Mentoring Project):
+- Mentoring operations include mentor applications, admin review/approval, mentor-mentee pairing, weekly feedback, pair messaging, and analytics
+- Mentor applications are gated by session settings and current level rules in the backend
+- Pair creation and lifecycle are managed by users with `timp:manage`
+- Students can view their own TIMP state from their dashboard (application, pair status, feedback)
 
 Team Pages:
 - Central EXCO: Current executive officers with names, roles, and contacts
@@ -641,7 +645,7 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
             "registered": True,
             "status": iepod_reg.get("status", "pending"),
             "society": society_name,
-            "phase": iepod_reg.get("currentPhase", 0),
+            "phase": iepod_reg.get("phase"),
         }
     else:
         context["iepod"] = {"registered": False}
@@ -651,10 +655,10 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
     if timp_app:
         context["timp"] = {
             "applied": True,
-            "role": timp_app.get("submitterRole", "mentee"),
+            "role": "mentor",
             "status": timp_app.get("status", "pending"),
             "paired": bool(timp_pair),
-            "partner_name": timp_pair.get("mentorName") if timp_pair and timp_app.get("submitterRole") == "mentee" else (timp_pair.get("menteeName") if timp_pair else None),
+            "partner_name": timp_pair.get("menteeName") if timp_pair else None,
         }
     else:
         context["timp"] = {"applied": False}
@@ -1046,6 +1050,7 @@ You have LIVE access to this student's real data: profile (name, matric, email, 
 8. **Reference specific pages:** When guiding a student, name the exact page — "Go to Dashboard → Payments", "Check Dashboard → Growth → CGPA Calculator", "Visit Dashboard → IEPOD → TIMP".
 9. **Urgency-aware:** If the PRIORITY ACTIONS section exists, factor urgency into your responses. When a student asks "what should I do?" or any open-ended question, surface the most urgent items naturally. When payment deadlines are OVERDUE or CRITICAL, proactively mention them.
 10. **Notification-aware:** If the student has unread notifications or messages, you can mention them when contextually relevant (e.g., "By the way, you have 5 unread notifications").
+11. **IEPOD/TIMP factual mode:** For "what is IEPOD" or "what is TIMP" questions, use only the definitions/workflows in PLATFORM KNOWLEDGE + user context. Do not add extra programs, eligibility ranges, or features that are not explicitly listed.
 
 ## PLATFORM KNOWLEDGE
 {IESA_KNOWLEDGE}

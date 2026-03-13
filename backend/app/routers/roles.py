@@ -629,7 +629,8 @@ async def get_my_roles(current_user: User = Depends(get_current_user)):
     sessions = db["sessions"]
     
     # Fetch user's roles
-    cursor = roles_collection.find({"userId": current_user.get("_id", "")}).sort("createdAt", -1)
+    user_id = str(current_user.get("_id") or current_user.get("id", ""))
+    cursor = roles_collection.find({"userId": user_id}).sort("createdAt", -1)
     roles_list = await cursor.to_list(length=None)
     
     # Populate session details (batch)
