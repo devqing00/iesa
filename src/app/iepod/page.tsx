@@ -54,11 +54,15 @@ const PHASES = [
 ];
 
 const SOCIETIES = [
-  { short: "IEEE", name: "Institute of Electrical and Electronic Engineers", focus: "Technology & Innovation", color: "bg-lime" },
-  { short: "RAIN", name: "Renewable & Alternative Innovations Network", focus: "Renewable Energy", color: "bg-teal" },
-  { short: "SFC", name: "Students for Change", focus: "Social Impact & Leadership", color: "bg-coral" },
-  { short: "IPTLC", name: "Industrial Process & Tech Leadership Club", focus: "Process Engineering", color: "bg-lavender" },
-  { short: "Energy Club", name: "Energy Club", focus: "Energy Sector & Sustainability", color: "bg-sunny" },
+  { short: "IEEE",        name: "Institute of Electrical and Electronics Engineers", focus: "Technology & Innovation",          color: "bg-lime" },
+  { short: "RAIN",        name: "Robotics and Artificial Intelligence Nigeria",        focus: "Robotics & AI",                    color: "bg-teal" },
+  { short: "Energy Club", name: "Energy Club",                                        focus: "Energy Systems & Sustainability",  color: "bg-sunny" },
+  { short: "SEIH",        name: "Student Entrepreneurs and Innovations Hub",          focus: "Entrepreneurship & Innovation",   color: "bg-coral" },
+  { short: "UIMUN",       name: "University of Ibadan Model United Nations",         focus: "International Relations & Policy", color: "bg-lavender" },
+  { short: "IPTLC",       name: "Intellectual Property and Technology Law Club",      focus: "IP Law & Tech Policy",            color: "bg-lavender" },
+  { short: "SFC",         name: "Student Finance Club",                              focus: "Finance & Investment",            color: "bg-lime" },
+  { short: "NSBE",        name: "Nigerian Society of Black Engineers",               focus: "Engineering Diversity & Excellence", color: "bg-teal" },
+  { short: "SARE",        name: "Society of Agricultural and Robotics Engineers",    focus: "Agricultural & Robotics Engineering", color: "bg-sunny" },
 ];
 
 export default function IepodLandingPage() {

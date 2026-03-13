@@ -83,16 +83,28 @@ function RegistrationForm({
   const [submitting, setSubmitting] = useState(false);
 
   const INTEREST_OPTIONS = [
-    "Renewable Energy",
+    // Core IPE
     "Manufacturing Systems",
     "Operations Research",
     "Supply Chain",
     "Quality Engineering",
-    "Data Science",
     "Ergonomics & Human Factors",
     "Project Management",
+    // Technology & Engineering
+    "Renewable Energy & Sustainability",
+    "Robotics",
+    "Electronics & Electrical Systems",
     "AI & Automation",
-    "Entrepreneurship",
+    "Data Science",
+    "Agricultural Engineering",
+    // Business & Policy
+    "Entrepreneurship & Innovation",
+    "Finance & Investment",
+    "Intellectual Property & Tech Law",
+    "International Relations & Policy",
+    // Professional
+    "Engineering Diversity & Inclusion",
+    "Startup Culture",
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {

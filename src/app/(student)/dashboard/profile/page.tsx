@@ -417,6 +417,7 @@ export default function ProfilePage() {
     class_rep: { label: "Class Representative", color: "text-lavender", bg: "bg-lavender-light", icon: "class" },
     assistant_class_rep: { label: "Asst. Class Rep", color: "text-lavender", bg: "bg-lavender-light", icon: "class" },
     press_head: { label: "Press Team Head", color: "text-coral", bg: "bg-coral-light", icon: "unit" },
+    press_editor_in_chief: { label: "Editor-in-Chief", color: "text-coral", bg: "bg-coral-light", icon: "unit" },
     press_member: { label: "Press Member", color: "text-coral", bg: "bg-coral-light", icon: "unit" },
     timp_lead: { label: "TIMP Lead", color: "text-teal", bg: "bg-teal-light", icon: "unit" },
     ics_head: { label: "ICS Team Head", color: "text-coral", bg: "bg-coral-light", icon: "unit" },

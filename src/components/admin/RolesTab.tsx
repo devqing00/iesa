@@ -50,9 +50,7 @@ const POSITIONS = [
   { group: "Executive Officers",       value: "assistant_sports_secretary",        label: "Asst. Sports Secretary" },
   { group: "Executive Officers",       value: "pro",                               label: "Public Relations Officer" },
   { group: "Executive Officers",       value: "financial_secretary",               label: "Financial Secretary" },
-  // ── Directors ────────────────────────────────────────────────────── 
-  { group: "Directors",                value: "director_of_academics",             label: "Director of Academics" },
-  { group: "Directors",                value: "director_of_information",           label: "Director of Information" },
+
   // ── Class Representatives ─────────────────────────────────────────
   { group: "Class Representatives",    value: "class_rep_100L",                    label: "100L Class Rep" },
   { group: "Class Representatives",    value: "class_rep_200L",                    label: "200L Class Rep" },
@@ -72,7 +70,6 @@ const POSITIONS = [
   { group: "Team Heads",               value: "team_head_welfare",                 label: "Welfare Head" },
   { group: "Team Heads",               value: "team_head_alumni_relations",        label: "Alumni & External Relations Head" },
   { group: "Team Heads",               value: "team_head_dinner_award",            label: "Dinner & Award Head" },
-  { group: "Team Heads",               value: "press_head",                        label: "Press Head" },
   // ── Team Members ──────────────────────────────────────────────────
   { group: "Team Members",             value: "ics_member",                        label: "ICS Member" },
   { group: "Team Members",             value: "team_industrial_visit_member",      label: "Industrial Visit Member" },
@@ -97,6 +94,7 @@ const POSITIONS = [
   { group: "Press Roles",              value: "press_niche_editor",                label: "Niche Editor" },
   { group: "Press Roles",              value: "press_pro",                         label: "Press PRO" },
   // ── Legacy Roles (backward compat) ───────────────────────────────
+  { group: "Legacy Roles",             value: "press_head",                        label: "Press Head (Legacy)" },
   { group: "Legacy Roles",             value: "committee_head_technical",          label: "Technical Team Head (Legacy)" },
   { group: "Legacy Roles",             value: "committee_head_social",             label: "Social Team Head (Legacy)" },
   { group: "Legacy Roles",             value: "committee_head_welfare",            label: "Welfare Team Head (Legacy)" },
@@ -109,9 +107,7 @@ const POSITIONS = [
   { group: "Legacy Roles",             value: "committee_welfare_member",          label: "Welfare Team Member (Legacy)" },
   { group: "Legacy Roles",             value: "committee_sports_member",           label: "Sports Team Member (Legacy)" },
   { group: "Legacy Roles",             value: "committee_socials_member",          label: "Socials Team Member (Legacy)" },
-  // ── Other ─────────────────────────────────────────────────────────
-  { group: "Other",                    value: "alumni",                            label: "Alumni" },
-  { group: "Other",                    value: "relations_committee",               label: "Relations Team" },
+
   // ── Admin Roles ───────────────────────────────────────────────────
   { group: "Admin Roles",              value: "admin",                             label: "Administrator" },
   { group: "Admin Roles",              value: "super_admin",                       label: "Super Administrator" },

@@ -117,7 +117,7 @@ TEAM_REGISTRY: dict[str, dict] = {
         "label": "The IESA Press",
         "description": "Join the editorial team — write articles, cover events, and shape the narrative of our department.",
         "colorKey": "lavender",
-        "headPosition": "press_head",
+        "headPosition": "press_editor_in_chief",
         "memberPosition": "press_member",
         "memberPermissions": ["press:access", "press:create"],
         "requiresSkills": True,

@@ -566,6 +566,17 @@ DEFAULT_PERMISSIONS = {
         "timp:manage", "timp:view",
         "announcement:create", "announcement:view",
         "user:view_all",
+        "team:review",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
+    ],
+    "press_editor_in_chief": [
+        "press:access", "press:create", "press:edit", "press:review", "press:publish", "press:manage",
+        "announcement:create", "announcement:view",
+        "user:view_all",
+        "team:review",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
     ],
     "press_head": [
         "press:access", "press:create", "press:edit", "press:review", "press:publish", "press:manage",

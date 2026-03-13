@@ -134,15 +134,15 @@ const STATIC_CARDS = [
 
 export default function TeamsPage() {
   const { hasPermission } = usePermissions();
-  const { getAccessToken } = useAuth();
+  const { getAccessToken, userProfile } = useAuth();
   const { showHelp, openHelp, closeHelp } = useToolHelp("teams");
 
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [teamData, setTeamData] = useState<MemberUnitData[]>([]);
   const [loadingMemberships, setLoadingMemberships] = useState(true);
   const [updatingTask, setUpdatingTask] = useState<string | null>(null);
-  // Track whether this user heads any team
-  const isTeamHead = hasPermission("team_head:view_members");
+  // Track whether this user heads any team (not just elevated permissions)
+  const isTeamHead = memberships.some((membership) => membership.head?.userId === userProfile?.id);
 
   /* ── API helper ──────────────────────────────────────────── */
   const apiFetch = useCallback(
