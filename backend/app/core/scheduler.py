@@ -45,6 +45,12 @@ async def birthday_wishes() -> None:
     try:
         from app.db import get_database
         from app.routers.notifications import create_notification
+        from app.core.email import send_birthday_email
+        from app.core.notification_utils import (
+            get_notification_emails,
+            should_notify_category,
+            should_send_email,
+        )
 
         db = get_database()
         now = datetime.now(timezone.utc)
@@ -68,7 +74,19 @@ async def birthday_wishes() -> None:
             {
                 "$match": {"_birthMonth": month, "_birthDay": day}
             },
-            {"$project": {"_id": 1, "firstName": 1}},
+            {
+                "$project": {
+                    "_id": 1,
+                    "firstName": 1,
+                    "lastName": 1,
+                    "email": 1,
+                    "secondaryEmail": 1,
+                    "secondaryEmailVerified": 1,
+                    "notificationEmailPreference": 1,
+                    "notificationChannelPreference": 1,
+                    "notificationCategories": 1,
+                }
+            },
         ]
 
         celebrants = await db["users"].aggregate(pipeline).to_list(length=200)
@@ -84,7 +102,9 @@ async def birthday_wishes() -> None:
         for user in celebrants:
             user_id = str(user["_id"])
             first_name = user.get("firstName", "")
+            full_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip() or "Student"
             greeting = f"Happy Birthday, {first_name}! 🎂" if first_name else "Happy Birthday!"
+
             try:
                 await create_notification(
                     user_id=user_id,
@@ -100,6 +120,22 @@ async def birthday_wishes() -> None:
             except Exception as e:
                 logger.warning(
                     "[Scheduler] birthday_wishes: failed for userId=%s — %s", user_id, e
+                )
+
+            try:
+                if should_send_email(user) and should_notify_category(user, "academic"):
+                    email_addresses = list(dict.fromkeys(get_notification_emails(user)))
+                    for email in email_addresses:
+                        await send_birthday_email(
+                            to=email,
+                            name=full_name,
+                            dashboard_url="https://iesa-ui.vercel.app/dashboard",
+                        )
+            except Exception as e:
+                logger.warning(
+                    "[Scheduler] birthday_wishes: birthday email failed for userId=%s — %s",
+                    user_id,
+                    e,
                 )
 
     except Exception as exc:

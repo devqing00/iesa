@@ -32,8 +32,9 @@ class ReceiptGenerator:
     # Brand colors
     NAVY = "#0F0F2D"
     LIME = "#C8F31D"
-    TEAL = "#4CA868"
-    TEAL_LIGHT = "#E8F5E9"
+    TEAL = "#5BD4C0"
+    TEAL_LIGHT = "#ECFDF5"
+    LAVENDER = "#9B72CF"
     GHOST = "#F8F8FC"
     CORAL = "#E06050"
 
@@ -107,6 +108,10 @@ class ReceiptGenerator:
         accent_h = 4 * mm
         pdf.setFillColor(colors.HexColor(self.LIME))
         pdf.rect(0, H - header_h - accent_h, W, accent_h, fill=True, stroke=False)
+        pdf.setFillColor(colors.HexColor(self.TEAL))
+        pdf.rect(0, H - header_h - accent_h - 2 * mm, W * 0.36, 2 * mm, fill=True, stroke=False)
+        pdf.setFillColor(colors.HexColor(self.CORAL))
+        pdf.rect(W * 0.64, H - header_h - accent_h - 2 * mm, W * 0.36, 2 * mm, fill=True, stroke=False)
 
         # Logo (if available)
         logo_y = H - header_h + 0.25 * inch
@@ -152,21 +157,21 @@ class ReceiptGenerator:
         card_w = content_w + 0.2 * inch
 
         # Card shadow
-        pdf.setFillColor(colors.HexColor("#DDDDDD"))
-        pdf.roundRect(card_x + 3, card_bottom - 3, card_w, card_h, 12, fill=True, stroke=False)
+        pdf.setFillColor(colors.HexColor("#000000"))
+        pdf.roundRect(card_x + 5, card_bottom - 5, card_w, card_h, 14, fill=True, stroke=False)
 
         # Card body
         pdf.setFillColor(colors.white)
-        pdf.setStrokeColor(colors.HexColor("#E0E0E0"))
-        pdf.setLineWidth(0.5)
-        pdf.roundRect(card_x, card_bottom, card_w, card_h, 12, fill=True, stroke=True)
+        pdf.setStrokeColor(colors.HexColor(self.NAVY))
+        pdf.setLineWidth(2)
+        pdf.roundRect(card_x, card_bottom, card_w, card_h, 14, fill=True, stroke=True)
 
         # ── Student Information Section ──
         y = card_top - 0.35 * inch
         section_x = left + 0.1 * inch
 
-        # Section header with teal accent
-        pdf.setFillColor(colors.HexColor(self.TEAL))
+        # Section header accent
+        pdf.setFillColor(colors.HexColor(self.LAVENDER))
         pdf.rect(section_x, y - 2, 3, 14, fill=True, stroke=False)
         pdf.setFillColor(colors.HexColor(self.NAVY))
         pdf.setFont("Helvetica-Bold", 11)
@@ -210,6 +215,7 @@ class ReceiptGenerator:
             ("Description", payment_title),
             ("Method", channel),
             ("Reference", reference),
+            ("Transaction ID", transaction_id),
             ("Date & Time", paid_at.strftime("%B %d, %Y at %I:%M %p")),
         ]
         for label, value in payment_details:
@@ -230,10 +236,10 @@ class ReceiptGenerator:
         amount_box_h = 0.7 * inch
         amount_box_y = y - amount_box_h + 0.1 * inch
 
-        # Green background box
-        pdf.setFillColor(colors.HexColor(self.TEAL_LIGHT))
-        pdf.setStrokeColor(colors.HexColor(self.TEAL))
-        pdf.setLineWidth(1.5)
+        # Amount highlight box
+        pdf.setFillColor(colors.HexColor(self.LIME))
+        pdf.setStrokeColor(colors.HexColor(self.NAVY))
+        pdf.setLineWidth(2)
         pdf.roundRect(section_x, amount_box_y, content_w - 0.2 * inch, amount_box_h, 8, fill=True, stroke=True)
 
         # Label
@@ -251,9 +257,9 @@ class ReceiptGenerator:
         y = amount_box_y - 0.35 * inch
         badge_w = 1.6 * inch
         badge_h = 0.3 * inch
-        pdf.setFillColor(colors.HexColor(self.TEAL))
+        pdf.setFillColor(colors.HexColor(self.NAVY))
         pdf.roundRect(section_x, y, badge_w, badge_h, 6, fill=True, stroke=False)
-        pdf.setFillColor(colors.white)
+        pdf.setFillColor(colors.HexColor(self.LIME))
         pdf.setFont("Helvetica-Bold", 10)
         pdf.drawCentredString(section_x + badge_w / 2, y + 0.08 * inch, "PAID SUCCESSFULLY")
 
@@ -267,6 +273,11 @@ class ReceiptGenerator:
         qr_size = 1.0 * inch
         qr_x = right - qr_size
         qr_y = 0.5 * inch
+
+        pdf.setFillColor(colors.white)
+        pdf.setStrokeColor(colors.HexColor(self.NAVY))
+        pdf.setLineWidth(1.2)
+        pdf.roundRect(qr_x - 0.1 * inch, qr_y - 0.12 * inch, qr_size + 0.2 * inch, qr_size + 0.22 * inch, 6, fill=True, stroke=True)
 
         pdf.drawImage(qr_image, qr_x, qr_y, width=qr_size, height=qr_size,
                        preserveAspectRatio=True, mask='auto')

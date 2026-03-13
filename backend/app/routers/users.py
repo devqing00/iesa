@@ -9,7 +9,7 @@ import re
 
 from fastapi import APIRouter, HTTPException, Depends, status, Request, File, UploadFile
 from typing import List, Optional
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from bson import ObjectId
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -330,6 +330,118 @@ async def list_users(
     }
 
 
+def _safe_birthday_for_year(dob: date, year: int) -> date:
+    """Return birthday date in a given year, handling Feb 29 in non-leap years."""
+    if dob.month == 2 and dob.day == 29:
+        try:
+            return date(year, 2, 29)
+        except ValueError:
+            return date(year, 2, 28)
+    return date(year, dob.month, dob.day)
+
+
+@router.get("/birthdays")
+async def list_upcoming_birthdays(
+    days_ahead: int = 90,
+    search: Optional[str] = None,
+    department: Optional[str] = None,
+    limit: int = 50,
+    skip: int = 0,
+    _user: dict = Depends(require_permission("user:view_all")),
+):
+    """
+    List upcoming student birthdays within N days.
+    Supports search + department filter and returns paginated results.
+    """
+    days_ahead = max(1, min(days_ahead, 366))
+    limit = max(1, min(limit, 200))
+    skip = max(0, skip)
+
+    db = get_database()
+
+    query: dict = {
+        "role": "student",
+        "isActive": {"$ne": False},
+        "dateOfBirth": {"$exists": True, "$ne": None},
+    }
+
+    if department and department != "all":
+        if department == "external":
+            query["isExternalStudent"] = True
+        elif department == "ipe":
+            query["department"] = "Industrial Engineering"
+        else:
+            query["department"] = department
+
+    if search:
+        escaped = re.escape(search.strip())
+        query["$or"] = [
+            {"firstName": {"$regex": escaped, "$options": "i"}},
+            {"lastName": {"$regex": escaped, "$options": "i"}},
+            {"email": {"$regex": escaped, "$options": "i"}},
+            {"matricNumber": {"$regex": escaped, "$options": "i"}},
+        ]
+
+    users = await db["users"].find(
+        query,
+        {
+            "firstName": 1,
+            "lastName": 1,
+            "email": 1,
+            "matricNumber": 1,
+            "currentLevel": 1,
+            "department": 1,
+            "profilePictureUrl": 1,
+            "dateOfBirth": 1,
+        },
+    ).to_list(length=8000)
+
+    today = datetime.now(timezone.utc).date()
+    upper = today + timedelta(days=days_ahead)
+
+    upcoming: list[dict] = []
+    for user in users:
+        dob_value = user.get("dateOfBirth")
+        if not isinstance(dob_value, (datetime, date)):
+            continue
+
+        dob = dob_value.date() if isinstance(dob_value, datetime) else dob_value
+        this_year = _safe_birthday_for_year(dob, today.year)
+        next_birthday = this_year if this_year >= today else _safe_birthday_for_year(dob, today.year + 1)
+
+        if next_birthday > upper:
+            continue
+
+        days_until = (next_birthday - today).days
+        upcoming.append(
+            {
+                "id": str(user["_id"]),
+                "firstName": user.get("firstName", ""),
+                "lastName": user.get("lastName", ""),
+                "email": user.get("email", ""),
+                "matricNumber": user.get("matricNumber"),
+                "currentLevel": user.get("currentLevel"),
+                "department": user.get("department"),
+                "profilePictureUrl": user.get("profilePictureUrl"),
+                "daysUntil": days_until,
+                "birthdayMonth": next_birthday.month,
+                "birthdayDay": next_birthday.day,
+                "nextBirthday": next_birthday.isoformat(),
+            }
+        )
+
+    upcoming.sort(key=lambda item: (item["daysUntil"], item["firstName"], item["lastName"]))
+
+    total = len(upcoming)
+    items = upcoming[skip: skip + limit]
+
+    return {
+        "items": items,
+        "total": total,
+        "daysAhead": days_ahead,
+    }
+
+
 @router.get("/{user_id}", response_model=User)
 async def get_user(
     user_id: str,
@@ -337,25 +449,42 @@ async def get_user(
 ):
     """
     Get a specific user's profile.
-    Users can view any profile (for team pages, etc.)
+    - Admins/exco: full profile (used by admin user-management modal).
+    - Own profile: full profile.
+    - Student viewing another user (e.g. team page): public fields only — PII stripped.
     """
     db = get_database()
     users = db["users"]
-    
+
     if not ObjectId.is_valid(user_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid user ID format"
         )
-    
-    user = await users.find_one({"_id": ObjectId(user_id)}, {"passwordHash": 0})
-    
+
+    caller_id = str(current_user.get("_id", ""))
+    caller_role = current_user.get("role", "student")  # from DB via get_current_user, not stale JWT
+    is_own_profile = caller_id == user_id
+    is_privileged = caller_role in ("admin", "exco")
+
+    # Strip PII when an unprivileged user views someone else's profile
+    projection: dict = {"passwordHash": 0}
+    if not is_privileged and not is_own_profile:
+        for field in (
+            "dateOfBirth", "phone", "matricNumber", "lastLogin",
+            "emailVerified", "hasCompletedOnboarding", "admissionYear",
+            "createdAt", "updatedAt", "notificationChannels", "notificationCategories",
+        ):
+            projection[field] = 0
+
+    user = await users.find_one({"_id": ObjectId(user_id)}, projection)
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"User {user_id} not found"
         )
-    
+
     user["_id"] = str(user["_id"])
     return User(**user)
 

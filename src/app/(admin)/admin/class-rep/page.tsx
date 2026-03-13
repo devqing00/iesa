@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { getApiUrl } from "@/lib/api";
 import { withAuth } from "@/lib/withAuth";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { toast } from "sonner";
 
 /* ═══════════════════════════════════════════════════════════
@@ -79,6 +80,11 @@ interface TimetableEntry {
 }
 
 type Tab = "overview" | "cohort" | "deadlines" | "polls" | "relay" | "announcements" | "timetable";
+type ClassRepPortalVariant = "class-rep" | "freshers";
+
+interface ClassRepPortalProps {
+  variant?: ClassRepPortalVariant;
+}
 
 /* ═══════════════════════════════════════════════════════════
    Helpers
@@ -160,13 +166,16 @@ function timeAgo(d: string | Date | null | undefined): string {
    Main Page Component
    ═══════════════════════════════════════════════════════════ */
 
-export function ClassRepPortal() {
+export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = {}) {
   const { getAccessToken } = useAuth();
   const { hasPermission } = usePermissions();
   const [tab, setTab] = useState<Tab>("overview");
   const [level, setLevel] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const helpToolId = variant === "freshers" ? "freshers-portal" : "class-rep-portal";
+  const portalLabel = variant === "freshers" ? "FRESHERS COORDINATOR PORTAL" : "CLASS REP PORTAL";
+  const { showHelp, openHelp, closeHelp } = useToolHelp(helpToolId);
 
   /* ── data state ──────────────────────────────────────────── */
   const [students, setStudents] = useState<Student[]>([]);
@@ -443,15 +452,16 @@ export function ClassRepPortal() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {/* ░░░ Header ░░░ */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <p className="text-label text-slate">CLASS REP PORTAL</p>
+          <p className="text-label text-slate">{portalLabel}</p>
           <h1 className="font-display font-black text-display-lg text-navy">
             <span className="brush-highlight">{level}</span> Dashboard
           </h1>
         </div>
+        <HelpButton onClick={openHelp} />
       </div>
 
       {/* ░░░ Tabs ░░░ */}
@@ -920,6 +930,8 @@ export function ClassRepPortal() {
           )}
         </div>
       )}
+
+      <ToolHelpModal toolId={helpToolId} isOpen={showHelp} onClose={closeHelp} />
     </div>
   );
 }

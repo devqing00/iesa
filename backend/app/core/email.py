@@ -10,6 +10,7 @@ from datetime import datetime
 import os
 import logging
 from enum import Enum
+from html import escape
 
 logger = logging.getLogger("iesa_backend")
 
@@ -365,194 +366,202 @@ class EmailService:
     
     def _render_template(self, template: EmailTemplate, context: Dict[str, Any]) -> tuple[str, str]:
         """Render email template"""
-        
-        if template == EmailTemplate.PAYMENT_RECEIPT:
-            subject = f"Payment Receipt - {context.get('payment_title', 'IESA Payment')}"
-            html = f"""
+        def _esc(value: Any) -> str:
+            return escape(str(value)) if value is not None else ""
+
+        def _shell(
+            *,
+            preheader: str,
+            eyebrow: str,
+            title: str,
+            body_html: str,
+            badge: str = "IESA Update",
+            badge_bg: str = "#C8F31D",
+            badge_text: str = "#0F0F2D",
+        ) -> str:
+            return f"""
             <html>
-            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #1E4528;">Payment Receipt</h2>
-                <p>Dear {context.get('student_name', 'Student')},</p>
-                <p>Your payment has been confirmed!</p>
-                <div style="background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 8px;">
-                    <p><strong>Payment:</strong> {context.get('payment_title')}</p>
-                    <p><strong>Amount:</strong> ₦{context.get('amount'):,.2f}</p>
-                    <p><strong>Reference:</strong> {context.get('reference')}</p>
-                    <p><strong>Date:</strong> {context.get('date')}</p>
+            <body style="margin:0;padding:24px;background:#FAFAFE;font-family:Inter,Arial,sans-serif;color:#0F0F2D;">
+                <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">{_esc(preheader)}</div>
+                <div style="max-width:620px;margin:0 auto;background:#FFFFFF;border:3px solid #0F0F2D;border-radius:20px;overflow:hidden;box-shadow:6px 6px 0 #000;">
+                    <div style="background:#0F0F2D;padding:16px 24px;border-bottom:4px solid #C8F31D;">
+                        <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:800;color:#C8F31D;">IESA · University of Ibadan</div>
+                        <div style="margin-top:8px;display:inline-block;padding:6px 10px;border:2px solid #0F0F2D;border-radius:999px;background:{badge_bg};color:{badge_text};font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">{_esc(badge)}</div>
+                    </div>
+                    <div style="padding:28px 24px 24px;">
+                        <p style="margin:0;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#64748B;font-weight:700;">{_esc(eyebrow)}</p>
+                        <h2 style="margin:8px 0 14px;font-size:26px;line-height:1.2;color:#0F0F2D;">{_esc(title)}</h2>
+                        {body_html}
+                    </div>
+                    <div style="background:#F5F6FB;border-top:2px solid #E2E8F0;padding:14px 24px;">
+                        <p style="margin:0;font-size:11px;line-height:1.6;color:#64748B;">Industrial Engineering Students' Association · University of Ibadan</p>
+                    </div>
                 </div>
-                <p>Thank you for your payment!</p>
-                <p style="background: #E8F5E9; padding: 12px; border-radius: 6px; border-left: 4px solid #1E4528;">
-                    📎 <strong>Your official receipt is attached as a PDF.</strong><br>
-                    <small>Please keep this receipt for your records.</small>
-                </p>
-                <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="color: #666; font-size: 12px;">
-                    Industrial Engineering Students' Association<br>
-                    University of Ibadan
-                </p>
             </body>
             </html>
             """
-            
+
+        if template == EmailTemplate.PAYMENT_RECEIPT:
+            amount = context.get("amount", 0)
+            try:
+                amount_text = f"₦{float(amount):,.2f}"
+            except (TypeError, ValueError):
+                amount_text = "₦0.00"
+
+            subject = f"Payment Receipt - {context.get('payment_title', 'IESA Payment')}"
+            body = f"""
+            <p style="margin:0 0 14px;font-size:14px;line-height:1.7;color:#334155;">Hello {_esc(context.get('student_name', 'Student'))}, your payment has been confirmed successfully.</p>
+            <div style="background:#F8FAFF;border:2px solid #0F0F2D;border-radius:14px;padding:14px 16px;margin:0 0 16px;">
+                <p style="margin:0 0 8px;font-size:13px;color:#0F0F2D;"><strong>Payment:</strong> {_esc(context.get('payment_title', 'IESA Payment'))}</p>
+                <p style="margin:0 0 8px;font-size:13px;color:#0F0F2D;"><strong>Reference:</strong> {_esc(context.get('reference', '—'))}</p>
+                <p style="margin:0 0 8px;font-size:13px;color:#0F0F2D;"><strong>Date:</strong> {_esc(context.get('date', '—'))}</p>
+                <p style="margin:0;font-size:20px;font-weight:900;color:#0F0F2D;">{amount_text}</p>
+            </div>
+            <div style="background:#ECFDF5;border:2px solid #14B8A6;border-radius:12px;padding:12px 14px;">
+                <p style="margin:0;font-size:13px;color:#0F0F2D;">Your official PDF receipt is attached to this email. Keep it for your records.</p>
+            </div>
+            """
+            html = _shell(
+                preheader="Your IESA payment receipt is ready.",
+                eyebrow="Payment Confirmation",
+                title="Receipt Issued",
+                body_html=body,
+                badge="Payment",
+                badge_bg="#C8F31D",
+            )
+
         elif template == EmailTemplate.WELCOME:
+            dashboard_url = _esc(context.get("dashboard_url", "#"))
             subject = "Welcome to IESA Platform!"
-            html = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #1E4528;">Welcome to IESA!</h2>
-                <p>Dear {context.get('name', 'Student')},</p>
-                <p>Your account has been created successfully.</p>
-                <p>You can now access the IESA platform and:</p>
-                <ul>
-                    <li>View announcements and events</li>
-                    <li>Make departmental payments</li>
-                    <li>Track your academic progress</li>
-                    <li>Access resources and timetables</li>
-                </ul>
-                <p><a href="{context.get('dashboard_url', '#')}" style="background: #1E4528; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 20px 0;">Go to Dashboard</a></p>
-                <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="color: #666; font-size: 12px;">
-                    Industrial Engineering Students' Association<br>
-                    University of Ibadan
-                </p>
-            </body>
-            </html>
+            body = f"""
+            <p style="margin:0 0 14px;font-size:14px;line-height:1.7;color:#334155;">Welcome {_esc(context.get('name', 'Student'))}! Your account is now active.</p>
+            <div style="background:#F8FAFF;border:2px solid #0F0F2D;border-radius:14px;padding:14px 16px;margin:0 0 16px;">
+                <p style="margin:0 0 8px;font-size:13px;color:#0F0F2D;">You can now access announcements, events, payments, resources, and your academic tools.</p>
+            </div>
+            <a href="{dashboard_url}" style="display:inline-block;background:#C8F31D;color:#0F0F2D;font-size:13px;font-weight:900;text-decoration:none;padding:12px 18px;border:3px solid #0F0F2D;border-radius:12px;box-shadow:3px 3px 0 #0F0F2D;">Open Dashboard</a>
             """
-            
+            html = _shell(
+                preheader="Your IESA account is ready.",
+                eyebrow="Account",
+                title="Welcome to IESA",
+                body_html=body,
+                badge="Welcome",
+                badge_bg="#9B72CF",
+                badge_text="#FFFFFF",
+            )
+
         elif template == EmailTemplate.ROLE_ASSIGNED:
+            permissions = context.get("permissions", [])
+            permission_list = "".join(
+                f"<li style='margin:0 0 6px;'>{_esc(permission)}</li>" for permission in permissions
+            ) or "<li>No explicit permissions listed</li>"
             subject = f"You've been assigned a role: {context.get('position')}"
-            html = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #1E4528;">New Role Assignment</h2>
-                <p>Dear {context.get('name', 'Student')},</p>
-                <p>You have been assigned the role of <strong>{context.get('position')}</strong> for the {context.get('session')} session.</p>
-                <p>This role comes with the following permissions:</p>
-                <ul>
-                    {''.join(f"<li>{perm}</li>" for perm in context.get('permissions', []))}
-                </ul>
-                <p>Please log in to access your new capabilities.</p>
-                <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="color: #666; font-size: 12px;">
-                    Industrial Engineering Students' Association<br>
-                    University of Ibadan
-                </p>
-            </body>
-            </html>
+            body = f"""
+            <p style="margin:0 0 14px;font-size:14px;line-height:1.7;color:#334155;">Hello {_esc(context.get('name', 'Student'))}, you have been assigned <strong>{_esc(context.get('position', 'Role'))}</strong> for the {_esc(context.get('session', 'current'))} session.</p>
+            <div style="background:#F8FAFF;border:2px solid #0F0F2D;border-radius:14px;padding:14px 16px;">
+                <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#0F0F2D;">Granted permissions:</p>
+                <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.6;color:#334155;">{permission_list}</ul>
+            </div>
             """
-        
+            html = _shell(
+                preheader="A new IESA role has been assigned to your account.",
+                eyebrow="Role Update",
+                title="New Role Assignment",
+                body_html=body,
+                badge="Role",
+                badge_bg="#5BD4C0",
+            )
+
         elif template == EmailTemplate.EMAIL_VERIFICATION:
+            verification_url = _esc(context.get("verification_url", "#"))
             subject = "Verify your IESA email address"
-            html = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #1E4528;">Verify Your Email</h2>
-                <p>Dear {context.get('name', 'Student')},</p>
-                <p>Thank you for registering with IESA! Please verify your email address to complete your account setup.</p>
-                <p><a href="{context.get('verification_url')}" style="background: #1E4528; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 20px 0;">Verify Email Address</a></p>
-                <p>Or copy and paste this link into your browser:</p>
-                <p style="background: #f5f5f5; padding: 10px; border-radius: 4px; word-break: break-all; font-size: 12px;">{context.get('verification_url')}</p>
-                <p>This link will expire in 24 hours.</p>
-                <p>If you didn't create an account with IESA, you can safely ignore this email.</p>
-                <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="color: #666; font-size: 12px;">
-                    Industrial Engineering Students' Association<br>
-                    University of Ibadan
-                </p>
-            </body>
-            </html>
+            body = f"""
+            <p style="margin:0 0 14px;font-size:14px;line-height:1.7;color:#334155;">Hi {_esc(context.get('name', 'Student'))}, please verify your email to complete account setup.</p>
+            <a href="{verification_url}" style="display:inline-block;background:#C8F31D;color:#0F0F2D;font-size:13px;font-weight:900;text-decoration:none;padding:12px 18px;border:3px solid #0F0F2D;border-radius:12px;box-shadow:3px 3px 0 #0F0F2D;margin:0 0 14px;">Verify Email Address</a>
+            <p style="margin:0 0 8px;font-size:12px;color:#64748B;">If the button does not work, use this link:</p>
+            <p style="margin:0;padding:10px 12px;border-radius:10px;background:#F5F6FB;border:1px solid #CBD5E1;word-break:break-all;font-size:12px;color:#334155;">{verification_url}</p>
+            <p style="margin:12px 0 0;font-size:12px;color:#64748B;">This link expires in 24 hours.</p>
             """
-        
+            html = _shell(
+                preheader="Verify your email to finish setting up your IESA account.",
+                eyebrow="Security",
+                title="Verify Your Email",
+                body_html=body,
+                badge="Verification",
+                badge_bg="#E0C340",
+            )
+
         elif template == EmailTemplate.PASSWORD_RESET:
+            reset_url = _esc(context.get("reset_url", "#"))
             subject = "Reset your IESA password"
-            html = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #1E4528;">Password Reset Request</h2>
-                <p>Dear {context.get('name', 'Student')},</p>
-                <p>We received a request to reset your IESA account password. Click the button below to set a new password:</p>
-                <p><a href="{context.get('reset_url')}" style="background: #1E4528; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 20px 0;">Reset Password</a></p>
-                <p>Or copy and paste this link into your browser:</p>
-                <p style="background: #f5f5f5; padding: 10px; border-radius: 4px; word-break: break-all; font-size: 12px;">{context.get('reset_url')}</p>
-                <p>This link will expire in <strong>1 hour</strong>.</p>
-                <p style="background: #FFF3CD; padding: 12px; border-radius: 6px; border-left: 4px solid #D97706;">
-                    ⚠️ If you didn't request a password reset, please ignore this email. Your password will remain unchanged.
-                </p>
-                <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="color: #666; font-size: 12px;">
-                    Industrial Engineering Students' Association<br>
-                    University of Ibadan
-                </p>
-            </body>
-            </html>
+            body = f"""
+            <p style="margin:0 0 14px;font-size:14px;line-height:1.7;color:#334155;">Hi {_esc(context.get('name', 'Student'))}, we received a request to reset your password.</p>
+            <a href="{reset_url}" style="display:inline-block;background:#C8F31D;color:#0F0F2D;font-size:13px;font-weight:900;text-decoration:none;padding:12px 18px;border:3px solid #0F0F2D;border-radius:12px;box-shadow:3px 3px 0 #0F0F2D;margin:0 0 14px;">Reset Password</a>
+            <p style="margin:0 0 8px;font-size:12px;color:#64748B;">If the button does not work, use this link:</p>
+            <p style="margin:0;padding:10px 12px;border-radius:10px;background:#F5F6FB;border:1px solid #CBD5E1;word-break:break-all;font-size:12px;color:#334155;">{reset_url}</p>
+            <div style="margin-top:14px;background:#FFF7ED;border:2px solid #EA580C;border-radius:12px;padding:10px 12px;">
+                <p style="margin:0;font-size:12px;line-height:1.6;color:#9A3412;">If you did not request this, ignore this email. Your password remains unchanged.</p>
+            </div>
             """
-        
+            html = _shell(
+                preheader="Password reset requested for your IESA account.",
+                eyebrow="Security",
+                title="Password Reset",
+                body_html=body,
+                badge="Reset",
+                badge_bg="#E8614D",
+                badge_text="#FFFFFF",
+            )
+
         elif template == EmailTemplate.ANNOUNCEMENT:
-            priority = context.get('priority', 'normal')
+            priority = str(context.get("priority", "normal")).lower()
             priority_colors = {
-                'urgent': '#DC2626',
-                'important': '#D97706',
-                'normal': '#1E4528',
-                'info': '#2563EB',
+                "urgent": "#DC2626",
+                "important": "#D97706",
+                "normal": "#5BD4C0",
+                "info": "#9B72CF",
             }
             priority_labels = {
-                'urgent': '🚨 URGENT',
-                'important': '⚠️ IMPORTANT',
-                'normal': 'ANNOUNCEMENT',
-                'info': 'INFO',
+                "urgent": "Urgent",
+                "important": "Important",
+                "normal": "Announcement",
+                "info": "Info",
             }
-            accent = priority_colors.get(priority, '#1E4528')
-            badge = priority_labels.get(priority, 'ANNOUNCEMENT')
-            target_label = context.get('target_label', 'All Students')
-            content_preview = context.get('content', '')[:400]
-            if len(context.get('content', '')) > 400:
-                content_preview += '…'
-            dashboard_url = context.get('dashboard_url', 'https://iesa-ui.vercel.app/dashboard/announcements')
+            badge_bg = priority_colors.get(priority, "#5BD4C0")
+            badge = priority_labels.get(priority, "Announcement")
+            target_label = _esc(context.get("target_label", "All Students"))
+            content = str(context.get("content", ""))
+            content_preview = content[:450] + ("…" if len(content) > 450 else "")
+            content_preview = _esc(content_preview).replace("\n", "<br>")
+            dashboard_url = _esc(context.get("dashboard_url", "https://iesa-ui.vercel.app/dashboard/announcements"))
 
             subject = f"[{badge}] {context.get('title', 'New Announcement')} — IESA"
-            html = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9f9f9; padding: 24px;">
-                <div style="background: #ffffff; border: 3px solid #0F0F2D; border-radius: 16px; overflow: hidden; box-shadow: 5px 5px 0 #000;">
-                    <!-- Header bar -->
-                    <div style="background: {accent}; padding: 12px 24px; display: flex; align-items: center; gap: 8px;">
-                        <span style="color: #ffffff; font-weight: 900; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;">{badge}</span>
-                        <span style="color: rgba(255,255,255,0.6); font-size: 11px;">·</span>
-                        <span style="color: rgba(255,255,255,0.8); font-size: 11px;">Targeted at: {target_label}</span>
-                    </div>
-                    <!-- Body -->
-                    <div style="padding: 28px 28px 24px;">
-                        <p style="margin: 0 0 4px; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.08em;">
-                            Industrial Engineering Students' Association — University of Ibadan
-                        </p>
-                        <h2 style="margin: 8px 0 16px; color: #0F0F2D; font-size: 22px; line-height: 1.3;">
-                            {context.get('title', 'New Announcement')}
-                        </h2>
-                        <p style="color: #444; font-size: 14px; line-height: 1.7; margin: 0 0 20px;">
-                            Dear {context.get('student_name', 'Student')},
-                        </p>
-                        <p style="color: #444; font-size: 14px; line-height: 1.7; margin: 0 0 20px; white-space: pre-line;">
-                            {content_preview}
-                        </p>
-                        <a href="{dashboard_url}" style="display: inline-block; background: #C8F31D; color: #0F0F2D; font-weight: 900; font-size: 13px; padding: 12px 24px; border-radius: 10px; border: 3px solid #0F0F2D; text-decoration: none; box-shadow: 3px 3px 0 #0F0F2D; margin-bottom: 8px;">
-                            View Full Announcement →
-                        </a>
-                    </div>
-                    <!-- Footer -->
-                    <div style="background: #f4f4f8; border-top: 2px solid #e0e0e8; padding: 16px 28px;">
-                        <p style="margin: 0; color: #888; font-size: 11px; line-height: 1.6;">
-                            You received this because you are enrolled in {target_label} for the current IESA academic session.<br>
-                            © IESA — Industrial Engineering Students' Association, University of Ibadan
-                        </p>
-                    </div>
-                </div>
-            </body>
-            </html>
+            body = f"""
+            <p style="margin:0 0 12px;font-size:14px;line-height:1.7;color:#334155;">Hello {_esc(context.get('student_name', 'Student'))}, a new update has been published for <strong>{target_label}</strong>.</p>
+            <div style="background:#F8FAFF;border:2px solid #0F0F2D;border-radius:14px;padding:14px 16px;margin:0 0 14px;">
+                <p style="margin:0 0 8px;font-size:16px;font-weight:900;color:#0F0F2D;">{_esc(context.get('title', 'New Announcement'))}</p>
+                <p style="margin:0;font-size:13px;line-height:1.7;color:#334155;">{content_preview}</p>
+            </div>
+            <a href="{dashboard_url}" style="display:inline-block;background:#C8F31D;color:#0F0F2D;font-size:13px;font-weight:900;text-decoration:none;padding:12px 18px;border:3px solid #0F0F2D;border-radius:12px;box-shadow:3px 3px 0 #0F0F2D;">Read Full Announcement</a>
             """
+            html = _shell(
+                preheader="A new announcement is available on your dashboard.",
+                eyebrow="Broadcast",
+                title="IESA Announcement",
+                body_html=body,
+                badge=badge,
+                badge_bg=badge_bg,
+                badge_text="#FFFFFF" if priority in {"urgent", "important"} else "#0F0F2D",
+            )
 
         else:
             subject = "IESA Notification"
-            html = "<p>You have a new notification from IESA.</p>"
+            html = _shell(
+                preheader="You have a new notification from IESA.",
+                eyebrow="Notification",
+                title="IESA Update",
+                body_html="<p style='margin:0;font-size:14px;line-height:1.7;color:#334155;'>You have a new notification from IESA.</p>",
+            )
         
         return subject, html
 
@@ -684,6 +693,46 @@ async def send_announcement_email(
             "dashboard_url": dashboard_url,
         }
     )
+
+
+async def send_birthday_email(
+    to: str,
+    name: str,
+    dashboard_url: str = "https://iesa-ui.vercel.app/dashboard",
+):
+    """Send a specialized birthday celebrant email."""
+    service = get_email_service()
+
+    subject = "Happy Birthday from IESA"
+    html = f"""
+    <html>
+    <body style="margin:0;padding:24px;background:#FAFAFE;font-family:Inter,Arial,sans-serif;color:#0F0F2D;">
+        <div style="max-width:620px;margin:0 auto;background:#FFFFFF;border:3px solid #0F0F2D;border-radius:20px;overflow:hidden;box-shadow:6px 6px 0 #000;">
+            <div style="background:#0F0F2D;padding:16px 24px;border-bottom:4px solid #C8F31D;">
+                <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:800;color:#C8F31D;">IESA · University of Ibadan</div>
+                <div style="margin-top:8px;display:inline-block;padding:6px 10px;border:2px solid #0F0F2D;border-radius:999px;background:#C8F31D;color:#0F0F2D;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">Birthday Wishes</div>
+            </div>
+            <div style="padding:28px 24px 24px;">
+                <p style="margin:0;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#64748B;font-weight:700;">Celebration</p>
+                <h2 style="margin:8px 0 12px;font-size:26px;line-height:1.2;color:#0F0F2D;">Happy Birthday, {escape(name)}!</h2>
+                <p style="margin:0 0 12px;font-size:14px;line-height:1.7;color:#334155;">Wishing you joy, growth, and meaningful moments today.</p>
+                <p style="margin:0 0 18px;font-size:14px;line-height:1.7;color:#334155;">The entire Industrial Engineering Students&apos; Association community celebrates you and wishes you a wonderful year ahead.</p>
+                <a href="{escape(dashboard_url)}" style="display:inline-block;background:#C8F31D;color:#0F0F2D;font-size:13px;font-weight:900;text-decoration:none;padding:12px 18px;border:3px solid #0F0F2D;border-radius:12px;box-shadow:3px 3px 0 #0F0F2D;">
+                    Open IESA Dashboard
+                </a>
+            </div>
+            <div style="background:#F5F6FB;border-top:2px solid #E2E8F0;padding:14px 24px;">
+                <p style="margin:0;font-size:11px;line-height:1.6;color:#64748B;">
+                    Industrial Engineering Students&apos; Association<br>
+                    University of Ibadan
+                </p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    return await service.send_email(to=to, subject=subject, html_content=html)
 
 
 async def send_role_assignment_email(

@@ -3,13 +3,14 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useSidebar } from "@/context/SidebarContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useDM } from "@/context/DMContext";
 import { useNotificationCount } from "@/hooks/useNotificationCount";
 import { prefetchRoute } from "@/hooks/useData";
-import { isExternalStudent, EXTERNAL_HIDDEN_HREFS, hasAdminAccess } from "@/lib/studentAccess";
+import { isExternalStudent, EXTERNAL_HIDDEN_HREFS, hasAdminAccess, isRouteAllowedForExternal } from "@/lib/studentAccess";
 
 /* ─── Nav Group Definitions ────────────────────────────────────── */
 
@@ -235,16 +236,36 @@ export default function Sidebar() {
   const { hasPermission, permissions } = usePermissions();
   const { totalUnread } = useDM();
   const { unreadCount: notifUnread } = useNotificationCount();
+  const [manualOpenGroup, setManualOpenGroup] = useState<string | null>(null);
 
   const external = isExternalStudent(userProfile?.department);
 
-  /** Check if a nav link should be visible based on permissions + department */
-  const isLinkVisible = (link: NavLink) => {
-    // Hide IPE-only links for external students
-    if (external && EXTERNAL_HIDDEN_HREFS.has(link.href)) return false;
-    if (!link.anyPermission) return true;
-    return link.anyPermission.some((p) => hasPermission(p));
-  };
+  const visibleGroups = useMemo(
+    () => navGroups
+      .map((group) => ({
+        ...group,
+        links: group.links.filter((link) => {
+          if (external && EXTERNAL_HIDDEN_HREFS.has(link.href)) return false;
+          if (external && link.href.startsWith("/dashboard") && !isRouteAllowedForExternal(link.href)) return false;
+          if (!link.anyPermission) return true;
+          return link.anyPermission.some((p) => hasPermission(p));
+        }),
+      }))
+      .filter((group) => group.links.length > 0),
+    [external, hasPermission],
+  );
+
+  const activeGroupLabel = useMemo(
+    () => visibleGroups.find((group) =>
+      group.links.some((link) =>
+        link.href === "/dashboard"
+          ? pathname === "/dashboard"
+          : pathname === link.href || pathname.startsWith(`${link.href}/`),
+      ),
+    )?.label ?? null,
+    [pathname, visibleGroups],
+  );
+  const openGroup = manualOpenGroup ?? activeGroupLabel ?? visibleGroups[0]?.label ?? null;
 
   return (
     <>
@@ -286,70 +307,93 @@ export default function Sidebar() {
 
         {/* Navigation Groups */}
         <nav aria-label="Dashboard navigation" className="flex-1 overflow-y-auto px-2.5 space-y-4 scrollbar-thin">
-          {navGroups.map((group) => {
-            const visibleLinks = group.links.filter(isLinkVisible);
-            if (visibleLinks.length === 0) return null;
-            return (
-            <div key={group.label}>
-              {/* Group Header */}
-              {isExpanded ? (
-                <div className="flex items-center gap-2 px-2 pt-1 pb-1.5">
-                  <span className={`w-2 h-2 rounded-full ${group.accentColor}`} />
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">
-                    {group.label}
-                  </span>
-                </div>
-              ) : (
-                <div className="flex justify-center py-1">
-                  <span className={`w-5 h-[2px] rounded-full ${group.accentColor}`} />
-                </div>
-              )}
+          {visibleGroups.map((group) => {
+            const isOpen = openGroup === group.label;
 
-              {/* Group Links */}
-              <div className="space-y-0.5">
-                {group.links.filter(isLinkVisible).map((link) => {
-                  const isActive =
-                    link.href === "/dashboard"
-                      ? pathname === "/dashboard"
-                      : pathname === link.href || pathname.startsWith(link.href + "/");
-                  return (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      title={!isExpanded ? link.name : undefined}
-                      onMouseEnter={() => prefetchRoute(link.href)}
-                      className={`relative flex items-center gap-3 rounded-xl transition-all text-sm ${
-                        isExpanded ? "px-3 py-2.5" : "justify-center px-2 py-2.5"
-                      } ${
-                        isActive
-                          ? "bg-lime text-navy font-bold border-[3px] border-navy shadow-[3px_3px_0_0_#000]"
-                          : "text-navy/50 hover:bg-ghost hover:text-navy font-medium"
-                      }`}
-                    >
-                      <span className={isActive ? "text-navy" : ""}>{link.icon}</span>
-                      {isExpanded && <span className="truncate">{link.name}</span>}
-                      {isExpanded && link.href === "/dashboard/messages" && totalUnread > 0 && (
-                        <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-coral text-snow text-[10px] font-black flex items-center justify-center">
-                          {totalUnread > 9 ? "9+" : totalUnread}
-                        </span>
-                      )}
-                      {!isExpanded && link.href === "/dashboard/messages" && totalUnread > 0 && (
-                        <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-coral border border-snow" />
-                      )}
-                      {isExpanded && link.href === "/dashboard/announcements" && notifUnread > 0 && (
-                        <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-coral text-snow text-[10px] font-black flex items-center justify-center">
-                          {notifUnread > 9 ? "9+" : notifUnread}
-                        </span>
-                      )}
-                      {!isExpanded && link.href === "/dashboard/announcements" && notifUnread > 0 && (
-                        <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-coral border border-snow" />
-                      )}
-                    </Link>
-                  );
-                })}
+            return (
+              <div key={group.label}>
+                <button
+                  type="button"
+                  onClick={() => setManualOpenGroup(isOpen ? null : group.label)}
+                  className={`w-full rounded-xl transition-colors ${isExpanded ? "px-2 pt-1 pb-1.5" : "py-1"}`}
+                  aria-label={`${group.label} section`}
+                >
+                  {isExpanded ? (
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${group.accentColor}`} />
+                      <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">{group.label}</span>
+                      <svg
+                        className={`ml-auto w-3.5 h-3.5 text-slate transition-transform ${isOpen ? "rotate-180" : ""}`}
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center gap-1">
+                      <span className={`w-5 h-[2px] rounded-full ${group.accentColor}`} />
+                      <svg
+                        className={`w-3 h-3 text-slate transition-transform ${isOpen ? "rotate-180" : ""}`}
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                </button>
+
+                {isOpen && (
+                  <div className="space-y-0.5">
+                    {group.links.map((link) => {
+                      const isActive =
+                        link.href === "/dashboard"
+                          ? pathname === "/dashboard"
+                          : pathname === link.href || pathname.startsWith(`${link.href}/`);
+
+                      return (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          title={!isExpanded ? link.name : undefined}
+                          onMouseEnter={() => prefetchRoute(link.href)}
+                          className={`relative flex items-center gap-3 rounded-xl transition-all text-sm ${
+                            isExpanded ? "px-3 py-2.5" : "justify-center px-2 py-2.5"
+                          } ${
+                            isActive
+                              ? "bg-lime text-navy font-bold border-[3px] border-navy shadow-[3px_3px_0_0_#000]"
+                              : "text-navy/50 hover:bg-ghost hover:text-navy font-medium"
+                          }`}
+                        >
+                          <span className={isActive ? "text-navy" : ""}>{link.icon}</span>
+                          {isExpanded && <span className="truncate">{link.name}</span>}
+                          {isExpanded && link.href === "/dashboard/messages" && totalUnread > 0 && (
+                            <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-coral text-snow text-[10px] font-black flex items-center justify-center">
+                              {totalUnread > 9 ? "9+" : totalUnread}
+                            </span>
+                          )}
+                          {!isExpanded && link.href === "/dashboard/messages" && totalUnread > 0 && (
+                            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-coral border border-snow" />
+                          )}
+                          {isExpanded && link.href === "/dashboard/announcements" && notifUnread > 0 && (
+                            <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-coral text-snow text-[10px] font-black flex items-center justify-center">
+                              {notifUnread > 9 ? "9+" : notifUnread}
+                            </span>
+                          )}
+                          {!isExpanded && link.href === "/dashboard/announcements" && notifUnread > 0 && (
+                            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-coral border border-snow" />
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          ); })}
+            );
+          })}
         </nav>
 
         {/* Ecosystem Switch — show for users with admin access (role or permissions) */}

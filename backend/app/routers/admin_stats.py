@@ -11,7 +11,7 @@ from app.core.permissions import require_any_permission
 from app.core.cache import cache_get, cache_set
 from app.db import get_database
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 router = APIRouter(prefix="/api/v1/admin", tags=["Admin Stats"])
 
@@ -22,6 +22,66 @@ async def _const(value):
     """Async helper returning a constant — replaces asyncio.coroutine (removed in Python 3.11+)."""
     return value
 CACHE_TTL = 60  # seconds
+
+
+def _safe_birthday_for_year(dob: date, year: int) -> date:
+    """Return birthday date in a given year (handles Feb 29 on non-leap years)."""
+    if dob.month == 2 and dob.day == 29:
+        try:
+            return date(year, 2, 29)
+        except ValueError:
+            return date(year, 2, 28)
+    return date(year, dob.month, dob.day)
+
+
+async def _fetch_upcoming_birthdays(db, days_ahead: int = 14, limit: int = 8) -> list[dict]:
+    """Return upcoming student birthdays within the next N days."""
+    users = await db["users"].find(
+        {
+            "role": "student",
+            "isActive": {"$ne": False},
+            "dateOfBirth": {"$exists": True, "$ne": None},
+        },
+        {
+            "firstName": 1,
+            "lastName": 1,
+            "dateOfBirth": 1,
+            "currentLevel": 1,
+            "department": 1,
+            "profilePictureUrl": 1,
+        },
+    ).to_list(length=5000)
+
+    today = datetime.now(timezone.utc).date()
+    upcoming: list[dict] = []
+
+    for user in users:
+        dob_value = user.get("dateOfBirth")
+        if not isinstance(dob_value, (datetime, date)):
+            continue
+
+        dob = dob_value.date() if isinstance(dob_value, datetime) else dob_value
+        this_year_birthday = _safe_birthday_for_year(dob, today.year)
+        next_birthday = this_year_birthday if this_year_birthday >= today else _safe_birthday_for_year(dob, today.year + 1)
+        days_until = (next_birthday - today).days
+
+        if 0 <= days_until <= days_ahead:
+            upcoming.append(
+                {
+                    "id": str(user["_id"]),
+                    "firstName": user.get("firstName", ""),
+                    "lastName": user.get("lastName", ""),
+                    "currentLevel": user.get("currentLevel"),
+                    "department": user.get("department"),
+                    "profilePictureUrl": user.get("profilePictureUrl"),
+                    "daysUntil": days_until,
+                    "birthdayMonth": next_birthday.month,
+                    "birthdayDay": next_birthday.day,
+                }
+            )
+
+    upcoming.sort(key=lambda item: (item["daysUntil"], item["firstName"], item["lastName"]))
+    return upcoming[:limit]
 
 
 @router.get("/stats")
@@ -70,6 +130,7 @@ async def get_admin_stats(
         total_ai_chats,
         total_growth_entries,
         registrations_7d,
+        upcoming_birthdays,
     ) = await asyncio.gather(
         # Counts
         db["users"].count_documents({}),
@@ -133,7 +194,16 @@ async def get_admin_stats(
             }},
             {"$sort": {"_id": 1}},
         ]).to_list(length=10),
+        # Upcoming birthdays in next 14 days
+        _fetch_upcoming_birthdays(db, days_ahead=14, limit=8),
     )
+
+    enrollments_by_level = enrollments_by_level or []
+    payments_by_status = payments_by_status or []
+    recent_audit_logs = recent_audit_logs or []
+    announcements_by_audience = announcements_by_audience or []
+    registrations_7d = registrations_7d or []
+    upcoming_birthdays = upcoming_birthdays or []
 
     # --- Normalise enrollments by level into ordered list ---
     level_order = ["100L", "200L", "300L", "400L", "500L"]
@@ -208,6 +278,7 @@ async def get_admin_stats(
                 for doc in registrations_7d
             ],
         },
+        "upcomingBirthdays": upcoming_birthdays,
     }
 
     # Store in cache

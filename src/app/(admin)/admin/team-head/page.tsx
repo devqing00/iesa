@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { getApiUrl } from "@/lib/api";
 import { withAuth } from "@/lib/withAuth";
+import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { toast } from "sonner";
 
 /* ═══════════════════════════════════════════════════════════
@@ -193,6 +195,7 @@ const STATUS_STYLES: Record<string, { bg: string; dot: string; label: string }> 
 export function TeamHeadPortal() {
   const { getAccessToken } = useAuth();
   const { hasPermission } = usePermissions();
+  const { showHelp, openHelp, closeHelp } = useToolHelp("team-head-portal");
   const [tab, setTab] = useState<Tab>("overview");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -499,7 +502,7 @@ export function TeamHeadPortal() {
   }
 
   return (
-    <div className="space-y-6 py-6">
+    <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {/* ░░░ Header ░░░ */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
@@ -508,6 +511,7 @@ export function TeamHeadPortal() {
             <span className="brush-highlight">{activeUnit?.unitLabel}</span> Dashboard
           </h1>
         </div>
+        <HelpButton onClick={openHelp} />
 
         {/* Unit selector (if heads > 1 unit) */}
         {headedUnits.length > 1 && (
@@ -652,8 +656,13 @@ export function TeamHeadPortal() {
                   {/* Avatar */}
                   <div className="w-12 h-12 rounded-xl bg-lime border-[3px] border-navy flex items-center justify-center font-display font-black text-navy text-lg shrink-0 overflow-hidden">
                     {m.profilePhotoURL ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={m.profilePhotoURL} alt="" className="w-full h-full object-cover" />
+                      <Image
+                        src={m.profilePhotoURL}
+                        alt=""
+                        width={48}
+                        height={48}
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
                       `${m.firstName?.[0] || ""}${m.lastName?.[0] || ""}`
                     )}
@@ -1063,9 +1072,11 @@ export function TeamHeadPortal() {
                       <div key={ms.userId} className="flex items-center gap-3">
                         <span className="text-xs font-bold text-slate w-6 text-center">{idx + 1}</span>
                         {ms.profilePhotoURL ? (
-                          <img
+                          <Image
                             src={ms.profilePhotoURL}
                             alt=""
+                            width={32}
+                            height={32}
                             className="w-8 h-8 rounded-full object-cover border-2 border-navy"
                           />
                         ) : (
@@ -1160,6 +1171,8 @@ export function TeamHeadPortal() {
           </div>
         </div>
       )}
+
+      <ToolHelpModal toolId="team-head-portal" isOpen={showHelp} onClose={closeHelp} />
     </div>
   );
 }

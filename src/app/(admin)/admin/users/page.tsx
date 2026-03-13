@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -34,6 +34,25 @@ interface User {
   isActive?: boolean;
 }
 
+interface BirthdayUser {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  matricNumber?: string;
+  currentLevel?: string;
+  department?: string;
+  daysUntil: number;
+  birthdayMonth: number;
+  birthdayDay: number;
+  nextBirthday: string;
+}
+
+function formatBirthdayDate(month: number, day: number): string {
+  const date = new Date(2024, month - 1, day);
+  return date.toLocaleDateString("en-NG", { month: "short", day: "numeric" });
+}
+
 /* ─── Component ──────────────────────────── */
 
 function AdminUsersPage() {
@@ -59,6 +78,19 @@ function AdminUsersPage() {
   const [viewLoading, setViewLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // ── Tab ──────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<"users" | "birthdays">("users");
+
+  // ── Birthdays ────────────────────────────────
+  const BD_PER_PAGE = 20;
+  const [bdSearch, setBdSearch] = useState("");
+  const [bdDept, setBdDept] = useState("all");
+  const [bdDaysAhead, setBdDaysAhead] = useState(90);
+  const [bdItems, setBdItems] = useState<BirthdayUser[]>([]);
+  const [bdLoading, setBdLoading] = useState(false);
+  const [bdTotal, setBdTotal] = useState(0);
+  const [bdPage, setBdPage] = useState(1);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -97,12 +129,47 @@ function AdminUsersPage() {
     return () => clearTimeout(debounce);
   }, [fetchUsers, searchQuery]);
 
+  const fetchBirthdays = useCallback(async () => {
+    setBdLoading(true);
+    try {
+      const token = await getAccessToken();
+      const params = new URLSearchParams();
+      params.set("limit", String(BD_PER_PAGE));
+      params.set("skip", String((bdPage - 1) * BD_PER_PAGE));
+      params.set("days_ahead", String(bdDaysAhead));
+      if (bdDept !== "all") params.set("department", bdDept);
+      if (bdSearch.trim()) params.set("search", bdSearch.trim());
+      const res = await fetch(getApiUrl(`/api/v1/users/birthdays?${params.toString()}`), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Failed to load birthdays");
+      const data = await res.json();
+      setBdItems(data.items ?? []);
+      setBdTotal(data.total ?? 0);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to load birthdays"));
+    } finally {
+      setBdLoading(false);
+    }
+  }, [getAccessToken, bdPage, bdDaysAhead, bdDept, bdSearch]);
+
+  useEffect(() => {
+    if (activeTab !== "birthdays") return;
+    const debounce = setTimeout(() => fetchBirthdays(), bdSearch ? 300 : 0);
+    return () => clearTimeout(debounce);
+  }, [fetchBirthdays, bdSearch, activeTab]);
+
   const totalPages = Math.ceil(totalUsers / ITEMS_PER_PAGE);
+  const bdTotalPages = Math.ceil(bdTotal / BD_PER_PAGE);
+  const todayCount = useMemo(() => bdItems.filter((b) => b.daysUntil === 0).length, [bdItems]);
 
   // Reset to page 1 when filter/search changes
   const handleSearch = (v: string) => { setSearchQuery(v); setPage(1); };
   const handleRoleFilter = (v: string) => { setRoleFilter(v); setPage(1); };
   const handleDeptFilter = (v: string) => { setDeptFilter(v); setPage(1); };
+  const handleBdSearch = (v: string) => { setBdSearch(v); setBdPage(1); };
+  const handleBdDept = (v: string) => { setBdDept(v); setBdPage(1); };
+  const handleBdRange = (v: string) => { setBdDaysAhead(Number(v)); setBdPage(1); };
 
   const activeUsers = users.filter((u) => u.isActive !== false).length;
   const externalCount = users.filter((u) => u.department && u.department !== "Industrial Engineering").length;
@@ -244,8 +311,27 @@ function AdminUsersPage() {
             Manage all users and their permissions
           </p>
         </div>
+        <div className="flex gap-1 p-1 bg-ghost border-[3px] border-navy rounded-2xl">
+          <button
+            onClick={() => setActiveTab("users")}
+            className={`px-5 py-2 rounded-[10px] text-sm font-bold transition-all ${
+              activeTab === "users" ? "bg-navy text-lime" : "text-navy hover:bg-cloud"
+            }`}
+          >
+            All Users
+          </button>
+          <button
+            onClick={() => setActiveTab("birthdays")}
+            className={`px-5 py-2 rounded-[10px] text-sm font-bold transition-all ${
+              activeTab === "birthdays" ? "bg-sunny border-2 border-navy text-navy" : "text-navy hover:bg-cloud"
+            }`}
+          >
+            Birthdays
+          </button>
+        </div>
       </div>
 
+      {activeTab === "users" && (<>
       {/* ── Stats Bento Grid ───────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Total Users — lime accent */}
@@ -510,6 +596,135 @@ function AdminUsersPage() {
         </div>
         <Pagination page={page} totalPages={totalPages} onPage={setPage} className="mt-5" />
       </div>
+      </>)}
+
+      {/* ── Birthdays Tab ────────────────────────── */}
+      {activeTab === "birthdays" && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-snow border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Showing</p>
+              <p className="font-display font-black text-4xl text-navy mt-1">{bdTotal}</p>
+              <p className="text-xs text-slate">Within next {bdDaysAhead} days</p>
+            </div>
+            <div className="bg-lime border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#0F0F2D]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Today</p>
+              <p className="font-display font-black text-4xl text-navy mt-1">{todayCount}</p>
+              <p className="text-xs text-navy/70">Birthdays today</p>
+            </div>
+            <div className="bg-snow border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Window</p>
+              <p className="font-display font-black text-4xl text-navy mt-1">{bdDaysAhead}</p>
+              <p className="text-xs text-slate">Days ahead</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="Search by name, email, or matric number..."
+                value={bdSearch}
+                onChange={(e) => handleBdSearch(e.target.value)}
+                className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm placeholder:text-slate"
+              />
+            </div>
+            <select
+              value={bdDept}
+              onChange={(e) => handleBdDept(e.target.value)}
+              aria-label="Filter by department"
+              className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
+            >
+              <option value="all">All Departments</option>
+              <option value="ipe">IPE Students</option>
+              <option value="external">External Students</option>
+            </select>
+            <select
+              value={String(bdDaysAhead)}
+              onChange={(e) => handleBdRange(e.target.value)}
+              aria-label="Date range"
+              className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
+            >
+              <option value="30">Next 30 days</option>
+              <option value="60">Next 60 days</option>
+              <option value="90">Next 90 days</option>
+              <option value="180">Next 180 days</option>
+              <option value="365">Next 365 days</option>
+            </select>
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="font-display font-black text-lg text-navy">Birthday List</h2>
+              <span className="px-3 py-1 rounded-full bg-cloud text-navy/60 text-xs font-bold">
+                {bdTotal} total{bdTotalPages > 1 && ` · page ${bdPage}/${bdTotalPages}`}
+              </span>
+            </div>
+            <div className="bg-snow border-[3px] border-navy rounded-3xl overflow-hidden shadow-[4px_4px_0_0_#000]">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b-[3px] border-navy bg-ghost">
+                      <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Student</th>
+                      <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-slate hidden md:table-cell">Email</th>
+                      <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Birthday</th>
+                      <th scope="col" className="text-left p-4 text-[10px] font-bold uppercase tracking-[0.12em] text-slate hidden lg:table-cell">Department</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bdLoading ? (
+                      <tr>
+                        <td colSpan={4} className="p-12 text-center">
+                          <div className="flex flex-col items-center gap-3">
+                            <div className="w-10 h-10 border-[3px] border-navy border-t-transparent rounded-full animate-spin" />
+                            <span className="text-navy/60 text-sm">Loading birthdays...</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : bdItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="p-12 text-center text-sm text-slate">No birthdays found in this window.</td>
+                      </tr>
+                    ) : (
+                      bdItems.map((item) => {
+                        const dueLabel = item.daysUntil === 0 ? "Today" : item.daysUntil === 1 ? "Tomorrow" : `In ${item.daysUntil} days`;
+                        return (
+                          <tr key={item.id} className="border-b-2 border-cloud last:border-b-0 hover:bg-ghost/50 transition-colors">
+                            <td className="p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-lime-light border-2 border-navy/20 flex items-center justify-center text-xs font-bold text-navy shrink-0">
+                                  {item.firstName?.[0] || "?"}{item.lastName?.[0] || ""}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-bold text-navy truncate">{item.firstName} {item.lastName}</p>
+                                  <p className="text-xs text-slate truncate">{item.currentLevel || "Student"}{item.matricNumber ? ` • ${item.matricNumber}` : ""}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-4 text-sm text-navy-muted hidden md:table-cell">{item.email}</td>
+                            <td className="p-4">
+                              <div className="flex flex-col">
+                                <span className="text-sm font-bold text-navy">{formatBirthdayDate(item.birthdayMonth, item.birthdayDay)}</span>
+                                <span className="text-xs text-slate">{dueLabel}</span>
+                              </div>
+                            </td>
+                            <td className="p-4 hidden lg:table-cell">
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-cloud text-navy">
+                                {item.department || "—"}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <Pagination page={bdPage} totalPages={bdTotalPages} onPage={setBdPage} className="mt-5" />
+          </div>
+        </>
+      )}
 
       {/* ── Edit User Modal ──────────────────────── */}
       <Modal

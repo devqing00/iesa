@@ -90,7 +90,7 @@ async def create_notification(
                 tag=type,
             ))
     except Exception:
-        pass  # Non-critical
+        logger.warning("Failed to trigger push notification task for userId=%s", user_id, exc_info=True)
 
     return str(result.inserted_id)
 
@@ -118,14 +118,16 @@ async def create_bulk_notifications(
 
     # Filter by category preference if specified
     if category:
-        users_cursor = db.users.find(
-            {"_id": {"$in": [ObjectId(uid) for uid in user_ids]}},
-            {"notificationCategories": 1},
-        )
+        object_ids = [ObjectId(uid) for uid in user_ids if ObjectId.is_valid(str(uid))]
         allowed_ids = []
-        async for u in users_cursor:
-            if should_notify_category(u, category):
-                allowed_ids.append(str(u["_id"]))
+        if object_ids:
+            users_cursor = db.users.find(
+                {"_id": {"$in": object_ids}},
+                {"notificationCategories": 1},
+            )
+            async for u in users_cursor:
+                if should_notify_category(u, category):
+                    allowed_ids.append(str(u["_id"]))
         if not allowed_ids:
             logger.debug(f"Bulk notification skipped entirely: all {len(user_ids)} users disabled category '{category}'")
             return 0
@@ -172,7 +174,7 @@ async def create_bulk_notifications(
                 tag=type,
             ))
     except Exception:
-        pass  # Non-critical
+        logger.warning("Failed to trigger bulk push notification task", exc_info=True)
 
     return len(result.inserted_ids)
 

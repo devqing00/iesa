@@ -8,7 +8,7 @@ import { useSidebar } from "@/context/SidebarContext";
 import { useSession } from "@/context/SessionContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { prefetchRoute } from "@/hooks/useData";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 /* ─── Admin Nav Group Definitions ──────────────────────────────── */
 
@@ -122,39 +122,6 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Class Rep",
-    accentColor: "bg-sunny",
-    links: [
-      {
-        name: "Class Rep Portal",
-        href: "/dashboard/class-rep",
-        anyPermission: ["class_rep:view_cohort"],
-        icon: (
-          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M11.7 2.805a.75.75 0 0 1 .6 0A60.65 60.65 0 0 1 22.83 8.72a.75.75 0 0 1-.231 1.337 49.948 49.948 0 0 0-9.902 3.912l-.003.002-.34.18a.75.75 0 0 1-.707 0A50.88 50.88 0 0 0 7.5 12.173v-.224c0-.131.067-.248.172-.311a54.615 54.615 0 0 1 4.653-2.52.75.75 0 0 0-.65-1.352 56.123 56.123 0 0 0-4.78 2.589 1.858 1.858 0 0 0-.859 1.228 49.803 49.803 0 0 0-4.634-1.527.75.75 0 0 1-.231-1.337A60.653 60.653 0 0 1 11.7 2.805Z" />
-            <path d="M13.06 15.473a48.45 48.45 0 0 1 7.666-3.282c.134 1.414.22 2.843.255 4.284a.75.75 0 0 1-.46.711 47.87 47.87 0 0 0-8.105 4.342.75.75 0 0 1-.832 0 47.87 47.87 0 0 0-8.104-4.342.75.75 0 0 1-.461-.71c.035-1.442.121-2.87.255-4.286a48.4 48.4 0 0 1 6.862 2.977l.895.474.896-.474c.26-.138.525-.27.79-.4Z" />
-          </svg>
-        ),
-      },
-    ],
-  },
-  {
-    label: "Team Head",
-    accentColor: "bg-teal",
-    links: [
-      {
-        name: "Team Head Portal",
-        href: "/dashboard/team-head",
-        anyPermission: ["team_head:view_members"],
-        icon: (
-          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-            <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
-          </svg>
-        ),
-      },
-    ],
-  },
-  {
     label: "System",
     accentColor: "bg-lavender",
     links: [
@@ -186,26 +153,6 @@ const navGroups: NavGroup[] = [
         icon: (
           <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path d="M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM14.25 8.625a3.375 3.375 0 1 1 6.75 0 3.375 3.375 0 0 1-6.75 0ZM1.5 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122ZM17.25 19.128l-.001.144a2.25 2.25 0 0 1-.233.96 10.088 10.088 0 0 0 5.06-1.01.75.75 0 0 0 .42-.643 4.875 4.875 0 0 0-6.957-4.611 8.586 8.586 0 0 1 1.71 5.157v.003Z" />
-          </svg>
-        ),
-      },
-      {
-        name: "TIMP",
-        href: "/dashboard/timp/manage",
-        anyPermission: ["timp:manage"],
-        icon: (
-          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-            <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A18.034 18.034 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" clipRule="evenodd" />
-          </svg>
-        ),
-      },
-      {
-        name: "IEPOD",
-        href: "/dashboard/iepod/manage",
-        anyPermission: ["iepod:manage", "iepod:view"],
-        icon: (
-          <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-            <path fillRule="evenodd" d="M12.963 2.286a.75.75 0 0 0-1.071-.136 9.742 9.742 0 0 0-3.539 6.176 7.547 7.547 0 0 1-1.705-1.715.75.75 0 0 0-1.152-.082A9 9 0 1 0 15.68 4.534a7.46 7.46 0 0 1-2.717-2.248ZM15.75 14.25a3.75 3.75 0 1 1-7.313-1.172c.628.465 1.35.81 2.133 1a5.99 5.99 0 0 1 1.925-3.546 3.75 3.75 0 0 1 3.255 3.718Z" clipRule="evenodd" />
           </svg>
         ),
       },
@@ -264,16 +211,28 @@ export default function AdminSidebar() {
   const { currentSession, allSessions } = useSession();
   const { hasPermission } = usePermissions();
   const activeSession = allSessions.find(s => s.isActive) ?? currentSession;
-  const [systemExpanded, setSystemExpanded] = useState(false);
+  const [manualOpenGroup, setManualOpenGroup] = useState<string | null>(null);
 
-  /** Max visible links in "System" group before collapsing */
-  const SYSTEM_MAX_VISIBLE = 5;
+  const visibleGroups = useMemo(
+    () => navGroups
+      .map((group) => ({
+        ...group,
+        links: group.links.filter((link) => {
+          if (!link.anyPermission) return true;
+          return link.anyPermission.some((p) => hasPermission(p));
+        }),
+      }))
+      .filter((group) => group.links.length > 0),
+    [hasPermission],
+  );
 
-  /** Check if a nav link should be visible based on permissions */
-  const isLinkVisible = (link: NavLink) => {
-    if (!link.anyPermission) return true; // No restriction
-    return link.anyPermission.some((p) => hasPermission(p));
-  };
+  const activeGroupLabel = useMemo(
+    () => visibleGroups.find((group) =>
+      group.links.some((link) => pathname === link.href || pathname.startsWith(`${link.href}/`)),
+    )?.label ?? null,
+    [pathname, visibleGroups],
+  );
+  const openGroup = manualOpenGroup ?? activeGroupLabel ?? visibleGroups[0]?.label ?? null;
 
   return (
     <>
@@ -315,96 +274,73 @@ export default function AdminSidebar() {
 
         {/* Navigation Groups */}
         <nav aria-label="Admin navigation" className="flex-1 overflow-y-auto px-2.5 pb-3 space-y-3 scrollbar-thin">
-          {navGroups.map((group) => {
-            const visibleLinks = group.links.filter(isLinkVisible);
-            if (visibleLinks.length === 0) return null;
-
-            const isSystem = group.label === "System";
-            const needsCollapse = isSystem && visibleLinks.length > SYSTEM_MAX_VISIBLE;
-            const shownLinks = needsCollapse && !systemExpanded
-              ? visibleLinks.slice(0, SYSTEM_MAX_VISIBLE)
-              : visibleLinks;
-            const hiddenCount = needsCollapse ? visibleLinks.length - SYSTEM_MAX_VISIBLE : 0;
-            // Auto-expand if the active page is in the hidden portion
-            const activeInHidden = needsCollapse && !systemExpanded &&
-              visibleLinks.slice(SYSTEM_MAX_VISIBLE).some(l => pathname === l.href);
-
-            const linksToRender = activeInHidden ? visibleLinks : shownLinks;
+          {visibleGroups.map((group) => {
+            const isOpen = openGroup === group.label;
 
             return (
-            <div key={group.label}>
-              {/* Group Header */}
-              {isExpanded ? (
-                <div className="flex items-center gap-2 px-2 pt-1 pb-1.5">
-                  <span className={`w-2 h-2 rounded-full ${group.accentColor}`} />
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">
-                    {group.label}
-                  </span>
-                </div>
-              ) : (
-                  <div className="flex justify-center pb-1">
-                    <span className={`w-5 h-[2px] rounded-full ${group.accentColor}`} />
+              <div key={group.label}>
+                <button
+                  type="button"
+                  onClick={() => setManualOpenGroup(isOpen ? null : group.label)}
+                  className={`w-full rounded-xl transition-colors ${isExpanded ? "px-2 pt-1 pb-1.5" : "py-1"}`}
+                  aria-label={`${group.label} section`}
+                >
+                  {isExpanded ? (
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${group.accentColor}`} />
+                      <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">{group.label}</span>
+                      <svg
+                        className={`ml-auto w-3.5 h-3.5 text-slate transition-transform ${isOpen ? "rotate-180" : ""}`}
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center gap-1">
+                      <span className={`w-5 h-[2px] rounded-full ${group.accentColor}`} />
+                      <svg
+                        className={`w-3 h-3 text-slate transition-transform ${isOpen ? "rotate-180" : ""}`}
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                </button>
+
+                {isOpen && (
+                  <div className="space-y-0.5">
+                    {group.links.map((link) => {
+                      const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+                      return (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          title={!isExpanded ? link.name : undefined}
+                          onMouseEnter={() => prefetchRoute(link.href)}
+                          className={`flex items-center gap-3 rounded-xl transition-all text-sm ${
+                            isExpanded ? "px-3 py-2.5" : "justify-center px-2 py-2.5"
+                          } ${
+                            isActive
+                              ? "bg-lime text-navy font-bold border-[3px] border-navy shadow-[3px_3px_0_0_#000]"
+                              : "text-navy/50 hover:bg-ghost hover:text-navy font-medium"
+                          }`}
+                        >
+                          <span className={isActive ? "text-navy" : ""}>{link.icon}</span>
+                          {isExpanded && <span className="truncate">{link.name}</span>}
+                        </Link>
+                      );
+                    })}
                   </div>
-              )}
-
-              {/* Group Links */}
-              <div className="space-y-0.5">
-                {linksToRender.map((link) => {
-                  const isActive = pathname === link.href;
-                  return (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      title={!isExpanded ? link.name : undefined}
-                      onMouseEnter={() => prefetchRoute(link.href)}
-                      className={`flex items-center gap-3 rounded-xl transition-all text-sm ${
-                        isExpanded ? "px-3 py-2.5" : "justify-center px-2 py-2.5"
-                      } ${
-                        isActive
-                          ? "bg-lime text-navy font-bold border-[3px] border-navy shadow-[3px_3px_0_0_#000]"
-                          : "text-navy/50 hover:bg-ghost hover:text-navy font-medium"
-                      }`}
-                    >
-                      <span className={isActive ? "text-navy" : ""}>{link.icon}</span>
-                      {isExpanded && <span className="truncate">{link.name}</span>}
-                    </Link>
-                  );
-                })}
-
-                {/* Show more / Show less toggle for System group */}
-                {needsCollapse && !activeInHidden && isExpanded && (
-                  <button
-                    onClick={() => setSystemExpanded(!systemExpanded)}
-                    className="flex items-center gap-2 w-full px-3 py-2 text-[11px] font-bold text-slate hover:text-navy transition-colors rounded-xl hover:bg-ghost"
-                  >
-                    <svg
-                      className={`w-4 h-4 shrink-0 transition-transform duration-200 ${systemExpanded ? "rotate-180" : ""}`}
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clipRule="evenodd" />
-                    </svg>
-                    <span>{systemExpanded ? "Show less" : `${hiddenCount} more…`}</span>
-                  </button>
-                )}
-                {needsCollapse && !activeInHidden && !isExpanded && (
-                  <button
-                    onClick={() => setSystemExpanded(!systemExpanded)}
-                    title={systemExpanded ? "Show less" : `${hiddenCount} more items`}
-                    className="flex justify-center w-full px-2 py-1.5 text-slate hover:text-navy transition-colors rounded-xl hover:bg-ghost"
-                  >
-                    <svg
-                      className={`w-4 h-4 transition-transform duration-200 ${systemExpanded ? "rotate-180" : ""}`}
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 0 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clipRule="evenodd" />
-                    </svg>
-                  </button>
                 )}
               </div>
-            </div>
-          ); })}
+            );
+          })}
         </nav>
 
         {/* Session Badge */}

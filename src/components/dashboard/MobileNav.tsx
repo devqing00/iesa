@@ -8,7 +8,7 @@ import { useSession } from "@/context/SessionContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useDM } from "@/context/DMContext";
 import { useNotificationCount } from "@/hooks/useNotificationCount";
-import { isExternalStudent, EXTERNAL_HIDDEN_HREFS, hasAdminAccess } from "@/lib/studentAccess";
+import { isExternalStudent, EXTERNAL_HIDDEN_HREFS, hasAdminAccess, isRouteAllowedForExternal } from "@/lib/studentAccess";
 
 interface MobileNavLink {
   name: string;
@@ -33,6 +33,7 @@ export default function MobileNav() {
   const isVisible = (link: MobileNavLink) => {
     // Hide IPE-only links for external students
     if (external && EXTERNAL_HIDDEN_HREFS.has(link.href)) return false;
+    if (external && link.href.startsWith("/dashboard") && !isRouteAllowedForExternal(link.href)) return false;
     if (!link.anyPermission) return true;
     return link.anyPermission.some((p) => hasPermission(p));
   };

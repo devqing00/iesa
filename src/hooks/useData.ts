@@ -69,6 +69,17 @@ export interface AdminStatsResponse {
     growthEntries: number;
     registrations7d: { date: string; count: number }[];
   };
+  upcomingBirthdays?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    currentLevel?: string;
+    department?: string;
+    profilePictureUrl?: string;
+    daysUntil: number;
+    birthdayMonth: number;
+    birthdayDay: number;
+  }[];
 }
 
 export interface Announcement {

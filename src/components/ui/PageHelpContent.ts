@@ -298,6 +298,60 @@ export const PAGE_HELP_STUDENT: Record<string, ToolHelpContent> = {
     ],
   },
 
+  /* ── Class Rep Portal ── */
+  "class-rep-portal": {
+    toolId: "class-rep-portal",
+    title: "Class Rep Portal",
+    subtitle: "Coordinate your level's communication, deadlines, and class updates",
+    accentColor: "bg-lavender",
+    steps: [
+      { icon: "chart", title: "Overview", desc: "Track your level stats, deadline count, and active polls in one place" },
+      { icon: "users", title: "Cohort Directory", desc: "Search and export your level's student list for coordination" },
+      { icon: "clock", title: "Deadlines", desc: "Create, update, and remove assignment or test deadlines for your class" },
+      { icon: "list", title: "Polls & Relay", desc: "Run quick polls and post class updates on the relay board" },
+    ],
+    tips: [
+      "Use clear course codes in deadlines so students can act quickly",
+      "Close polls when decisions are finalized to keep results clean",
+    ],
+  },
+
+  /* ── Freshers Coordinator Portal ── */
+  "freshers-portal": {
+    toolId: "freshers-portal",
+    title: "Freshers Coordinator Portal",
+    subtitle: "Manage your freshers cohort with deadlines, polls, and broadcast updates",
+    accentColor: "bg-sunny",
+    steps: [
+      { icon: "chart", title: "Cohort Snapshot", desc: "See enrollment totals and active class activities at a glance" },
+      { icon: "clock", title: "Important Deadlines", desc: "Publish key onboarding and academic deadlines for freshers" },
+      { icon: "list", title: "Pulse Checks", desc: "Create polls to collect quick feedback from your cohort" },
+      { icon: "users", title: "Announcements", desc: "Send focused updates to keep freshers informed and aligned" },
+    ],
+    tips: [
+      "Keep announcements concise and action-focused for better response rates",
+      "Use deadlines tab for time-sensitive items and relay board for context",
+    ],
+  },
+
+  /* ── Team Head Portal ── */
+  "team-head-portal": {
+    toolId: "team-head-portal",
+    title: "Team Head Portal",
+    subtitle: "Lead your unit members, noticeboard updates, and task execution",
+    accentColor: "bg-teal",
+    steps: [
+      { icon: "users", title: "Members", desc: "View and search everyone in your headed unit" },
+      { icon: "pin", title: "Noticeboard", desc: "Post important notices and pin critical updates for your team" },
+      { icon: "check", title: "Task Management", desc: "Assign tasks, set due dates, and track completion status" },
+      { icon: "chart", title: "Analytics", desc: "Review completion rates and activity trends to improve delivery" },
+    ],
+    tips: [
+      "Pin only high-priority notices so your board stays useful",
+      "Review analytics weekly to catch overdue workload early",
+    ],
+  },
+
   /* ── Team – Teams ── */
   "team-committees": {
     toolId: "team-committees",

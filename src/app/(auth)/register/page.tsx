@@ -130,7 +130,7 @@ export default function RegisterPage() {
     if (!admittedSession) { setError("Session admitted is required"); return false; }
     if (!/^\d{4}\/\d{4}$/.test(admittedSession)) { setError("Session must be in format YYYY/YYYY (e.g. 2022/2023)"); return false; }
     if (!levelConfirmed) { setError("Please confirm your calculated level"); return false; }
-    if (!dateOfBirth) { setError("Date of birth is required"); return false; }
+    if (!isExternalStudent && !dateOfBirth) { setError("Date of birth is required for IPE students"); return false; }
     return true;
   };
 
@@ -149,7 +149,7 @@ export default function RegisterPage() {
         level: calculatedLevel,
         admissionYear: derivedAdmissionYear,
         department: isExternalStudent && department.trim() ? department.trim() : "Industrial Engineering",
-        dateOfBirth: dateOfBirth,
+        dateOfBirth: dateOfBirth || undefined,
       });
       setRegistrationSuccess(true);
       toast.success("Account created!", { description: "Verification email sent. Check your inbox." });
@@ -416,9 +416,23 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="register-dob" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Date of Birth</label>
-                <input id="register-dob" type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} max={new Date().toISOString().split("T")[0]} required className={inputClass} />
-                <p className="text-xs text-slate">We&apos;ll celebrate your birthday on the platform</p>
+                <label htmlFor="register-dob" className="font-display font-bold text-xs uppercase tracking-wider text-slate">
+                  Date of Birth {isExternalStudent ? "(Optional)" : ""}
+                </label>
+                <input
+                  id="register-dob"
+                  type="date"
+                  value={dateOfBirth}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  max={new Date().toISOString().split("T")[0]}
+                  required={!isExternalStudent}
+                  className={inputClass}
+                />
+                <p className="text-xs text-slate">
+                  {isExternalStudent
+                    ? "Optional for visiting students. Add it if you want birthday reminders."
+                    : "Required for IPE students so we can celebrate your birthday on the platform."}
+                </p>
               </div>
             </div>
 

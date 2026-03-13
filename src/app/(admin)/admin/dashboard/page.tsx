@@ -25,6 +25,11 @@ function formatTimeAgo(timestamp: string): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
+function formatBirthdayDate(month: number, day: number): string {
+  const date = new Date(2024, month - 1, day);
+  return date.toLocaleDateString("en-NG", { month: "short", day: "numeric" });
+}
+
 /* ─── Component ──────────────────────────────────── */
 
 function AdminDashboardPage() {
@@ -48,6 +53,7 @@ function AdminDashboardPage() {
     paymentsByStatus: data?.paymentsByStatus ?? [],
   };
   const recentActivity = data?.recentActivity ?? [];
+  const upcomingBirthdays = data?.upcomingBirthdays ?? [];
   const engagement = data?.engagement;
 
   const greeting = getTimeGreeting;
@@ -242,24 +248,68 @@ function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Session Status */}
-        <div className="bg-lavender border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
-          <h3 className="font-display font-black text-lg text-snow mb-5">Session Status</h3>
-          <div className="space-y-3">
-            <div className="bg-snow/90 rounded-2xl p-4 border-[3px] border-navy/20">
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Active Session</p>
-              <p className="text-sm font-bold text-navy">{stats.activeSession || "None"}</p>
+        <div className="space-y-4">
+          {/* Session Status */}
+          <div className="bg-lavender border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+            <h3 className="font-display font-black text-lg text-snow mb-5">Session Status</h3>
+            <div className="space-y-3">
+              <div className="bg-snow/90 rounded-2xl p-4 border-[3px] border-navy/20">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Active Session</p>
+                <p className="text-sm font-bold text-navy">{stats.activeSession || "None"}</p>
+              </div>
+              <div className="bg-snow/90 rounded-2xl p-4 border-[3px] border-navy/20">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Announcements</p>
+                <p className="text-2xl font-display font-black text-navy">{loading ? "--" : stats.totalAnnouncements}</p>
+              </div>
+              <Link
+                href="/admin/sessions"
+                className="block w-full text-center py-3 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-4 press-lime transition-all"
+              >
+                Manage Sessions
+              </Link>
             </div>
-            <div className="bg-snow/90 rounded-2xl p-4 border-[3px] border-navy/20">
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Announcements</p>
-              <p className="text-2xl font-display font-black text-navy">{loading ? "--" : stats.totalAnnouncements}</p>
+          </div>
+
+          {/* Upcoming Birthdays */}
+          <div className="bg-sunny-light border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display font-black text-lg text-navy">Upcoming Birthdays</h3>
+              <span className="text-label-sm text-navy-muted">Next 14 days</span>
             </div>
-            <Link
-              href="/admin/sessions"
- className="block w-full text-center py-3 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-4 press-lime transition-all"
-            >
-              Manage Sessions
-            </Link>
+
+            {upcomingBirthdays.length === 0 ? (
+              <p className="text-sm text-slate font-medium">No birthdays coming up soon.</p>
+            ) : (
+              <div className="space-y-2.5">
+                {upcomingBirthdays.map((person) => {
+                  const label =
+                    person.daysUntil === 0
+                      ? "Today"
+                      : person.daysUntil === 1
+                        ? "Tomorrow"
+                        : `In ${person.daysUntil} days`;
+
+                  return (
+                    <div
+                      key={person.id}
+                      className="bg-snow border-[2px] border-navy rounded-2xl px-3 py-2.5 flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-navy truncate">
+                          {person.firstName} {person.lastName}
+                        </p>
+                        <p className="text-xs text-slate truncate">
+                          {person.currentLevel || "Student"} • {formatBirthdayDate(person.birthdayMonth, person.birthdayDay)}
+                        </p>
+                      </div>
+                      <span className="text-label-sm bg-lime-light text-navy px-2 py-1 rounded-lg border border-navy/20 whitespace-nowrap">
+                        {label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -309,7 +309,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
     if (!admittedSession) { setFormError("Please select the session you were admitted"); return false; }
     if (!calculatedLevel) { setFormError("Could not calculate your level \u2014 no active session found"); return false; }
     if (!levelConfirmed) { setFormError("Please confirm your calculated level"); return false; }
-    if (!dateOfBirth) { setFormError("Date of birth is required"); return false; }
+    if (!isExternal && !dateOfBirth) { setFormError("Date of birth is required for IPE students"); return false; }
     if (isExternal && !department.trim()) { setFormError("Please enter your department"); return false; }
     return true;
   };
@@ -371,7 +371,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
           level: calculatedLevel,
           admissionYear: derivedAdmissionYear,
           department: isExternal && department.trim() ? department.trim() : "Industrial Engineering",
-          dateOfBirth: dateOfBirth,
+          dateOfBirth: dateOfBirth || undefined,
         }),
       });
 
@@ -542,9 +542,23 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
 
               {/* Date of Birth */}
               <div className="space-y-1.5">
-                <label className="font-display font-bold text-[10px] uppercase tracking-[0.1em] text-navy/40">Date of Birth</label>
-                <input type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} max={new Date().toISOString().split("T")[0]} required className={inputClass} />
-                <p className="text-[10px] text-slate">We&apos;ll celebrate your birthday on the platform</p>
+                <label className="font-display font-bold text-[10px] uppercase tracking-[0.1em] text-navy/40">
+                  Date of Birth {isExternal ? "(Optional)" : ""}
+                </label>
+                <input
+                  type="date"
+                  value={dateOfBirth}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  max={new Date().toISOString().split("T")[0]}
+                  required={!isExternal}
+                  aria-label="Date of birth"
+                  className={inputClass}
+                />
+                <p className="text-[10px] text-slate">
+                  {isExternal
+                    ? "Optional for visiting students. Add it if you want birthday reminders."
+                    : "Required for IPE students so we can celebrate your birthday on the platform."}
+                </p>
               </div>
 
               {/* External toggle */}

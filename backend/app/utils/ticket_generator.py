@@ -32,7 +32,7 @@ class TicketGenerator:
     # Brand colors
     NAVY = "#0F0F2D"
     LIME = "#C8F31D"
-    TEAL = "#4CA868"
+    TEAL = "#5BD4C0"
     LAVENDER = "#9B72CF"
     CORAL = "#E06050"
     GHOST = "#F8F8FC"
@@ -108,6 +108,10 @@ class TicketGenerator:
         accent_h = 4 * mm
         pdf.setFillColor(colors.HexColor(self.LIME))
         pdf.rect(0, H - header_h - accent_h, W, accent_h, fill=True, stroke=False)
+        pdf.setFillColor(colors.HexColor(self.TEAL))
+        pdf.rect(0, H - header_h - accent_h - 2 * mm, W * 0.36, 2 * mm, fill=True, stroke=False)
+        pdf.setFillColor(colors.HexColor(self.CORAL))
+        pdf.rect(W * 0.64, H - header_h - accent_h - 2 * mm, W * 0.36, 2 * mm, fill=True, stroke=False)
 
         # Logo
         logo_y = H - header_h + 0.25 * inch
@@ -153,14 +157,14 @@ class TicketGenerator:
         card_w = content_w + 0.2 * inch
 
         # Card shadow
-        pdf.setFillColor(colors.HexColor("#DDDDDD"))
-        pdf.roundRect(card_x + 4, event_card_y - 4, card_w, event_card_h, 12, fill=True, stroke=False)
+        pdf.setFillColor(colors.HexColor("#000000"))
+        pdf.roundRect(card_x + 6, event_card_y - 6, card_w, event_card_h, 14, fill=True, stroke=False)
 
         # Lime card body
         pdf.setFillColor(colors.HexColor(self.LIME))
         pdf.setStrokeColor(colors.HexColor(self.NAVY))
-        pdf.setLineWidth(2)
-        pdf.roundRect(card_x, event_card_y, card_w, event_card_h, 12, fill=True, stroke=True)
+        pdf.setLineWidth(3)
+        pdf.roundRect(card_x, event_card_y, card_w, event_card_h, 14, fill=True, stroke=True)
 
         # Event title
         pdf.setFillColor(colors.HexColor(self.NAVY))
@@ -205,13 +209,13 @@ class TicketGenerator:
         attendee_y = attendee_top - attendee_h
 
         # Card shadow
-        pdf.setFillColor(colors.HexColor("#DDDDDD"))
-        pdf.roundRect(card_x + 3, attendee_y - 3, card_w, attendee_h, 12, fill=True, stroke=False)
+        pdf.setFillColor(colors.HexColor("#000000"))
+        pdf.roundRect(card_x + 5, attendee_y - 5, card_w, attendee_h, 12, fill=True, stroke=False)
 
         # Card body
         pdf.setFillColor(colors.white)
-        pdf.setStrokeColor(colors.HexColor("#E0E0E0"))
-        pdf.setLineWidth(0.5)
+        pdf.setStrokeColor(colors.HexColor(self.NAVY))
+        pdf.setLineWidth(2)
         pdf.roundRect(card_x, attendee_y, card_w, attendee_h, 12, fill=True, stroke=True)
 
         # Section header
@@ -263,8 +267,8 @@ class TicketGenerator:
         qr_card_h = qr_size + 2 * qr_card_padding + 0.3 * inch
 
         pdf.setFillColor(colors.white)
-        pdf.setStrokeColor(colors.HexColor("#E0E0E0"))
-        pdf.setLineWidth(0.5)
+        pdf.setStrokeColor(colors.HexColor(self.NAVY))
+        pdf.setLineWidth(1.5)
         pdf.roundRect(qr_card_x, qr_card_y, qr_card_w, qr_card_h, 8, fill=True, stroke=True)
 
         pdf.drawImage(qr_image, qr_x, qr_y, width=qr_size, height=qr_size,
