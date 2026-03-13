@@ -13,7 +13,7 @@ Security features:
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel, EmailStr, validator
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from typing import Optional
 from bson import ObjectId
 import re
@@ -244,12 +244,10 @@ async def initialize_student_data(db, user: dict, level: str):
     
     Creates:
     - Enrollment record
-    - Payment records (with defaults)
     - Basic role
     """
     sessions = db.sessions
     enrollments = db.enrollments
-    payments = db.payments
     roles = db.roles
     
     # Get current active session
@@ -294,49 +292,7 @@ async def initialize_student_data(db, user: dict, level: str):
             {"$set": {"level": level, "updatedAt": datetime.now(timezone.utc)}}
         )
     
-    # 2. Initialize payment records (show as unpaid with placeholder amounts)
-    # Create common departmental payments
-    common_payments = [
-        {
-            "title": "Departmental Dues",
-            "description": "Annual departmental dues for IESA activities",
-            "amount": 5000.0,
-            "category": "dues",
-            "deadline": datetime.now(timezone.utc) + timedelta(days=30),
-        },
-        {
-            "title": "Handbook & Materials",
-            "description": "Student handbook and course materials",
-            "amount": 2000.0,
-            "category": "materials",
-            "deadline": datetime.now(timezone.utc) + timedelta(days=45),
-        }
-    ]
-    
-    for payment_template in common_payments:
-        existing_payment = await payments.find_one({
-            "userId": user_id,
-            "sessionId": session_id,
-            "title": payment_template["title"]
-        })
-        
-        if not existing_payment:
-            payment_data = {
-                "userId": user_id,
-                "sessionId": session_id,
-                **payment_template,
-                "isPaid": False,
-                "hasPaid": False,
-                "paymentMethod": None,
-                "paymentDate": None,
-                "transactionId": None,
-                "createdAt": datetime.now(timezone.utc),
-                "updatedAt": datetime.now(timezone.utc),
-                "createdBy": user_id
-            }
-            await payments.insert_one(payment_data)
-    
-    # 3. Initialize default student role
+    # 2. Initialize default student role
     existing_role = await roles.find_one({
         "userId": user_id,
         "sessionId": session_id
