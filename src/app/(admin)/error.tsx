@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
-
 export default function AdminError({
   error,
   reset,
@@ -9,10 +7,6 @@ export default function AdminError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    console.error("Admin error:", error);
-  }, [error]);
-
   return (
     <div className="flex-1 flex items-center justify-center p-8">
       <div className="max-w-md w-full space-y-6 text-center">

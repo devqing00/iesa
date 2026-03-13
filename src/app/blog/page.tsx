@@ -73,8 +73,7 @@ export default function BlogPage() {
         const data = await res.json();
         setArticles(data);
       }
-    } catch (err) {
-      console.error("Failed to fetch articles:", err);
+    } catch {
       setArticles([]);
     } finally {
       setLoading(false);

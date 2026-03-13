@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import Link from "next/link";
 
 export default function GlobalError({
@@ -10,10 +9,6 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    console.error("Unhandled error:", error);
-  }, [error]);
-
   return (
     <div className="min-h-screen bg-ghost flex items-center justify-center p-6 overflow-hidden">
       {/* Decorative sparkles */}

@@ -73,8 +73,7 @@ export default function BlogArticlePage() {
           setLiked(true);
         }
       }
-    } catch (err) {
-      console.error("Failed to fetch article:", err);
+    } catch {
     } finally {
       setLoading(false);
     }

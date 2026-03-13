@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { api } from "@/lib/api/client";
 import {
@@ -200,8 +200,7 @@ export function useDrive(): UseDriveResult {
     try {
       const meta = await getDriveFileMeta(item.id);
       setViewingFile(meta);
-    } catch (err: unknown) {
-      console.error("Failed to load file metadata:", err);
+    } catch {
     } finally {
       setViewerLoading(false);
     }
@@ -221,14 +220,34 @@ export function useDrive(): UseDriveResult {
     if (searchQuery.trim().length < 2) return;
     setSearchLoading(true);
     try {
-      const result = await searchDrive(searchQuery.trim(), folderId || undefined);
-      setSearchResults(result.results);
+      const scoped = await searchDrive(searchQuery.trim(), folderId || undefined);
+      if (scoped.results.length > 0 || !folderId) {
+        setSearchResults(scoped.results);
+      } else {
+        const globalResult = await searchDrive(searchQuery.trim());
+        setSearchResults(globalResult.results);
+      }
     } catch {
       setSearchResults([]);
     } finally {
       setSearchLoading(false);
     }
   }, [searchQuery, folderId]);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (query.length === 0) {
+      setSearchResults(null);
+      return;
+    }
+    if (query.length < 2) return;
+
+    const timer = setTimeout(() => {
+      doSearch();
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, folderId, doSearch]);
 
   const handleSetSearchQuery = useCallback((q: string) => {
     setSearchQuery(q);

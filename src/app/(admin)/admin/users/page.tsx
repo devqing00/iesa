@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import Pagination from "@/components/ui/Pagination";
-import { Modal } from "@/components/ui/Modal";
+import { Modal, ConfirmModal } from "@/components/ui/Modal";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
@@ -22,6 +22,14 @@ interface User {
   level?: number;
   currentLevel?: string;
   admissionYear?: number;
+  matricNumber?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  emailVerified?: boolean;
+  hasCompletedOnboarding?: boolean;
+  isExternalStudent?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
   department?: string;
   isActive?: boolean;
 }
@@ -47,6 +55,10 @@ function AdminUsersPage() {
   const [editAdmissionYear, setEditAdmissionYear] = useState("");
   const [editIsActive, setEditIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [viewLoading, setViewLoading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -97,6 +109,7 @@ function AdminUsersPage() {
 
   /* ── Edit modal handlers ─── */
   const openEdit = (user: User) => {
+    setSelectedUser(null);
     setEditUser(user);
     setEditRole((user.role === "admin" || user.role === "exco") ? user.role : "student");
     setEditLevel(user.currentLevel || "");
@@ -160,6 +173,55 @@ function AdminUsersPage() {
       toast.error(getErrorMessage(err, "Update failed"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const openUserDetails = async (user: User) => {
+    setSelectedUser(user);
+    setViewLoading(true);
+    try {
+      const token = await getAccessToken();
+      const response = await fetch(getApiUrl(`/api/v1/users/${user._id}`), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) {
+        await throwApiError(response, "load user details");
+        return;
+      }
+      const data = await response.json();
+      setSelectedUser((prev) => ({ ...(prev || user), ...data, id: data.id || data._id }));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to load user details"));
+    } finally {
+      setViewLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const token = await getAccessToken();
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(getApiUrl(`/api/v1/users/${deleteTarget._id}`), {
+        method: "DELETE",
+        headers,
+      });
+      if (!response.ok) {
+        await throwApiError(response, "delete user");
+        return;
+      }
+
+      toast.success("User deleted successfully");
+      setDeleteTarget(null);
+      setSelectedUser((prev) => (prev?._id === deleteTarget._id ? null : prev));
+      fetchUsers();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to delete user"));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -345,7 +407,11 @@ function AdminUsersPage() {
                   </tr>
                 ) : (
                   users.map((user) => (
-                    <tr key={user.id || user._id} className="border-b-[2px] border-cloud last:border-b-0 hover:bg-ghost/50 transition-colors">
+                    <tr
+                      key={user.id || user._id}
+                      className="border-b-[2px] border-cloud last:border-b-0 hover:bg-ghost/50 transition-colors cursor-pointer"
+                      onClick={() => openUserDetails(user)}
+                    >
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-xl bg-lime-light border-[2px] border-navy/10 flex items-center justify-center text-xs font-bold text-navy shrink-0">
@@ -401,14 +467,39 @@ function AdminUsersPage() {
                         </span>
                       </td>
                       <td className="p-4">
-                        <PermissionGate anyPermission={["user:edit", "user:edit_academic", "user:edit_role"]}>
+                        <div className="flex items-center gap-2">
                           <button
-                            onClick={() => openEdit(user)}
-                            className="px-4 py-1.5 rounded-xl text-xs font-bold text-navy/60 hover:text-navy hover:bg-cloud border-[2px] border-transparent hover:border-navy/10 transition-all"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openUserDetails(user);
+                            }}
+                            className="px-3 py-1.5 rounded-xl text-xs font-bold text-navy bg-ghost border-[2px] border-navy/20 hover:border-navy transition-all"
                           >
-                            Edit
+                            View
                           </button>
-                        </PermissionGate>
+                          <PermissionGate anyPermission={["user:edit", "user:edit_academic", "user:edit_role"]}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEdit(user);
+                              }}
+                              className="px-3 py-1.5 rounded-xl text-xs font-bold text-navy/60 hover:text-navy hover:bg-cloud border-[2px] border-transparent hover:border-navy/10 transition-all"
+                            >
+                              Edit
+                            </button>
+                          </PermissionGate>
+                          <PermissionGate permission="user:delete">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteTarget(user);
+                              }}
+                              className="px-3 py-1.5 rounded-xl text-xs font-bold text-coral bg-coral-light border-[2px] border-coral/50 hover:bg-coral hover:text-snow transition-all"
+                            >
+                              Delete
+                            </button>
+                          </PermissionGate>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -534,10 +625,66 @@ function AdminUsersPage() {
           </PermissionGate>
         </div>
       </Modal>
+
+      {/* ── View User Modal ──────────────────────── */}
+      <Modal
+        isOpen={!!selectedUser}
+        onClose={() => setSelectedUser(null)}
+        title="User Details"
+        description={selectedUser ? `${selectedUser.firstName} ${selectedUser.lastName} · ${selectedUser.email}` : ""}
+        size="md"
+        footer={
+          <>
+            <button
+              onClick={() => setSelectedUser(null)}
+              className="px-5 py-2.5 rounded-xl text-sm font-bold text-navy border-[2px] border-navy/20 hover:bg-cloud transition-colors"
+            >
+              Close
+            </button>
+            <PermissionGate anyPermission={["user:edit", "user:edit_academic", "user:edit_role"]}>
+              <button
+                onClick={() => selectedUser && openEdit(selectedUser)}
+                className="px-5 py-2.5 bg-lime border-[3px] border-navy rounded-xl text-sm font-bold text-navy press-3 press-navy"
+              >
+                Edit User
+              </button>
+            </PermissionGate>
+          </>
+        }
+      >
+        {selectedUser && (
+          <div className="space-y-4">
+            {viewLoading && <p className="text-xs font-bold text-slate uppercase tracking-wider">Loading latest details…</p>}
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Matric Number</p><p className="font-bold text-navy">{selectedUser.matricNumber || "—"}</p></div>
+              <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Phone</p><p className="font-bold text-navy">{selectedUser.phone || "—"}</p></div>
+              <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Department</p><p className="font-bold text-navy">{selectedUser.department || "—"}</p></div>
+              <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Role</p><p className="font-bold text-navy capitalize">{selectedUser.role || "—"}</p></div>
+              <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Current Level</p><p className="font-bold text-navy">{selectedUser.currentLevel || "—"}</p></div>
+              <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Admission Year</p><p className="font-bold text-navy">{selectedUser.admissionYear || "—"}</p></div>
+              <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Date of Birth</p><p className="font-bold text-navy">{selectedUser.dateOfBirth ? new Date(selectedUser.dateOfBirth).toLocaleDateString() : "—"}</p></div>
+              <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Status</p><p className="font-bold text-navy">{selectedUser.isActive !== false ? "Active" : "Inactive"}</p></div>
+              <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Email Verified</p><p className="font-bold text-navy">{selectedUser.emailVerified ? "Yes" : "No"}</p></div>
+              <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Onboarding</p><p className="font-bold text-navy">{selectedUser.hasCompletedOnboarding ? "Completed" : "Incomplete"}</p></div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        onClose={() => !deleting && setDeleteTarget(null)}
+        onConfirm={handleDeleteUser}
+        title="Delete User"
+        message={`Delete ${deleteTarget?.firstName || "this"} ${deleteTarget?.lastName || "user"}? This action is permanent, removes related user data, and anonymizes financial records kept for audit.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleting}
+      />
     </div>
   );
 }
 
 export default withAuth(AdminUsersPage, {
-  anyPermission: ["user:view_all", "user:edit", "user:edit_academic", "user:edit_role"],
+  anyPermission: ["user:view_all", "user:edit", "user:edit_academic", "user:edit_role", "user:delete"],
 });

@@ -231,7 +231,7 @@ export default function StudentDashboardPage() {
 
   return (
     <div className="min-h-screen bg-ghost">
-      <DashboardHeader title="Dashboard" />
+      <DashboardHeader title="Dashboard" showGreeting={false} />
       <ToolHelpModal toolId="student-dashboard" isOpen={showHelp} onClose={closeHelp} />
 
       {/* Birthday confetti overlay */}
@@ -380,13 +380,11 @@ export default function StudentDashboardPage() {
               ) : (
                 <>
                   <span className="text-[10px] font-bold text-navy bg-teal rounded-full px-3 py-1 uppercase tracking-wider">
-                    {todayClasses.length} class{todayClasses.length !== 1 ? "es" : ""} today
+                    {announcements.length} announcement{announcements.length !== 1 ? "s" : ""}
                   </span>
-                  {pendingPayments.length > 0 && (
-                    <span className="text-[10px] font-bold text-navy bg-coral rounded-full px-3 py-1 uppercase tracking-wider">
-                      {pendingPayments.length} pending due{pendingPayments.length !== 1 ? "s" : ""}
-                    </span>
-                  )}
+                  <span className="text-[10px] font-bold text-navy bg-coral rounded-full px-3 py-1 uppercase tracking-wider">
+                    {events.length} upcoming event{events.length !== 1 ? "s" : ""}
+                  </span>
                 </>
               )}
             </div>

@@ -739,20 +739,10 @@ async def get_notification_categories(
 # ──────────────────────────────────────────────
 
 
-@router.delete("/me")
-async def delete_account(
-    user: dict = Depends(get_current_user),
-):
-    """
-    Permanently delete the current user's account and all associated data.
-
-    Firebase Auth user is also deleted so they can't log in again.
-    """
-    db = get_database()
+async def _delete_user_account_data(db, user_id: str) -> None:
+    """Delete user account and related data across collections."""
     users = db["users"]
-    user_id = str(user["_id"])
 
-    # Delete Firebase Auth user (if firebaseUid exists)
     user_doc = await users.find_one({"_id": ObjectId(user_id)})
     firebase_uid = user_doc.get("firebaseUid") if user_doc else None
     if firebase_uid:
@@ -765,7 +755,6 @@ async def delete_account(
             import logging
             logging.warning(f"Failed to delete Firebase user {firebase_uid}: {e}")
 
-    # Delete associated data — cast wide to remove all orphaned docs
     await db["enrollments"].delete_many({"studentId": user_id})
     await db["notifications"].delete_many({"userId": user_id})
     await db["bankTransfers"].delete_many({"studentId": user_id})
@@ -779,13 +768,65 @@ async def delete_account(
         {"$set": {"studentName": "[deleted]", "studentEmail": "[deleted]"}},
     )
 
-    # Remove user from study group memberships (don't delete the groups)
     await db["study_groups"].update_many(
         {"members.userId": user_id},
         {"$pull": {"members": {"userId": user_id}}},
     )
 
-    # Delete the user
     await users.delete_one({"_id": ObjectId(user_id)})
+
+
+@router.delete("/{user_id}")
+async def delete_user_by_admin(
+    user_id: str,
+    request: Request,
+    admin_user: dict = Depends(require_permission("user:delete")),
+):
+    """Permanently delete a user account as an admin."""
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=400, detail="Invalid user ID format")
+
+    admin_id = str(admin_user.get("_id") or admin_user.get("id", ""))
+    if user_id == admin_id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account via admin endpoint")
+
+    db = get_database()
+    users = db["users"]
+    target_user = await users.find_one({"_id": ObjectId(user_id)})
+    if not target_user:
+        raise HTTPException(status_code=404, detail=f"User {user_id} not found")
+
+    await _delete_user_account_data(db, user_id)
+
+    await AuditLogger.log(
+        action="user.deleted_by_admin",
+        actor_id=admin_user.get("_id") or admin_user.get("id", "unknown"),
+        actor_email=admin_user.get("email", "unknown"),
+        resource_type="user",
+        resource_id=user_id,
+        details={
+            "target_email": target_user.get("email"),
+            "target_name": f"{target_user.get('firstName', '')} {target_user.get('lastName', '')}".strip(),
+        },
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    return {"message": "User deleted successfully"}
+
+
+@router.delete("/me")
+async def delete_account(
+    user: dict = Depends(get_current_user),
+):
+    """
+    Permanently delete the current user's account and all associated data.
+
+    Firebase Auth user is also deleted so they can't log in again.
+    """
+    db = get_database()
+    user_id = str(user["_id"])
+
+    await _delete_user_account_data(db, user_id)
 
     return {"message": "Account deleted successfully"}

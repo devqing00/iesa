@@ -537,11 +537,13 @@ export const PAGE_HELP_ADMIN: Record<string, ToolHelpContent> = {
       { icon: "users", title: "Browse Users", desc: "See all registered students and admins with their details" },
       { icon: "search", title: "Search & Filter", desc: "Search by name, email, matric number, or filter by role and level" },
       { icon: "gear", title: "Manage Roles", desc: "Assign or remove admin roles from the user detail panel" },
-      { icon: "pencil", title: "Edit User", desc: "Update user details, reset passwords, or deactivate accounts" },
+      { icon: "pencil", title: "Edit User", desc: "Update user details, role, academic info, and account status" },
+      { icon: "trash", title: "Delete User", desc: "Permanently remove a user account after confirmation" },
     ],
     tips: [
       "Use the search bar for quick lookups — it searches across name, email, and matric",
       "Role changes take effect immediately",
+      "Deleting a user is permanent and also removes related user data (with financial records anonymized for audit)",
     ],
   },
 

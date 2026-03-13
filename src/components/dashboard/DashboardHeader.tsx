@@ -89,7 +89,7 @@ function SessionSelector() {
   );
 }
 
-export default function DashboardHeader({ title = "Dashboard" }: { title?: string }) {
+export default function DashboardHeader({ title = "Dashboard", showGreeting = true }: { title?: string; showGreeting?: boolean }) {
   const { userProfile } = useAuth();
 
   return (
@@ -99,9 +99,11 @@ export default function DashboardHeader({ title = "Dashboard" }: { title?: strin
         <div className="flex items-center gap-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">{title}</p>
-            <h1 className="font-display font-black text-xl sm:text-2xl text-navy">
-              {getTimeGreeting()}{userProfile?.firstName ? `, ${userProfile.firstName}` : ""}
-            </h1>
+            {showGreeting && (
+              <h1 className="font-display font-black text-xl sm:text-2xl text-navy">
+                {getTimeGreeting()}{userProfile?.firstName ? `, ${userProfile.firstName}` : ""}
+              </h1>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">

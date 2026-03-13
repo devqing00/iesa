@@ -89,7 +89,7 @@ const CATEGORY_META: { key: NotifCategory; label: string; desc: string; icon: Re
 /* ─── Page ───────────────────────────────────────────────── */
 
 export default function SettingsPage() {
-  const { userProfile, refreshProfile, signOut, sendPasswordReset } = useAuth();
+  const { userProfile, firebaseUser, refreshProfile, signOut, sendPasswordReset } = useAuth();
   const { showHelp, openHelp, closeHelp } = useToolHelp("settings");
   const { allSessions } = useSession();
   const router = useRouter();
@@ -223,6 +223,7 @@ export default function SettingsPage() {
 
   const hasSecondary = !!userProfile?.secondaryEmail;
   const secondaryVerified = !!userProfile?.secondaryEmailVerified;
+  const hasPasswordProvider = !!firebaseUser?.providerData?.some((provider) => provider.providerId === "password");
 
   /* ─── Render ───────────────────────────────────────────── */
 
@@ -245,6 +246,7 @@ export default function SettingsPage() {
       {/* ═══════════════════════════════════════════════════════
           SECTION 1: PASSWORD
           ═══════════════════════════════════════════════════════ */}
+      {hasPasswordProvider && (
       <section className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[8px_8px_0_0_#000] mb-8">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 bg-lavender-light rounded-xl flex items-center justify-center">
@@ -277,6 +279,7 @@ export default function SettingsPage() {
           )}
         </div>
       </section>
+      )}
 
       {/* ═══════════════════════════════════════════════════════
           SECTION 2: NOTIFICATION PREFERENCES
