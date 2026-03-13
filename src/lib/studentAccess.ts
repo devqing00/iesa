@@ -58,12 +58,17 @@ export const EXTERNAL_HIDDEN_HREFS = new Set([
   "/dashboard/press",
   "/dashboard/team",
   "/dashboard/timp",
+  "/dashboard/timp/manage",
   "/dashboard/ticket",
   "/dashboard/applications",
   "/dashboard/archive",
   "/dashboard/receipt",
   "/dashboard/calendar",
   "/dashboard/messages",
+  "/dashboard/class-rep",
+  "/dashboard/team-head",
+  "/dashboard/freshers",
+  "/dashboard/iepod/manage",
 ]);
 
 /**
@@ -81,6 +86,25 @@ export const STUDENT_ONLY_PERMISSIONS = new Set([
   "resource:create",
 ]);
 
+const PORTAL_ONLY_PERMISSION_PREFIXES = [
+  "class_rep:",
+  "team_head:",
+  "timp:",
+  "iepod:",
+  "freshers:",
+];
+
+const PORTAL_ONLY_PERMISSION_EXACT = new Set([
+  "announcement:create",
+  "announcement:edit",
+  "announcement:delete",
+  "event:create",
+  "event:edit",
+  "event:manage",
+  "payment:view_all",
+  "timetable:view",
+]);
+
 /**
  * Check if a user should see the "Switch to Admin" button.
  * Requires admin/exco role OR at least one permission that goes
@@ -91,5 +115,13 @@ export function hasAdminAccess(
   permissions: string[] = [],
 ): boolean {
   if (role === "admin" || role === "exco") return true;
-  return permissions.some((p) => !STUDENT_ONLY_PERMISSIONS.has(p));
+
+  const elevated = permissions.filter((p) => !STUDENT_ONLY_PERMISSIONS.has(p));
+  if (elevated.length === 0) return false;
+
+  return elevated.some((permission) => {
+    if (PORTAL_ONLY_PERMISSION_EXACT.has(permission)) return false;
+    if (PORTAL_ONLY_PERMISSION_PREFIXES.some((prefix) => permission.startsWith(prefix))) return false;
+    return true;
+  });
 }

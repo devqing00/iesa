@@ -80,6 +80,17 @@ def _fb_to_response(doc: dict) -> FeedbackResponse:
     )
 
 
+async def _is_timp_lead(db, user_id: str, session_id: str) -> bool:
+    """Check whether a user has an active TIMP lead role in the given session."""
+    role = await db.roles.find_one({
+        "userId": user_id,
+        "sessionId": session_id,
+        "position": "timp_lead",
+        "isActive": True,
+    })
+    return role is not None
+
+
 # ═══════════════════════════════════════════════════════════════════
 # SETTINGS — form open/close toggle
 # ═══════════════════════════════════════════════════════════════════
@@ -351,11 +362,41 @@ async def get_enriched_mentors(
 
     apps = await db.timpApplications.find(query).sort("userName", 1).to_list(length=500)
 
+    # Include active TIMP leads as implicit approved mentors (even without applications)
+    lead_roles = await db.roles.find(
+        {
+            "sessionId": sid,
+            "position": "timp_lead",
+            "isActive": True,
+        },
+        {"userId": 1},
+    ).to_list(length=20)
+    lead_user_ids = [r.get("userId") for r in lead_roles if r.get("userId")]
+
     # Batch-fetch user docs and pair counts
     user_ids = [a["userId"] for a in apps]
-    user_oids = [ObjectId(uid) for uid in user_ids if ObjectId.is_valid(uid)]
+    all_user_ids = sorted(set([*user_ids, *lead_user_ids]))
+    user_oids = [ObjectId(uid) for uid in all_user_ids if ObjectId.is_valid(uid)]
     users_cursor = db.users.find({"_id": {"$in": user_oids}})
     users_map = {str(u["_id"]): u async for u in users_cursor}
+
+    # Add implicit mentor entries for leads not already in approved applications
+    existing_user_ids = set(user_ids)
+    for lead_uid in lead_user_ids:
+        if lead_uid in existing_user_ids:
+            continue
+        lead_user = users_map.get(lead_uid)
+        if not lead_user:
+            continue
+        apps.append({
+            "_id": f"lead-{lead_uid}",
+            "userId": lead_uid,
+            "userName": f"{lead_user.get('firstName', '')} {lead_user.get('lastName', '')}".strip(),
+            "skills": "TIMP Lead",
+            "availability": "Coordinated by TIMP lead",
+            "motivation": "Implicit mentor role via TIMP leadership",
+            "maxMentees": 10,
+        })
 
     # Count active pairs per mentor
     pipeline = [
@@ -375,6 +416,7 @@ async def get_enriched_mentors(
             "matricNumber": u.get("matricNumber", ""),
             "level": u.get("currentLevel") or a.get("userLevel"),
             "phone": u.get("phone"),
+            "gender": u.get("gender") or u.get("sex"),
             "skills": a["skills"],
             "availability": a["availability"],
             "motivation": a["motivation"],
@@ -436,6 +478,7 @@ async def get_mentee_candidates(
             "matricNumber": f.get("matricNumber", ""),
             "level": f.get("currentLevel", "100L"),
             "phone": f.get("phone"),
+            "gender": f.get("gender") or f.get("sex"),
             "profilePictureUrl": f.get("profilePictureUrl"),
             "alreadyPaired": uid in paired_ids,
         })
@@ -511,7 +554,11 @@ async def create_pair(
         "status": "approved",
     })
     if not mentor_app:
-        raise HTTPException(status_code=400, detail="Mentor has no approved application")
+        mentor_is_lead = await _is_timp_lead(db, data.mentorId, sid)
+        if mentor_is_lead:
+            mentor_app = {"maxMentees": 10}
+        else:
+            raise HTTPException(status_code=400, detail="Mentor has no approved application")
 
     # Count existing active pairs for this mentor
     active_count = await db.timpPairs.count_documents({
@@ -809,10 +856,12 @@ async def get_my_timp_info(
         except (ValueError, TypeError):
             pass
 
+    is_timp_lead = await _is_timp_lead(db, uid, sid)
+
     return {
         "application": _app_to_response(application) if application else None,
         "pairs": [_pair_to_response(p) for p in pairs],
-        "isMentor": application is not None and application["status"] == "approved",
+        "isMentor": (application is not None and application["status"] == "approved") or is_timp_lead,
         "isMentee": any(p["menteeId"] == uid for p in pairs),
         "formOpen": form_open,
         "userLevel": level_num,
@@ -843,7 +892,6 @@ async def get_timp_analytics(
         paused_pairs,
         completed_pairs,
         total_feedback,
-        avg_rating_result,
     ) = await asyncio.gather(
         db.timpApplications.count_documents({"sessionId": sid}),
         db.timpApplications.count_documents({"sessionId": sid, "status": "pending"}),
@@ -853,11 +901,12 @@ async def get_timp_analytics(
         db.timpPairs.count_documents({"sessionId": sid, "status": "paused"}),
         db.timpPairs.count_documents({"sessionId": sid, "status": "completed"}),
         db.timpFeedback.count_documents({"sessionId": sid}),
-        db.timpFeedback.aggregate([
-            {"$match": {"sessionId": sid}},
-            {"$group": {"_id": None, "avg": {"$avg": "$rating"}}},
-        ]).to_list(length=1),
     )
+
+    avg_rating_result = await db.timpFeedback.aggregate([
+        {"$match": {"sessionId": sid}},
+        {"$group": {"_id": None, "avg": {"$avg": "$rating"}}},
+    ]).to_list(length=1)
 
     avg_rating = round(avg_rating_result[0]["avg"], 1) if avg_rating_result else 0
 
@@ -964,7 +1013,7 @@ async def get_pair_messages(
     has_manage = False
     try:
         from ..core.permissions import get_user_permissions
-        perms = await get_user_permissions(uid)
+        perms = await get_user_permissions(uid, pair.get("sessionId", ""))
         has_manage = "timp:manage" in perms
     except Exception:
         pass

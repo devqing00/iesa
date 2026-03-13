@@ -127,7 +127,7 @@ const navGroups: NavGroup[] = [
     links: [
       {
         name: "Class Rep Portal",
-        href: "/admin/class-rep",
+        href: "/dashboard/class-rep",
         anyPermission: ["class_rep:view_cohort"],
         icon: (
           <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
@@ -144,7 +144,7 @@ const navGroups: NavGroup[] = [
     links: [
       {
         name: "Team Head Portal",
-        href: "/admin/team-head",
+        href: "/dashboard/team-head",
         anyPermission: ["team_head:view_members"],
         icon: (
           <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
@@ -191,7 +191,7 @@ const navGroups: NavGroup[] = [
       },
       {
         name: "TIMP",
-        href: "/admin/timp",
+        href: "/dashboard/timp/manage",
         anyPermission: ["timp:manage"],
         icon: (
           <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">
@@ -201,7 +201,7 @@ const navGroups: NavGroup[] = [
       },
       {
         name: "IEPOD",
-        href: "/admin/iepod",
+        href: "/dashboard/iepod/manage",
         anyPermission: ["iepod:manage", "iepod:view"],
         icon: (
           <svg aria-hidden="true" className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor">

@@ -268,7 +268,7 @@ export default function TeamsPage() {
               </p>
             </div>
             <Link
-              href="/admin/team-head"
+              href="/dashboard/team-head"
               className="shrink-0 bg-navy border-[3px] border-lime press-4 press-lime text-lime font-display font-black text-sm px-6 py-3 rounded-2xl inline-flex items-center gap-2"
             >
               Open Portal

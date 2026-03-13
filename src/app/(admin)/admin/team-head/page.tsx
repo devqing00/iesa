@@ -190,7 +190,7 @@ const STATUS_STYLES: Record<string, { bg: string; dot: string; label: string }> 
    Main Page
    ═══════════════════════════════════════════════════════════ */
 
-function TeamHeadPortal() {
+export function TeamHeadPortal() {
   const { getAccessToken } = useAuth();
   const { hasPermission } = usePermissions();
   const [tab, setTab] = useState<Tab>("overview");

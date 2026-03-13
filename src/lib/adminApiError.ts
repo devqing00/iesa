@@ -39,6 +39,17 @@ export async function throwApiError(
     throw new Error(detail || `${capitalize(action)} — not found`);
   }
 
+  if (res.status === 409) {
+    if (action.toLowerCase().includes("assign role")) {
+      throw new Error(
+        detail || "This user already has this role for this session.",
+      );
+    }
+    throw new Error(
+      detail || `${capitalize(action)} conflict — this assignment already exists`,
+    );
+  }
+
   throw new Error(
     detail || `${capitalize(action)} failed (HTTP ${res.status})`,
   );

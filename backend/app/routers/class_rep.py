@@ -35,9 +35,9 @@ router = APIRouter(prefix="/api/v1/class-rep", tags=["class-rep"])
 
 async def _get_rep_level(user: dict) -> str:
     """
-    Resolve the class-rep level from the user's active role doc.
-    Works for both class_rep_400L and asst_class_rep_400L positions.
-    Raises 403 if the caller has no active class-rep role.
+    Resolve the level scope from the caller's active portal role.
+    Supports class reps, assistant class reps, and freshers coordinator.
+    Raises 403 if the caller has no active role for this portal.
     """
     db = get_database()
     user_id = str(user.get("_id") or user.get("id", ""))
@@ -48,10 +48,14 @@ async def _get_rep_level(user: dict) -> str:
         "$or": [
             {"position": {"$regex": "^class_rep_"}},
             {"position": {"$regex": "^asst_class_rep_"}},
+            {"position": "freshers_coordinator"},
         ],
     })
     if not role:
-        raise HTTPException(status_code=403, detail="No active class-rep role found")
+        raise HTTPException(status_code=403, detail="No active class-rep or freshers-coordinator role found")
+
+    if role.get("position") == "freshers_coordinator":
+        return "100L"
 
     # Extract level from position string: class_rep_400L → 400L
     # Or use the explicit `level` field on the role doc

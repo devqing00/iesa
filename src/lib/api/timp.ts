@@ -204,6 +204,7 @@ export interface EnrichedMentor {
   email: string;
   matricNumber: string;
   level: string | null;
+  gender?: string | null;
   phone: string | null;
   skills: string;
   availability: string;
@@ -221,6 +222,7 @@ export interface MenteeCandidate {
   email: string;
   matricNumber: string;
   level: string;
+  gender?: string | null;
   phone: string | null;
   profilePictureUrl: string | null;
   alreadyPaired: boolean;

@@ -120,7 +120,7 @@ export default function AdminMobileNav() {
     },
     {
       name: "Class Rep",
-      href: "/admin/class-rep",
+      href: "/dashboard/class-rep",
       color: "bg-lavender-light",
       anyPermission: ["class_rep:view_cohort"],
       icon: (
@@ -133,7 +133,7 @@ export default function AdminMobileNav() {
     },
     {
       name: "Team Head",
-      href: "/admin/team-head",
+      href: "/dashboard/team-head",
       color: "bg-teal-light",
       anyPermission: ["team_head:view_members"],
       icon: (
@@ -144,7 +144,7 @@ export default function AdminMobileNav() {
     },
     {
       name: "TIMP",
-      href: "/admin/timp",
+      href: "/dashboard/timp/manage",
       color: "bg-teal-light",
       anyPermission: ["timp:manage"],
       icon: (
@@ -155,7 +155,7 @@ export default function AdminMobileNav() {
     },
     {
       name: "IEPOD",
-      href: "/admin/iepod",
+      href: "/dashboard/iepod/manage",
       color: "bg-coral-light",
       anyPermission: ["iepod:manage", "iepod:view"],
       icon: (

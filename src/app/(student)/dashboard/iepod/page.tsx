@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { usePermissions } from "@/context/PermissionsContext";
+import { useRouter } from "next/navigation";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -13,7 +15,6 @@ import {
   getLeaderboard,
   PHASE_LABELS,
   PHASE_STYLES,
-  REG_STATUS_STYLES,
 } from "@/lib/api";
 import type {
   MyIepodProfile,
@@ -187,8 +188,10 @@ function RegistrationForm({
 
       {/* Preferred society */}
       <div>
-        <label className="text-label text-navy mb-2 block">Preferred Society (optional)</label>
+        <label htmlFor="preferred-society" className="text-label text-navy mb-2 block">Preferred Society (optional)</label>
         <select
+          id="preferred-society"
+          aria-label="Preferred Society"
           value={preferredSociety}
           onChange={(e) => setPreferredSociety(e.target.value)}
           className="w-full border-[3px] border-navy rounded-xl px-4 py-3 font-medium text-navy bg-snow focus:outline-none focus:ring-2 focus:ring-lime"
@@ -215,6 +218,8 @@ function RegistrationForm({
 
 export default function IepodStudentPage() {
   const { user } = useAuth();
+  const { hasAnyPermission, loading: permissionsLoading } = usePermissions();
+  const router = useRouter();
   const { showHelp, openHelp, closeHelp } = useToolHelp("iepod");
   const [profile, setProfile] = useState<MyIepodProfile | null>(null);
   const [societies, setSocieties] = useState<Society[]>([]);
@@ -243,6 +248,13 @@ export default function IepodStudentPage() {
   useEffect(() => {
     if (user) fetchData();
   }, [user, fetchData]);
+
+  useEffect(() => {
+    if (permissionsLoading) return;
+    if (hasAnyPermission(["iepod:manage", "iepod:view"])) {
+      router.replace("/dashboard/iepod/manage");
+    }
+  }, [hasAnyPermission, permissionsLoading, router]);
 
   const handleRegister = async (data: {
     interests: string[];
@@ -274,7 +286,7 @@ export default function IepodStudentPage() {
     }
   };
 
-  if (loading) {
+  if (permissionsLoading || loading) {
     return (
       <div className="min-h-screen">
         <DashboardHeader title="IEPOD Hub" />

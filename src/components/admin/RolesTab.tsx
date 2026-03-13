@@ -63,6 +63,7 @@ const POSITIONS = [
   { group: "Class Representatives",    value: "asst_class_rep_300L",              label: "300L Asst. Class Rep" },
   { group: "Class Representatives",    value: "asst_class_rep_400L",              label: "400L Asst. Class Rep" },
   { group: "Class Representatives",    value: "asst_class_rep_500L",              label: "500L Asst. Class Rep" },
+  { group: "Class Representatives",    value: "freshers_coordinator",             label: "Freshers Coordinator (100L)" },
   // ── Team Heads ────────────────────────────────────────────────────
   { group: "Team Heads",               value: "ics_head",                          label: "ICS Head" },
   { group: "Team Heads",               value: "team_head_industrial_visit",        label: "Industrial Visit Head" },
@@ -368,6 +369,7 @@ export default function RolesTab() {
     "social_director",
     "sports_secretary",
     "assistant_sports_secretary",
+    "academic_lead",
     "pro",
     "financial_secretary",
     "director_of_socials",

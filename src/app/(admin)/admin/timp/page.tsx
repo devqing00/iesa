@@ -120,11 +120,135 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
+type InferredGender = "female" | "male" | "unknown";
+
+interface AutoPairDraft {
+  menteeId: string;
+  mentorId: string;
+  reason: string;
+}
+
+function parseLevelNumber(level?: string | number | null): number {
+  if (typeof level === "number") return level;
+  if (!level) return 0;
+  const num = Number(String(level).replace(/[^0-9]/g, ""));
+  return Number.isFinite(num) ? num : 0;
+}
+
+function inferGender(value?: string | null, name?: string): InferredGender {
+  const raw = (value || "").toLowerCase().trim();
+  if (["f", "female", "woman", "girl"].includes(raw)) return "female";
+  if (["m", "male", "man", "boy"].includes(raw)) return "male";
+
+  const first = (name || "").split(" ")[0]?.toLowerCase() || "";
+  const likelyFemaleNames = new Set([
+    "mary", "grace", "esther", "faith", "deborah", "blessing", "chioma", "ada", "favour", "joy", "ruth", "mercy", "precious", "victoria", "sarah",
+  ]);
+  const likelyMaleNames = new Set([
+    "john", "michael", "david", "joshua", "samuel", "daniel", "emmanuel", "chinedu", "tobi", "oluwaseun", "elijah", "isaac", "paul", "moses", "victor",
+  ]);
+  if (likelyFemaleNames.has(first)) return "female";
+  if (likelyMaleNames.has(first)) return "male";
+  return "unknown";
+}
+
+function buildSmartDraft(
+  mentors: EnrichedMentor[],
+  mentees: MenteeCandidate[],
+): AutoPairDraft[] {
+  const availableMentors = mentors.filter((mentor) => !mentor.isFull);
+  const availableMentees = mentees.filter((mentee) => !mentee.alreadyPaired);
+
+  const remainingSlots = new Map<string, number>(
+    availableMentors.map((mentor) => [mentor.userId, Math.max(0, mentor.maxMentees - mentor.activePairs)]),
+  );
+
+  const mentorById = new Map(availableMentors.map((mentor) => [mentor.userId, mentor]));
+
+  const sortedMentees = [...availableMentees].sort((left, right) => {
+    const leftGender = inferGender(left.gender, `${left.firstName} ${left.lastName}`);
+    const rightGender = inferGender(right.gender, `${right.firstName} ${right.lastName}`);
+    if (leftGender === rightGender) {
+      return `${left.firstName} ${left.lastName}`.localeCompare(`${right.firstName} ${right.lastName}`);
+    }
+    if (leftGender === "female") return -1;
+    if (rightGender === "female") return 1;
+    return 0;
+  });
+
+  const drafts: AutoPairDraft[] = [];
+
+  for (const mentee of sortedMentees) {
+    const menteeName = `${mentee.firstName} ${mentee.lastName}`;
+    const menteeGender = inferGender(mentee.gender, menteeName);
+    const menteeLevel = parseLevelNumber(mentee.level);
+
+    const mentorsWithCapacity = availableMentors.filter((mentor) => (remainingSlots.get(mentor.userId) || 0) > 0);
+    if (mentorsWithCapacity.length === 0) break;
+
+    const femaleMentorsWithCapacity = mentorsWithCapacity.filter(
+      (mentor) => inferGender(mentor.gender, mentor.userName) === "female",
+    );
+
+    let bestMentor: EnrichedMentor | null = null;
+    let bestScore = Number.POSITIVE_INFINITY;
+
+    for (const mentor of mentorsWithCapacity) {
+      const mentorGender = inferGender(mentor.gender, mentor.userName);
+      const mentorLevel = parseLevelNumber(mentor.level);
+      const remaining = remainingSlots.get(mentor.userId) || 0;
+
+      let score = 0;
+      score += Math.max(0, menteeLevel - mentorLevel) * 10;
+      score += Math.abs(mentorLevel - menteeLevel);
+      score += mentor.activePairs * 2;
+      score += (mentor.maxMentees - remaining) * 0.5;
+
+      if (
+        menteeGender === "female" &&
+        mentorGender === "male" &&
+        femaleMentorsWithCapacity.length > 0
+      ) {
+        score += 1000;
+      }
+
+      if (score < bestScore) {
+        bestScore = score;
+        bestMentor = mentor;
+      }
+    }
+
+    if (!bestMentor) continue;
+
+    const mentorGender = inferGender(bestMentor.gender, bestMentor.userName);
+    const matchedOnGender = menteeGender === "female" && mentorGender === "female";
+    const fallbackGender = menteeGender === "female" && mentorGender === "male";
+
+    drafts.push({
+      menteeId: mentee.userId,
+      mentorId: bestMentor.userId,
+      reason: matchedOnGender
+        ? "Matched by level proximity and female-mentor preference"
+        : fallbackGender
+          ? "Matched by capacity and level after female-mentor slots filled"
+          : "Matched by level proximity and balanced mentor workload",
+    });
+
+    remainingSlots.set(bestMentor.userId, Math.max(0, (remainingSlots.get(bestMentor.userId) || 0) - 1));
+    const mentor = mentorById.get(bestMentor.userId);
+    if (mentor) {
+      mentor.activePairs += 1;
+    }
+  }
+
+  return drafts;
+}
+
 /* ═══════════════════════════════════════════════════
    ADMIN TIMP PAGE
    ═══════════════════════════════════════════════════ */
 
-function AdminTimpPage() {
+export function AdminTimpPage() {
   const [tab, setTab] = useState<Tab>("applications");
   const { showHelp, openHelp, closeHelp } = useToolHelp("admin-timp");
 
@@ -172,6 +296,9 @@ function AdminTimpPage() {
   const [detailUser, setDetailUser] = useState<TimpUserDetails | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [showMenteeFilter, setShowMenteeFilter] = useState<"all" | "available" | "paired">("available");
+  const [autoDraft, setAutoDraft] = useState<AutoPairDraft[]>([]);
+  const [autoAssigning, setAutoAssigning] = useState(false);
+  const [applyingAuto, setApplyingAuto] = useState(false);
 
   /* ── Pairs state ── */
   const [pairs, setPairs] = useState<MentorshipPair[]>([]);
@@ -327,6 +454,64 @@ function AdminTimpPage() {
       toast.success("Mentorship pair created");
     } catch { toast.error("Failed to create pair"); } finally {
       setCreatingPair(false);
+    }
+  };
+
+  const handleGenerateAutoDraft = async () => {
+    setAutoAssigning(true);
+    try {
+      const draft = buildSmartDraft(mentors, mentees);
+      if (draft.length === 0) {
+        toast.info("No eligible auto-assignment candidates found");
+        setAutoDraft([]);
+        return;
+      }
+      setAutoDraft(draft);
+      toast.success(`Drafted ${draft.length} smart mentor-mentee assignments`);
+    } finally {
+      setAutoAssigning(false);
+    }
+  };
+
+  const handleUpdateAutoDraftMentor = (menteeId: string, mentorId: string) => {
+    setAutoDraft((prev) =>
+      prev.map((row) =>
+        row.menteeId === menteeId ? { ...row, mentorId } : row,
+      ),
+    );
+  };
+
+  const handleRemoveAutoDraftRow = (menteeId: string) => {
+    setAutoDraft((prev) => prev.filter((row) => row.menteeId !== menteeId));
+  };
+
+  const handleApplyAutoDraft = async () => {
+    if (autoDraft.length === 0) return;
+    setApplyingAuto(true);
+    let successCount = 0;
+    let failureCount = 0;
+    try {
+      for (const row of autoDraft) {
+        try {
+          await createPair({ mentorId: row.mentorId, menteeId: row.menteeId });
+          successCount += 1;
+        } catch {
+          failureCount += 1;
+        }
+      }
+
+      await fetchAssignment();
+      await fetchPairs();
+
+      if (successCount > 0) {
+        toast.success(`Applied ${successCount} assignments${failureCount ? ` (${failureCount} skipped)` : ""}`);
+      } else {
+        toast.error("No assignments were applied");
+      }
+
+      setAutoDraft([]);
+    } finally {
+      setApplyingAuto(false);
     }
   };
 
@@ -498,6 +683,13 @@ function AdminTimpPage() {
           onCreatePair={handleCreatePair}
           creatingPair={creatingPair}
           onViewDetail={openUserDetail}
+          autoDraft={autoDraft}
+          autoAssigning={autoAssigning}
+          applyingAuto={applyingAuto}
+          onGenerateAutoDraft={handleGenerateAutoDraft}
+          onUpdateAutoDraftMentor={handleUpdateAutoDraftMentor}
+          onRemoveAutoDraftRow={handleRemoveAutoDraftRow}
+          onApplyAutoDraft={handleApplyAutoDraft}
         />
       )}
 
@@ -985,6 +1177,13 @@ function AssignmentTab({
   onCreatePair,
   creatingPair,
   onViewDetail,
+  autoDraft,
+  autoAssigning,
+  applyingAuto,
+  onGenerateAutoDraft,
+  onUpdateAutoDraftMentor,
+  onRemoveAutoDraftRow,
+  onApplyAutoDraft,
 }: {
   loading: boolean;
   mentors: EnrichedMentor[];
@@ -1002,6 +1201,13 @@ function AssignmentTab({
   onCreatePair: () => void;
   creatingPair: boolean;
   onViewDetail: (userId: string) => void;
+  autoDraft: AutoPairDraft[];
+  autoAssigning: boolean;
+  applyingAuto: boolean;
+  onGenerateAutoDraft: () => void;
+  onUpdateAutoDraftMentor: (menteeId: string, mentorId: string) => void;
+  onRemoveAutoDraftRow: (menteeId: string) => void;
+  onApplyAutoDraft: () => void;
 }) {
   if (loading) return <Spinner />;
 
@@ -1073,16 +1279,91 @@ function AssignmentTab({
 
           {/* Create button */}
           <PermissionGate permission="timp:manage">
-          <button
-            onClick={onCreatePair}
-            disabled={!canCreate}
-            className="bg-lime border-[3px] border-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy press-3 press-navy transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-          >
-            {creatingPair ? "Creating…" : "Create Pair"}
-          </button>
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={onGenerateAutoDraft}
+                disabled={autoAssigning || applyingAuto}
+                className="bg-snow border-[3px] border-lime px-4 py-2.5 rounded-2xl font-display font-bold text-sm text-navy press-3 press-lime transition-all disabled:opacity-40"
+              >
+                {autoAssigning ? "Building…" : "Smart Auto-Assign"}
+              </button>
+              <button
+                onClick={onCreatePair}
+                disabled={!canCreate}
+                className="bg-lime border-[3px] border-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy press-3 press-navy transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {creatingPair ? "Creating…" : "Create Pair"}
+              </button>
+            </div>
           </PermissionGate>
         </div>
       </div>
+
+      {autoDraft.length > 0 && (
+        <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000] space-y-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate">Smart Auto-Assign Draft</p>
+              <p className="text-sm text-navy">Review and edit these assignments before making them official.</p>
+            </div>
+            <button
+              onClick={onApplyAutoDraft}
+              disabled={applyingAuto || autoDraft.length === 0}
+              className="bg-teal border-[3px] border-navy px-5 py-2 rounded-xl font-bold text-snow press-3 press-navy disabled:opacity-40"
+            >
+              {applyingAuto ? "Applying…" : `Apply ${autoDraft.length} Assignments`}
+            </button>
+          </div>
+
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+            {autoDraft.map((row) => {
+              const mentor = mentors.find((item) => item.userId === row.mentorId);
+              const mentee = mentees.find((item) => item.userId === row.menteeId);
+              if (!mentee) return null;
+
+              return (
+                <div key={row.menteeId} className="bg-ghost border-[2px] border-cloud rounded-xl p-3">
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr_auto] gap-2 items-center">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate">Mentee</p>
+                      <p className="text-sm font-bold text-navy">{mentee.firstName} {mentee.lastName}</p>
+                    </div>
+
+                    <span className="text-slate text-center">→</span>
+
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate block mb-1">Mentor</label>
+                      <select
+                        aria-label={`Select mentor for ${mentee.firstName} ${mentee.lastName}`}
+                        value={row.mentorId}
+                        onChange={(event) => onUpdateAutoDraftMentor(row.menteeId, event.target.value)}
+                        className="w-full px-3 py-2 bg-snow border-[2px] border-navy rounded-lg text-sm text-navy"
+                      >
+                        {mentors
+                          .filter((item) => !item.isFull || item.userId === row.mentorId)
+                          .map((item) => (
+                            <option key={item.userId} value={item.userId}>
+                              {item.userName} ({item.activePairs}/{item.maxMentees})
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+
+                    <button
+                      onClick={() => onRemoveAutoDraftRow(row.menteeId)}
+                      className="px-3 py-2 rounded-lg border-[2px] border-coral text-coral text-xs font-bold hover:bg-coral-light"
+                    >
+                      Remove
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-slate mt-2">{row.reason}{mentor ? ` · ${mentor.userName}` : ""}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ─── Two-column layout ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

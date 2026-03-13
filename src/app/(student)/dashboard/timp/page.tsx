@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { usePermissions } from "@/context/PermissionsContext";
+import { useRouter } from "next/navigation";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { toast } from "sonner";
 import {
@@ -98,6 +100,8 @@ function getPairMilestones(pair: MentorshipPair): { label: string; bg: string; t
 
 export default function TimpPage() {
   const { user } = useAuth();
+  const { hasPermission, loading: permissionsLoading } = usePermissions();
+  const router = useRouter();
   const { showHelp, openHelp, closeHelp } = useToolHelp("timp");
   const [info, setInfo] = useState<MyTimpInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -137,6 +141,13 @@ export default function TimpPage() {
   useEffect(() => {
     if (user) fetchInfo();
   }, [user]);
+
+  useEffect(() => {
+    if (permissionsLoading) return;
+    if (hasPermission("timp:manage")) {
+      router.replace("/dashboard/timp/manage");
+    }
+  }, [hasPermission, permissionsLoading, router]);
 
   const fetchInfo = async () => {
     try {
@@ -240,7 +251,7 @@ export default function TimpPage() {
     }
   };
 
-  if (loading) {
+  if (permissionsLoading || loading) {
     return (
       <div className="min-h-screen bg-ghost">
         <DashboardHeader title="TIMP" />

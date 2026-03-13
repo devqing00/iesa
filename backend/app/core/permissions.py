@@ -189,6 +189,9 @@ PERMISSIONS = {
     "team_head:manage_tasks": "Create/edit/delete tasks for team members",
     "team_head:announce": "Send announcements targeted to own team members",
 
+    # Freshers Coordinator permissions
+    "freshers:manage": "Manage 100L freshman coordination portal",
+
     # Messaging & Moderation permissions
     "messages:manage": "Manage DM reports (list, review, mute/unmute users)",
 }
@@ -333,6 +336,19 @@ DEFAULT_PERMISSIONS = {
         "class_rep:view_cohort",
         "class_rep:manage_deadlines",
         "class_rep:manage_relay",
+        "class_rep:view_stats",
+    ],
+
+    # ── Freshers Coordinator (100L oversight) ──────────────────────
+    "freshers_coordinator": [
+        "freshers:manage",
+        "announcement:create", "announcement:edit", "announcement:delete", "announcement:view",
+        "event:view",
+        "payment:view_all",
+        "timetable:view",
+        "class_rep:view_cohort", "class_rep:export_cohort",
+        "class_rep:manage_deadlines", "class_rep:manage_polls",
+        "class_rep:manage_relay", "class_rep:pin_relay",
         "class_rep:view_stats",
     ],
 

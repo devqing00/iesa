@@ -113,7 +113,7 @@ function StatCard({ label, value, bg }: { label: string; value: number | string;
    ADMIN IEPOD PAGE
    ═══════════════════════════════════════════════════ */
 
-function AdminIepodPage() {
+export function AdminIepodPage() {
   const [tab, setTab] = useState<Tab>("overview");
   const { showHelp, openHelp, closeHelp } = useToolHelp("admin-iepod");
 

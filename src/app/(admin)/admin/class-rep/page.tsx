@@ -160,7 +160,7 @@ function timeAgo(d: string | Date | null | undefined): string {
    Main Page Component
    ═══════════════════════════════════════════════════════════ */
 
-function ClassRepPortal() {
+export function ClassRepPortal() {
   const { getAccessToken } = useAuth();
   const { hasPermission } = usePermissions();
   const [tab, setTab] = useState<Tab>("overview");
@@ -219,6 +219,11 @@ function ClassRepPortal() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
+        if (res.status === 403) {
+          throw new Error(
+            "You are not assigned as Class Rep or Asst. Class Rep for your level.",
+          );
+        }
         throw new Error(body.detail || `API error ${res.status}`);
       }
       return res.json();
