@@ -91,12 +91,13 @@ async def register_profile(request: Request, data: RegisterProfileRequest):
     INSTITUTIONAL_DOMAIN = "@stu.ui.edu.ng"
     email_type = "institutional" if email.lower().endswith(INSTITUTIONAL_DOMAIN) else "personal"
 
-    # Parse dateOfBirth string to date object (optional at this stage — Google OAuth users supply it later)
+    # Parse dateOfBirth string to datetime (MongoDB/BSON requires datetime, not date)
     from datetime import date as date_type
     parsed_dob = None
     if data.dateOfBirth:
         try:
-            parsed_dob = date_type.fromisoformat(data.dateOfBirth)
+            dob_date = date_type.fromisoformat(data.dateOfBirth)
+            parsed_dob = datetime(dob_date.year, dob_date.month, dob_date.day, tzinfo=timezone.utc)
         except (ValueError, TypeError):
             raise HTTPException(status_code=400, detail="Invalid date of birth format. Use YYYY-MM-DD.")
 
@@ -239,7 +240,7 @@ async def resend_verification(request: Request, user: dict = Depends(get_current
 # Helpers
 # ──────────────────────────────────────────────
 
-async def _auto_enroll(db, user_id: str, level: str = "100L") -> None:
+async def _auto_enroll(db, user_id: str, level: str | None = "100L") -> None:
     """Auto-enroll new student in active session."""
     sessions = db["sessions"]
     enrollments = db["enrollments"]

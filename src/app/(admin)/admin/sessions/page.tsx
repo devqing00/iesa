@@ -41,7 +41,9 @@ function AdminSessionsPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingSession, setEditingSession] = useState<Session | null>(null);
   const [activateConfirm, setActivateConfirm] = useState<{ isOpen: boolean; id: string; name: string }>({ isOpen: false, id: "", name: "" });
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string; name: string }>({ isOpen: false, id: "", name: "" });
   const [activating, setActivating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof SessionFormData, string>>>({});
   const [formData, setFormData] = useState({
     name: "",
@@ -181,6 +183,26 @@ function AdminSessionsPage() {
       toast.error(getErrorMessage(err, "Failed to activate session"));
     } finally {
       setActivating(false);
+    }
+  };
+
+  const deleteSession = async (sessionId: string) => {
+    if (!user) return;
+    setDeleting(true);
+    try {
+      const token = await getAccessToken();
+      const response = await fetch(getApiUrl(`/api/v1/sessions/${sessionId}`), {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) await throwApiError(response, "delete session");
+      await fetchSessions();
+      await refreshSessions();
+      toast.success("Session deleted");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to delete session"));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -386,6 +408,16 @@ function AdminSessionsPage() {
                             <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32l8.4-8.4Z" />
                             <path d="M5.25 5.25a3 3 0 0 0-3 3v10.5a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3V13.5a.75.75 0 0 0-1.5 0v5.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5V8.25a1.5 1.5 0 0 1 1.5-1.5h5.25a.75.75 0 0 0 0-1.5H5.25Z" />
                           </svg>
+                        </button>
+                      </PermissionGate>
+                      <PermissionGate permission="session:delete">
+                        <button
+                          onClick={() => setDeleteConfirm({ isOpen: true, id: session.id, name: session.name })}
+                          className="p-2.5 bg-ghost border-[3px] border-navy text-coral rounded-2xl hover:bg-coral-light transition-all"
+                          aria-label="Delete session"
+                          title="Delete session"
+                        >
+                          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
                       </PermissionGate>
                     </div>
@@ -714,10 +746,24 @@ function AdminSessionsPage() {
         variant="warning"
         isLoading={activating}
       />
+
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        onClose={() => !deleting && setDeleteConfirm({ isOpen: false, id: "", name: "" })}
+        onConfirm={async () => {
+          await deleteSession(deleteConfirm.id);
+          setDeleteConfirm({ isOpen: false, id: "", name: "" });
+        }}
+        title="Delete Session"
+        message={`Delete "${deleteConfirm.name}" and all session-scoped data (payments, events, announcements, roles)? This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleting}
+      />
     </div>
   );
 }
 
 export default withAuth(AdminSessionsPage, {
-  anyPermission: ["session:create", "session:edit", "session:view"],
+  anyPermission: ["session:create", "session:edit", "session:view", "session:activate", "session:delete"],
 });

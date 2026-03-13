@@ -11,7 +11,12 @@ from bson import ObjectId
 from datetime import datetime, timezone
 
 from app.core.security import get_current_user
-from app.core.permissions import require_permission, PERMISSIONS, DEFAULT_PERMISSIONS
+from app.core.permissions import (
+    require_permission,
+    PERMISSIONS,
+    DEFAULT_PERMISSIONS,
+    normalize_permissions,
+)
 from app.core.audit import AuditLogger
 from app.models.role import Role, RoleCreate, RoleUpdate
 from app.models.user import User
@@ -90,9 +95,11 @@ async def create_role(
                 detail="Cannot assign a role to yourself unless you are super_admin"
             )
     
+    normalized_role_permissions = normalize_permissions(role.permissions or [])
+
     # C2+M4: Validate permission keys against the registry
-    if role.permissions:
-        invalid_perms = set(role.permissions) - set(PERMISSIONS.keys())
+    if normalized_role_permissions:
+        invalid_perms = set(normalized_role_permissions) - set(PERMISSIONS.keys())
         if invalid_perms:
             raise HTTPException(
                 status_code=400,
@@ -135,6 +142,7 @@ async def create_role(
     
     # Create role assignment
     role_data = role.model_dump()
+    role_data["permissions"] = normalized_role_permissions
     role_data["assignedAt"] = datetime.now(timezone.utc)
     role_data["assignedBy"] = current_user.get("_id") or str(current_user.get("id", ""))
     role_data["isActive"] = True
@@ -483,12 +491,14 @@ async def update_role(
     
     # C2: Validate permission keys against the registry
     if "permissions" in update_data and update_data["permissions"] is not None:
-        invalid_perms = set(update_data["permissions"]) - set(PERMISSIONS.keys())
+        normalized_permissions = normalize_permissions(update_data["permissions"])
+        invalid_perms = set(normalized_permissions) - set(PERMISSIONS.keys())
         if invalid_perms:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid permission keys: {', '.join(sorted(invalid_perms))}"
             )
+        update_data["permissions"] = normalized_permissions
     
     # If changing position, check if new position is available
     if "position" in update_data:

@@ -42,6 +42,7 @@ function AdminUsersPage() {
 
   /* ── Edit modal state ─── */
   const [editUser, setEditUser] = useState<User | null>(null);
+  const [editRole, setEditRole] = useState<"student" | "exco" | "admin">("student");
   const [editLevel, setEditLevel] = useState("");
   const [editAdmissionYear, setEditAdmissionYear] = useState("");
   const [editIsActive, setEditIsActive] = useState(true);
@@ -97,6 +98,7 @@ function AdminUsersPage() {
   /* ── Edit modal handlers ─── */
   const openEdit = (user: User) => {
     setEditUser(user);
+    setEditRole((user.role === "admin" || user.role === "exco") ? user.role : "student");
     setEditLevel(user.currentLevel || "");
     setEditAdmissionYear(user.admissionYear ? String(user.admissionYear) : "");
     setEditIsActive(user.isActive !== false);
@@ -129,6 +131,16 @@ function AdminUsersPage() {
           { method: "PATCH", headers }
         );
         if (!res.ok) await throwApiError(res, "update academic info");
+      }
+
+      // 1b. Update role if changed
+      const roleChanged = editRole !== (editUser.role || "student");
+      if (roleChanged) {
+        const res = await fetch(
+          getApiUrl(`/api/v1/users/${editUser._id}/role?new_role=${editRole}`),
+          { method: "PATCH", headers }
+        );
+        if (!res.ok) await throwApiError(res, "update user role");
       }
 
       // 2. Toggle status if changed
@@ -389,7 +401,7 @@ function AdminUsersPage() {
                         </span>
                       </td>
                       <td className="p-4">
-                        <PermissionGate permission="user:edit">
+                        <PermissionGate anyPermission={["user:edit", "user:edit_academic", "user:edit_role"]}>
                           <button
                             onClick={() => openEdit(user)}
                             className="px-4 py-1.5 rounded-xl text-xs font-bold text-navy/60 hover:text-navy hover:bg-cloud border-[2px] border-transparent hover:border-navy/10 transition-all"
@@ -434,69 +446,92 @@ function AdminUsersPage() {
         }
       >
         <div className="space-y-6">
-          {/* Academic Info */}
-          <div>
-            <h3 className="font-display text-sm text-navy mb-3">Academic Information</h3>
-            <div className="grid grid-cols-2 gap-4">
+          <PermissionGate permission="user:edit_role">
+            <div>
+              <h3 className="font-display text-sm text-navy mb-3">Role</h3>
               <div>
-                <label htmlFor="edit-level" className="block text-xs font-bold text-slate mb-1.5">Current Level</label>
+                <label htmlFor="edit-role" className="block text-xs font-bold text-slate mb-1.5">Account Role</label>
                 <select
-                  id="edit-level"
-                  value={editLevel}
-                  onChange={(e) => setEditLevel(e.target.value)}
+                  id="edit-role"
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value as "student" | "exco" | "admin")}
                   className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm"
                 >
-                  <option value="">Not set</option>
-                  <option value="100L">100L</option>
-                  <option value="200L">200L</option>
-                  <option value="300L">300L</option>
-                  <option value="400L">400L</option>
-                  <option value="500L">500L</option>
+                  <option value="student">Student</option>
+                  <option value="exco">Executive</option>
+                  <option value="admin">Admin</option>
                 </select>
               </div>
-              <div>
-                <label htmlFor="edit-admission" className="block text-xs font-bold text-slate mb-1.5">Admission Year</label>
-                <input
-                  id="edit-admission"
-                  type="number"
-                  min={2000}
-                  max={2030}
-                  placeholder="e.g. 2023"
-                  value={editAdmissionYear}
-                  onChange={(e) => setEditAdmissionYear(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm placeholder:text-slate"
-                />
+            </div>
+          </PermissionGate>
+
+          {/* Academic Info */}
+          <PermissionGate permission="user:edit_academic">
+            <div>
+              <h3 className="font-display text-sm text-navy mb-3">Academic Information</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="edit-level" className="block text-xs font-bold text-slate mb-1.5">Current Level</label>
+                  <select
+                    id="edit-level"
+                    value={editLevel}
+                    onChange={(e) => setEditLevel(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm"
+                  >
+                    <option value="">Not set</option>
+                    <option value="100L">100L</option>
+                    <option value="200L">200L</option>
+                    <option value="300L">300L</option>
+                    <option value="400L">400L</option>
+                    <option value="500L">500L</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="edit-admission" className="block text-xs font-bold text-slate mb-1.5">Admission Year</label>
+                  <input
+                    id="edit-admission"
+                    type="number"
+                    min={2000}
+                    max={2030}
+                    placeholder="e.g. 2023"
+                    value={editAdmissionYear}
+                    onChange={(e) => setEditAdmissionYear(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm placeholder:text-slate"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          </PermissionGate>
 
           {/* Status Toggle */}
-          <div>
-            <h3 className="font-display text-sm text-navy mb-3">Account Status</h3>
-            <button
-              type="button"
-              onClick={() => setEditIsActive(!editIsActive)}
-              className={`flex items-center gap-3 w-full p-4 rounded-2xl border-[2px] transition-colors ${
-                editIsActive
-                  ? "bg-teal-light border-teal"
-                  : "bg-cloud border-navy/20"
-              }`}
-            >
-              <div className={`w-10 h-6 rounded-full relative transition-colors ${
-                editIsActive ? "bg-teal" : "bg-slate/30"
-              }`}>
-                <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-snow shadow transition-transform ${
-                  editIsActive ? "left-[18px]" : "left-0.5"
-                }`} />
-              </div>
-              <span className="text-sm font-bold text-navy">
-                {editIsActive ? "Active" : "Inactive"}
-              </span>
-              <span className="text-xs text-slate ml-auto">
-                {editIsActive ? "User can sign in" : "User is locked out"}
-              </span>
-            </button>
-          </div>
+          <PermissionGate permission="user:edit">
+            <div>
+              <h3 className="font-display text-sm text-navy mb-3">Account Status</h3>
+              <button
+                type="button"
+                onClick={() => setEditIsActive(!editIsActive)}
+                className={`flex items-center gap-3 w-full p-4 rounded-2xl border-[2px] transition-colors ${
+                  editIsActive
+                    ? "bg-teal-light border-teal"
+                    : "bg-cloud border-navy/20"
+                }`}
+              >
+                <div className={`w-10 h-6 rounded-full relative transition-colors ${
+                  editIsActive ? "bg-teal" : "bg-slate/30"
+                }`}>
+                  <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-snow shadow transition-transform ${
+                    editIsActive ? "left-[18px]" : "left-0.5"
+                  }`} />
+                </div>
+                <span className="text-sm font-bold text-navy">
+                  {editIsActive ? "Active" : "Inactive"}
+                </span>
+                <span className="text-xs text-slate ml-auto">
+                  {editIsActive ? "User can sign in" : "User is locked out"}
+                </span>
+              </button>
+            </div>
+          </PermissionGate>
         </div>
       </Modal>
     </div>
@@ -504,5 +539,5 @@ function AdminUsersPage() {
 }
 
 export default withAuth(AdminUsersPage, {
-  anyPermission: ["user:view_all", "user:edit"],
+  anyPermission: ["user:view_all", "user:edit", "user:edit_academic", "user:edit_role"],
 });

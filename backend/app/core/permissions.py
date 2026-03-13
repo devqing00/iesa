@@ -26,6 +26,32 @@ _permissions_cache: dict[str, Tuple[List[str], float]] = {}
 _PERMISSIONS_TTL = 120  # seconds
 
 
+# Legacy permission aliases mapped to canonical keys.
+# Keep this list tight and intentional so audits reflect current permission taxonomy.
+LEGACY_PERMISSION_ALIASES: dict[str, str] = {
+    "role:assign": "role:create",
+    "role:revoke": "role:delete",
+    "message:moderate": "messages:manage",
+}
+
+
+def normalize_permission(permission: str) -> str:
+    """Return canonical permission key for a potentially-legacy permission."""
+    return LEGACY_PERMISSION_ALIASES.get(permission, permission)
+
+
+def normalize_permissions(permissions: List[str]) -> List[str]:
+    """Normalize and de-duplicate permission keys while preserving order."""
+    normalized: List[str] = []
+    seen: set[str] = set()
+    for permission in permissions or []:
+        canonical = normalize_permission(permission)
+        if canonical not in seen:
+            seen.add(canonical)
+            normalized.append(canonical)
+    return normalized
+
+
 def invalidate_session_cache():
     """Call after session activate/deactivate to bust the cache."""
     global _active_session_cache
@@ -72,8 +98,6 @@ PERMISSIONS = {
     "user:delete": "Delete users",
     
     # Role management permissions
-    "role:assign": "Assign roles to users",
-    "role:revoke": "Revoke roles from users",
     "role:view": "View role assignments",
     "role:create": "Create / assign new roles",
     "role:edit": "Edit existing role assignments",
@@ -167,7 +191,6 @@ PERMISSIONS = {
 
     # Messaging & Moderation permissions
     "messages:manage": "Manage DM reports (list, review, mute/unmute users)",
-    "message:moderate": "Access moderation dashboard (content moderation)",
 }
 
 
@@ -216,7 +239,7 @@ DEFAULT_PERMISSIONS = {
         "contact:view", "contact:manage",
         "team:review", "team:manage",
         "audit:view", "audit:export",
-        "messages:manage", "message:moderate",
+        "messages:manage",
     ],
     "vice_president": [
         "announcement:create", "announcement:edit", "announcement:view",
@@ -231,7 +254,7 @@ DEFAULT_PERMISSIONS = {
         "iepod:manage", "iepod:view",
         "contact:view", "contact:manage",
         "team:review", "team:manage",
-        "messages:manage", "message:moderate",
+        "messages:manage",
     ],
     "general_secretary": [
         "announcement:create", "announcement:edit", "announcement:view",
@@ -240,7 +263,7 @@ DEFAULT_PERMISSIONS = {
         "enrollment:view",
         "contact:view", "contact:manage",
         "team:review",
-        "messages:manage", "message:moderate",
+        "messages:manage",
     ],
     "assistant_general_secretary": [
         "announcement:create", "announcement:view",
@@ -755,20 +778,20 @@ async def get_user_permissions(
     for role in roles_list:
         # Add explicitly assigned permissions
         if "permissions" in role and role["permissions"]:
-            all_permissions.update(role["permissions"])
+            all_permissions.update(normalize_permissions(role["permissions"]))
         
         # Add default permissions for position
         position = role.get("position")
         if position:
             if position in DEFAULT_PERMISSIONS:
-                all_permissions.update(DEFAULT_PERMISSIONS[position])
+                all_permissions.update(normalize_permissions(DEFAULT_PERMISSIONS[position]))
             elif position.startswith("class_rep") or position.startswith("asst_class_rep"):
                 # class_rep_100L → class_rep defaults, asst_class_rep_100L → asst_class_rep defaults
                 base = "asst_class_rep" if position.startswith("asst_class_rep") else "class_rep"
-                all_permissions.update(DEFAULT_PERMISSIONS.get(base, []))
+                all_permissions.update(normalize_permissions(DEFAULT_PERMISSIONS.get(base, [])))
             elif position.startswith("team_head_custom_") or position.startswith("unit_head_custom_"):
                 # Custom team heads get the base team_head_custom defaults
-                all_permissions.update(DEFAULT_PERMISSIONS.get("team_head_custom", []))
+                all_permissions.update(normalize_permissions(DEFAULT_PERMISSIONS.get("team_head_custom", [])))
     
     result = list(all_permissions)
     # Only cache non-empty permission sets.
@@ -802,8 +825,11 @@ async def check_permission(
         str(session["_id"])
     )
     
+    required_permission = normalize_permission(required_permission)
+    normalized_user_permissions = set(normalize_permissions(user_permissions))
+
     # Check if user has the required permission
-    if required_permission not in user_permissions:
+    if required_permission not in normalized_user_permissions:
         raise HTTPException(
             status_code=403,
             detail=f"Permission denied. Required permission: {required_permission}"
@@ -859,8 +885,11 @@ def require_any_permission(permissions: List[str]):
             str(session["_id"])
         )
         
+        normalized_required = set(normalize_permissions(permissions))
+        normalized_user = set(normalize_permissions(user_permissions))
+
         # Check if user has any of the required permissions
-        if not any(perm in user_permissions for perm in permissions):
+        if not normalized_required.intersection(normalized_user):
             raise HTTPException(
                 status_code=403,
                 detail=f"Permission denied. Required one of: {', '.join(permissions)}"
@@ -893,8 +922,11 @@ def require_all_permissions(permissions: List[str]):
             str(session["_id"])
         )
         
+        normalized_required = normalize_permissions(permissions)
+        normalized_user = set(normalize_permissions(user_permissions))
+
         # Check if user has all required permissions
-        missing_permissions = [p for p in permissions if p not in user_permissions]
+        missing_permissions = [p for p in normalized_required if p not in normalized_user]
         if missing_permissions:
             raise HTTPException(
                 status_code=403,

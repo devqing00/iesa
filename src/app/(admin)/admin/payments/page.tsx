@@ -163,6 +163,7 @@ function AdminPaymentsPage() {
   const [editingPayment, setEditingPayment] = useState(false);
   const [editForm, setEditForm] = useState({ title: "", amount: "", deadline: "", description: "", mandatory: true });
   const [editSubmitting, setEditSubmitting] = useState(false);
+  const [paymentDeleteTarget, setPaymentDeleteTarget] = useState<Payment | null>(null);
   const [reminderSending, setReminderSending] = useState(false);
   const [txnSortKey, setTxnSortKey] = useState<SortKey>("date");
   const [txnSortDir, setTxnSortDir] = useState<SortDir>("desc");
@@ -535,6 +536,25 @@ function AdminPaymentsPage() {
       toast.error(getErrorMessage(err, "Failed to update payment"));
     } finally {
       setEditSubmitting(false);
+    }
+  };
+
+  const handleDeletePayment = async (payment: Payment) => {
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      const res = await fetch(getApiUrl(`/api/v1/payments/${payment._id}`), {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) await throwApiError(res, "delete payment");
+      toast.success("Payment due deleted");
+      setSelectedPayment((prev) => (prev?._id === payment._id ? null : prev));
+      setPaymentDeleteTarget(null);
+      await fetchPayments();
+      mutate("/api/v1/admin/stats");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to delete payment"));
     }
   };
 
@@ -932,7 +952,21 @@ function AdminPaymentsPage() {
                           )}
                         </td>
                         <td className="p-4 text-navy/60 text-sm">
-                          {payment.deadline ? new Date(payment.deadline).toLocaleDateString() : "N/A"}
+                          <div className="flex items-center justify-between gap-2">
+                            <span>{payment.deadline ? new Date(payment.deadline).toLocaleDateString() : "N/A"}</span>
+                            <PermissionGate permission="payment:delete">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPaymentDeleteTarget(payment);
+                                }}
+                                title="Delete payment due"
+                                className="w-8 h-8 rounded-xl bg-ghost border-[2px] border-navy/20 flex items-center justify-center hover:bg-coral-light transition-colors"
+                              >
+                                <svg aria-hidden="true" className="w-3.5 h-3.5 text-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              </button>
+                            </PermissionGate>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -1981,6 +2015,17 @@ function AdminPaymentsPage() {
                       </button>
                     </PermissionGate>
                   </div>
+                  <PermissionGate permission="payment:delete">
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => setPaymentDeleteTarget(selectedPayment)}
+                        className="px-4 py-2 bg-coral-light border-[2px] border-coral rounded-xl text-xs font-bold text-coral hover:bg-coral hover:text-snow transition-colors flex items-center gap-1.5"
+                      >
+                        <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        Delete Due
+                      </button>
+                    </div>
+                  </PermissionGate>
                   <div className="grid grid-cols-2 gap-3 pt-2">
                     <div>
                       <span className="text-[10px] text-navy/50 uppercase font-bold tracking-wider">Amount</span>
@@ -2207,6 +2252,20 @@ function AdminPaymentsPage() {
         variant="danger"
       />
 
+      <ConfirmModal
+        isOpen={!!paymentDeleteTarget}
+        onClose={() => setPaymentDeleteTarget(null)}
+        onConfirm={async () => {
+          if (paymentDeleteTarget) {
+            await handleDeletePayment(paymentDeleteTarget);
+          }
+        }}
+        title="Delete Payment Due"
+        message={`Delete "${paymentDeleteTarget?.title || "this payment"}"? This also removes related transactions and cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+      />
+
       {/* ── Analytics Tab ── */}
       {activeTab === "analytics" && (
         <div className="space-y-6">
@@ -2325,5 +2384,5 @@ function AdminPaymentsPage() {
 }
 
 export default withAuth(AdminPaymentsPage, {
-  anyPermission: ["payment:view_all", "payment:create", "payment:approve", "bank_transfer:manage_accounts", "bank_transfer:review"],
+  anyPermission: ["payment:view_all", "payment:create", "payment:edit", "payment:delete", "payment:approve", "bank_transfer:manage_accounts", "bank_transfer:review"],
 });

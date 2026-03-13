@@ -502,4 +502,4 @@ function ModerationPage() {
   );
 }
 
-export default withAuth(ModerationPage, { requiredPermissions: ["message:moderate"] });
+export default withAuth(ModerationPage, { anyPermission: ["messages:manage", "message:moderate"] });
