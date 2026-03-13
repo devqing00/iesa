@@ -41,6 +41,18 @@ TEAM_REGISTRY: dict[str, dict] = {
         "customQuestions": None,
         "isHub": False,
     },
+    "academic": {
+        "label": "Academic Team",
+        "description": "Drive academic excellence — coordinate tutorials, past questions, study resources, and timetable support.",
+        "colorKey": "sunny",
+        "headPosition": "academic_lead",
+        "memberPosition": "committee_academic_member",
+        "memberPermissions": ["announcement:view", "event:view", "resource:view"],
+        "requiresSkills": False,
+        "subTeams": None,
+        "customQuestions": None,
+        "isHub": False,
+    },
     "industrial_visit": {
         "label": "Industrial Visit Team",
         "description": "Plan and coordinate industrial visits to companies and factories for practical learning.",

@@ -87,9 +87,7 @@ async def _fetch_upcoming_birthdays(db, days_ahead: int = 14, limit: int = 8) ->
 @router.get("/stats")
 async def get_admin_stats(
     current_user: dict = Depends(get_current_user),
-    _perm: None = Depends(require_any_permission([
-        "user:view_all", "payment:view_all", "enrollment:view", "audit:view"
-    ])),
+    _perm: None = Depends(require_permission("admin:dashboard")),
 ):
     """
     Aggregate dashboard statistics in a single database round-trip.

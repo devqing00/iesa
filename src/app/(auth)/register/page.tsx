@@ -130,7 +130,6 @@ export default function RegisterPage() {
     if (!admittedSession) { setError("Session admitted is required"); return false; }
     if (!/^\d{4}\/\d{4}$/.test(admittedSession)) { setError("Session must be in format YYYY/YYYY (e.g. 2022/2023)"); return false; }
     if (!levelConfirmed) { setError("Please confirm your calculated level"); return false; }
-    if (!isExternalStudent && !dateOfBirth) { setError("Date of birth is required for IPE students"); return false; }
     return true;
   };
 
@@ -417,7 +416,7 @@ export default function RegisterPage() {
 
               <div className="space-y-2">
                 <label htmlFor="register-dob" className="font-display font-bold text-xs uppercase tracking-wider text-slate">
-                  Date of Birth {isExternalStudent ? "(Optional)" : ""}
+                  Date of Birth (Optional)
                 </label>
                 <input
                   id="register-dob"
@@ -425,14 +424,9 @@ export default function RegisterPage() {
                   value={dateOfBirth}
                   onChange={(e) => setDateOfBirth(e.target.value)}
                   max={new Date().toISOString().split("T")[0]}
-                  required={!isExternalStudent}
                   className={inputClass}
                 />
-                <p className="text-xs text-slate">
-                  {isExternalStudent
-                    ? "Optional for visiting students. Add it if you want birthday reminders."
-                    : "Required for IPE students so we can celebrate your birthday on the platform."}
-                </p>
+                <p className="text-xs text-slate">Optional for all students. Add it if you want birthday reminders.</p>
               </div>
             </div>
 

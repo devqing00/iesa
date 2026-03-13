@@ -39,7 +39,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const { user, userProfile, loading } = useAuth();
-  const { permissions, loading: permissionsLoading } = usePermissions();
+  const { permissions, loading: permissionsLoading, loaded: permissionsLoaded } = usePermissions();
   const router = useRouter();
 
   // User has admin access if their role is admin/exco OR they have at least one
@@ -47,19 +47,19 @@ export default function AdminLayout({
   const userHasAdminAccess = userProfile && checkAdminAccess(userProfile.role, permissions);
 
   useEffect(() => {
-    if (loading || permissionsLoading) return;
+    if (loading || permissionsLoading || !permissionsLoaded) return;
 
     if (!user) {
-      router.push("/login");
+      router.replace("/login");
       return;
     }
     // Redirect users with no admin access
     if (userProfile && !userHasAdminAccess) {
-      router.push("/dashboard");
+      router.replace("/dashboard");
     }
-  }, [user, userProfile, loading, permissionsLoading, userHasAdminAccess, router]);
+  }, [user, userProfile, loading, permissionsLoading, permissionsLoaded, userHasAdminAccess, router]);
 
-  if (loading || permissionsLoading) {
+  if (loading || permissionsLoading || !permissionsLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-ghost">
         <div className="animate-spin rounded-full h-12 w-12 border-[3px] border-navy border-t-transparent"></div>

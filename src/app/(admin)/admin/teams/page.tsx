@@ -134,6 +134,7 @@ const COLOR_OPTIONS = [
 const TEAM_COLORS: Record<string, { bg: string; border: string; badge: string }> = {
   press:              { bg: "bg-coral-light/60",    border: "border-coral",    badge: "bg-coral"    },
   ics:                { bg: "bg-lavender-light/60", border: "border-lavender", badge: "bg-lavender" },
+  academic:           { bg: "bg-sunny-light/60",    border: "border-sunny",    badge: "bg-sunny"    },
   industrial_visit:   { bg: "bg-teal-light/60",     border: "border-teal",     badge: "bg-teal"     },
   conference:         { bg: "bg-sunny-light/60",    border: "border-sunny",    badge: "bg-sunny"    },
   logistics:          { bg: "bg-lime-light/60",     border: "border-lime",     badge: "bg-lime"     },

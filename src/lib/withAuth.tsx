@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, ComponentType } from "react";
+import { useEffect, ComponentType } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { usePermissions } from "@/context/PermissionsContext";
-import { toast } from "sonner";
 
 interface WithAuthOptions {
   requiredPermission?: string;
@@ -48,9 +47,8 @@ export function withAuth<P extends object>(
 ) {
   return function AuthenticatedComponent(props: P) {
     const { user, userProfile, loading: authLoading } = useAuth();
-    const { hasPermission, hasAnyPermission, hasAllPermissions, loading: permissionsLoading } = usePermissions();
+    const { hasPermission, hasAnyPermission, hasAllPermissions, loading: permissionsLoading, loaded: permissionsLoaded } = usePermissions();
     const router = useRouter();
-    const toastFiredRef = useRef(false);
 
     const {
       requiredPermission,
@@ -62,7 +60,7 @@ export function withAuth<P extends object>(
 
     useEffect(() => {
       // Wait for auth and permissions to load
-      if (authLoading || permissionsLoading) return;
+      if (authLoading || permissionsLoading || !permissionsLoaded) return;
 
       // Check authentication
       if (!user) {
@@ -77,11 +75,7 @@ export function withAuth<P extends object>(
 
       // Helper to show toast once and redirect
       const denyAccess = () => {
-        if (!toastFiredRef.current) {
-          toastFiredRef.current = true;
-          toast.error("Access denied", { description: "You don't have permission to access this page." });
-        }
-        router.push(dashboardPath);
+        router.replace(dashboardPath);
       };
 
       // Check role-based access (legacy)
@@ -112,15 +106,20 @@ export function withAuth<P extends object>(
       userProfile,
       authLoading,
       permissionsLoading,
+      permissionsLoaded,
       hasPermission,
       hasAnyPermission,
       hasAllPermissions,
+      requiredPermission,
+      requiredPermissions,
+      anyPermission,
+      allowedRoles,
+      redirectTo,
       router,
-      toast,
     ]);
 
     // Show loading state
-    if (authLoading || permissionsLoading) {
+    if (authLoading || permissionsLoading || !permissionsLoaded) {
       return (
         <div className="min-h-screen bg-ghost p-6">
           <div className="max-w-7xl mx-auto space-y-6">

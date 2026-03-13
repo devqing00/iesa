@@ -340,6 +340,29 @@ def _safe_birthday_for_year(dob: date, year: int) -> date:
     return date(year, dob.month, dob.day)
 
 
+def _coerce_dob_to_date(value) -> date | None:
+    """Best-effort conversion of stored DOB values to a date.
+
+    Supports datetime/date objects and ISO-like strings (with/without trailing Z).
+    """
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return None
+        try:
+            return datetime.fromisoformat(raw.replace("Z", "+00:00")).date()
+        except ValueError:
+            try:
+                return datetime.strptime(raw, "%Y-%m-%d").date()
+            except ValueError:
+                return None
+    return None
+
+
 @router.get("/birthdays")
 async def list_upcoming_birthdays(
     days_ahead: int = 90,
@@ -354,6 +377,7 @@ async def list_upcoming_birthdays(
     Supports search + department filter and returns paginated results.
     """
     days_ahead = max(1, min(days_ahead, 366))
+    full_cycle = days_ahead >= 365
     limit = max(1, min(limit, 200))
     skip = max(0, skip)
 
@@ -394,22 +418,20 @@ async def list_upcoming_birthdays(
             "profilePictureUrl": 1,
             "dateOfBirth": 1,
         },
-    ).to_list(length=8000)
+    ).to_list(length=None)
 
     today = datetime.now(timezone.utc).date()
     upper = today + timedelta(days=days_ahead)
 
     upcoming: list[dict] = []
     for user in users:
-        dob_value = user.get("dateOfBirth")
-        if not isinstance(dob_value, (datetime, date)):
+        dob = _coerce_dob_to_date(user.get("dateOfBirth"))
+        if dob is None:
             continue
-
-        dob = dob_value.date() if isinstance(dob_value, datetime) else dob_value
         this_year = _safe_birthday_for_year(dob, today.year)
         next_birthday = this_year if this_year >= today else _safe_birthday_for_year(dob, today.year + 1)
 
-        if next_birthday > upper:
+        if not full_cycle and next_birthday > upper:
             continue
 
         days_until = (next_birthday - today).days

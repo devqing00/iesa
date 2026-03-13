@@ -14,6 +14,7 @@ import { getApiUrl } from "@/lib/api";
 
 interface PermissionsContextType {
   permissions: string[];
+  loaded: boolean;
   hasPermission: (permission: string) => boolean;
   hasAnyPermission: (permissions: string[]) => boolean;
   hasAllPermissions: (permissions: string[]) => boolean;
@@ -23,6 +24,7 @@ interface PermissionsContextType {
 
 const PermissionsContext = createContext<PermissionsContextType>({
   permissions: [],
+  loaded: false,
   hasPermission: () => false,
   hasAnyPermission: () => false,
   hasAllPermissions: () => false,
@@ -36,6 +38,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const { user, userProfile, getAccessToken } = useAuth();
   const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
 
   const fetchPermissions = useCallback(async () => {
     // Always gate with loading=true while fetching to prevent race conditions
@@ -45,12 +48,18 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     if (!user || !userProfile) {
       setPermissions([]);
       setLoading(false);
+      setLoaded(false);
       return;
     }
 
     try {
       const token = await getAccessToken();
-      if (!token) return;
+      if (!token) {
+        setPermissions([]);
+        setLoading(false);
+        setLoaded(false);
+        return;
+      }
 
       // Fetch user's permissions from backend
       const response = await fetch(getApiUrl("/api/v1/users/me/permissions"), {
@@ -71,16 +80,27 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         // The user can retry by refreshing.  Never grant a wildcard as fallback.
         setPermissions([]);
       }
-    } catch (error) {
+    } catch {
       setPermissions([]);
     } finally {
       setLoading(false);
+      setLoaded(true);
     }
-  }, [user, userProfile]);
+  }, [user, userProfile, getAccessToken]);
 
   useEffect(() => {
     fetchPermissions();
   }, [fetchPermissions]);
+
+  useEffect(() => {
+    if (!user || !userProfile || loaded || loading) return;
+
+    const retryTimer = setTimeout(() => {
+      fetchPermissions();
+    }, 300);
+
+    return () => clearTimeout(retryTimer);
+  }, [user, userProfile, loaded, loading, fetchPermissions]);
 
   // Stabilize permission check functions to prevent unnecessary re-renders
   const hasPermission = useCallback((permission: string): boolean => {
@@ -98,13 +118,14 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const contextValue = useMemo(
     () => ({
       permissions,
+      loaded,
       hasPermission,
       hasAnyPermission,
       hasAllPermissions,
       loading,
       refetch: fetchPermissions,
     }),
-    [permissions, hasPermission, hasAnyPermission, hasAllPermissions, loading, fetchPermissions]
+    [permissions, loaded, hasPermission, hasAnyPermission, hasAllPermissions, loading, fetchPermissions]
   );
 
   return (

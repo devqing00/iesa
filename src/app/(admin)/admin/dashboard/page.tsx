@@ -318,5 +318,5 @@ function AdminDashboardPage() {
 }
 
 export default withAuth(AdminDashboardPage, {
-  anyPermission: ["user:view_all"],
+  requiredPermission: "admin:dashboard",
 });

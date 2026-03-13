@@ -48,7 +48,6 @@ const POSITIONS = [
   { group: "Executive Officers",       value: "social_director",                   label: "Social Director" },
   { group: "Executive Officers",       value: "sports_secretary",                  label: "Sports Secretary" },
   { group: "Executive Officers",       value: "assistant_sports_secretary",        label: "Asst. Sports Secretary" },
-  { group: "Executive Officers",       value: "academic_lead",                     label: "Academic Lead" },
   { group: "Executive Officers",       value: "pro",                               label: "Public Relations Officer" },
   { group: "Executive Officers",       value: "financial_secretary",               label: "Financial Secretary" },
 
@@ -66,6 +65,7 @@ const POSITIONS = [
   { group: "Class Representatives",    value: "freshers_coordinator",             label: "Freshers Coordinator (100L)" },
   // ── Team Heads ────────────────────────────────────────────────────
   { group: "Team Heads",               value: "ics_head",                          label: "ICS Head" },
+  { group: "Team Heads",               value: "academic_lead",                     label: "Academic Lead" },
   { group: "Team Heads",               value: "team_head_industrial_visit",        label: "Industrial Visit Head" },
   { group: "Team Heads",               value: "team_head_conference",              label: "Conference Head" },
   { group: "Team Heads",               value: "team_head_logistics",               label: "Logistics Head" },
@@ -74,6 +74,7 @@ const POSITIONS = [
   { group: "Team Heads",               value: "team_head_dinner_award",            label: "Dinner & Award Head" },
   // ── Team Members ──────────────────────────────────────────────────
   { group: "Team Members",             value: "ics_member",                        label: "ICS Member" },
+  { group: "Team Members",             value: "committee_academic_member",         label: "Academic Team Member" },
   { group: "Team Members",             value: "team_industrial_visit_member",      label: "Industrial Visit Member" },
   { group: "Team Members",             value: "team_conference_member",            label: "Conference Member" },
   { group: "Team Members",             value: "team_logistics_member",             label: "Logistics Member" },
@@ -369,7 +370,6 @@ export default function RolesTab() {
     "social_director",
     "sports_secretary",
     "assistant_sports_secretary",
-    "academic_lead",
     "pro",
     "financial_secretary",
     "director_of_socials",

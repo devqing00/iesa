@@ -301,7 +301,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Role-based redirect
     const role = normalized.role;
-    if (role === "admin" || role === "exco") {
+    if (role === "admin") {
       router.push("/admin/dashboard");
     } else {
       router.push("/dashboard");
@@ -329,7 +329,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (profile) {
       setUser(profile);
       const role = profile.role;
-      if (role === "admin" || role === "exco") {
+      if (role === "admin") {
         router.push("/admin/dashboard");
       } else {
         router.push("/dashboard");
@@ -376,7 +376,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (profile) {
         setUser(profile);
         const role = profile.role;
-        if (role === "admin" || role === "exco") {
+        if (role === "admin") {
           router.push("/admin/dashboard");
         } else {
           router.push("/dashboard");

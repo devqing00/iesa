@@ -302,6 +302,8 @@ export type PositionType =
   | 'assistant_sports_secretary'
   | 'pro'
   | 'financial_secretary'
+  | 'academic_lead'
+  | 'committee_academic_member'
   | 'public_relations_officer'
   | 'director_of_socials'
   | 'director_of_sports'

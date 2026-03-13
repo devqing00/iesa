@@ -72,6 +72,9 @@ def invalidate_permissions_cache(user_id: str | None = None):
 
 # Permission definitions - centralized permission registry
 PERMISSIONS = {
+    # Admin dashboard access
+    "admin:dashboard": "Access admin dashboard",
+
     # Announcement permissions
     "announcement:create": "Create announcements",
     "announcement:edit": "Edit announcements",
@@ -210,6 +213,7 @@ DEFAULT_PERMISSIONS = {
 
     # ── Regular Admin (view-only dashboard) ──────────────────────────
     "admin": [
+        "admin:dashboard",
         "announcement:view",
         "payment:view_all",
         "resource:view",
@@ -239,9 +243,13 @@ DEFAULT_PERMISSIONS = {
         "contact:view", "contact:manage",
     ],
     "general_secretary": [
+        "admin:dashboard",
         "announcement:create", "announcement:edit", "announcement:view",
         "user:view_all", "user:edit", "user:edit_role", "user:edit_academic", "user:delete",
         "enrollment:view", "enrollment:create", "enrollment:edit", "enrollment:delete",
+        "role:view",
+        "session:view",
+        "team:review",
         "timetable:view",
         "contact:view", "contact:manage",
     ],
@@ -251,18 +259,21 @@ DEFAULT_PERMISSIONS = {
         "contact:view",
     ],
     "financial_secretary": [
+        "admin:dashboard",
         "payment:create", "payment:edit", "payment:approve", "payment:view_all",
         "announcement:view",
         "bank_transfer:manage_accounts", "bank_transfer:review", "bank_transfer:view_all",
     ],
     "treasurer": [
+        "admin:dashboard",
         "payment:create", "payment:edit", "payment:view_all",
         "announcement:view",
         "bank_transfer:review", "bank_transfer:view_all",
     ],
     "pro": [
+        "admin:dashboard",
         "announcement:create", "announcement:edit", "announcement:view",
-        "event:view",
+        "event:create", "event:edit", "event:view", "event:manage",
         "press:access", "press:create", "press:edit", "press:review", "press:publish", "press:manage",
     ],
     "social_director": [
@@ -527,6 +538,7 @@ DEFAULT_PERMISSIONS = {
     "committee_academic_member": [
         "announcement:view",
         "event:view",
+        "resource:view",
     ],
     "committee_welfare_member": [
         "announcement:view",

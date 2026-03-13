@@ -41,7 +41,7 @@ export default function AdminMobileNav() {
     {
       name: "Users",
       href: "/admin/users",
-      anyPermission: ["user:view_all", "user:edit"],
+      anyPermission: ["user:view_all"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
@@ -77,7 +77,7 @@ export default function AdminMobileNav() {
       name: "Sessions",
       href: "/admin/sessions",
       color: "bg-teal-light",
-      anyPermission: ["session:create", "session:edit", "session:view"],
+      anyPermission: ["session:view"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
@@ -88,7 +88,7 @@ export default function AdminMobileNav() {
       name: "Enrollments",
       href: "/admin/enrollments",
       color: "bg-lavender-light",
-      anyPermission: ["enrollment:view", "enrollment:create", "enrollment:edit"],
+      anyPermission: ["enrollment:view"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <path d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25a3.75 3.75 0 0 0-3-3.75H5.625ZM7.5 15a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7.5 15Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H8.25Z" />
@@ -100,7 +100,7 @@ export default function AdminMobileNav() {
       name: "Roles",
       href: "/admin/roles",
       color: "bg-coral-light",
-      anyPermission: ["role:view", "role:create", "role:edit", "user:edit"],
+      anyPermission: ["role:view"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
@@ -155,7 +155,7 @@ export default function AdminMobileNav() {
       name: "Messages",
       href: "/admin/messages",
       color: "bg-coral-light",
-      anyPermission: ["contact:view", "contact:manage"],
+      anyPermission: ["messages:manage"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <path d="M1.5 8.67v8.58a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3V8.67l-8.928 5.493a3 3 0 0 1-3.144 0L1.5 8.67Z" />
@@ -167,7 +167,7 @@ export default function AdminMobileNav() {
       name: "Moderation",
       href: "/admin/moderation",
       color: "bg-sunny-light",
-      anyPermission: ["message:moderate"],
+      anyPermission: ["messages:manage", "message:moderate"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-2.625 6c-.54 0-.828.419-.936.634a1.96 1.96 0 0 0-.189.866c0 .298.059.605.189.866.108.215.395.634.936.634.54 0 .828-.419.936-.634.13-.26.189-.568.189-.866 0-.298-.059-.605-.189-.866-.108-.215-.395-.634-.936-.634Zm4.314.634c.108-.215.395-.634.936-.634.54 0 .828.419.936.634.13.26.189.568.189.866 0 .298-.059.605-.189.866-.108.215-.395.634-.936.634-.54 0-.828-.419-.936-.634a1.96 1.96 0 0 1-.189-.866c0-.298.059-.605.189-.866Zm-4.34 7.244a.75.75 0 0 1-1.061-1.06 5.236 5.236 0 0 1 3.73-1.538h.008a5.236 5.236 0 0 1 3.724 1.538.75.75 0 1 1-1.061 1.06 3.736 3.736 0 0 0-2.663-1.098 3.736 3.736 0 0 0-2.677 1.098Z" clipRule="evenodd" />
