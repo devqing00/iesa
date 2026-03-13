@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from './Button';
 
@@ -40,20 +40,27 @@ export function Modal({
   const modalRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
+  // Keep stable refs for onClose and closeOnEscape so handleKeyDown never
+  // changes identity between renders, preventing focus-loss on every keystroke.
+  const onCloseRef = useRef(onClose);
+  const closeOnEscapeRef = useRef(closeOnEscape);
+  useLayoutEffect(() => {
+    onCloseRef.current = onClose;
+    closeOnEscapeRef.current = closeOnEscape;
+  });
+
   useEffect(() => {
     if (isOpen) {
       previousFocusRef.current = document.activeElement as HTMLElement;
     }
   }, [isOpen]);
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (closeOnEscape && e.key === 'Escape') {
-        onClose();
-      }
-    },
-    [closeOnEscape, onClose]
-  );
+  // Stable callback — deps array is empty because we read values through refs.
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (closeOnEscapeRef.current && e.key === 'Escape') {
+      onCloseRef.current();
+    }
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
