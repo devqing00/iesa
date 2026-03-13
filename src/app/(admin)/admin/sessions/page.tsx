@@ -765,5 +765,5 @@ function AdminSessionsPage() {
 }
 
 export default withAuth(AdminSessionsPage, {
-  anyPermission: ["session:create", "session:edit", "session:view", "session:activate", "session:delete"],
+  requiredPermission: "session:view",
 });

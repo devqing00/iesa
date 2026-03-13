@@ -607,14 +607,23 @@ async def send_payment_reminder(
 
     # Get all enrolled students for this session
     enrollments = await db["enrollments"].find(
-        {"sessionId": session_id, "status": "active"},
-        {"userId": 1},
+        {
+            "sessionId": session_id,
+            "$or": [
+                {"isActive": True},
+                {"status": "active"},
+            ],
+        },
+        {"userId": 1, "studentId": 1},
     ).to_list(length=5000)
 
-    unpaid_ids = [
-        e["userId"] for e in enrollments
-        if e.get("userId") and e["userId"] not in paid_set
-    ]
+    unpaid_ids_set: set[str] = set()
+    for enrollment in enrollments:
+        student_id = enrollment.get("studentId") or enrollment.get("userId")
+        if student_id and student_id not in paid_set:
+            unpaid_ids_set.add(student_id)
+
+    unpaid_ids = list(unpaid_ids_set)
 
     if not unpaid_ids:
         return {"sent": 0, "message": "All enrolled students have paid"}

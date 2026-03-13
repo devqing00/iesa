@@ -496,5 +496,5 @@ function AdminMessagesPage() {
 }
 
 export default withAuth(AdminMessagesPage, {
-  anyPermission: ["contact:view", "contact:manage"],
+  requiredPermission: "messages:manage",
 });

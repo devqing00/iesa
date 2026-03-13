@@ -113,9 +113,15 @@ async def create_role(
         # Check if position already filled for this session
         existing = await roles.find_one({
             "sessionId": role.sessionId,
-            "position": role.position
+            "position": role.position,
+            "isActive": True,
         })
         if existing:
+            if existing.get("userId") == role.userId:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"This user is already assigned '{role.position}' for session {session['name']}"
+                )
             current_holder = await users.find_one({"_id": ObjectId(existing["userId"])})
             holder_name = f"{current_holder.get('firstName', '')} {current_holder.get('lastName', '')}" if current_holder else "Unknown"
             raise HTTPException(
@@ -505,9 +511,15 @@ async def update_role(
         conflict = await roles.find_one({
             "sessionId": existing["sessionId"],
             "position": update_data["position"],
+            "isActive": True,
             "_id": {"$ne": ObjectId(role_id)}
         })
         if conflict:
+            if conflict.get("userId") == existing.get("userId"):
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"This user is already assigned '{update_data['position']}' in this session"
+                )
             raise HTTPException(
                 status_code=400,
                 detail=f"Position '{update_data['position']}' is already filled"

@@ -686,5 +686,5 @@ function AdminUsersPage() {
 }
 
 export default withAuth(AdminUsersPage, {
-  anyPermission: ["user:view_all", "user:edit", "user:edit_academic", "user:edit_role", "user:delete"],
+  requiredPermission: "user:view_all",
 });

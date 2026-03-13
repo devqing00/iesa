@@ -286,8 +286,11 @@ async def health_detailed(user: dict = Depends(_require_permission("system:healt
     try:
         from app.core.email import check_email_health
         email_status = await check_email_health()
+        email_service_status = "healthy" if email_status.get("healthy") else (
+            "degraded" if email_status.get("provider") == "console" else "unhealthy"
+        )
         checks["services"]["email"] = {
-            "status": "healthy" if email_status.get("status") == "ok" else "degraded",
+            "status": email_service_status,
             "details": email_status,
         }
     except Exception as e:

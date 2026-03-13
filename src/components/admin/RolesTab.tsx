@@ -48,6 +48,7 @@ const POSITIONS = [
   { group: "Executive Officers",       value: "social_director",                   label: "Social Director" },
   { group: "Executive Officers",       value: "sports_secretary",                  label: "Sports Secretary" },
   { group: "Executive Officers",       value: "assistant_sports_secretary",        label: "Asst. Sports Secretary" },
+  { group: "Executive Officers",       value: "academic_lead",                     label: "Academic Lead" },
   { group: "Executive Officers",       value: "pro",                               label: "Public Relations Officer" },
   { group: "Executive Officers",       value: "financial_secretary",               label: "Financial Secretary" },
 
@@ -85,28 +86,12 @@ const POSITIONS = [
   { group: "IEPOD Roles",              value: "iepod_conference_lead",             label: "IEPOD Conference Lead" },
   { group: "IEPOD Roles",              value: "iepod_program_coordinator",         label: "IEPOD Program Coordinator" },
   { group: "IEPOD Roles",              value: "iepod_communications_officer",      label: "IEPOD Communications Officer" },
-  // ── TIMP Roles ────────────────────────────────────────────────────
+  // ── TIMP Leadership ───────────────────────────────────────────────
   { group: "TIMP Roles",               value: "timp_lead",                         label: "TIMP Lead" },
-  { group: "TIMP Roles",               value: "timp_mentor",                       label: "TIMP Mentor" },
-  { group: "TIMP Roles",               value: "timp_mentee",                       label: "TIMP Mentee" },
   // ── Press Roles ───────────────────────────────────────────────────
   { group: "Press Roles",              value: "press_editor_in_chief",             label: "Editor-In-Chief" },
   { group: "Press Roles",              value: "press_niche_editor",                label: "Niche Editor" },
   { group: "Press Roles",              value: "press_pro",                         label: "Press PRO" },
-  // ── Legacy Roles (backward compat) ───────────────────────────────
-  { group: "Legacy Roles",             value: "press_head",                        label: "Press Head (Legacy)" },
-  { group: "Legacy Roles",             value: "committee_head_technical",          label: "Technical Team Head (Legacy)" },
-  { group: "Legacy Roles",             value: "committee_head_social",             label: "Social Team Head (Legacy)" },
-  { group: "Legacy Roles",             value: "committee_head_welfare",            label: "Welfare Team Head (Legacy)" },
-  { group: "Legacy Roles",             value: "committee_head_sports",             label: "Sports Team Head (Legacy)" },
-  { group: "Legacy Roles",             value: "director_of_socials",               label: "Director of Socials (Legacy)" },
-  { group: "Legacy Roles",             value: "director_of_sports",                label: "Director of Sports (Legacy)" },
-  { group: "Legacy Roles",             value: "welfare_officer",                   label: "Welfare Officer (Legacy)" },
-  { group: "Legacy Roles",             value: "committee_head_academic",           label: "Academic Team Head (Legacy)" },
-  { group: "Legacy Roles",             value: "committee_academic_member",         label: "Academic Team Member (Legacy)" },
-  { group: "Legacy Roles",             value: "committee_welfare_member",          label: "Welfare Team Member (Legacy)" },
-  { group: "Legacy Roles",             value: "committee_sports_member",           label: "Sports Team Member (Legacy)" },
-  { group: "Legacy Roles",             value: "committee_socials_member",          label: "Socials Team Member (Legacy)" },
 
   // ── Admin Roles ───────────────────────────────────────────────────
   { group: "Admin Roles",              value: "admin",                             label: "Administrator" },
@@ -328,7 +313,11 @@ export default function RolesTab() {
   const togglePerm = (key: string) => {
     setSelectedPerms((prev) => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
       return next;
     });
   };
@@ -390,6 +379,9 @@ export default function RolesTab() {
   const administratorRoles = filteredRoles.filter((r) => getPositionGroup(r.position) === "Admin Roles");
   const teamLeadRoles = filteredRoles.filter((r) => getPositionGroup(r.position) === "Team Heads");
   const teamMemberRoles = filteredRoles.filter((r) => getPositionGroup(r.position) === "Team Members");
+  const iepodRoles = filteredRoles.filter((r) => getPositionGroup(r.position) === "IEPOD Roles");
+  const pressRoles = filteredRoles.filter((r) => getPositionGroup(r.position) === "Press Roles");
+  const timpLeadRoles = filteredRoles.filter((r) => r.position === "timp_lead");
   const classRepRoles = filteredRoles.filter((r) => getPositionGroup(r.position) === "Class Representatives");
 
   const renderRoleCards = (
@@ -623,6 +615,54 @@ export default function RolesTab() {
           "bg-teal-light text-teal",
           "bg-teal-light",
           "text-teal"
+        )}
+      </div>
+
+      {/* ── IEPOD Roles ── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <h2 className="font-display font-bold text-xl text-navy">IEPOD Roles</h2>
+          <span className="px-3 py-1 bg-cloud text-slate text-xs font-bold rounded-full">{iepodRoles.length}</span>
+        </div>
+        {renderRoleCards(
+          iepodRoles,
+          "No IEPOD roles assigned",
+          "bg-lavender-light text-lavender",
+          "bg-lavender-light text-lavender",
+          "bg-lavender-light",
+          "text-lavender"
+        )}
+      </div>
+
+      {/* ── Press Roles ── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <h2 className="font-display font-bold text-xl text-navy">Press Roles</h2>
+          <span className="px-3 py-1 bg-cloud text-slate text-xs font-bold rounded-full">{pressRoles.length}</span>
+        </div>
+        {renderRoleCards(
+          pressRoles,
+          "No press roles assigned",
+          "bg-coral-light text-coral",
+          "bg-coral-light text-coral",
+          "bg-coral-light",
+          "text-coral"
+        )}
+      </div>
+
+      {/* ── TIMP Lead ── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <h2 className="font-display font-bold text-xl text-navy">TIMP Lead</h2>
+          <span className="px-3 py-1 bg-cloud text-slate text-xs font-bold rounded-full">{timpLeadRoles.length}</span>
+        </div>
+        {renderRoleCards(
+          timpLeadRoles,
+          "No TIMP lead assigned",
+          "bg-sunny-light text-navy",
+          "bg-sunny-light text-navy",
+          "bg-sunny-light",
+          "text-navy"
         )}
       </div>
 

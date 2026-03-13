@@ -547,5 +547,5 @@ function EnrollmentsPage() {
 }
 
 export default withAuth(EnrollmentsPage, {
-  anyPermission: ["enrollment:create", "enrollment:view", "enrollment:edit"],
+  requiredPermission: "enrollment:view",
 });

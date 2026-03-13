@@ -465,5 +465,5 @@ function AuditLogsPage() {
 }
 
 export default withAuth(AuditLogsPage, {
-  anyPermission: ["audit:view", "audit:export"],
+  requiredPermission: "audit:view",
 });

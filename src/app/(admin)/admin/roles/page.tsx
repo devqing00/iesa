@@ -46,5 +46,5 @@ function RolesPage() {
 }
 
 export default withAuth(RolesPage, {
-  anyPermission: ["role:create", "role:view", "role:edit", "user:edit"],
+  requiredPermission: "role:view",
 });

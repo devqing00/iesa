@@ -734,6 +734,7 @@ async def check_email_health() -> dict:
         "from_email": service.from_email,
         "from_name": service.from_name,
         "smtp_fallback_enabled": service.smtp_fallback_enabled,
+        "status": "ok" if service._healthy else "degraded",
     }
 
     if service.provider == EmailProvider.SMTP:
@@ -785,5 +786,9 @@ async def check_email_health() -> dict:
             report["error"] = f"SMTP connection error: {str(e)}"
     elif service.provider == EmailProvider.CONSOLE:
         report["warning"] = "Using console provider — emails are printed, not sent"
+        report["status"] = "degraded"
+
+    if not report.get("healthy", False) and report.get("status") == "ok":
+        report["status"] = "degraded"
 
     return report
