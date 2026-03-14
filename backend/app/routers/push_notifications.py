@@ -39,6 +39,14 @@ _VAPID_PRIVATE_SOURCE: str | None = None
 _vapid_loaded = False
 
 
+def _strip_wrapping_quotes(value: str) -> str:
+    """Remove accidental surrounding single/double quotes from env values."""
+    v = (value or "").strip()
+    if len(v) >= 2 and ((v[0] == '"' and v[-1] == '"') or (v[0] == "'" and v[-1] == "'")):
+        return v[1:-1].strip()
+    return v
+
+
 def _b64_decode_loose(value: str) -> bytes:
     """Decode base64/base64url with relaxed padding and whitespace handling."""
     compact = "".join(value.split())
@@ -73,6 +81,78 @@ def _is_valid_subscription(sub_doc: dict) -> bool:
         if len(auth_bytes) != 16:
             return False
 
+        # Validate p256dh is an actual P-256 EC public key point.
+        from cryptography.hazmat.primitives.asymmetric import ec
+        ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), p256dh_bytes)
+
+        return True
+    except Exception:
+        return False
+
+
+def _normalize_private_key_to_pem(raw_private: str) -> tuple[str | None, str | None]:
+    """Normalize different VAPID private key representations into canonical PKCS8 PEM."""
+    if not raw_private:
+        return None, None
+
+    value = _strip_wrapping_quotes(raw_private)
+
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives.serialization import load_der_private_key, load_pem_private_key
+
+    def _to_pem(key_obj) -> str:
+        return key_obj.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        ).decode("utf-8")
+
+    # 1) Raw PEM
+    if "BEGIN" in value and "PRIVATE KEY" in value:
+        key_obj = load_pem_private_key(value.encode("utf-8"), password=None)
+        return _to_pem(key_obj), "pem-direct"
+
+    # 2) Base64/base64url encoded payload
+    decoded = _b64_decode_loose(value)
+    try:
+        decoded_text = decoded.decode("utf-8")
+    except Exception:
+        decoded_text = ""
+
+    # 2a) Base64(Pem)
+    if "BEGIN" in decoded_text and "PRIVATE KEY" in decoded_text:
+        key_obj = load_pem_private_key(decoded_text.encode("utf-8"), password=None)
+        return _to_pem(key_obj), "pem-base64"
+
+    # 2b) Base64(DER)
+    try:
+        key_obj = load_der_private_key(decoded, password=None)
+        return _to_pem(key_obj), "der-base64-to-pem"
+    except Exception:
+        pass
+
+    # 2c) Raw 32-byte private scalar encoded as base64/base64url
+    if len(decoded) == 32:
+        private_value = int.from_bytes(decoded, byteorder="big")
+        if private_value <= 0:
+            return None, None
+        key_obj = ec.derive_private_key(private_value, ec.SECP256R1())
+        return _to_pem(key_obj), "raw32-base64-to-pem"
+
+    return None, None
+
+
+def _is_valid_vapid_public_key(public_key: str | None) -> bool:
+    """Validate VAPID public key shape and curve point."""
+    if not public_key:
+        return False
+    try:
+        pub = _b64_decode_loose(_strip_wrapping_quotes(public_key))
+        if len(pub) != 65 or pub[0] != 0x04:
+            return False
+        from cryptography.hazmat.primitives.asymmetric import ec
+        ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), pub)
         return True
     except Exception:
         return False
@@ -84,6 +164,7 @@ def _load_vapid():
         return
     _vapid_loaded = True
     _VAPID_PUBLIC_KEY = (os.getenv("VAPID_PUBLIC_KEY") or "").strip().replace("\n", "").replace("\r", "") or None
+    _VAPID_PUBLIC_KEY = _strip_wrapping_quotes(_VAPID_PUBLIC_KEY) if _VAPID_PUBLIC_KEY else None
     raw_private = os.getenv("VAPID_PRIVATE_KEY")
     claims_email = os.getenv("VAPID_CLAIMS_EMAIL", "mailto:admin@iesa.org")
 
@@ -92,41 +173,18 @@ def _load_vapid():
     # 2) base64-encoded PEM (single-line safe for env)
     # 3) raw VAPID private key string (base64url) for pywebpush
     if raw_private:
-        raw_private = raw_private.strip()
         try:
-            if "BEGIN" in raw_private and "PRIVATE KEY" in raw_private:
-                _VAPID_PRIVATE_KEY = raw_private
-                _VAPID_PRIVATE_SOURCE = "pem-direct"
-            else:
-                decoded_bytes = _b64_decode_loose(raw_private)
-                try:
-                    decoded_text = decoded_bytes.decode("utf-8")
-                except Exception:
-                    decoded_text = ""
-
-                if "BEGIN" in decoded_text and "PRIVATE KEY" in decoded_text:
-                    _VAPID_PRIVATE_KEY = decoded_text
-                    _VAPID_PRIVATE_SOURCE = "pem-base64"
-                else:
-                    # If this is a DER key, convert to PEM string for pywebpush
-                    try:
-                        from cryptography.hazmat.primitives import serialization
-                        from cryptography.hazmat.primitives.serialization import load_der_private_key
-
-                        key_obj = load_der_private_key(decoded_bytes, password=None)
-                        pem_bytes = key_obj.private_bytes(
-                            encoding=serialization.Encoding.PEM,
-                            format=serialization.PrivateFormat.PKCS8,
-                            encryption_algorithm=serialization.NoEncryption(),
-                        )
-                        _VAPID_PRIVATE_KEY = pem_bytes.decode("utf-8")
-                        _VAPID_PRIVATE_SOURCE = "der-base64-to-pem"
-                    except Exception:
-                        _VAPID_PRIVATE_KEY = raw_private
-                        _VAPID_PRIVATE_SOURCE = "raw-fallback"
+            normalized_private, source = _normalize_private_key_to_pem(raw_private)
+            _VAPID_PRIVATE_KEY = normalized_private
+            _VAPID_PRIVATE_SOURCE = source
         except Exception:
-            _VAPID_PRIVATE_KEY = raw_private
-            _VAPID_PRIVATE_SOURCE = "raw-fallback"
+            _VAPID_PRIVATE_KEY = None
+            _VAPID_PRIVATE_SOURCE = "invalid"
+
+    # Ensure public key shape is valid before enabling push.
+    if _VAPID_PUBLIC_KEY and not _is_valid_vapid_public_key(_VAPID_PUBLIC_KEY):
+        logger.error("Invalid VAPID public key format detected; push disabled")
+        _VAPID_PUBLIC_KEY = None
 
     if _VAPID_PUBLIC_KEY and _VAPID_PRIVATE_KEY:
         _VAPID_CLAIMS = {"sub": claims_email}
@@ -136,7 +194,7 @@ def _load_vapid():
             len(_VAPID_PUBLIC_KEY or ""),
         )
     else:
-        logger.warning("VAPID keys not set — push notifications disabled")
+        logger.warning("VAPID keys not set/invalid — push notifications disabled")
 
 
 def is_push_enabled() -> bool:
