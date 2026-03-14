@@ -26,6 +26,8 @@ export function usePushNotifications() {
 
   // Check support + current state on mount
   useEffect(() => {
+    let cleanupPermissionListener: (() => void) | undefined;
+
     const canPush =
       typeof window !== "undefined" &&
       "serviceWorker" in navigator &&
@@ -36,6 +38,30 @@ export function usePushNotifications() {
     if (!canPush) return;
 
     setPermission(Notification.permission);
+
+    if ("permissions" in navigator && typeof navigator.permissions.query === "function") {
+      navigator.permissions
+        .query({ name: "notifications" as PermissionName })
+        .then((status) => {
+          setPermission(status.state as NotificationPermission);
+          const handleChange = () => setPermission(status.state as NotificationPermission);
+
+          if (typeof status.addEventListener === "function") {
+            status.addEventListener("change", handleChange);
+            cleanupPermissionListener = () => {
+              status.removeEventListener("change", handleChange);
+            };
+          } else {
+            status.onchange = handleChange;
+            cleanupPermissionListener = () => {
+              status.onchange = null;
+            };
+          }
+        })
+        .catch(() => {
+          /* Permissions API unavailable for notifications in this browser */
+        });
+    }
 
     // Register push service worker (separate from any app SW)
     navigator.serviceWorker
@@ -50,6 +76,10 @@ export function usePushNotifications() {
       .catch(() => {
         /* SW registration failed — push not available */
       });
+
+    return () => {
+      cleanupPermissionListener?.();
+    };
   }, []);
 
   const apiFetch = useCallback(

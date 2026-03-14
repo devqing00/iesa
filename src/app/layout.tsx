@@ -40,11 +40,27 @@ export default function RootLayout({
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
-        {/* Unregister any lingering PWA service workers (sw.js from old build) */}
+        {/* Unregister lingering legacy PWA workers, but keep push-sw.js */}
         <Script id="unregister-sw" strategy="afterInteractive">{`
           if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(regs) {
-              regs.forEach(function(r) { r.unregister(); });
+              regs.forEach(function(r) {
+                var scriptUrl =
+                  (r.active && r.active.scriptURL) ||
+                  (r.waiting && r.waiting.scriptURL) ||
+                  (r.installing && r.installing.scriptURL) ||
+                  '';
+
+                var isPushWorker = scriptUrl.indexOf('/push-sw.js') !== -1;
+                var isLegacyPwaWorker =
+                  scriptUrl.endsWith('/sw.js') ||
+                  scriptUrl.indexOf('/service-worker.js') !== -1 ||
+                  scriptUrl.indexOf('workbox') !== -1;
+
+                if (isLegacyPwaWorker && !isPushWorker) {
+                  r.unregister();
+                }
+              });
             });
           }
         `}</Script>

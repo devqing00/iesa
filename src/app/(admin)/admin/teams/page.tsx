@@ -85,7 +85,6 @@ interface UserSearchResult {
   profilePictureUrl?: string;
   matricNumber?: string;
   level?: string;
-  profilePhotoURL?: string;
   role: string;
 }
 
