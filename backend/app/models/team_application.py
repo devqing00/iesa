@@ -125,6 +125,18 @@ TEAM_REGISTRY: dict[str, dict] = {
         "customQuestions": None,
         "isHub": False,
     },
+    "publicity_content_creation": {
+        "label": "Publicity and Content Creation",
+        "description": "Drive visibility for IESA activities through social media campaigns, storytelling, and strategic content production.",
+        "colorKey": "coral",
+        "headPosition": "team_head_publicity_content_creation",
+        "memberPosition": "team_publicity_content_creation_member",
+        "memberPermissions": ["announcement:view", "event:view"],
+        "requiresSkills": True,
+        "subTeams": ["Social Media", "Graphics", "Copywriting", "Video Content"],
+        "customQuestions": None,
+        "isHub": False,
+    },
     "press": {
         "label": "The IESA Press",
         "description": "Join the editorial team — write articles, cover events, and shape the narrative of our department.",

@@ -231,11 +231,11 @@ function AdminMessagesPage() {
         {stats && (
           <div className="flex gap-2 flex-wrap">
             {stats.unread > 0 && (
-              <span className="px-3 py-1 rounded-full bg-coral-light text-coral text-xs font-bold">
+              <span className="px-3 py-1 rounded-md bg-coral-light text-coral text-xs font-bold">
                 {stats.unread} unread
               </span>
             )}
-            <span className="px-3 py-1 rounded-full bg-cloud text-navy text-xs font-bold">
+            <span className="px-3 py-1 rounded-md bg-cloud text-navy text-xs font-bold">
               {stats.total} total
             </span>
           </div>
@@ -338,7 +338,7 @@ function AdminMessagesPage() {
                       <p className="text-xs text-slate mt-1 line-clamp-2">{msg.message}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1.5 shrink-0">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${style.bg} ${style.text}`}>
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${style.bg} ${style.text}`}>
                         {style.label}
                       </span>
                       <span className="text-[10px] text-slate whitespace-nowrap">{formatDate(msg.createdAt)}</span>
@@ -383,7 +383,7 @@ function AdminMessagesPage() {
                   {(() => {
                     const style = STATUS_STYLES[selected.status] || STATUS_STYLES.unread;
                     return (
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${style.bg} ${style.text}`}>
+                      <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${style.bg} ${style.text}`}>
                         {style.label}
                       </span>
                     );

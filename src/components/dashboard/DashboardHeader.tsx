@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useSession } from "@/context/SessionContext";
@@ -8,6 +9,7 @@ import NotificationBell from "@/components/dashboard/NotificationBell";
 import GlobalSearch from "@/components/dashboard/GlobalSearch";
 import UrgentBar from "@/components/dashboard/UrgentBar";
 import { getTimeGreeting } from "@/lib/greeting";
+import { resolveProfileImageUrl } from "@/lib/profileImage";
 
 function SessionSelector() {
   const { currentSession, allSessions, switchSession, isLoading } = useSession();
@@ -91,6 +93,7 @@ function SessionSelector() {
 
 export default function DashboardHeader({ title = "Dashboard", showGreeting = true }: { title?: string; showGreeting?: boolean }) {
   const { userProfile } = useAuth();
+  const profileImageUrl = resolveProfileImageUrl(userProfile);
 
   return (
     <div className="sticky top-0 z-30">
@@ -116,10 +119,12 @@ export default function DashboardHeader({ title = "Dashboard", showGreeting = tr
               className="hidden sm:flex items-center gap-3 pl-4 border-l-[3px] border-navy/10 hover:opacity-80 transition-opacity"
             >
               <div className="w-10 h-10 rounded-xl bg-lavender-light border-[3px] border-navy flex items-center justify-center overflow-hidden">
-                {userProfile.profilePictureUrl ? (
-                  <img
-                    src={userProfile.profilePictureUrl}
+                {profileImageUrl ? (
+                  <Image
+                    src={profileImageUrl}
                     alt={`${userProfile.firstName} ${userProfile.lastName}`}
+                    width={40}
+                    height={40}
                     className="w-full h-full object-cover"
                   />
                 ) : (

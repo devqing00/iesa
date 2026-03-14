@@ -29,15 +29,18 @@ import { isExternalStudent } from "@/lib/studentAccess";
 import DeadlineWidget from "@/components/dashboard/DeadlineWidget";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { usePermissions } from "@/context/PermissionsContext";
+import { useSession } from "@/context/SessionContext";
+import { resolveProfileImageUrl } from "@/lib/profileImage";
 
 /* ─── Page Component ────────────────────────────────────────────── */
 
 export default function StudentDashboardPage() {
   const { user, userProfile, refreshProfile } = useAuth();
   const { hasAnyPermission } = usePermissions();
+  const { currentSession } = useSession();
   const { showHelp, openHelp, closeHelp } = useToolHelp("student-dashboard");
   const enabled = !!user;
-  const isIepodAdminRole = hasAnyPermission(["iepod:manage"]);
+  const isIepodAdminRole = hasAnyPermission(["iepod:manage", "iepod:view"]);
   const iepodHref = isIepodAdminRole ? "/dashboard/iepod/manage" : "/dashboard/iepod";
 
   const { data, isLoading: loading } = useStudentDashboard(enabled);
@@ -373,20 +376,30 @@ export default function StudentDashboardPage() {
             </div>
             <div className="relative z-10 flex flex-wrap items-center gap-2 mt-6">
               {userProfile?.level && (
-                <span className="text-[10px] font-bold text-navy bg-lime rounded-full px-3 py-1 uppercase tracking-wider">
+                <span className="text-[10px] font-bold text-navy bg-lime rounded-md px-3 py-1 uppercase tracking-wider">
                   {String(userProfile.level).replace(/L$/i, "")} Level
                 </span>
               )}
+              {currentSession?.name && (
+                <span className="text-[10px] font-bold text-navy bg-sunny rounded-md px-3 py-1 uppercase tracking-wider">
+                  {currentSession.name}
+                </span>
+              )}
+              {currentSession?.currentSemester && (
+                <span className="text-[10px] font-bold text-navy bg-cloud rounded-md px-3 py-1 uppercase tracking-wider">
+                  Semester {currentSession.currentSemester}
+                </span>
+              )}
               {external ? (
-                <span className="text-[10px] font-bold text-navy bg-lavender rounded-full px-3 py-1 uppercase tracking-wider">
+                <span className="text-[10px] font-bold text-navy bg-lavender rounded-md px-3 py-1 uppercase tracking-wider">
                   {userProfile?.department ?? "External"}
                 </span>
               ) : (
                 <>
-                  <span className="text-[10px] font-bold text-navy bg-teal rounded-full px-3 py-1 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-navy bg-teal rounded-md px-3 py-1 uppercase tracking-wider">
                     {announcements.length} announcement{announcements.length !== 1 ? "s" : ""}
                   </span>
-                  <span className="text-[10px] font-bold text-navy bg-coral rounded-full px-3 py-1 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-navy bg-coral rounded-md px-3 py-1 uppercase tracking-wider">
                     {events.length} upcoming event{events.length !== 1 ? "s" : ""}
                   </span>
                 </>
@@ -420,7 +433,7 @@ export default function StudentDashboardPage() {
         </div>
 
         {/* ═══ IEPOD PROMO BANNER (IPE students only) ═══ */}
-        {!external && (
+        {!external && !isIepodAdminRole && (
           <Link
             href={iepodHref}
             className="block bg-coral border-[3px] border-navy rounded-3xl p-5 press-4 press-black mb-5 relative overflow-hidden group transition-all"
@@ -542,7 +555,7 @@ export default function StudentDashboardPage() {
                               {cls.venue} &middot; {cls.startTime}–{cls.endTime}
                             </p>
                           </div>
-                          <span className={`text-[10px] font-bold rounded-full px-2.5 py-1 shrink-0 ${c.tagBg} ${c.tagTxt}`}>
+                          <span className={`text-[10px] font-bold rounded-md px-2.5 py-1 shrink-0 ${c.tagBg} ${c.tagTxt}`}>
                             {cls.classType}
                           </span>
                         </div>
@@ -597,7 +610,7 @@ export default function StudentDashboardPage() {
                         </p>
                       </div>
                       {ann.priority === "urgent" && (
-                        <span className="text-[10px] font-bold text-snow bg-coral rounded-full px-2.5 py-0.5 shrink-0">URGENT</span>
+                        <span className="text-[10px] font-bold text-snow bg-coral rounded-md px-2.5 py-0.5 shrink-0">URGENT</span>
                       )}
                       <svg aria-hidden="true" className="w-4 h-4 text-slate group-hover:text-navy transition-colors shrink-0" viewBox="0 0 24 24" fill="currentColor">
                         <path fillRule="evenodd" d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z" clipRule="evenodd" />
@@ -661,7 +674,7 @@ export default function StudentDashboardPage() {
                 </svg>
                 <h3 className="font-display font-black text-xl text-navy mb-1 relative z-10">Growth Tools</h3>
                 <p className="text-navy/60 text-xs font-medium relative z-10 mb-3">CGPA, planner, goals &amp; more</p>
-                <span className="inline-flex items-center gap-1.5 text-navy text-xs font-bold relative z-10 group-hover:gap-2.5 transition-all bg-snow/30 rounded-full px-3 py-1.5">
+                <span className="inline-flex items-center gap-1.5 text-navy text-xs font-bold relative z-10 group-hover:gap-2.5 transition-all bg-snow/30 rounded-md px-3 py-1.5">
                   Explore
                   <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
@@ -837,7 +850,9 @@ export default function StudentDashboardPage() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              {birthdays.map((b) => (
+              {birthdays.map((b) => {
+                const birthdayImageUrl = resolveProfileImageUrl(b);
+                return (
                 <div
                   key={b._id}
                   className={`flex items-center gap-3 rounded-2xl border-[3px] px-4 py-3 transition-all ${
@@ -846,9 +861,9 @@ export default function StudentDashboardPage() {
                       : "bg-snow border-navy/15"
                   }`}
                 >
-                  {b.profilePictureUrl ? (
+                  {birthdayImageUrl ? (
                     <Image
-                      src={b.profilePictureUrl}
+                      src={birthdayImageUrl}
                       alt=""
                       width={36}
                       height={36}
@@ -870,7 +885,8 @@ export default function StudentDashboardPage() {
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

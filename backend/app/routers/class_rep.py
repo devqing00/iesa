@@ -19,11 +19,12 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.core.permissions import require_permission
 from app.core.security import get_current_user
+from app.core.audit import AuditLogger
 from app.db import get_database
 
 router = APIRouter(prefix="/api/v1/class-rep", tags=["class-rep"])
@@ -42,7 +43,9 @@ async def _get_rep_level(user: dict) -> str:
     db = get_database()
     user_id = str(user.get("_id") or user.get("id", ""))
 
-    role = await db["roles"].find_one({
+    active_session_id = await _get_active_session_id()
+
+    roles = await db["roles"].find({
         "userId": user_id,
         "isActive": True,
         "$or": [
@@ -50,12 +53,28 @@ async def _get_rep_level(user: dict) -> str:
             {"position": {"$regex": "^asst_class_rep_"}},
             {"position": "freshers_coordinator"},
         ],
-    })
-    if not role:
+    }).to_list(None)
+
+    if not roles:
         raise HTTPException(status_code=403, detail="No active class-rep or freshers-coordinator role found")
 
-    if role.get("position") == "freshers_coordinator":
+    # Prioritize active session roles; fall back to any active role if needed.
+    scoped_roles = [r for r in roles if str(r.get("sessionId", "")) == active_session_id] or roles
+
+    # Freshers coordinator is always scoped to 100L.
+    if any(r.get("position") == "freshers_coordinator" for r in scoped_roles):
         return "100L"
+
+    role = next(
+        (
+            r for r in scoped_roles
+            if str(r.get("position", "")).startswith("class_rep_")
+            or str(r.get("position", "")).startswith("asst_class_rep_")
+        ),
+        None,
+    )
+    if not role:
+        raise HTTPException(status_code=403, detail="No active class-rep role found")
 
     # Extract level from position string: class_rep_400L → 400L
     # Or use the explicit `level` field on the role doc
@@ -71,6 +90,25 @@ async def _get_rep_level(user: dict) -> str:
     return level
 
 
+async def _require_active_freshers_role(user: dict) -> None:
+    """Ensure caller has an active freshers_coordinator role for the active session."""
+    db = get_database()
+    user_id = str(user.get("_id") or user.get("id", ""))
+    active_session_id = await _get_active_session_id()
+
+    role = await db["roles"].find_one({
+        "userId": user_id,
+        "position": "freshers_coordinator",
+        "sessionId": active_session_id,
+        "isActive": True,
+    })
+    if not role:
+        raise HTTPException(
+            status_code=403,
+            detail="Freshers portal access requires an active freshers_coordinator role in the current session",
+        )
+
+
 async def _get_active_session_id() -> str:
     db = get_database()
     session = await db["sessions"].find_one({"isActive": True})
@@ -81,6 +119,42 @@ async def _get_active_session_id() -> str:
 
 def _user_id(user: dict) -> str:
     return str(user.get("_id") or user.get("id", ""))
+
+
+@router.get(
+    "/freshers/verify",
+    dependencies=[Depends(require_permission("freshers:manage"))],
+)
+async def verify_freshers_access(
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    """Verify strict freshers-coordinator access and normalized level scope."""
+    try:
+        await _require_active_freshers_role(current_user)
+    except HTTPException as exc:
+        if exc.status_code == 403:
+            await AuditLogger.log(
+                action="freshers.access_denied",
+                actor_id=_user_id(current_user),
+                actor_email=current_user.get("email", "unknown"),
+                resource_type="freshers_portal",
+                details={"reason": exc.detail},
+                ip_address=request.client.host if request and request.client else None,
+                user_agent=request.headers.get("user-agent") if request else None,
+            )
+        raise
+
+    await AuditLogger.log(
+        action="freshers.access_verified",
+        actor_id=_user_id(current_user),
+        actor_email=current_user.get("email", "unknown"),
+        resource_type="freshers_portal",
+        details={"level": "100L"},
+        ip_address=request.client.host if request and request.client else None,
+        user_agent=request.headers.get("user-agent") if request else None,
+    )
+    return {"ok": True, "level": "100L"}
 
 
 # ──────────────────────────────────────────────────────────────────

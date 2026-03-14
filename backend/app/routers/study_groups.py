@@ -18,6 +18,7 @@ import secrets
 from ..core.security import verify_token, get_current_user
 from ..core.sanitization import sanitize_html
 from ..core.security import verify_firebase_id_token_raw
+from ..core.ws_security import is_ws_origin_allowed
 from ..core.database import get_database
 
 
@@ -863,6 +864,27 @@ async def add_message(
     )
     message["createdAt"] = message["createdAt"].isoformat()
     await chat_manager.broadcast(group_id, {"type": "message", "data": message})
+
+    try:
+        from app.routers.notifications import create_notification
+        sender_name = f"{message.get('firstName', '')} {message.get('lastName', '')}".strip() or "A group member"
+        group_name = doc.get("name", "your study group")
+        preview = (message.get("text") or "")[:120]
+        for member in doc.get("members", []):
+            member_id = member.get("userId")
+            if member_id and member_id != user_id:
+                asyncio.create_task(create_notification(
+                    user_id=member_id,
+                    type="study_group_message",
+                    title=f"New message in {group_name}",
+                    message=f"{sender_name}: {preview}" if preview else f"{sender_name} posted a new message.",
+                    link="/dashboard/growth/study-groups",
+                    related_id=group_id,
+                    category="study_groups",
+                ))
+    except Exception:
+        pass
+
     return message
 
 
@@ -903,6 +925,11 @@ async def websocket_chat(
     token: str = Query(..., description="JWT access token"),
 ):
     """Real-time WebSocket chat for a study group (members only)."""
+    origin = ws.headers.get("origin")
+    if not is_ws_origin_allowed(origin):
+        await ws.close(code=1008)
+        return
+
     # Authenticate via query-param token (browsers can't set WS headers)
     try:
         user_data = await verify_firebase_id_token_raw(token)
@@ -976,6 +1003,26 @@ async def websocket_chat(
                 )
                 msg["createdAt"] = msg["createdAt"].isoformat()
                 await chat_manager.broadcast(group_id, {"type": "message", "data": msg})
+
+                try:
+                    from app.routers.notifications import create_notification
+                    sender_name = f"{first_name} {last_name}".strip() or "A group member"
+                    group_name = doc.get("name", "your study group")
+                    preview = text[:120]
+                    for member in doc.get("members", []):
+                        member_id = member.get("userId")
+                        if member_id and member_id != user_id:
+                            asyncio.create_task(create_notification(
+                                user_id=member_id,
+                                type="study_group_message",
+                                title=f"New message in {group_name}",
+                                message=f"{sender_name}: {preview}" if preview else f"{sender_name} posted a new message.",
+                                link="/dashboard/growth/study-groups",
+                                related_id=group_id,
+                                category="study_groups",
+                            ))
+                except Exception:
+                    pass
             elif data.get("type") == "ping":
                 await ws.send_json({"type": "pong"})
     except WebSocketDisconnect:

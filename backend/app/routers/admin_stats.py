@@ -35,10 +35,9 @@ def _safe_birthday_for_year(dob: date, year: int) -> date:
 
 
 async def _fetch_upcoming_birthdays(db, days_ahead: int = 14, limit: int = 8) -> list[dict]:
-    """Return upcoming student birthdays within the next N days."""
+    """Return upcoming active user birthdays within the next N days."""
     users = await db["users"].find(
         {
-            "role": "student",
             "isActive": {"$ne": False},
             "dateOfBirth": {"$exists": True, "$ne": None},
         },
@@ -49,6 +48,7 @@ async def _fetch_upcoming_birthdays(db, days_ahead: int = 14, limit: int = 8) ->
             "currentLevel": 1,
             "department": 1,
             "profilePictureUrl": 1,
+            "profilePhotoURL": 1,
         },
     ).to_list(length=5000)
 
@@ -73,7 +73,7 @@ async def _fetch_upcoming_birthdays(db, days_ahead: int = 14, limit: int = 8) ->
                     "lastName": user.get("lastName", ""),
                     "currentLevel": user.get("currentLevel"),
                     "department": user.get("department"),
-                    "profilePictureUrl": user.get("profilePictureUrl"),
+                    "profilePictureUrl": user.get("profilePictureUrl") or user.get("profilePhotoURL"),
                     "daysUntil": days_until,
                     "birthdayMonth": next_birthday.month,
                     "birthdayDay": next_birthday.day,

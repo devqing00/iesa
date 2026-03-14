@@ -66,68 +66,68 @@ def _slugify(text: str) -> str:
 
 
 async def _check_press_member(user: dict, db) -> bool:
-    """Check if user is a press team member (has any press permission in their active-session role).
-    Super admins always have access."""
+    """Check if user is a press team member in the active session."""
+    return await _has_press_capability(
+        user,
+        db,
+        ["press:create", "press:edit", "press:review", "press:publish", "press:manage"],
+        allow_press_position_fallback=True,
+    )
+
+
+async def _has_press_capability(
+    user: dict,
+    db,
+    required_permissions: list[str],
+    allow_press_position_fallback: bool = False,
+) -> bool:
+    """Check whether user has any required press capability on active-session role."""
     roles = db["roles"]
     sessions = db["sessions"]
-    
-    # Check for super admin (omnipotent access — session-agnostic)
-    super_admin = await roles.find_one({
-        "userId": user["_id"],
-        "position": "super_admin",
-        "isActive": True
-    })
-    if super_admin:
-        return True
-    
-    # Get active session for session-scoped check
+
     active_session = await sessions.find_one({"isActive": True})
     if not active_session:
         return False
-    session_id = str(active_session["_id"])
-    
-    # Check for press-specific permissions or position in the active session
+    session_id = str(active_session.get("_id"))
+
     user_role = await roles.find_one({
         "userId": user["_id"],
         "sessionId": session_id,
         "isActive": True,
-        "$or": [
-            {"permissions": {"$in": ["press:create", "press:edit", "press:review", "press:publish", "press:manage"]}},
-            {"position": {"$regex": "press", "$options": "i"}},
-        ]
     })
-    return user_role is not None
+
+    if not user_role:
+        return False
+
+    permissions = user_role.get("permissions") or []
+    if any(permission in permissions for permission in required_permissions):
+        return True
+
+    if allow_press_position_fallback:
+        position = str(user_role.get("position", ""))
+        return "press" in position.lower()
+
+    return False
 
 
 async def _check_press_head(user: dict, db) -> bool:
-    """Check if user has press review/publish permissions (unit head) in the active session.
-    Super admins always have access."""
-    roles = db["roles"]
-    sessions = db["sessions"]
-    
-    # Check for super admin (omnipotent access — session-agnostic)
-    super_admin = await roles.find_one({
-        "userId": user["_id"],
-        "position": "super_admin",
-        "isActive": True
-    })
-    if super_admin:
-        return True
-    
-    # Get active session for session-scoped check
-    active_session = await sessions.find_one({"isActive": True})
-    if not active_session:
-        return False
-    session_id = str(active_session["_id"])
-    
-    # Check for press head permissions in the active session
-    user_role = await roles.find_one({
-        "userId": user["_id"],
-        "sessionId": session_id,
-        "isActive": True,
-        "permissions": {"$in": ["press:review", "press:publish", "press:manage"]},
-    })
-    return user_role is not None
+    """Check if user has press-admin access in active session."""
+    return await _has_press_capability(user, db, ["press:review", "press:publish", "press:manage"])
+
+
+async def _check_press_reviewer(user: dict, db) -> bool:
+    """Check if user can execute review workflow actions."""
+    return await _has_press_capability(user, db, ["press:review", "press:manage"])
+
+
+async def _check_press_publisher(user: dict, db) -> bool:
+    """Check if user can publish/unpublish content."""
+    return await _has_press_capability(user, db, ["press:publish", "press:manage"])
+
+
+async def _check_press_manager(user: dict, db) -> bool:
+    """Check if user can perform management actions like archive."""
+    return await _has_press_capability(user, db, ["press:manage"])
 
 
 def _article_dict(doc: dict) -> dict:
@@ -137,6 +137,26 @@ def _article_dict(doc: dict) -> dict:
     if "authorId" in doc and not isinstance(doc["authorId"], str):
         doc["authorId"] = str(doc["authorId"])
     return doc
+
+
+async def _audit_press_access_denied(
+    request: Request,
+    user: dict,
+    endpoint: str,
+    required_permissions: list[str],
+):
+    await AuditLogger.log(
+        action="press.access_denied",
+        actor_id=user.get("_id", ""),
+        actor_email=user.get("email", "unknown"),
+        resource_type="press",
+        details={
+            "endpoint": endpoint,
+            "requiredPermissions": required_permissions,
+        },
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
 
 
 # ══════════════════════════════════════════════════════════
@@ -232,6 +252,7 @@ async def get_published_article(slug: str, request: Request):
 
 @router.get("/my-articles", response_model=List[Article])
 async def list_my_articles(
+    request: Request,
     article_status: Optional[str] = Query(None, alias="status"),
     user: dict = Depends(get_current_user),
 ):
@@ -241,6 +262,7 @@ async def list_my_articles(
 
     is_member = await _check_press_member(user, db)
     if not is_member:
+        await _audit_press_access_denied(request, user, "/my-articles", ["press:create", "press:edit", "press:review", "press:publish", "press:manage"])
         raise HTTPException(status_code=403, detail="You are not a press team member")
 
     query: dict = {"authorId": user["_id"]}
@@ -255,6 +277,7 @@ async def list_my_articles(
 @router.post("/", response_model=Article, status_code=201)
 async def create_article(
     payload: ArticleCreate,
+    request: Request,
     user: dict = Depends(get_current_user),
 ):
     """Create a new draft article."""
@@ -263,6 +286,7 @@ async def create_article(
 
     is_member = await _check_press_member(user, db)
     if not is_member:
+        await _audit_press_access_denied(request, user, "/", ["press:create", "press:edit", "press:review", "press:publish", "press:manage"])
         raise HTTPException(status_code=403, detail="You are not a press team member")
 
     # Sanitize
@@ -305,6 +329,18 @@ async def create_article(
     }
     result = await articles.insert_one(doc)
     doc["_id"] = str(result.inserted_id)
+
+    await AuditLogger.log(
+        action="press.created",
+        actor_id=user["_id"],
+        actor_email=user.get("email", "unknown"),
+        resource_type="press_article",
+        resource_id=doc["_id"],
+        details={"title": doc.get("title"), "status": "draft"},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return doc
 
 
@@ -312,6 +348,7 @@ async def create_article(
 async def update_article(
     article_id: str,
     payload: ArticleUpdate,
+    request: Request,
     user: dict = Depends(get_current_user),
 ):
     """Update own article (only while draft or revision_requested)."""
@@ -353,11 +390,26 @@ async def update_article(
 
     await articles.update_one({"_id": ObjectId(article_id)}, {"$set": updates})
     updated = await articles.find_one({"_id": ObjectId(article_id)})
+    if not updated:
+        raise HTTPException(404, "Article not found")
+
+    await AuditLogger.log(
+        action="press.updated",
+        actor_id=user["_id"],
+        actor_email=user.get("email", "unknown"),
+        resource_type="press_article",
+        resource_id=article_id,
+        details={"title": updated.get("title"), "status": updated.get("status")},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return _article_dict(updated)
 
 
 @router.post("/upload-cover")
 async def upload_cover_image(
+    request: Request,
     file: UploadFile = File(...),
     user: dict = Depends(get_current_user),
 ):
@@ -378,6 +430,7 @@ async def upload_cover_image(
     # Check press membership
     db = get_database()
     if not await _check_press_member(user, db):
+        await _audit_press_access_denied(request, user, "/upload-cover", ["press:create", "press:edit", "press:review", "press:publish", "press:manage"])
         raise HTTPException(status_code=403, detail="Only press team members can upload cover images")
 
     ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "jpg"
@@ -386,11 +439,21 @@ async def upload_cover_image(
     if not image_url:
         raise HTTPException(status_code=500, detail="Failed to upload image")
 
+    await AuditLogger.log(
+        action="press.cover_uploaded",
+        actor_id=user["_id"],
+        actor_email=user.get("email", "unknown"),
+        resource_type="press_asset",
+        details={"filename": file.filename, "contentType": file.content_type},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return {"url": image_url}
 
 
 @router.post("/{article_id}/submit")
-async def submit_article(article_id: str, user: dict = Depends(get_current_user)):
+async def submit_article(article_id: str, request: Request, user: dict = Depends(get_current_user)):
     """Submit article for review (draft or revision_requested → submitted)."""
     _validate_oid(article_id)
     db = get_database()
@@ -408,11 +471,23 @@ async def submit_article(article_id: str, user: dict = Depends(get_current_user)
         {"_id": ObjectId(article_id)},
         {"$set": {"status": "submitted", "submittedAt": datetime.now(timezone.utc), "updatedAt": datetime.now(timezone.utc)}},
     )
+
+    await AuditLogger.log(
+        action="press.submitted",
+        actor_id=user["_id"],
+        actor_email=user.get("email", "unknown"),
+        resource_type="press_article",
+        resource_id=article_id,
+        details={"title": doc.get("title"), "fromStatus": doc.get("status"), "toStatus": "submitted"},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return {"message": "Article submitted for review", "status": "submitted"}
 
 
 @router.delete("/{article_id}")
-async def delete_article(article_id: str, user: dict = Depends(get_current_user)):
+async def delete_article(article_id: str, request: Request, user: dict = Depends(get_current_user)):
     """Delete own draft article."""
     _validate_oid(article_id)
     db = get_database()
@@ -427,6 +502,18 @@ async def delete_article(article_id: str, user: dict = Depends(get_current_user)
         raise HTTPException(400, "Can only delete drafts or rejected articles")
 
     await articles.delete_one({"_id": ObjectId(article_id)})
+
+    await AuditLogger.log(
+        action="press.deleted",
+        actor_id=user["_id"],
+        actor_email=user.get("email", "unknown"),
+        resource_type="press_article",
+        resource_id=article_id,
+        details={"title": doc.get("title"), "status": doc.get("status")},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return {"message": "Article deleted"}
 
 
@@ -435,11 +522,12 @@ async def delete_article(article_id: str, user: dict = Depends(get_current_user)
 # ══════════════════════════════════════════════════════════
 
 @router.get("/review-queue", response_model=List[Article])
-async def get_review_queue(user: dict = Depends(get_current_user)):
+async def get_review_queue(request: Request, user: dict = Depends(get_current_user)):
     """Get all articles awaiting review (submitted + in_review)."""
     db = get_database()
     is_head = await _check_press_head(user, db)
     if not is_head:
+        await _audit_press_access_denied(request, user, "/review-queue", ["press:review", "press:publish", "press:manage"])
         raise HTTPException(403, "Press head permissions required")
 
     articles = db["press_articles"]
@@ -450,6 +538,7 @@ async def get_review_queue(user: dict = Depends(get_current_user)):
 
 @router.get("/all", response_model=List[Article])
 async def get_all_articles(
+    request: Request,
     article_status: Optional[str] = Query(None, alias="status"),
     user: dict = Depends(get_current_user),
 ):
@@ -457,6 +546,7 @@ async def get_all_articles(
     db = get_database()
     is_head = await _check_press_head(user, db)
     if not is_head:
+        await _audit_press_access_denied(request, user, "/all", ["press:review", "press:publish", "press:manage"])
         raise HTTPException(403, "Press head permissions required")
 
     articles = db["press_articles"]
@@ -474,11 +564,12 @@ async def get_all_articles(
 # ══════════════════════════════════════════════════════════
 
 @router.get("/stats/overview")
-async def press_stats(user: dict = Depends(get_current_user)):
+async def press_stats(request: Request, user: dict = Depends(get_current_user)):
     """Get press dashboard stats."""
     db = get_database()
     is_head = await _check_press_head(user, db)
     if not is_head:
+        await _audit_press_access_denied(request, user, "/stats/overview", ["press:review", "press:publish", "press:manage"])
         raise HTTPException(403, "Press head permissions required")
 
     articles = db["press_articles"]
@@ -507,7 +598,7 @@ async def press_stats(user: dict = Depends(get_current_user)):
 
 
 @router.get("/{article_id}", response_model=Article)
-async def get_article_detail(article_id: str, user: dict = Depends(get_current_user)):
+async def get_article_detail(article_id: str, request: Request, user: dict = Depends(get_current_user)):
     """Get single article detail — author can see own, head can see any."""
     _validate_oid(article_id)
     db = get_database()
@@ -519,19 +610,21 @@ async def get_article_detail(article_id: str, user: dict = Depends(get_current_u
 
     is_head = await _check_press_head(user, db)
     if doc["authorId"] != user["_id"] and not is_head:
+        await _audit_press_access_denied(request, user, f"/{article_id}", ["author:self", "press:review", "press:publish", "press:manage"])
         raise HTTPException(403, "Access denied")
 
     return _article_dict(doc)
 
 
 @router.post("/{article_id}/start-review")
-async def start_review(article_id: str, user: dict = Depends(get_current_user)):
+async def start_review(article_id: str, request: Request, user: dict = Depends(get_current_user)):
     """Mark submitted article as in_review."""
     _validate_oid(article_id)
     db = get_database()
-    is_head = await _check_press_head(user, db)
-    if not is_head:
-        raise HTTPException(403, "Press head permissions required")
+    is_reviewer = await _check_press_reviewer(user, db)
+    if not is_reviewer:
+        await _audit_press_access_denied(request, user, f"/{article_id}/start-review", ["press:review", "press:manage"])
+        raise HTTPException(403, "Press review permissions required")
 
     articles = db["press_articles"]
     doc = await articles.find_one({"_id": ObjectId(article_id)})
@@ -544,6 +637,16 @@ async def start_review(article_id: str, user: dict = Depends(get_current_user)):
         {"_id": ObjectId(article_id)},
         {"$set": {"status": "in_review", "updatedAt": datetime.now(timezone.utc)}},
     )
+
+    await AuditLogger.log(
+        action="press.review_started",
+        actor_id=user["_id"],
+        actor_email=user.get("email", "unknown"),
+        resource_type="press_article",
+        resource_id=article_id,
+        details={"title": doc.get("title"), "fromStatus": "submitted", "toStatus": "in_review"},
+    )
+
     return {"message": "Article is now in review", "status": "in_review"}
 
 
@@ -552,9 +655,10 @@ async def approve_article(article_id: str, request: Request, user: dict = Depend
     """Approve article (submitted/in_review → approved)."""
     _validate_oid(article_id)
     db = get_database()
-    is_head = await _check_press_head(user, db)
-    if not is_head:
-        raise HTTPException(403, "Press head permissions required")
+    is_reviewer = await _check_press_reviewer(user, db)
+    if not is_reviewer:
+        await _audit_press_access_denied(request, user, f"/{article_id}/approve", ["press:review", "press:manage"])
+        raise HTTPException(403, "Press review permissions required")
 
     articles = db["press_articles"]
     doc = await articles.find_one({"_id": ObjectId(article_id)})
@@ -606,9 +710,10 @@ async def reject_article(
     """Reject article with reason."""
     _validate_oid(article_id)
     db = get_database()
-    is_head = await _check_press_head(user, db)
-    if not is_head:
-        raise HTTPException(403, "Press head permissions required")
+    is_reviewer = await _check_press_reviewer(user, db)
+    if not is_reviewer:
+        await _audit_press_access_denied(request, user, f"/{article_id}/reject", ["press:review", "press:manage"])
+        raise HTTPException(403, "Press review permissions required")
 
     articles = db["press_articles"]
     doc = await articles.find_one({"_id": ObjectId(article_id)})
@@ -663,14 +768,16 @@ async def reject_article(
 async def request_revision(
     article_id: str,
     payload: FeedbackCreate,
+    request: Request,
     user: dict = Depends(get_current_user),
 ):
     """Request revisions with feedback (submitted/in_review → revision_requested)."""
     _validate_oid(article_id)
     db = get_database()
-    is_head = await _check_press_head(user, db)
-    if not is_head:
-        raise HTTPException(403, "Press head permissions required")
+    is_reviewer = await _check_press_reviewer(user, db)
+    if not is_reviewer:
+        await _audit_press_access_denied(request, user, f"/{article_id}/request-revision", ["press:review", "press:manage"])
+        raise HTTPException(403, "Press review permissions required")
 
     articles = db["press_articles"]
     doc = await articles.find_one({"_id": ObjectId(article_id)})
@@ -694,6 +801,17 @@ async def request_revision(
         },
     )
 
+    await AuditLogger.log(
+        action="press.revision_requested",
+        actor_id=user["_id"],
+        actor_email=user.get("email", "unknown"),
+        resource_type="press_article",
+        resource_id=article_id,
+        details={"title": doc.get("title"), "message": payload.message},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     # Notify the author
     author_id = str(doc.get("authorId", ""))
     if author_id:
@@ -714,14 +832,16 @@ async def request_revision(
 async def add_feedback(
     article_id: str,
     payload: FeedbackCreate,
+    request: Request,
     user: dict = Depends(get_current_user),
 ):
     """Add a feedback comment (head can post on any status)."""
     _validate_oid(article_id)
     db = get_database()
-    is_head = await _check_press_head(user, db)
-    if not is_head:
-        raise HTTPException(403, "Press head permissions required")
+    is_reviewer = await _check_press_reviewer(user, db)
+    if not is_reviewer:
+        await _audit_press_access_denied(request, user, f"/{article_id}/feedback", ["press:review", "press:manage"])
+        raise HTTPException(403, "Press review permissions required")
 
     articles = db["press_articles"]
     doc = await articles.find_one({"_id": ObjectId(article_id)})
@@ -742,6 +862,18 @@ async def add_feedback(
             "$set": {"updatedAt": datetime.now(timezone.utc)},
         },
     )
+
+    await AuditLogger.log(
+        action="press.feedback_added",
+        actor_id=user["_id"],
+        actor_email=user.get("email", "unknown"),
+        resource_type="press_article",
+        resource_id=article_id,
+        details={"title": doc.get("title"), "message": payload.message},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
     return {"message": "Feedback added"}
 
 
@@ -750,9 +882,10 @@ async def publish_article(article_id: str, request: Request, user: dict = Depend
     """Publish an approved article to the public blog."""
     _validate_oid(article_id)
     db = get_database()
-    is_head = await _check_press_head(user, db)
-    if not is_head:
-        raise HTTPException(403, "Press head permissions required")
+    is_publisher = await _check_press_publisher(user, db)
+    if not is_publisher:
+        await _audit_press_access_denied(request, user, f"/{article_id}/publish", ["press:publish", "press:manage"])
+        raise HTTPException(403, "Press publish permissions required")
 
     articles = db["press_articles"]
     doc = await articles.find_one({"_id": ObjectId(article_id)})
@@ -784,9 +917,10 @@ async def unpublish_article(article_id: str, request: Request, user: dict = Depe
     """Take article off public blog (back to approved)."""
     _validate_oid(article_id)
     db = get_database()
-    is_head = await _check_press_head(user, db)
-    if not is_head:
-        raise HTTPException(403, "Press head permissions required")
+    is_publisher = await _check_press_publisher(user, db)
+    if not is_publisher:
+        await _audit_press_access_denied(request, user, f"/{article_id}/unpublish", ["press:publish", "press:manage"])
+        raise HTTPException(403, "Press publish permissions required")
 
     articles = db["press_articles"]
     doc = await articles.find_one({"_id": ObjectId(article_id)})
@@ -818,9 +952,10 @@ async def archive_article(article_id: str, request: Request, user: dict = Depend
     """Archive an article."""
     _validate_oid(article_id)
     db = get_database()
-    is_head = await _check_press_head(user, db)
-    if not is_head:
-        raise HTTPException(403, "Press head permissions required")
+    is_manager = await _check_press_manager(user, db)
+    if not is_manager:
+        await _audit_press_access_denied(request, user, f"/{article_id}/archive", ["press:manage"])
+        raise HTTPException(403, "Press manage permissions required")
 
     articles = db["press_articles"]
     doc = await articles.find_one({"_id": ObjectId(article_id)})

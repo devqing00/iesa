@@ -19,6 +19,7 @@ from typing import Any
 from fastapi import APIRouter, Query, HTTPException, status, WebSocket, WebSocketDisconnect
 
 from app.core.security import verify_firebase_id_token_raw
+from app.core.ws_security import is_ws_origin_allowed
 from app.db import get_database
 from bson import ObjectId
 
@@ -156,6 +157,11 @@ async def sse_stream_deprecated():
 @router.websocket("/ws")
 async def ws_stream(ws: WebSocket, token: str = Query("", description="JWT access token")):
     """Open realtime notification stream over WebSocket."""
+    origin = ws.headers.get("origin")
+    if not is_ws_origin_allowed(origin):
+        await ws.close(code=1008, reason="Origin not allowed")
+        return
+
     if not token:
         await ws.close(code=4001, reason="Token required")
         return

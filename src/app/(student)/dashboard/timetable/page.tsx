@@ -425,7 +425,7 @@ export default function TimetablePage() {
             <div className="flex items-center gap-3 mb-4">
               <div className="w-3 h-8 rounded-full bg-coral" />
               <h2 className="font-display font-black text-xl text-navy">Upcoming Exams</h2>
-              <span className="px-2.5 py-0.5 rounded-full bg-coral-light text-coral text-xs font-bold">{exams.length}</span>
+              <span className="px-2.5 py-0.5 rounded-md bg-coral-light text-coral text-xs font-bold">{exams.length}</span>
             </div>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {exams
@@ -445,8 +445,8 @@ export default function TimetablePage() {
                           <p className="text-xs text-slate line-clamp-1">{ex.courseTitle}</p>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                          <span className={`text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 ${colors.bg} ${colors.text}`}>{ex.examType}</span>
-                          {isToday && <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-1 bg-coral text-snow">Today</span>}
+                          <span className={`text-[10px] font-bold uppercase tracking-wider rounded-md px-2.5 py-1 ${colors.bg} ${colors.text}`}>{ex.examType}</span>
+                          {isToday && <span className="text-[10px] font-bold uppercase tracking-wider rounded-md px-2 py-1 bg-coral text-snow">Today</span>}
                         </div>
                       </div>
                       <div className="space-y-1.5 text-[10px] font-bold text-slate uppercase tracking-wider">
@@ -496,11 +496,11 @@ export default function TimetablePage() {
                         {classSession.courseCode}
                       </h3>
                       <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 ${style.bg} ${style.text}`}>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider rounded-md px-2.5 py-1 ${style.bg} ${style.text}`}>
                           {classSession.classType}
                         </span>
                         {isCancelled && (
-                          <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 bg-coral text-snow">Cancelled</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider rounded-md px-2.5 py-1 bg-coral text-snow">Cancelled</span>
                         )}
                       </div>
                     </div>
@@ -554,7 +554,7 @@ export default function TimetablePage() {
                   <button key={event.id} onClick={() => setDetailEvent(event)} className={`text-left w-full bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000] transition-all hover:translate-y-[-1px] cursor-pointer ${isCancelled ? "opacity-50" : ""} ${rotation}`}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-display font-black text-base text-navy">{classSession.courseCode}</span>
-                      <span className="text-[10px] font-bold text-slate uppercase tracking-wider bg-cloud rounded-full px-2 py-0.5">
+                      <span className="text-[10px] font-bold text-slate uppercase tracking-wider bg-cloud rounded-md px-2 py-0.5">
                         {daysUntil}d
                       </span>
                     </div>
@@ -636,11 +636,11 @@ export default function TimetablePage() {
                     <p className="text-sm text-slate mt-1">{classSession.courseTitle}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider rounded-full px-3 py-1.5 ${style.bg} ${style.text}`}>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider rounded-md px-3 py-1.5 ${style.bg} ${style.text}`}>
                       {classSession.classType}
                     </span>
                     {isCancelled && (
-                      <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-3 py-1.5 bg-coral text-snow">
+                      <span className="text-[10px] font-bold uppercase tracking-wider rounded-md px-3 py-1.5 bg-coral text-snow">
                         Cancelled
                       </span>
                     )}
@@ -699,11 +699,11 @@ export default function TimetablePage() {
 
                 {/* Extra details */}
                 <div className="flex flex-wrap gap-2">
-                  <span className="bg-cloud rounded-full px-3 py-1.5 text-[10px] font-bold text-navy uppercase tracking-wider">
+                  <span className="bg-cloud rounded-md px-3 py-1.5 text-[10px] font-bold text-navy uppercase tracking-wider">
                     Level {classSession.level}
                   </span>
                   {classSession.recurring && (
-                    <span className="bg-teal-light rounded-full px-3 py-1.5 text-[10px] font-bold text-teal uppercase tracking-wider">
+                    <span className="bg-teal-light rounded-md px-3 py-1.5 text-[10px] font-bold text-teal uppercase tracking-wider">
                       Recurring Weekly
                     </span>
                   )}

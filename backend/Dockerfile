@@ -55,4 +55,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Run with uvicorn (single worker for 512MB memory environments)
 # Proxy headers ensure correct https/http scheme behind load balancers (DigitalOcean App Platform).
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# WebSocket options are tuned for long-lived real-time connections.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--proxy-headers", "--forwarded-allow-ips", "*", "--ws", "websockets", "--ws-ping-interval", "20", "--ws-ping-timeout", "20", "--timeout-keep-alive", "75"]

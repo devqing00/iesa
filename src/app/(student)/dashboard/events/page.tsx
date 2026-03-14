@@ -561,10 +561,10 @@ function EventsPage() {
               </h1>
             </div>
             <div className="flex flex-wrap gap-2 mt-5">
-              <span className="text-[10px] font-bold text-navy bg-snow/90 rounded-full px-3 py-1 uppercase tracking-wider">
+              <span className="text-[10px] font-bold text-navy bg-snow/90 rounded-md px-3 py-1 uppercase tracking-wider">
                 {events.length} event{events.length !== 1 ? "s" : ""}
               </span>
-              <span className="text-[10px] font-bold text-navy bg-sunny rounded-full px-3 py-1 uppercase tracking-wider">
+              <span className="text-[10px] font-bold text-navy bg-sunny rounded-md px-3 py-1 uppercase tracking-wider">
                 {registeredEvents.size} registered
               </span>
             </div>
@@ -711,11 +711,11 @@ function EventsPage() {
                           </p>
                         </div>
                         <div className="flex flex-col items-end gap-1.5">
-                          <span className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 bg-snow/20 text-snow backdrop-blur-sm">
+                          <span className="text-[10px] font-bold uppercase tracking-wider rounded-md px-2.5 py-1 bg-snow/20 text-snow backdrop-blur-sm">
                             {event.category}
                           </span>
                           {isRegistered && (
-                            <span className="text-[10px] font-bold text-navy bg-lime rounded-full px-2.5 py-1 uppercase tracking-wider">
+                            <span className="text-[10px] font-bold text-navy bg-lime rounded-md px-2.5 py-1 uppercase tracking-wider">
                               Going
                             </span>
                           )}
@@ -735,11 +735,11 @@ function EventsPage() {
                           </p>
                         </div>
                         <div className="flex flex-col items-end gap-2">
-                          <span className={`text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 ${accent.catBg} ${accent.catText}`}>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider rounded-md px-2.5 py-1 ${accent.catBg} ${accent.catText}`}>
                             {event.category}
                           </span>
                           {isRegistered && (
-                            <span className="text-[10px] font-bold text-navy bg-lime rounded-full px-2.5 py-1 uppercase tracking-wider">
+                            <span className="text-[10px] font-bold text-navy bg-lime rounded-md px-2.5 py-1 uppercase tracking-wider">
                               Going
                             </span>
                           )}

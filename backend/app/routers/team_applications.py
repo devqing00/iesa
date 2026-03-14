@@ -94,13 +94,34 @@ async def _get_team_settings(db, unit: str, session_id: str) -> dict:
     }
 
 
+async def _resolve_member_role_info(db, unit: str) -> dict | None:
+    """Return role info for team members (position + permissions) for built-in or custom teams."""
+    role_info = TEAM_ROLE_MAP.get(unit)
+    if role_info:
+        return role_info
+
+    custom_team = await db["custom_units"].find_one({"slug": unit, "isActive": True})
+    if not custom_team:
+        return None
+
+    return {
+        "position": f"team_member_custom_{unit}",
+        "permissions": custom_team.get("memberPermissions") or ["announcement:view", "event:view"],
+    }
+
+
 async def _count_active_members(db, unit: str, session_id: str) -> int:
     """Count active role holders for a unit in this session."""
-    role_info = TEAM_ROLE_MAP.get(unit)
+    role_info = await _resolve_member_role_info(db, unit)
     if not role_info:
         return 0
+
+    positions = {role_info["position"]}
+    if role_info["position"].startswith("team_member_custom_"):
+        positions.add(role_info["position"].replace("team_member_custom_", "unit_member_custom_", 1))
+
     return await db["roles"].count_documents({
-        "position": role_info["position"],
+        "position": {"$in": list(positions)},
         "sessionId": session_id,
         "isActive": True,
     })
@@ -523,7 +544,7 @@ async def review_application(
     # ── If accepted, grant unit member role ───────────────────────
     if body.status.value == "accepted":
         unit = app_doc["unit"]
-        role_info = TEAM_ROLE_MAP.get(unit)
+        role_info = await _resolve_member_role_info(db, unit)
         if role_info:
             existing_role = await db["roles"].find_one({
                 "userId": app_doc["userId"],
@@ -622,13 +643,17 @@ async def revoke_membership(
     }})
 
     # Deactivate the member role
-    role_info = TEAM_ROLE_MAP.get(app_doc["unit"])
+    role_info = await _resolve_member_role_info(db, app_doc["unit"])
     if role_info:
-        await db["roles"].update_one(
+        positions = {role_info["position"]}
+        if role_info["position"].startswith("team_member_custom_"):
+            positions.add(role_info["position"].replace("team_member_custom_", "unit_member_custom_", 1))
+
+        await db["roles"].update_many(
             {
                 "userId": app_doc["userId"],
                 "sessionId": app_doc["sessionId"],
-                "position": role_info["position"],
+                "position": {"$in": list(positions)},
                 "isActive": True,
             },
             {"$set": {"isActive": False, "updatedAt": now}},

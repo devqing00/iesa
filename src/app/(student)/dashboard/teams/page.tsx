@@ -91,6 +91,7 @@ const TEAM_ACCENTS: Record<string, { bg: string; light: string }> = {
   welfare: { bg: "bg-teal", light: "bg-teal-light" },
   alumni_relations: { bg: "bg-lavender", light: "bg-lavender-light" },
   dinner_award: { bg: "bg-coral", light: "bg-coral-light" },
+  publicity_content_creation: { bg: "bg-coral", light: "bg-coral-light" },
 };
 
 /* ── Static nav cards ──────────────────────────────────── */
@@ -103,7 +104,7 @@ const STATIC_CARDS = [
     accent: "bg-lavender",
     accentLight: "bg-lavender-light",
     rotation: "rotate-[-0.6deg]",
-    anyPermission: ["press:access", "press:create", "press:edit", "press:publish"],
+    anyPermission: ["press:review", "press:publish", "press:manage"],
     icon: (
       <svg className="w-8 h-8 text-navy" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path fillRule="evenodd" d="M4.125 3C3.089 3 2.25 3.84 2.25 4.875V18a3 3 0 0 0 3 3h15a3 3 0 0 1-3-3V4.875C17.25 3.839 16.41 3 15.375 3H4.125ZM12 9.75a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5H12Zm-.75-2.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5H12a.75.75 0 0 1-.75-.75ZM6 12.75a.75.75 0 0 0 0 1.5h7.5a.75.75 0 0 0 0-1.5H6Zm-.75 3.75a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H6a.75.75 0 0 1-.75-.75ZM6 6.75a.75.75 0 0 0-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 0 0 .75-.75v-3A.75.75 0 0 0 9 6.75H6Z" clipRule="evenodd" />

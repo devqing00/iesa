@@ -473,7 +473,7 @@ function AdminTimetablePage() {
               <div key={day}>
                 <div className="flex items-center gap-3 mb-3">
                   <h2 className="font-display font-black text-lg text-navy">{day}</h2>
-                  <span className="px-2.5 py-0.5 rounded-full bg-cloud text-slate text-xs font-bold">
+                  <span className="px-2.5 py-0.5 rounded-md bg-cloud text-slate text-xs font-bold">
                     {dayClasses.length}
                   </span>
                 </div>
@@ -490,7 +490,7 @@ function AdminTimetablePage() {
                             <p className="font-display font-black text-lg text-navy">{cls.courseCode}</p>
                             <p className="text-sm text-navy/60 line-clamp-1">{cls.courseTitle}</p>
                           </div>
-                          <span className={`shrink-0 ml-2 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${colors.bg} ${colors.text}`}>
+                          <span className={`shrink-0 ml-2 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase ${colors.bg} ${colors.text}`}>
                             {cls.type}
                           </span>
                         </div>
@@ -791,7 +791,7 @@ function AdminTimetablePage() {
                         <p className="font-display font-black text-lg text-navy">{ex.courseCode}</p>
                         <p className="text-sm text-navy/60 line-clamp-1">{ex.courseTitle}</p>
                       </div>
-                      <span className={`shrink-0 ml-2 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${colors.bg} ${colors.text}`}>
+                      <span className={`shrink-0 ml-2 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase ${colors.bg} ${colors.text}`}>
                         {ex.examType}
                       </span>
                     </div>

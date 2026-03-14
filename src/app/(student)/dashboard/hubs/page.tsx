@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { getMyIepodProfile, getMyTimpInfo } from "@/lib/api";
@@ -43,21 +43,27 @@ export default function HubsPage() {
   const { hasAnyPermission } = usePermissions();
   const [iepodStatus, setIepodStatus] = useState<string | null>(null);
   const [timpStatus, setTimpStatus] = useState<string | null>(null);
-  const isIepodAdminRole = hasAnyPermission(["iepod:manage"]);
+  const isIepodAdminRole = hasAnyPermission(["iepod:manage", "iepod:view"]);
   const iepodHref = isIepodAdminRole ? "/dashboard/iepod/manage" : "/dashboard/iepod";
+  const visibleHubs = useMemo(
+    () => (isIepodAdminRole ? HUBS.filter((hub) => hub.name !== "IEPOD") : HUBS),
+    [isIepodAdminRole],
+  );
 
   useEffect(() => {
-    getMyIepodProfile()
-      .then((p) => {
-        if (p?.registered) {
-          const reg = p.registration;
-          if (reg?.completedPhases?.length === 3) setIepodStatus("Completed");
-          else if (reg?.status === "approved") setIepodStatus("Active");
-          else if (reg?.status === "pending") setIepodStatus("Pending");
-          else setIepodStatus("Registered");
-        }
-      })
-      .catch(() => {});
+    if (!isIepodAdminRole) {
+      getMyIepodProfile()
+        .then((p) => {
+          if (p?.registered) {
+            const reg = p.registration;
+            if (reg?.completedPhases?.length === 3) setIepodStatus("Completed");
+            else if (reg?.status === "approved") setIepodStatus("Active");
+            else if (reg?.status === "pending") setIepodStatus("Pending");
+            else setIepodStatus("Registered");
+          }
+        })
+        .catch(() => {});
+    }
     getMyTimpInfo()
       .then((info) => {
         if (info.isMentor && info.pairs.length > 0) setTimpStatus("Mentoring");
@@ -65,7 +71,7 @@ export default function HubsPage() {
         else if (info.application) setTimpStatus(info.application.status === "approved" ? "Approved Mentor" : "Applied");
       })
       .catch(() => {});
-  }, []);
+  }, [isIepodAdminRole]);
 
   const statusMap: Record<string, string | null> = {
     IEPOD: isIepodAdminRole ? "Admin" : iepodStatus,
@@ -92,7 +98,7 @@ export default function HubsPage() {
 
         {/* Hub cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {HUBS.map((hub) => {
+          {visibleHubs.map((hub) => {
             const status = statusMap[hub.name];
             return (
               <Link
@@ -105,7 +111,7 @@ export default function HubsPage() {
                     {hub.icon}
                   </div>
                   {status && (
-                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${hub.accentLight} text-navy uppercase tracking-wider`}>
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md ${hub.accentLight} text-navy uppercase tracking-wider`}>
                       {status}
                     </span>
                   )}

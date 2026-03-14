@@ -406,6 +406,12 @@ DEFAULT_PERMISSIONS = {
         "team_head:view_members", "team_head:manage_noticeboard",
         "team_head:manage_tasks", "team_head:announce",
     ],
+    "team_head_publicity_content_creation": [
+        "announcement:create", "announcement:view",
+        "event:create", "event:view",
+        "team_head:view_members", "team_head:manage_noticeboard",
+        "team_head:manage_tasks", "team_head:announce",
+    ],
 
     # ── Team Members ────────────────────────────────────────────────
     "ics_member": [
@@ -432,6 +438,10 @@ DEFAULT_PERMISSIONS = {
         "event:view",
     ],
     "team_dinner_award_member": [
+        "announcement:view",
+        "event:view",
+    ],
+    "team_publicity_content_creation_member": [
         "announcement:view",
         "event:view",
     ],

@@ -245,6 +245,7 @@ export default function Sidebar() {
       .map((group) => ({
         ...group,
         links: group.links.filter((link) => {
+          if (link.href === "/dashboard/freshers" && userProfile?.role === "admin") return false;
           if (external && EXTERNAL_HIDDEN_HREFS.has(link.href)) return false;
           if (external && link.href.startsWith("/dashboard") && !isRouteAllowedForExternal(link.href)) return false;
           if (!link.anyPermission) return true;
@@ -252,7 +253,7 @@ export default function Sidebar() {
         }),
       }))
       .filter((group) => group.links.length > 0),
-    [external, hasPermission],
+    [external, hasPermission, userProfile?.role],
   );
 
   const activeGroupLabel = useMemo(

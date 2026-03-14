@@ -565,7 +565,7 @@ function AdminUsersPage() {
       <div>
         <div className="flex justify-between items-center mb-4">
           <h2 className="font-display font-black text-lg text-navy">User Directory</h2>
-          <span className="px-3 py-1 rounded-full bg-cloud text-navy/60 text-xs font-bold">
+          <span className="px-3 py-1 rounded-md bg-cloud text-navy/60 text-xs font-bold">
             {totalUsers} total {totalPages > 1 && `· page ${page}/${totalPages}`}
           </span>
         </div>
@@ -631,7 +631,7 @@ function AdminUsersPage() {
                       </td>
                       <td className="p-4 text-navy/60 text-sm hidden md:table-cell">{user.email}</td>
                       <td className="p-4 hidden lg:table-cell">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${
+                        <span className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-bold ${
                           user.department === "Industrial Engineering"
                             ? "bg-lime-light text-navy"
                             : "bg-lavender-light text-lavender"
@@ -641,7 +641,7 @@ function AdminUsersPage() {
                       </td>
                       <td className="p-4">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-cloud text-navy/60">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-cloud text-navy/60">
                             student
                           </span>
                           {(() => {
@@ -651,7 +651,7 @@ function AdminUsersPage() {
                               return assigned.map((position) => (
                                 <span
                                   key={position}
-                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold ${getPositionBadge(position)}`}
+                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold ${getPositionBadge(position)}`}
                                 >
                                   {getPositionLabel(position)}
                                 </span>
@@ -659,14 +659,14 @@ function AdminUsersPage() {
                             }
                             if (user.role === "admin") {
                               return (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-lavender-light text-lavender">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-lavender-light text-lavender">
                                   admin
                                 </span>
                               );
                             }
                             if (user.role === "exco") {
                               return (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-coral-light text-coral">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-coral-light text-coral">
                                   exco
                                 </span>
                               );
@@ -676,7 +676,7 @@ function AdminUsersPage() {
                         </div>
                       </td>
                       <td className="p-4 hidden md:table-cell">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${
+                        <span className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-bold ${
                           user.isActive !== false
                             ? "bg-teal-light text-teal"
                             : "bg-cloud text-slate"
@@ -788,7 +788,7 @@ function AdminUsersPage() {
           <div>
             <div className="flex justify-between items-center mb-4">
               <h2 className="font-display font-black text-lg text-navy">Birthday List</h2>
-              <span className="px-3 py-1 rounded-full bg-cloud text-navy/60 text-xs font-bold">
+              <span className="px-3 py-1 rounded-md bg-cloud text-navy/60 text-xs font-bold">
                 {bdTotal} total{bdTotalPages > 1 && ` · page ${bdPage}/${bdTotalPages}`}
               </span>
             </div>
@@ -841,7 +841,7 @@ function AdminUsersPage() {
                               </div>
                             </td>
                             <td className="p-4 hidden lg:table-cell">
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-cloud text-navy">
+                              <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-bold bg-cloud text-navy">
                                 {item.department || "—"}
                               </span>
                             </td>

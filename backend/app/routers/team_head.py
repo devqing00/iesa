@@ -115,10 +115,10 @@ async def _get_user_headed_teams(user_id: str, session_id: str, db) -> list[dict
                 "isCustom": False,
             })
 
-    # Custom units: check unit_head_custom_* positions
+    # Custom units: check both legacy and current custom head prefixes
     for pos in positions:
-        if pos.startswith("unit_head_custom_"):
-            slug = pos.replace("unit_head_custom_", "", 1)
+        if pos.startswith("unit_head_custom_") or pos.startswith("team_head_custom_"):
+            slug = pos.replace("unit_head_custom_", "", 1).replace("team_head_custom_", "", 1)
             doc = await db["custom_units"].find_one({"slug": slug, "isActive": True})
             if doc:
                 result.append({
@@ -139,14 +139,29 @@ async def _verify_head_of_team(user_id: str, team_slug: str, session_id: str, db
     return match
 
 
+async def _member_positions_for_team(team_slug: str, db) -> list[str]:
+    """Return member-role position names for a team (built-in or custom, with legacy aliases)."""
+    role_info = TEAM_ROLE_MAP.get(team_slug)
+    if role_info:
+        return [role_info["position"]]
+
+    custom_team = await db["custom_units"].find_one({"slug": team_slug, "isActive": True})
+    if not custom_team:
+        return []
+
+    return [
+        f"team_member_custom_{team_slug}",
+        f"unit_member_custom_{team_slug}",
+    ]
+
+
 async def _get_team_member_ids(team_slug: str, session_id: str, db) -> list[str]:
     """Return list of userIds who are active members of this unit."""
-    role_info = TEAM_ROLE_MAP.get(team_slug)
-    if not role_info:
-        # Custom unit: no members via role system (custom units don't have TEAM_ROLE_MAP entries)
+    positions = await _member_positions_for_team(team_slug, db)
+    if not positions:
         return []
     member_roles = await db["roles"].find({
-        "position": role_info["position"],
+        "position": {"$in": positions},
         "sessionId": session_id,
         "isActive": True,
     }).to_list(length=500)
@@ -155,11 +170,11 @@ async def _get_team_member_ids(team_slug: str, session_id: str, db) -> list[str]
 
 async def _get_team_members_full(team_slug: str, session_id: str, db) -> list[dict]:
     """Return enriched member list with user details."""
-    role_info = TEAM_ROLE_MAP.get(team_slug)
-    if not role_info:
+    positions = await _member_positions_for_team(team_slug, db)
+    if not positions:
         return []
     member_roles = await db["roles"].find({
-        "position": role_info["position"],
+        "position": {"$in": positions},
         "sessionId": session_id,
         "isActive": True,
     }).to_list(length=500)
@@ -730,7 +745,7 @@ async def my_memberships(
         "isActive": True,
     }).to_list(length=50)
 
-    # Build a reverse map: position → teamSlug
+    # Build a reverse map: position → teamSlug (built-ins)
     position_to_unit = {}
     for slug, info in TEAM_ROLE_MAP.items():
         position_to_unit[info["position"]] = slug
@@ -738,13 +753,15 @@ async def my_memberships(
     result = []
     for r in roles:
         slug = position_to_unit.get(r["position"])
+        if not slug and (r["position"].startswith("team_member_custom_") or r["position"].startswith("unit_member_custom_")):
+            slug = r["position"].replace("team_member_custom_", "", 1).replace("unit_member_custom_", "", 1)
         if slug:
             # Get head info
-            head_position = TEAM_TO_HEAD_POSITION.get(slug)
+            head_positions = [p for p in [TEAM_TO_HEAD_POSITION.get(slug), f"team_head_custom_{slug}", f"unit_head_custom_{slug}"] if p]
             head = None
-            if head_position:
+            if head_positions:
                 head_role = await db["roles"].find_one({
-                    "position": head_position,
+                    "position": {"$in": head_positions},
                     "sessionId": session_id,
                     "isActive": True,
                 })
@@ -763,18 +780,21 @@ async def my_memberships(
                         }
 
             # Count members
-            role_info = TEAM_ROLE_MAP.get(slug, {})
+            member_positions = await _member_positions_for_team(slug, db)
             member_count = 0
-            if role_info.get("position"):
+            if member_positions:
                 member_count = await db["roles"].count_documents({
-                    "position": role_info["position"],
+                    "position": {"$in": member_positions},
                     "sessionId": session_id,
                     "isActive": True,
                 })
 
+            custom_team = await db["custom_units"].find_one({"slug": slug, "isActive": True})
+            unit_label = custom_team.get("label", slug) if custom_team else TEAM_LABELS.get(slug, slug)
+
             result.append({
                 "unitSlug": slug,
-                "unitLabel": TEAM_LABELS.get(slug, slug),
+                "unitLabel": unit_label,
                 "head": head,
                 "memberCount": member_count,
                 "joinedAt": r.get("createdAt"),

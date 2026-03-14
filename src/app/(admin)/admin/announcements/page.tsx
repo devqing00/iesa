@@ -428,11 +428,11 @@ function AdminAnnouncementsPage() {
                   >
                     {/* Top row */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${priorityPill(a.priority)}`}>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-bold ${priorityPill(a.priority)}`}>
                         {a.priority}
                       </span>
                       {a.isPinned && (
-                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-sunny-light text-sunny">
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-md text-xs font-bold bg-sunny-light text-sunny">
                           <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
                           </svg>
@@ -440,7 +440,7 @@ function AdminAnnouncementsPage() {
                         </span>
                       )}
                       {a.isPublished === false && (
-                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-lavender-light text-lavender">
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-md text-xs font-bold bg-lavender-light text-lavender">
                           <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                             <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" />
                           </svg>
@@ -492,7 +492,7 @@ function AdminAnnouncementsPage() {
                     {/* Footer */}
                     <div className="mt-auto flex flex-wrap items-center gap-2 pt-4 border-t-[3px] border-navy/10">
                       {a.targetAudience && a.targetAudience !== "all" && (
-                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                        <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold ${
                           a.targetAudience === "ipe" ? "bg-lime-light text-navy" : "bg-lavender-light text-lavender"
                         }`}>
                           {a.targetAudience === "ipe" ? "IPE Only" : "External Only"}
@@ -500,10 +500,10 @@ function AdminAnnouncementsPage() {
                       )}
                       {a.targetLevels && a.targetLevels.length > 0 ? (
                         a.targetLevels.map((level) => (
-                          <span key={level} className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-cloud text-navy/60">{level}</span>
+                          <span key={level} className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-cloud text-navy/60">{level}</span>
                         ))
                       ) : (
-                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-cloud text-navy/60">All Levels</span>
+                        <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-cloud text-navy/60">All Levels</span>
                       )}
                       <span className="ml-auto text-xs text-slate font-medium">
                         {a.authorName || "Admin"} &middot; {relativeTime(a.createdAt)}

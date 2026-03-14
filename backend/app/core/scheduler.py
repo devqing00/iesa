@@ -44,7 +44,7 @@ async def birthday_wishes() -> None:
     """
     try:
         from app.db import get_database
-        from app.routers.notifications import create_notification
+        from app.routers.notifications import create_bulk_notifications, create_notification
         from app.core.email import send_birthday_email
         from app.core.notification_utils import (
             get_notification_emails,
@@ -98,6 +98,51 @@ async def birthday_wishes() -> None:
             "[Scheduler] birthday_wishes: %d birthday(s) on %02d-%02d",
             len(celebrants), month, day,
         )
+
+        celebrant_names = [
+            f"{u.get('firstName', '').strip()} {u.get('lastName', '').strip()}".strip()
+            for u in celebrants
+        ]
+        celebrant_names = [name for name in celebrant_names if name]
+
+        if celebrant_names:
+            if len(celebrant_names) == 1:
+                names_text = celebrant_names[0]
+            elif len(celebrant_names) == 2:
+                names_text = f"{celebrant_names[0]} and {celebrant_names[1]}"
+            elif len(celebrant_names) == 3:
+                names_text = f"{celebrant_names[0]}, {celebrant_names[1]} and {celebrant_names[2]}"
+            else:
+                names_text = f"{celebrant_names[0]}, {celebrant_names[1]} and {len(celebrant_names) - 2} others"
+
+            ipe_students = await db["users"].find(
+                {
+                    "isActive": {"$ne": False},
+                    "role": "student",
+                    "department": "Industrial Engineering",
+                    "$or": [
+                        {"isExternalStudent": False},
+                        {"isExternalStudent": {"$exists": False}},
+                    ],
+                },
+                {"_id": 1},
+            ).to_list(length=5000)
+            ipe_user_ids = [str(u["_id"]) for u in ipe_students if u.get("_id")]
+
+            if ipe_user_ids:
+                try:
+                    await create_bulk_notifications(
+                        user_ids=ipe_user_ids,
+                        type="birthday_celebration",
+                        title="Birthday Celebration 🎉",
+                        message=f"Join us in celebrating {names_text} today. Send your birthday wishes!",
+                        link="/dashboard",
+                        category="academic",
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "[Scheduler] birthday_wishes: celebration broadcast failed — %s", e
+                    )
 
         for user in celebrants:
             user_id = str(user["_id"])

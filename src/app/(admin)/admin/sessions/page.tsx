@@ -324,11 +324,11 @@ function AdminSessionsPage() {
               <div className="relative flex flex-col md:flex-row md:items-center gap-6">
                 <div className="flex-1 space-y-3">
                   <div className="flex items-center gap-2.5">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal/20 text-snow text-xs font-bold">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-teal/20 text-snow text-xs font-bold">
                       <span className="w-2 h-2 rounded-full bg-lime animate-pulse" />
                       Active Session
                     </span>
-                    <span className="px-3 py-1 rounded-full bg-lime/10 text-snow/80 text-xs font-bold">
+                    <span className="px-3 py-1 rounded-md bg-lime/10 text-snow/80 text-xs font-bold">
                       Semester {activeSession.currentSemester}
                     </span>
                   </div>
@@ -365,7 +365,7 @@ function AdminSessionsPage() {
             <div>
               <div className="flex items-center gap-3 mb-4">
                 <h2 className="font-display font-black text-xl text-navy">Other Sessions</h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-cloud text-slate text-xs font-bold">{inactiveSessions.length}</span>
+                <span className="px-2.5 py-0.5 rounded-md bg-cloud text-slate text-xs font-bold">{inactiveSessions.length}</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {inactiveSessions.map((session) => (
@@ -375,7 +375,7 @@ function AdminSessionsPage() {
                   >
                     <div className="flex items-start justify-between mb-4">
                       <h3 className="font-display font-black text-xl text-navy">{session.name}</h3>
-                      <span className="px-3 py-1 rounded-full bg-cloud text-navy/60 text-xs font-bold shrink-0 ml-3">
+                      <span className="px-3 py-1 rounded-md bg-cloud text-navy/60 text-xs font-bold shrink-0 ml-3">
                         Sem {session.currentSemester}
                       </span>
                     </div>

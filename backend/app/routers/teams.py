@@ -27,7 +27,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from app.core.audit import AuditLogger
-from app.core.permissions import get_current_session, require_permission
+from app.core.permissions import get_current_session, require_permission, normalize_permissions
 from app.core.security import get_current_user
 from app.db import get_database
 from app.models.team_application import (
@@ -46,12 +46,14 @@ class TeamCreate(BaseModel):
     label: str = Field(..., min_length=2, max_length=80)
     description: str = Field("", max_length=500)
     colorKey: str = Field("slate", max_length=30)
+    memberPermissions: list[str] = Field(default_factory=lambda: ["announcement:view", "event:view"])
 
 
 class TeamUpdate(BaseModel):
     label: str | None = Field(None, min_length=2, max_length=80)
     description: str | None = Field(None, max_length=500)
     colorKey: str | None = Field(None, max_length=30)
+    memberPermissions: list[str] | None = None
 
 
 class SetHeadPayload(BaseModel):
@@ -72,6 +74,26 @@ def _serialize_team(doc: dict) -> dict:
     doc["id"] = str(doc["_id"])
     doc["_id"] = str(doc["_id"])
     return doc
+
+
+ALLOWED_CUSTOM_MEMBER_PERMISSIONS = {
+    "announcement:view",
+    "event:view",
+    "resource:view",
+    "timetable:view",
+    "press:access",
+}
+
+
+def _validate_member_permissions(permissions: list[str] | None) -> list[str]:
+    requested = normalize_permissions(permissions or ["announcement:view", "event:view"])
+    invalid = [permission for permission in requested if permission not in ALLOWED_CUSTOM_MEMBER_PERMISSIONS]
+    if invalid:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid custom-member permissions: {', '.join(invalid)}",
+        )
+    return requested
 
 
 async def _builtin_team_head(team_slug: str, session_id: str, db) -> dict | None:
@@ -163,6 +185,7 @@ async def team_registry(
             "label": cfg["label"],
             "description": override.get("description") or cfg["description"],
             "colorKey": override.get("colorKey") or cfg["colorKey"],
+            "memberPermissions": cfg.get("memberPermissions", []),
             "requiresSkills": cfg.get("requiresSkills", False),
             "subTeams": cfg.get("subTeams"),
             "customQuestions": cfg.get("customQuestions"),
@@ -180,6 +203,7 @@ async def team_registry(
             "label": doc["label"],
             "description": doc.get("description", ""),
             "colorKey": doc.get("colorKey", "slate"),
+            "memberPermissions": doc.get("memberPermissions", ["announcement:view", "event:view"]),
             "requiresSkills": doc.get("requiresSkills", False),
             "subTeams": doc.get("subTeams"),
             "customQuestions": doc.get("customQuestions"),
@@ -219,6 +243,7 @@ async def list_teams(
             "label": label,
             "description": override.get("description") or registry_entry.get("description", ""),
             "colorKey": override.get("colorKey") or registry_entry.get("colorKey", slug),
+            "memberPermissions": registry_entry.get("memberPermissions", []),
             "head": head,
             "isBuiltIn": True,
             "isStatic": True,  # backward compat
@@ -248,6 +273,7 @@ async def list_teams(
             "label": doc["label"],
             "description": doc.get("description", ""),
             "colorKey": doc.get("colorKey", "slate"),
+            "memberPermissions": doc.get("memberPermissions", ["announcement:view", "event:view"]),
             "head": head,
             "isBuiltIn": False,
             "isStatic": False,
@@ -271,11 +297,14 @@ async def create_team(
         count = await db["custom_units"].count_documents({"slug": {"$regex": f"^{slug}"}})
         slug = f"{slug}_{count + 1}"
 
+    member_permissions = _validate_member_permissions(payload.memberPermissions)
+
     doc = {
         "slug": slug,
         "label": payload.label.strip(),
         "description": payload.description.strip(),
         "colorKey": payload.colorKey,
+        "memberPermissions": member_permissions,
         "headUserId": None,
         "isActive": True,
         "isStatic": False,
@@ -291,7 +320,7 @@ async def create_team(
         actor_email=user.get("email", ""),
         resource_type="team",
         resource_id=str(result.inserted_id),
-        details={"slug": slug, "label": payload.label},
+        details={"slug": slug, "label": payload.label, "memberPermissions": member_permissions},
     )
 
     return {"id": str(result.inserted_id), "slug": slug, "label": payload.label}
@@ -301,6 +330,7 @@ async def create_team(
 async def update_team(
     team_id: str,
     payload: TeamUpdate,
+    session=Depends(get_current_session),
     user=Depends(require_permission("team:manage")),
 ):
     """Update label, description, or colorKey of any team (built-in or custom).."""
@@ -313,6 +343,8 @@ async def update_team(
         updates["description"] = payload.description.strip()
     if payload.colorKey is not None:
         updates["colorKey"] = payload.colorKey
+    if payload.memberPermissions is not None:
+        updates["memberPermissions"] = _validate_member_permissions(payload.memberPermissions)
 
     # Built-in teams: store overrides in custom_units with isStatic=True
     if team_id in TEAM_LABELS:
@@ -333,6 +365,24 @@ async def update_team(
     )
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Team not found")
+
+    if "memberPermissions" in updates:
+        custom_doc = await db["custom_units"].find_one({"_id": ObjectId(team_id)})
+        if custom_doc:
+            slug = custom_doc.get("slug")
+            positions = [f"team_member_custom_{slug}", f"unit_member_custom_{slug}"]
+            await db["roles"].update_many(
+                {
+                    "position": {"$in": positions},
+                    "isActive": True,
+                },
+                {
+                    "$set": {
+                        "permissions": updates["memberPermissions"],
+                        "updatedAt": datetime.now(timezone.utc),
+                    }
+                },
+            )
 
     await AuditLogger.log(
         action="team_updated",

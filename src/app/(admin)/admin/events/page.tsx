@@ -11,6 +11,7 @@ import { EventSchemaObject, flattenZodErrors } from "@/lib/schemas";
 import { ConfirmModal } from "@/components/ui/Modal";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
+import { resolveProfileImageUrl } from "@/lib/profileImage";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -47,7 +48,8 @@ interface RegistrantInfo {
   email: string;
   matricNumber: string;
   level: string;
-  profilePhotoURL: string;
+  profilePhotoURL?: string;
+  profilePictureUrl?: string;
   hasAttended: boolean;
 }
 
@@ -637,7 +639,7 @@ function AdminEventsPage() {
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                        <span className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-snow/90 text-xs font-bold text-navy backdrop-blur-sm">
+                        <span className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-snow/90 text-xs font-bold text-navy backdrop-blur-sm">
                           <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                             <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
                           </svg>
@@ -649,23 +651,23 @@ function AdminEventsPage() {
                     <div className="p-5 space-y-3">
                       {/* Category + time pills */}
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${CATEGORY_COLORS[event.category] ?? CATEGORY_COLORS.Other}`}>
+                        <span className={`px-2.5 py-0.5 rounded-md text-xs font-bold ${CATEGORY_COLORS[event.category] ?? CATEGORY_COLORS.Other}`}>
                           {event.category}
                         </span>
                         {event.requiresPayment && (
-                          <span className="px-2.5 py-0.5 rounded-full bg-sunny-light text-navy text-xs font-bold">
+                          <span className="px-2.5 py-0.5 rounded-md bg-sunny-light text-navy text-xs font-bold">
                             ₦{event.paymentAmount?.toLocaleString() ?? "Paid"}
                           </span>
                         )}
                         {!event.imageUrl && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-cloud text-xs font-bold text-navy/60">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-cloud text-xs font-bold text-navy/60">
                             <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                               <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
                             </svg>
                             {formatDate(event.date)}
                           </span>
                         )}
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-cloud text-xs font-bold text-navy/60">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-cloud text-xs font-bold text-navy/60">
                           <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                             <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
                           </svg>
@@ -973,13 +975,13 @@ function AdminEventsPage() {
                 <h2 className="font-display font-black text-xl text-navy leading-snug">{registrantsEvent.title}</h2>
                 {registrantsData && (
                   <div className="flex items-center gap-3 mt-2">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-lavender-light text-lavender text-xs font-bold">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-lavender-light text-lavender text-xs font-bold">
                       <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                         <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
                       </svg>
                       {registrantsData.totalRegistered} registered
                     </span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-teal-light text-teal text-xs font-bold">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-teal-light text-teal text-xs font-bold">
                       <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                         <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0 1 12 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 0 1 3.498 1.307 4.491 4.491 0 0 1 1.307 3.497A4.49 4.49 0 0 1 21.75 12a4.49 4.49 0 0 1-1.549 3.397 4.491 4.491 0 0 1-1.307 3.497 4.491 4.491 0 0 1-3.497 1.307A4.49 4.49 0 0 1 12 21.75a4.49 4.49 0 0 1-3.397-1.549 4.491 4.491 0 0 1-3.498-1.307 4.491 4.491 0 0 1-1.307-3.497A4.49 4.49 0 0 1 2.25 12a4.49 4.49 0 0 1 1.549-3.397 4.491 4.491 0 0 1 1.307-3.498A4.491 4.491 0 0 1 8.603 3.8Zm7.44 1.994a3 3 0 0 0-2.25-1.043 3 3 0 0 0-2.25 1.043 3 3 0 0 0-2.344.88 3 3 0 0 0-.878 2.344 3 3 0 0 0-1.043 2.25 3 3 0 0 0 1.043 2.25 3 3 0 0 0 .879 2.344 3 3 0 0 0 2.343.88 3 3 0 0 0 2.25 1.043 3 3 0 0 0 2.25-1.043 3 3 0 0 0 2.344-.879 3 3 0 0 0 .878-2.344 3 3 0 0 0 1.043-2.25 3 3 0 0 0-1.043-2.25 3 3 0 0 0-.878-2.344 3 3 0 0 0-2.344-.879Zm-1.44 5.706a.75.75 0 0 1 0 1.06l-3 3a.75.75 0 0 1-1.06-1.06l3-3a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
                       </svg>
@@ -1056,9 +1058,9 @@ function AdminEventsPage() {
                     >
                       {/* Avatar + info */}
                       <div className="flex items-center gap-3 min-w-0">
-                        {r.profilePhotoURL ? (
+                        {resolveProfileImageUrl(r) ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={r.profilePhotoURL} alt="" className="w-9 h-9 rounded-xl object-cover shrink-0 border-2 border-navy" />
+                          <img src={resolveProfileImageUrl(r)!} alt="" className="w-9 h-9 rounded-xl object-cover shrink-0 border-2 border-navy" />
                         ) : (
                           <div className="w-9 h-9 rounded-xl bg-lavender-light border-2 border-navy flex items-center justify-center shrink-0">
                             <span className="font-display font-black text-xs text-lavender">

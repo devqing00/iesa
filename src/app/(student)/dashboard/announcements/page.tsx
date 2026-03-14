@@ -388,7 +388,7 @@ function AnnouncementsContent() {
                         <h3 className={`font-display font-black text-base md:text-lg leading-snug ${isRead ? "text-navy/45" : "text-navy"}`}>
                           {announcement.title}
                         </h3>
-                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0 ${pConfig.tag}`}>
+                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md shrink-0 ${pConfig.tag}`}>
                           {announcement.priority?.toUpperCase()}
                         </span>
                       </div>
@@ -398,7 +398,7 @@ function AnnouncementsContent() {
                         {/* Audience badge (only for targeted) */}
                         {announcement.targetAudience && announcement.targetAudience !== "all" && (
                           <>
-                            <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold ${
                               announcement.targetAudience === "ipe"
                                 ? "bg-lime-light text-navy"
                                 : "bg-lavender-light text-lavender"

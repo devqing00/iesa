@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import Image from "next/image";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { resolveProfileImageUrl } from "@/lib/profileImage";
 
 /* ── Types ────────────────────────────────────── */
 
@@ -21,6 +22,7 @@ interface UnitMember {
   matricNumber?: string;
   level?: string;
   profilePhotoURL?: string;
+  profilePictureUrl?: string;
   joinedAt?: string;
 }
 
@@ -32,6 +34,7 @@ interface UnitHead {
   email: string;
   matricNumber?: string;
   profilePhotoURL?: string;
+  profilePictureUrl?: string;
 }
 
 interface UnitOverview {
@@ -51,6 +54,7 @@ interface UnitConfig {
   label: string;
   description: string;
   colorKey: string;
+  memberPermissions?: string[];
   head: UnitHead | null;
   isStatic: boolean;
 }
@@ -77,6 +81,8 @@ interface UserSearchResult {
   firstName: string;
   lastName: string;
   email: string;
+  profilePhotoURL?: string;
+  profilePictureUrl?: string;
   matricNumber?: string;
   level?: string;
   profilePhotoURL?: string;
@@ -130,6 +136,16 @@ const COLOR_OPTIONS = [
   { key: "sunny",    label: "Sunny",    dot: "bg-sunny"    },
   { key: "slate",    label: "Slate",    dot: "bg-slate"    },
 ];
+
+const MEMBER_PERMISSION_OPTIONS = [
+  { key: "announcement:view", label: "View Announcements" },
+  { key: "event:view", label: "View Events" },
+  { key: "resource:view", label: "View Resources" },
+  { key: "timetable:view", label: "View Timetable" },
+  { key: "press:access", label: "Access Press" },
+];
+
+const DEFAULT_MEMBER_PERMISSIONS = ["announcement:view", "event:view"];
 
 const TEAM_COLORS: Record<string, { bg: string; border: string; badge: string }> = {
   press:              { bg: "bg-coral-light/60",    border: "border-coral",    badge: "bg-coral"    },
@@ -202,12 +218,22 @@ function TeamsPage() {
 
   // Create unit modal
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createForm, setCreateForm] = useState({ label: "", description: "", colorKey: "teal" });
+  const [createForm, setCreateForm] = useState({
+    label: "",
+    description: "",
+    colorKey: "teal",
+    memberPermissions: [...DEFAULT_MEMBER_PERMISSIONS],
+  });
   const [creating, setCreating] = useState(false);
 
   // Edit unit modal
   const [editingUnit, setEditingUnit] = useState<UnitConfig | null>(null);
-  const [editForm, setEditForm] = useState({ label: "", description: "", colorKey: "teal" });
+  const [editForm, setEditForm] = useState({
+    label: "",
+    description: "",
+    colorKey: "teal",
+    memberPermissions: [...DEFAULT_MEMBER_PERMISSIONS],
+  });
   const [editSaving, setEditSaving] = useState(false);
 
   // Delete confirm
@@ -410,7 +436,7 @@ function TeamsPage() {
       if (!res.ok) await throwApiError(res, "create team");
       toast.success(`Team "${createForm.label}" created`);
       setShowCreateModal(false);
-      setCreateForm({ label: "", description: "", colorKey: "teal" });
+      setCreateForm({ label: "", description: "", colorKey: "teal", memberPermissions: [...DEFAULT_MEMBER_PERMISSIONS] });
       fetchUnitConfigs();
       fetchOverview();
     } catch (err) {
@@ -424,7 +450,30 @@ function TeamsPage() {
 
   const openEditModal = (config: UnitConfig) => {
     setEditingUnit(config);
-    setEditForm({ label: config.label, description: config.description, colorKey: config.colorKey });
+    setEditForm({
+      label: config.label,
+      description: config.description,
+      colorKey: config.colorKey,
+      memberPermissions: config.memberPermissions?.length ? config.memberPermissions : [...DEFAULT_MEMBER_PERMISSIONS],
+    });
+  };
+
+  const toggleCreatePermission = (permission: string) => {
+    setCreateForm((prev) => ({
+      ...prev,
+      memberPermissions: prev.memberPermissions.includes(permission)
+        ? prev.memberPermissions.filter((p) => p !== permission)
+        : [...prev.memberPermissions, permission],
+    }));
+  };
+
+  const toggleEditPermission = (permission: string) => {
+    setEditForm((prev) => ({
+      ...prev,
+      memberPermissions: prev.memberPermissions.includes(permission)
+        ? prev.memberPermissions.filter((p) => p !== permission)
+        : [...prev.memberPermissions, permission],
+    }));
   };
 
   const handleEditUnit = async () => {
@@ -617,7 +666,7 @@ function TeamsPage() {
         >
           Applications
           {totalPending > 0 && (
-            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-coral text-snow text-xs font-bold min-w-[20px]">{totalPending}</span>
+            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md bg-coral text-snow text-xs font-bold min-w-[20px]">{totalPending}</span>
           )}
         </button>
         <button
@@ -661,13 +710,13 @@ function TeamsPage() {
                         )}
                         <div className="flex flex-wrap items-center gap-2 mt-1">
                           {!unit.isStatic && (
-                            <span className="inline-block px-2 py-0.5 rounded-full bg-navy/10 text-navy text-[10px] font-bold uppercase tracking-wider">Custom</span>
+                            <span className="inline-block px-2 py-0.5 rounded-md bg-navy/10 text-navy text-[10px] font-bold uppercase tracking-wider">Custom</span>
                           )}
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${unit.isOpen ? "bg-teal/20 text-teal" : "bg-coral/20 text-coral"}`}>
+                          <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${unit.isOpen ? "bg-teal/20 text-teal" : "bg-coral/20 text-coral"}`}>
                             {unit.isOpen ? "Open" : "Closed"}
                           </span>
                           {unit.pendingApplications > 0 && (
-                            <span className="inline-block px-2 py-0.5 rounded-full bg-coral/20 text-coral text-[10px] font-bold">{unit.pendingApplications} pending</span>
+                            <span className="inline-block px-2 py-0.5 rounded-md bg-coral/20 text-coral text-[10px] font-bold">{unit.pendingApplications} pending</span>
                           )}
                         </div>
                       </div>
@@ -724,8 +773,8 @@ function TeamsPage() {
                       </div>
                       {unit.head ? (
                         <div className="flex items-center gap-2">
-                          {unit.head.profilePhotoURL ? (
-                            <Image src={unit.head.profilePhotoURL} alt="" width={28} height={28} className="w-7 h-7 rounded-full object-cover border-2 border-navy/20" />
+                          {resolveProfileImageUrl(unit.head) ? (
+                            <Image src={resolveProfileImageUrl(unit.head)!} alt="" width={28} height={28} className="w-7 h-7 rounded-full object-cover border-2 border-navy/20" />
                           ) : (
                             <div className="w-7 h-7 rounded-full bg-navy/10 flex items-center justify-center text-[10px] font-bold text-navy">
                               {unit.head.firstName?.[0]}{unit.head.lastName?.[0]}
@@ -763,8 +812,8 @@ function TeamsPage() {
                         return (
                           <div key={m.id} className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
-                              {m.profilePhotoURL ? (
-                                <Image src={m.profilePhotoURL} alt="" width={24} height={24} className="w-6 h-6 rounded-full object-cover border border-navy/20" />
+                              {resolveProfileImageUrl(m) ? (
+                                <Image src={resolveProfileImageUrl(m)!} alt="" width={24} height={24} className="w-6 h-6 rounded-full object-cover border border-navy/20" />
                               ) : (
                                 <div className="w-6 h-6 rounded-full bg-navy/10 flex items-center justify-center text-[9px] font-bold text-navy">
                                   {m.firstName?.[0]}{m.lastName?.[0]}
@@ -847,11 +896,11 @@ function TeamsPage() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <p className="font-bold text-navy">{app.userName}</p>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusColors[app.status] || ""}`}>{app.status}</span>
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${statusColors[app.status] || ""}`}>{app.status}</span>
                         </div>
                         <p className="text-xs text-slate">{app.userEmail}{app.userLevel ? ` · ${app.userLevel}` : ""}</p>
                         <div className="flex items-center gap-2 mt-1.5">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold text-navy ${colors.bg}`}>{app.teamLabel}</span>
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold text-navy ${colors.bg}`}>{app.teamLabel}</span>
                           <span className="text-[11px] text-slate">{formatDate(app.createdAt)}</span>
                         </div>
                       </div>
@@ -940,11 +989,11 @@ function TeamsPage() {
                     <div className="flex items-center gap-2">
                       {content && content.taskSummary.total > 0 && (
                         <div className="hidden sm:flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded-full bg-teal/20 text-teal text-[10px] font-bold">
+                          <span className="px-2 py-0.5 rounded-md bg-teal/20 text-teal text-[10px] font-bold">
                             {content.taskSummary.completionRate}% done
                           </span>
                           {content.taskSummary.pending > 0 && (
-                            <span className="px-2 py-0.5 rounded-full bg-sunny/20 text-navy text-[10px] font-bold">
+                            <span className="px-2 py-0.5 rounded-md bg-sunny/20 text-navy text-[10px] font-bold">
                               {content.taskSummary.pending} pending
                             </span>
                           )}
@@ -1019,9 +1068,9 @@ function TeamsPage() {
                             </div>
                             {content.taskSummary.total > 0 && (
                               <div className="flex items-center gap-1.5 mb-3">
-                                <span className="px-2 py-0.5 rounded-full bg-sunny/20 text-navy text-[10px] font-bold">{content.taskSummary.pending} pending</span>
-                                <span className="px-2 py-0.5 rounded-full bg-lavender/20 text-navy text-[10px] font-bold">{content.taskSummary.in_progress} in progress</span>
-                                <span className="px-2 py-0.5 rounded-full bg-teal/20 text-teal text-[10px] font-bold">{content.taskSummary.done} done</span>
+                                <span className="px-2 py-0.5 rounded-md bg-sunny/20 text-navy text-[10px] font-bold">{content.taskSummary.pending} pending</span>
+                                <span className="px-2 py-0.5 rounded-md bg-lavender/20 text-navy text-[10px] font-bold">{content.taskSummary.in_progress} in progress</span>
+                                <span className="px-2 py-0.5 rounded-md bg-teal/20 text-teal text-[10px] font-bold">{content.taskSummary.done} done</span>
                               </div>
                             )}
                             {content.tasks.length === 0 ? (
@@ -1089,7 +1138,7 @@ function TeamsPage() {
       </Modal>
 
       {/* Create Team */}
-      <Modal isOpen={showCreateModal} onClose={() => { setShowCreateModal(false); setCreateForm({ label: "", description: "", colorKey: "teal" }); }} title="Create New Team">
+      <Modal isOpen={showCreateModal} onClose={() => { setShowCreateModal(false); setCreateForm({ label: "", description: "", colorKey: "teal", memberPermissions: [...DEFAULT_MEMBER_PERMISSIONS] }); }} title="Create New Team">
         <div className="space-y-4 p-1">
           <div>
             <label className="block text-sm font-bold text-navy mb-1">Name <span className="text-coral">*</span></label>
@@ -1112,6 +1161,26 @@ function TeamsPage() {
                   <span className={`w-3 h-3 rounded-full ${c.dot}`} />{c.label}
                 </button>
               ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-navy mb-2">Member Permissions</label>
+            <p className="text-xs text-slate mb-2">Select what members of this custom team can access.</p>
+            <div className="space-y-2">
+              {MEMBER_PERMISSION_OPTIONS.map((option) => {
+                const checked = createForm.memberPermissions.includes(option.key);
+                return (
+                  <label key={option.key} className="flex items-center gap-2.5 bg-snow rounded-xl border-[2px] border-navy/10 px-3 py-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleCreatePermission(option.key)}
+                      className="w-4 h-4 rounded border-[2px] border-navy accent-navy"
+                    />
+                    <span className="text-sm font-medium text-navy">{option.label}</span>
+                  </label>
+                );
+              })}
             </div>
           </div>
           <button onClick={handleCreateUnit} disabled={creating || !createForm.label.trim()}
@@ -1145,6 +1214,28 @@ function TeamsPage() {
               ))}
             </div>
           </div>
+          {!editingUnit?.isStatic && (
+            <div>
+              <label className="block text-sm font-bold text-navy mb-2">Member Permissions</label>
+              <p className="text-xs text-slate mb-2">Update what members of this custom team can access.</p>
+              <div className="space-y-2">
+                {MEMBER_PERMISSION_OPTIONS.map((option) => {
+                  const checked = editForm.memberPermissions.includes(option.key);
+                  return (
+                    <label key={option.key} className="flex items-center gap-2.5 bg-snow rounded-xl border-[2px] border-navy/10 px-3 py-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleEditPermission(option.key)}
+                        className="w-4 h-4 rounded border-[2px] border-navy accent-navy"
+                      />
+                      <span className="text-sm font-medium text-navy">{option.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <button onClick={handleEditUnit} disabled={editSaving || !editForm.label.trim()}
             className="w-full bg-lime border-[4px] border-navy px-6 py-3 rounded-2xl font-display font-black text-navy press-5 press-navy disabled:opacity-50">
             {editSaving ? "Saving..." : "Save Changes"}
@@ -1184,8 +1275,8 @@ function TeamsPage() {
               {headSearchResults.map((u) => (
                 <button key={u.id} onClick={() => handleSetHead(u)} disabled={assigningHead}
                   className="w-full flex items-center gap-3 p-3 rounded-xl border-[2px] border-navy/10 hover:border-navy hover:bg-ghost text-left transition-all disabled:opacity-50">
-                  {u.profilePhotoURL ? (
-                    <Image src={u.profilePhotoURL} alt="" width={36} height={36} className="w-9 h-9 rounded-full object-cover border-2 border-navy/20 shrink-0" />
+                  {resolveProfileImageUrl(u) ? (
+                    <Image src={resolveProfileImageUrl(u)!} alt="" width={36} height={36} className="w-9 h-9 rounded-full object-cover border-2 border-navy/20 shrink-0" />
                   ) : (
                     <div className="w-9 h-9 rounded-full bg-navy/10 flex items-center justify-center text-xs font-bold text-navy shrink-0">
                       {u.firstName?.[0]}{u.lastName?.[0]}
@@ -1195,7 +1286,7 @@ function TeamsPage() {
                     <p className="font-bold text-sm text-navy truncate">{u.firstName} {u.lastName}</p>
                     <p className="text-xs text-slate truncate">{u.email}{u.matricNumber && ` · ${u.matricNumber}`}{u.level && ` · ${u.level}`}</p>
                   </div>
-                  <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${u.role === "admin" ? "bg-lime/30 text-navy" : u.role === "exco" ? "bg-lavender/30 text-navy" : "bg-ghost text-slate"}`}>
+                  <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 ${u.role === "admin" ? "bg-lime/30 text-navy" : u.role === "exco" ? "bg-lavender/30 text-navy" : "bg-ghost text-slate"}`}>
                     {u.role}
                   </span>
                 </button>

@@ -72,6 +72,7 @@ const POSITIONS = [
   { group: "Team Heads",               value: "team_head_welfare",                 label: "Welfare Head" },
   { group: "Team Heads",               value: "team_head_alumni_relations",        label: "Alumni & External Relations Head" },
   { group: "Team Heads",               value: "team_head_dinner_award",            label: "Dinner & Award Head" },
+  { group: "Team Heads",               value: "team_head_publicity_content_creation", label: "Publicity & Content Creation Head" },
   // ── Team Members ──────────────────────────────────────────────────
   { group: "Team Members",             value: "ics_member",                        label: "ICS Member" },
   { group: "Team Members",             value: "committee_academic_member",         label: "Academic Team Member" },
@@ -81,6 +82,7 @@ const POSITIONS = [
   { group: "Team Members",             value: "team_welfare_member",               label: "Welfare Member" },
   { group: "Team Members",             value: "team_alumni_relations_member",      label: "Alumni & External Relations Member" },
   { group: "Team Members",             value: "team_dinner_award_member",          label: "Dinner & Award Member" },
+  { group: "Team Members",             value: "team_publicity_content_creation_member", label: "Publicity & Content Creation Member" },
   { group: "Team Members",             value: "press_member",                      label: "Press Member" },
   // ── IEPOD Roles ───────────────────────────────────────────────────
   { group: "IEPOD Roles",              value: "iepod_hub_director",                label: "IEPOD Hub Director" },

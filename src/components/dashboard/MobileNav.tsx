@@ -31,6 +31,7 @@ export default function MobileNav() {
   const external = isExternalStudent(userProfile?.department);
 
   const isVisible = (link: MobileNavLink) => {
+    if (link.href === "/dashboard/freshers" && userProfile?.role === "admin") return false;
     // Hide IPE-only links for external students
     if (external && EXTERNAL_HIDDEN_HREFS.has(link.href)) return false;
     if (external && link.href.startsWith("/dashboard") && !isRouteAllowedForExternal(link.href)) return false;

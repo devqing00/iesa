@@ -1141,7 +1141,7 @@ export default function MessagesPage() {
           <p className="text-slate text-sm mt-1">
             Connect and chat with fellow students
             {totalUnread > 0 && (
-              <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-coral text-snow text-xs font-bold">
+              <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-md bg-coral text-snow text-xs font-bold">
                 {totalUnread} unread
               </span>
             )}
@@ -1324,7 +1324,7 @@ export default function MessagesPage() {
                                 {conv.isBlocked ? "Blocked" : conv.lastMessage}
                               </span>
                               {conv.unreadCount > 0 && (
-                                <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-coral text-snow text-[10px] font-bold px-1 shrink-0">
+                                <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-md bg-coral text-snow text-[10px] font-bold px-1 shrink-0">
                                   {conv.unreadCount}
                                 </span>
                               )}
@@ -1883,7 +1883,7 @@ export default function MessagesPage() {
                                       <button
                                         key={rg.emoji}
                                         onClick={() => handleReaction(msg.id, rg.emoji)}
-                                        className={`inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full border transition-colors ${
+                                        className={`inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-md border transition-colors ${
                                           rg.myReaction
                                             ? "bg-lime-light border-lime-dark text-navy"
                                             : "bg-ghost border-cloud text-navy hover:border-navy"

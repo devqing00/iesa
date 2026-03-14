@@ -59,6 +59,14 @@ function revalidateForEvent(eventType: string) {
   }
 }
 
+function buildRealtimeWsUrl(token: string): string {
+  const base = new URL(API_BASE_URL);
+  base.protocol = base.protocol === "https:" ? "wss:" : "ws:";
+  base.pathname = `${base.pathname.replace(/\/$/, "")}/api/v1/sse/ws`;
+  base.search = new URLSearchParams({ token }).toString();
+  return base.toString();
+}
+
 /**
  * Hook that opens a WebSocket connection when the user is authenticated.
  * Automatically reconnects on disconnection with exponential back-off.
@@ -80,7 +88,7 @@ export function useSSE() {
     // Close existing connection
     wsRef.current?.close();
 
-    const wsUrl = `${API_BASE_URL.replace(/^http/, "ws")}/api/v1/sse/ws?token=${encodeURIComponent(token)}`;
+    const wsUrl = buildRealtimeWsUrl(token);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 

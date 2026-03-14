@@ -29,6 +29,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.core.security import get_current_user, require_ipe_student
 from app.core.permissions import require_permission
 from app.core.security import verify_firebase_id_token_raw
+from app.core.ws_security import is_ws_origin_allowed
 from app.db import get_database
 
 router = APIRouter(
@@ -686,6 +687,19 @@ async def respond_to_message_request(
             "data": {"userId": user_id, "userName": user_name},
         })
 
+        try:
+            from app.routers.notifications import create_notification
+            await create_notification(
+                user_id=sender_id,
+                type="message_request_accepted",
+                title="Message Request Accepted",
+                message=f"{user_name or 'A student'} accepted your message request.",
+                link="/dashboard/messages",
+                related_id=user_id,
+            )
+        except Exception:
+            pass
+
     return {"status": new_status}
 
 
@@ -1003,6 +1017,19 @@ async def send_message(
             },
         })
 
+        try:
+            from app.routers.notifications import create_notification
+            await create_notification(
+                user_id=recipient_id,
+                type="message_request",
+                title="New Message Request",
+                message=f"{sender_name or 'A student'} sent you a message request.",
+                link="/dashboard/messages",
+                related_id=sender_id,
+            )
+        except Exception:
+            pass
+
         return {
             "id": None,
             "conversationKey": None,
@@ -1069,6 +1096,21 @@ async def send_message(
     }
     await dm_manager.notify(recipient_id, ws_payload)
     await dm_manager.notify(sender_id, ws_payload)
+
+    try:
+        from app.routers.notifications import create_notification
+        sender_label = sender_name or "A student"
+        preview = body.content.strip()[:120]
+        await create_notification(
+            user_id=recipient_id,
+            type="message",
+            title="New Message",
+            message=f"{sender_label}: {preview}" if preview else f"{sender_label} sent you a message.",
+            link="/dashboard/messages",
+            related_id=str(result.inserted_id),
+        )
+    except Exception:
+        pass
 
     return {
         "id": str(result.inserted_id),
@@ -1448,6 +1490,19 @@ async def upload_attachment(
     }
     await dm_manager.notify(recipientId, ws_payload)
     await dm_manager.notify(sender_id, ws_payload)
+
+    try:
+        from app.routers.notifications import create_notification
+        await create_notification(
+            user_id=recipientId,
+            type="message",
+            title="New Message",
+            message=f"{sender_name or 'A student'} sent you an attachment.",
+            link="/dashboard/messages",
+            related_id=str(insert_result.inserted_id),
+        )
+    except Exception:
+        pass
 
     return {
         "id": str(insert_result.inserted_id),
@@ -1859,6 +1914,11 @@ async def dm_websocket(ws: WebSocket, token: str = Query("")):
     Client can send:
       - {"type": "ping"}  ->  server replies {"type": "pong"}
     """
+    origin = ws.headers.get("origin")
+    if not is_ws_origin_allowed(origin):
+        await ws.close(code=1008, reason="Origin not allowed")
+        return
+
     if not token:
         await ws.close(code=4001, reason="Token required")
         return

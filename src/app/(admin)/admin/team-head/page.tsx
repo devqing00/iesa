@@ -8,6 +8,7 @@ import { getApiUrl } from "@/lib/api";
 import { withAuth } from "@/lib/withAuth";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { toast } from "sonner";
+import { resolveProfileImageUrl } from "@/lib/profileImage";
 
 /* ═══════════════════════════════════════════════════════════
    Types
@@ -28,6 +29,7 @@ interface Member {
   level?: string;
   phone?: string;
   profilePhotoURL?: string;
+  profilePictureUrl?: string;
   joinedAt?: string;
 }
 
@@ -60,6 +62,7 @@ interface MemberStat {
   userId: string;
   name: string;
   profilePhotoURL?: string;
+  profilePictureUrl?: string;
   totalTasks: number;
   doneTasks: number;
   completionRate: number;
@@ -655,9 +658,9 @@ export function TeamHeadPortal() {
                 >
                   {/* Avatar */}
                   <div className="w-12 h-12 rounded-xl bg-lime border-[3px] border-navy flex items-center justify-center font-display font-black text-navy text-lg shrink-0 overflow-hidden">
-                    {m.profilePhotoURL ? (
+                    {resolveProfileImageUrl(m) ? (
                       <Image
-                        src={m.profilePhotoURL}
+                        src={resolveProfileImageUrl(m)!}
                         alt=""
                         width={48}
                         height={48}
@@ -1071,9 +1074,9 @@ export function TeamHeadPortal() {
                     {analytics.memberStats.map((ms, idx) => (
                       <div key={ms.userId} className="flex items-center gap-3">
                         <span className="text-xs font-bold text-slate w-6 text-center">{idx + 1}</span>
-                        {ms.profilePhotoURL ? (
+                        {resolveProfileImageUrl(ms) ? (
                           <Image
-                            src={ms.profilePhotoURL}
+                            src={resolveProfileImageUrl(ms)!}
                             alt=""
                             width={32}
                             height={32}
