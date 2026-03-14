@@ -286,6 +286,10 @@ async def upload_profile_picture(
 async def list_users(
     role: Optional[str] = None,
     department: Optional[str] = None,
+    level: Optional[str] = None,
+    status: Optional[str] = None,
+    sort_by: str = "time",
+    sort_order: str = "desc",
     search: Optional[str] = None,
     limit: int = 100,
     skip: int = 0,
@@ -309,16 +313,36 @@ async def list_users(
             query["department"] = "Industrial Engineering"
         else:
             query["department"] = department
+    if level and level != "all":
+        normalized_level = level.strip().upper()
+        if normalized_level.isdigit():
+            normalized_level = f"{normalized_level}L"
+        query["currentLevel"] = normalized_level
+    if status and status != "all":
+        if status == "active":
+            query["isActive"] = {"$ne": False}
+        elif status == "inactive":
+            query["isActive"] = False
     if search:
         escaped = re.escape(search)
         query["$or"] = [
             {"firstName": {"$regex": escaped, "$options": "i"}},
             {"lastName": {"$regex": escaped, "$options": "i"}},
             {"email": {"$regex": escaped, "$options": "i"}},
+            {"currentLevel": {"$regex": escaped, "$options": "i"}},
+            {"matricNumber": {"$regex": escaped, "$options": "i"}},
         ]
     
+    direction = -1 if str(sort_order).lower() == "desc" else 1
+    sort_map = {
+        "time": [("createdAt", direction), ("_id", direction)],
+        "name": [("firstName", direction), ("lastName", direction), ("_id", 1)],
+        "level": [("currentLevel", direction), ("firstName", 1), ("_id", 1)],
+    }
+    sort_fields = sort_map.get(str(sort_by).lower(), sort_map["time"])
+
     total = await users.count_documents(query)
-    cursor = users.find(query, {"passwordHash": 0}).skip(skip).limit(limit)
+    cursor = users.find(query, {"passwordHash": 0}).sort(sort_fields).skip(skip).limit(limit)
     user_list = await cursor.to_list(length=limit)
     
     return {
@@ -363,11 +387,28 @@ def _coerce_dob_to_date(value) -> date | None:
     return None
 
 
+def _level_rank(level_value: str | None) -> int:
+    """Convert levels like '100L' into sortable integer ranks."""
+    if not level_value:
+        return 9999
+    text = str(level_value).strip().upper()
+    match = re.search(r"\d+", text)
+    if not match:
+        return 9999
+    try:
+        return int(match.group())
+    except ValueError:
+        return 9999
+
+
 @router.get("/birthdays")
 async def list_upcoming_birthdays(
     days_ahead: int = 90,
     search: Optional[str] = None,
     department: Optional[str] = None,
+    level: Optional[str] = None,
+    sort_by: str = "time",
+    sort_order: str = "asc",
     limit: int = 50,
     skip: int = 0,
     _user: dict = Depends(require_permission("user:view_all")),
@@ -395,6 +436,12 @@ async def list_upcoming_birthdays(
             query["department"] = "Industrial Engineering"
         else:
             query["department"] = department
+
+    if level and level != "all":
+        normalized_level = level.strip().upper()
+        if normalized_level.isdigit():
+            normalized_level = f"{normalized_level}L"
+        query["currentLevel"] = normalized_level
 
     if search:
         escaped = re.escape(search.strip())
@@ -451,7 +498,35 @@ async def list_upcoming_birthdays(
             }
         )
 
-    upcoming.sort(key=lambda item: (item["daysUntil"], item["firstName"], item["lastName"]))
+    order_desc = str(sort_order).lower() == "desc"
+    sort_key = str(sort_by).lower()
+
+    if sort_key == "name":
+        upcoming.sort(
+            key=lambda item: (
+                (item.get("firstName") or "").lower(),
+                (item.get("lastName") or "").lower(),
+                item.get("daysUntil", 9999),
+            ),
+            reverse=order_desc,
+        )
+    elif sort_key == "level":
+        upcoming.sort(
+            key=lambda item: (
+                _level_rank(item.get("currentLevel")),
+                (item.get("firstName") or "").lower(),
+            ),
+            reverse=order_desc,
+        )
+    else:
+        upcoming.sort(
+            key=lambda item: (
+                item.get("daysUntil", 9999),
+                (item.get("firstName") or "").lower(),
+                (item.get("lastName") or "").lower(),
+            ),
+            reverse=order_desc,
+        )
 
     total = len(upcoming)
     items = upcoming[skip: skip + limit]
@@ -460,6 +535,8 @@ async def list_upcoming_birthdays(
         "items": items,
         "total": total,
         "daysAhead": days_ahead,
+        "sortBy": sort_key,
+        "sortOrder": "desc" if order_desc else "asc",
     }
 
 

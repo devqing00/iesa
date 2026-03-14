@@ -167,7 +167,12 @@ function AdminUsersBirthdaysPage() {
         </select>
       </div>
 
-      <div className="bg-snow border-[3px] border-navy rounded-3xl overflow-hidden shadow-[4px_4px_0_0_#000]">
+      <div className="relative bg-snow border-[3px] border-navy rounded-3xl overflow-hidden shadow-[4px_4px_0_0_#000]">
+        {loading && (
+          <div className="absolute inset-0 z-10 bg-snow/70 backdrop-blur-[1px] flex items-center justify-center">
+            <div className="w-8 h-8 border-[3px] border-navy border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -179,11 +184,7 @@ function AdminUsersBirthdaysPage() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={4} className="p-12 text-center text-sm text-slate">Loading birthdays...</td>
-                </tr>
-              ) : items.length === 0 ? (
+              {!loading && items.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="p-12 text-center text-sm text-slate">No birthdays found for this filter.</td>
                 </tr>

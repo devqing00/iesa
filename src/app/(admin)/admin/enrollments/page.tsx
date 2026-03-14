@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { mutate } from "swr";
 import { useAuth } from "@/context/AuthContext";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
@@ -57,7 +57,8 @@ function EnrollmentsPage() {
   const [totalEnrollments, setTotalEnrollments] = useState(0);
   const [students, setStudents] = useState<Student[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [tableLoading, setTableLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: "" });
@@ -66,9 +67,12 @@ function EnrollmentsPage() {
   // Filters
   const [filterSession, setFilterSession] = useState<string>("all");
   const [filterLevel, setFilterLevel] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"time" | "name" | "level">("time");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [enrPage, setEnrPage] = useState(1);
+  const hasLoadedEnrollmentsRef = useRef(false);
   const ENR_PAGE_SIZE = 20;
 
   // Form state
@@ -87,20 +91,7 @@ function EnrollmentsPage() {
 
   /* ── Fetch ──────────────────────── */
 
-  useEffect(() => {
-    if (user && userProfile) {
-      fetchDropdowns();
-    }
-  }, [user, userProfile]);
-
-  // Re-fetch enrollments when page/filters/search change
-  useEffect(() => {
-    if (user && userProfile) {
-      fetchEnrollments();
-    }
-  }, [user, userProfile, enrPage, filterSession, filterLevel, debouncedSearch]);
-
-  const fetchDropdowns = async () => {
+  const fetchDropdowns = useCallback(async () => {
     try {
       const token = await getAccessToken();
       if (!token) return;
@@ -122,21 +113,37 @@ function EnrollmentsPage() {
       const users = usersItems as UserDTO[];
       const studentUsers: Student[] = users
         .filter((u) => u.role === "student")
-        .map(({ role: _unused, ...rest }) => rest as Student);
+        .map((u) => ({
+          id: u.id,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          email: u.email,
+          matricNumber: u.matricNumber || "",
+        }));
       setStudents(studentUsers);
       setSessions(sessionsData);
 
       const activeSession = sessionsData.find((s: Session) => s.isActive);
-      if (activeSession && !formData.sessionId) {
-        setFormData((prev) => ({ ...prev, sessionId: activeSession.id }));
+      if (activeSession) {
+        setFormData((prev) => (prev.sessionId ? prev : { ...prev, sessionId: activeSession.id }));
       }
     } catch (err) {
       setError(getErrorMessage(err, "Failed to load students/sessions"));
     }
-  };
+  }, [getAccessToken]);
 
-  const fetchEnrollments = async () => {
-    setLoading(true);
+  useEffect(() => {
+    if (user && userProfile) {
+      fetchDropdowns();
+    }
+  }, [user, userProfile, fetchDropdowns]);
+
+  const fetchEnrollments = useCallback(async () => {
+    if (!hasLoadedEnrollmentsRef.current) {
+      setInitialLoading(true);
+    } else {
+      setTableLoading(true);
+    }
     try {
       const token = await getAccessToken();
       if (!token) return;
@@ -147,6 +154,8 @@ function EnrollmentsPage() {
       if (filterSession !== "all") params.set("session_id", filterSession);
       if (filterLevel !== "all") params.set("level", filterLevel);
       if (debouncedSearch) params.set("search", debouncedSearch);
+      params.set("sort_by", sortBy);
+      params.set("sort_order", sortOrder);
 
       const res = await fetch(getApiUrl(`/api/v1/enrollments/?${params.toString()}`), {
         headers: { Authorization: `Bearer ${token}` },
@@ -158,9 +167,19 @@ function EnrollmentsPage() {
     } catch (err) {
       setError(getErrorMessage(err, "Failed to load enrollments"));
     } finally {
-      setLoading(false);
+      setTableLoading(false);
+      if (!hasLoadedEnrollmentsRef.current) {
+        hasLoadedEnrollmentsRef.current = true;
+        setInitialLoading(false);
+      }
     }
-  };
+  }, [getAccessToken, enrPage, filterSession, filterLevel, sortBy, sortOrder, debouncedSearch]);
+
+  useEffect(() => {
+    if (user && userProfile) {
+      fetchEnrollments();
+    }
+  }, [user, userProfile, fetchEnrollments]);
 
   /* ── Create ─────────────────────── */
 
@@ -225,11 +244,11 @@ function EnrollmentsPage() {
   /* ── Filter ─────────────────────── */
 
   // Reset page when filters change
-  useEffect(() => { setEnrPage(1); }, [filterSession, filterLevel, debouncedSearch]);
+  useEffect(() => { setEnrPage(1); }, [filterSession, filterLevel, sortBy, sortOrder, debouncedSearch]);
 
   const enrTotalPages = Math.ceil(totalEnrollments / ENR_PAGE_SIZE);
 
-  if (authLoading || loading) {
+  if (authLoading || initialLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="w-10 h-10 border-[3px] border-navy border-t-transparent rounded-full animate-spin" />
@@ -339,6 +358,31 @@ function EnrollmentsPage() {
               ))}
             </select>
           </div>
+          <div className="flex-1 space-y-1.5">
+            <label htmlFor="sort-by" className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Sort By</label>
+            <select
+              id="sort-by"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as "time" | "name" | "level")}
+              className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
+            >
+              <option value="time">Time</option>
+              <option value="name">Name</option>
+              <option value="level">Level</option>
+            </select>
+          </div>
+          <div className="flex-1 space-y-1.5">
+            <label htmlFor="sort-order" className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Order</label>
+            <select
+              id="sort-order"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as "asc" | "desc")}
+              className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
+            >
+              <option value="desc">Descending</option>
+              <option value="asc">Ascending</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -348,7 +392,12 @@ function EnrollmentsPage() {
           <h2 className="font-display font-bold text-lg text-navy">Enrollment Records</h2>
           <span className="px-3 py-1 bg-cloud text-slate text-xs font-bold rounded-full">{totalEnrollments} records</span>
         </div>
-        <div className="bg-snow border-[3px] border-navy rounded-3xl overflow-hidden shadow-[4px_4px_0_0_#000]">
+        <div className="relative bg-snow border-[3px] border-navy rounded-3xl overflow-hidden shadow-[4px_4px_0_0_#000]">
+          {tableLoading && (
+            <div className="absolute inset-0 z-10 bg-snow/70 backdrop-blur-[1px] flex items-center justify-center">
+              <div className="w-8 h-8 border-[3px] border-navy border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>

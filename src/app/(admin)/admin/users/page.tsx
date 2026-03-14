@@ -132,6 +132,10 @@ function AdminUsersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [deptFilter, setDeptFilter] = useState("all");
+  const [levelFilter, setLevelFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<"time" | "name" | "level">("time");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -158,6 +162,9 @@ function AdminUsersPage() {
   const [bdSearch, setBdSearch] = useState("");
   const [bdDept, setBdDept] = useState("all");
   const [bdDaysAhead, setBdDaysAhead] = useState(90);
+  const [bdLevel, setBdLevel] = useState("all");
+  const [bdSortBy, setBdSortBy] = useState<"time" | "name" | "level">("time");
+  const [bdSortOrder, setBdSortOrder] = useState<"asc" | "desc">("asc");
   const [bdItems, setBdItems] = useState<BirthdayUser[]>([]);
   const [bdLoading, setBdLoading] = useState(false);
   const [bdTotal, setBdTotal] = useState(0);
@@ -173,6 +180,10 @@ function AdminUsersPage() {
       params.set("skip", String((page - 1) * ITEMS_PER_PAGE));
       if (roleFilter !== "all") params.set("role", roleFilter);
       if (deptFilter !== "all") params.set("department", deptFilter);
+      if (levelFilter !== "all") params.set("level", levelFilter);
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      params.set("sort_by", sortBy);
+      params.set("sort_order", sortOrder);
       if (searchQuery.trim()) params.set("search", searchQuery.trim());
 
       const response = await fetch(getApiUrl(`/api/v1/users/?${params}`), {
@@ -194,7 +205,7 @@ function AdminUsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [getAccessToken, page, roleFilter, deptFilter, searchQuery]);
+  }, [getAccessToken, page, roleFilter, deptFilter, levelFilter, statusFilter, sortBy, sortOrder, searchQuery]);
 
   useEffect(() => {
     const debounce = setTimeout(() => fetchUsers(), searchQuery ? 300 : 0);
@@ -243,6 +254,9 @@ function AdminUsersPage() {
       params.set("skip", String((bdPage - 1) * BD_PER_PAGE));
       params.set("days_ahead", String(bdDaysAhead));
       if (bdDept !== "all") params.set("department", bdDept);
+      if (bdLevel !== "all") params.set("level", bdLevel);
+      params.set("sort_by", bdSortBy);
+      params.set("sort_order", bdSortOrder);
       if (bdSearch.trim()) params.set("search", bdSearch.trim());
       const res = await fetch(getApiUrl(`/api/v1/users/birthdays?${params.toString()}`), {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -256,7 +270,7 @@ function AdminUsersPage() {
     } finally {
       setBdLoading(false);
     }
-  }, [getAccessToken, bdPage, bdDaysAhead, bdDept, bdSearch]);
+  }, [getAccessToken, bdPage, bdDaysAhead, bdDept, bdLevel, bdSortBy, bdSortOrder, bdSearch]);
 
   useEffect(() => {
     if (activeTab !== "birthdays") return;
@@ -272,9 +286,16 @@ function AdminUsersPage() {
   const handleSearch = (v: string) => { setSearchQuery(v); setPage(1); };
   const handleRoleFilter = (v: string) => { setRoleFilter(v); setPage(1); };
   const handleDeptFilter = (v: string) => { setDeptFilter(v); setPage(1); };
+  const handleLevelFilter = (v: string) => { setLevelFilter(v); setPage(1); };
+  const handleStatusFilter = (v: string) => { setStatusFilter(v); setPage(1); };
+  const handleSortBy = (v: "time" | "name" | "level") => { setSortBy(v); setPage(1); };
+  const handleSortOrder = (v: "asc" | "desc") => { setSortOrder(v); setPage(1); };
   const handleBdSearch = (v: string) => { setBdSearch(v); setBdPage(1); };
   const handleBdDept = (v: string) => { setBdDept(v); setBdPage(1); };
   const handleBdRange = (v: string) => { setBdDaysAhead(Number(v)); setBdPage(1); };
+  const handleBdLevel = (v: string) => { setBdLevel(v); setBdPage(1); };
+  const handleBdSortBy = (v: "time" | "name" | "level") => { setBdSortBy(v); setBdPage(1); };
+  const handleBdSortOrder = (v: "asc" | "desc") => { setBdSortOrder(v); setBdPage(1); };
 
   const activeUsers = users.filter((u) => u.isActive !== false).length;
   const externalCount = users.filter((u) => u.department && u.department !== "Industrial Engineering").length;
@@ -523,6 +544,52 @@ function AdminUsersPage() {
           <option value="external">External Students</option>
         </select>
 
+        <select
+          value={levelFilter}
+          onChange={(e) => handleLevelFilter(e.target.value)}
+          aria-label="Filter by level"
+          className="px-5 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer"
+        >
+          <option value="all">All Levels</option>
+          <option value="100L">100L</option>
+          <option value="200L">200L</option>
+          <option value="300L">300L</option>
+          <option value="400L">400L</option>
+          <option value="500L">500L</option>
+        </select>
+
+        <select
+          value={statusFilter}
+          onChange={(e) => handleStatusFilter(e.target.value)}
+          aria-label="Filter by status"
+          className="px-5 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer"
+        >
+          <option value="all">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+
+        <select
+          value={sortBy}
+          onChange={(e) => handleSortBy(e.target.value as "time" | "name" | "level")}
+          aria-label="Sort by"
+          className="px-5 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer"
+        >
+          <option value="time">Sort: Time</option>
+          <option value="name">Sort: Name</option>
+          <option value="level">Sort: Level</option>
+        </select>
+
+        <select
+          value={sortOrder}
+          onChange={(e) => handleSortOrder(e.target.value as "asc" | "desc")}
+          aria-label="Sort order"
+          className="px-5 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer"
+        >
+          <option value="desc">Descending</option>
+          <option value="asc">Ascending</option>
+        </select>
+
         <PermissionGate permission="user:export">
         <button
           onClick={() => {
@@ -570,7 +637,12 @@ function AdminUsersPage() {
           </span>
         </div>
 
-        <div className="bg-snow border-[3px] border-navy rounded-3xl overflow-hidden shadow-[4px_4px_0_0_#000]">
+        <div className="relative bg-snow border-[3px] border-navy rounded-3xl overflow-hidden shadow-[4px_4px_0_0_#000]">
+          {loading && (
+            <div className="absolute inset-0 z-10 bg-snow/70 backdrop-blur-[1px] flex items-center justify-center">
+              <div className="w-8 h-8 border-[3px] border-navy border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -584,16 +656,7 @@ function AdminUsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={6} className="p-12 text-center">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-10 h-10 border-[3px] border-navy border-t-transparent rounded-full animate-spin" />
-                        <span className="text-navy/60 text-sm">Loading users...</span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : users.length === 0 ? (
+                {!loading && users.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="p-12 text-center">
                       <div className="w-14 h-14 mx-auto rounded-2xl bg-cloud flex items-center justify-center mb-3">
@@ -641,37 +704,52 @@ function AdminUsersPage() {
                       </td>
                       <td className="p-4">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-cloud text-navy/60">
-                            student
-                          </span>
                           {(() => {
                             const uid = user._id || user.id || "";
-                            const assigned = activePositionsByUserId[uid] || [];
+                            const assigned = (activePositionsByUserId[uid] || []).filter(
+                              (position) => position !== "student"
+                            );
+
+                            const primaryRoleChip =
+                              user.role === "student"
+                                ? (
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold ${
+                                    user.department === "Industrial Engineering"
+                                      ? "bg-lime-light text-navy"
+                                      : "bg-lavender-light text-lavender"
+                                  }`}>
+                                    {user.department === "Industrial Engineering" ? "IPE" : (user.department || "External")}
+                                  </span>
+                                )
+                                : user.role === "admin"
+                                  ? (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-lavender-light text-lavender">
+                                      admin
+                                    </span>
+                                  )
+                                  : (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-coral-light text-coral">
+                                      exco
+                                    </span>
+                                  );
+
                             if (assigned.length > 0) {
-                              return assigned.map((position) => (
-                                <span
-                                  key={position}
-                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold ${getPositionBadge(position)}`}
-                                >
-                                  {getPositionLabel(position)}
-                                </span>
-                              ));
-                            }
-                            if (user.role === "admin") {
                               return (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-lavender-light text-lavender">
-                                  admin
-                                </span>
+                                <>
+                                  {primaryRoleChip}
+                                  {assigned.map((position) => (
+                                    <span
+                                      key={position}
+                                      className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold ${getPositionBadge(position)}`}
+                                    >
+                                      {getPositionLabel(position)}
+                                    </span>
+                                  ))}
+                                </>
                               );
                             }
-                            if (user.role === "exco") {
-                              return (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-coral-light text-coral">
-                                  exco
-                                </span>
-                              );
-                            }
-                            return null;
+
+                            return primaryRoleChip;
                           })()}
                         </div>
                       </td>
@@ -783,6 +861,38 @@ function AdminUsersPage() {
               <option value="180">Next 180 days</option>
               <option value="365">Next 365 days</option>
             </select>
+            <select
+              value={bdLevel}
+              onChange={(e) => handleBdLevel(e.target.value)}
+              aria-label="Filter birthdays by level"
+              className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
+            >
+              <option value="all">All Levels</option>
+              <option value="100L">100L</option>
+              <option value="200L">200L</option>
+              <option value="300L">300L</option>
+              <option value="400L">400L</option>
+              <option value="500L">500L</option>
+            </select>
+            <select
+              value={bdSortBy}
+              onChange={(e) => handleBdSortBy(e.target.value as "time" | "name" | "level")}
+              aria-label="Sort birthdays by"
+              className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
+            >
+              <option value="time">Sort: Time</option>
+              <option value="name">Sort: Name</option>
+              <option value="level">Sort: Level</option>
+            </select>
+            <select
+              value={bdSortOrder}
+              onChange={(e) => handleBdSortOrder(e.target.value as "asc" | "desc")}
+              aria-label="Birthday sort order"
+              className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
+            >
+              <option value="asc">Ascending</option>
+              <option value="desc">Descending</option>
+            </select>
           </div>
 
           <div>
@@ -792,7 +902,12 @@ function AdminUsersPage() {
                 {bdTotal} total{bdTotalPages > 1 && ` · page ${bdPage}/${bdTotalPages}`}
               </span>
             </div>
-            <div className="bg-snow border-[3px] border-navy rounded-3xl overflow-hidden shadow-[4px_4px_0_0_#000]">
+            <div className="relative bg-snow border-[3px] border-navy rounded-3xl overflow-hidden shadow-[4px_4px_0_0_#000]">
+              {bdLoading && (
+                <div className="absolute inset-0 z-10 bg-snow/70 backdrop-blur-[1px] flex items-center justify-center">
+                  <div className="w-8 h-8 border-[3px] border-navy border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -804,16 +919,7 @@ function AdminUsersPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {bdLoading ? (
-                      <tr>
-                        <td colSpan={4} className="p-12 text-center">
-                          <div className="flex flex-col items-center gap-3">
-                            <div className="w-10 h-10 border-[3px] border-navy border-t-transparent rounded-full animate-spin" />
-                            <span className="text-navy/60 text-sm">Loading birthdays...</span>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : bdItems.length === 0 ? (
+                    {!bdLoading && bdItems.length === 0 ? (
                       <tr>
                         <td colSpan={4} className="p-12 text-center text-sm text-slate">No birthdays found in this window.</td>
                       </tr>

@@ -96,6 +96,8 @@ async def list_enrollments(
     student_id: Optional[str] = Query(None, description="Filter by student ID"),
     level: Optional[str] = Query(None, description="Filter by level (100L-500L)"),
     search: Optional[str] = Query(None, description="Search by student name, email or matric"),
+    sort_by: str = Query("time", description="Sort by: time | name | level"),
+    sort_order: str = Query("desc", description="Sort order: asc | desc"),
     limit: int = Query(20, ge=1, le=100),
     skip: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user)
@@ -134,70 +136,124 @@ async def list_enrollments(
         matching_student_ids = [str(u["_id"]) for u in matching_users]
         query["studentId"] = {"$in": matching_student_ids}
 
-    # Get total count first
-    total = await enrollments.count_documents(query)
-    
-    # Fetch paginated enrollments
-    cursor = enrollments.find(query).sort("createdAt", -1).skip(skip).limit(limit)
-    enrollments_list = await cursor.to_list(length=limit)
-    
-    # Populate student and session details (batch to avoid N+1)
-    all_student_ids = set()
-    all_session_ids = set()
-    for enrollment in enrollments_list:
-        sid = enrollment.get("studentId")
-        if sid:
-            all_student_ids.add(str(sid) if isinstance(sid, ObjectId) else sid)
-        ssid = enrollment.get("sessionId")
-        if ssid:
-            all_session_ids.add(str(ssid) if isinstance(ssid, ObjectId) else ssid)
+    sort_key = (sort_by or "time").strip().lower()
+    direction = -1 if (sort_order or "desc").strip().lower() == "desc" else 1
 
-    # Batch-fetch users
-    student_oids = [ObjectId(s) for s in all_student_ids if ObjectId.is_valid(s)]
-    student_map = {}
-    if student_oids:
-        async for u in users.find({"_id": {"$in": student_oids}}, {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1}):
-            student_map[str(u["_id"])] = u
+    if sort_key == "name":
+        sort_stage = {
+            "student.firstName": direction,
+            "student.lastName": direction,
+            "createdAt": -1,
+        }
+    elif sort_key == "level":
+        sort_stage = {
+            "level": direction,
+            "createdAt": -1,
+        }
+    else:
+        sort_stage = {
+            "createdAt": direction,
+            "_id": direction,
+        }
 
-    # Batch-fetch sessions
-    session_oids = [ObjectId(s) for s in all_session_ids if ObjectId.is_valid(s)]
-    session_map = {}
-    if session_oids:
-        async for s in sessions.find({"_id": {"$in": session_oids}}, {"name": 1, "isActive": 1}):
-            session_map[str(s["_id"])] = s
+    pipeline = [
+        {"$match": query},
+        {
+            "$lookup": {
+                "from": "users",
+                "let": {"sid": "$studentId"},
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$eq": [{"$toString": "$_id"}, "$$sid"]
+                            }
+                        }
+                    },
+                    {"$project": {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1}},
+                ],
+                "as": "student_docs",
+            }
+        },
+        {
+            "$lookup": {
+                "from": "sessions",
+                "let": {"sessid": "$sessionId"},
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$eq": [{"$toString": "$_id"}, "$$sessid"]
+                            }
+                        }
+                    },
+                    {"$project": {"name": 1, "isActive": 1}},
+                ],
+                "as": "session_docs",
+            }
+        },
+        {
+            "$addFields": {
+                "student": {"$arrayElemAt": ["$student_docs", 0]},
+                "session": {"$arrayElemAt": ["$session_docs", 0]},
+            }
+        },
+        {"$sort": sort_stage},
+        {
+            "$facet": {
+                "items": [
+                    {"$skip": skip},
+                    {"$limit": limit},
+                    {
+                        "$project": {
+                            "student_docs": 0,
+                            "session_docs": 0,
+                        }
+                    },
+                ],
+                "meta": [{"$count": "total"}],
+            }
+        },
+    ]
+
+    agg_result = await enrollments.aggregate(pipeline).to_list(length=1)
+    root = agg_result[0] if agg_result else {"items": [], "meta": []}
+    items = root.get("items", [])
+    meta = root.get("meta", [])
+    total = meta[0].get("total", 0) if meta else 0
 
     result = []
-    for enrollment in enrollments_list:
-        try:
-            student_id_str = str(enrollment["studentId"]) if isinstance(enrollment["studentId"], ObjectId) else enrollment["studentId"]
-            session_id_str = str(enrollment["sessionId"]) if isinstance(enrollment["sessionId"], ObjectId) else enrollment["sessionId"]
+    for enrollment in items:
+        enrollment_id = enrollment.get("_id")
+        student_id_val = enrollment.get("studentId")
+        session_id_val = enrollment.get("sessionId")
+        student = enrollment.get("student")
+        session = enrollment.get("session")
 
-            student = student_map.get(student_id_str)
-            student_info = {
-                "id": str(student["_id"]),
-                "firstName": student.get("firstName", ""),
-                "lastName": student.get("lastName", ""),
-                "email": student.get("email", ""),
-                "matricNumber": student.get("matricNumber", "")
-            } if student else None
+        student_info = {
+            "id": str(student.get("_id")),
+            "firstName": student.get("firstName", ""),
+            "lastName": student.get("lastName", ""),
+            "email": student.get("email", ""),
+            "matricNumber": student.get("matricNumber", ""),
+        } if student else None
 
-            session = session_map.get(session_id_str)
-            session_info = {
-                "id": str(session["_id"]),
-                "name": session.get("name", ""),
-                "isActive": session.get("isActive", False)
-            } if session else None
+        session_info = {
+            "id": str(session.get("_id")),
+            "name": session.get("name", ""),
+            "isActive": session.get("isActive", False),
+        } if session else None
 
-            enrollment["id"] = str(enrollment.pop("_id"))
-            enrollment["studentId"] = student_id_str
-            enrollment["sessionId"] = session_id_str
-            enrollment["student"] = student_info
-            enrollment["session"] = session_info
+        result.append({
+            **enrollment,
+            "id": str(enrollment_id),
+            "studentId": str(student_id_val) if student_id_val is not None else "",
+            "sessionId": str(session_id_val) if session_id_val is not None else "",
+            "student": student_info,
+            "session": session_info,
+            "_id": str(enrollment_id),
+        })
 
-            result.append(enrollment)
-        except Exception:
-            continue
-    
     return {"items": result, "total": total}
 
 
