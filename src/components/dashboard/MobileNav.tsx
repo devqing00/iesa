@@ -85,7 +85,7 @@ export default function MobileNav() {
     },
   ];
 
-  const moreLinks = [
+  const moreLinks: MobileNavLink[] = [
     {
       name: "Timetable",
       href: "/dashboard/timetable",
@@ -252,6 +252,12 @@ export default function MobileNav() {
     },
   ];
 
+  const moreSections: Array<{ key: NonNullable<MobileNavLink["group"]>; label: string }> = [
+    { key: "academics", label: "Academics" },
+    { key: "community", label: "Community" },
+    { key: "leadership", label: "Leadership Tools" },
+  ];
+
   return (
     <>
       {/* More menu overlay */}
@@ -276,17 +282,13 @@ export default function MobileNav() {
               </button>
             </div>
             <div className="space-y-2">
-              {[
-                { key: "academics", label: "Academics" },
-                { key: "community", label: "Community" },
-                { key: "leadership", label: "Leadership Tools" },
-              ].map((section) => {
+              {moreSections.map((section) => {
                 const links = moreLinks.filter(
                   (link) => link.group === section.key && isVisible(link)
                 );
                 if (links.length === 0) return null;
 
-                const open = openGroups[section.key as "academics" | "community" | "leadership"];
+                const open = openGroups[section.key];
                 return (
                   <div key={section.key} className="border-[2px] border-navy/10 rounded-2xl bg-ghost/60 overflow-hidden">
                     <button
@@ -294,7 +296,7 @@ export default function MobileNav() {
                       onClick={() =>
                         setOpenGroups((prev) => ({
                           ...prev,
-                          [section.key]: !prev[section.key as "academics" | "community" | "leadership"],
+                          [section.key]: !prev[section.key],
                         }))
                       }
                       className="w-full flex items-center justify-between px-3.5 py-3 text-left"
