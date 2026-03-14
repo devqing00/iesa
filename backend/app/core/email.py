@@ -45,7 +45,11 @@ class EmailService:
         self.smtp_password = os.getenv("SMTP_PASSWORD")
         self.smtp_use_tls = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
         self.provider = self._detect_provider()
-        self.from_email = os.getenv("EMAIL_FROM", "noreply@iesa.com")
+        self.from_email = (
+            os.getenv("EMAIL_FROM")
+            or os.getenv("RESEND_FROM_EMAIL")
+            or "noreply@iesaui.org"
+        )
         self.from_name = os.getenv("EMAIL_FROM_NAME", "IESA Platform")
         self._healthy = False
         self.smtp_fallback_enabled = False

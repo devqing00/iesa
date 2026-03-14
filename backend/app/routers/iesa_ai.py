@@ -39,14 +39,20 @@ AI_DAILY_LIMIT = int(os.getenv("AI_DAILY_LIMIT", "60"))
 def _resolve_ai_account_key(user: dict) -> str:
     """Resolve a stable account key for AI rate limiting.
 
-    Prefer Firebase UID (stable across user document migrations) and
-    fallback to Mongo user _id for safety.
+    Use Mongo user _id as canonical account key so usage is guaranteed
+    to sync across all devices/sessions for the same account.
+    Fallback to Firebase UID only if _id is unexpectedly missing.
     """
+    user_id = user.get("_id")
+    if user_id:
+        return str(user_id)
+
     token_data = user.get("tokenData") or {}
     firebase_uid = token_data.get("firebase_uid")
     if firebase_uid:
         return str(firebase_uid)
-    return str(user.get("_id", ""))
+
+    return ""
 
 
 async def _find_or_migrate_rate_limit_doc(account_key: str, db, legacy_user_id: str | None = None) -> dict | None:

@@ -24,6 +24,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.core.security import get_current_user
+from app.core.permissions import require_permission
 from app.db import get_database
 
 logger = logging.getLogger("push_notifications")
@@ -45,12 +46,25 @@ def _load_vapid():
     _VAPID_PUBLIC_KEY = (os.getenv("VAPID_PUBLIC_KEY") or "").strip().replace("\n", "").replace("\r", "") or None
     raw_private = os.getenv("VAPID_PRIVATE_KEY")
     claims_email = os.getenv("VAPID_CLAIMS_EMAIL", "mailto:admin@iesa.org")
-    # The private key is stored as base64-encoded PEM in .env (single-line safe)
+
+    # Accept either:
+    # 1) raw PEM (-----BEGIN PRIVATE KEY----- ...)
+    # 2) base64-encoded PEM (single-line safe for env)
+    # 3) raw VAPID private key string (base64url) for pywebpush
     if raw_private:
+        raw_private = raw_private.strip()
         try:
-            _VAPID_PRIVATE_KEY = base64.b64decode(raw_private).decode("utf-8")
+            if "BEGIN" in raw_private and "PRIVATE KEY" in raw_private:
+                _VAPID_PRIVATE_KEY = raw_private
+            else:
+                decoded = base64.b64decode(raw_private, validate=True).decode("utf-8")
+                if "BEGIN" in decoded and "PRIVATE KEY" in decoded:
+                    _VAPID_PRIVATE_KEY = decoded
+                else:
+                    _VAPID_PRIVATE_KEY = raw_private
         except Exception:
-            _VAPID_PRIVATE_KEY = raw_private  # fallback: use as-is (plain PEM)
+            _VAPID_PRIVATE_KEY = raw_private
+
     if _VAPID_PUBLIC_KEY and _VAPID_PRIVATE_KEY:
         _VAPID_CLAIMS = {"sub": claims_email}
         logger.info("VAPID keys loaded — push notifications enabled")
@@ -74,6 +88,14 @@ class PushSubscriptionOut(BaseModel):
     id: str
     endpoint: str
     createdAt: str
+
+
+class PushTestByEmailRequest(BaseModel):
+    email: str
+    title: str = "IESA Push Test"
+    body: str = "This is a test push notification from IESA admin tools."
+    url: str = "/dashboard/announcements"
+    tag: str = "push-test"
 
 
 # ── Endpoints ─────────────────────────────────────────────────
@@ -148,6 +170,49 @@ async def list_subscriptions(
             "createdAt": doc.get("createdAt", ""),
         })
     return subs
+
+
+@router.post("/test/send-by-email")
+async def send_push_test_by_email(
+    payload: PushTestByEmailRequest,
+    _: dict = Depends(require_permission("announcement:create")),
+):
+    """Admin utility: send a test push notification to a user resolved by email."""
+    db = get_database()
+
+    email = payload.email.strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+
+    user = await db["users"].find_one({"email": email}, {"_id": 1, "email": 1})
+    if not user:
+        raise HTTPException(status_code=404, detail=f"No user found for email: {email}")
+
+    user_id = str(user["_id"])
+    sub_count = await db["push_subscriptions"].count_documents({"userId": user_id})
+
+    if sub_count == 0:
+        return {
+            "message": "User has no active push subscriptions",
+            "email": email,
+            "userId": user_id,
+            "subscriptions": 0,
+        }
+
+    await send_push_to_user(
+        user_id=user_id,
+        title=payload.title,
+        body=payload.body,
+        url=payload.url,
+        tag=payload.tag,
+    )
+
+    return {
+        "message": "Push test dispatched",
+        "email": email,
+        "userId": user_id,
+        "subscriptions": sub_count,
+    }
 
 
 # ── Push sending helper (called from notifications.py) ────────

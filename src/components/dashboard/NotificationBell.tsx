@@ -159,6 +159,24 @@ export default function NotificationBell() {
 
   /** Wrapper: renders Link when notification has a link, div otherwise */
   const NotificationRow = ({ n }: { n: Notification }) => {
+    const resolvedLink = (() => {
+      if (!n.link) return null;
+
+      const role = String(user?.role || "").toLowerCase();
+      const isAdminLike = role === "admin" || role === "exco";
+
+      if (
+        n.type === "announcement" &&
+        !isAdminLike &&
+        n.link.startsWith("/admin/announcements")
+      ) {
+        const [, query] = n.link.split("?");
+        return query ? `/dashboard/announcements?${query}` : "/dashboard/announcements";
+      }
+
+      return n.link;
+    })();
+
     const inner = (
       <div className="flex gap-3 px-4 py-3">
         {/* Type dot */}
@@ -191,9 +209,9 @@ export default function NotificationBell() {
       if (!n.isRead) markAsRead(n._id);
     };
 
-    if (n.link) {
+    if (resolvedLink) {
       return (
-        <Link href={n.link} onClick={handleClick} className={className}>
+        <Link href={resolvedLink} onClick={handleClick} className={className}>
           {inner}
         </Link>
       );
