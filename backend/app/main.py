@@ -198,19 +198,42 @@ app = FastAPI(
 API_V1_PREFIX = "/api/v1"
 
 def _get_origins():
-    """Get allowed origins from environment variable with production defaults"""
+    """Get allowed origins from environment variable with production-safe defaults."""
     env = os.getenv("ENVIRONMENT", "development")
-    
+
+    raw = os.getenv("ALLOWED_ORIGINS", "")
+    configured = [o.strip() for o in raw.split(",") if o.strip()]
+
     if env == "production":
-        # Production: Only allow production domain
-        raw = os.getenv("ALLOWED_ORIGINS", "https://iesa-seven.vercel.app")
+        defaults = [
+            "https://www.iesaui.org",
+            "https://iesaui.org",
+            "https://iesa-seven.vercel.app",
+            "https://iesa-ui-zzyme.ondigitalocean.app",
+        ]
     else:
-        # Development: Allow localhost
-        raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
-    
-    return [o.strip() for o in raw.split(",") if o.strip()]
+        defaults = [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ]
+
+    # Preserve order while de-duplicating
+    merged = []
+    for origin in [*configured, *defaults]:
+        if origin not in merged:
+            merged.append(origin)
+    return merged
+
+
+def _get_origin_regex() -> str | None:
+    """Allow trusted wildcard subdomains in production."""
+    env = os.getenv("ENVIRONMENT", "development")
+    if env != "production":
+        return None
+    return r"^https://([a-z0-9-]+\.)*iesaui\.org$|^https://[a-z0-9-]+\.ondigitalocean\.app$"
 
 origins = _get_origins()
+origin_regex = _get_origin_regex()
 
 # ── Request body size limit middleware ──────────────────────
 MAX_BODY_SIZE = 10 * 1024 * 1024  # 10 MB — covers image uploads; rejects mega payloads
@@ -242,6 +265,7 @@ setup_exception_handlers(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=origin_regex,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],

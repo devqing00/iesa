@@ -1,7 +1,7 @@
 /**
- * useSSE — Real-time Server-Sent Events hook
+ * useSSE — Real-time WebSocket events hook
  *
- * Opens a persistent EventSource connection to the backend SSE stream.
+ * Opens a persistent WebSocket connection to the backend realtime stream.
  * When an event arrives, it calls SWR `mutate()` on the relevant cache
  * keys so dashboard data refreshes automatically.
  *
@@ -36,7 +36,7 @@ const EVENT_KEY_MAP: Record<string, string[]> = {
   notification_created: ["/api/v1/notifications/"],
 };
 
-// SSE events that should also trigger a notification bell refresh
+// Realtime events that should also trigger a notification bell refresh
 const NOTIFICATION_EVENTS = new Set([
   "notification_created",
   "announcement_created",
@@ -60,14 +60,15 @@ function revalidateForEvent(eventType: string) {
 }
 
 /**
- * Hook that opens an SSE connection when the user is authenticated.
+ * Hook that opens a WebSocket connection when the user is authenticated.
  * Automatically reconnects on disconnection with exponential back-off.
  */
 export function useSSE() {
   const { user, getAccessToken } = useAuth();
-  const esRef = useRef<EventSource | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const retryRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const connectRef = useRef<(() => Promise<void>) | null>(null);
 
   const connect = useCallback(async () => {
     // Don't connect if no user or SSR
@@ -77,43 +78,54 @@ export function useSSE() {
     if (!token) return;
 
     // Close existing connection
-    esRef.current?.close();
+    wsRef.current?.close();
 
-    const url = `${API_BASE_URL}/api/v1/sse/stream?token=${encodeURIComponent(token)}`;
-    const es = new EventSource(url);
-    esRef.current = es;
+    const wsUrl = `${API_BASE_URL.replace(/^http/, "ws")}/api/v1/sse/ws?token=${encodeURIComponent(token)}`;
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
 
-    es.onopen = () => {
+    ws.onopen = () => {
       retryRef.current = 0; // reset back-off on successful connect
     };
 
-    // Listen for all mapped event types
-    for (const eventType of Object.keys(EVENT_KEY_MAP)) {
-      es.addEventListener(eventType, () => {
+    ws.onmessage = (event) => {
+      try {
+        const parsed = JSON.parse(event.data) as { type?: string };
+        const eventType = parsed?.type;
+        if (!eventType || eventType === "heartbeat" || eventType === "pong") return;
         revalidateForEvent(eventType);
-      });
-    }
+      } catch {
+        // ignore malformed frames
+      }
+    };
 
-    es.onerror = () => {
-      es.close();
-      esRef.current = null;
+    ws.onerror = () => {
+      ws.close();
+    };
+
+    ws.onclose = () => {
+      wsRef.current = null;
 
       // Exponential back-off: 1s, 2s, 4s, 8s … capped at 30s
       const delay = Math.min(1000 * 2 ** retryRef.current, 30_000);
       retryRef.current += 1;
 
       timerRef.current = setTimeout(() => {
-        connect();
+        void connectRef.current?.();
       }, delay);
     };
   }, [user, getAccessToken]);
 
   useEffect(() => {
-    connect();
+    connectRef.current = connect;
+  }, [connect]);
+
+  useEffect(() => {
+    void connect();
 
     return () => {
-      esRef.current?.close();
-      esRef.current = null;
+      wsRef.current?.close();
+      wsRef.current = null;
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [connect]);

@@ -73,7 +73,7 @@ async def create_notification(
             "userId": user_id,
             "type": type,
             "title": title,
-        })
+        }, target_user_id=user_id)
     except Exception:
         pass  # SSE is non-critical
 
