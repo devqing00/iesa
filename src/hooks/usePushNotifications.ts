@@ -24,6 +24,24 @@ export function usePushNotifications() {
   const [error, setError] = useState<string | null>(null);
   const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
 
+  const isPushDebugEnabled = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem("push_debug") === "1" || (window as Window & { __PUSH_DEBUG__?: boolean }).__PUSH_DEBUG__ === true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const logPushDebug = useCallback((message: string, details?: Record<string, unknown>) => {
+    if (!isPushDebugEnabled()) return;
+    if (details) {
+      console.info(`[push-debug] ${message}`, details);
+      return;
+    }
+    console.info(`[push-debug] ${message}`);
+  }, [isPushDebugEnabled]);
+
   // Check support + current state on mount
   useEffect(() => {
     let cleanupPermissionListener: (() => void) | undefined;
@@ -67,20 +85,30 @@ export function usePushNotifications() {
     navigator.serviceWorker
       .register("/push-sw.js")
       .then((reg) => {
+        logPushDebug("service worker registered", {
+          scope: reg.scope,
+        });
         registrationRef.current = reg;
         return reg.pushManager.getSubscription();
       })
       .then((sub) => {
         setSubscribed(!!sub);
+        logPushDebug("existing push subscription check", {
+          hasSubscription: !!sub,
+          endpointHost: sub?.endpoint ? new URL(sub.endpoint).host : null,
+        });
       })
-      .catch(() => {
+      .catch((registrationError) => {
+        logPushDebug("service worker registration failed", {
+          error: String(registrationError),
+        });
         /* SW registration failed — push not available */
       });
 
     return () => {
       cleanupPermissionListener?.();
     };
-  }, []);
+  }, [logPushDebug]);
 
   const apiFetch = useCallback(
     async (path: string, options?: RequestInit) => {
@@ -122,10 +150,14 @@ export function usePushNotifications() {
       const keyRes = await apiFetch("/vapid-public-key");
       if (!keyRes.ok) throw new Error("Push notifications are not configured on the server");
       const { publicKey } = await keyRes.json();
+      logPushDebug("received VAPID public key", {
+        publicKeyLength: String(publicKey || "").length,
+      });
 
       // 2. Request notification permission
       const perm = await Notification.requestPermission();
       setPermission(perm);
+      logPushDebug("notification permission result", { permission: perm });
       if (perm !== "granted") {
         setLoading(false);
         return;
@@ -136,6 +168,7 @@ export function usePushNotifications() {
       if (!reg) {
         reg = await navigator.serviceWorker.register("/push-sw.js");
         registrationRef.current = reg;
+        logPushDebug("service worker registered during subscribe", { scope: reg.scope });
       }
 
       // 4. Subscribe via PushManager
@@ -143,9 +176,17 @@ export function usePushNotifications() {
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
+      logPushDebug("pushManager.subscribe success", {
+        endpointHost: pushSub.endpoint ? new URL(pushSub.endpoint).host : null,
+      });
 
       // 5. Send subscription to backend
       const subJson = pushSub.toJSON();
+      logPushDebug("sending subscription payload", {
+        endpointHost: subJson.endpoint ? new URL(subJson.endpoint).host : null,
+        p256dhLength: String(subJson.keys?.p256dh || "").length,
+        authLength: String(subJson.keys?.auth || "").length,
+      });
       const res = await apiFetch("/subscribe", {
         method: "POST",
         body: JSON.stringify({
@@ -156,16 +197,24 @@ export function usePushNotifications() {
 
       if (res.ok) {
         setSubscribed(true);
+        logPushDebug("subscription saved on backend");
       } else {
         const body = await res.json().catch(() => ({}));
+        logPushDebug("subscription rejected by backend", {
+          status: res.status,
+          detail: body?.detail || null,
+        });
         throw new Error(body.detail || "Failed to save subscription");
       }
     } catch (err) {
+      logPushDebug("subscribe failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
       setError(err instanceof Error ? err.message : "Failed to enable push notifications");
     } finally {
       setLoading(false);
     }
-  }, [supported, loading, apiFetch]);
+  }, [supported, loading, apiFetch, logPushDebug]);
 
   const unsubscribe = useCallback(async () => {
     if (!supported || loading) return;
@@ -179,6 +228,9 @@ export function usePushNotifications() {
       const pushSub = await reg.pushManager.getSubscription();
       if (pushSub) {
         const subJson = pushSub.toJSON();
+        logPushDebug("unsubscribe payload", {
+          endpointHost: subJson.endpoint ? new URL(subJson.endpoint).host : null,
+        });
 
         // Remove from backend
         await apiFetch("/unsubscribe", {
@@ -191,14 +243,18 @@ export function usePushNotifications() {
 
         // Unsubscribe locally
         await pushSub.unsubscribe();
+        logPushDebug("local push subscription removed");
       }
       setSubscribed(false);
     } catch (err) {
+      logPushDebug("unsubscribe failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
       setError(err instanceof Error ? err.message : "Failed to disable push notifications");
     } finally {
       setLoading(false);
     }
-  }, [supported, loading, apiFetch]);
+  }, [supported, loading, apiFetch, logPushDebug]);
 
   return {
     supported,

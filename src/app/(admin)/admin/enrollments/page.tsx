@@ -71,6 +71,8 @@ function EnrollmentsPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersRef = useRef<HTMLDivElement>(null);
   const [enrPage, setEnrPage] = useState(1);
   const hasLoadedEnrollmentsRef = useRef(false);
   const ENR_PAGE_SIZE = 20;
@@ -180,6 +182,31 @@ function EnrollmentsPage() {
       fetchEnrollments();
     }
   }, [user, userProfile, fetchEnrollments]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      if (filtersRef.current && !filtersRef.current.contains(target)) {
+        setFiltersOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setFiltersOpen(false);
+      }
+    }
+
+    if (filtersOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [filtersOpen]);
 
   /* ── Create ─────────────────────── */
 
@@ -313,85 +340,89 @@ function EnrollmentsPage() {
         </div>
       </div>
 
-      {/* ── Filters ── */}
-      <div className="bg-snow border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]">
-        <p className="text-sm font-bold text-navy mb-4">Filters</p>
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 space-y-1.5">
-            <label htmlFor="filter-search" className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Search</label>
-            <input
-              id="filter-search"
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by name, email or matric..."
-              className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm transition-all"
-            />
-          </div>
-          <div className="flex-1 space-y-1.5">
-            <label htmlFor="filter-session" className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Session</label>
-            <select
-              id="filter-session"
-              value={filterSession}
-              onChange={(e) => setFilterSession(e.target.value)}
-              className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
-            >
-              <option value="all">All Sessions</option>
-              {sessions.map((session) => (
-                <option key={session.id} value={session.id}>
-                  {session.name} {session.isActive && "(Active)"}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex-1 space-y-1.5">
-            <label htmlFor="filter-level" className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Level</label>
-            <select
-              id="filter-level"
-              value={filterLevel}
-              onChange={(e) => setFilterLevel(e.target.value)}
-              className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
-            >
-              <option value="all">All Levels</option>
-              {LEVELS.map((level) => (
-                <option key={level} value={level}>{level}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex-1 space-y-1.5">
-            <label htmlFor="sort-by" className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Sort By</label>
-            <select
-              id="sort-by"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as "time" | "name" | "level")}
-              className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
-            >
-              <option value="time">Time</option>
-              <option value="name">Name</option>
-              <option value="level">Level</option>
-            </select>
-          </div>
-          <div className="flex-1 space-y-1.5">
-            <label htmlFor="sort-order" className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Order</label>
-            <select
-              id="sort-order"
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value as "asc" | "desc")}
-              className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
-            >
-              <option value="desc">Descending</option>
-              <option value="asc">Ascending</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
       {/* ── Enrollments Table ── */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-bold text-lg text-navy">Enrollment Records</h2>
-          <span className="px-3 py-1 bg-cloud text-slate text-xs font-bold rounded-full">{totalEnrollments} records</span>
+        <div className="relative mb-4" ref={filtersRef}>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <h2 className="font-display font-bold text-lg text-navy">Enrollment Records</h2>
+              <span className="px-3 py-1 bg-cloud text-slate text-xs font-bold rounded-full">{totalEnrollments} records</span>
+            </div>
+            <div className="flex flex-col md:flex-row gap-3 md:items-center">
+              <input
+                id="filter-search"
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by name, email or matric..."
+                className="w-full md:w-80 px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => setFiltersOpen((prev) => !prev)}
+                className="px-5 py-3 bg-snow border-[3px] border-navy rounded-2xl text-navy text-sm font-bold press-3 press-black"
+                aria-expanded={filtersOpen ? "true" : "false"}
+              >
+                Filters
+              </button>
+            </div>
+          </div>
+
+          {filtersOpen && (
+            <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 w-full lg:w-[760px] bg-snow border-[3px] border-navy rounded-3xl p-4 shadow-[5px_5px_0_0_#000]">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <select
+                  id="filter-session"
+                  value={filterSession}
+                  onChange={(e) => setFilterSession(e.target.value)}
+                  aria-label="Filter enrollments by session"
+                  className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
+                >
+                  <option value="all">All Sessions</option>
+                  {sessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {session.name} {session.isActive && "(Active)"}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  id="filter-level"
+                  value={filterLevel}
+                  onChange={(e) => setFilterLevel(e.target.value)}
+                  aria-label="Filter enrollments by level"
+                  className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
+                >
+                  <option value="all">All Levels</option>
+                  {LEVELS.map((level) => (
+                    <option key={level} value={level}>{level}</option>
+                  ))}
+                </select>
+                <select
+                  id="sort-by"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as "time" | "name" | "level")}
+                  aria-label="Sort enrollments by"
+                  className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
+                >
+                  <option value="time">Time</option>
+                  <option value="name">Name</option>
+                  <option value="level">Level</option>
+                </select>
+                <select
+                  id="sort-order"
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as "asc" | "desc")}
+                  aria-label="Enrollment sort order"
+                  className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
+                >
+                  <option value="desc">Descending</option>
+                  <option value="asc">Ascending</option>
+                </select>
+              </div>
+            </div>
+          )}
         </div>
+
         <div className="relative bg-snow border-[3px] border-navy rounded-3xl overflow-hidden shadow-[4px_4px_0_0_#000]">
           {tableLoading && (
             <div className="absolute inset-0 z-10 bg-snow/70 backdrop-blur-[1px] flex items-center justify-center">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -156,6 +156,10 @@ function AdminUsersPage() {
 
   // ── Tab ──────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"users" | "birthdays">("users");
+  const [usersFiltersOpen, setUsersFiltersOpen] = useState(false);
+  const [birthdaysFiltersOpen, setBirthdaysFiltersOpen] = useState(false);
+  const usersFiltersRef = useRef<HTMLDivElement>(null);
+  const birthdaysFiltersRef = useRef<HTMLDivElement>(null);
 
   // ── Birthdays ────────────────────────────────
   const BD_PER_PAGE = 20;
@@ -244,6 +248,37 @@ function AdminUsersPage() {
   useEffect(() => {
     fetchRoleAssignments();
   }, [fetchRoleAssignments]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+
+      if (usersFiltersRef.current && !usersFiltersRef.current.contains(target)) {
+        setUsersFiltersOpen(false);
+      }
+
+      if (birthdaysFiltersRef.current && !birthdaysFiltersRef.current.contains(target)) {
+        setBirthdaysFiltersOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setUsersFiltersOpen(false);
+        setBirthdaysFiltersOpen(false);
+      }
+    }
+
+    if (usersFiltersOpen || birthdaysFiltersOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [usersFiltersOpen, birthdaysFiltersOpen]);
 
   const fetchBirthdays = useCallback(async () => {
     setBdLoading(true);
@@ -440,7 +475,10 @@ function AdminUsersPage() {
         </div>
         <div className="flex gap-1 p-1 bg-ghost border-[3px] border-navy rounded-2xl">
           <button
-            onClick={() => setActiveTab("users")}
+            onClick={() => {
+              setActiveTab("users");
+              setBirthdaysFiltersOpen(false);
+            }}
             className={`px-5 py-2 rounded-[10px] text-sm font-bold transition-all ${
               activeTab === "users" ? "bg-navy text-lime" : "text-navy hover:bg-cloud"
             }`}
@@ -448,7 +486,10 @@ function AdminUsersPage() {
             All Users
           </button>
           <button
-            onClick={() => setActiveTab("birthdays")}
+            onClick={() => {
+              setActiveTab("birthdays");
+              setUsersFiltersOpen(false);
+            }}
             className={`px-5 py-2 rounded-[10px] text-sm font-bold transition-all ${
               activeTab === "birthdays" ? "bg-sunny border-2 border-navy text-navy" : "text-navy hover:bg-cloud"
             }`}
@@ -505,127 +546,144 @@ function AdminUsersPage() {
       </div>
 
       {/* ── Filters & Search ───────────────────────── */}
-      <div className="flex flex-col md:flex-row gap-3">
-        <div className="flex-1">
-          <div className="relative">
-            <svg aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate" viewBox="0 0 24 24" fill="currentColor">
-              <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z" clipRule="evenodd" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search users..."
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm placeholder:text-slate transition-colors"
-            />
+      <div className="relative" ref={usersFiltersRef}>
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex-1">
+            <div className="relative">
+              <svg aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z" clipRule="evenodd" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search users..."
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm placeholder:text-slate transition-colors"
+              />
+            </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setUsersFiltersOpen((prev) => !prev)}
+            className="px-5 py-3 bg-snow border-[3px] border-navy rounded-2xl text-navy text-sm font-bold press-3 press-black"
+            aria-expanded={usersFiltersOpen ? "true" : "false"}
+          >
+            Filters
+          </button>
+
+          <PermissionGate permission="user:export">
+          <button
+            onClick={() => {
+              const headers = ["Name", "Email", "Department", "Role", "Status"];
+              const rows = users.map((u) => [
+                `${u.firstName} ${u.lastName}`,
+                u.email,
+                u.department === "Industrial Engineering" ? "IPE" : (u.department || "External"),
+                (() => {
+                  const uid = u._id || u.id || "";
+                  const assigned = activePositionsByUserId[uid] || [];
+                  if (assigned.length > 0) return assigned.map(getPositionLabel).join(" | ");
+                  if (u.role === "admin") return "admin";
+                  if (u.role === "exco") return "exco";
+                  return "student";
+                })(),
+                u.isActive !== false ? "Active" : "Inactive",
+              ]);
+              const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+              const blob = new Blob([csv], { type: "text/csv" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `iesa-users-${new Date().toISOString().split("T")[0]}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="px-5 py-3 bg-navy border-[3px] border-lime rounded-2xl text-snow text-sm font-bold flex items-center gap-2 press-3 press-lime transition-all"
+            title="Export filtered users as CSV"
+          >
+            <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Export CSV
+          </button>
+          </PermissionGate>
         </div>
 
-        <select
-          value={roleFilter}
-          onChange={(e) => handleRoleFilter(e.target.value)}
-          aria-label="Filter by role"
-          className="px-5 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer"
-        >
-          <option value="all">All Roles</option>
-          <option value="student">Students Only</option>
-          <option value="admin">Admins</option>
-          <option value="exco">Exco (Account Role)</option>
-        </select>
+        {usersFiltersOpen && (
+          <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 w-full md:w-[760px] bg-snow border-[3px] border-navy rounded-3xl p-4 shadow-[5px_5px_0_0_#000]">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <select
+                value={roleFilter}
+                onChange={(e) => handleRoleFilter(e.target.value)}
+                aria-label="Filter by role"
+                className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer"
+              >
+                <option value="all">All Roles</option>
+                <option value="student">Students Only</option>
+                <option value="admin">Admins</option>
+                <option value="exco">Exco (Account Role)</option>
+              </select>
 
-        <select
-          value={deptFilter}
-          onChange={(e) => handleDeptFilter(e.target.value)}
-          aria-label="Filter by department"
-          className="px-5 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer"
-        >
-          <option value="all">All Departments</option>
-          <option value="ipe">IPE Students</option>
-          <option value="external">External Students</option>
-        </select>
+              <select
+                value={deptFilter}
+                onChange={(e) => handleDeptFilter(e.target.value)}
+                aria-label="Filter by department"
+                className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer"
+              >
+                <option value="all">All Departments</option>
+                <option value="ipe">IPE Students</option>
+                <option value="external">External Students</option>
+              </select>
 
-        <select
-          value={levelFilter}
-          onChange={(e) => handleLevelFilter(e.target.value)}
-          aria-label="Filter by level"
-          className="px-5 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer"
-        >
-          <option value="all">All Levels</option>
-          <option value="100L">100L</option>
-          <option value="200L">200L</option>
-          <option value="300L">300L</option>
-          <option value="400L">400L</option>
-          <option value="500L">500L</option>
-        </select>
+              <select
+                value={levelFilter}
+                onChange={(e) => handleLevelFilter(e.target.value)}
+                aria-label="Filter by level"
+                className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer"
+              >
+                <option value="all">All Levels</option>
+                <option value="100L">100L</option>
+                <option value="200L">200L</option>
+                <option value="300L">300L</option>
+                <option value="400L">400L</option>
+                <option value="500L">500L</option>
+              </select>
 
-        <select
-          value={statusFilter}
-          onChange={(e) => handleStatusFilter(e.target.value)}
-          aria-label="Filter by status"
-          className="px-5 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer"
-        >
-          <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
+              <select
+                value={statusFilter}
+                onChange={(e) => handleStatusFilter(e.target.value)}
+                aria-label="Filter by status"
+                className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
 
-        <select
-          value={sortBy}
-          onChange={(e) => handleSortBy(e.target.value as "time" | "name" | "level")}
-          aria-label="Sort by"
-          className="px-5 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer"
-        >
-          <option value="time">Sort: Time</option>
-          <option value="name">Sort: Name</option>
-          <option value="level">Sort: Level</option>
-        </select>
+              <select
+                value={sortBy}
+                onChange={(e) => handleSortBy(e.target.value as "time" | "name" | "level")}
+                aria-label="Sort by"
+                className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer"
+              >
+                <option value="time">Sort: Time</option>
+                <option value="name">Sort: Name</option>
+                <option value="level">Sort: Level</option>
+              </select>
 
-        <select
-          value={sortOrder}
-          onChange={(e) => handleSortOrder(e.target.value as "asc" | "desc")}
-          aria-label="Sort order"
-          className="px-5 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer"
-        >
-          <option value="desc">Descending</option>
-          <option value="asc">Ascending</option>
-        </select>
-
-        <PermissionGate permission="user:export">
-        <button
-          onClick={() => {
-            const headers = ["Name", "Email", "Department", "Role", "Status"];
-            const rows = users.map((u) => [
-              `${u.firstName} ${u.lastName}`,
-              u.email,
-              u.department === "Industrial Engineering" ? "IPE" : (u.department || "External"),
-              (() => {
-                const uid = u._id || u.id || "";
-                const assigned = activePositionsByUserId[uid] || [];
-                if (assigned.length > 0) return assigned.map(getPositionLabel).join(" | ");
-                if (u.role === "admin") return "admin";
-                if (u.role === "exco") return "exco";
-                return "student";
-              })(),
-              u.isActive !== false ? "Active" : "Inactive",
-            ]);
-            const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-            const blob = new Blob([csv], { type: "text/csv" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `iesa-users-${new Date().toISOString().split("T")[0]}.csv`;
-            a.click();
-            URL.revokeObjectURL(url);
-          }}
-          className="px-5 py-3 bg-navy border-[3px] border-lime rounded-2xl text-snow text-sm font-bold flex items-center gap-2 press-3 press-lime transition-all"
-          title="Export filtered users as CSV"
-        >
-          <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          Export CSV
-        </button>
-        </PermissionGate>
+              <select
+                value={sortOrder}
+                onChange={(e) => handleSortOrder(e.target.value as "asc" | "desc")}
+                aria-label="Sort order"
+                className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer"
+              >
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+              </select>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Table Section ──────────────────────────── */}
@@ -707,49 +765,49 @@ function AdminUsersPage() {
                           {(() => {
                             const uid = user._id || user.id || "";
                             const assigned = (activePositionsByUserId[uid] || []).filter(
-                              (position) => position !== "student"
+                              (position) => !["student", "admin", "super_admin"].includes(position)
+                            );
+                            const hasExecutivePosition = assigned.some((position) => EXEC_POSITIONS.has(position));
+
+                            const studentChip = (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-lime-light text-navy">
+                                student
+                              </span>
                             );
 
-                            const primaryRoleChip =
-                              user.role === "student"
+                            const adminChip =
+                              user.role === "admin" || (activePositionsByUserId[uid] || []).some((position) => position === "admin" || position === "super_admin")
                                 ? (
-                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold ${
-                                    user.department === "Industrial Engineering"
-                                      ? "bg-lime-light text-navy"
-                                      : "bg-lavender-light text-lavender"
-                                  }`}>
-                                    {user.department === "Industrial Engineering" ? "IPE" : (user.department || "External")}
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-lavender-light text-lavender">
+                                    admin
                                   </span>
                                 )
-                                : user.role === "admin"
+                                : null;
+
+                            const excoChip =
+                              hasExecutivePosition
                                   ? (
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-lavender-light text-lavender">
-                                      admin
-                                    </span>
-                                  )
-                                  : (
                                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-coral-light text-coral">
                                       exco
                                     </span>
-                                  );
+                                  )
+                                  : null;
 
-                            if (assigned.length > 0) {
-                              return (
-                                <>
-                                  {primaryRoleChip}
-                                  {assigned.map((position) => (
-                                    <span
-                                      key={position}
-                                      className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold ${getPositionBadge(position)}`}
-                                    >
-                                      {getPositionLabel(position)}
-                                    </span>
-                                  ))}
-                                </>
-                              );
-                            }
-
-                            return primaryRoleChip;
+                            return (
+                              <>
+                                {studentChip}
+                                {adminChip}
+                                {excoChip}
+                                {assigned.map((position) => (
+                                  <span
+                                    key={position}
+                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold ${getPositionBadge(position)}`}
+                                  >
+                                    {getPositionLabel(position)}
+                                  </span>
+                                ))}
+                              </>
+                            );
                           })()}
                         </div>
                       </td>
@@ -829,70 +887,87 @@ function AdminUsersPage() {
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="flex-1">
-              <input
-                type="text"
-                placeholder="Search by name, email, or matric number..."
-                value={bdSearch}
-                onChange={(e) => handleBdSearch(e.target.value)}
-                className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm placeholder:text-slate"
-              />
+          <div className="relative" ref={birthdaysFiltersRef}>
+            <div className="flex flex-col md:flex-row gap-3">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  placeholder="Search by name, email, or matric number..."
+                  value={bdSearch}
+                  onChange={(e) => handleBdSearch(e.target.value)}
+                  className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm placeholder:text-slate"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setBirthdaysFiltersOpen((prev) => !prev)}
+                className="px-5 py-3 bg-snow border-[3px] border-navy rounded-2xl text-navy text-sm font-bold press-3 press-black"
+                aria-expanded={birthdaysFiltersOpen ? "true" : "false"}
+              >
+                Filters
+              </button>
             </div>
-            <select
-              value={bdDept}
-              onChange={(e) => handleBdDept(e.target.value)}
-              aria-label="Filter by department"
-              className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
-            >
-              <option value="all">All Departments</option>
-              <option value="ipe">IPE Students</option>
-              <option value="external">External Students</option>
-            </select>
-            <select
-              value={String(bdDaysAhead)}
-              onChange={(e) => handleBdRange(e.target.value)}
-              aria-label="Date range"
-              className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
-            >
-              <option value="30">Next 30 days</option>
-              <option value="60">Next 60 days</option>
-              <option value="90">Next 90 days</option>
-              <option value="180">Next 180 days</option>
-              <option value="365">Next 365 days</option>
-            </select>
-            <select
-              value={bdLevel}
-              onChange={(e) => handleBdLevel(e.target.value)}
-              aria-label="Filter birthdays by level"
-              className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
-            >
-              <option value="all">All Levels</option>
-              <option value="100L">100L</option>
-              <option value="200L">200L</option>
-              <option value="300L">300L</option>
-              <option value="400L">400L</option>
-              <option value="500L">500L</option>
-            </select>
-            <select
-              value={bdSortBy}
-              onChange={(e) => handleBdSortBy(e.target.value as "time" | "name" | "level")}
-              aria-label="Sort birthdays by"
-              className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
-            >
-              <option value="time">Sort: Time</option>
-              <option value="name">Sort: Name</option>
-              <option value="level">Sort: Level</option>
-            </select>
-            <select
-              value={bdSortOrder}
-              onChange={(e) => handleBdSortOrder(e.target.value as "asc" | "desc")}
-              aria-label="Birthday sort order"
-              className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
-            >
-              <option value="asc">Ascending</option>
-              <option value="desc">Descending</option>
-            </select>
+
+            {birthdaysFiltersOpen && (
+              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 w-full md:w-[760px] bg-snow border-[3px] border-navy rounded-3xl p-4 shadow-[5px_5px_0_0_#000]">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <select
+                    value={bdDept}
+                    onChange={(e) => handleBdDept(e.target.value)}
+                    aria-label="Filter by department"
+                    className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
+                  >
+                    <option value="all">All Departments</option>
+                    <option value="ipe">IPE Students</option>
+                    <option value="external">External Students</option>
+                  </select>
+                  <select
+                    value={String(bdDaysAhead)}
+                    onChange={(e) => handleBdRange(e.target.value)}
+                    aria-label="Date range"
+                    className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
+                  >
+                    <option value="30">Next 30 days</option>
+                    <option value="60">Next 60 days</option>
+                    <option value="90">Next 90 days</option>
+                    <option value="180">Next 180 days</option>
+                    <option value="365">Next 365 days</option>
+                  </select>
+                  <select
+                    value={bdLevel}
+                    onChange={(e) => handleBdLevel(e.target.value)}
+                    aria-label="Filter birthdays by level"
+                    className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
+                  >
+                    <option value="all">All Levels</option>
+                    <option value="100L">100L</option>
+                    <option value="200L">200L</option>
+                    <option value="300L">300L</option>
+                    <option value="400L">400L</option>
+                    <option value="500L">500L</option>
+                  </select>
+                  <select
+                    value={bdSortBy}
+                    onChange={(e) => handleBdSortBy(e.target.value as "time" | "name" | "level")}
+                    aria-label="Sort birthdays by"
+                    className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
+                  >
+                    <option value="time">Sort: Time</option>
+                    <option value="name">Sort: Name</option>
+                    <option value="level">Sort: Level</option>
+                  </select>
+                  <select
+                    value={bdSortOrder}
+                    onChange={(e) => handleBdSortOrder(e.target.value as "asc" | "desc")}
+                    aria-label="Birthday sort order"
+                    className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
+                  >
+                    <option value="asc">Ascending</option>
+                    <option value="desc">Descending</option>
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
 
           <div>

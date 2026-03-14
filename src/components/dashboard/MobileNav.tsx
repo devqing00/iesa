@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useSession } from "@/context/SessionContext";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -21,6 +21,7 @@ interface MobileNavLink {
 }
 
 export default function MobileNav() {
+  const STUDENT_MORE_GROUPS_KEY = "iesa:student-mobile-more-groups";
   const pathname = usePathname();
   const { signOut, userProfile } = useAuth();
   const { currentSession, allSessions } = useSession();
@@ -28,13 +29,34 @@ export default function MobileNav() {
   const { totalUnread } = useDM();
   const { unreadCount: notifUnread } = useNotificationCount();
   const [showMore, setShowMore] = useState(false);
-  const [openGroups, setOpenGroups] = useState<Record<"academics" | "community" | "leadership", boolean>>({
-    academics: true,
-    community: false,
-    leadership: false,
+  const [openGroups, setOpenGroups] = useState<Record<"academics" | "community" | "leadership", boolean>>(() => {
+    const fallback = { academics: true, community: false, leadership: false };
+    if (typeof window === "undefined") return fallback;
+
+    try {
+      const saved = localStorage.getItem(STUDENT_MORE_GROUPS_KEY);
+      if (!saved) return fallback;
+
+      const parsed = JSON.parse(saved) as Partial<Record<"academics" | "community" | "leadership", boolean>>;
+      return {
+        academics: typeof parsed.academics === "boolean" ? parsed.academics : fallback.academics,
+        community: typeof parsed.community === "boolean" ? parsed.community : fallback.community,
+        leadership: typeof parsed.leadership === "boolean" ? parsed.leadership : fallback.leadership,
+      };
+    } catch {
+      return fallback;
+    }
   });
   const activeSession = allSessions.find(s => s.isActive) ?? currentSession;
   const external = isExternalStudent(userProfile?.department);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STUDENT_MORE_GROUPS_KEY, JSON.stringify(openGroups));
+    } catch {
+      // ignore storage write failures
+    }
+  }, [openGroups]);
 
   const isVisible = (link: MobileNavLink) => {
     if (link.href === "/dashboard/freshers" && userProfile?.role === "admin") return false;
@@ -258,6 +280,27 @@ export default function MobileNav() {
     { key: "leadership", label: "Leadership Tools" },
   ];
 
+  const activeMoreGroup = moreLinks.find(
+    (link) => link.href === pathname && link.group && isVisible(link)
+  )?.group;
+
+  const openActiveMoreSection = () => {
+    if (!activeMoreGroup) return;
+    setOpenGroups((prev) => {
+      const currentlyOnlyActiveOpen =
+        prev[activeMoreGroup] &&
+        Object.entries(prev).every(([key, value]) => (key === activeMoreGroup ? value : !value));
+      if (currentlyOnlyActiveOpen) return prev;
+
+      return {
+        academics: false,
+        community: false,
+        leadership: false,
+        [activeMoreGroup]: true,
+      };
+    });
+  };
+
   return (
     <>
       {/* More menu overlay */}
@@ -294,10 +337,15 @@ export default function MobileNav() {
                     <button
                       type="button"
                       onClick={() =>
-                        setOpenGroups((prev) => ({
-                          ...prev,
-                          [section.key]: !prev[section.key],
-                        }))
+                        setOpenGroups((prev) => {
+                          const nextOpen = !prev[section.key];
+                          return {
+                            academics: false,
+                            community: false,
+                            leadership: false,
+                            [section.key]: nextOpen,
+                          };
+                        })
                       }
                       className="w-full flex items-center justify-between px-3.5 py-3 text-left"
                     >
@@ -411,7 +459,11 @@ export default function MobileNav() {
             );
           })}
           <button
-            onClick={() => setShowMore(!showMore)}
+            onClick={() => {
+              const nextOpen = !showMore;
+              if (nextOpen) openActiveMoreSection();
+              setShowMore(nextOpen);
+            }}
             className={`relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all ${
               showMore ? "text-navy bg-lime font-bold" : "text-slate hover:text-navy"
             }`}

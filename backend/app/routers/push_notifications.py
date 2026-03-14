@@ -18,6 +18,7 @@ import base64
 import logging
 import os
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException
@@ -90,28 +91,30 @@ def _is_valid_subscription(sub_doc: dict) -> bool:
         return False
 
 
-def _normalize_private_key_to_pem(raw_private: str) -> tuple[str | None, str | None]:
-    """Normalize different VAPID private key representations into canonical PKCS8 PEM."""
+def _to_base64url_no_padding(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).decode("utf-8").rstrip("=")
+
+
+def _private_key_to_raw32_b64url(private_key_obj) -> str:
+    private_value = private_key_obj.private_numbers().private_value
+    private_bytes = private_value.to_bytes(32, byteorder="big")
+    return _to_base64url_no_padding(private_bytes)
+
+
+def _normalize_private_key_for_pywebpush(raw_private: str) -> tuple[str | None, str | None]:
+    """Normalize supported VAPID private key formats into py_vapid-compatible base64url raw key."""
     if not raw_private:
         return None, None
 
     value = _strip_wrapping_quotes(raw_private)
 
-    from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import ec
     from cryptography.hazmat.primitives.serialization import load_der_private_key, load_pem_private_key
-
-    def _to_pem(key_obj) -> str:
-        return key_obj.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption(),
-        ).decode("utf-8")
 
     # 1) Raw PEM
     if "BEGIN" in value and "PRIVATE KEY" in value:
         key_obj = load_pem_private_key(value.encode("utf-8"), password=None)
-        return _to_pem(key_obj), "pem-direct"
+        return _private_key_to_raw32_b64url(key_obj), "pem-direct-to-raw32"
 
     # 2) Base64/base64url encoded payload
     decoded = _b64_decode_loose(value)
@@ -123,12 +126,12 @@ def _normalize_private_key_to_pem(raw_private: str) -> tuple[str | None, str | N
     # 2a) Base64(Pem)
     if "BEGIN" in decoded_text and "PRIVATE KEY" in decoded_text:
         key_obj = load_pem_private_key(decoded_text.encode("utf-8"), password=None)
-        return _to_pem(key_obj), "pem-base64"
+        return _private_key_to_raw32_b64url(key_obj), "pem-base64-to-raw32"
 
     # 2b) Base64(DER)
     try:
         key_obj = load_der_private_key(decoded, password=None)
-        return _to_pem(key_obj), "der-base64-to-pem"
+        return _private_key_to_raw32_b64url(key_obj), "der-base64-to-raw32"
     except Exception:
         pass
 
@@ -138,7 +141,7 @@ def _normalize_private_key_to_pem(raw_private: str) -> tuple[str | None, str | N
         if private_value <= 0:
             return None, None
         key_obj = ec.derive_private_key(private_value, ec.SECP256R1())
-        return _to_pem(key_obj), "raw32-base64-to-pem"
+        return _private_key_to_raw32_b64url(key_obj), "raw32-base64-normalized"
 
     return None, None
 
@@ -174,12 +177,21 @@ def _load_vapid():
     # 3) raw VAPID private key string (base64url) for pywebpush
     if raw_private:
         try:
-            normalized_private, source = _normalize_private_key_to_pem(raw_private)
+            normalized_private, source = _normalize_private_key_for_pywebpush(raw_private)
             _VAPID_PRIVATE_KEY = normalized_private
             _VAPID_PRIVATE_SOURCE = source
         except Exception:
             _VAPID_PRIVATE_KEY = None
             _VAPID_PRIVATE_SOURCE = "invalid"
+
+    if _VAPID_PRIVATE_KEY:
+        try:
+            from py_vapid import Vapid01
+            Vapid01.from_string(_VAPID_PRIVATE_KEY)
+        except Exception as exc:
+            logger.error("VAPID private key rejected by py_vapid parser; push disabled (%s)", exc)
+            _VAPID_PRIVATE_KEY = None
+            _VAPID_PRIVATE_SOURCE = "invalid-pyvapid-parse"
 
     # Ensure public key shape is valid before enabling push.
     if _VAPID_PUBLIC_KEY and not _is_valid_vapid_public_key(_VAPID_PUBLIC_KEY):
@@ -200,6 +212,44 @@ def _load_vapid():
 def is_push_enabled() -> bool:
     _load_vapid()
     return bool(_VAPID_PUBLIC_KEY and _VAPID_PRIVATE_KEY)
+
+
+def _subscription_debug_meta(sub_doc: dict) -> dict:
+    endpoint = str(sub_doc.get("endpoint") or "")
+    keys = sub_doc.get("keys") or {}
+    p256dh = str(keys.get("p256dh") or "")
+    auth = str(keys.get("auth") or "")
+
+    p256_len = None
+    auth_len = None
+    p256_prefix = None
+    try:
+        p256_bytes = _b64_decode_loose(p256dh)
+        p256_len = len(p256_bytes)
+        p256_prefix = p256_bytes[:4].hex()
+    except Exception:
+        p256_len = -1
+    try:
+        auth_len = len(_b64_decode_loose(auth))
+    except Exception:
+        auth_len = -1
+
+    host = ""
+    try:
+        host = urlparse(endpoint).netloc
+    except Exception:
+        host = ""
+
+    return {
+        "sub_id": str(sub_doc.get("_id") or ""),
+        "host": host,
+        "endpoint_len": len(endpoint),
+        "p256dh_len": len(p256dh),
+        "auth_len": len(auth),
+        "p256dh_decoded_len": p256_len,
+        "auth_decoded_len": auth_len,
+        "p256dh_prefix": p256_prefix,
+    }
 
 
 # ── Pydantic models ───────────────────────────────────────────
@@ -263,7 +313,18 @@ async def subscribe(
         "keys": sub.keys,
     }
     if not _is_valid_subscription(candidate):
+        logger.warning(
+            "Push subscribe rejected: invalid payload userId=%s meta=%s",
+            user_id,
+            _subscription_debug_meta(candidate),
+        )
         raise HTTPException(status_code=400, detail="Invalid push subscription payload")
+
+    logger.info(
+        "Push subscribe accepted userId=%s meta=%s",
+        user_id,
+        _subscription_debug_meta(candidate),
+    )
 
     # Upsert by endpoint to avoid duplicates
     await db["push_subscriptions"].update_one(
@@ -405,9 +466,10 @@ async def send_push_to_user(
     stale_ids: list[ObjectId] = []
 
     for sub_doc in subs:
+        sub_meta = _subscription_debug_meta(sub_doc)
         if not _is_valid_subscription(sub_doc):
             stale_ids.append(sub_doc["_id"])
-            logger.warning("Push subscription dropped (invalid keys) for userId=%s", user_id)
+            logger.warning("Push subscription dropped (invalid keys) userId=%s meta=%s", user_id, sub_meta)
             continue
 
         subscription_info = {
@@ -432,11 +494,34 @@ async def send_push_to_user(
                 status = getattr(e.response, "status_code", 0)
                 if status in (404, 410):
                     stale_ids.append(sub_doc["_id"])
-            logger.warning(f"Push failed for {sub_doc['endpoint'][:60]}…: {e}")
+            logger.warning(
+                "Push WebPushException userId=%s status=%s vapid_source=%s meta=%s error=%s",
+                user_id,
+                getattr(getattr(e, "response", None), "status_code", None),
+                _VAPID_PRIVATE_SOURCE,
+                sub_meta,
+                e,
+            )
         except Exception as e:
-            if "Could not deserialize key data" in str(e):
+            err_str = str(e)
+            if "Could not deserialize key data" in err_str:
                 stale_ids.append(sub_doc["_id"])
-            logger.warning(f"Push error: {e}")
+                logger.error(
+                    "Push ASN.1 deserialize failure userId=%s vapid_source=%s vapid_public_len=%s meta=%s error=%s",
+                    user_id,
+                    _VAPID_PRIVATE_SOURCE,
+                    len(_VAPID_PUBLIC_KEY or ""),
+                    sub_meta,
+                    err_str,
+                )
+            else:
+                logger.warning(
+                    "Push error userId=%s vapid_source=%s meta=%s error=%s",
+                    user_id,
+                    _VAPID_PRIVATE_SOURCE,
+                    sub_meta,
+                    err_str,
+                )
 
     # Clean up stale subscriptions
     if stale_ids:

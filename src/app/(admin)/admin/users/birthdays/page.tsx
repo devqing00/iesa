@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
 import { useAuth } from "@/context/AuthContext";
@@ -34,6 +34,8 @@ function AdminUsersBirthdaysPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [deptFilter, setDeptFilter] = useState("all");
   const [daysAhead, setDaysAhead] = useState(90);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersRef = useRef<HTMLDivElement>(null);
 
   const [items, setItems] = useState<BirthdayUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +77,31 @@ function AdminUsersBirthdaysPage() {
     const debounce = setTimeout(() => fetchBirthdays(), searchQuery ? 300 : 0);
     return () => clearTimeout(debounce);
   }, [fetchBirthdays, searchQuery]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      if (filtersRef.current && !filtersRef.current.contains(target)) {
+        setFiltersOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setFiltersOpen(false);
+      }
+    }
+
+    if (filtersOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [filtersOpen]);
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
@@ -131,40 +158,57 @@ function AdminUsersBirthdaysPage() {
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-3">
-        <div className="flex-1">
-          <input
-            type="text"
-            placeholder="Search by name, email, or matric number..."
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm placeholder:text-slate"
-          />
+      <div className="relative" ref={filtersRef}>
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex-1">
+            <input
+              type="text"
+              placeholder="Search by name, email, or matric number..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm placeholder:text-slate"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((prev) => !prev)}
+            className="px-5 py-3 bg-snow border-[3px] border-navy rounded-2xl text-navy text-sm font-bold press-3 press-black"
+            aria-expanded={filtersOpen ? "true" : "false"}
+          >
+            Filters
+          </button>
         </div>
 
-        <select
-          value={deptFilter}
-          onChange={(e) => handleDeptFilter(e.target.value)}
-          aria-label="Filter by department"
-          className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
-        >
-          <option value="all">All Departments</option>
-          <option value="ipe">IPE Students</option>
-          <option value="external">External Students</option>
-        </select>
+        {filtersOpen && (
+          <div className="absolute right-0 top-[calc(100%+0.5rem)] z-20 w-full md:w-[520px] bg-snow border-[3px] border-navy rounded-3xl p-4 shadow-[5px_5px_0_0_#000]">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <select
+                value={deptFilter}
+                onChange={(e) => handleDeptFilter(e.target.value)}
+                aria-label="Filter by department"
+                className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
+              >
+                <option value="all">All Departments</option>
+                <option value="ipe">IPE Students</option>
+                <option value="external">External Students</option>
+              </select>
 
-        <select
-          value={String(daysAhead)}
-          onChange={(e) => handleRange(e.target.value)}
-          aria-label="Filter by date range"
-          className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
-        >
-          <option value="30">Next 30 days</option>
-          <option value="60">Next 60 days</option>
-          <option value="90">Next 90 days</option>
-          <option value="180">Next 180 days</option>
-          <option value="365">Next 365 days</option>
-        </select>
+              <select
+                value={String(daysAhead)}
+                onChange={(e) => handleRange(e.target.value)}
+                aria-label="Filter by date range"
+                className="px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-sm text-navy"
+              >
+                <option value="30">Next 30 days</option>
+                <option value="60">Next 60 days</option>
+                <option value="90">Next 90 days</option>
+                <option value="180">Next 180 days</option>
+                <option value="365">Next 365 days</option>
+              </select>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="relative bg-snow border-[3px] border-navy rounded-3xl overflow-hidden shadow-[4px_4px_0_0_#000]">

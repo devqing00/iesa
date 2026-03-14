@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useSession } from "@/context/SessionContext";
 import { usePermissions } from "@/context/PermissionsContext";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface MobileNavLink {
   name: string;
@@ -13,15 +13,43 @@ interface MobileNavLink {
   icon: React.ReactNode;
   color?: string;
   anyPermission?: string[];
+  group?: "operations" | "content" | "governance";
 }
 
 export default function AdminMobileNav() {
+  const ADMIN_MORE_GROUPS_KEY = "iesa:admin-mobile-more-groups";
   const pathname = usePathname();
   const { signOut } = useAuth();
   const { currentSession, allSessions } = useSession();
   const { hasPermission } = usePermissions();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<"operations" | "content" | "governance", boolean>>(() => {
+    const fallback = { operations: true, content: false, governance: false };
+    if (typeof window === "undefined") return fallback;
+
+    try {
+      const saved = localStorage.getItem(ADMIN_MORE_GROUPS_KEY);
+      if (!saved) return fallback;
+
+      const parsed = JSON.parse(saved) as Partial<Record<"operations" | "content" | "governance", boolean>>;
+      return {
+        operations: typeof parsed.operations === "boolean" ? parsed.operations : fallback.operations,
+        content: typeof parsed.content === "boolean" ? parsed.content : fallback.content,
+        governance: typeof parsed.governance === "boolean" ? parsed.governance : fallback.governance,
+      };
+    } catch {
+      return fallback;
+    }
+  });
   const activeSession = allSessions.find(s => s.isActive) ?? currentSession;
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ADMIN_MORE_GROUPS_KEY, JSON.stringify(openGroups));
+    } catch {
+      // ignore storage write failures
+    }
+  }, [openGroups]);
 
   const isVisible = (link: MobileNavLink) => {
     if (!link.anyPermission) return true;
@@ -77,6 +105,7 @@ export default function AdminMobileNav() {
       name: "Sessions",
       href: "/admin/sessions",
       color: "bg-teal-light",
+      group: "operations",
       anyPermission: ["session:view"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -88,6 +117,7 @@ export default function AdminMobileNav() {
       name: "Enrollments",
       href: "/admin/enrollments",
       color: "bg-lavender-light",
+      group: "operations",
       anyPermission: ["enrollment:view"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -100,6 +130,7 @@ export default function AdminMobileNav() {
       name: "Roles",
       href: "/admin/roles",
       color: "bg-coral-light",
+      group: "operations",
       anyPermission: ["role:view"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -111,6 +142,7 @@ export default function AdminMobileNav() {
       name: "Teams",
       href: "/admin/teams",
       color: "bg-lavender-light",
+      group: "operations",
       anyPermission: ["team:review"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -122,6 +154,7 @@ export default function AdminMobileNav() {
       name: "Announcements",
       href: "/admin/announcements",
       color: "bg-sunny-light",
+      group: "content",
       anyPermission: ["announcement:create", "announcement:edit", "announcement:view"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -133,6 +166,7 @@ export default function AdminMobileNav() {
       name: "Resources",
       href: "/admin/resources",
       color: "bg-teal-light",
+      group: "content",
       anyPermission: ["resource:view", "resource:approve", "resource:create"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -144,6 +178,7 @@ export default function AdminMobileNav() {
       name: "Timetable",
       href: "/admin/timetable",
       color: "bg-sunny-light",
+      group: "content",
       anyPermission: ["timetable:create", "timetable:edit", "timetable:view"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -155,6 +190,7 @@ export default function AdminMobileNav() {
       name: "Messages",
       href: "/admin/messages",
       color: "bg-coral-light",
+      group: "content",
       anyPermission: ["messages:manage"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -167,6 +203,7 @@ export default function AdminMobileNav() {
       name: "Moderation",
       href: "/admin/moderation",
       color: "bg-sunny-light",
+      group: "content",
       anyPermission: ["messages:manage", "message:moderate"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -178,6 +215,7 @@ export default function AdminMobileNav() {
       name: "Audit Logs",
       href: "/admin/audit-logs",
       color: "bg-ghost",
+      group: "governance",
       anyPermission: ["audit:view", "audit:export"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -190,6 +228,7 @@ export default function AdminMobileNav() {
       name: "System Health",
       href: "/admin/health",
       color: "bg-teal-light",
+      group: "governance",
       anyPermission: ["system:health"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
@@ -199,6 +238,33 @@ export default function AdminMobileNav() {
       ),
     },
   ];
+
+  const moreSections: Array<{ key: NonNullable<MobileNavLink["group"]>; label: string }> = [
+    { key: "operations", label: "Operations" },
+    { key: "content", label: "Content & Comms" },
+    { key: "governance", label: "Governance" },
+  ];
+
+  const activeMoreGroup = moreLinks.find(
+    (link) => link.href === pathname && link.group && isVisible(link)
+  )?.group;
+
+  const openActiveMoreSection = () => {
+    if (!activeMoreGroup) return;
+    setOpenGroups((prev) => {
+      const currentlyOnlyActiveOpen =
+        prev[activeMoreGroup] &&
+        Object.entries(prev).every(([key, value]) => (key === activeMoreGroup ? value : !value));
+      if (currentlyOnlyActiveOpen) return prev;
+
+      return {
+        operations: false,
+        content: false,
+        governance: false,
+        [activeMoreGroup]: true,
+      };
+    });
+  };
 
   return (
     <>
@@ -220,9 +286,13 @@ export default function AdminMobileNav() {
             );
           })}
           <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            onClick={() => {
+              const nextOpen = !isMenuOpen;
+              if (nextOpen) openActiveMoreSection();
+              setIsMenuOpen(nextOpen);
+            }}
             aria-label="More options"
-            aria-expanded={isMenuOpen}
+            aria-expanded={isMenuOpen ? "true" : "false"}
             className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all ${
               isMenuOpen ? "text-navy bg-lime font-bold" : "text-slate hover:text-navy"
             }`}
@@ -255,23 +325,65 @@ export default function AdminMobileNav() {
                 </svg>
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              {moreLinks.filter(isVisible).map((link) => {
-                const isActive = pathname === link.href;
+            <div className="space-y-2">
+              {moreSections.map((section) => {
+                const links = moreLinks.filter(
+                  (link) => link.group === section.key && isVisible(link)
+                );
+                if (links.length === 0) return null;
+
+                const open = openGroups[section.key];
                 return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={`flex items-center gap-2.5 px-3 py-3 rounded-2xl text-sm font-bold transition-all ${
-                      isActive
-                        ? "bg-lime text-navy border-[3px] border-navy shadow-[3px_3px_0_0_#000]"
-                        : `${link.color} text-navy/70 hover:text-navy border-[2px] border-transparent hover:border-navy/10`
-                    }`}
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    <span className={isActive ? "text-navy" : "text-navy/50"}>{link.icon}</span>
-                    <span className="truncate">{link.name}</span>
-                  </Link>
+                  <div key={section.key} className="border-[2px] border-navy/10 rounded-2xl bg-ghost/60 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenGroups((prev) => {
+                          const nextOpen = !prev[section.key];
+                          return {
+                            operations: false,
+                            content: false,
+                            governance: false,
+                            [section.key]: nextOpen,
+                          };
+                        })
+                      }
+                      className="w-full flex items-center justify-between px-3.5 py-3 text-left"
+                    >
+                      <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate">{section.label}</span>
+                      <svg
+                        aria-hidden="true"
+                        className={`w-4 h-4 text-navy transition-transform ${open ? "rotate-180" : "rotate-0"}`}
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 0 1-1.06 0l-7.5-7.5a.75.75 0 1 1 1.06-1.06L12 14.69l6.97-6.97a.75.75 0 1 1 1.06 1.06l-7.5 7.5Z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+
+                    {open && (
+                      <div className="p-2 pt-0 grid grid-cols-2 gap-2">
+                        {links.map((link) => {
+                          const isActive = pathname === link.href;
+                          return (
+                            <Link
+                              key={link.href}
+                              href={link.href}
+                              className={`flex items-center gap-2.5 px-3 py-3 rounded-2xl text-sm font-bold transition-all ${
+                                isActive
+                                  ? "bg-lime text-navy border-[3px] border-navy shadow-[3px_3px_0_0_#000]"
+                                  : `${link.color} text-navy/70 hover:text-navy border-[2px] border-transparent hover:border-navy/10`
+                              }`}
+                              onClick={() => setIsMenuOpen(false)}
+                            >
+                              <span className={isActive ? "text-navy" : "text-navy/50"}>{link.icon}</span>
+                              <span className="truncate">{link.name}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
