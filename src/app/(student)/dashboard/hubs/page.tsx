@@ -5,6 +5,7 @@ import Link from "next/link";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { getMyIepodProfile, getMyTimpInfo } from "@/lib/api";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { usePermissions } from "@/context/PermissionsContext";
 
 const HUBS = [
   {
@@ -39,8 +40,11 @@ const HUBS = [
 
 export default function HubsPage() {
   const { showHelp, openHelp, closeHelp } = useToolHelp("hubs");
+  const { hasAnyPermission } = usePermissions();
   const [iepodStatus, setIepodStatus] = useState<string | null>(null);
   const [timpStatus, setTimpStatus] = useState<string | null>(null);
+  const isIepodAdminRole = hasAnyPermission(["iepod:manage"]);
+  const iepodHref = isIepodAdminRole ? "/dashboard/iepod/manage" : "/dashboard/iepod";
 
   useEffect(() => {
     getMyIepodProfile()
@@ -63,7 +67,10 @@ export default function HubsPage() {
       .catch(() => {});
   }, []);
 
-  const statusMap: Record<string, string | null> = { IEPOD: iepodStatus, TIMP: timpStatus };
+  const statusMap: Record<string, string | null> = {
+    IEPOD: isIepodAdminRole ? "Admin" : iepodStatus,
+    TIMP: timpStatus,
+  };
 
   return (
     <>
@@ -90,7 +97,7 @@ export default function HubsPage() {
             return (
               <Link
                 key={hub.name}
-                href={hub.href}
+                href={hub.name === "IEPOD" ? iepodHref : hub.href}
                 className={`group bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] ${hub.rotation} hover:rotate-0 transition-transform`}
               >
                 <div className="flex items-start justify-between mb-4">

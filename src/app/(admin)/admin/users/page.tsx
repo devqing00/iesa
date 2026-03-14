@@ -48,6 +48,77 @@ interface BirthdayUser {
   nextBirthday: string;
 }
 
+interface RoleAssignment {
+  userId: string;
+  position: string;
+  isActive?: boolean;
+  session?: {
+    isActive?: boolean;
+  };
+}
+
+const POSITION_LABELS: Record<string, string> = {
+  president: "President",
+  vice_president: "Vice President",
+  general_secretary: "General Secretary",
+  assistant_general_secretary: "Asst. General Secretary",
+  treasurer: "Treasurer",
+  social_director: "Social Director",
+  sports_secretary: "Sports Secretary",
+  assistant_sports_secretary: "Asst. Sports Secretary",
+  pro: "Public Relations Officer",
+  financial_secretary: "Financial Secretary",
+  class_rep_100L: "100L Class Rep",
+  class_rep_200L: "200L Class Rep",
+  class_rep_300L: "300L Class Rep",
+  class_rep_400L: "400L Class Rep",
+  class_rep_500L: "500L Class Rep",
+  asst_class_rep_100L: "100L Asst. Class Rep",
+  asst_class_rep_200L: "200L Asst. Class Rep",
+  asst_class_rep_300L: "300L Asst. Class Rep",
+  asst_class_rep_400L: "400L Asst. Class Rep",
+  asst_class_rep_500L: "500L Asst. Class Rep",
+  freshers_coordinator: "Freshers Coordinator",
+  academic_lead: "Academic Lead",
+  committee_academic_member: "Academic Team Member",
+  timp_lead: "TIMP Lead",
+  iepod_hub_director: "IEPOD Hub Director",
+  iepod_hub_lead: "IEPOD Hub Lead",
+  iepod_conference_lead: "IEPOD Conference Lead",
+  iepod_program_coordinator: "IEPOD Program Coordinator",
+  iepod_communications_officer: "IEPOD Communications Officer",
+  admin: "Administrator",
+  super_admin: "Super Administrator",
+};
+
+const EXEC_POSITIONS = new Set([
+  "president",
+  "vice_president",
+  "general_secretary",
+  "assistant_general_secretary",
+  "treasurer",
+  "social_director",
+  "sports_secretary",
+  "assistant_sports_secretary",
+  "pro",
+  "financial_secretary",
+]);
+
+function getPositionLabel(position: string): string {
+  return POSITION_LABELS[position] || position.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function getPositionBadge(position: string): string {
+  if (position === "admin" || position === "super_admin") return "bg-lavender-light text-lavender";
+  if (position === "timp_lead") return "bg-teal-light text-teal";
+  if (position.startsWith("iepod_")) return "bg-coral-light text-coral";
+  if (position.startsWith("class_rep_") || position.startsWith("asst_class_rep_") || position === "freshers_coordinator") return "bg-sunny-light text-navy";
+  if (position.includes("head") || position.endsWith("_lead") || position === "academic_lead") return "bg-lime-light text-navy";
+  if (position.includes("member")) return "bg-cloud text-navy/70";
+  if (EXEC_POSITIONS.has(position)) return "bg-coral-light text-coral";
+  return "bg-cloud text-navy/60";
+}
+
 function formatBirthdayDate(month: number, day: number): string {
   const date = new Date(2024, month - 1, day);
   return date.toLocaleDateString("en-NG", { month: "short", day: "numeric" });
@@ -91,6 +162,7 @@ function AdminUsersPage() {
   const [bdLoading, setBdLoading] = useState(false);
   const [bdTotal, setBdTotal] = useState(0);
   const [bdPage, setBdPage] = useState(1);
+  const [activePositionsByUserId, setActivePositionsByUserId] = useState<Record<string, string[]>>({});
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -128,6 +200,39 @@ function AdminUsersPage() {
     const debounce = setTimeout(() => fetchUsers(), searchQuery ? 300 : 0);
     return () => clearTimeout(debounce);
   }, [fetchUsers, searchQuery]);
+
+  const fetchRoleAssignments = useCallback(async () => {
+    try {
+      const token = await getAccessToken();
+      const response = await fetch(getApiUrl("/api/v1/roles/"), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) {
+        setActivePositionsByUserId({});
+        return;
+      }
+      const roles: RoleAssignment[] = await response.json();
+      const mapped: Record<string, string[]> = {};
+
+      for (const role of roles) {
+        if (!role?.userId || !role?.position) continue;
+        if (role.isActive === false) continue;
+        if (role.session?.isActive === false) continue;
+        if (!mapped[role.userId]) mapped[role.userId] = [];
+        if (!mapped[role.userId].includes(role.position)) {
+          mapped[role.userId].push(role.position);
+        }
+      }
+
+      setActivePositionsByUserId(mapped);
+    } catch {
+      setActivePositionsByUserId({});
+    }
+  }, [getAccessToken]);
+
+  useEffect(() => {
+    fetchRoleAssignments();
+  }, [fetchRoleAssignments]);
 
   const fetchBirthdays = useCallback(async () => {
     setBdLoading(true);
@@ -236,6 +341,7 @@ function AdminUsersPage() {
       toast.success("User updated successfully");
       closeEdit();
       fetchUsers();
+      fetchRoleAssignments();
     } catch (err) {
       toast.error(getErrorMessage(err, "Update failed"));
     } finally {
@@ -403,7 +509,7 @@ function AdminUsersPage() {
           <option value="all">All Roles</option>
           <option value="student">Students Only</option>
           <option value="admin">Admins</option>
-          <option value="exco">Executives</option>
+          <option value="exco">Exco (Account Role)</option>
         </select>
 
         <select
@@ -425,7 +531,14 @@ function AdminUsersPage() {
               `${u.firstName} ${u.lastName}`,
               u.email,
               u.department === "Industrial Engineering" ? "IPE" : (u.department || "External"),
-              u.role,
+              (() => {
+                const uid = u._id || u.id || "";
+                const assigned = activePositionsByUserId[uid] || [];
+                if (assigned.length > 0) return assigned.map(getPositionLabel).join(" | ");
+                if (u.role === "admin") return "admin";
+                if (u.role === "exco") return "exco";
+                return "student";
+              })(),
               u.isActive !== false ? "Active" : "Inactive",
             ]);
             const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -531,16 +644,35 @@ function AdminUsersPage() {
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-cloud text-navy/60">
                             student
                           </span>
-                          {user.role === "admin" && (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-lavender-light text-lavender">
-                              admin
-                            </span>
-                          )}
-                          {user.role === "exco" && (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-coral-light text-coral">
-                              executive
-                            </span>
-                          )}
+                          {(() => {
+                            const uid = user._id || user.id || "";
+                            const assigned = activePositionsByUserId[uid] || [];
+                            if (assigned.length > 0) {
+                              return assigned.map((position) => (
+                                <span
+                                  key={position}
+                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold ${getPositionBadge(position)}`}
+                                >
+                                  {getPositionLabel(position)}
+                                </span>
+                              ));
+                            }
+                            if (user.role === "admin") {
+                              return (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-lavender-light text-lavender">
+                                  admin
+                                </span>
+                              );
+                            }
+                            if (user.role === "exco") {
+                              return (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-coral-light text-coral">
+                                  exco
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       </td>
                       <td className="p-4 hidden md:table-cell">
@@ -764,7 +896,7 @@ function AdminUsersPage() {
                   className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm"
                 >
                   <option value="student">Student</option>
-                  <option value="exco">Executive</option>
+                  <option value="exco">Exco (Account)</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>
@@ -874,7 +1006,12 @@ function AdminUsersPage() {
               <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Matric Number</p><p className="font-bold text-navy">{selectedUser.matricNumber || "—"}</p></div>
               <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Phone</p><p className="font-bold text-navy">{selectedUser.phone || "—"}</p></div>
               <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Department</p><p className="font-bold text-navy">{selectedUser.department || "—"}</p></div>
-              <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Role</p><p className="font-bold text-navy capitalize">{selectedUser.role || "—"}</p></div>
+              <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Roles</p><p className="font-bold text-navy">{(() => {
+                const uid = selectedUser._id || selectedUser.id || "";
+                const assigned = activePositionsByUserId[uid] || [];
+                if (assigned.length > 0) return assigned.map(getPositionLabel).join(", ");
+                return selectedUser.role || "—";
+              })()}</p></div>
               <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Current Level</p><p className="font-bold text-navy">{selectedUser.currentLevel || "—"}</p></div>
               <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Admission Year</p><p className="font-bold text-navy">{selectedUser.admissionYear || "—"}</p></div>
               <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Date of Birth</p><p className="font-bold text-navy">{selectedUser.dateOfBirth ? new Date(selectedUser.dateOfBirth).toLocaleDateString() : "—"}</p></div>

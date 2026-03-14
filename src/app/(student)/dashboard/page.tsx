@@ -28,13 +28,17 @@ import { getQuoteOfTheDay } from "@/lib/quotes";
 import { isExternalStudent } from "@/lib/studentAccess";
 import DeadlineWidget from "@/components/dashboard/DeadlineWidget";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { usePermissions } from "@/context/PermissionsContext";
 
 /* ─── Page Component ────────────────────────────────────────────── */
 
 export default function StudentDashboardPage() {
   const { user, userProfile, refreshProfile } = useAuth();
+  const { hasAnyPermission } = usePermissions();
   const { showHelp, openHelp, closeHelp } = useToolHelp("student-dashboard");
   const enabled = !!user;
+  const isIepodAdminRole = hasAnyPermission(["iepod:manage"]);
+  const iepodHref = isIepodAdminRole ? "/dashboard/iepod/manage" : "/dashboard/iepod";
 
   const { data, isLoading: loading } = useStudentDashboard(enabled);
   const external = isExternalStudent(userProfile?.department);
@@ -317,7 +321,7 @@ export default function StudentDashboardPage() {
                 </p>
               </div>
               <Link
-                href="/dashboard/iepod"
+                href={iepodHref}
                 className="bg-navy border-[3px] border-lime px-5 py-2.5 rounded-xl font-display font-bold text-sm text-lime press-3 press-lime shrink-0"
               >
                 Go to IEPOD
@@ -418,7 +422,7 @@ export default function StudentDashboardPage() {
         {/* ═══ IEPOD PROMO BANNER (IPE students only) ═══ */}
         {!external && (
           <Link
-            href="/dashboard/iepod"
+            href={iepodHref}
             className="block bg-coral border-[3px] border-navy rounded-3xl p-5 press-4 press-black mb-5 relative overflow-hidden group transition-all"
           >
             <div className="flex items-center gap-4">
@@ -454,7 +458,7 @@ export default function StudentDashboardPage() {
               <p className="text-[10px] text-slate mt-0.5">Stay updated</p>
             </Link>
 
-            <Link href="/dashboard/iepod" className="bg-lavender-light border-[3px] border-navy rounded-2xl p-4 press-3 press-black group">
+            <Link href={iepodHref} className="bg-lavender-light border-[3px] border-navy rounded-2xl p-4 press-3 press-black group">
               <div className="w-9 h-9 rounded-xl bg-lavender/20 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
                 <svg aria-hidden="true" className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM15.75 9.75a3 3 0 116 0 3 3 0 01-6 0zM2.25 9.75a3 3 0 116 0 3 3 0 01-6 0zM6.31 15.117A6.745 6.745 0 0112 12a6.745 6.745 0 016.709 7.498.75.75 0 01-.372.568A12.696 12.696 0 0112 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 01-.372-.568 6.787 6.787 0 011.019-4.38z" clipRule="evenodd" />
@@ -608,7 +612,7 @@ export default function StudentDashboardPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* First CTA: IESA AI (IPE) or IEPOD (External) */}
               {external ? (
-                <Link href="/dashboard/iepod" className="block bg-navy border-[3px] border-lime rounded-3xl p-6 relative overflow-hidden group">
+                <Link href={iepodHref} className="block bg-navy border-[3px] border-lime rounded-3xl p-6 relative overflow-hidden group">
                   <svg aria-hidden="true" className="absolute top-4 right-5 w-5 h-5 text-lime/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
                   </svg>

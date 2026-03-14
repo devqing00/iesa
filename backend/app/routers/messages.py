@@ -214,7 +214,7 @@ class DMManager:
         self.connections: dict[str, list[WebSocket]] = {}  # user_id -> [ws, ...]
 
     async def connect(self, user_id: str, ws: WebSocket):
-        await ws.accept()
+        await ws.accept(headers=[(b"X-Accel-Buffering", b"no")])
         self.connections.setdefault(user_id, []).append(ws)
 
     def disconnect(self, user_id: str, ws: WebSocket):

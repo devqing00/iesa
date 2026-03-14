@@ -384,7 +384,6 @@ async def list_upcoming_birthdays(
     db = get_database()
 
     query: dict = {
-        "role": "student",
         "isActive": {"$ne": False},
         "dateOfBirth": {"$exists": True, "$ne": None},
     }

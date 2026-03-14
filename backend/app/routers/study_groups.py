@@ -134,7 +134,7 @@ class ChatManager:
         self.connections: dict[str, list[WebSocket]] = {}
 
     async def connect(self, group_id: str, ws: WebSocket):
-        await ws.accept()
+        await ws.accept(headers=[(b"X-Accel-Buffering", b"no")])
         self.connections.setdefault(group_id, []).append(ws)
 
     def disconnect(self, group_id: str, ws: WebSocket):

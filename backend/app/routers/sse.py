@@ -33,6 +33,12 @@ from bson import ObjectId
 logger = logging.getLogger("iesa_backend")
 
 router = APIRouter(prefix="/api/v1/sse", tags=["SSE Notifications"])
+HEARTBEAT_INTERVAL_SECONDS = 20.0
+
+
+def _heartbeat_event() -> str:
+    """Lightweight SSE keep-alive frame for proxies/load balancers."""
+    return f": keep-alive {int(time.time())}\n\n"
 
 
 async def _get_user_from_query_token(token: str = Query(..., description="JWT access token")) -> dict:
@@ -116,7 +122,7 @@ async def sse_stream(
         event: announcement_created
         data: {"id":"...", "title":"New Announcement"}
 
-    A heartbeat comment is sent every 30 s to keep proxies alive.
+    A heartbeat comment is sent every 20 s to keep proxies/load balancers alive.
     """
     user_id = current_user["_id"]
     user_role = current_user.get("role", "student")
@@ -135,10 +141,10 @@ async def sse_stream(
                     break
 
                 try:
-                    msg = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    msg = await asyncio.wait_for(queue.get(), timeout=HEARTBEAT_INTERVAL_SECONDS)
                 except asyncio.TimeoutError:
                     # Send heartbeat comment to keep connection alive
-                    yield ": heartbeat\n\n"
+                    yield _heartbeat_event()
                     continue
 
                 # Role-based filtering
@@ -162,7 +168,7 @@ async def sse_stream(
         _event_generator(),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-cache, no-transform",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",  # Nginx: don't buffer SSE
         },

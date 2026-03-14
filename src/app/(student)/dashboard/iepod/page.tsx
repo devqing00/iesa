@@ -251,7 +251,7 @@ export default function IepodStudentPage() {
 
   useEffect(() => {
     if (permissionsLoading) return;
-    if (hasAnyPermission(["iepod:manage", "iepod:view"])) {
+    if (hasAnyPermission(["iepod:manage"])) {
       router.replace("/dashboard/iepod/manage");
     }
   }, [hasAnyPermission, permissionsLoading, router]);
