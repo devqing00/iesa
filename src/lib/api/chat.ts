@@ -69,7 +69,8 @@ export function getGreetingMessage(): ChatMessage {
       '• Upcoming IESA events\n' +
       '• Your enrolled courses\n' +
       '• Growth tools — CGPA calculator, study groups, flashcards, habits & more\n' +
-      '• IEPOD Hub — TIMP mentoring, niche audit, research projects\n' +
+      '• IEPOD Hub — registration, societies, niche audit, teams, quizzes & points\n' +
+      '• TIMP Hub — mentoring applications, pairs, feedback & messaging\n' +
       '• General questions about IESA, courses, and processes\n\n' +
       'What can I help you with today?',
   };
@@ -82,7 +83,8 @@ export const QUICK_ACTIONS = [
   { label: 'Classes today', prompt: 'What classes do I have today?' },
   { label: 'Payment status', prompt: 'What dues do I owe and which have I paid?' },
   { label: 'Upcoming events', prompt: 'What events are coming up?' },
-  { label: 'What is IEPOD?', prompt: 'Tell me about the IEPOD Hub and TIMP mentoring.' },
+  { label: 'What is IEPOD?', prompt: 'Explain what IEPOD is and how it works.' },
+  { label: 'What is TIMP?', prompt: 'Explain what TIMP is and how it works.' },
   { label: 'Growth tools', prompt: 'What growth tools are available on the platform?' },
   { label: 'Calculate CGPA', prompt: 'How do I calculate my CGPA on the platform?' },
 ] as const;

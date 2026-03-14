@@ -52,7 +52,7 @@ function formatCountdown(daysLeft: number): string {
 
 /* ─── Component ─────────────────────────────────────────────────── */
 
-export default function DeadlineWidget({ payments, events }: DeadlineWidgetProps) {
+export default function SDeadlineWidget({ payments, events }: DeadlineWidgetProps) {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
@@ -108,7 +108,7 @@ export default function DeadlineWidget({ payments, events }: DeadlineWidgetProps
     <div className="bg-snow border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-2.5 h-6 rounded-full bg-sunny" />
+        {/* <div className="w-2.5 h-6 rounded-full bg-sunny" /> */}
         <h3 className="font-display font-black text-lg text-navy">Deadlines</h3>
         {entries.some((e) => e.urgency === "overdue" || e.urgency === "urgent") && (
           <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-coral text-snow text-[10px] font-bold">

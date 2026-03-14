@@ -166,7 +166,7 @@ const QUICK_ACTIONS = [
   {
     label: "IEPOD Hub",
     color: "bg-lime",
-    query: "Tell me about the IEPOD Hub and how TIMP mentoring works",
+    query: "Tell me what IEPOD is and what students do there",
   },
   {
     label: "Growth tools",

@@ -440,7 +440,7 @@ export const PAGE_HELP_STUDENT: Record<string, ToolHelpContent> = {
   timp: {
     toolId: "timp",
     title: "TIMP",
-    subtitle: "Technical & Industry Mentorship Programme",
+    subtitle: "The IESA Mentoring Project",
     accentColor: "bg-teal",
     steps: [
       { icon: "users", title: "Apply as Mentee", desc: "Submit your application to be matched with an industry mentor" },
@@ -801,7 +801,7 @@ export const PAGE_HELP_ADMIN: Record<string, ToolHelpContent> = {
   "admin-timp": {
     toolId: "admin-timp",
     title: "TIMP Management",
-    subtitle: "Manage the Technical & Industry Mentorship Programme",
+    subtitle: "Manage The IESA Mentoring Project",
     accentColor: "bg-teal",
     steps: [
       { icon: "list", title: "View Applications", desc: "See all mentee and mentor applications" },

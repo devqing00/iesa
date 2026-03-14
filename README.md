@@ -20,7 +20,7 @@ IESA is a full-stack departmental web platform for the Industrial Engineering de
 - **IESA AI** — Groq-powered AI assistant (Llama 3.3 70B) with personalized student context
 - **Growth Hub** — 8 self-development tools: habits tracker, CGPA calculator, Pomodoro timer, flashcards, journal, planner, course list, and goals
 - **IEPOD** — Departmental orientation programme with registration, structured phases, and quizzes
-- **TIMP** — Technical & Industry Mentorship Programme with applications, matching, and pair management
+- **TIMP** — The IESA Mentoring Project with applications, matching, and pair management
 - **Receipts & Tickets** — Download payment receipts (PDF + QR code) and event tickets
 
 ### Admin Panel

@@ -36,6 +36,50 @@ AI_HOURLY_LIMIT = int(os.getenv("AI_HOURLY_LIMIT", "20"))
 AI_DAILY_LIMIT = int(os.getenv("AI_DAILY_LIMIT", "60"))
 
 
+def _resolve_ai_account_key(user: dict) -> str:
+    """Resolve a stable account key for AI rate limiting.
+
+    Prefer Firebase UID (stable across user document migrations) and
+    fallback to Mongo user _id for safety.
+    """
+    token_data = user.get("tokenData") or {}
+    firebase_uid = token_data.get("firebase_uid")
+    if firebase_uid:
+        return str(firebase_uid)
+    return str(user.get("_id", ""))
+
+
+async def _find_or_migrate_rate_limit_doc(account_key: str, db, legacy_user_id: str | None = None) -> dict | None:
+    """Find existing AI rate-limit document and migrate legacy keying when needed.
+
+    Legacy docs were keyed by `userId` (Mongo _id string). New docs use
+    `accountKey` (Firebase UID preferred). If a legacy doc is found, stamp
+    `accountKey` on it to preserve counters.
+    """
+    col = db["ai_rate_limits"]
+
+    doc = await col.find_one({"accountKey": account_key})
+    if doc:
+        return doc
+
+    if legacy_user_id:
+        legacy_doc = await col.find_one({"userId": legacy_user_id})
+        if legacy_doc:
+            await col.update_one(
+                {"_id": legacy_doc["_id"]},
+                {
+                    "$set": {
+                        "accountKey": account_key,
+                        "updatedAt": datetime.now(timezone.utc),
+                    }
+                },
+            )
+            legacy_doc["accountKey"] = account_key
+            return legacy_doc
+
+    return None
+
+
 def _current_hour_window() -> datetime:
     """Return the start of the current UTC hour (fixed window)."""
     now = datetime.now(timezone.utc)
@@ -48,7 +92,7 @@ def _current_day_window() -> datetime:
     return now.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-async def _check_ai_rate_limit(user_id: str, db) -> dict:
+async def _check_ai_rate_limit(account_key: str, db, legacy_user_id: str | None = None) -> dict:
     """
     Check whether the user has remaining AI quota.
 
@@ -62,7 +106,7 @@ async def _check_ai_rate_limit(user_id: str, db) -> dict:
     hour_start = _current_hour_window()
     day_start = _current_day_window()
 
-    doc = await col.find_one({"userId": user_id})
+    doc = await _find_or_migrate_rate_limit_doc(account_key, db, legacy_user_id)
 
     hourly_count = 0
     daily_count = 0
@@ -93,14 +137,14 @@ async def _check_ai_rate_limit(user_id: str, db) -> dict:
     }
 
 
-async def _increment_ai_usage(user_id: str, db) -> None:
+async def _increment_ai_usage(account_key: str, db, legacy_user_id: str | None = None) -> None:
     """Atomically increment both hourly and daily counters for the user."""
     col = db["ai_rate_limits"]
     hour_start = _current_hour_window()
     day_start = _current_day_window()
 
     # Upsert with conditional reset: if the stored window differs, reset counter
-    doc = await col.find_one({"userId": user_id})
+    doc = await _find_or_migrate_rate_limit_doc(account_key, db, legacy_user_id)
 
     update_fields: dict = {"updatedAt": datetime.now(timezone.utc)}
     inc_fields: dict = {}
@@ -123,9 +167,34 @@ async def _increment_ai_usage(user_id: str, db) -> None:
     if inc_fields:
         operations["$inc"] = inc_fields
 
+    if doc and doc.get("_id"):
+        await col.update_one(
+            {"_id": doc["_id"]},
+            {
+                **operations,
+                "$set": {
+                    **update_fields,
+                    "accountKey": account_key,
+                    "userId": legacy_user_id or doc.get("userId"),
+                },
+            },
+            upsert=False,
+        )
+        return
+
     await col.update_one(
-        {"userId": user_id},
-        {**operations, "$setOnInsert": {"userId": user_id, "createdAt": datetime.now(timezone.utc)}},
+        {"accountKey": account_key},
+        {
+            **operations,
+            "$set": {
+                **update_fields,
+                "accountKey": account_key,
+                "userId": legacy_user_id,
+            },
+            "$setOnInsert": {
+                "createdAt": datetime.now(timezone.utc),
+            },
+        },
         upsert=True,
     )
 
@@ -218,13 +287,17 @@ Growth Tools (Dashboard → Growth):
 - All growth data is synced to your account — accessible from any device
 
 IEPOD Hub (Dashboard → IEPOD):
-- IEPOD stands for Intellectual Exchange, Professional & Occupational Development
+- IEPOD stands for IESA Professional Development
 - Program structure is phase-based: Stimulate the Mind → Carve Your Niche → Pitch Your Process
 - Core workflows include registration (pending/approved/rejected), society commitment, niche audit, team creation/join, iterative submissions, quizzes/challenges, and points leaderboard
-- TIMP lives under IEPOD as the formal mentoring track
 
-TIMP (The IESA Mentoring Project):
+TIMP Hub (Dashboard → TIMP):
+- TIMP stands for The IESA Mentoring Project
+- TIMP is managed as a separate mentoring ecosystem with its own application, pairing, feedback, messaging, and analytics workflows
+
 - Mentoring operations include mentor applications, admin review/approval, mentor-mentee pairing, weekly feedback, pair messaging, and analytics
+- TIMP applications are for mentors (not mentees)
+- 100L students are mentees and should not apply as mentors
 - Mentor applications are gated by session settings and current level rules in the backend
 - Pair creation and lifecycle are managed by users with `timp:manage`
 - Students can view their own TIMP state from their dashboard (application, pair status, feedback)
@@ -928,6 +1001,10 @@ IMPORTANT: You MUST maintain Yoruba style throughout ALL responses in this conve
                 user_data_section += "\n- Not yet paired"
         else:
             user_data_section += "\n- Has not applied to TIMP this session"
+
+        level_text = str(user_context.get('level', '')).upper().replace(' ', '')
+        if level_text.startswith('100'):
+            user_data_section += "\n- Note: As a 100L student, you are in the mentee pool and should not apply as a mentor."
         
         # Announcements
         if user_context.get('recent_announcements'):
@@ -1047,10 +1124,11 @@ You have LIVE access to this student's real data: profile (name, matric, email, 
 5. **Be a community ally:** This is a student platform. Be warm, encouraging, motivating. Students are navigating academics and early career — meet them there.
 6. **Use emojis sparingly:** 1–2 per message max. Only where they genuinely add warmth, not as filler.
 7. **Stay in scope:** You're an IESA/academic assistant. For completely unrelated topics, briefly acknowledge and redirect back to what you can help with.
-8. **Reference specific pages:** When guiding a student, name the exact page — "Go to Dashboard → Payments", "Check Dashboard → Growth → CGPA Calculator", "Visit Dashboard → IEPOD → TIMP".
+8. **Reference specific pages:** When guiding a student, name the exact page — "Go to Dashboard → Payments", "Check Dashboard → Growth → CGPA Calculator", "Open Dashboard → IEPOD" or "Open Dashboard → TIMP".
 9. **Urgency-aware:** If the PRIORITY ACTIONS section exists, factor urgency into your responses. When a student asks "what should I do?" or any open-ended question, surface the most urgent items naturally. When payment deadlines are OVERDUE or CRITICAL, proactively mention them.
 10. **Notification-aware:** If the student has unread notifications or messages, you can mention them when contextually relevant (e.g., "By the way, you have 5 unread notifications").
 11. **IEPOD/TIMP factual mode:** For "what is IEPOD" or "what is TIMP" questions, use only the definitions/workflows in PLATFORM KNOWLEDGE + user context. Do not add extra programs, eligibility ranges, or features that are not explicitly listed.
+12. **TIMP eligibility clarity:** TIMP application flow is for mentor applications. Do not tell students to apply to be mentored. For 100L students, clearly state they are mentees and are matched by TIMP leads.
 
 ## PLATFORM KNOWLEDGE
 {IESA_KNOWLEDGE}
@@ -1068,6 +1146,7 @@ You have LIVE access to this student's real data: profile (name, matric, email, 
 - For timetable questions with no data, guide the student to their class rep
 - When urgency data is present, naturally weave it into responses — mention overdue/critical deadlines without being alarmist
 - For open-ended greetings ("hi", "how far", "what's up"), give a warm greeting then briefly surface the #1 priority action if one exists
+- For TIMP guidance: do not suggest "apply as a mentee". State mentor-application-only flow, and if the student is 100L, state they are mentees and should await matching by TIMP leads.
 """
 
     return prompt
@@ -1129,14 +1208,15 @@ async def chat_with_iesa_ai_stream(
     
     # Account-linked rate limit check
     user_id = str(user["_id"])
-    rate_status = await _check_ai_rate_limit(user_id, db)
+    account_key = _resolve_ai_account_key(user)
+    rate_status = await _check_ai_rate_limit(account_key, db, legacy_user_id=user_id)
     if not rate_status["allowed"]:
         async def rate_limit_stream():
             yield f"data: {json.dumps({'error': 'Rate limit reached. You have used all your AI queries for this period.', 'rate_limit': rate_status})}\n\n"
         return StreamingResponse(rate_limit_stream(), media_type="text/event-stream")
     
     # Increment usage BEFORE the call (prevents burst abuse)
-    await _increment_ai_usage(user_id, db)
+    await _increment_ai_usage(account_key, db, legacy_user_id=user_id)
     
     async def generate():
         try:
@@ -1235,7 +1315,8 @@ async def get_usage(
     """
     try:
         user_id = str(user["_id"])
-        rate_status = await _check_ai_rate_limit(user_id, db)
+        account_key = _resolve_ai_account_key(user)
+        rate_status = await _check_ai_rate_limit(account_key, db, legacy_user_id=user_id)
         return {
             "hourly_limit": rate_status["hourly_limit"],
             "daily_limit": rate_status["daily_limit"],
@@ -1281,7 +1362,8 @@ async def chat_with_iesa_ai(
     
     # Account-linked rate limit check
     user_id = str(user["_id"])
-    rate_status = await _check_ai_rate_limit(user_id, db)
+    account_key = _resolve_ai_account_key(user)
+    rate_status = await _check_ai_rate_limit(account_key, db, legacy_user_id=user_id)
     if not rate_status["allowed"]:
         hourly_r = rate_status["hourly_remaining"]
         daily_r = rate_status["daily_remaining"]
@@ -1295,7 +1377,7 @@ async def chat_with_iesa_ai(
         )
     
     # Increment usage BEFORE the call
-    await _increment_ai_usage(user_id, db)
+    await _increment_ai_usage(account_key, db, legacy_user_id=user_id)
     
     try:
         # Get user context for personalization
