@@ -260,15 +260,17 @@ DEFAULT_PERMISSIONS = {
     ],
     "financial_secretary": [
         "admin:dashboard",
-        "payment:create", "payment:edit", "payment:approve", "payment:view_all",
+        "payment:create", "payment:edit", "payment:approve", "payment:delete", "payment:view_all",
         "announcement:view",
         "bank_transfer:manage_accounts", "bank_transfer:review", "bank_transfer:view_all",
+        "admin:manage_settings",
     ],
     "treasurer": [
         "admin:dashboard",
-        "payment:create", "payment:edit", "payment:view_all",
+        "payment:create", "payment:edit", "payment:approve", "payment:delete", "payment:view_all",
         "announcement:view",
-        "bank_transfer:review", "bank_transfer:view_all",
+        "bank_transfer:manage_accounts", "bank_transfer:review", "bank_transfer:view_all",
+        "admin:manage_settings",
     ],
     "pro": [
         "admin:dashboard",

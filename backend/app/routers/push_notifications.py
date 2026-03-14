@@ -51,14 +51,28 @@ def _b64_decode_loose(value: str) -> bytes:
 
 def _is_valid_subscription(sub_doc: dict) -> bool:
     """Validate presence and basic decodability of web-push subscription keys."""
+    endpoint = (sub_doc.get("endpoint") or "").strip()
+    if not endpoint.startswith("http"):
+        return False
+
     keys = sub_doc.get("keys") or {}
     p256dh = keys.get("p256dh")
     auth = keys.get("auth")
     if not p256dh or not auth:
         return False
     try:
-        _b64_decode_loose(str(p256dh))
-        _b64_decode_loose(str(auth))
+        p256dh_bytes = _b64_decode_loose(str(p256dh))
+        auth_bytes = _b64_decode_loose(str(auth))
+
+        # WebPush p256dh is expected to be an uncompressed P-256 public key:
+        # 65 bytes total and starts with 0x04.
+        if len(p256dh_bytes) != 65 or p256dh_bytes[0] != 0x04:
+            return False
+
+        # WebPush auth secret is expected to be 16 bytes.
+        if len(auth_bytes) != 16:
+            return False
+
         return True
     except Exception:
         return False
@@ -185,6 +199,13 @@ async def subscribe(
     """Store a push subscription for the current user."""
     db = get_database()
     user_id = str(user["_id"])
+
+    candidate = {
+        "endpoint": sub.endpoint,
+        "keys": sub.keys,
+    }
+    if not _is_valid_subscription(candidate):
+        raise HTTPException(status_code=400, detail="Invalid push subscription payload")
 
     # Upsert by endpoint to avoid duplicates
     await db["push_subscriptions"].update_one(

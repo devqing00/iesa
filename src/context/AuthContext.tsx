@@ -299,13 +299,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const normalized = { ...profile, id: profile._id || profile.id };
     setUser(normalized);
 
-    // Role-based redirect
-    const role = normalized.role;
-    if (role === "admin") {
-      router.push("/admin/dashboard");
-    } else {
-      router.push("/dashboard");
-    }
+    router.push("/dashboard");
   }, [router]);
 
   const signInWithGoogle = useCallback(async (): Promise<boolean> => {
@@ -328,12 +322,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const profile = await fetchUserProfile();
     if (profile) {
       setUser(profile);
-      const role = profile.role;
-      if (role === "admin") {
-        router.push("/admin/dashboard");
-      } else {
-        router.push("/dashboard");
-      }
+      router.push("/dashboard");
     }
     return true;
   }, [router, registerProfile, fetchUserProfile]);
@@ -375,12 +364,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const profile = await fetchUserProfile();
       if (profile) {
         setUser(profile);
-        const role = profile.role;
-        if (role === "admin") {
-          router.push("/admin/dashboard");
-        } else {
-          router.push("/dashboard");
-        }
+        router.push("/dashboard");
       }
     },
     [router, registerProfile, fetchUserProfile]
