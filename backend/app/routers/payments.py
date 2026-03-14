@@ -26,6 +26,21 @@ router = APIRouter(prefix="/api/v1/payments", tags=["Payments"])
 limiter = Limiter(key_func=get_remote_address)
 
 
+async def _resolve_session_for_payments(db, session_ref: str) -> dict | None:
+    """Resolve a session document from either ObjectId string or session name label."""
+    sessions = db["sessions"]
+    ref = (session_ref or "").strip()
+    if not ref:
+        return None
+
+    if ObjectId.is_valid(ref):
+        return await sessions.find_one({"_id": ObjectId(ref)})
+
+    # Fallback for clients accidentally sending display labels like "2025/2026 (Active)"
+    normalized_name = ref.replace("(Active)", "").strip()
+    return await sessions.find_one({"name": normalized_name})
+
+
 @router.post("/", response_model=Payment, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
 async def create_payment(
@@ -44,16 +59,16 @@ async def create_payment(
     payments = db["payments"]
     
     # Verify session exists
-    sessions = db["sessions"]
-    session = await sessions.find_one({"_id": ObjectId(payment_data.sessionId)})
+    session = await _resolve_session_for_payments(db, payment_data.sessionId)
     if not session:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Session {payment_data.sessionId} not found"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid session reference: {payment_data.sessionId}"
         )
     
     # Create payment document
     payment_dict = payment_data.model_dump()
+    payment_dict["sessionId"] = str(session["_id"])
     payment_dict["paidBy"] = []
     payment_dict["createdAt"] = datetime.now(timezone.utc)
     payment_dict["updatedAt"] = datetime.now(timezone.utc)
@@ -68,12 +83,12 @@ async def create_payment(
         actor_email=user.get("email", ""),
         resource_type="payment",
         resource_id=str(result.inserted_id),
-        session_id=payment_data.sessionId,
-        details={"amount": payment_data.amount, "type": payment_data.type}
+        session_id=str(session["_id"]),
+        details={"amount": payment_data.amount, "category": payment_data.category}
     )
     from app.routers.sse import publish
     from app.core.cache import cache_delete, cache_delete_pattern
-    publish("payment_created", {"id": str(result.inserted_id), "type": payment_data.type}, ipe_only=True)
+    publish("payment_created", {"id": str(result.inserted_id), "category": payment_data.category}, ipe_only=True)
     await cache_delete("admin_stats")
     await cache_delete_pattern("student_dashboard:*")
     return Payment(**created_payment)
@@ -118,12 +133,13 @@ async def list_payments(
         session_id = str(active_session["_id"])
     
     # Verify session exists
-    session = await sessions.find_one({"_id": ObjectId(session_id)})
+    session = await _resolve_session_for_payments(db, session_id)
     if not session:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Session {session_id} not found"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid session reference: {session_id}"
         )
+    session_id = str(session["_id"])
     
     # Get total count for pagination
     total = await payments.count_documents({"sessionId": session_id})

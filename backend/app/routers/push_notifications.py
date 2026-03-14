@@ -49,6 +49,21 @@ def _b64_decode_loose(value: str) -> bytes:
         return base64.urlsafe_b64decode(padded)
 
 
+def _is_valid_subscription(sub_doc: dict) -> bool:
+    """Validate presence and basic decodability of web-push subscription keys."""
+    keys = sub_doc.get("keys") or {}
+    p256dh = keys.get("p256dh")
+    auth = keys.get("auth")
+    if not p256dh or not auth:
+        return False
+    try:
+        _b64_decode_loose(str(p256dh))
+        _b64_decode_loose(str(auth))
+        return True
+    except Exception:
+        return False
+
+
 def _load_vapid():
     global _VAPID_PUBLIC_KEY, _VAPID_PRIVATE_KEY, _VAPID_CLAIMS, _VAPID_PRIVATE_SOURCE, _vapid_loaded
     if _vapid_loaded:
@@ -311,6 +326,11 @@ async def send_push_to_user(
     stale_ids: list[ObjectId] = []
 
     for sub_doc in subs:
+        if not _is_valid_subscription(sub_doc):
+            stale_ids.append(sub_doc["_id"])
+            logger.warning("Push subscription dropped (invalid keys) for userId=%s", user_id)
+            continue
+
         subscription_info = {
             "endpoint": sub_doc["endpoint"],
             "keys": sub_doc["keys"],
@@ -335,6 +355,8 @@ async def send_push_to_user(
                     stale_ids.append(sub_doc["_id"])
             logger.warning(f"Push failed for {sub_doc['endpoint'][:60]}…: {e}")
         except Exception as e:
+            if "Could not deserialize key data" in str(e):
+                stale_ids.append(sub_doc["_id"])
             logger.warning(f"Push error: {e}")
 
     # Clean up stale subscriptions
