@@ -35,11 +35,22 @@ router = APIRouter(prefix="/api/v1/push", tags=["push-notifications"])
 _VAPID_PUBLIC_KEY: str | None = None
 _VAPID_PRIVATE_KEY: str | None = None
 _VAPID_CLAIMS: dict | None = None
+_VAPID_PRIVATE_SOURCE: str | None = None
 _vapid_loaded = False
 
 
+def _b64_decode_loose(value: str) -> bytes:
+    """Decode base64/base64url with relaxed padding and whitespace handling."""
+    compact = "".join(value.split())
+    padded = compact + ("=" * ((4 - (len(compact) % 4)) % 4))
+    try:
+        return base64.b64decode(padded)
+    except Exception:
+        return base64.urlsafe_b64decode(padded)
+
+
 def _load_vapid():
-    global _VAPID_PUBLIC_KEY, _VAPID_PRIVATE_KEY, _VAPID_CLAIMS, _vapid_loaded
+    global _VAPID_PUBLIC_KEY, _VAPID_PRIVATE_KEY, _VAPID_CLAIMS, _VAPID_PRIVATE_SOURCE, _vapid_loaded
     if _vapid_loaded:
         return
     _vapid_loaded = True
@@ -56,18 +67,45 @@ def _load_vapid():
         try:
             if "BEGIN" in raw_private and "PRIVATE KEY" in raw_private:
                 _VAPID_PRIVATE_KEY = raw_private
+                _VAPID_PRIVATE_SOURCE = "pem-direct"
             else:
-                decoded = base64.b64decode(raw_private, validate=True).decode("utf-8")
-                if "BEGIN" in decoded and "PRIVATE KEY" in decoded:
-                    _VAPID_PRIVATE_KEY = decoded
+                decoded_bytes = _b64_decode_loose(raw_private)
+                try:
+                    decoded_text = decoded_bytes.decode("utf-8")
+                except Exception:
+                    decoded_text = ""
+
+                if "BEGIN" in decoded_text and "PRIVATE KEY" in decoded_text:
+                    _VAPID_PRIVATE_KEY = decoded_text
+                    _VAPID_PRIVATE_SOURCE = "pem-base64"
                 else:
-                    _VAPID_PRIVATE_KEY = raw_private
+                    # If this is a DER key, convert to PEM string for pywebpush
+                    try:
+                        from cryptography.hazmat.primitives import serialization
+                        from cryptography.hazmat.primitives.serialization import load_der_private_key
+
+                        key_obj = load_der_private_key(decoded_bytes, password=None)
+                        pem_bytes = key_obj.private_bytes(
+                            encoding=serialization.Encoding.PEM,
+                            format=serialization.PrivateFormat.PKCS8,
+                            encryption_algorithm=serialization.NoEncryption(),
+                        )
+                        _VAPID_PRIVATE_KEY = pem_bytes.decode("utf-8")
+                        _VAPID_PRIVATE_SOURCE = "der-base64-to-pem"
+                    except Exception:
+                        _VAPID_PRIVATE_KEY = raw_private
+                        _VAPID_PRIVATE_SOURCE = "raw-fallback"
         except Exception:
             _VAPID_PRIVATE_KEY = raw_private
+            _VAPID_PRIVATE_SOURCE = "raw-fallback"
 
     if _VAPID_PUBLIC_KEY and _VAPID_PRIVATE_KEY:
         _VAPID_CLAIMS = {"sub": claims_email}
-        logger.info("VAPID keys loaded — push notifications enabled")
+        logger.info(
+            "VAPID keys loaded — push notifications enabled (private_source=%s public_len=%s)",
+            _VAPID_PRIVATE_SOURCE,
+            len(_VAPID_PUBLIC_KEY or ""),
+        )
     else:
         logger.warning("VAPID keys not set — push notifications disabled")
 
@@ -107,6 +145,21 @@ async def get_vapid_public_key():
     if not _VAPID_PUBLIC_KEY:
         raise HTTPException(status_code=503, detail="Push notifications are not configured")
     return {"publicKey": _VAPID_PUBLIC_KEY}
+
+
+@router.get("/vapid-status")
+async def get_vapid_status(
+    _: dict = Depends(require_permission("announcement:create")),
+):
+    """Admin-only diagnostics for VAPID parsing (no secret values returned)."""
+    _load_vapid()
+    return {
+        "enabled": bool(_VAPID_PUBLIC_KEY and _VAPID_PRIVATE_KEY),
+        "public_key_length": len(_VAPID_PUBLIC_KEY or ""),
+        "private_key_present": bool(_VAPID_PRIVATE_KEY),
+        "private_key_source": _VAPID_PRIVATE_SOURCE,
+        "claims": _VAPID_CLAIMS,
+    }
 
 
 @router.post("/subscribe")
