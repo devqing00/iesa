@@ -413,12 +413,7 @@ function PaymentsContent() {
           /* ── Loading Skeleton ── */
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-              <div className="md:col-span-7 h-48 bg-cloud/50 border-[3px] border-navy/10 rounded-[2rem] animate-pulse" />
-              <div className="md:col-span-5 grid grid-cols-1 gap-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-20 bg-cloud/50 border-[3px] border-navy/10 rounded-[1.5rem] animate-pulse" />
-                ))}
-              </div>
+              <div className="md:col-span-12 h-48 bg-cloud/50 border-[3px] border-navy/10 rounded-[2rem] animate-pulse" />
             </div>
           </div>
         ) : fetchError ? (
@@ -445,7 +440,7 @@ function PaymentsContent() {
             {/* ═══ BENTO HERO ═══ */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
               {/* Title Card — sunny theme */}
-              <div className="md:col-span-7 bg-sunny border-[3px] border-navy rounded-[2rem] p-8 shadow-[4px_4px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
+              <div className="md:col-span-12 bg-sunny border-[3px] border-navy rounded-[2rem] p-8 shadow-[4px_4px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
                 <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/70 flex items-center gap-2 mb-3">
                   <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
                   Finance Portal
@@ -456,42 +451,16 @@ function PaymentsContent() {
                 <p className="font-display font-normal text-sm text-navy/70 max-w-md">
                   Manage your departmental dues, view payment history, and download receipts.
                 </p>
-              </div>
-
-              {/* Stats Strip */}
-              <div className="md:col-span-5 grid grid-cols-1 gap-3">
-                {/* Outstanding Balance */}
-                <div className="bg-coral-light border-[3px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Outstanding</span>
-                    <p className={`font-display font-black text-2xl ${pendingPayments.length > 0 ? "text-coral" : "text-navy"}`}>
-                      ₦{pendingPayments.reduce((s, p) => s + p.amount, 0).toLocaleString()}
-                    </p>
-                    <span className="text-[9px] font-bold uppercase tracking-[0.08em] text-navy/40">{pendingPayments.length} due{pendingPayments.length !== 1 ? "s" : ""} remaining</span>
-                  </div>
-                  <div className="w-10 h-10 rounded-xl bg-coral/20 flex items-center justify-center">
-                    <svg aria-hidden="true" className="w-5 h-5 text-coral" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" /></svg>
-                  </div>
-                </div>
-                {/* Completed */}
-                <div className="bg-teal-light border-[3px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.3deg] hover:rotate-0 transition-transform flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Completed</span>
-                    <p className="font-display font-black text-2xl text-navy">{paidPayments.length}<span className="text-base font-bold text-navy/40">/{payments.length}</span></p>
-                  </div>
-                  <div className="w-10 h-10 rounded-xl bg-teal/20 flex items-center justify-center">
-                    <svg aria-hidden="true" className="w-5 h-5 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>
-                  </div>
-                </div>
-                {/* Total Paid */}
-                <div className="bg-navy border-[3px] border-lime rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#C8F31D] rotate-[0.5deg] hover:rotate-0 transition-transform flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/50">Total Paid</span>
-                    <p className="font-display font-black text-2xl text-snow">₦{paidPayments.reduce((s, p) => s + p.amount, 0).toLocaleString()}</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-xl bg-teal/20 flex items-center justify-center">
-                    <svg aria-hidden="true" className="w-5 h-5 text-snow" fill="currentColor" viewBox="0 0 24 24"><path d="M12 7.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" /><path fillRule="evenodd" d="M1.5 4.875C1.5 3.839 2.34 3 3.375 3h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 17.625V4.875zM8.25 9.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM18.75 9a.75.75 0 00-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 00.75-.75V9.75a.75.75 0 00-.75-.75h-.008zM4.5 9.75A.75.75 0 015.25 9h.008a.75.75 0 01.75.75v.008a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75V9.75z" clipRule="evenodd" /></svg>
-                  </div>
+                <div className="flex flex-wrap gap-2 mt-5">
+                  <span className={`text-[10px] font-bold rounded-md px-3 py-1 uppercase tracking-wider border border-navy/20 ${pendingPayments.length > 0 ? "bg-coral-light text-coral" : "bg-snow/90 text-navy"}`}>
+                    Outstanding: ₦{pendingPayments.reduce((s, p) => s + p.amount, 0).toLocaleString()}
+                  </span>
+                  <span className="text-[10px] font-bold text-navy bg-teal-light rounded-md px-3 py-1 uppercase tracking-wider border border-navy/20">
+                    Completed: {paidPayments.length}/{payments.length}
+                  </span>
+                  <span className="text-[10px] font-bold text-snow bg-navy rounded-md px-3 py-1 uppercase tracking-wider border border-lime/50">
+                    Total Paid: ₦{paidPayments.reduce((s, p) => s + p.amount, 0).toLocaleString()}
+                  </span>
                 </div>
               </div>
             </div>

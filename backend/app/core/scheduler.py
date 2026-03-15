@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone, timedelta
+from bson import ObjectId
 
 logger = logging.getLogger("iesa_backend.scheduler")
 
@@ -94,6 +95,11 @@ async def birthday_wishes() -> None:
             logger.info("[Scheduler] birthday_wishes: no birthdays today (%02d-%02d)", month, day)
             return
 
+        active_sessions = await db["sessions"].find(
+            {"isActive": True}, {"_id": 1}
+        ).to_list(length=10)
+        active_session_ids = [str(s["_id"]) for s in active_sessions if s.get("_id")]
+
         logger.info(
             "[Scheduler] birthday_wishes: %d birthday(s) on %02d-%02d",
             len(celebrants), month, day,
@@ -150,6 +156,30 @@ async def birthday_wishes() -> None:
             full_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip() or "Student"
             greeting = f"Happy Birthday, {first_name}! 🎂" if first_name else "Happy Birthday!"
 
+            due_reminder = None
+            if active_session_ids:
+                user_id_variants = [user_id]
+                if ObjectId.is_valid(user_id):
+                    user_id_variants.append(ObjectId(user_id))
+
+                unpaid_mandatory = await db["payments"].find(
+                    {
+                        "sessionId": {"$in": active_session_ids},
+                        "mandatory": {"$ne": False},
+                        "paidBy": {"$nin": user_id_variants},
+                    },
+                    {"title": 1},
+                ).to_list(length=10)
+
+                if unpaid_mandatory:
+                    titles = [p.get("title", "a mandatory due") for p in unpaid_mandatory if p.get("title")]
+                    if len(titles) == 1:
+                        due_reminder = f"After your cake, please clear {titles[0]} when you can 💚"
+                    elif len(titles) == 2:
+                        due_reminder = f"Birthday mode first, then remember to clear {titles[0]} and {titles[1]} 💚"
+                    else:
+                        due_reminder = f"Birthday mode first, then remember you still have {len(unpaid_mandatory)} mandatory dues pending 💚"
+
             try:
                 await create_notification(
                     user_id=user_id,
@@ -158,6 +188,7 @@ async def birthday_wishes() -> None:
                     message=(
                         "Wishing you a wonderful birthday from the entire IESA community! "
                         "Hope your day is as amazing as you are. 🎉"
+                        + (f" {due_reminder}" if due_reminder else "")
                     ),
                     link="/dashboard",
                     category="academic",
@@ -174,6 +205,7 @@ async def birthday_wishes() -> None:
                         await send_birthday_email(
                             to=email,
                             name=full_name,
+                            due_reminder=due_reminder,
                             dashboard_url="https://iesa-ui.vercel.app/dashboard",
                         )
             except Exception as e:

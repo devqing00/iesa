@@ -23,8 +23,8 @@ router = APIRouter(prefix="/api/v1/search", tags=["Search"])
 async def global_search(
     q: str = Query(..., min_length=2, max_length=200, description="Search query"),
     types: str = Query(
-        "announcements,events,resources",
-        description="Comma-separated: announcements,events,resources"
+        "announcements,events,resources,notifications",
+        description="Comma-separated: announcements,events,resources,notifications"
     ),
     limit: int = Query(20, ge=1, le=50, description="Max results per type"),
     current_user: dict = Depends(get_current_user),
@@ -36,10 +36,10 @@ async def global_search(
     db = get_database()
     search_types = [t.strip() for t in types.split(",") if t.strip()]
 
-    # External students can only search announcements
+    # External students can only search announcements + own notifications
     is_external = _is_external_student(current_user)
     if is_external:
-        search_types = [t for t in search_types if t == "announcements"]
+        search_types = [t for t in search_types if t in {"announcements", "notifications"}]
 
     # Build a case-insensitive regex for partial matching
     pattern = re.compile(re.escape(q), re.IGNORECASE)
@@ -123,6 +123,39 @@ async def global_search(
         except Exception as e:
             logger.error(f"Search resources error: {e}")
             results["resources"] = []
+
+    if "notifications" in search_types:
+        try:
+            user_id = current_user.get("uid") or current_user.get("_id")
+            id_variants = [user_id]
+            if ObjectId.is_valid(str(user_id)):
+                id_variants.append(ObjectId(str(user_id)))
+
+            cursor = db["notifications"].find(
+                {
+                    "userId": {"$in": id_variants},
+                    "$or": [
+                        {"title": {"$regex": pattern}},
+                        {"message": {"$regex": pattern}},
+                    ],
+                },
+                {"title": 1, "message": 1, "type": 1, "link": 1, "createdAt": 1}
+            ).sort("createdAt", -1).limit(limit)
+            items = []
+            async for doc in cursor:
+                items.append({
+                    "id": str(doc["_id"]),
+                    "title": doc.get("title", "Notice"),
+                    "snippet": _snippet(doc.get("message", ""), q),
+                    "createdAt": doc.get("createdAt"),
+                    "category": doc.get("type", "notification"),
+                    "type": "notification",
+                    "link": doc.get("link") or "/dashboard/announcements",
+                })
+            results["notifications"] = items
+        except Exception as e:
+            logger.error(f"Search notifications error: {e}")
+            results["notifications"] = []
 
     total = sum(len(v) for v in results.values())
     return {"query": q, "total": total, "results": results}

@@ -75,6 +75,8 @@ const typeAccents: Record<string, { bg: string; text: string }> = {
 };
 
 const cardRotations = ["", "rotate-[0.4deg]", "rotate-[-0.3deg]", "", "rotate-[0.3deg]", "rotate-[-0.4deg]"];
+const RESOURCES_RECENT_FILE_IDS_KEY = "resources_drive_recent_file_ids";
+const MAX_RESOURCES_RECENT_FILE_IDS = 150;
 
 const formatFileSize = (bytes: number) => {
   if (bytes < 1024) return bytes + " B";
@@ -248,7 +250,8 @@ function FilterPanel({
 export default function ResourcesPage() {
   const { user, userProfile, getAccessToken } = useAuth();
   const { showHelp, openHelp, closeHelp } = useToolHelp("library");
-  const drive = useDrive();
+  const drive = useDrive("resources_drive");
+  const [resourcesRecentFileIds, setResourcesRecentFileIds] = useState<Set<string>>(new Set());
 
   // ── Tab state ──
   const [activeTab, setActiveTab] = useState<"library" | "drive">("library");
@@ -295,7 +298,57 @@ export default function ResourcesPage() {
     sortBy !== "createdAt",
   ].filter(Boolean).length;
 
+  const driveFileSequence = (drive.searchResults ?? drive.items).filter((item) => !item.isFolder);
+  const scopedRecentFiles = drive.recentFiles.filter((entry) => resourcesRecentFileIds.has(entry.fileId));
+  const currentDriveFileIndex = drive.viewingFile
+    ? driveFileSequence.findIndex((item) => item.id === drive.viewingFile?.id)
+    : -1;
+
+  const upsertResourcesRecentFileId = useCallback((fileId: string) => {
+    if (!fileId) return;
+    setResourcesRecentFileIds((prev) => {
+      const nextList = [fileId, ...Array.from(prev).filter((id) => id !== fileId)].slice(0, MAX_RESOURCES_RECENT_FILE_IDS);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(RESOURCES_RECENT_FILE_IDS_KEY, JSON.stringify(nextList));
+      }
+      return new Set(nextList);
+    });
+  }, []);
+
+  const openDriveFile = useCallback((item: DriveItem) => {
+    if (!item.isFolder) {
+      upsertResourcesRecentFileId(item.id);
+    }
+    drive.openFile(item);
+  }, [drive, upsertResourcesRecentFileId]);
+
+  const openPrevDriveFile = () => {
+    if (currentDriveFileIndex <= 0) return;
+    const prev = driveFileSequence[currentDriveFileIndex - 1];
+    if (prev) openDriveFile(prev);
+  };
+
+  const openNextDriveFile = () => {
+    if (currentDriveFileIndex < 0 || currentDriveFileIndex >= driveFileSequence.length - 1) return;
+    const next = driveFileSequence[currentDriveFileIndex + 1];
+    if (next) openDriveFile(next);
+  };
+
   // ── Effects ──
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(RESOURCES_RECENT_FILE_IDS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      const validIds = parsed.filter((id): id is string => typeof id === "string" && id.length > 0);
+      setResourcesRecentFileIds(new Set(validIds));
+    } catch {
+      setResourcesRecentFileIds(new Set());
+    }
+  }, []);
 
   useEffect(() => {
     if (studentLevel && levelFilter === "all") setLevelFilter(studentLevel);
@@ -869,21 +922,21 @@ export default function ResourcesPage() {
         {activeTab === "drive" && (
           <div className="max-w-4xl mx-auto overflow-hidden">
             {/* Stats bar */}
-            {drive.recentFiles.length > 0 && !drive.viewingFile && (
+            {scopedRecentFiles.length > 0 && !drive.viewingFile && (
               <div className="flex flex-wrap gap-3 mb-5">
                 <div className="bg-teal-light border-2 border-teal rounded-xl px-3 py-2 flex items-center gap-2">
                   <svg aria-hidden="true" className="w-4 h-4 text-teal" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
                   </svg>
                   <span className="text-xs font-bold text-teal">
-                    {drive.recentFiles.filter((r) => (r.percentComplete || 0) >= 100).length} completed
+                    {scopedRecentFiles.filter((r) => (r.percentComplete || 0) >= 100).length} completed
                   </span>
                 </div>
                 <div className="bg-lavender-light border-2 border-lavender rounded-xl px-3 py-2 flex items-center gap-2">
                   <svg aria-hidden="true" className="w-4 h-4 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" />
                   </svg>
-                  <span className="text-xs font-bold text-lavender">{drive.recentFiles.length} viewed</span>
+                  <span className="text-xs font-bold text-lavender">{scopedRecentFiles.length} viewed</span>
                 </div>
               </div>
             )}
@@ -898,13 +951,14 @@ export default function ResourcesPage() {
               searchQuery={drive.searchQuery}
               searchResults={drive.searchResults}
               searchLoading={drive.searchLoading}
-              recentFiles={drive.recentFiles}
+              recentFiles={scopedRecentFiles}
               progressMap={drive.progressMap}
               onNavigateFolder={drive.navigateFolder}
-              onOpenFile={(item: DriveItem) => drive.openFile(item)}
+              onOpenFile={openDriveFile}
               onSearch={drive.setSearchQuery}
               onSearchSubmit={drive.doSearch}
               onGoBack={drive.goBack}
+              onRetry={drive.refreshFolder}
               notConfigured={drive.notConfigured}
             />
           </div>
@@ -919,6 +973,10 @@ export default function ResourcesPage() {
           loading={drive.viewerLoading}
           onClose={drive.closeViewer}
           token={null}
+          hasPrev={currentDriveFileIndex > 0}
+          hasNext={currentDriveFileIndex >= 0 && currentDriveFileIndex < driveFileSequence.length - 1}
+          onPrev={openPrevDriveFile}
+          onNext={openNextDriveFile}
         />
       )}
 

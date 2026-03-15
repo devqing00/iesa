@@ -538,7 +538,6 @@ export default function GrowthPage() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-3">
-              <div className="w-3 h-8 rounded-full bg-lavender" />
               <h2 className="font-display font-black text-xl text-navy">Growth Tools</h2>
             </div>
             <button

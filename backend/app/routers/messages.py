@@ -1347,7 +1347,6 @@ async def search_users_for_messaging(
     cursor = db["users"].find(
         {
             "_id": {"$nin": exclude_oids},
-            "role": "student",
             "$or": [
                 {"firstName": {"$regex": pattern}},
                 {"lastName": {"$regex": pattern}},

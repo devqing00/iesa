@@ -1,7 +1,7 @@
 "use client";
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -15,6 +15,8 @@ import {
 import { toast } from "sonner";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import dynamic from "next/dynamic";
+import { useDrive } from "@/hooks/useDrive";
+import type { DriveItem } from "@/lib/api/drive";
 
 const EventCalendarView = dynamic(() => import("@/components/dashboard/EventCalendarView"), {
   ssr: false,
@@ -24,6 +26,9 @@ const EventCalendarView = dynamic(() => import("@/components/dashboard/EventCale
     </div>
   ),
 });
+
+const DriveExplorer = dynamic(() => import("@/components/dashboard/drive/DriveExplorer"), { ssr: false });
+const ResourceViewer = dynamic(() => import("@/components/dashboard/drive/ResourceViewer"), { ssr: false });
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -48,9 +53,61 @@ interface Event {
   };
 }
 
+interface GalleryAlbumMeta {
+  title: string;
+  eventDate?: string;
+  badge?: string;
+  featured?: boolean;
+  description?: string;
+}
+
 /* ─── Constants ─────────────────────────────────────────────────── */
 
 const CATEGORIES = ["All", "Academic", "Social", "Career", "Workshop", "General"];
+
+const EVENT_GALLERY_FOLDER_ID = process.env.NEXT_PUBLIC_EVENTS_GALLERY_FOLDER_ID?.trim() || "";
+const EVENT_GALLERY_FOLDER_NAME = "Event Gallery";
+const EVENT_GALLERY_FEATURED_ALBUM_ID = process.env.NEXT_PUBLIC_EVENTS_GALLERY_FEATURED_ALBUM_ID?.trim() || "";
+const EVENT_GALLERY_RECENT_KEY = "events_gallery_recent_photos";
+const MAX_GALLERY_RECENT = 12;
+const MAX_ALBUM_COVERS = 12;
+const EVENT_GALLERY_ALBUM_META_ENV = process.env.NEXT_PUBLIC_EVENTS_GALLERY_ALBUM_META?.trim() || "";
+
+const EVENT_GALLERY_ALBUM_META: Record<string, GalleryAlbumMeta> = {
+  // "drive-folder-id": {
+  //   title: "IESA Dinner Night 2026",
+  //   eventDate: "Feb 14, 2026",
+  //   badge: "Dinner Night",
+  //   featured: true,
+  //   description: "Highlights from the annual dinner and awards.",
+  // },
+};
+
+const parseGalleryAlbumMeta = (input: string): Record<string, GalleryAlbumMeta> => {
+  if (!input) return {};
+  try {
+    const parsed = JSON.parse(input) as Record<string, GalleryAlbumMeta>;
+    if (!parsed || typeof parsed !== "object") return {};
+    const normalized: Record<string, GalleryAlbumMeta> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (!key || !value || typeof value !== "object") continue;
+      const title = typeof value.title === "string" && value.title.trim() ? value.title.trim() : "";
+      if (!title) continue;
+      normalized[key] = {
+        title,
+        eventDate: typeof value.eventDate === "string" ? value.eventDate : undefined,
+        badge: typeof value.badge === "string" ? value.badge : undefined,
+        featured: typeof value.featured === "boolean" ? value.featured : undefined,
+        description: typeof value.description === "string" ? value.description : undefined,
+      };
+    }
+    return normalized;
+  } catch {
+    return {};
+  }
+};
+
+const EVENT_GALLERY_ALBUM_META_FROM_ENV = parseGalleryAlbumMeta(EVENT_GALLERY_ALBUM_META_ENV);
 
 const categoryPills: Record<string, { active: string }> = {
   All: { active: "bg-navy text-snow border-lime" },
@@ -77,11 +134,46 @@ const formatTime = (dateString: string) =>
 const formatDate = (dateString: string) =>
   new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(dateString));
 
+const formatAlbumDate = (dateString?: string | null): string | undefined => {
+  if (!dateString) return undefined;
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date);
+};
+
+const toTitleCase = (value: string): string =>
+  value
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
+const inferAlbumMetaFromName = (folderName: string): Partial<GalleryAlbumMeta> => {
+  const normalized = folderName.replace(/[_-]+/g, " ").trim();
+  const title = toTitleCase(normalized);
+
+  const yearMatch = normalized.match(/\b(20\d{2})\b/);
+  const eventDate = yearMatch ? yearMatch[1] : undefined;
+
+  const nonYearTokens = normalized
+    .split(" ")
+    .filter((token) => token && !/^20\d{2}$/.test(token));
+  const badge = nonYearTokens.length > 0 ? toTitleCase(nonYearTokens.slice(0, 2).join(" ")) : "Event Album";
+
+  return {
+    title: title || folderName,
+    badge,
+    eventDate,
+  };
+};
+
 /* ─── Component ─────────────────────────────────────────────────── */
 
 function EventsPage() {
   const { user, getAccessToken } = useAuth();
   const { showHelp, openHelp, closeHelp } = useToolHelp("events");
+  const drive = useDrive("events_gallery_drive", { enableRecent: false, enableProgress: false });
+  const navigateDriveFolder = drive.navigateFolder;
   const router = useRouter();
   const searchParams = useSearchParams();
   const [events, setEvents] = useState<Event[]>([]);
@@ -92,10 +184,12 @@ function EventsPage() {
   const skipFetch = useRef(false);
   const [error, setError] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
+  const [activeSubPage, setActiveSubPage] = useState<"upcoming" | "gallery">("upcoming");
   const [viewMode, setViewMode] = useState<"list" | "calendar">(() => {
     const v = searchParams.get("view");
     return v === "calendar" ? "calendar" : "list";
   });
+  const galleryInitializedRef = useRef(false);
   const [registeredEvents, setRegisteredEvents] = useState<Set<string>>(new Set());
   const [paidEvents, setPaidEvents] = useState<Set<string>>(new Set());
   const [paymentRefs, setPaymentRefs] = useState<Record<string, string>>({});
@@ -125,6 +219,10 @@ function EventsPage() {
   const [refExistsError, setRefExistsError] = useState("");
   // Confirmation modal for event bank transfer
   const [showConfirmTransfer, setShowConfirmTransfer] = useState(false);
+  const [albumCoverMap, setAlbumCoverMap] = useState<Record<string, DriveItem | null>>({});
+  const [albumCoverLoading, setAlbumCoverLoading] = useState(false);
+  const [galleryRecentPhotos, setGalleryRecentPhotos] = useState<DriveItem[]>([]);
+  const albumCoverFetchKeyRef = useRef("");
 
   /* ─── Reset on bfcache restore (user pressed browser back from Paystack) ─── */
   useEffect(() => {
@@ -218,6 +316,56 @@ function EventsPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, searchParams]);
+
+  useEffect(() => {
+    if (activeSubPage !== "gallery") return;
+    if (!EVENT_GALLERY_FOLDER_ID) return;
+
+    const inGalleryScope =
+      drive.folderId === EVENT_GALLERY_FOLDER_ID ||
+      drive.breadcrumbs.some((crumb) => crumb.id === EVENT_GALLERY_FOLDER_ID);
+
+    if (!inGalleryScope) {
+      navigateDriveFolder(EVENT_GALLERY_FOLDER_ID, EVENT_GALLERY_FOLDER_NAME);
+      galleryInitializedRef.current = true;
+      albumCoverFetchKeyRef.current = "";
+      return;
+    }
+
+    galleryInitializedRef.current = true;
+  }, [activeSubPage, navigateDriveFolder, drive.folderId, drive.breadcrumbs]);
+
+  useEffect(() => {
+    if (activeSubPage !== "gallery") return;
+    if (!EVENT_GALLERY_FOLDER_ID) return;
+    if (!drive.searchQuery) return;
+    drive.setSearchQuery("");
+  }, [activeSubPage, drive.searchQuery, drive.setSearchQuery]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = window.localStorage.getItem(EVENT_GALLERY_RECENT_KEY);
+      if (!saved) return;
+      const parsed = JSON.parse(saved) as DriveItem[];
+      if (Array.isArray(parsed)) {
+        setGalleryRecentPhotos(parsed.filter((item) => item && typeof item.id === "string"));
+      }
+    } catch {
+      // ignore malformed local cache
+    }
+  }, []);
+
+  const upsertGalleryRecentPhoto = useCallback((item: DriveItem) => {
+    if (item.isFolder || item.fileType !== "image") return;
+    setGalleryRecentPhotos((prev) => {
+      const next = [item, ...prev.filter((p) => p.id !== item.id)].slice(0, MAX_GALLERY_RECENT);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(EVENT_GALLERY_RECENT_KEY, JSON.stringify(next));
+      }
+      return next;
+    });
+  }, []);
 
   const fetchPlatformSettings = async () => {
     try {
@@ -501,6 +649,168 @@ function EventsPage() {
 
   const filteredEvents = activeCategory === "All" ? events : events.filter((e) => e.category === activeCategory);
 
+  const galleryFolderIndex = EVENT_GALLERY_FOLDER_ID
+    ? drive.breadcrumbs.findIndex((crumb) => crumb.id === EVENT_GALLERY_FOLDER_ID)
+    : -1;
+  const galleryBreadcrumbs =
+    EVENT_GALLERY_FOLDER_ID && galleryFolderIndex >= 0
+      ? [{ id: EVENT_GALLERY_FOLDER_ID, name: EVENT_GALLERY_FOLDER_NAME }, ...drive.breadcrumbs.slice(galleryFolderIndex + 1)]
+      : drive.breadcrumbs;
+
+  const handleGalleryNavigateFolder = (folderId: string | null, name?: string) => {
+    if (!EVENT_GALLERY_FOLDER_ID) return;
+    if (folderId === null) {
+      if (galleryFolderIndex >= 0) {
+        drive.navigateFolder(EVENT_GALLERY_FOLDER_ID);
+      } else {
+        drive.navigateFolder(EVENT_GALLERY_FOLDER_ID, EVENT_GALLERY_FOLDER_NAME);
+      }
+      return;
+    }
+    drive.navigateFolder(folderId, name);
+  };
+
+  const handleGalleryGoBack = () => {
+    if (!EVENT_GALLERY_FOLDER_ID) {
+      drive.goBack();
+      return;
+    }
+    if (drive.folderId === EVENT_GALLERY_FOLDER_ID) return;
+    drive.goBack();
+  };
+
+  const galleryVisibleItems = drive.searchResults ?? drive.items;
+  const galleryFileSequence = galleryVisibleItems.filter((item) => !item.isFolder);
+  const currentGalleryFileIndex = drive.viewingFile
+    ? galleryFileSequence.findIndex((item) => item.id === drive.viewingFile?.id)
+    : -1;
+  const galleryFolders = drive.items.filter((item) => item.isFolder);
+  const getAlbumMeta = (folder: DriveItem): GalleryAlbumMeta => {
+    const fromEnv = EVENT_GALLERY_ALBUM_META_FROM_ENV[folder.id];
+    const fromCode = EVENT_GALLERY_ALBUM_META[folder.id];
+    const cover = albumCoverMap[folder.id];
+    const inferred = inferAlbumMetaFromName(folder.name);
+
+    const autoDate =
+      formatAlbumDate(cover?.modifiedTime) ||
+      formatAlbumDate(folder.modifiedTime) ||
+      inferred.eventDate;
+
+    const baseAuto: GalleryAlbumMeta = {
+      title: inferred.title || folder.name,
+      badge: inferred.badge || "Event Album",
+      eventDate: autoDate,
+      description: inferred.description,
+      featured: inferred.featured,
+    };
+
+    if (fromEnv) {
+      return {
+        ...baseAuto,
+        ...fromEnv,
+        title: fromEnv.title || baseAuto.title,
+      };
+    }
+
+    if (fromCode) {
+      return {
+        ...baseAuto,
+        ...fromCode,
+        title: fromCode.title || baseAuto.title,
+      };
+    }
+
+    return {
+      ...baseAuto,
+    };
+  };
+
+  const newestFolderByModifiedTime = [...galleryFolders]
+    .filter((folder) => !!folder.modifiedTime)
+    .sort((a, b) => {
+      const at = new Date(a.modifiedTime || "").getTime();
+      const bt = new Date(b.modifiedTime || "").getTime();
+      return bt - at;
+    })[0];
+
+  const featuredAlbum =
+    (EVENT_GALLERY_FEATURED_ALBUM_ID
+      ? galleryFolders.find((folder) => folder.id === EVENT_GALLERY_FEATURED_ALBUM_ID)
+      : undefined) ||
+    galleryFolders.find((folder) => getAlbumMeta(folder).featured) ||
+    newestFolderByModifiedTime ||
+    galleryFolders[0] ||
+    null;
+  const nonFeaturedAlbums = galleryFolders.filter((folder) => !featuredAlbum || folder.id !== featuredAlbum.id);
+  const galleryFoldersCount = galleryVisibleItems.filter((item) => item.isFolder).length;
+  const galleryImagesCount = galleryVisibleItems.filter((item) => !item.isFolder && item.fileType === "image").length;
+  const galleryPreviewableCount = galleryVisibleItems.filter((item) => !item.isFolder && item.previewable).length;
+
+  const openGalleryItem = (item: DriveItem) => {
+    drive.openFile(item);
+    upsertGalleryRecentPhoto(item);
+  };
+
+  const openPrevGalleryFile = () => {
+    if (currentGalleryFileIndex <= 0) return;
+    const prev = galleryFileSequence[currentGalleryFileIndex - 1];
+    if (prev) openGalleryItem(prev);
+  };
+
+  const openNextGalleryFile = () => {
+    if (currentGalleryFileIndex < 0 || currentGalleryFileIndex >= galleryFileSequence.length - 1) return;
+    const next = galleryFileSequence[currentGalleryFileIndex + 1];
+    if (next) openGalleryItem(next);
+  };
+
+  useEffect(() => {
+    if (activeSubPage !== "gallery") return;
+    if (!EVENT_GALLERY_FOLDER_ID) return;
+    if (drive.folderId !== EVENT_GALLERY_FOLDER_ID) return;
+
+    const folders = drive.items.filter((item) => item.isFolder).slice(0, MAX_ALBUM_COVERS);
+    const folderFetchKey = folders.map((folder) => folder.id).join("|");
+
+    if (folders.length === 0) {
+      albumCoverFetchKeyRef.current = "";
+      setAlbumCoverMap((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+      setAlbumCoverLoading(false);
+      return;
+    }
+
+    if (albumCoverFetchKeyRef.current === folderFetchKey) {
+      return;
+    }
+    albumCoverFetchKeyRef.current = folderFetchKey;
+
+    let cancelled = false;
+
+    const fetchAlbumCovers = async () => {
+      setAlbumCoverLoading(true);
+      try {
+        const token = await getAccessToken();
+        const folderIds = folders.map((folder) => folder.id).join(",");
+        const res = await fetch(
+          getApiUrl(`/api/v1/drive/covers?folder_ids=${encodeURIComponent(folderIds)}`),
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!res.ok) throw new Error("Failed to fetch album covers");
+        const data = await res.json();
+        const covers = (data.covers || {}) as Record<string, DriveItem | null>;
+
+        if (!cancelled) setAlbumCoverMap(covers);
+      } finally {
+        if (!cancelled) setAlbumCoverLoading(false);
+      }
+    };
+
+    fetchAlbumCovers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSubPage, drive.folderId, drive.items, getAccessToken]);
+
   /* ── Verifying Payment ── */
   if (verifying) {
     return (
@@ -540,12 +850,38 @@ function EventsPage() {
       <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
         <div className="flex justify-end mb-3"><HelpButton onClick={openHelp} /></div>
 
+        <div className="bg-snow border-[3px] border-navy rounded-2xl p-1 mb-5 inline-flex items-center gap-1">
+          <button
+            onClick={() => setActiveSubPage("upcoming")}
+            className={`px-5 py-2.5 rounded-xl font-display font-bold text-xs uppercase tracking-wider border-[2px] transition-all ${
+              activeSubPage === "upcoming"
+                ? "bg-navy text-snow border-lime press-2 press-lime"
+                : "bg-snow text-slate border-transparent hover:text-navy"
+            }`}
+          >
+            Upcoming Events
+          </button>
+          <button
+            onClick={() => setActiveSubPage("gallery")}
+            className={`px-5 py-2.5 rounded-xl font-display font-bold text-xs uppercase tracking-wider border-[2px] transition-all ${
+              activeSubPage === "gallery"
+                ? "bg-lavender text-snow border-navy press-2 press-navy"
+                : "bg-snow text-slate border-transparent hover:text-navy"
+            }`}
+          >
+            Event Gallery
+          </button>
+        </div>
+
+        {activeSubPage === "upcoming" ? (
+        <>
+
         {/* ═══════════════════════════════════════════════════════
             HERO BENTO
             ═══════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6">
           {/* Title block */}
-          <div className="md:col-span-8 bg-coral border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[180px] flex flex-col justify-between">
+          <div className="md:col-span-12 bg-coral border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[180px] flex flex-col justify-between">
             <div className="absolute -bottom-12 -right-12 w-40 h-40 rounded-full bg-navy/8 pointer-events-none" />
             <svg aria-hidden="true" className="absolute top-6 right-10 w-5 h-5 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
@@ -567,28 +903,6 @@ function EventsPage() {
               <span className="text-[10px] font-bold text-navy bg-sunny rounded-md px-3 py-1 uppercase tracking-wider">
                 {registeredEvents.size} registered
               </span>
-            </div>
-          </div>
-
-          {/* Stats cards */}
-          <div className="md:col-span-4 grid grid-cols-2 md:grid-cols-1 gap-3">
-            <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
-              <div className="w-9 h-9 rounded-xl bg-lavender-light flex items-center justify-center mb-2">
-                <svg aria-hidden="true" className="w-4.5 h-4.5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
-                  <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Total</p>
-              <p className="font-display font-black text-3xl text-navy">{events.length}</p>
-            </div>
-            <div className="bg-teal-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
-              <div className="w-9 h-9 rounded-xl bg-teal/20 flex items-center justify-center mb-2">
-                <svg aria-hidden="true" className="w-4.5 h-4.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
-                  <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Going</p>
-              <p className="font-display font-black text-3xl text-navy">{registeredEvents.size}</p>
             </div>
           </div>
         </div>
@@ -928,7 +1242,239 @@ function EventsPage() {
         )}
         </>
         )}
+        </>
+        ) : (
+          <div className="space-y-5">
+            <div className="bg-lavender border-[4px] border-navy rounded-[2rem] p-7 md:p-8 shadow-[6px_6px_0_0_#000] relative overflow-hidden">
+              <svg aria-hidden="true" className="absolute top-6 right-8 w-5 h-5 text-snow/30 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+              </svg>
+              <p className="text-[10px] font-bold text-snow/70 uppercase tracking-[0.14em] mb-2">Highlights</p>
+              <h2 className="font-display font-black text-3xl md:text-4xl text-snow leading-[0.95] mb-3">Event Photo Gallery</h2>
+              <p className="text-sm text-snow/90 max-w-3xl leading-relaxed">
+                Browse event albums, open sub-folders, and preview images directly inside the dashboard.
+              </p>
+              <div className="flex flex-wrap gap-2 mt-4">
+                <span className="text-[10px] font-bold text-navy bg-snow rounded-md px-2.5 py-1 uppercase tracking-wider border border-navy/20">
+                  Albums: {galleryFoldersCount}
+                </span>
+                <span className="text-[10px] font-bold text-navy bg-coral-light rounded-md px-2.5 py-1 uppercase tracking-wider border border-navy/20">
+                  Images: {galleryImagesCount}
+                </span>
+                <span className="text-[10px] font-bold text-navy bg-lime-light rounded-md px-2.5 py-1 uppercase tracking-wider border border-navy/20">
+                  Previewable: {galleryPreviewableCount}
+                </span>
+              </div>
+            </div>
+
+            {!EVENT_GALLERY_FOLDER_ID ? (
+              <div className="bg-sunny-light border-[3px] border-navy rounded-2xl p-5 shadow-[4px_4px_0_0_#000]">
+                <h3 className="font-display font-black text-lg text-navy mb-1">Gallery folder not configured</h3>
+                <p className="text-sm text-navy-muted">
+                  Set <span className="font-bold text-navy">NEXT_PUBLIC_EVENTS_GALLERY_FOLDER_ID</span> in your frontend environment, then refresh this page.
+                </p>
+              </div>
+            ) : (
+              <>
+                {!drive.viewingFile && (
+                  <>
+                    {drive.folderId === EVENT_GALLERY_FOLDER_ID && featuredAlbum && (
+                      <button
+                        onClick={() => handleGalleryNavigateFolder(featuredAlbum.id, featuredAlbum.name)}
+                        className="w-full bg-sunny border-[4px] border-navy rounded-3xl p-4 sm:p-5 shadow-[5px_5px_0_0_#000] text-left press-4 press-navy transition-all"
+                      >
+                        <p className="text-[10px] font-bold text-navy/70 uppercase tracking-[0.12em] mb-2">Featured Album</p>
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                          <div className="md:col-span-2 rounded-2xl overflow-hidden border-[3px] border-navy bg-navy/10 min-h-[150px]">
+                            {albumCoverMap[featuredAlbum.id]?.thumbnailUrl ? (
+                              <img
+                                src={albumCoverMap[featuredAlbum.id]!.thumbnailUrl!}
+                                alt={getAlbumMeta(featuredAlbum).title || featuredAlbum.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full min-h-[150px] flex items-center justify-center text-navy">
+                                <svg aria-hidden="true" className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
+                                  <path fillRule="evenodd" d="M1.5 6a2.25 2.25 0 0 1 2.25-2.25h16.5A2.25 2.25 0 0 1 22.5 6v12a2.25 2.25 0 0 1-2.25 2.25H3.75A2.25 2.25 0 0 1 1.5 18V6Zm3 10.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0 0 21 18v-1.94l-2.69-2.689a1.5 1.5 0 0 0-2.12 0l-.88.879.97.97a.75.75 0 1 1-1.06 1.06l-5.16-5.159a1.5 1.5 0 0 0-2.12 0L4.5 16.061Z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                          <div className="md:col-span-3 space-y-2">
+                            <h3 className="font-display font-black text-2xl text-navy leading-tight">
+                              {getAlbumMeta(featuredAlbum).title || featuredAlbum.name}
+                            </h3>
+                            {getAlbumMeta(featuredAlbum).description && (
+                              <p className="text-sm text-navy-muted leading-relaxed">
+                                {getAlbumMeta(featuredAlbum).description}
+                              </p>
+                            )}
+                            <div className="flex flex-wrap gap-2 pt-1">
+                              {(getAlbumMeta(featuredAlbum).badge || "Event Album") && (
+                                <span className="text-[10px] font-bold uppercase tracking-wider bg-navy text-snow px-2.5 py-1 rounded-md">
+                                  {getAlbumMeta(featuredAlbum).badge || "Event Album"}
+                                </span>
+                              )}
+                              {getAlbumMeta(featuredAlbum).eventDate && (
+                                <span className="text-[10px] font-bold uppercase tracking-wider bg-snow text-navy px-2.5 py-1 rounded-md border-2 border-navy">
+                                  {getAlbumMeta(featuredAlbum).eventDate}
+                                </span>
+                              )}
+                              <span className="text-[10px] font-bold uppercase tracking-wider bg-lime text-navy px-2.5 py-1 rounded-md border-2 border-navy">
+                                Tap to open
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    )}
+
+                    {drive.folderId === EVENT_GALLERY_FOLDER_ID && galleryRecentPhotos.length > 0 && (
+                      <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000]">
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                          <h3 className="font-display font-black text-base text-navy">Recently Viewed Photos</h3>
+                          <button
+                            onClick={() => {
+                              setGalleryRecentPhotos([]);
+                              if (typeof window !== "undefined") {
+                                window.localStorage.removeItem(EVENT_GALLERY_RECENT_KEY);
+                              }
+                            }}
+                            className="text-[10px] font-bold uppercase tracking-wider text-slate hover:text-coral"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                        <div className="flex gap-3 overflow-x-auto pb-1">
+                          {galleryRecentPhotos.map((photo) => (
+                            <button
+                              key={photo.id}
+                              onClick={() => openGalleryItem(photo)}
+                              className="shrink-0 w-36 sm:w-40 bg-ghost border-[3px] border-navy rounded-2xl overflow-hidden text-left press-2 press-navy transition-all"
+                            >
+                              <div className="h-24 sm:h-28 bg-cloud">
+                                {photo.thumbnailUrl ? (
+                                  <img src={photo.thumbnailUrl} alt={photo.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-slate">
+                                    <svg aria-hidden="true" className="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
+                                      <path fillRule="evenodd" d="M1.5 6a2.25 2.25 0 0 1 2.25-2.25h16.5A2.25 2.25 0 0 1 22.5 6v12a2.25 2.25 0 0 1-2.25 2.25H3.75A2.25 2.25 0 0 1 1.5 18V6Z" clipRule="evenodd" />
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="p-2.5">
+                                <p className="text-[11px] font-bold text-navy line-clamp-2 leading-tight">{photo.name}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {drive.folderId === EVENT_GALLERY_FOLDER_ID && nonFeaturedAlbums.length > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                          <h3 className="font-display font-black text-lg text-navy">Albums</h3>
+                          {albumCoverLoading && <span className="text-xs font-bold text-slate uppercase tracking-wider">Loading covers…</span>}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {nonFeaturedAlbums.map((folder, index) => {
+                            const cover = albumCoverMap[folder.id];
+                            const meta = getAlbumMeta(folder);
+                            const rotation = index % 3 === 1 ? "rotate-[0.5deg] hover:rotate-0" : index % 3 === 2 ? "rotate-[-0.5deg] hover:rotate-0" : "";
+                            return (
+                              <button
+                                key={folder.id}
+                                onClick={() => handleGalleryNavigateFolder(folder.id, folder.name)}
+                                className={`bg-snow border-[3px] border-navy rounded-3xl overflow-hidden text-left press-3 press-navy transition-all ${rotation}`}
+                              >
+                                <div className="h-36 sm:h-40 bg-cloud relative">
+                                  {cover?.thumbnailUrl ? (
+                                    <img
+                                      src={cover.thumbnailUrl}
+                                      alt={meta?.title || folder.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-slate">
+                                      <svg aria-hidden="true" className="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M19.906 9c.382 0 .749.057 1.094.162V9a3 3 0 0 0-3-3h-3.879a.75.75 0 0 1-.53-.22L11.47 3.66A2.25 2.25 0 0 0 9.879 3H6a3 3 0 0 0-3 3v3.162A3.756 3.756 0 0 1 4.094 9h15.812Z" />
+                                        <path d="M4.094 10.5a2.25 2.25 0 0 0-2.227 2.568l.857 6A2.25 2.25 0 0 0 4.951 21H19.05a2.25 2.25 0 0 0 2.227-1.932l.857-6a2.25 2.25 0 0 0-2.227-2.568H4.094Z" />
+                                      </svg>
+                                    </div>
+                                  )}
+                                  <div className="absolute inset-0 bg-gradient-to-t from-navy/70 to-transparent" />
+                                  <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1.5">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md bg-snow/90 text-navy">
+                                      {meta?.badge || "Album"}
+                                    </span>
+                                    {meta?.eventDate && (
+                                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md bg-lime text-navy border border-navy/20">
+                                        {meta.eventDate}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="p-4">
+                                  <h4 className="font-display font-black text-base text-navy leading-tight line-clamp-2">
+                                    {meta?.title || folder.name}
+                                  </h4>
+                                  {meta?.description && (
+                                    <p className="text-xs text-navy-muted mt-1.5 line-clamp-2">{meta.description}</p>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                  </>
+                )}
+
+                <div className="rounded-3xl py-3 md:p-5 overflow-hidden">
+                  <DriveExplorer
+                    items={drive.items}
+                    breadcrumbs={galleryBreadcrumbs}
+                    folderId={drive.folderId}
+                    rootId={EVENT_GALLERY_FOLDER_ID || drive.rootId}
+                    loading={drive.loading}
+                    error={drive.error}
+                    searchQuery={drive.searchQuery}
+                    searchResults={drive.searchResults}
+                    searchLoading={drive.searchLoading}
+                    recentFiles={[]}
+                    progressMap={drive.progressMap}
+                    onNavigateFolder={handleGalleryNavigateFolder}
+                    onOpenFile={(item: DriveItem) => openGalleryItem(item)}
+                    onSearch={drive.setSearchQuery}
+                    onSearchSubmit={drive.doSearch}
+                    onGoBack={handleGalleryGoBack}
+                    onRetry={drive.refreshFolder}
+                    notConfigured={drive.notConfigured}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
+
+      {activeSubPage === "gallery" && (drive.viewingFile || drive.viewerLoading) && (
+        <ResourceViewer
+          key={drive.viewingFile?.id}
+          meta={drive.viewingFile!}
+          loading={drive.viewerLoading}
+          onClose={drive.closeViewer}
+          token={null}
+          hasPrev={currentGalleryFileIndex > 0}
+          hasNext={currentGalleryFileIndex >= 0 && currentGalleryFileIndex < galleryFileSequence.length - 1}
+          onPrev={openPrevGalleryFile}
+          onNext={openNextGalleryFile}
+        />
+      )}
 
       {/* ═══════════════════════════════════════════════════════
           PAYMENT METHOD MODAL

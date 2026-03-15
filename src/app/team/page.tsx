@@ -95,12 +95,18 @@ export default function PublicTeamPage() {
     <div className="min-h-screen bg-ghost text-navy overflow-x-hidden">
       {/* Diamond sparkle decorators */}
       {[
-        "top-20 left-[8%] w-5 h-5 text-teal/14",
-        "top-[35%] right-[10%] w-6 h-6 text-coral/12",
-        "bottom-[40%] left-[5%] w-7 h-7 text-lavender/16",
-        "bottom-[15%] right-[20%] w-5 h-5 text-sunny/14",
-      ].map((cls, i) => (
-        <svg key={i} className={`fixed ${cls} pointer-events-none z-0`} aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+        { cls: "top-20 left-[8%] w-3 h-3 md:w-5 md:h-5 text-teal/8 md:text-teal/14 animate-float-slow" },
+        { cls: "hidden md:block top-[35%] right-[10%] w-6 h-6 text-coral/12 animate-float-medium" },
+        { cls: "hidden md:block bottom-[40%] left-[5%] w-7 h-7 text-lavender/16 animate-float-slow" },
+        { cls: "bottom-[15%] right-[12%] w-3 h-3 md:w-5 md:h-5 text-sunny/8 md:text-sunny/14 animate-float-fast" },
+      ].map((item, i) => (
+        <svg
+          key={i}
+          className={`fixed ${item.cls} pointer-events-none z-0`}
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+        >
           <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
         </svg>
       ))}
@@ -109,15 +115,21 @@ export default function PublicTeamPage() {
 
       <main id="main-content" className="pt-14 sm:pt-16">
         {/* ── Hero ── */}
-        <section className="pt-16 pb-12 relative overflow-hidden md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+        <section className="pt-12 pb-10 md:pt-16 md:pb-12 relative md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
+          <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+            <div className="absolute top-12 right-[6%] w-20 h-20 md:w-32 md:h-32 rounded-3xl bg-lime-light/50 md:bg-lime-light border-[3px] border-navy/10 animate-float-slow" />
+            <div className="hidden sm:block absolute top-[28%] left-[4%] w-24 h-24 rounded-2xl bg-coral-light border-[3px] border-navy/10 animate-float-fast" />
+            <div className="absolute bottom-[18%] right-[12%] w-16 h-16 md:w-28 md:h-28 rounded-2xl bg-lavender-light/50 md:bg-lavender-light border-[3px] border-navy/10 animate-float-medium" />
+          </div>
+
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10 relative z-10">
             <div className="max-w-3xl">
               <p className="text-label uppercase tracking-wider text-slate mb-3">Leadership</p>
-              <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[5rem] leading-[0.9] text-navy">
+              <h1 className="font-display font-black text-[2.1rem] sm:text-[4rem] lg:text-[5rem] leading-[0.92] text-navy max-w-[12ch]">
                 Meet the{" "}
                 <span className="brush-highlight">IESA Team</span>
               </h1>
-              <p className="text-lg text-slate mt-4 max-w-xl">
+              <p className="text-base sm:text-lg text-slate mt-4 max-w-xl">
                 The people driving the Industrial Engineering Students&apos; Association forward — united in purpose, driven by excellence.
               </p>
               <Link
@@ -129,6 +141,21 @@ export default function PublicTeamPage() {
                   <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                 </svg>
               </Link>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform">
+                <p className="text-label-sm text-slate uppercase">Executive Roles</p>
+                <p className="font-display font-black text-3xl text-navy mt-1">{executives.length}</p>
+              </div>
+              <div className="bg-lavender-light border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000] rotate-[0.3deg] hover:rotate-0 transition-transform">
+                <p className="text-label-sm text-slate uppercase">Class Reps</p>
+                <p className="font-display font-black text-3xl text-navy mt-1">{classReps.length}</p>
+              </div>
+              <div className="bg-teal-light border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.2deg] hover:rotate-0 transition-transform">
+                <p className="text-label-sm text-slate uppercase">Committees</p>
+                <p className="font-display font-black text-3xl text-navy mt-1">{committees.length}</p>
+              </div>
             </div>
 
             {/* ── Tab navigation ── */}
@@ -204,17 +231,23 @@ export default function PublicTeamPage() {
                   {otherExcos.map((exco, i) => {
                     const accent = ACCENT_CYCLE[i % ACCENT_CYCLE.length];
                     const rotations = ["rotate-[0.4deg]", "rotate-[-0.3deg]", "rotate-[0.5deg]", "rotate-[-0.4deg]"];
+                    const isSpotlight = i < 2;
                     return (
                       <div
                         key={exco.position}
-                        className={`bg-snow border-[3px] border-navy border-l-[6px] ${accent.border} rounded-[1.5rem] p-5 shadow-[4px_4px_0_0_#000] ${rotations[i % rotations.length]} hover:rotate-0 transition-transform`}
+                        className={`bg-snow border-[3px] border-navy border-l-[6px] ${accent.border} rounded-[1.5rem] ${isSpotlight ? "p-6 shadow-[6px_6px_0_0_#000]" : "p-5 shadow-[4px_4px_0_0_#000]"} ${rotations[i % rotations.length]} hover:rotate-0 transition-transform`}
                       >
+                        {isSpotlight && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-sunny-light border-[2px] border-navy font-display font-bold text-[10px] text-navy uppercase tracking-[0.08em] mb-3">
+                            Executive Spotlight
+                          </span>
+                        )}
                         <div className="flex items-start gap-4">
-                          <div className={`w-12 h-12 rounded-xl ${accent.iconBg} flex items-center justify-center flex-shrink-0 border-[3px] border-navy`}>
-                            <span className="font-display font-black text-lg text-navy">{exco.user.firstName[0]}</span>
+                          <div className={`${isSpotlight ? "w-14 h-14" : "w-12 h-12"} rounded-xl ${accent.iconBg} flex items-center justify-center flex-shrink-0 border-[3px] border-navy`}>
+                            <span className={`font-display font-black ${isSpotlight ? "text-xl" : "text-lg"} text-navy`}>{exco.user.firstName[0]}</span>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-display font-black text-base text-navy">
+                            <h3 className={`font-display font-black ${isSpotlight ? "text-lg" : "text-base"} text-navy`}>
                               {exco.user.firstName} {exco.user.lastName}
                             </h3>
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg ${accent.bg} font-display font-bold text-[10px] text-navy uppercase tracking-[0.08em] mt-0.5`}>

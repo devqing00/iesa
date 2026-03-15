@@ -21,15 +21,21 @@ import asyncio
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Security, status
 from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
 from app.db import get_database
-from app.core.security import get_current_user, require_ipe_student
+from app.core.security import (
+    get_current_user,
+    require_ipe_student,
+    verify_firebase_id_token_raw,
+    verify_token,
+)
 from app.core.error_handling import safe_detail
 from app.core.drive import (
     DRIVE_ROOT_FOLDER_ID,
@@ -44,15 +50,19 @@ from app.core.drive import (
     get_thumbnail_url,
     get_cached_folder,
     set_folder_cache,
+    get_cached_cover,
+    set_cached_cover,
 )
 
 logger = logging.getLogger("iesa_backend")
+DRIVE_ENABLE_COVER_PREWARM = os.getenv("DRIVE_ENABLE_COVER_PREWARM", "0").strip().lower() in {"1", "true", "yes", "on"}
 
 router = APIRouter(
     prefix="/api/v1/drive",
     tags=["drive"],
-    dependencies=[Depends(require_ipe_student)],
 )
+
+optional_bearer = HTTPBearer(auto_error=False)
 
 
 # ── Pydantic models ─────────────────────────────────────────
@@ -118,6 +128,67 @@ def _serialize_item(item: dict) -> dict:
     return result
 
 
+def _pick_cover_item(items: List[dict]) -> Optional[dict]:
+    """Pick a representative cover item from serialized folder items."""
+    files = [item for item in items if not item.get("isFolder")]
+    if not files:
+        return None
+
+    return (
+        next((item for item in files if item.get("fileType") == "image" and item.get("previewable")), None)
+        or next((item for item in files if item.get("fileType") == "image"), None)
+        or next((item for item in files if item.get("previewable")), None)
+        or files[0]
+    )
+
+
+async def _prewarm_cover_cache(db, folder_ids: List[str]):
+    """Warm cover cache for child folders in the background (non-blocking)."""
+    if not folder_ids:
+        return
+
+    loop = asyncio.get_event_loop()
+
+    async def warm_one(folder_id: str):
+        try:
+            cached_cover = await get_cached_cover(db, folder_id)
+            if cached_cover is not None:
+                return
+
+            cached_folder = await get_cached_folder(db, folder_id)
+            if cached_folder and isinstance(cached_folder.get("items"), list):
+                await set_cached_cover(db, folder_id, _pick_cover_item(cached_folder["items"]))
+                return
+
+            items_raw, _ = await loop.run_in_executor(None, lambda: list_folder(folder_id, None, 20))
+            items = [_serialize_item(item) for item in items_raw]
+            await set_cached_cover(db, folder_id, _pick_cover_item(items))
+        except Exception as e:
+            logger.debug("Drive cover prewarm skipped for %s: %s", folder_id, e)
+
+    await asyncio.gather(*(warm_one(folder_id) for folder_id in folder_ids[:12]))
+
+
+async def _stream_auth_user(
+    token: Optional[str] = Query(None, description="Firebase access token (query fallback for media tags)"),
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(optional_bearer),
+):
+    """Authenticate stream requests via Authorization header or query token."""
+    if credentials:
+        token_data = await verify_token(credentials)
+    elif token:
+        token_data = await verify_firebase_id_token_raw(token)
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing authentication token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = await get_current_user(token_data)
+    return await require_ipe_student(user)
+
+
 # ── Endpoints ────────────────────────────────────────────────
 
 @router.get("/browse")
@@ -140,6 +211,7 @@ async def browse_folder(
 
     target_id = folderId or root_id
     db = get_database()
+    stale_cached = await db["drive_cache"].find_one({"folderId": target_id}) if not pageToken else None
 
     # Check cache (only for first page)
     if not pageToken:
@@ -159,14 +231,38 @@ async def browse_folder(
         items_raw, next_token = await loop.run_in_executor(
             None, lambda: list_folder(target_id, pageToken, pageSize)
         )
+        if not pageToken and not items_raw:
+            # Guard against transient empty responses from Drive API.
+            retry_items_raw, retry_next_token = await loop.run_in_executor(
+                None, lambda: list_folder(target_id, pageToken, pageSize)
+            )
+            if retry_items_raw:
+                items_raw, next_token = retry_items_raw, retry_next_token
         breadcrumbs = await loop.run_in_executor(
             None, lambda: get_folder_breadcrumbs(target_id, root_id)
         )
     except Exception as e:
         logger.error("Drive browse error: %s", e)
+        if stale_cached:
+            logger.warning("Serving stale Drive cache for folder %s after browse failure", target_id)
+            return {
+                "items": stale_cached.get("items", []),
+                "breadcrumbs": stale_cached.get("breadcrumbs", [{"id": root_id, "name": "Resources"}]),
+                "folderId": target_id,
+                "rootId": root_id,
+                "nextPageToken": None,
+                "fromCache": True,
+                "stale": True,
+            }
         raise HTTPException(status_code=502, detail=safe_detail("Failed to browse Drive folder", e))
 
     items = [_serialize_item(i) for i in items_raw]
+
+    # Non-blocking: warm cover cache for child folders to speed gallery cards
+    if not pageToken and DRIVE_ENABLE_COVER_PREWARM:
+        child_folder_ids = [item["id"] for item in items if item.get("isFolder")]
+        if child_folder_ids:
+            asyncio.create_task(_prewarm_cover_cache(db, child_folder_ids[:4]))
 
     # Cache first-page results
     if not pageToken:
@@ -236,7 +332,8 @@ async def file_metadata(
 @router.get("/file/{file_id}/stream")
 async def stream_file(
     file_id: str,
-    user: dict = Depends(require_ipe_student),
+    download: bool = Query(False, description="Force download as attachment"),
+    user: dict = Depends(_stream_auth_user),
 ):
     """
     Proxy-stream a Drive file's bytes to the browser.
@@ -266,11 +363,22 @@ async def stream_file(
     except Exception as e:
         raise HTTPException(status_code=502, detail=safe_detail("Failed to download file", e))
 
+    if buf.getbuffer().nbytes == 0:
+        try:
+            buf = await loop.run_in_executor(None, lambda: download_file_bytes(file_id))
+        except Exception:
+            pass
+
+    if buf.getbuffer().nbytes == 0:
+        raise HTTPException(status_code=502, detail="Drive returned an empty file stream. Please retry.")
+
     file_size = buf.getbuffer().nbytes
     file_name = meta.get("name", "download")
 
+    disposition = "attachment" if download else "inline"
+
     headers = {
-        "Content-Disposition": f'inline; filename="{file_name}"',
+        "Content-Disposition": f'{disposition}; filename="{file_name}"',
         "Content-Length": str(file_size),
         "Accept-Ranges": "bytes",
         "Cache-Control": "private, max-age=3600",
@@ -302,6 +410,58 @@ async def search_drive(
     return {
         "results": [_serialize_item(r) for r in results],
         "query": q,
+    }
+
+
+@router.get("/covers")
+async def get_folder_covers(
+    folder_ids: str = Query(..., description="Comma-separated folder IDs"),
+    user: dict = Depends(require_ipe_student),
+):
+    """Get representative cover items for many folders in one request (cached)."""
+    db = get_database()
+    loop = asyncio.get_event_loop()
+
+    folder_list = [folder_id.strip() for folder_id in folder_ids.split(",") if folder_id.strip()]
+    # preserve order while deduplicating
+    seen = set()
+    folder_list = [folder_id for folder_id in folder_list if not (folder_id in seen or seen.add(folder_id))]
+
+    if not folder_list:
+        return {"covers": {}, "count": 0}
+
+    if len(folder_list) > 50:
+        raise HTTPException(status_code=400, detail="Maximum 50 folder IDs per request")
+
+    async def resolve_cover(folder_id: str):
+        cached_cover = await get_cached_cover(db, folder_id)
+        if cached_cover is not None:
+            return folder_id, cached_cover
+
+        cached_folder = await get_cached_folder(db, folder_id)
+        if cached_folder and isinstance(cached_folder.get("items"), list):
+            cover = _pick_cover_item(cached_folder["items"])
+            await set_cached_cover(db, folder_id, cover)
+            return folder_id, cover
+
+        try:
+            items_raw, _ = await loop.run_in_executor(
+                None, lambda: list_folder(folder_id, None, 20)
+            )
+            items = [_serialize_item(item) for item in items_raw]
+            cover = _pick_cover_item(items)
+            await set_cached_cover(db, folder_id, cover)
+            return folder_id, cover
+        except Exception as e:
+            logger.warning("Drive cover fetch failed for folder %s: %s", folder_id, e)
+            return folder_id, None
+
+    results = await asyncio.gather(*(resolve_cover(folder_id) for folder_id in folder_list))
+    covers: Dict[str, Optional[dict]] = {folder_id: cover for folder_id, cover in results}
+
+    return {
+        "covers": covers,
+        "count": len(covers),
     }
 
 

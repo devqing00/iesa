@@ -749,6 +749,21 @@ select.input-field {
   100% { background-position: 200% 0; }
 }
 
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes float-medium {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+
+@keyframes float-fast {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
 .animate-shimmer {
   background: linear-gradient(
     90deg,
@@ -766,6 +781,13 @@ select.input-field {
 .animate-slide-left { animation: slideInLeft 0.5s ease forwards; }
 .animate-slide-right { animation: slideInRight 0.5s ease forwards; }
 .animate-pulse-soft { animation: pulse-soft 2s ease infinite; }
+.animate-float-slow { animation: float-slow 6.5s ease-in-out infinite; }
+.animate-float-medium { animation: float-medium 5.5s ease-in-out infinite; }
+.animate-float-fast { animation: float-fast 4.5s ease-in-out infinite; }
+
+.timer-progress-circle {
+  transition: stroke-dashoffset 0.5s ease;
+}
 
 .stagger-1 { animation-delay: 0.1s; }
 .stagger-2 { animation-delay: 0.2s; }

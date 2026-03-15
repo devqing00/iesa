@@ -215,6 +215,7 @@ export default function MessagesPage() {
 
   /* ── Mobile view toggle ── */
   const [showThread, setShowThread] = useState(false);
+  const [threadToolsOpen, setThreadToolsOpen] = useState(false);
 
   /* ── Scroll ref ── */
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -795,12 +796,24 @@ export default function MessagesPage() {
     setActiveMsgId(null);
   }, []);
 
+  const getContextMenuPosition = useCallback((x: number, y: number) => {
+    if (typeof window === "undefined") return { left: x, top: y, width: 200 };
+    const width = window.innerWidth < 768 ? Math.min(250, window.innerWidth - 24) : 200;
+    const height = 320;
+    const left = Math.max(12, Math.min(x, window.innerWidth - width - 12));
+    const top = Math.max(12, Math.min(y, window.innerHeight - height - 12));
+    return { left, top, width };
+  }, []);
+
   /* ── Close menus on outside click ── */
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (contextMenu && !target.closest("[data-msg-context-menu]")) {
         setContextMenu(null);
+      }
+      if (threadToolsOpen && !target.closest("[data-thread-tools]")) {
+        setThreadToolsOpen(false);
       }
       if (activeMsgId && !target.closest("[data-msg-actions]") && !target.closest("[data-msg-bubble]")) {
         setActiveMsgId(null);
@@ -809,7 +822,7 @@ export default function MessagesPage() {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [contextMenu, activeMsgId]);
+  }, [contextMenu, activeMsgId, threadToolsOpen]);
 
   /* ── Can delete check (within 5 min, own message, not deleted) ── */
   const canDelete = (msg: Message) => {
@@ -1091,6 +1104,10 @@ export default function MessagesPage() {
       messagesEndRef.current?.scrollIntoView({ behavior });
     });
   }, [messages]);
+
+  useEffect(() => {
+    setThreadToolsOpen(false);
+  }, [selectedConv?.otherUserId]);
 
   /* ── Group messages by date ── */
   const groupedMessages: { date: string; msgs: Message[] }[] = [];
@@ -1541,7 +1558,7 @@ export default function MessagesPage() {
                     </div>
                   </div>
                   {/* Action buttons */}
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="hidden lg:flex items-center gap-1 shrink-0">
                     {/* Message search */}
                     <button
                       onClick={() => setMsgSearchOpen(true)}
@@ -1600,6 +1617,65 @@ export default function MessagesPage() {
                         </svg>
                       </button>
                     ) : null}
+                  </div>
+
+                  <div className="relative lg:hidden shrink-0" data-thread-tools>
+                    <button
+                      onClick={() => setThreadToolsOpen((prev) => !prev)}
+                      className="p-1.5 rounded-lg text-slate hover:text-navy hover:bg-ghost transition-colors"
+                      aria-label="Thread tools"
+                      aria-expanded={threadToolsOpen}
+                    >
+                      <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M5.25 12a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm6.75 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm5.25 1.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
+                      </svg>
+                    </button>
+                    {threadToolsOpen && (
+                      <div className="absolute right-0 top-10 w-48 bg-snow border-[3px] border-navy rounded-xl shadow-[4px_4px_0_0_#000] z-30 py-1">
+                        <button
+                          onClick={() => { setMsgSearchOpen(true); setThreadToolsOpen(false); }}
+                          className="w-full text-left px-3 py-2 text-sm text-navy hover:bg-ghost"
+                        >
+                          Search messages
+                        </button>
+                        <button
+                          onClick={() => { setPinnedOpen(true); fetchPinned(); setThreadToolsOpen(false); }}
+                          className="w-full text-left px-3 py-2 text-sm text-navy hover:bg-ghost"
+                        >
+                          Pinned messages
+                        </button>
+                        {!isBlocked && (
+                          <button
+                            onClick={() => { setReportModal(true); setThreadToolsOpen(false); }}
+                            className="w-full text-left px-3 py-2 text-sm text-navy hover:bg-ghost"
+                          >
+                            Report user
+                          </button>
+                        )}
+                        {blockedByMe ? (
+                          <button
+                            onClick={() => { handleUnblock(selectedConv.otherUserId); setThreadToolsOpen(false); }}
+                            className="w-full text-left px-3 py-2 text-sm text-teal hover:bg-ghost"
+                          >
+                            Unblock user
+                          </button>
+                        ) : !isBlocked ? (
+                          <button
+                            onClick={() => {
+                              setBlockModal({
+                                open: true,
+                                userId: selectedConv.otherUserId,
+                                name: otherUser?.name || selectedConv.otherUserName,
+                              });
+                              setThreadToolsOpen(false);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm text-coral hover:bg-coral-light"
+                          >
+                            Block user
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1780,23 +1856,40 @@ export default function MessagesPage() {
 
                                   {/* Emoji picker (attached to the action bar) */}
                                   {emojiPickerMsgId === msg.id && (
-                                    <div
-                                      className={`absolute -top-[4.25rem] flex items-center gap-1 bg-snow border-[2px] border-navy rounded-xl shadow-[4px_4px_0_0_#000] px-2 py-1.5 z-20 ${
-                                        isMine ? "right-0" : "left-0"
-                                      }`}
-                                      data-msg-actions
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      {["👍", "❤️", "😂", "😮", "😢", "🔥", "👎", "🎉"].map((emoji) => (
-                                        <button
-                                          key={emoji}
-                                          onClick={(e) => { e.stopPropagation(); handleReaction(msg.id, emoji); setActiveMsgId(null); }}
-                                          className="text-base hover:scale-125 transition-transform p-0.5"
-                                        >
-                                          {emoji}
-                                        </button>
-                                      ))}
-                                    </div>
+                                    <>
+                                      <div
+                                        className={`absolute -top-[4.25rem] hidden md:flex items-center gap-1 bg-snow border-[2px] border-navy rounded-xl shadow-[4px_4px_0_0_#000] px-2 py-1.5 z-20 ${
+                                          isMine ? "right-0" : "left-0"
+                                        }`}
+                                        data-msg-actions
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {["👍", "❤️", "😂", "😮", "😢", "🔥", "👎", "🎉"].map((emoji) => (
+                                          <button
+                                            key={emoji}
+                                            onClick={(e) => { e.stopPropagation(); handleReaction(msg.id, emoji); setActiveMsgId(null); }}
+                                            className="text-base hover:scale-125 transition-transform p-0.5"
+                                          >
+                                            {emoji}
+                                          </button>
+                                        ))}
+                                      </div>
+                                      <div
+                                        className="fixed inset-x-3 bottom-3 md:hidden flex items-center justify-center gap-1 bg-snow border-[3px] border-navy rounded-xl shadow-[5px_5px_0_0_#000] px-3 py-2 z-40"
+                                        data-msg-actions
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {["👍", "❤️", "😂", "😮", "😢", "🔥", "👎", "🎉"].map((emoji) => (
+                                          <button
+                                            key={emoji}
+                                            onClick={(e) => { e.stopPropagation(); handleReaction(msg.id, emoji); setActiveMsgId(null); }}
+                                            className="text-xl active:scale-90 transition-transform p-0.5"
+                                          >
+                                            {emoji}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </>
                                   )}
 
                                   {isDeleted ? (
@@ -1909,6 +2002,7 @@ export default function MessagesPage() {
                     const ctxMsg = messages.find((m) => m.id === contextMenu.msgId);
                     if (!ctxMsg || ctxMsg.deletedAt) return null;
                     const isMineCtx = ctxMsg.senderId === currentUserId;
+                    const menuPos = getContextMenuPosition(contextMenu.x, contextMenu.y);
                     return (
                       <div
                         className="fixed inset-0 z-50"
@@ -1919,10 +2013,11 @@ export default function MessagesPage() {
                         <div className="absolute inset-0 bg-navy/10 md:bg-transparent" />
                         <div
                           data-msg-context-menu
-                          className="absolute bg-snow border-[3px] border-navy rounded-2xl shadow-[5px_5px_0_0_#000] py-2 min-w-[180px] z-50"
+                          className="absolute bg-snow border-[3px] border-navy rounded-2xl shadow-[5px_5px_0_0_#000] py-2 z-50"
                           style={{
-                            left: Math.min(contextMenu.x, window.innerWidth - 200),
-                            top: Math.min(contextMenu.y, window.innerHeight - 280),
+                            left: menuPos.left,
+                            top: menuPos.top,
+                            width: menuPos.width,
                           }}
                           onClick={(e) => e.stopPropagation()}
                         >

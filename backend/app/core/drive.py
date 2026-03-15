@@ -24,6 +24,8 @@ import io
 import json
 import base64
 import logging
+import ssl
+import time
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 from functools import lru_cache
@@ -146,6 +148,30 @@ def get_thumbnail_url(file_id: str, size: int = 400) -> str:
     return f"https://drive.google.com/thumbnail?id={file_id}&sz=s{size}"
 
 
+def _is_transient_ssl_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return (
+        isinstance(exc, ssl.SSLError)
+        or "decryption failed or bad record mac" in message
+        or "ssl" in message and "record mac" in message
+    )
+
+
+def _execute_with_retry(request, retries: int = 2, base_delay: float = 0.2):
+    """Execute a Google API request with brief retries for transient SSL transport errors."""
+    last_error: Optional[Exception] = None
+    for attempt in range(retries + 1):
+        try:
+            return request.execute()
+        except Exception as exc:
+            last_error = exc
+            if attempt >= retries or not _is_transient_ssl_error(exc):
+                raise
+            time.sleep(base_delay * (2 ** attempt))
+    if last_error:
+        raise last_error
+
+
 # ── Core API wrappers (sync — must be run via run_in_executor) ───
 
 def list_folder(folder_id: str, page_token: Optional[str] = None, page_size: int = 100):
@@ -171,8 +197,8 @@ def list_folder(folder_id: str, page_token: Optional[str] = None, page_size: int
             supportsAllDrives=True,
             includeItemsFromAllDrives=True,
         )
-        .execute()
     )
+    result = _execute_with_retry(result)
     items = result.get("files", [])
     next_token = result.get("nextPageToken")
     return items, next_token
@@ -187,11 +213,11 @@ def get_file_metadata(file_id: str) -> dict:
         "description, imageMediaMetadata, videoMediaMetadata, "
         "parents"
     )
-    return (
+    request = (
         service.files()
         .get(fileId=file_id, fields=fields, supportsAllDrives=True)
-        .execute()
     )
+    return _execute_with_retry(request)
 
 
 def download_file_bytes(file_id: str) -> io.BytesIO:
@@ -241,8 +267,8 @@ def search_files(query_text: str, folder_id: Optional[str] = None, page_size: in
             result = (
                 service.files()
                 .list(q=q, fields=fields, pageSize=page_size, supportsAllDrives=True, includeItemsFromAllDrives=True)
-                .execute()
             )
+            result = _execute_with_retry(result)
             all_results.extend(result.get("files", []))
             if len(all_results) >= page_size:
                 break
@@ -255,8 +281,8 @@ def search_files(query_text: str, folder_id: Optional[str] = None, page_size: in
         result = (
             service.files()
             .list(q=q, fields=fields, pageSize=page_size, supportsAllDrives=True, includeItemsFromAllDrives=True)
-            .execute()
         )
+        result = _execute_with_retry(result)
         return result.get("files", [])
 
 
@@ -273,8 +299,8 @@ def _collect_descendant_folders(service, parent_id: str, max_depth: int = 8) -> 
                 result = (
                     service.files()
                     .list(q=q, fields="files(id)", pageSize=200, supportsAllDrives=True, includeItemsFromAllDrives=True)
-                    .execute()
                 )
+                result = _execute_with_retry(result)
                 for f in result.get("files", []):
                     if f["id"] not in folder_ids:
                         folder_ids.add(f["id"])
@@ -301,8 +327,8 @@ def get_folder_breadcrumbs(file_id: str, root_id: str) -> List[dict]:
             meta = (
                 service.files()
                 .get(fileId=current, fields="id, name, parents", supportsAllDrives=True)
-                .execute()
             )
+            meta = _execute_with_retry(meta)
             crumbs.append({"id": meta["id"], "name": meta["name"]})
             parents = meta.get("parents", [])
             current = parents[0] if parents else None
@@ -315,8 +341,8 @@ def get_folder_breadcrumbs(file_id: str, root_id: str) -> List[dict]:
             root_meta = (
                 service.files()
                 .get(fileId=root_id, fields="id, name", supportsAllDrives=True)
-                .execute()
             )
+            root_meta = _execute_with_retry(root_meta)
             crumbs.append({"id": root_meta["id"], "name": root_meta["name"]})
         except Exception:
             crumbs.append({"id": root_id, "name": "Resources"})
@@ -343,6 +369,30 @@ async def set_folder_cache(db, folder_id: str, items: list, breadcrumbs: list):
             "$set": {
                 "items": items,
                 "breadcrumbs": breadcrumbs,
+                "cachedAt": datetime.now(timezone.utc),
+                "expiresAt": datetime.now(timezone.utc) + timedelta(seconds=DRIVE_CACHE_TTL),
+            }
+        },
+        upsert=True,
+    )
+
+
+async def get_cached_cover(db, folder_id: str) -> Optional[dict]:
+    """Return cached album cover item for a folder if not expired."""
+    doc = await db["drive_cache"].find_one({"coverFolderId": folder_id})
+    if doc and doc.get("expiresAt", datetime.min.replace(tzinfo=timezone.utc)) > datetime.now(timezone.utc):
+        return doc.get("coverItem")
+    return None
+
+
+async def set_cached_cover(db, folder_id: str, cover_item: Optional[dict]):
+    """Upsert album cover cache with TTL."""
+    await db["drive_cache"].update_one(
+        {"coverFolderId": folder_id},
+        {
+            "$set": {
+                "coverFolderId": folder_id,
+                "coverItem": cover_item,
                 "cachedAt": datetime.now(timezone.utc),
                 "expiresAt": datetime.now(timezone.utc) + timedelta(seconds=DRIVE_CACHE_TTL),
             }

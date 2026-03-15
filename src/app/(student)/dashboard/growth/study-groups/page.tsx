@@ -2,6 +2,7 @@
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { ConfirmModal } from "@/components/ui/Modal";
 import Link from "next/link";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
@@ -40,7 +41,9 @@ interface GroupSession {
   title: string;
   date: string;
   time: string;
+  meetupType?: "physical" | "online";
   location?: string;
+  meetingLink?: string;
   agenda?: string;
   createdBy: string;
   creatorName: string;
@@ -61,15 +64,14 @@ interface GroupResource {
 interface StudyGroup {
   id: string;
   name: string;
-  courseCode: string;
+  courseCode?: string;
   courseName?: string;
   description?: string;
   maxMembers: number;
-  meetingDay?: string;
-  meetingTime?: string;
-  meetingLocation?: string;
   level?: string;
   tags: string[];
+  visibility?: "public" | "private";
+  publicJoinRequiresApproval?: boolean;
   isOpen: boolean;
   requireApproval: boolean;
   createdBy: string;
@@ -85,10 +87,19 @@ interface StudyGroup {
   updatedAt: string;
 }
 
+interface InviteSearchStudent {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  matricNumber?: string;
+  role?: string;
+  level?: string;
+}
+
 type ViewMode = "browse" | "my-groups" | "create" | "detail";
 type DetailTab = "overview" | "feed" | "sessions" | "resources";
 
-const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const LEVELS = ["100", "200", "300", "400", "500"];
 const POLL_INTERVAL = 30_000; // 30s REST polling
 
@@ -296,16 +307,12 @@ export default function StudyGroupFinderPage() {
 
   // ─── Form state ──────────────────────────────────────────
   const [formName, setFormName] = useState("");
-  const [formCourseCode, setFormCourseCode] = useState("");
-  const [formCourseName, setFormCourseName] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formMaxMembers, setFormMaxMembers] = useState(8);
-  const [formMeetingDay, setFormMeetingDay] = useState("");
-  const [formMeetingTime, setFormMeetingTime] = useState("");
-  const [formMeetingLocation, setFormMeetingLocation] = useState("");
   const [formLevel, setFormLevel] = useState("");
   const [formTags, setFormTags] = useState("");
-  const [formRequireApproval, setFormRequireApproval] = useState(false);
+  const [formVisibility, setFormVisibility] = useState<"public" | "private">("public");
+  const [formPublicJoinRequiresApproval, setFormPublicJoinRequiresApproval] = useState(false);
 
   // ─── New feature state ────────────────────────────────────
   const [detailTab, setDetailTab] = useState<DetailTab>("overview");
@@ -316,7 +323,9 @@ export default function StudyGroupFinderPage() {
   const [sessionTitle, setSessionTitle] = useState("");
   const [sessionDate, setSessionDate] = useState("");
   const [sessionTime, setSessionTime] = useState("");
+  const [sessionMeetupType, setSessionMeetupType] = useState<"physical" | "online">("physical");
   const [sessionLocation, setSessionLocation] = useState("");
+  const [sessionMeetingLink, setSessionMeetingLink] = useState("");
   const [sessionAgenda, setSessionAgenda] = useState("");
   // Resource form
   const [resourceTitle, setResourceTitle] = useState("");
@@ -325,14 +334,31 @@ export default function StudyGroupFinderPage() {
   // Edit form
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
-  const [editMeetingDay, setEditMeetingDay] = useState("");
-  const [editMeetingTime, setEditMeetingTime] = useState("");
-  const [editMeetingLocation, setEditMeetingLocation] = useState("");
   const [editPinnedNote, setEditPinnedNote] = useState("");
+  const [editVisibility, setEditVisibility] = useState<"public" | "private">("public");
+  const [editPublicJoinRequiresApproval, setEditPublicJoinRequiresApproval] = useState(false);
   const [editIsOpen, setEditIsOpen] = useState(true);
   const [editMaxMembers, setEditMaxMembers] = useState(8);
   const [editTags, setEditTags] = useState("");
-  const [editRequireApproval, setEditRequireApproval] = useState(false);
+  const [inviteSearchQuery, setInviteSearchQuery] = useState("");
+  const [inviteSearchResults, setInviteSearchResults] = useState<InviteSearchStudent[]>([]);
+  const [selectedInviteeIds, setSelectedInviteeIds] = useState<string[]>([]);
+  const [inviteSearching, setInviteSearching] = useState(false);
+  const [inviteSending, setInviteSending] = useState(false);
+  const [deleteTargetGroupId, setDeleteTargetGroupId] = useState<string | null>(null);
+  const [removeMemberTarget, setRemoveMemberTarget] = useState<{ groupId: string; memberId: string } | null>(null);
+
+  const getGroupVisibility = useCallback((group: StudyGroup) => {
+    return group.visibility === "private" ? "private" : "public";
+  }, []);
+
+  const requiresApproval = useCallback((group: StudyGroup) => {
+    if (getGroupVisibility(group) === "private") return true;
+    if (typeof group.publicJoinRequiresApproval === "boolean") {
+      return group.publicJoinRequiresApproval;
+    }
+    return Boolean(group.requireApproval);
+  }, [getGroupVisibility]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -466,8 +492,8 @@ export default function StudyGroupFinderPage() {
   /* ─── Actions ───────────────────────────────────────────── */
 
   const createGroup = async () => {
-    if (!formName.trim() || !formCourseCode.trim()) {
-      showToast("Name and course code are required");
+    if (!formName.trim()) {
+      showToast("Group name is required");
       return;
     }
     setActionLoading(true);
@@ -478,27 +504,27 @@ export default function StudyGroupFinderPage() {
         headers: h,
         body: JSON.stringify({
           name: formName.trim(),
-          courseCode: formCourseCode.trim(),
-          courseName: formCourseName.trim() || null,
           description: formDescription.trim() || null,
           maxMembers: formMaxMembers,
-          meetingDay: formMeetingDay || null,
-          meetingTime: formMeetingTime || null,
-          meetingLocation: formMeetingLocation.trim() || null,
           level: formLevel || null,
           tags: formTags
             .split(",")
             .map((t) => t.trim())
             .filter(Boolean)
             .slice(0, 5),
+          visibility: formVisibility,
+          publicJoinRequiresApproval: formVisibility === "public" ? formPublicJoinRequiresApproval : false,
           isOpen: true,
-          requireApproval: formRequireApproval,
+          requireApproval: formVisibility === "private" ? true : formPublicJoinRequiresApproval,
         }),
       });
       if (res.ok) {
-        showToast("Study group created!");
+        const created = await res.json();
+        showToast("Study group created! Now invite coursemates.");
         resetForm();
-        setView("my-groups");
+        setSelectedGroup(created);
+        setDetailTab("overview");
+        setView("detail");
         fetchGroups();
         fetchMyGroups();
       } else {
@@ -569,8 +595,11 @@ export default function StudyGroupFinderPage() {
     }
   };
 
-  const deleteGroup = async (groupId: string) => {
-    if (!confirm("Delete this study group? This cannot be undone.")) return;
+  const deleteGroup = async (groupId: string, skipConfirm = false) => {
+    if (!skipConfirm) {
+      setDeleteTargetGroupId(groupId);
+      return;
+    }
     setActionLoading(true);
     try {
       const h = await headers();
@@ -645,8 +674,11 @@ export default function StudyGroupFinderPage() {
     }
   };
 
-  const removeMember = async (groupId: string, memberId: string) => {
-    if (!confirm("Remove this member from the group?")) return;
+  const removeMember = async (groupId: string, memberId: string, skipConfirm = false) => {
+    if (!skipConfirm) {
+      setRemoveMemberTarget({ groupId, memberId });
+      return;
+    }
     setActionLoading(true);
     try {
       const h = await headers();
@@ -702,16 +734,12 @@ export default function StudyGroupFinderPage() {
 
   const resetForm = () => {
     setFormName("");
-    setFormCourseCode("");
-    setFormCourseName("");
     setFormDescription("");
     setFormMaxMembers(8);
-    setFormMeetingDay("");
-    setFormMeetingTime("");
-    setFormMeetingLocation("");
     setFormLevel("");
     setFormTags("");
-    setFormRequireApproval(false);
+    setFormVisibility("public");
+    setFormPublicJoinRequiresApproval(false);
   };
 
   /* ─── Edit group ────────────────────────────────────────── */
@@ -719,14 +747,16 @@ export default function StudyGroupFinderPage() {
   const startEdit = (g: StudyGroup) => {
     setEditName(g.name);
     setEditDescription(g.description || "");
-    setEditMeetingDay(g.meetingDay || "");
-    setEditMeetingTime(g.meetingTime || "");
-    setEditMeetingLocation(g.meetingLocation || "");
     setEditPinnedNote(g.pinnedNote || "");
+    const visibility = getGroupVisibility(g);
+    setEditVisibility(visibility);
+    setEditPublicJoinRequiresApproval(visibility === "private" ? true : requiresApproval(g));
     setEditIsOpen(g.isOpen);
     setEditMaxMembers(g.maxMembers);
     setEditTags(g.tags.join(", "));
-    setEditRequireApproval(g.requireApproval ?? false);
+    setInviteSearchQuery("");
+    setInviteSearchResults([]);
+    setSelectedInviteeIds([]);
     setEditMode(true);
   };
 
@@ -741,14 +771,13 @@ export default function StudyGroupFinderPage() {
         body: JSON.stringify({
           name: editName.trim(),
           description: editDescription.trim() || null,
-          meetingDay: editMeetingDay || null,
-          meetingTime: editMeetingTime || null,
-          meetingLocation: editMeetingLocation.trim() || null,
           pinnedNote: editPinnedNote.trim() || null,
+          visibility: editVisibility,
+          publicJoinRequiresApproval: editVisibility === "public" ? editPublicJoinRequiresApproval : false,
           isOpen: editIsOpen,
           maxMembers: editMaxMembers,
           tags: editTags.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 5),
-          requireApproval: editRequireApproval,
+          requireApproval: editVisibility === "private" ? true : editPublicJoinRequiresApproval,
         }),
       });
       if (res.ok) {
@@ -777,6 +806,14 @@ export default function StudyGroupFinderPage() {
 
   const scheduleSession = async () => {
     if (!selectedGroup || !sessionTitle.trim() || !sessionDate) return;
+    if (sessionMeetupType === "physical" && !sessionLocation.trim()) {
+      showToast("Location is required for physical sessions");
+      return;
+    }
+    if (sessionMeetupType === "online" && !sessionMeetingLink.trim()) {
+      showToast("Meeting link is required for online sessions");
+      return;
+    }
     setActionLoading(true);
     try {
       const h = await headers();
@@ -787,7 +824,9 @@ export default function StudyGroupFinderPage() {
           title: sessionTitle.trim(),
           date: sessionDate,
           time: sessionTime,
-          location: sessionLocation.trim() || null,
+          meetupType: sessionMeetupType,
+          location: sessionMeetupType === "physical" ? sessionLocation.trim() || null : null,
+          meetingLink: sessionMeetupType === "online" ? sessionMeetingLink.trim() || null : null,
           agenda: sessionAgenda.trim() || null,
         }),
       });
@@ -797,7 +836,9 @@ export default function StudyGroupFinderPage() {
         setSessionTitle("");
         setSessionDate("");
         setSessionTime("");
+        setSessionMeetupType("physical");
         setSessionLocation("");
+        setSessionMeetingLink("");
         setSessionAgenda("");
         showToast("Session scheduled!");
       } else {
@@ -918,8 +959,74 @@ export default function StudyGroupFinderPage() {
     setSelectedGroup(group);
     setDetailTab("overview");
     setView("detail");
+    setInviteSearchQuery("");
+    setInviteSearchResults([]);
+    setSelectedInviteeIds([]);
     fetchSessions(group);
     fetchResources(group);
+  };
+
+  const searchInviteStudents = async (groupId: string) => {
+    const query = inviteSearchQuery.trim();
+    if (query.length < 2) {
+      showToast("Type at least 2 characters to search");
+      return;
+    }
+    setInviteSearching(true);
+    try {
+      const h = await headers();
+      const params = new URLSearchParams({ q: query });
+      const res = await fetch(getApiUrl(`/api/v1/study-groups/${groupId}/students/search?${params.toString()}`), {
+        headers: h,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setInviteSearchResults(data.students || []);
+      } else {
+        const err = await res.json();
+        showToast(err.detail || "Failed to search students");
+      }
+    } catch {
+      showToast("Network error while searching students");
+    } finally {
+      setInviteSearching(false);
+    }
+  };
+
+  const toggleInviteSelection = (studentId: string) => {
+    setSelectedInviteeIds((prev) =>
+      prev.includes(studentId) ? prev.filter((id) => id !== studentId) : [...prev, studentId]
+    );
+  };
+
+  const sendBulkInvites = async (groupId: string) => {
+    if (selectedInviteeIds.length === 0) {
+      showToast("Select at least one student to invite");
+      return;
+    }
+    setInviteSending(true);
+    try {
+      const h = await headers();
+      const res = await fetch(getApiUrl(`/api/v1/study-groups/${groupId}/invites/send`), {
+        method: "POST",
+        headers: h,
+        body: JSON.stringify({ userIds: selectedInviteeIds }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        showToast(`Invites queued: ${data.invited} student${data.invited === 1 ? "" : "s"}`);
+        setSelectedInviteeIds([]);
+        fetchGroups();
+        fetchMyGroups();
+      } else {
+        const err = await res.json();
+        showToast(err.detail || "Failed to send invites");
+      }
+    } catch {
+      showToast("Network error while sending invites");
+    } finally {
+      setInviteSending(false);
+    }
   };
 
   const userId = user?.id || "";
@@ -936,6 +1043,8 @@ export default function StudyGroupFinderPage() {
     const pending = hasPendingRequest(group);
     const full = group.members.length >= group.maxMembers;
     const spots = group.maxMembers - group.members.length;
+    const visibility = getGroupVisibility(group);
+    const approvalRequired = requiresApproval(group);
 
     return (
       <div
@@ -948,15 +1057,20 @@ export default function StudyGroupFinderPage() {
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="bg-navy text-snow text-label-sm px-2 py-0.5 rounded-lg font-bold">
-                {group.courseCode}
+              <span className={`text-label-sm px-2 py-0.5 rounded-lg font-bold ${visibility === "private" ? "bg-navy text-lime" : "bg-teal-light text-navy"}`}>
+                {visibility === "private" ? "Private" : "Public"}
               </span>
+              {group.courseCode && (
+                <span className="bg-navy text-snow text-label-sm px-2 py-0.5 rounded-lg font-bold">
+                  {group.courseCode}
+                </span>
+              )}
               {group.level && (
                 <span className="bg-lavender-light text-navy text-label-sm px-2 py-0.5 rounded-lg">
                   {group.level}
                 </span>
               )}
-              {group.requireApproval && (
+              {approvalRequired && (
                 <span className="bg-sunny-light text-navy text-label-sm px-2 py-0.5 rounded-lg" title="Requires approval to join">
                   <svg aria-hidden="true" className="w-3 h-3 inline -mt-0.5 mr-0.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd"/></svg>
                 </span>
@@ -1000,23 +1114,6 @@ export default function StudyGroupFinderPage() {
             </svg>
             {group.members.length}/{group.maxMembers}
           </span>
-          {group.meetingDay && (
-            <span className="flex items-center gap-1">
-              <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              {group.meetingDay} {group.meetingTime && `@ ${group.meetingTime}`}
-            </span>
-          )}
-          {group.meetingLocation && (
-            <span className="flex items-center gap-1">
-              <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              {group.meetingLocation}
-            </span>
-          )}
         </div>
 
         {/* Tags */}
@@ -1047,6 +1144,8 @@ export default function StudyGroupFinderPage() {
     const creator = isCreator(g);
     const pending = hasPendingRequest(g);
     const full = g.members.length >= g.maxMembers;
+    const visibility = getGroupVisibility(g);
+    const approvalRequired = requiresApproval(g);
 
     const DETAIL_TABS: { key: DetailTab; label: string; count?: number }[] = [
       { key: "overview", label: "Overview" },
@@ -1073,9 +1172,14 @@ export default function StudyGroupFinderPage() {
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
             <div>
               <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <span className="bg-navy text-snow text-label px-3 py-1 rounded-xl font-bold">
-                  {g.courseCode}
+                <span className={`text-label px-3 py-1 rounded-xl font-bold ${visibility === "private" ? "bg-navy text-lime" : "bg-teal-light text-navy"}`}>
+                  {visibility === "private" ? "Private Group" : "Public Group"}
                 </span>
+                {g.courseCode && (
+                  <span className="bg-navy text-snow text-label px-3 py-1 rounded-xl font-bold">
+                    {g.courseCode}
+                  </span>
+                )}
                 {g.level && (
                   <span className="bg-lavender-light text-navy text-label px-3 py-1 rounded-xl">
                     {String(g.level).replace(/L$/i, "")} Level
@@ -1089,7 +1193,7 @@ export default function StudyGroupFinderPage() {
                 <span className={`text-label px-3 py-1 rounded-xl font-bold ${g.isOpen ? "bg-lime-light text-navy" : "bg-coral-light text-coral"}`}>
                   {g.isOpen ? "Open" : "Closed"}
                 </span>
-                {g.requireApproval && (
+                {approvalRequired && (
                   <span className="bg-sunny-light text-navy text-label px-3 py-1 rounded-xl font-bold">
                     Approval Required
                   </span>
@@ -1101,14 +1205,19 @@ export default function StudyGroupFinderPage() {
 
             {/* Actions */}
             <div className="flex gap-2 shrink-0 flex-wrap">
-              {!member && !pending && !full && g.isOpen && (
+              {!member && !pending && !full && g.isOpen && visibility === "public" && (
                 <button
                   onClick={() => joinGroup(g.id)}
                   disabled={actionLoading}
                   className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-3 rounded-2xl font-display text-base text-navy transition-all disabled:opacity-50"
                 >
-                  {actionLoading ? "..." : g.requireApproval ? "Request to Join" : "Join Group"}
+                  {actionLoading ? "..." : approvalRequired ? "Request to Join" : "Join Group"}
                 </button>
+              )}
+              {!member && !pending && visibility === "private" && (
+                <span className="bg-lavender-light border-[3px] border-navy/20 px-5 py-2.5 rounded-xl font-display text-sm text-navy">
+                  Join via invite link
+                </span>
               )}
               {!member && pending && (
                 <span className="bg-sunny-light border-[3px] border-navy/20 px-5 py-2.5 rounded-xl font-display text-sm text-navy">
@@ -1189,27 +1298,7 @@ export default function StudyGroupFinderPage() {
                   placeholder="e.g. Next exam: Chapter 5-8. Bring past questions!"
                   className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-lavender focus:outline-none resize-none" />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-label text-navy mb-1 block">Meeting Day</label>
-                  <select value={editMeetingDay} onChange={(e) => setEditMeetingDay(e.target.value)} title="Meeting day"
-                    className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy bg-snow focus:border-lavender focus:outline-none">
-                    <option value="">Select day</option>
-                    {DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-label text-navy mb-1 block">Time</label>
-                  <input type="time" value={editMeetingTime} onChange={(e) => setEditMeetingTime(e.target.value)} title="Meeting time"
-                    className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-lavender focus:outline-none" />
-                </div>
-                <div>
-                  <label className="text-label text-navy mb-1 block">Location</label>
-                  <input value={editMeetingLocation} onChange={(e) => setEditMeetingLocation(e.target.value)} maxLength={200}
-                    className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-lavender focus:outline-none" />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-label text-navy mb-1 block">Max Members</label>
                   <input type="number" value={editMaxMembers} onChange={(e) => setEditMaxMembers(Math.max(2, Math.min(20, Number(e.target.value))))}
@@ -1221,22 +1310,42 @@ export default function StudyGroupFinderPage() {
                   <input value={editTags} onChange={(e) => setEditTags(e.target.value)} title="Tags" placeholder="e.g. exam-prep, tutorials"
                     className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-lavender focus:outline-none" />
                 </div>
+                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-label text-navy mb-1 block">Visibility</label>
+                  <select
+                    value={editVisibility}
+                    onChange={(e) => setEditVisibility(e.target.value as "public" | "private")}
+                    title="Group visibility"
+                    className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy bg-snow focus:border-lavender focus:outline-none"
+                  >
+                    <option value="public">Public</option>
+                    <option value="private">Private</option>
+                  </select>
+                </div>
                 <div className="flex items-end">
                   <label className="flex items-center gap-3 cursor-pointer py-3">
                     <input type="checkbox" checked={editIsOpen} onChange={(e) => setEditIsOpen(e.target.checked)}
+                      title="Accepting members"
                       className="w-5 h-5 rounded accent-lime" />
                     <span className="font-display font-bold text-sm text-navy">Accepting Members</span>
                   </label>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" checked={editRequireApproval} onChange={(e) => setEditRequireApproval(e.target.checked)}
-                    className="w-5 h-5 rounded accent-sunny" />
-                  <span className="font-display font-bold text-sm text-navy">Require Approval to Join</span>
-                </label>
-                <span className="text-xs text-slate">(New members must be approved by you)</span>
-              </div>
+              {editVisibility === "public" ? (
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" checked={editPublicJoinRequiresApproval} onChange={(e) => setEditPublicJoinRequiresApproval(e.target.checked)}
+                      title="Require approval"
+                      className="w-5 h-5 rounded accent-sunny" />
+                    <span className="font-display font-bold text-sm text-navy">Require Approval to Join</span>
+                  </label>
+                  <span className="text-xs text-slate">(Optional for public groups)</span>
+                </div>
+              ) : (
+                <p className="text-xs text-slate">Private groups always require approval and are hidden from public browsing.</p>
+              )}
               <button onClick={saveEdit} disabled={actionLoading}
                 className="bg-lime border-[3px] border-navy press-3 press-navy px-8 py-3 rounded-2xl font-display text-navy transition-all disabled:opacity-50">
                 {actionLoading ? "Saving..." : "Save Changes"}
@@ -1272,20 +1381,6 @@ export default function StudyGroupFinderPage() {
               {/* ── Overview Tab ── */}
               {detailTab === "overview" && (
                 <div className="p-6 space-y-6">
-                  {/* Meeting info */}
-                  {(g.meetingDay || g.meetingTime || g.meetingLocation) && (
-                    <div className="bg-lime-light border-[3px] border-navy/10 rounded-2xl p-4">
-                      <h3 className="font-display font-bold text-navy text-sm mb-2 uppercase tracking-wider">
-                        Regular Meeting Schedule
-                      </h3>
-                      <div className="flex flex-wrap gap-4 text-sm text-navy/80">
-                        {g.meetingDay && <span className="flex items-center gap-1.5"><svg aria-hidden="true" className="w-4 h-4 text-navy/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>{g.meetingDay}</span>}
-                        {g.meetingTime && <span className="flex items-center gap-1.5"><svg aria-hidden="true" className="w-4 h-4 text-navy/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>{g.meetingTime}</span>}
-                        {g.meetingLocation && <span className="flex items-center gap-1.5"><svg aria-hidden="true" className="w-4 h-4 text-navy/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>{g.meetingLocation}</span>}
-                      </div>
-                    </div>
-                  )}
-
                   {/* Tags */}
                   {g.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2">
@@ -1381,7 +1476,7 @@ export default function StudyGroupFinderPage() {
                       <h3 className="font-display font-bold text-navy text-sm mb-2 uppercase tracking-wider">
                         Invite Link
                       </h3>
-                      <p className="text-xs text-slate mb-3">Share this link to let others join directly (bypasses approval).</p>
+                      <p className="text-xs text-slate mb-3">Share this link to let others join or request access, depending on group settings.</p>
                       <div className="flex gap-2 items-stretch">
                         <div className="flex-1 bg-snow border-[2px] border-navy/15 rounded-lg px-3 py-2 text-sm text-navy/70 truncate font-mono">
                           {typeof window !== "undefined"
@@ -1401,6 +1496,82 @@ export default function StudyGroupFinderPage() {
                           title="Generate new invite code"
                         >
                           <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bulk invite (creator only) */}
+                  {creator && (
+                    <div className="bg-teal-light border-[3px] border-navy/10 rounded-2xl p-4 space-y-3">
+                      <h3 className="font-display font-bold text-navy text-sm uppercase tracking-wider">Invite Students</h3>
+                      <p className="text-xs text-slate">Search and invite students in bulk (in-app + email).</p>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <input
+                          value={inviteSearchQuery}
+                          onChange={(e) => setInviteSearchQuery(e.target.value)}
+                          title="Search students"
+                          placeholder="Search by name, email, or matric number"
+                          className="flex-1 px-4 py-2.5 border-[3px] border-navy/20 rounded-xl text-navy focus:border-teal focus:outline-none"
+                        />
+                        <button
+                          onClick={() => searchInviteStudents(g.id)}
+                          disabled={inviteSearching}
+                          className="bg-navy text-snow px-4 py-2.5 rounded-xl font-display font-bold text-xs border-[3px] border-lime press-2 press-lime transition-all disabled:opacity-50"
+                        >
+                          {inviteSearching ? "Searching..." : "Search"}
+                        </button>
+                      </div>
+
+                      {inviteSearchResults.length > 0 && (
+                        <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                          {inviteSearchResults.map((student) => {
+                            const checked = selectedInviteeIds.includes(student.id);
+                            return (
+                              <label key={student.id} className="flex items-start gap-3 bg-snow border-[2px] border-navy/10 rounded-xl px-3 py-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleInviteSelection(student.id)}
+                                  title={`Select ${student.firstName} ${student.lastName}`}
+                                  className="mt-1 w-4 h-4 accent-teal"
+                                />
+                                <div className="min-w-0">
+                                  <p className="text-sm font-bold text-navy truncate">{student.firstName} {student.lastName}</p>
+                                  <p className="text-[11px] text-slate truncate">
+                                    {student.email}
+                                    {student.matricNumber ? ` · ${student.matricNumber}` : ""}
+                                    {student.level ? ` · ${student.level}` : ""}
+                                    {student.role && student.role !== "student" ? ` · ${student.role}` : ""}
+                                  </p>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          onClick={() => setSelectedInviteeIds(inviteSearchResults.map((s) => s.id))}
+                          disabled={inviteSearchResults.length === 0}
+                          className="bg-snow border-[2px] border-navy/20 px-3 py-1.5 rounded-lg text-xs text-navy hover:border-navy transition-all disabled:opacity-40"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          onClick={() => setSelectedInviteeIds([])}
+                          disabled={selectedInviteeIds.length === 0}
+                          className="bg-snow border-[2px] border-navy/20 px-3 py-1.5 rounded-lg text-xs text-navy hover:border-navy transition-all disabled:opacity-40"
+                        >
+                          Clear Selection
+                        </button>
+                        <button
+                          onClick={() => sendBulkInvites(g.id)}
+                          disabled={inviteSending || selectedInviteeIds.length === 0}
+                          className="bg-teal border-[3px] border-navy press-2 press-navy px-4 py-2 rounded-xl font-display text-xs text-navy transition-all disabled:opacity-40"
+                        >
+                          {inviteSending ? "Sending..." : `Send Invites (${selectedInviteeIds.length})`}
                         </button>
                       </div>
                     </div>
@@ -1440,7 +1611,10 @@ export default function StudyGroupFinderPage() {
                                   <div className="flex flex-wrap gap-3 text-xs text-slate mt-1">
                                     <span>{new Date(s.date).toLocaleDateString("en-NG", { weekday: "short", month: "short", day: "numeric" })}</span>
                                     {s.time && <span>{s.time}</span>}
-                                    {s.location && <span>{s.location}</span>}
+                                    <span>{s.meetupType === "online" ? "Online" : "Physical"}</span>
+                                    {s.meetupType === "online"
+                                      ? s.meetingLink && <span className="truncate max-w-[220px]">{s.meetingLink}</span>
+                                      : s.location && <span>{s.location}</span>}
                                   </div>
                                   {s.agenda && <p className="text-sm text-navy/60 mt-2">{s.agenda}</p>}
                                   <p className="text-[10px] text-navy/30 mt-1">by {s.creatorName} · {s.attendees.length} attending</p>
@@ -1486,9 +1660,33 @@ export default function StudyGroupFinderPage() {
                           className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-teal focus:outline-none" />
                         <input type="time" value={sessionTime} onChange={(e) => setSessionTime(e.target.value)} title="Session time"
                           className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-teal focus:outline-none" />
-                        <input value={sessionLocation} onChange={(e) => setSessionLocation(e.target.value)} placeholder="Location" maxLength={200}
-                          className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-teal focus:outline-none" />
+                        <select
+                          value={sessionMeetupType}
+                          onChange={(e) => setSessionMeetupType(e.target.value as "physical" | "online")}
+                          title="Meetup type"
+                          className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy bg-snow focus:border-teal focus:outline-none"
+                        >
+                          <option value="physical">Physical meetup</option>
+                          <option value="online">Online meetup</option>
+                        </select>
                       </div>
+                      {sessionMeetupType === "physical" ? (
+                        <input
+                          value={sessionLocation}
+                          onChange={(e) => setSessionLocation(e.target.value)}
+                          placeholder="Location"
+                          maxLength={200}
+                          className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-teal focus:outline-none"
+                        />
+                      ) : (
+                        <input
+                          value={sessionMeetingLink}
+                          onChange={(e) => setSessionMeetingLink(e.target.value)}
+                          placeholder="Meeting link (https://...)"
+                          maxLength={500}
+                          className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-teal focus:outline-none"
+                        />
+                      )}
                       <textarea value={sessionAgenda} onChange={(e) => setSessionAgenda(e.target.value)} placeholder="Agenda / topics to cover" rows={2} maxLength={500}
                         className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-teal focus:outline-none resize-none" />
                       <button onClick={scheduleSession} disabled={actionLoading || !sessionTitle.trim() || !sessionDate}
@@ -1630,30 +1828,40 @@ export default function StudyGroupFinderPage() {
             />
           </div>
 
-          {/* Course code + name */}
+          {/* Visibility */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-label text-navy mb-1 block">
-                Course Code <span className="text-coral">*</span>
+                Visibility <span className="text-coral">*</span>
               </label>
-              <input
-                value={formCourseCode}
-                onChange={(e) => setFormCourseCode(e.target.value.toUpperCase())}
-                placeholder="e.g. IEN 401"
-                maxLength={20}
-                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors"
-              />
+              <select
+                value={formVisibility}
+                onChange={(e) => setFormVisibility(e.target.value as "public" | "private")}
+                title="Group visibility"
+                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors bg-snow"
+              >
+                <option value="public">Public (discoverable in browse)</option>
+                <option value="private">Private (hidden, invite-only)</option>
+              </select>
             </div>
-            <div>
-              <label className="text-label text-navy mb-1 block">Course Name</label>
-              <input
-                value={formCourseName}
-                onChange={(e) => setFormCourseName(e.target.value)}
-                placeholder="e.g. Operations Research I"
-                maxLength={200}
-                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors"
-              />
-            </div>
+            {formVisibility === "public" ? (
+              <div className="flex items-end">
+                <label className="flex items-center gap-3 cursor-pointer pb-1">
+                  <input
+                    type="checkbox"
+                    checked={formPublicJoinRequiresApproval}
+                    onChange={(e) => setFormPublicJoinRequiresApproval(e.target.checked)}
+                    title="Require approval"
+                    className="w-5 h-5 rounded accent-sunny"
+                  />
+                  <span className="font-display font-bold text-sm text-navy">Require Approval to Join</span>
+                </label>
+              </div>
+            ) : (
+              <div className="flex items-end">
+                <p className="text-xs text-slate">Private groups always require approval.</p>
+              </div>
+            )}
           </div>
 
           {/* Description */}
@@ -1676,6 +1884,7 @@ export default function StudyGroupFinderPage() {
               <select
                 value={formLevel}
                 onChange={(e) => setFormLevel(e.target.value)}
+                title="Group level"
                 className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors bg-snow"
               >
                 <option value="">Any level</option>
@@ -1692,42 +1901,7 @@ export default function StudyGroupFinderPage() {
                 onChange={(e) => setFormMaxMembers(Math.max(2, Math.min(20, Number(e.target.value))))}
                 min={2}
                 max={20}
-                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors"
-              />
-            </div>
-          </div>
-
-          {/* Meeting info */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="text-label text-navy mb-1 block">Meeting Day</label>
-              <select
-                value={formMeetingDay}
-                onChange={(e) => setFormMeetingDay(e.target.value)}
-                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors bg-snow"
-              >
-                <option value="">Select day</option>
-                {DAYS.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-label text-navy mb-1 block">Meeting Time</label>
-              <input
-                type="time"
-                value={formMeetingTime}
-                onChange={(e) => setFormMeetingTime(e.target.value)}
-                className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors"
-              />
-            </div>
-            <div>
-              <label className="text-label text-navy mb-1 block">Location</label>
-              <input
-                value={formMeetingLocation}
-                onChange={(e) => setFormMeetingLocation(e.target.value)}
-                placeholder="e.g. Room 204, IE Building"
-                maxLength={200}
+                title="Maximum members"
                 className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors"
               />
             </div>
@@ -1742,20 +1916,6 @@ export default function StudyGroupFinderPage() {
               placeholder="e.g. exam prep, linear programming, tutorials"
               className="w-full px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors"
             />
-          </div>
-
-          {/* Require Approval */}
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formRequireApproval}
-                onChange={(e) => setFormRequireApproval(e.target.checked)}
-                className="w-5 h-5 rounded accent-sunny"
-              />
-              <span className="font-display font-bold text-sm text-navy">Require Approval to Join</span>
-            </label>
-            <span className="text-xs text-slate">(New members must be approved by you)</span>
           </div>
 
           {/* Submit */}
@@ -1777,6 +1937,36 @@ export default function StudyGroupFinderPage() {
     <div className="min-h-screen bg-ghost">
       <DashboardHeader />
       <ToolHelpModal toolId="study-groups" isOpen={showHelp} onClose={closeHelp} />
+      <ConfirmModal
+        isOpen={Boolean(deleteTargetGroupId)}
+        onClose={() => setDeleteTargetGroupId(null)}
+        onConfirm={async () => {
+          if (!deleteTargetGroupId) return;
+          await deleteGroup(deleteTargetGroupId, true);
+          setDeleteTargetGroupId(null);
+        }}
+        title="Delete study group"
+        message="Delete this study group? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        isLoading={actionLoading}
+      />
+      <ConfirmModal
+        isOpen={Boolean(removeMemberTarget)}
+        onClose={() => setRemoveMemberTarget(null)}
+        onConfirm={async () => {
+          if (!removeMemberTarget) return;
+          await removeMember(removeMemberTarget.groupId, removeMemberTarget.memberId, true);
+          setRemoveMemberTarget(null);
+        }}
+        title="Remove member"
+        message="Remove this member from the group?"
+        confirmLabel="Remove"
+        cancelLabel="Cancel"
+        variant="warning"
+        isLoading={actionLoading}
+      />
       <main id="main-content" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Toast */}
         {toast && (
@@ -1824,7 +2014,7 @@ export default function StudyGroupFinderPage() {
             <div className="bg-teal-light border-[3px] border-navy/10 rounded-2xl p-5">
               <p className="text-[10px] font-bold uppercase tracking-widest text-navy/40 mb-1">Total Groups</p>
               <p className="font-display font-black text-navy text-3xl">{groups.length}</p>
-              <p className="text-xs text-slate mt-0.5">{groups.filter((g) => g.isOpen).length} open</p>
+              <p className="text-xs text-slate mt-0.5">{groups.filter((g) => g.isOpen && getGroupVisibility(g) === "public").length} open public</p>
             </div>
             <div className="bg-lavender-light border-[3px] border-navy/10 rounded-2xl p-5">
               <p className="text-[10px] font-bold uppercase tracking-widest text-navy/40 mb-1">My Groups</p>
@@ -1900,13 +2090,14 @@ export default function StudyGroupFinderPage() {
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search groups by name, course, or tags..."
+                  placeholder="Search groups by name, topic, or tags..."
                   className="w-full pl-12 pr-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors"
                 />
               </div>
               <select
                 value={filterLevel}
                 onChange={(e) => setFilterLevel(e.target.value)}
+                title="Filter by level"
                 className="px-4 py-3 border-[3px] border-navy/20 rounded-xl text-navy focus:border-coral focus:outline-none transition-colors bg-snow min-w-[140px]"
               >
                 <option value="">All levels</option>
@@ -1983,7 +2174,8 @@ export default function StudyGroupFinderPage() {
 
         {/* Privacy/info note */}
         <div className="mt-12 bg-ghost border-[3px] border-navy/10 rounded-2xl p-4 text-center text-xs text-slate">
-          Study groups are visible to all logged-in students. Your name and matric number are shared with group members.
+          Public study groups are visible to all logged-in students. Private groups are hidden and invite-only.
+          Your name and matric number are shared with group members.
           Data refreshes every 30 seconds.
         </div>
       </main>

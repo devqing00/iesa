@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type TouchEvent as ReactTouchEvent } from "react";
 import { useFloatingTool } from "@/context/FloatingToolContext";
 import MiniStudyTimer from "@/components/dashboard/MiniStudyTimer";
 
@@ -24,31 +25,157 @@ const TOOL_REGISTRY: Record<string, { label: string; icon: React.ReactNode; comp
 export default function FloatingToolPopup() {
   const { state, closeTool, toggleMinimize } = useFloatingTool();
   const { toolId, minimized } = state;
+  const tool = toolId ? TOOL_REGISTRY[toolId] : null;
+  const [position, setPosition] = useState(() => {
+    if (typeof window === "undefined") return { x: 16, y: 16 };
+    const width = 320;
+    const height = 430;
+    return {
+      x: Math.max(12, window.innerWidth - width - 16),
+      y: Math.max(12, window.innerHeight - height - 24),
+    };
+  });
+  const [dragging, setDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const dragStartPointRef = useRef({ x: 0, y: 0 });
+  const dragMovedRef = useRef(false);
 
-  if (!toolId) return null;
-  const tool = TOOL_REGISTRY[toolId];
-  if (!tool) return null;
+  const ToolComponent = tool?.component;
 
-  const ToolComponent = tool.component;
+  const getSize = useCallback(
+    (isMinimized: boolean) => {
+      if (isMinimized) return { width: 56, height: 56 };
+      return { width: 320, height: 430 };
+    },
+    []
+  );
 
-  /* Minimized: small round button */
-  if (minimized) {
-    return (
+  const clampPosition = useCallback(
+    (x: number, y: number, isMinimized: boolean) => {
+      if (typeof window === "undefined") return { x, y };
+      const margin = 12;
+      const { width, height } = getSize(isMinimized);
+      const maxX = Math.max(margin, window.innerWidth - width - margin);
+      const maxY = Math.max(margin, window.innerHeight - height - margin);
+      return {
+        x: Math.max(margin, Math.min(x, maxX)),
+        y: Math.max(margin, Math.min(y, maxY)),
+      };
+    },
+    [getSize]
+  );
+
+  useEffect(() => {
+    const handleResize = () => {
+      setPosition((prev) => clampPosition(prev.x, prev.y, minimized));
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [minimized, clampPosition]);
+
+  useEffect(() => {
+    if (!dragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const nextX = e.clientX - dragOffset.x;
+      const nextY = e.clientY - dragOffset.y;
+      if (
+        Math.abs(e.clientX - dragStartPointRef.current.x) > 3 ||
+        Math.abs(e.clientY - dragStartPointRef.current.y) > 3
+      ) {
+        dragMovedRef.current = true;
+      }
+      setPosition(clampPosition(nextX, nextY, minimized));
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch) return;
+      const nextX = touch.clientX - dragOffset.x;
+      const nextY = touch.clientY - dragOffset.y;
+      if (
+        Math.abs(touch.clientX - dragStartPointRef.current.x) > 3 ||
+        Math.abs(touch.clientY - dragStartPointRef.current.y) > 3
+      ) {
+        dragMovedRef.current = true;
+      }
+      setPosition(clampPosition(nextX, nextY, minimized));
+    };
+
+    const stopDrag = () => {
+      setDragging(false);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", stopDrag);
+    window.addEventListener("touchmove", handleTouchMove, { passive: true });
+    window.addEventListener("touchend", stopDrag);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", stopDrag);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", stopDrag);
+    };
+  }, [dragging, dragOffset, minimized, clampPosition]);
+
+  const startDrag = (clientX: number, clientY: number) => {
+    const bounded = clampPosition(position.x, position.y, minimized);
+    dragStartPointRef.current = { x: clientX, y: clientY };
+    dragMovedRef.current = false;
+    setDragOffset({ x: clientX - bounded.x, y: clientY - bounded.y });
+    setDragging(true);
+  };
+
+  const handleMouseDragStart = (e: ReactMouseEvent) => {
+    e.preventDefault();
+    startDrag(e.clientX, e.clientY);
+  };
+
+  const handleTouchDragStart = (e: ReactTouchEvent) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    startDrag(touch.clientX, touch.clientY);
+  };
+
+  const handleMinimizedClick = () => {
+    if (dragMovedRef.current) {
+      dragMovedRef.current = false;
+      return;
+    }
+    toggleMinimize();
+  };
+
+  if (!tool || !ToolComponent) return null;
+  const boundedPosition = clampPosition(position.x, position.y, minimized);
+
+  return (
+    <>
       <button
-        onClick={toggleMinimize}
-        className="fixed bottom-24 md:bottom-8 right-4 z-60 w-14 h-14 bg-navy border-[3px] border-lime rounded-full shadow-[4px_4px_0_0_#C8F31D] flex items-center justify-center text-lime press-3 press-lime transition-all"
+        onClick={handleMinimizedClick}
+        onMouseDown={handleMouseDragStart}
+        onTouchStart={handleTouchDragStart}
+        className={`fixed z-60 w-14 h-14 bg-navy border-[3px] border-lime rounded-full shadow-[4px_4px_0_0_#C8F31D] items-center justify-center text-lime press-3 press-lime transition-all ${
+          minimized ? "flex" : "hidden"
+        }`}
+        style={{ left: `${boundedPosition.x}px`, top: `${boundedPosition.y}px` }}
         aria-label={`Expand ${tool.label}`}
       >
         {tool.icon}
       </button>
-    );
-  }
 
-  /* Expanded: floating card */
-  return (
-    <div className="fixed bottom-24 md:bottom-8 right-4 z-60 w-80 bg-snow border-4 border-navy rounded-3xl shadow-[8px_8px_0_0_#000] overflow-hidden">
+      <div
+        className={`fixed z-60 w-80 bg-snow border-4 border-navy rounded-3xl shadow-[8px_8px_0_0_#000] overflow-hidden ${
+          minimized ? "hidden" : "block"
+        }`}
+        style={{ left: `${boundedPosition.x}px`, top: `${boundedPosition.y}px` }}
+      >
       {/* Header bar */}
-      <div className="flex items-center justify-between px-4 py-3 bg-navy">
+      <div
+        className="flex items-center justify-between px-4 py-3 bg-navy cursor-move touch-none"
+        onMouseDown={handleMouseDragStart}
+        onTouchStart={handleTouchDragStart}
+      >
         <div className="flex items-center gap-2 text-lime">
           {tool.icon}
           <span className="font-display font-bold text-sm text-snow">{tool.label}</span>
@@ -87,6 +214,7 @@ export default function FloatingToolPopup() {
       <div className="p-4">
         <ToolComponent />
       </div>
-    </div>
+      </div>
+    </>
   );
 }

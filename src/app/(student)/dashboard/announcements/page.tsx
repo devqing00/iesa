@@ -28,6 +28,16 @@ interface Announcement {
   viewCount: number;
 }
 
+interface BellNotice {
+  _id: string;
+  title: string;
+  message: string;
+  type: string;
+  link?: string | null;
+  createdAt: string;
+  isRead: boolean;
+}
+
 /* ─── Helpers ───────────────────────────────────────────────────── */
 
 const priorityConfig: Record<string, { tag: string; dot: string; border: string }> = {
@@ -72,6 +82,7 @@ function AnnouncementsContent() {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const [readAnnouncements, setReadAnnouncements] = useState<Set<string>>(new Set());
+  const [bellNotices, setBellNotices] = useState<BellNotice[]>([]);
   const [highlightApplied, setHighlightApplied] = useState(false);
   const [page, setPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
@@ -83,6 +94,7 @@ function AnnouncementsContent() {
     if (user) {
       fetchAnnouncements();
       fetchReadStatus();
+      fetchBellNotices();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -142,6 +154,23 @@ function AnnouncementsContent() {
         setReadAnnouncements(new Set(readIds));
       }
     } catch (err) {
+    }
+  };
+
+  const fetchBellNotices = async () => {
+    if (!user) return;
+    try {
+      const token = await getAccessToken();
+      const response = await fetch(getApiUrl("/api/v1/notifications/?limit=30"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) return;
+      const data: BellNotice[] = await response.json();
+      const notices = (Array.isArray(data) ? data : [])
+        .filter((n) => ["announcement", "payment", "event", "team_task", "team_application", "planner_reminder", "system"].includes((n.type || "").toLowerCase()))
+        .slice(0, 8);
+      setBellNotices(notices);
+    } catch {
     }
   };
 
@@ -217,7 +246,7 @@ function AnnouncementsContent() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6">
 
           {/* Title block */}
-          <div className="md:col-span-7 bg-lavender border-[3px] border-navy rounded-[2rem] p-8 relative overflow-hidden min-h-[170px] flex flex-col justify-between">
+          <div className="md:col-span-12 bg-lavender border-[3px] border-navy rounded-[2rem] p-8 relative overflow-hidden min-h-[170px] flex flex-col justify-between">
             {/* decorative */}
             <div className="absolute -bottom-10 -right-10 w-36 h-36 rounded-full bg-navy/8 pointer-events-none" />
             <svg aria-hidden="true" className="absolute top-5 right-8 w-5 h-5 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
@@ -230,33 +259,50 @@ function AnnouncementsContent() {
                 Announcements
               </h1>
             </div>
-            <p className="text-snow/60 text-xs font-medium mt-4">
-              {announcements.length} total &middot; {unreadCount} unread
-            </p>
-          </div>
-
-          {/* Stats mini-cards */}
-          <div className="md:col-span-5 grid grid-cols-2 gap-3">
-            <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
-              <div className="w-9 h-9 rounded-xl bg-coral-light flex items-center justify-center mb-3">
-                <svg aria-hidden="true" className="w-4.5 h-4.5 text-coral" viewBox="0 0 24 24" fill="currentColor">
-                  <path fillRule="evenodd" d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.057 2.118 5.52a.75.75 0 0 1-.297 1.206c-1.544.57-3.16.99-4.831 1.243a3.75 3.75 0 1 1-7.48 0 24.585 24.585 0 0 1-4.831-1.244.75.75 0 0 1-.298-1.205A8.217 8.217 0 0 0 5.25 9.75V9Zm4.502 8.9a2.25 2.25 0 1 0 4.496 0 25.057 25.057 0 0 1-4.496 0Z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Unread</p>
-              <p className="font-display font-black text-3xl text-navy">{unreadCount}</p>
-            </div>
-            <div className="bg-teal-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
-              <div className="w-9 h-9 rounded-xl bg-teal/20 flex items-center justify-center mb-3">
-                <svg aria-hidden="true" className="w-4.5 h-4.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
-                  <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Read</p>
-              <p className="font-display font-black text-3xl text-navy">{readAnnouncements.size}</p>
+            <div className="flex flex-wrap gap-2 mt-4">
+              <span className="text-[10px] font-bold text-navy bg-snow/90 rounded-md px-3 py-1 uppercase tracking-wider border border-navy/20">
+                Total: {announcements.length}
+              </span>
+              <span className="text-[10px] font-bold text-coral bg-coral-light rounded-md px-3 py-1 uppercase tracking-wider border border-navy/20">
+                Unread: {unreadCount}
+              </span>
+              <span className="text-[10px] font-bold text-teal bg-teal-light rounded-md px-3 py-1 uppercase tracking-wider border border-navy/20">
+                Read: {readAnnouncements.size}
+              </span>
             </div>
           </div>
         </div>
+
+        {/* ═══════════════════════════════════════════════════════
+            NOTICE FEED (from Notification Bell)
+            ═══════════════════════════════════════════════════════ */}
+        {bellNotices.length > 0 && (
+          <div className="bg-snow border-[3px] border-navy rounded-3xl p-4 md:p-5 mb-6 shadow-[4px_4px_0_0_#000]">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h2 className="font-display font-black text-base md:text-lg text-navy">Recent Notices</h2>
+              <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate">From Notification Bell</span>
+            </div>
+            <div className="space-y-2">
+              {bellNotices.map((notice) => (
+                <a
+                  key={notice._id}
+                  href={notice.link || "/dashboard/announcements"}
+                  className={`block rounded-2xl border-[2px] px-3 py-2.5 transition-colors ${notice.isRead ? "bg-ghost border-navy/15" : "bg-lime-light border-navy"}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-bold text-sm text-navy truncate">{notice.title}</p>
+                      <p className="text-xs text-slate line-clamp-2 mt-0.5">{notice.message}</p>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate shrink-0">
+                      {new Date(notice.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ═══════════════════════════════════════════════════════
             ERROR BANNER

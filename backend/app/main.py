@@ -137,6 +137,8 @@ async def lifespan(app: FastAPI):
     await db["drive_cache"].create_index(
         "expiresAt", expireAfterSeconds=0, background=True
     )
+    await db["drive_cache"].create_index("folderId", background=True)
+    await db["drive_cache"].create_index("coverFolderId", background=True)
 
     # Press / blog indexes
     await db["press_articles"].create_index("status", background=True)

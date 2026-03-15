@@ -8,10 +8,12 @@ import { Calendar, dateFnsLocalizer, View } from "react-big-calendar";
 import { format } from "date-fns/format";
 import { parse } from "date-fns/parse";
 import { startOfWeek } from "date-fns/startOfWeek";
+import { startOfMonth } from "date-fns/startOfMonth";
+import { endOfMonth } from "date-fns/endOfMonth";
 import { getDay } from "date-fns/getDay";
 import { enUS } from "date-fns/locale/en-US";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import { addDays, isSameDay, parseISO } from "date-fns";
+import { addDays, isSameDay, parseISO, startOfDay, endOfDay } from "date-fns";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { toast } from "sonner";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
@@ -57,6 +59,7 @@ interface CalendarEvent {
   resource: {
     classSession: ClassSession;
     isCancelled: boolean;
+    hasCollision?: boolean;
     cancellationReason?: string;
   };
 }
@@ -97,6 +100,32 @@ const todayCardColors = [
   { bg: "bg-snow", border: "border-navy", shadow: "shadow-[3px_3px_0_0_#000]", text: "text-navy", sub: "text-slate" },
 ];
 
+const TIMETABLE_VIEW_PREF_KEY = "timetable_view_pref";
+const DAY_TO_INDEX: Record<string, number> = {
+  Sunday: 0,
+  Monday: 1,
+  Tuesday: 2,
+  Wednesday: 3,
+  Thursday: 4,
+  Friday: 5,
+  Saturday: 6,
+};
+
+const VIEW_OPTIONS: Array<{ key: View; label: string }> = [
+  { key: "day", label: "Day" },
+  { key: "week", label: "Week" },
+  { key: "month", label: "Month" },
+  { key: "agenda", label: "Agenda" },
+];
+
+const VIEW_LABELS: Record<View, string> = {
+  day: "Daily View",
+  week: "Weekly View",
+  month: "Monthly View",
+  agenda: "Agenda View",
+  work_week: "Work Week",
+};
+
 /* ─── Component ─────────────────────────────────────────────────── */
 
 export default function TimetablePage() {
@@ -105,7 +134,12 @@ export default function TimetablePage() {
   const [classes, setClasses] = useState<ClassSession[]>([]);
   const [cancellations, setCancellations] = useState<ClassCancellation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<View>("week");
+  const [view, setView] = useState<View>(() => {
+    if (typeof window === "undefined") return "week";
+    const saved = window.localStorage.getItem(TIMETABLE_VIEW_PREF_KEY) as View | null;
+    if (!saved) return "week";
+    return VIEW_OPTIONS.some((option) => option.key === saved) ? saved : "week";
+  });
   const [date, setDate] = useState(new Date());
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedClass, setSelectedClass] = useState<ClassSession | null>(null);
@@ -120,18 +154,24 @@ export default function TimetablePage() {
   // Parse level from userProfile (stored as "200L", "300L", etc.)
   const userLevel = parseInt(String(userProfile?.level || userProfile?.currentLevel || "300")) || 300;
   const canCancelClasses = (user as { permissions?: string[] })?.permissions?.includes("timetable:cancel") || false;
+  const currentViewLabel = VIEW_LABELS[view] || "Schedule View";
 
   /* ── Responsive ── */
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
-      if (width < 768) { setScreenSize("mobile"); setView("day"); }
-      else if (width < 1024) { setScreenSize("tablet"); if (view === "month" || view === "agenda") setView("week"); }
+      if (width < 768) { setScreenSize("mobile"); }
+      else if (width < 1024) { setScreenSize("tablet"); }
       else setScreenSize("desktop");
     };
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(TIMETABLE_VIEW_PREF_KEY, view);
   }, [view]);
 
   /* ── Data fetching ── */
@@ -154,12 +194,12 @@ export default function TimetablePage() {
         const examsRes = await fetch(getApiUrl(`/api/v1/timetable/exams?level=${userLevel}`), { headers: { Authorization: `Bearer ${token}` } });
         if (examsRes.ok) setExams(await examsRes.json());
       } catch { /* exam fetch non-critical */ }
-    } catch (error) {
+    } catch {
       toast.error("Failed to load timetable. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [user, userLevel, date]);
+  }, [userLevel, date, getAccessToken]);
 
   useEffect(() => { fetchTimetable(); }, [fetchTimetable]);
 
@@ -182,36 +222,116 @@ export default function TimetablePage() {
 
   /* ── Calendar events ── */
   const events: CalendarEvent[] = useMemo(() => {
-    const weekStart = startOfWeek(date, { weekStartsOn: 1 });
-    const dayMap: Record<string, number> = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
+    let rangeStart: Date;
+    let rangeEnd: Date;
+
+    if (view === "day") {
+      rangeStart = startOfDay(date);
+      rangeEnd = endOfDay(date);
+    } else if (view === "week") {
+      const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+      rangeStart = startOfDay(weekStart);
+      rangeEnd = endOfDay(addDays(weekStart, 6));
+    } else if (view === "month") {
+      rangeStart = startOfDay(startOfMonth(date));
+      rangeEnd = endOfDay(endOfMonth(date));
+    } else {
+      rangeStart = startOfDay(date);
+      rangeEnd = endOfDay(addDays(date, 30));
+    }
+
     const calendarEvents: CalendarEvent[] = [];
 
     classes.forEach((cls) => {
-      const dayNum = dayMap[cls.day];
+      const dayNum = DAY_TO_INDEX[cls.day];
       if (dayNum === undefined) return;
-      const classDate = addDays(weekStart, dayNum);
-      const [startH, startM] = cls.startTime.split(":").map(Number);
-      const [endH, endM] = cls.endTime.split(":").map(Number);
-      const startDT = new Date(classDate); startDT.setHours(startH, startM, 0, 0);
-      const endDT = new Date(classDate); endDT.setHours(endH, endM, 0, 0);
-      const cancellation = cancellations.find((c) => c.classSessionId === cls._id && isSameDay(parseISO(c.date), classDate));
 
-      calendarEvents.push({
-        id: `${cls._id}-${format(classDate, "yyyy-MM-dd")}`,
-        title: `${cls.courseCode} - ${cls.courseTitle}`,
-        start: startDT,
-        end: endDT,
-        resource: { classSession: cls, isCancelled: !!cancellation, cancellationReason: cancellation?.reason },
-      });
+      for (let cursor = startOfDay(rangeStart); cursor <= rangeEnd; cursor = addDays(cursor, 1)) {
+        if (cursor.getDay() !== dayNum) continue;
+
+        const [startH, startM] = cls.startTime.split(":").map(Number);
+        const [endH, endM] = cls.endTime.split(":").map(Number);
+        const startDT = new Date(cursor);
+        startDT.setHours(startH, startM, 0, 0);
+        const endDT = new Date(cursor);
+        endDT.setHours(endH, endM, 0, 0);
+        const cancellation = cancellations.find((c) => c.classSessionId === cls._id && isSameDay(parseISO(c.date), cursor));
+
+        calendarEvents.push({
+          id: `${cls._id}-${format(cursor, "yyyy-MM-dd")}`,
+          title: `${cls.courseCode} - ${cls.courseTitle}`,
+          start: startDT,
+          end: endDT,
+          resource: { classSession: cls, isCancelled: !!cancellation, cancellationReason: cancellation?.reason, hasCollision: false },
+        });
+      }
     });
+
+    const byDate = new Map<string, CalendarEvent[]>();
+    calendarEvents.forEach((event) => {
+      const key = format(event.start, "yyyy-MM-dd");
+      if (!byDate.has(key)) byDate.set(key, []);
+      byDate.get(key)!.push(event);
+    });
+
+    byDate.forEach((dayEvents) => {
+      dayEvents.sort((a, b) => a.start.getTime() - b.start.getTime());
+      for (let i = 0; i < dayEvents.length; i += 1) {
+        for (let j = i + 1; j < dayEvents.length; j += 1) {
+          if (dayEvents[j].start < dayEvents[i].end && dayEvents[i].start < dayEvents[j].end) {
+            dayEvents[i].resource.hasCollision = true;
+            dayEvents[j].resource.hasCollision = true;
+          }
+        }
+      }
+    });
+
     return calendarEvents;
-  }, [classes, cancellations, date]);
+  }, [classes, cancellations, date, view]);
 
   const todaysClasses = useMemo(() => events.filter((e) => isSameDay(e.start, new Date())), [events]);
   const upcomingClasses = useMemo(() => {
     const now = new Date();
     return events.filter((e) => e.start > now && e.start <= addDays(now, 7)).sort((a, b) => a.start.getTime() - b.start.getTime()).slice(0, 5);
   }, [events]);
+
+  const nextClass = useMemo(() => {
+    const now = new Date();
+    const candidates: CalendarEvent[] = [];
+
+    classes.forEach((cls) => {
+      const dayNum = DAY_TO_INDEX[cls.day];
+      if (dayNum === undefined) return;
+      for (let i = 0; i <= 14; i += 1) {
+        const candidate = addDays(startOfDay(now), i);
+        if (candidate.getDay() !== dayNum) continue;
+
+        const [startH, startM] = cls.startTime.split(":").map(Number);
+        const [endH, endM] = cls.endTime.split(":").map(Number);
+        const startDT = new Date(candidate);
+        startDT.setHours(startH, startM, 0, 0);
+        const endDT = new Date(candidate);
+        endDT.setHours(endH, endM, 0, 0);
+        if (startDT <= now) continue;
+
+        const cancellation = cancellations.find((c) => c.classSessionId === cls._id && isSameDay(parseISO(c.date), candidate));
+        candidates.push({
+          id: `${cls._id}-${format(candidate, "yyyy-MM-dd")}-next`,
+          title: `${cls.courseCode} - ${cls.courseTitle}`,
+          start: startDT,
+          end: endDT,
+          resource: {
+            classSession: cls,
+            isCancelled: !!cancellation,
+            cancellationReason: cancellation?.reason,
+            hasCollision: false,
+          },
+        });
+      }
+    });
+
+    return candidates.sort((a, b) => a.start.getTime() - b.start.getTime())[0] || null;
+  }, [classes, cancellations]);
 
   const classStats = useMemo(() => ({
     total: events.length,
@@ -225,18 +345,48 @@ export default function TimetablePage() {
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const downloadSchedule = () => {
     if (classes.length === 0) { toast.warning("No Classes", { description: "No timetable data to export." }); return; }
-    // Quote fields that may contain commas
+
+    const dayOrder = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const sortedClasses = [...classes].sort((a, b) => {
+      const dayDiff = dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
+      if (dayDiff !== 0) return dayDiff;
+      return a.startTime.localeCompare(b.startTime);
+    });
+
     const quote = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
-    const headers = ["Course", "Day", "Time", "Venue", "Lecturer", "Type"];
-    const rows = classes.map((cls) => [
-      quote(`${cls.courseCode} - ${cls.courseTitle}`),
-      quote(cls.day),
-      quote(`${cls.startTime} - ${cls.endTime}`),
-      quote(cls.venue),
-      quote(cls.lecturer),
-      quote(cls.classType),
-    ]);
-    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const headers = ["Course Code", "Course Title", "Day", "Start Time", "End Time", "Duration (mins)", "Venue", "Lecturer", "Type", "Level"];
+    const rows = sortedClasses.map((cls) => {
+      const [startH, startM] = cls.startTime.split(":").map(Number);
+      const [endH, endM] = cls.endTime.split(":").map(Number);
+      const duration = Math.max(0, (endH * 60 + endM) - (startH * 60 + startM));
+      return [
+        quote(cls.courseCode),
+        quote(cls.courseTitle),
+        quote(cls.day),
+        quote(cls.startTime),
+        quote(cls.endTime),
+        quote(String(duration)),
+        quote(cls.venue),
+        quote(cls.lecturer || ""),
+        quote(cls.classType),
+        quote(String(cls.level)),
+      ];
+    });
+
+    const metadata = [
+      [quote("IESA Timetable Export"), quote("")],
+      [quote("Level"), quote(String(userLevel))],
+      [quote("Exported At"), quote(new Date().toLocaleString("en-NG"))],
+      [quote("Total Classes"), quote(String(sortedClasses.length))],
+      [],
+    ];
+
+    const csv = [
+      ...metadata.map((row) => row.join(",")),
+      headers.join(","),
+      ...rows.map((r) => r.join(",")),
+    ].join("\n");
+
     const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = `IESA_Timetable_Level${userLevel}.csv`; a.click();
@@ -285,13 +435,14 @@ export default function TimetablePage() {
   /* ── Calendar styling ── */
   const eventStyleGetter = (event: CalendarEvent) => {
     const style = typeStyles[event.resource.classSession.classType] || typeStyles.lecture;
+    const hasCollision = event.resource.hasCollision;
     return {
       style: {
         backgroundColor: style.calColor,
         borderRadius: "8px",
         opacity: event.resource.isCancelled ? 0.4 : 1,
         color: "white",
-        border: "2px solid #0F0F2D",
+        border: hasCollision ? "3px solid #E06050" : "2px solid #0F0F2D",
         textDecoration: event.resource.isCancelled ? "line-through" : "none",
         fontSize: "12px",
       },
@@ -332,12 +483,33 @@ export default function TimetablePage() {
       <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
         <div className="flex justify-end mb-3"><HelpButton onClick={openHelp} /></div>
 
+        {(screenSize !== "desktop" && nextClass) && (
+          <div className="sticky top-2 z-20 mb-4 lg:hidden">
+            <button
+              onClick={() => {
+                setDate(nextClass.start);
+                setView("day");
+                setDetailEvent(nextClass);
+              }}
+              className="w-full bg-lime-light border-[3px] border-navy rounded-2xl px-4 py-3 shadow-[4px_4px_0_0_#000] text-left press-3 press-navy"
+            >
+              <p className="text-[10px] font-bold text-navy uppercase tracking-[0.12em]">Next Class</p>
+              <p className="font-display font-black text-base text-navy leading-tight mt-0.5">
+                {nextClass.resource.classSession.courseCode} • {format(nextClass.start, "EEE, h:mm a")}
+              </p>
+              <p className="text-xs text-slate truncate mt-0.5">
+                {nextClass.resource.classSession.venue} • {nextClass.resource.classSession.lecturer || "Lecturer TBA"}
+              </p>
+            </button>
+          </div>
+        )}
+
         {/* ═══════════════════════════════════════════════════════
             HERO BENTO
             ═══════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
           {/* Title card */}
-          <div className="lg:col-span-7 bg-sunny border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[200px] flex flex-col justify-between">
+          <div className="lg:col-span-12 bg-sunny border-[3px] border-navy rounded-[2rem] p-8 md:p-10 relative overflow-hidden min-h-[200px] flex flex-col justify-between">
             <div className="absolute -bottom-12 -right-12 w-36 h-36 rounded-full bg-navy/8 pointer-events-none" />
             <svg aria-hidden="true" className="absolute top-6 right-10 w-5 h-5 text-navy/12 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
@@ -355,43 +527,27 @@ export default function TimetablePage() {
 
             {/* Stats row */}
             <div className="flex flex-wrap gap-3 mt-5">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-snow/60 text-[10px] font-bold text-navy uppercase tracking-[0.08em]">
+                <span className="w-1.5 h-1.5 rounded-full bg-navy" />
+                {todaysClasses.length} Today
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-snow/60 text-[10px] font-bold text-navy uppercase tracking-[0.08em]">
+                <span className="w-1.5 h-1.5 rounded-full bg-teal" />
+                {classStats.total} This Week
+              </span>
               {[
                 { label: `${classStats.lectures} Lectures`, dot: "bg-navy" },
                 { label: `${classStats.practicals} Practicals`, dot: "bg-coral" },
                 { label: `${classStats.tutorials} Tutorials`, dot: "bg-teal" },
                 ...(classStats.cancelled > 0 ? [{ label: `${classStats.cancelled} Cancelled`, dot: "bg-slate" }] : []),
               ].map((s) => (
-                <span key={s.label} className="flex items-center gap-1.5 text-[10px] font-bold text-navy/60 uppercase tracking-wider">
+                <span key={s.label} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-snow/60 text-[10px] font-bold text-navy uppercase tracking-[0.08em]">
                   <span className={`w-2.5 h-2.5 rounded-full ${s.dot}`} /> {s.label}
                 </span>
               ))}
             </div>
-          </div>
-
-          {/* Action cards */}
-          <div className="lg:col-span-5 grid grid-cols-2 gap-3">
-            <div className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] flex flex-col justify-between">
-              <div className="w-9 h-9 rounded-xl bg-sunny-light flex items-center justify-center mb-3">
-                <svg aria-hidden="true" className="w-4.5 h-4.5 text-sunny" viewBox="0 0 24 24" fill="currentColor">
-                  <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">Today</p>
-              <p className="font-display font-black text-3xl text-navy">{todaysClasses.length}</p>
-            </div>
-
-            <div className="bg-teal-light border-[3px] border-navy rounded-2xl p-5 shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform flex flex-col justify-between">
-              <div className="w-9 h-9 rounded-xl bg-teal/20 flex items-center justify-center mb-3">
-                <svg aria-hidden="true" className="w-4.5 h-4.5 text-teal" viewBox="0 0 24 24" fill="currentColor">
-                  <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <p className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">This Week</p>
-              <p className="font-display font-black text-3xl text-navy">{classStats.total}</p>
-            </div>
-
-            {/* Download buttons */}
-            <button onClick={downloadSchedule} disabled={classes.length === 0} className="bg-navy border-[3px] border-lime press-3 press-lime rounded-2xl p-4 flex items-center gap-3 group disabled:opacity-40">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
+              <button onClick={downloadSchedule} disabled={classes.length === 0} className="bg-navy border-[3px] border-lime press-3 press-lime rounded-2xl p-4 flex items-center gap-3 group disabled:opacity-40">
               <div className="w-9 h-9 rounded-xl bg-teal/15 flex items-center justify-center shrink-0">
                 <svg aria-hidden="true" className="w-5 h-5 text-snow" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
@@ -401,8 +557,8 @@ export default function TimetablePage() {
                 <p className="font-display font-black text-sm text-snow group-hover:text-snow transition-colors">CSV</p>
                 <p className="text-[10px] text-ghost/40">Spreadsheet</p>
               </div>
-            </button>
-            <button onClick={downloadPdf} disabled={downloadingPdf || classes.length === 0} className="bg-lime border-[3px] border-navy press-3 press-navy rounded-2xl p-4 flex items-center gap-3 group disabled:opacity-40">
+              </button>
+              <button onClick={downloadPdf} disabled={downloadingPdf || classes.length === 0} className="bg-lime border-[3px] border-navy press-3 press-navy rounded-2xl p-4 flex items-center gap-3 group disabled:opacity-40">
               <div className="w-9 h-9 rounded-xl bg-navy/10 flex items-center justify-center shrink-0">
                 <svg aria-hidden="true" className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625ZM7.5 15a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7.5 15Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H8.25Z" clipRule="evenodd" />
@@ -413,7 +569,8 @@ export default function TimetablePage() {
                 <p className="font-display font-black text-sm text-navy">{downloadingPdf ? "..." : "PDF"}</p>
                 <p className="text-[10px] text-navy/40">Printable</p>
               </div>
-            </button>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -573,33 +730,89 @@ export default function TimetablePage() {
         {/* ═══════════════════════════════════════════════════════
             CALENDAR
             ═══════════════════════════════════════════════════════ */}
-        <div className="bg-snow border-[3px] border-navy rounded-3xl p-4 md:p-6 shadow-[4px_4px_0_0_#000] overflow-hidden">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-3 h-8 rounded-full bg-sunny" />
-            <h2 className="font-display font-black text-xl text-navy">Weekly View</h2>
+        <div className="overflow-hidden">
+          <div className="flex flex-col gap-3 mb-5">
+            <div className="flex items-center gap-3">
+              <h2 className="font-display font-black text-xl text-navy">{currentViewLabel}</h2>
+              <span className="text-[10px] font-bold text-slate uppercase tracking-wider">{format(date, "MMM d, yyyy")}</span>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  setDate(today);
+                  setView("day");
+                }}
+                className="px-3 py-1.5 rounded-xl bg-snow border-[2px] border-navy text-[10px] font-bold uppercase tracking-wider text-navy press-2 press-black"
+              >
+                Today
+              </button>
+              <button
+                onClick={() => {
+                  const tomorrow = addDays(new Date(), 1);
+                  setDate(tomorrow);
+                  setView("day");
+                }}
+                className="px-3 py-1.5 rounded-xl bg-snow border-[2px] border-navy text-[10px] font-bold uppercase tracking-wider text-navy press-2 press-black"
+              >
+                Tomorrow
+              </button>
+              <button
+                onClick={() => {
+                  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+                  setDate(weekStart);
+                  setView("week");
+                }}
+                className="px-3 py-1.5 rounded-xl bg-snow border-[2px] border-navy text-[10px] font-bold uppercase tracking-wider text-navy press-2 press-black"
+              >
+                This Week
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {VIEW_OPTIONS.map((option) => (
+                <button
+                  key={option.key}
+                  onClick={() => setView(option.key)}
+                  className={`px-3 py-1.5 rounded-xl border-[2px] text-[10px] font-bold uppercase tracking-wider transition-all ${
+                    view === option.key
+                      ? "bg-navy text-snow border-lime press-2 press-lime"
+                      : "bg-snow text-navy border-navy press-2 press-black"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="timetable-calendar" ref={calendarRef}>
-            <Calendar
-              localizer={localizer}
-              events={events}
-              startAccessor="start"
-              endAccessor="end"
-              style={{ height: screenSize === "mobile" ? 450 : 500, minHeight: screenSize === "mobile" ? 400 : 450 }}
-              view={view}
-              onView={setView}
-              date={date}
-              onNavigate={setDate}
-              onSelectEvent={(event: CalendarEvent) => setDetailEvent(event)}
-              eventPropGetter={eventStyleGetter}
-              components={{ event: EventComponent }}
-              views={screenSize === "mobile" ? ["day"] : screenSize === "tablet" ? ["day", "week"] : ["day", "week", "month", "agenda"]}
-              defaultView={screenSize === "mobile" ? "day" : "week"}
-              step={30}
-              timeslots={2}
-              min={new Date(0, 0, 0, 7, 0, 0)}
-              max={new Date(0, 0, 0, 20, 0, 0)}
-            />
+          <div className="overflow-x-auto pb-2">
+            <div className={view === "day" ? "min-w-full" : "min-w-[760px]"}>
+              <div className="timetable-calendar" ref={calendarRef}>
+                <Calendar
+                  localizer={localizer}
+                  events={events}
+                  startAccessor="start"
+                  endAccessor="end"
+                  style={{ height: screenSize === "mobile" ? 450 : 520, minHeight: screenSize === "mobile" ? 400 : 470 }}
+                  view={view}
+                  onView={setView}
+                  date={date}
+                  onNavigate={setDate}
+                  onSelectEvent={(event: CalendarEvent) => setDetailEvent(event)}
+                  eventPropGetter={eventStyleGetter}
+                  components={{ event: EventComponent }}
+                  views={["day", "week", "month", "agenda"]}
+                  defaultView="week"
+                  toolbar={false}
+                  step={30}
+                  timeslots={2}
+                  min={new Date(0, 0, 0, 7, 0, 0)}
+                  max={new Date(0, 0, 0, 20, 0, 0)}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Legend */}
@@ -608,6 +821,7 @@ export default function TimetablePage() {
               { label: "Lecture", dot: "bg-navy" },
               { label: "Practical", dot: "bg-coral" },
               { label: "Tutorial", dot: "bg-teal" },
+              { label: "Collision", dot: "bg-coral border border-navy" },
               { label: "Cancelled", dot: "bg-slate opacity-50" },
             ].map((l) => (
               <div key={l.label} className="flex items-center gap-2">

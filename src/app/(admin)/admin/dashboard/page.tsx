@@ -87,8 +87,8 @@ function AdminDashboardPage() {
 
       {/* ── Hero Bento Grid ────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-        {/* Total Students — navy hero card spanning 7 cols */}
-        <div className="md:col-span-7 bg-navy border-[3px] border-ghost/20 rounded-3xl p-8 relative overflow-hidden">
+        {/* Total Students — navy hero card */}
+        <div className="md:col-span-12 bg-navy border-[3px] border-ghost/20 rounded-3xl p-8 relative overflow-hidden">
           {/* Decorative diamonds */}
           <svg aria-hidden="true" className="absolute top-6 right-6 w-5 h-5 text-navy/10 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
@@ -105,35 +105,13 @@ function AdminDashboardPage() {
               {loading ? "---" : stats.totalStudents}
             </p>
             <p className="text-ghost/50 text-sm">enrolled across all sessions</p>
-          </div>
-        </div>
-
-        {/* Right column — 2 stacked cards spanning 5 cols */}
-        <div className="md:col-span-5 grid grid-rows-2 gap-4">
-          {/* Enrollments — lime card */}
-          <div className="bg-lime border-[3px] border-navy rounded-3xl p-6 flex items-center justify-between shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/50 mb-1">Enrollments</p>
-              <p className="font-display font-black text-4xl text-navy">{loading ? "--" : stats.totalEnrollments}</p>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-navy/10 flex items-center justify-center">
-              <svg aria-hidden="true" className="w-6 h-6 text-navy" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25a3.75 3.75 0 0 0-3-3.75H5.625Z" />
-                <path d="M12.971 1.816A5.23 5.23 0 0 1 14.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 0 1 3.434 1.279 9.768 9.768 0 0 0-6.963-6.963Z" />
-              </svg>
-            </div>
-          </div>
-
-          {/* Events — coral card */}
-          <div className="bg-coral border-[3px] border-navy rounded-3xl p-6 flex items-center justify-between shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Events</p>
-              <p className="font-display font-black text-4xl text-snow">{loading ? "--" : stats.totalEvents}</p>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-snow/20 flex items-center justify-center">
-              <svg aria-hidden="true" className="w-6 h-6 text-snow" viewBox="0 0 24 24" fill="currentColor">
-                <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
-              </svg>
+            <div className="flex flex-wrap gap-2 mt-5">
+              <span className="text-[10px] font-bold text-navy bg-lime rounded-md px-3 py-1 uppercase tracking-wider border border-navy/20">
+                Enrollments: {loading ? "--" : stats.totalEnrollments}
+              </span>
+              <span className="text-[10px] font-bold text-snow bg-coral rounded-md px-3 py-1 uppercase tracking-wider border border-snow/20">
+                Events: {loading ? "--" : stats.totalEvents}
+              </span>
             </div>
           </div>
         </div>

@@ -6,6 +6,7 @@ import { usePermissions } from "@/context/PermissionsContext";
 import { getApiUrl } from "@/lib/api";
 import { withAuth } from "@/lib/withAuth";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { Modal } from "@/components/ui/Modal";
 import { toast } from "sonner";
 
 /* ═══════════════════════════════════════════════════════════
@@ -17,16 +18,47 @@ interface Student {
   firstName: string;
   lastName: string;
   email: string;
+  institutionalEmail?: string;
+  secondaryEmail?: string;
   matricNumber?: string;
   phone?: string;
   profilePictureUrl?: string;
   level: string;
+  currentLevel?: string;
+  department?: string;
+  admissionYear?: number;
+  isExternalStudent?: boolean;
+  role?: string;
+  bio?: string;
+  skills?: string[];
+  dateOfBirth?: string;
+  notificationEmailPreference?: string;
+  notificationChannelPreference?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  lastLogin?: string;
 }
 
 interface CohortStats {
   level: string;
   enrolledCount: number;
-  payments: { title: string; total: number; paid: number; percentage: number }[];
+  payments: { id: string; title: string; total: number; paid: number; percentage: number }[];
+}
+
+interface PaymentCompliance {
+  level: string;
+  payment: {
+    id: string;
+    title: string;
+    amount?: number;
+    deadline?: string | null;
+    total: number;
+    paid: number;
+    unpaid: number;
+    percentage: number;
+  };
+  paidStudents: Student[];
+  unpaidStudents: Student[];
 }
 
 interface Deadline {
@@ -77,6 +109,7 @@ interface TimetableEntry {
   endTime: string;
   venue: string;
   type: string;
+  recurring?: boolean;
 }
 
 type Tab = "overview" | "cohort" | "deadlines" | "polls" | "relay" | "announcements" | "timetable";
@@ -185,13 +218,24 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
   const [polls, setPolls] = useState<Poll[]>([]);
   const [relayPosts, setRelayPosts] = useState<RelayPost[]>([]);
   const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [studentModalOpen, setStudentModalOpen] = useState(false);
+  const [studentLoading, setStudentLoading] = useState(false);
+  const [paymentCompliance, setPaymentCompliance] = useState<PaymentCompliance | null>(null);
+  const [complianceModalOpen, setComplianceModalOpen] = useState(false);
+  const [complianceLoading, setComplianceLoading] = useState(false);
+  const [remindingUnpaid, setRemindingUnpaid] = useState(false);
+  const [exportingUnpaid, setExportingUnpaid] = useState(false);
 
   /* ── form states ─────────────────────────────────────────── */
   const [showDeadlineForm, setShowDeadlineForm] = useState(false);
   const [showPollForm, setShowPollForm] = useState(false);
   const [showRelayForm, setShowRelayForm] = useState(false);
   const [showAnnounceForm, setShowAnnounceForm] = useState(false);
+  const [showTimetableForm, setShowTimetableForm] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
+  const [savingTimetable, setSavingTimetable] = useState(false);
+  const [editingTimetableId, setEditingTimetableId] = useState<string | null>(null);
 
   // Deadline form
   const [dlTitle, setDlTitle] = useState("");
@@ -213,6 +257,16 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
   const [annTitle, setAnnTitle] = useState("");
   const [annContent, setAnnContent] = useState("");
   const [annPriority, setAnnPriority] = useState("normal");
+
+  // Timetable form
+  const [ttCourseCode, setTtCourseCode] = useState("");
+  const [ttCourseTitle, setTtCourseTitle] = useState("");
+  const [ttDay, setTtDay] = useState("Monday");
+  const [ttStartTime, setTtStartTime] = useState("08:00");
+  const [ttEndTime, setTtEndTime] = useState("10:00");
+  const [ttVenue, setTtVenue] = useState("");
+  const [ttLecturer, setTtLecturer] = useState("");
+  const [ttType, setTtType] = useState("lecture");
 
   /* ── API helper ──────────────────────────────────────────── */
   const apiFetch = useCallback(
@@ -277,6 +331,48 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
     setTimetable(data.timetable);
     setLevel(data.level);
   }, [apiFetch]);
+
+  async function openStudentModal(studentId: string) {
+    setStudentLoading(true);
+    setStudentModalOpen(true);
+    try {
+      const data = await apiFetch(`/cohort/${studentId}`);
+      setSelectedStudent(data);
+    } catch {
+      toast.error("Failed to load student details");
+      setStudentModalOpen(false);
+    } finally {
+      setStudentLoading(false);
+    }
+  }
+
+  async function openPaymentCompliance(paymentId: string) {
+    setComplianceLoading(true);
+    setComplianceModalOpen(true);
+    setRemindingUnpaid(false);
+    setExportingUnpaid(false);
+    try {
+      const data = await apiFetch(`/payments/${paymentId}/compliance`);
+      setPaymentCompliance(data);
+    } catch {
+      toast.error("Failed to load payment compliance details");
+      setComplianceModalOpen(false);
+    } finally {
+      setComplianceLoading(false);
+    }
+  }
+
+  function resetTimetableForm() {
+    setTtCourseCode("");
+    setTtCourseTitle("");
+    setTtDay("Monday");
+    setTtStartTime("08:00");
+    setTtEndTime("10:00");
+    setTtVenue("");
+    setTtLecturer("");
+    setTtType("lecture");
+    setEditingTimetableId(null);
+  }
 
   /* ── initial load ────────────────────────────────────────── */
   useEffect(() => {
@@ -398,6 +494,119 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
     } catch { toast.error("Failed to send announcement"); } finally { setFormLoading(false); }
   }
 
+  async function saveTimetableEntry() {
+    if (!ttCourseCode.trim() || !ttCourseTitle.trim() || !ttVenue.trim()) {
+      toast.error("Course code, title, and venue are required");
+      return;
+    }
+    setSavingTimetable(true);
+    try {
+      const payload = {
+        courseCode: ttCourseCode,
+        courseTitle: ttCourseTitle,
+        day: ttDay,
+        startTime: ttStartTime,
+        endTime: ttEndTime,
+        venue: ttVenue,
+        lecturer: ttLecturer,
+        type: ttType,
+        recurring: true,
+      };
+      if (editingTimetableId) {
+        await apiFetch(`/timetable/${editingTimetableId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+        toast.success("Timetable entry updated");
+      } else {
+        await apiFetch("/timetable", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        toast.success("Timetable entry created");
+      }
+      resetTimetableForm();
+      setShowTimetableForm(false);
+      await loadTimetable();
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Failed to save timetable entry";
+      toast.error(message);
+    } finally {
+      setSavingTimetable(false);
+    }
+  }
+
+  async function sendUnpaidReminders() {
+    if (!paymentCompliance?.payment?.id) return;
+    setRemindingUnpaid(true);
+    try {
+      const data = await apiFetch(`/payments/${paymentCompliance.payment.id}/remind-unpaid`, {
+        method: "POST",
+        body: JSON.stringify({ channel: "both" }),
+      });
+      const inAppQueued = data?.inAppQueued ?? 0;
+      const emailQueued = data?.emailQueued ?? 0;
+      toast.success(`Reminder queued (${inAppQueued} in-app, ${emailQueued} email)`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Failed to send reminders";
+      toast.error(message);
+    } finally {
+      setRemindingUnpaid(false);
+    }
+  }
+
+  async function exportUnpaidComplianceCSV() {
+    if (!paymentCompliance?.payment?.id) return;
+    setExportingUnpaid(true);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl(`/api/v1/class-rep/payments/${paymentCompliance.payment.id}/unpaid/export`), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || "Failed to export unpaid CSV");
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${level}_${paymentCompliance.payment.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_unpaid.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Unpaid CSV exported");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Failed to export unpaid CSV";
+      toast.error(message);
+    } finally {
+      setExportingUnpaid(false);
+    }
+  }
+
+  function startEditTimetable(entry: TimetableEntry) {
+    setEditingTimetableId(entry.id);
+    setTtCourseCode(entry.courseCode);
+    setTtCourseTitle(entry.courseTitle);
+    setTtDay(entry.dayOfWeek);
+    setTtStartTime(entry.startTime);
+    setTtEndTime(entry.endTime);
+    setTtVenue(entry.venue);
+    setTtLecturer(entry.lecturer || "");
+    setTtType(entry.type || "lecture");
+    setShowTimetableForm(true);
+  }
+
+  async function deleteTimetableEntry(entryId: string) {
+    try {
+      await apiFetch(`/timetable/${entryId}`, { method: "DELETE" });
+      toast.success("Timetable entry deleted");
+      await loadTimetable();
+    } catch {
+      toast.error("Failed to delete timetable entry");
+    }
+  }
+
   async function exportCSV() {
     const token = await getAccessToken();
     const res = await fetch(getApiUrl("/api/v1/class-rep/cohort/export"), {
@@ -420,13 +629,16 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
   const canPinRelay = hasPermission("class_rep:pin_relay");
   const canExport = hasPermission("class_rep:export_cohort");
   const canAnnounce = hasPermission("announcement:create");
+  const canManageTimetable = hasPermission("class_rep:manage_timetable") || hasPermission("timetable:create") || hasPermission("timetable:edit");
 
   if (!isClassRep && !loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="bg-snow border-4 border-navy rounded-3xl p-10 shadow-[8px_8px_0_0_#000] text-center max-w-md">
-          <h2 className="font-display font-black text-display-md text-navy mb-2">Access Denied</h2>
-          <p className="text-slate">You need a Class Rep or Asst. Class Rep role to access this page.</p>
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="bg-snow border-4 border-navy rounded-3xl p-10 shadow-[8px_8px_0_0_#000] text-center max-w-md">
+            <h2 className="font-display font-black text-display-md text-navy mb-2">Access Denied</h2>
+            <p className="text-slate">You need a Class Rep or Asst. Class Rep role to access this page.</p>
+          </div>
         </div>
       </div>
     );
@@ -434,18 +646,22 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-10 h-10 border-4 border-lime border-t-transparent rounded-full animate-spin" />
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="w-10 h-10 border-4 border-lime border-t-transparent rounded-full animate-spin" />
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="bg-coral-light border-4 border-navy rounded-3xl p-10 shadow-[8px_8px_0_0_#000] text-center max-w-md">
-          <h2 className="font-display font-black text-display-md text-navy mb-2">Error</h2>
-          <p className="text-navy">{error}</p>
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="bg-coral-light border-4 border-navy rounded-3xl p-10 shadow-[8px_8px_0_0_#000] text-center max-w-md">
+            <h2 className="font-display font-black text-display-md text-navy mb-2">Error</h2>
+            <p className="text-navy">{error}</p>
+          </div>
         </div>
       </div>
     );
@@ -509,7 +725,7 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
               <h3 className="font-display font-black text-lg text-navy mb-4">Payment Compliance</h3>
               <div className="space-y-3">
                 {stats.payments.map((p) => (
-                  <div key={p.title}>
+                  <div key={p.id || p.title}>
                     <div className="flex justify-between text-sm mb-1">
                       <span className="font-bold text-navy">{p.title}</span>
                       <span className="text-slate">{p.paid}/{p.total} ({p.percentage}%)</span>
@@ -519,6 +735,14 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
                         className="h-full bg-lime rounded-full transition-all"
                         style={{ width: `${p.percentage}%` }}
                       />
+                    </div>
+                    <div className="mt-2 flex justify-end">
+                      <button
+                        onClick={() => openPaymentCompliance(p.id)}
+                        className="text-xs font-bold text-navy hover:text-teal transition-colors"
+                      >
+                        View paid/unpaid list
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -589,17 +813,30 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
                     <th className="text-left px-4 py-3 font-bold text-navy">Email</th>
                     <th className="text-left px-4 py-3 font-bold text-navy">Matric</th>
                     <th className="text-left px-4 py-3 font-bold text-navy">Phone</th>
+                    <th className="text-left px-4 py-3 font-bold text-navy">Details</th>
                   </tr>
                 </thead>
                 <tbody>
                   {students.length === 0 ? (
-                    <tr><td colSpan={4} className="text-center py-8 text-slate">No students found.</td></tr>
+                    <tr><td colSpan={5} className="text-center py-8 text-slate">No students found.</td></tr>
                   ) : students.map((s) => (
                     <tr key={s.id} className="border-b border-cloud hover:bg-ghost/50 transition-colors">
-                      <td className="px-4 py-3 font-bold text-navy">{s.firstName} {s.lastName}</td>
+                      <td className="px-4 py-3 font-bold text-navy">
+                        <button onClick={() => openStudentModal(s.id)} className="hover:text-teal transition-colors text-left">
+                          {s.firstName} {s.lastName}
+                        </button>
+                      </td>
                       <td className="px-4 py-3 text-slate">{s.email}</td>
                       <td className="px-4 py-3 text-slate">{s.matricNumber || "—"}</td>
                       <td className="px-4 py-3 text-slate">{s.phone || "—"}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => openStudentModal(s.id)}
+                          className="text-xs font-bold text-navy hover:text-teal transition-colors"
+                        >
+                          View full profile
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -884,52 +1121,243 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
 
       {/* ── TIMETABLE ─────────────────────────────────────── */}
       {tab === "timetable" && (
-        <div className="bg-snow border-4 border-navy rounded-3xl shadow-[8px_8px_0_0_#000] overflow-hidden">
-          {timetable.length === 0 ? (
-            <div className="p-8 text-center">
-              <p className="text-slate">No timetable entries for {level}.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-ghost border-b-[3px] border-navy">
-                    <th className="text-left px-4 py-3 font-bold text-navy">Day</th>
-                    <th className="text-left px-4 py-3 font-bold text-navy">Time</th>
-                    <th className="text-left px-4 py-3 font-bold text-navy">Course</th>
-                    <th className="text-left px-4 py-3 font-bold text-navy">Lecturer</th>
-                    <th className="text-left px-4 py-3 font-bold text-navy">Venue</th>
-                    <th className="text-left px-4 py-3 font-bold text-navy">Type</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {timetable.map((entry) => (
-                    <tr key={entry.id} className="border-b border-cloud hover:bg-ghost/50 transition-colors">
-                      <td className="px-4 py-3 font-bold text-navy">{entry.dayOfWeek}</td>
-                      <td className="px-4 py-3 text-slate">{entry.startTime} – {entry.endTime}</td>
-                      <td className="px-4 py-3">
-                        <span className="font-bold text-navy">{entry.courseCode}</span>
-                        {entry.courseTitle && <span className="text-slate ml-1">({entry.courseTitle})</span>}
-                      </td>
-                      <td className="px-4 py-3 text-slate">{entry.lecturer || "—"}</td>
-                      <td className="px-4 py-3 text-slate">{entry.venue || "—"}</td>
-                      <td className="px-4 py-3">
-                        <span className={`text-xs font-bold px-2 py-1 rounded-lg ${
-                          entry.type === "lecture" ? "bg-teal-light text-teal" :
-                          entry.type === "lab" ? "bg-lavender-light text-lavender" :
-                          "bg-sunny-light text-navy"
-                        }`}>
-                          {entry.type}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <div className="space-y-4">
+          {canManageTimetable && (
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => {
+                  if (showTimetableForm) {
+                    setShowTimetableForm(false);
+                    resetTimetableForm();
+                    return;
+                  }
+                  setShowTimetableForm(true);
+                }}
+                className="bg-lime border-[3px] border-navy rounded-2xl px-5 py-3 font-bold text-sm text-navy press-3 press-navy"
+              >
+                {showTimetableForm ? "Cancel" : "+ Add Timetable Entry"}
+              </button>
             </div>
           )}
+
+          {showTimetableForm && canManageTimetable && (
+            <div className="bg-snow border-4 border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input value={ttCourseCode} onChange={(e) => setTtCourseCode(e.target.value)} placeholder="Course code (e.g. IPE 401)" className="border-[3px] border-navy rounded-2xl px-4 py-3 text-sm font-medium text-navy placeholder:text-slate focus:outline-none focus:border-lime" />
+                <input value={ttCourseTitle} onChange={(e) => setTtCourseTitle(e.target.value)} placeholder="Course title" className="border-[3px] border-navy rounded-2xl px-4 py-3 text-sm font-medium text-navy placeholder:text-slate focus:outline-none focus:border-lime" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <select value={ttDay} onChange={(e) => setTtDay(e.target.value)} title="Class day" className="border-[3px] border-navy rounded-2xl px-4 py-3 text-sm font-bold text-navy focus:outline-none focus:border-lime">
+                  {[
+                    "Monday",
+                    "Tuesday",
+                    "Wednesday",
+                    "Thursday",
+                    "Friday",
+                    "Saturday",
+                    "Sunday",
+                  ].map((day) => (
+                    <option key={day} value={day}>{day}</option>
+                  ))}
+                </select>
+                <input type="time" title="Start time" value={ttStartTime} onChange={(e) => setTtStartTime(e.target.value)} className="border-[3px] border-navy rounded-2xl px-4 py-3 text-sm font-medium text-navy focus:outline-none focus:border-lime" />
+                <input type="time" title="End time" value={ttEndTime} onChange={(e) => setTtEndTime(e.target.value)} className="border-[3px] border-navy rounded-2xl px-4 py-3 text-sm font-medium text-navy focus:outline-none focus:border-lime" />
+                <select value={ttType} onChange={(e) => setTtType(e.target.value)} title="Class type" className="border-[3px] border-navy rounded-2xl px-4 py-3 text-sm font-bold text-navy focus:outline-none focus:border-lime">
+                  <option value="lecture">Lecture</option>
+                  <option value="practical">Practical</option>
+                  <option value="tutorial">Tutorial</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input value={ttVenue} onChange={(e) => setTtVenue(e.target.value)} placeholder="Venue" className="border-[3px] border-navy rounded-2xl px-4 py-3 text-sm font-medium text-navy placeholder:text-slate focus:outline-none focus:border-lime" />
+                <input value={ttLecturer} onChange={(e) => setTtLecturer(e.target.value)} placeholder="Lecturer" className="border-[3px] border-navy rounded-2xl px-4 py-3 text-sm font-medium text-navy placeholder:text-slate focus:outline-none focus:border-lime" />
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={saveTimetableEntry} disabled={savingTimetable} className="bg-lime border-[3px] border-navy rounded-2xl px-6 py-3 font-bold text-sm text-navy press-3 press-navy disabled:opacity-50">
+                  {savingTimetable ? "Saving..." : editingTimetableId ? "Update Entry" : "Create Entry"}
+                </button>
+                {editingTimetableId && (
+                  <button
+                    onClick={() => {
+                      resetTimetableForm();
+                      setShowTimetableForm(false);
+                    }}
+                    className="bg-ghost border-[3px] border-navy rounded-2xl px-6 py-3 font-bold text-sm text-navy press-3 press-black"
+                  >
+                    Cancel edit
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="bg-snow border-4 border-navy rounded-3xl shadow-[8px_8px_0_0_#000] overflow-hidden">
+            {timetable.length === 0 ? (
+              <div className="p-8 text-center">
+                <p className="text-slate">No timetable entries for {level}.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-ghost border-b-[3px] border-navy">
+                      <th className="text-left px-4 py-3 font-bold text-navy">Day</th>
+                      <th className="text-left px-4 py-3 font-bold text-navy">Time</th>
+                      <th className="text-left px-4 py-3 font-bold text-navy">Course</th>
+                      <th className="text-left px-4 py-3 font-bold text-navy">Lecturer</th>
+                      <th className="text-left px-4 py-3 font-bold text-navy">Venue</th>
+                      <th className="text-left px-4 py-3 font-bold text-navy">Type</th>
+                      {canManageTimetable && <th className="text-left px-4 py-3 font-bold text-navy">Actions</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {timetable.map((entry) => (
+                      <tr key={entry.id} className="border-b border-cloud hover:bg-ghost/50 transition-colors">
+                        <td className="px-4 py-3 font-bold text-navy">{entry.dayOfWeek}</td>
+                        <td className="px-4 py-3 text-slate">{entry.startTime} – {entry.endTime}</td>
+                        <td className="px-4 py-3">
+                          <span className="font-bold text-navy">{entry.courseCode}</span>
+                          {entry.courseTitle && <span className="text-slate ml-1">({entry.courseTitle})</span>}
+                        </td>
+                        <td className="px-4 py-3 text-slate">{entry.lecturer || "—"}</td>
+                        <td className="px-4 py-3 text-slate">{entry.venue || "—"}</td>
+                        <td className="px-4 py-3">
+                          <span className={`text-xs font-bold px-2 py-1 rounded-lg ${
+                            entry.type === "lecture" ? "bg-teal-light text-teal" :
+                            entry.type === "practical" ? "bg-lavender-light text-lavender" :
+                            "bg-sunny-light text-navy"
+                          }`}>
+                            {entry.type}
+                          </span>
+                        </td>
+                        {canManageTimetable && (
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => startEditTimetable(entry)} className="text-xs font-bold text-teal hover:underline">Edit</button>
+                              <button onClick={() => deleteTimetableEntry(entry.id)} className="text-xs font-bold text-coral hover:underline">Delete</button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
+
+      <Modal
+        isOpen={complianceModalOpen}
+        onClose={() => {
+          setComplianceModalOpen(false);
+          setPaymentCompliance(null);
+        }}
+        title={paymentCompliance?.payment?.title || "Payment Compliance"}
+        size="xl"
+      >
+        {complianceLoading || !paymentCompliance ? (
+          <div className="py-10 text-center text-slate">Loading compliance details...</div>
+        ) : (
+          <div className="space-y-5">
+            <div className="flex flex-wrap gap-2 justify-end">
+              <button
+                onClick={exportUnpaidComplianceCSV}
+                disabled={exportingUnpaid}
+                className="bg-teal border-[3px] border-navy rounded-xl px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-navy press-2 press-navy disabled:opacity-50"
+              >
+                {exportingUnpaid ? "Exporting..." : "Export Unpaid CSV"}
+              </button>
+              <button
+                onClick={sendUnpaidReminders}
+                disabled={remindingUnpaid || paymentCompliance.unpaidStudents.length === 0}
+                className="bg-lime border-[3px] border-navy rounded-xl px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-navy press-2 press-navy disabled:opacity-50"
+              >
+                {remindingUnpaid ? "Sending..." : "Remind Unpaid"}
+              </button>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-light text-navy font-bold text-[10px] uppercase tracking-[0.08em]">
+                <span className="w-1.5 h-1.5 rounded-full bg-teal" />
+                Paid {paymentCompliance.payment.paid}
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-coral-light text-navy font-bold text-[10px] uppercase tracking-[0.08em]">
+                <span className="w-1.5 h-1.5 rounded-full bg-coral" />
+                Unpaid {paymentCompliance.payment.unpaid}
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-lime-light text-navy font-bold text-[10px] uppercase tracking-[0.08em]">
+                <span className="w-1.5 h-1.5 rounded-full bg-lime-dark" />
+                {paymentCompliance.payment.percentage}% Compliance
+              </span>
+            </div>
+
+            <div>
+              <p className="text-xs font-bold text-navy uppercase tracking-[0.12em] mb-2">Paid Students</p>
+              <div className="max-h-56 overflow-y-auto rounded-2xl border-[3px] border-navy/15 bg-ghost p-2 space-y-1.5">
+                {paymentCompliance.paidStudents.length === 0 ? (
+                  <p className="text-xs text-slate px-2 py-1">No paid students yet.</p>
+                ) : paymentCompliance.paidStudents.map((student) => (
+                  <button key={student.id} onClick={() => openStudentModal(student.id)} className="w-full text-left px-3 py-2 rounded-xl hover:bg-snow transition-colors">
+                    <p className="font-bold text-sm text-navy">{student.firstName} {student.lastName}</p>
+                    <p className="text-[11px] text-slate">{student.matricNumber || "No matric"} · {student.email}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-bold text-navy uppercase tracking-[0.12em] mb-2">Unpaid Students</p>
+              <div className="max-h-56 overflow-y-auto rounded-2xl border-[3px] border-navy/15 bg-ghost p-2 space-y-1.5">
+                {paymentCompliance.unpaidStudents.length === 0 ? (
+                  <p className="text-xs text-slate px-2 py-1">All students have paid.</p>
+                ) : paymentCompliance.unpaidStudents.map((student) => (
+                  <button key={student.id} onClick={() => openStudentModal(student.id)} className="w-full text-left px-3 py-2 rounded-xl hover:bg-snow transition-colors">
+                    <p className="font-bold text-sm text-navy">{student.firstName} {student.lastName}</p>
+                    <p className="text-[11px] text-slate">{student.matricNumber || "No matric"} · {student.email}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={studentModalOpen}
+        onClose={() => {
+          setStudentModalOpen(false);
+          setSelectedStudent(null);
+        }}
+        title={selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : "Student Details"}
+        size="lg"
+      >
+        {studentLoading || !selectedStudent ? (
+          <div className="py-10 text-center text-slate">Loading student details...</div>
+        ) : (
+          <div className="space-y-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3"><p className="text-xs text-slate">Email</p><p className="font-bold text-navy break-all">{selectedStudent.email || "—"}</p></div>
+              <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3"><p className="text-xs text-slate">Institutional Email</p><p className="font-bold text-navy break-all">{selectedStudent.institutionalEmail || "—"}</p></div>
+              <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3"><p className="text-xs text-slate">Matric Number</p><p className="font-bold text-navy">{selectedStudent.matricNumber || "—"}</p></div>
+              <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3"><p className="text-xs text-slate">Phone</p><p className="font-bold text-navy">{selectedStudent.phone || "—"}</p></div>
+              <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3"><p className="text-xs text-slate">Level</p><p className="font-bold text-navy">{selectedStudent.currentLevel || selectedStudent.level || "—"}</p></div>
+              <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3"><p className="text-xs text-slate">Department</p><p className="font-bold text-navy">{selectedStudent.department || "—"}</p></div>
+              <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3"><p className="text-xs text-slate">Admission Year</p><p className="font-bold text-navy">{selectedStudent.admissionYear || "—"}</p></div>
+              <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3"><p className="text-xs text-slate">Role</p><p className="font-bold text-navy">{selectedStudent.role || "student"}</p></div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3"><p className="text-xs text-slate">Joined</p><p className="font-bold text-navy">{formatDate(selectedStudent.createdAt)}</p></div>
+              <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3"><p className="text-xs text-slate">Last Login</p><p className="font-bold text-navy">{formatDate(selectedStudent.lastLogin)}</p></div>
+            </div>
+            <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3">
+              <p className="text-xs text-slate">Bio</p>
+              <p className="font-medium text-navy whitespace-pre-wrap">{selectedStudent.bio || "No bio provided."}</p>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <ToolHelpModal toolId={helpToolId} isOpen={showHelp} onClose={closeHelp} />
     </div>

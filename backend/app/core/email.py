@@ -702,6 +702,7 @@ async def send_announcement_email(
 async def send_birthday_email(
     to: str,
     name: str,
+    due_reminder: str | None = None,
     dashboard_url: str = "https://iesa-ui.vercel.app/dashboard",
 ):
     """Send a specialized birthday celebrant email."""
@@ -721,6 +722,7 @@ async def send_birthday_email(
                 <h2 style="margin:8px 0 12px;font-size:26px;line-height:1.2;color:#0F0F2D;">Happy Birthday, {escape(name)}!</h2>
                 <p style="margin:0 0 12px;font-size:14px;line-height:1.7;color:#334155;">Wishing you joy, growth, and meaningful moments today.</p>
                 <p style="margin:0 0 18px;font-size:14px;line-height:1.7;color:#334155;">The entire Industrial Engineering Students&apos; Association community celebrates you and wishes you a wonderful year ahead.</p>
+                {f'<div style="margin:0 0 18px;padding:12px 14px;background:#FFF7D6;border:2px solid #0F0F2D;border-radius:12px;color:#0F0F2D;font-size:13px;line-height:1.6;"><strong>Playful reminder:</strong> {escape(due_reminder)}</div>' if due_reminder else ''}
                 <a href="{escape(dashboard_url)}" style="display:inline-block;background:#C8F31D;color:#0F0F2D;font-size:13px;font-weight:900;text-decoration:none;padding:12px 18px;border:3px solid #0F0F2D;border-radius:12px;box-shadow:3px 3px 0 #0F0F2D;">
                     Open IESA Dashboard
                 </a>

@@ -51,11 +51,20 @@ export interface UseDriveResult {
   refreshFolder: () => void;
 }
 
-export function useDrive(): UseDriveResult {
+export interface UseDriveOptions {
+  enableRecent?: boolean;
+  enableProgress?: boolean;
+}
+
+export function useDrive(storageNamespace: string = "drive", options: UseDriveOptions = {}): UseDriveResult {
+  const { enableRecent = true, enableProgress = true } = options;
+  const lastFolderStorageKey = `${storageNamespace}_last_folder`;
+  const breadcrumbTrailStorageKey = `${storageNamespace}_breadcrumb_trail`;
+
   const [folderId, setFolderId] = useState<string | null>(() => {
     // Restore the last-visited folder from localStorage
     if (typeof window !== "undefined") {
-      return localStorage.getItem("drive_last_folder") || null;
+      return localStorage.getItem(lastFolderStorageKey) || null;
     }
     return null;
   });
@@ -65,7 +74,7 @@ export function useDrive(): UseDriveResult {
   const [breadcrumbTrail, setBreadcrumbTrail] = useState<DriveBreadcrumb[]>(() => {
     if (typeof window !== "undefined") {
       try {
-        const saved = localStorage.getItem("drive_breadcrumb_trail");
+        const saved = localStorage.getItem(breadcrumbTrailStorageKey);
         return saved ? JSON.parse(saved) : [];
       } catch { return []; }
     }
@@ -83,10 +92,10 @@ export function useDrive(): UseDriveResult {
   // Persist breadcrumb trail to localStorage
   const persistTrail = useCallback((trail: DriveBreadcrumb[]) => {
     if (typeof window !== "undefined") {
-      if (trail.length > 0) localStorage.setItem("drive_breadcrumb_trail", JSON.stringify(trail));
-      else localStorage.removeItem("drive_breadcrumb_trail");
+      if (trail.length > 0) localStorage.setItem(breadcrumbTrailStorageKey, JSON.stringify(trail));
+      else localStorage.removeItem(breadcrumbTrailStorageKey);
     }
-  }, []);
+  }, [breadcrumbTrailStorageKey]);
 
   // Folder data via SWR
   const browseKey = `/api/v1/drive/browse${folderId ? `?folderId=${folderId}` : ""}`;
@@ -110,14 +119,14 @@ export function useDrive(): UseDriveResult {
 
   // Recent files
   const { data: recentData } = useSWR<{ recent: FileProgress[] }>(
-    "/api/v1/drive/recent?limit=10",
+    enableRecent ? "/api/v1/drive/recent?limit=10" : null,
     apiFetcher,
     { revalidateOnFocus: false, dedupingInterval: 60000 },
   );
 
   // All progress (for progress map)
   const { data: progressData } = useSWR<{ progress: FileProgress[] }>(
-    "/api/v1/drive/progress",
+    enableProgress ? "/api/v1/drive/progress" : null,
     apiFetcher,
     { revalidateOnFocus: false, dedupingInterval: 60000 },
   );
@@ -149,7 +158,7 @@ export function useDrive(): UseDriveResult {
       setBreadcrumbTrail([]);
       persistTrail([]);
       setFolderId(null);
-      localStorage.removeItem("drive_last_folder");
+      localStorage.removeItem(lastFolderStorageKey);
     } else if (name) {
       // Navigating into a new folder — push to trail
       setBreadcrumbTrail((prev) => {
@@ -158,7 +167,7 @@ export function useDrive(): UseDriveResult {
         return next;
       });
       setFolderId(id);
-      localStorage.setItem("drive_last_folder", id);
+      localStorage.setItem(lastFolderStorageKey, id);
     } else {
       // Jumping to an existing crumb by id — slice trail up to and including that crumb
       setBreadcrumbTrail((prev) => {
@@ -168,11 +177,11 @@ export function useDrive(): UseDriveResult {
         return next;
       });
       setFolderId(id);
-      localStorage.setItem("drive_last_folder", id);
+      localStorage.setItem(lastFolderStorageKey, id);
     }
     setSearchQuery("");
     setSearchResults(null);
-  }, [persistTrail]);
+  }, [persistTrail, lastFolderStorageKey]);
 
   const goBack = useCallback(() => {
     setBreadcrumbTrail((prev) => {
@@ -180,14 +189,14 @@ export function useDrive(): UseDriveResult {
       const next = prev.slice(0, -1);
       const parentId = next.length > 0 ? next[next.length - 1].id : null;
       setFolderId(parentId);
-      if (parentId) localStorage.setItem("drive_last_folder", parentId);
-      else localStorage.removeItem("drive_last_folder");
+      if (parentId) localStorage.setItem(lastFolderStorageKey, parentId);
+      else localStorage.removeItem(lastFolderStorageKey);
       persistTrail(next);
       return next;
     });
     setSearchQuery("");
     setSearchResults(null);
-  }, [persistTrail]);
+  }, [persistTrail, lastFolderStorageKey]);
 
   // Open file for viewing
   const openFile = useCallback(async (item: DriveItem) => {
@@ -261,7 +270,7 @@ export function useDrive(): UseDriveResult {
     breadcrumbs: clientBreadcrumbs,
     folderId,
     rootId: browseData?.rootId || "",
-    loading: browseLoading,
+    loading: browseLoading && !browseData && !browseError,
     error: browseError ? (browseError as Error).message : null,
     notConfigured,
 

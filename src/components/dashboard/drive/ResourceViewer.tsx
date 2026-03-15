@@ -17,7 +17,7 @@ import {
   getFileTypeLabel,
 } from "@/lib/api/drive";
 import { useAuth } from "@/context/AuthContext";
-import { getCachedFile, cacheFile } from "@/lib/driveCache";
+import { getCachedFile, cacheFile, evictCachedFile } from "@/lib/driveCache";
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -103,13 +103,15 @@ function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
 interface PDFViewerProps {
   fileId: string;
   meta: FileMetaResponse;
+  token: string | null;
   onProgressUpdate: (page: number, total: number) => void;
 }
 
 type CacheStatus = "checking" | "cached" | "downloading" | "ready";
 
-function PDFViewer({ fileId, meta, onProgressUpdate }: PDFViewerProps) {
+function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
   const { getAccessToken } = useAuth();
+  const initialPage = meta.progress?.currentPage || 1;
   const [currentPage, setCurrentPage] = useState(meta.progress?.currentPage || 1);
   const [totalPages, setTotalPages] = useState(meta.progress?.totalPages || 0);
   const [zoom, setZoom] = useState(1);
@@ -121,19 +123,22 @@ function PDFViewer({ fileId, meta, onProgressUpdate }: PDFViewerProps) {
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   // Refs for scroll-on-resume logic — must not be reactive state
-  const initialPageRef = useRef(meta.progress?.currentPage || 1);
-  const scrolledToInitialRef = useRef(initialPageRef.current <= 1); // no scroll needed if already at p1
+  const initialPageRef = useRef(initialPage);
+  const scrolledToInitialRef = useRef(initialPage <= 1); // no scroll needed if already at p1
   const currentPageRef = useRef(currentPage);
   const urlToRevokeRef = useRef<string | null>(null);
+  const hasRetriedAfterEmptyRef = useRef(false);
   useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
 
   const streamUrl = getDriveStreamUrl(fileId);
+  const streamSrc = `${streamUrl}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
 
   // Cache-aware file loader:
   // 1. Check IndexedDB — if HIT, create object URL immediately (instant load)
   // 2. If MISS, fetch with auth token, store in IDB, then create object URL
   useEffect(() => {
     let cancelled = false;
+    hasRetriedAfterEmptyRef.current = false;
     setCacheStatus("checking");
     setPdfUrl(null);
     setPdfLoading(true);
@@ -143,34 +148,25 @@ function PDFViewer({ fileId, meta, onProgressUpdate }: PDFViewerProps) {
       // 1 — try cache
       const cached = await getCachedFile(fileId);
       if (cached && !cancelled) {
-        const url = URL.createObjectURL(cached);
-        urlToRevokeRef.current = url;
-        setPdfUrl(url);
-        setCacheStatus("cached");
-        return;
+        if (cached.size === 0) {
+          await evictCachedFile(fileId);
+        } else {
+          const url = URL.createObjectURL(cached);
+          urlToRevokeRef.current = url;
+          setPdfUrl(url);
+          setCacheStatus("cached");
+          return;
+        }
       }
 
       if (cancelled) return;
 
-      // 2 — download from server
-      setCacheStatus("downloading");
+      // 2 — stream immediately (faster first paint), skip blocking full-blob download
+      setCacheStatus("ready");
       try {
-        const token = await getAccessToken();
+        const authToken = token || await getAccessToken();
         if (cancelled) return;
-        const res = await fetch(streamUrl, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const blob = await res.blob();
-        if (cancelled) return;
-
-        // Cache for next time (fire-and-forget)
-        cacheFile(fileId, blob, meta.name, meta.mimeType).catch(() => {});
-
-        const url = URL.createObjectURL(blob);
-        urlToRevokeRef.current = url;
-        setPdfUrl(url);
-        setCacheStatus("ready");
+        setPdfUrl(`${streamUrl}${authToken ? `?token=${encodeURIComponent(authToken)}` : ""}`);
       } catch {
         if (!cancelled) {
           setPdfLoading(false);
@@ -187,7 +183,34 @@ function PDFViewer({ fileId, meta, onProgressUpdate }: PDFViewerProps) {
         urlToRevokeRef.current = null;
       }
     };
-  }, [fileId, streamUrl, getAccessToken, meta.name, meta.mimeType]);
+  }, [fileId, streamUrl, streamSrc, token, getAccessToken]);
+
+  const fetchPdfBlobFallback = useCallback(async (): Promise<boolean> => {
+    try {
+      const accessToken = token || await getAccessToken();
+      const res = await fetch(streamUrl, {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!res.ok) return false;
+      const blob = await res.blob();
+      if (!blob || blob.size === 0) return false;
+      await cacheFile(fileId, blob, meta.name, meta.mimeType || "application/pdf");
+      if (urlToRevokeRef.current) {
+        URL.revokeObjectURL(urlToRevokeRef.current);
+      }
+      const blobUrl = URL.createObjectURL(blob);
+      urlToRevokeRef.current = blobUrl;
+      setPdfUrl(blobUrl);
+      setPdfLoading(true);
+      setPdfError(null);
+      setCacheStatus("cached");
+      return true;
+    } catch {
+      return false;
+    }
+  }, [fileId, getAccessToken, meta.mimeType, meta.name, streamUrl, token]);
 
   const handleDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
     setTotalPages(numPages);
@@ -209,10 +232,30 @@ function PDFViewer({ fileId, meta, onProgressUpdate }: PDFViewerProps) {
     }
   }, [onProgressUpdate]);
 
-  const handleDocumentLoadError = useCallback(() => {
+  const handleDocumentLoadError = useCallback((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err || "");
+    const isEmptyPdf = message.toLowerCase().includes("empty") || message.toLowerCase().includes("zerobytes") || message.toLowerCase().includes("zero bytes");
+
+    if (isEmptyPdf && !hasRetriedAfterEmptyRef.current) {
+      hasRetriedAfterEmptyRef.current = true;
+      setPdfLoading(true);
+      setPdfError(null);
+      setCacheStatus("downloading");
+      void (async () => {
+        await evictCachedFile(fileId);
+        const recovered = await fetchPdfBlobFallback();
+        if (!recovered) {
+          setPdfLoading(false);
+          setPdfError("Failed to load PDF. The file appears empty right now. Please retry.");
+          setCacheStatus("ready");
+        }
+      })();
+      return;
+    }
+
     setPdfLoading(false);
     setPdfError("Failed to load PDF. The file may be too large or inaccessible.");
-  }, []);
+  }, [fetchPdfBlobFallback, fileId]);
 
   // Navigate to a specific page by scrolling to it
   const goToPage = useCallback((page: number) => {
@@ -226,77 +269,64 @@ function PDFViewer({ fileId, meta, onProgressUpdate }: PDFViewerProps) {
     }
   }, [totalPages, onProgressUpdate]);
 
-  // Cache page offsets once after all pages render, then use cheap scrollTop lookup.
-  const pageOffsetsRef = useRef<number[]>([]); // index 0 = page 1's offsetTop
-
-  // Re-cache page offsets (called after render & on zoom change)
-  const cachePageOffsets = useCallback(() => {
-    if (!containerRef.current || totalPages === 0) return;
+  const resolveCurrentPageFromScroll = useCallback(() => {
+    if (totalPages === 0 || !containerRef.current || !scrolledToInitialRef.current) return;
     const container = containerRef.current;
-    // getBoundingClientRect at cache time (no scroll happening) gives the true
-    // offset relative to the scroll container — offsetTop alone is relative to
-    // offsetParent which may not be the scroll container.
-    const containerTop = container.getBoundingClientRect().top;
-    const scrollTop = container.scrollTop;
-    const offsets: number[] = [];
-    for (let p = 1; p <= totalPages; p++) {
-      const el = pageRefs.current.get(p);
-      if (el) {
-        // offset from container's scroll origin
-        offsets.push(el.getBoundingClientRect().top - containerTop + scrollTop);
+    const mountedPages = Array.from(pageRefs.current.entries())
+      .sort((a, b) => a[0] - b[0]);
+    if (mountedPages.length === 0) return;
+
+    const target = container.scrollTop + container.clientHeight * 0.35;
+    let bestPage = mountedPages[0][0];
+
+    for (const [pageNum, el] of mountedPages) {
+      if (el.offsetTop <= target) {
+        bestPage = pageNum;
       } else {
-        offsets.push(0);
+        break;
       }
     }
-    pageOffsetsRef.current = offsets;
-  }, [totalPages]);
 
-  // Zoom changes page heights — invalidate cached offsets after react-pdf re-renders
-  useEffect(() => {
-    if (totalPages === 0) return;
-    pageOffsetsRef.current = [];
-    const t = setTimeout(cachePageOffsets, 350);
-    return () => clearTimeout(t);
-  }, [zoom, totalPages, cachePageOffsets]);
+    if (bestPage !== currentPageRef.current) {
+      currentPageRef.current = bestPage;
+      setCurrentPage(bestPage);
+      onProgressUpdate(bestPage, totalPages);
+    }
+  }, [onProgressUpdate, totalPages]);
 
-  // Track current page via scroll — O(1): binary search on pre-cached offsets.
+  // Track current page via scroll using measured page offsets (robust to rerenders/zoom).
   useEffect(() => {
     if (totalPages === 0 || !containerRef.current) return;
     const container = containerRef.current;
 
-    // Cache offsets shortly after pages render
-    const cacheTimer = setTimeout(cachePageOffsets, 300);
+    let rafId: number | null = null;
 
     const handleScroll = () => {
       if (!scrolledToInitialRef.current) return;
-
-      const offsets = pageOffsetsRef.current;
-      if (offsets.length === 0) { cachePageOffsets(); return; }
-
-      const mid = container.scrollTop + container.clientHeight / 2;
-
-      // Binary search for the page whose top is closest-but-not-past mid
-      let lo = 0, hi = offsets.length - 1;
-      while (lo < hi) {
-        const m = (lo + hi + 1) >> 1;
-        if (offsets[m] <= mid) lo = m;
-        else hi = m - 1;
-      }
-      const bestPage = lo + 1; // +1 because offsets is 0-indexed for page 1
-
-      if (bestPage !== currentPageRef.current) {
-        currentPageRef.current = bestPage;
-        setCurrentPage(bestPage);
-        onProgressUpdate(bestPage, totalPages);
-      }
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        resolveCurrentPageFromScroll();
+      });
     };
 
+    const initTimer = setTimeout(resolveCurrentPageFromScroll, 250);
     container.addEventListener("scroll", handleScroll, { passive: true });
     return () => {
       container.removeEventListener("scroll", handleScroll);
-      clearTimeout(cacheTimer);
+      clearTimeout(initTimer);
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
     };
-  }, [totalPages, onProgressUpdate, cachePageOffsets]);
+  }, [totalPages, resolveCurrentPageFromScroll]);
+
+  // Re-evaluate page indicator after zoom/layout changes.
+  useEffect(() => {
+    if (totalPages === 0) return;
+    const timer = setTimeout(resolveCurrentPageFromScroll, 350);
+    return () => clearTimeout(timer);
+  }, [zoom, totalPages, resolveCurrentPageFromScroll]);
 
   // Register page ref callback
   const setPageRef = useCallback((pageNum: number, el: HTMLDivElement | null) => {
@@ -382,7 +412,7 @@ function PDFViewer({ fileId, meta, onProgressUpdate }: PDFViewerProps) {
               <div className="animate-spin rounded-full h-8 w-8 border-[3px] border-lime border-t-transparent mx-auto" />
               <p className="text-snow text-sm">
                 {cacheStatus === "checking" && "Checking cache..."}
-                {cacheStatus === "downloading" && "Downloading PDF..."}
+                {cacheStatus === "downloading" && "Preparing PDF..."}
                 {(cacheStatus === "cached" || cacheStatus === "ready") && pdfLoading && "Rendering PDF..."}
               </p>
             </div>
@@ -504,23 +534,340 @@ function VideoPlayer({ fileId, meta, token, onProgressUpdate }: VideoPlayerProps
 
 // ── Image Viewer ─────────────────────────────────────────────
 
-function ImageViewer({ fileId, meta }: { fileId: string; meta: FileMetaResponse }) {
+function ImageViewer({ fileId, meta, token }: { fileId: string; meta: FileMetaResponse; token: string | null }) {
+  const { getAccessToken } = useAuth();
   const streamUrl = getDriveStreamUrl(fileId);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const pinchStateRef = useRef<{ startDistance: number; startZoom: number } | null>(null);
+  const panStateRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
+  const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
+
+  const clampOffset = useCallback((nextOffset: { x: number; y: number }, nextZoom: number = zoom) => {
+    const container = containerRef.current;
+    const image = imageRef.current;
+    if (!container || !image || !loaded) return nextOffset;
+
+    const containerW = container.clientWidth;
+    const containerH = container.clientHeight;
+    const imageW = image.clientWidth * nextZoom;
+    const imageH = image.clientHeight * nextZoom;
+
+    const maxX = Math.max(0, (imageW - containerW) / 2);
+    const maxY = Math.max(0, (imageH - containerH) / 2);
+
+    return {
+      x: Math.max(-maxX, Math.min(maxX, nextOffset.x)),
+      y: Math.max(-maxY, Math.min(maxY, nextOffset.y)),
+    };
+  }, [zoom, loaded]);
+
+  const clampZoom = useCallback((value: number) => Math.max(1, Math.min(4, value)), []);
+
+  const handleZoomIn = useCallback(() => {
+    setZoom((prev) => {
+      const nextZoom = clampZoom(prev + 0.25);
+      setOffset((prevOffset) => clampOffset(prevOffset, nextZoom));
+      return nextZoom;
+    });
+  }, [clampZoom, clampOffset]);
+
+  const handleZoomOut = useCallback(() => {
+    setZoom((prev) => {
+      const nextZoom = clampZoom(prev - 0.25);
+      setOffset((prevOffset) => clampOffset(prevOffset, nextZoom));
+      return nextZoom;
+    });
+  }, [clampZoom, clampOffset]);
+
+  const handleZoomReset = useCallback(() => {
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+  }, []);
+
+  const zoomAtPoint = useCallback((targetZoom: number, clientX: number, clientY: number) => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const nextZoom = clampZoom(targetZoom);
+    if (nextZoom === zoom) return;
+
+    const rect = container.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+
+    const imageSpaceX = (clientX - centerX - offset.x) / zoom;
+    const imageSpaceY = (clientY - centerY - offset.y) / zoom;
+
+    const rawOffset = {
+      x: clientX - centerX - imageSpaceX * nextZoom,
+      y: clientY - centerY - imageSpaceY * nextZoom,
+    };
+
+    setZoom(nextZoom);
+    setOffset(clampOffset(rawOffset, nextZoom));
+  }, [zoom, offset, clampZoom, clampOffset]);
+
+  const toggleZoomAtPoint = useCallback((clientX: number, clientY: number) => {
+    const nextZoom = zoom > 1 ? 1 : 2;
+    if (nextZoom === 1) {
+      setZoom(1);
+      setOffset({ x: 0, y: 0 });
+      return;
+    }
+    zoomAtPoint(nextZoom, clientX, clientY);
+  }, [zoom, zoomAtPoint]);
+
+  const touchDistance = (touches: React.TouchList) => {
+    if (touches.length < 2) return 0;
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length === 2) {
+      const distance = touchDistance(event.touches);
+      if (!distance) return;
+      pinchStateRef.current = { startDistance: distance, startZoom: zoom };
+      panStateRef.current = null;
+      return;
+    }
+
+    if (event.touches.length === 1) {
+      const touch = event.touches[0];
+      const now = Date.now();
+      const lastTap = lastTapRef.current;
+      const isQuickDoubleTap = !!lastTap && now - lastTap.time < 300;
+      const isNearLastTap = !!lastTap && Math.hypot(touch.clientX - lastTap.x, touch.clientY - lastTap.y) < 24;
+
+      if (isQuickDoubleTap && isNearLastTap) {
+        toggleZoomAtPoint(touch.clientX, touch.clientY);
+        lastTapRef.current = null;
+        return;
+      }
+
+      lastTapRef.current = { time: now, x: touch.clientX, y: touch.clientY };
+
+      if (zoom > 1) {
+        panStateRef.current = {
+          startX: touch.clientX,
+          startY: touch.clientY,
+          originX: offset.x,
+          originY: offset.y,
+        };
+      }
+    }
+  };
+
+  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length === 2 && pinchStateRef.current) {
+      const currentDistance = touchDistance(event.touches);
+      if (!currentDistance) return;
+      const ratio = currentDistance / pinchStateRef.current.startDistance;
+      const nextZoom = clampZoom(pinchStateRef.current.startZoom * ratio);
+      setZoom(nextZoom);
+      setOffset((prevOffset) => clampOffset(prevOffset, nextZoom));
+      return;
+    }
+
+    if (event.touches.length === 1 && panStateRef.current && zoom > 1) {
+      const dx = event.touches[0].clientX - panStateRef.current.startX;
+      const dy = event.touches[0].clientY - panStateRef.current.startY;
+      setOffset(clampOffset({
+        x: panStateRef.current.originX + dx,
+        y: panStateRef.current.originY + dy,
+      }));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    pinchStateRef.current = null;
+    panStateRef.current = null;
+  };
+
+  const handleMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (zoom <= 1) return;
+    event.preventDefault();
+    panStateRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: offset.x,
+      originY: offset.y,
+    };
+  };
+
+  const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!panStateRef.current || zoom <= 1) return;
+    const dx = event.clientX - panStateRef.current.startX;
+    const dy = event.clientY - panStateRef.current.startY;
+    setOffset(clampOffset({
+      x: panStateRef.current.originX + dx,
+      y: panStateRef.current.originY + dy,
+    }));
+  };
+
+  const handleMouseUp = () => {
+    panStateRef.current = null;
+  };
+
+  const handleDoubleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    toggleZoomAtPoint(event.clientX, event.clientY);
+  };
+
+  useEffect(() => {
+    if (zoom <= 1) {
+      setOffset({ x: 0, y: 0 });
+      panStateRef.current = null;
+    }
+  }, [zoom]);
+
+  useEffect(() => {
+    if (!loaded) return;
+
+    const relimit = () => {
+      setOffset((prevOffset) => clampOffset(prevOffset, zoom));
+    };
+
+    relimit();
+    window.addEventListener("resize", relimit);
+    return () => window.removeEventListener("resize", relimit);
+  }, [loaded, zoom, clampOffset]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrlToRevoke: string | null = null;
+
+    setLoaded(false);
+    setError(null);
+    setImageUrl(null);
+
+    (async () => {
+      try {
+        const cached = await getCachedFile(fileId);
+        if (cached && !cancelled) {
+          objectUrlToRevoke = URL.createObjectURL(cached);
+          setImageUrl(objectUrlToRevoke);
+          return;
+        }
+
+        const accessToken = token || await getAccessToken();
+        if (cancelled) return;
+
+        const res = await fetch(streamUrl, {
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const blob = await res.blob();
+        if (cancelled) return;
+
+        cacheFile(fileId, blob, meta.name, meta.mimeType).catch(() => {});
+        objectUrlToRevoke = URL.createObjectURL(blob);
+        setImageUrl(objectUrlToRevoke);
+      } catch {
+        if (!cancelled) setError("Failed to load image. Please try again or open in Drive.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (objectUrlToRevoke) URL.revokeObjectURL(objectUrlToRevoke);
+    };
+  }, [fileId, streamUrl, token, getAccessToken, meta.name, meta.mimeType]);
+
   return (
-    <div className="flex items-center justify-center h-full bg-navy-light p-4 overflow-auto">
-      {!loaded && (
+    <div
+      ref={containerRef}
+      className="relative flex items-center justify-center h-full bg-navy-light p-4 overflow-auto"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onDoubleClick={handleDoubleClick}
+      style={{ touchAction: "none" }}
+    >
+      <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 bg-snow/95 border-2 border-navy rounded-xl px-2 py-1.5">
+        <button
+          onClick={handleZoomOut}
+          disabled={zoom <= 1}
+          title="Zoom out"
+          className="w-7 h-7 rounded-lg bg-ghost border border-navy/20 flex items-center justify-center disabled:opacity-40"
+        >
+          <ZoomOutIcon className="w-4 h-4 text-navy" />
+        </button>
+        <span className="text-xs font-bold text-navy min-w-11 text-center">{Math.round(zoom * 100)}%</span>
+        <button
+          onClick={handleZoomIn}
+          disabled={zoom >= 4}
+          title="Zoom in"
+          className="w-7 h-7 rounded-lg bg-ghost border border-navy/20 flex items-center justify-center disabled:opacity-40"
+        >
+          <ZoomInIcon className="w-4 h-4 text-navy" />
+        </button>
+        <button
+          onClick={handleZoomReset}
+          title="Reset zoom"
+          className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-lime border border-navy rounded-md text-navy"
+        >
+          Reset
+        </button>
+      </div>
+
+      {!loaded && !error && meta.thumbnailUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={meta.thumbnailUrl}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 m-auto max-w-full max-h-full object-contain opacity-70 blur-[1px]"
+        />
+      )}
+
+      {!loaded && !error && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="w-8 h-8 border-[3px] border-lime border-t-transparent rounded-full animate-spin" />
         </div>
       )}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={streamUrl}
-        alt={meta.name}
-        className="max-w-full max-h-full object-contain rounded-lg"
-        onLoad={() => setLoaded(true)}
-      />
+
+      {error && (
+        <div className="text-center space-y-3 max-w-sm">
+          <p className="text-coral font-medium">{error}</p>
+          <a
+            href={`https://drive.google.com/file/d/${fileId}/preview`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-lime border-[3px] border-navy rounded-xl font-display font-bold text-sm text-navy press-3 press-navy"
+          >
+            Open in Google Drive <ExternalLinkIcon className="w-4 h-4" />
+          </a>
+        </div>
+      )}
+
+      {imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          ref={imageRef}
+          src={imageUrl}
+          alt={meta.name}
+          className={`max-w-full max-h-full object-contain rounded-lg transition-opacity duration-200 select-none ${loaded ? "opacity-100" : "opacity-0"} ${zoom > 1 ? "cursor-grab active:cursor-grabbing" : "cursor-default"}`}
+          style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`, transformOrigin: "center center" }}
+          draggable={false}
+          onLoad={() => {
+            setLoaded(true);
+            setOffset({ x: 0, y: 0 });
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -633,9 +980,24 @@ export interface ResourceViewerProps {
   loading: boolean;
   onClose: () => void;
   token: string | null;
+  hasPrev?: boolean;
+  hasNext?: boolean;
+  onPrev?: () => void;
+  onNext?: () => void;
 }
 
-export default function ResourceViewer({ meta, loading, onClose, token }: ResourceViewerProps) {
+export default function ResourceViewer({
+  meta,
+  loading,
+  onClose,
+  token,
+  hasPrev = false,
+  hasNext = false,
+  onPrev,
+  onNext,
+}: ResourceViewerProps) {
+  const { getAccessToken } = useAuth();
+  const [resolvedToken, setResolvedToken] = useState<string | null>(token || null);
   const [bookmarks, setBookmarks] = useState<FileBookmark[]>(meta?.bookmarks || []);
   const [currentPage, setCurrentPage] = useState(meta?.progress?.currentPage || 1);
   const [currentTime, setCurrentTime] = useState(meta?.progress?.currentTime || 0);
@@ -659,6 +1021,27 @@ export default function ResourceViewer({ meta, loading, onClose, token }: Resour
 
   // Save initial "opened" progress
   useEffect(() => {
+    let cancelled = false;
+    if (token) {
+      setResolvedToken(token);
+      return;
+    }
+
+    (async () => {
+      try {
+        const accessToken = await getAccessToken();
+        if (!cancelled) setResolvedToken(accessToken || null);
+      } catch {
+        if (!cancelled) setResolvedToken(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, getAccessToken, meta?.id]);
+
+  useEffect(() => {
     if (!meta) return;
     saveDriveProgress({
       fileId: meta.id,
@@ -666,6 +1049,33 @@ export default function ResourceViewer({ meta, loading, onClose, token }: Resour
       fileMimeType: meta.mimeType,
     }).catch(() => {});
   }, [meta]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName?.toLowerCase();
+      const isTypingTarget =
+        tagName === "input" ||
+        tagName === "textarea" ||
+        tagName === "select" ||
+        !!target?.isContentEditable;
+
+      if (isTypingTarget) return;
+
+      if (event.key === "ArrowLeft" && hasPrev && onPrev) {
+        event.preventDefault();
+        onPrev();
+      }
+
+      if (event.key === "ArrowRight" && hasNext && onNext) {
+        event.preventDefault();
+        onNext();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [hasPrev, hasNext, onPrev, onNext]);
 
   const handlePdfProgress = useCallback((page: number, total: number) => {
     setCurrentPage(page);
@@ -737,6 +1147,11 @@ export default function ResourceViewer({ meta, loading, onClose, token }: Resour
   const isImage = meta.fileType === "image";
   const isEmbed = !!meta.embedUrl;
   const canPreview = isPDF || isVideo || isImage || isEmbed;
+  const showBookmarkPanel = isPDF || isEmbed;
+  const canDirectDownload = !meta.mimeType.startsWith("application/vnd.google-apps.");
+  const downloadUrl = resolvedToken
+    ? `${getDriveStreamUrl(meta.id)}?token=${encodeURIComponent(resolvedToken)}&download=1`
+    : null;
 
   return (
     <div className="fixed inset-0 z-50 bg-snow flex flex-col">
@@ -760,6 +1175,45 @@ export default function ResourceViewer({ meta, loading, onClose, token }: Resour
             )}
           </div>
         </div>
+        <div className="shrink-0 flex items-center gap-1">
+          <button
+            onClick={onPrev}
+            disabled={!hasPrev || !onPrev}
+            className="w-9 h-9 rounded-xl bg-ghost border-2 border-navy flex items-center justify-center press-2 press-navy disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Previous resource (←)"
+          >
+            <ChevronLeftIcon className="w-4 h-4 text-navy" />
+          </button>
+          <button
+            onClick={onNext}
+            disabled={!hasNext || !onNext}
+            className="w-9 h-9 rounded-xl bg-ghost border-2 border-navy flex items-center justify-center press-2 press-navy disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Next resource (→)"
+          >
+            <ChevronRightIcon className="w-4 h-4 text-navy" />
+          </button>
+        </div>
+        {canDirectDownload && (
+          <a
+            href={downloadUrl || "#"}
+            onClick={(e) => {
+              if (!downloadUrl) e.preventDefault();
+            }}
+            className={`shrink-0 text-xs border-2 rounded-lg px-3 py-1.5 font-bold flex items-center gap-1 ${
+              downloadUrl
+                ? "bg-lime text-navy border-navy press-2 press-navy"
+                : "bg-cloud text-slate border-navy/20 cursor-not-allowed"
+            }`}
+            download={meta.name}
+            title={downloadUrl ? "Download file" : "Preparing download..."}
+          >
+            <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v10.19l2.72-2.72a.75.75 0 1 1 1.06 1.06l-4 4a.75.75 0 0 1-1.06 0l-4-4a.75.75 0 1 1 1.06-1.06l2.72 2.72V3a.75.75 0 0 1 .75-.75Zm-8.25 12a.75.75 0 0 1 .75.75v3a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-3a.75.75 0 0 1 1.5 0v3a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-3a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+            </svg>
+            Download
+          </a>
+        )}
+
         {/* Open in Drive */}
         {meta.webViewLink && (
           <a
@@ -780,6 +1234,7 @@ export default function ResourceViewer({ meta, loading, onClose, token }: Resour
           <PDFViewer
             fileId={meta.id}
             meta={meta}
+            token={resolvedToken}
             onProgressUpdate={handlePdfProgress}
           />
         )}
@@ -787,11 +1242,11 @@ export default function ResourceViewer({ meta, loading, onClose, token }: Resour
           <VideoPlayer
             fileId={meta.id}
             meta={meta}
-            token={token}
+            token={resolvedToken}
             onProgressUpdate={handleVideoProgress}
           />
         )}
-        {isImage && <ImageViewer fileId={meta.id} meta={meta} />}
+        {isImage && <ImageViewer fileId={meta.id} meta={meta} token={resolvedToken} />}
         {isEmbed && !isPDF && !isVideo && !isImage && <EmbedViewer meta={meta} />}
 
         {!canPreview && (
@@ -822,7 +1277,7 @@ export default function ResourceViewer({ meta, loading, onClose, token }: Resour
       </div>
 
       {/* Bookmark panel */}
-      {canPreview && (
+      {showBookmarkPanel && (
         <BookmarkPanel
           bookmarks={bookmarks}
           onJumpTo={handleJumpTo}

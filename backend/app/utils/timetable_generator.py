@@ -46,7 +46,7 @@ class TimetableGenerator:
         "tutorial": ("#4CA868", "#0F0F2D"),     # Teal bg, navy text
     }
 
-    DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+    DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
     def __init__(self):
         from reportlab.lib.pagesizes import A4, landscape
@@ -103,7 +103,7 @@ class TimetableGenerator:
 
         # Date on right
         pdf.setFont("Helvetica", 9)
-        date_text = gen_time.strftime("%B %d, %Y")
+        date_text = gen_time.strftime("%B %d, %Y • %I:%M %p")
         pdf.drawRightString(W - margin - 12, H - margin - 28, f"Generated: {date_text}")
 
         # ── GROUP CLASSES BY DAY ──
@@ -158,7 +158,7 @@ class TimetableGenerator:
                 bg_hex, text_hex = self.TYPE_COLORS.get(class_type, self.TYPE_COLORS["lecture"])
 
                 # Calculate card height based on content
-                card_h = 65
+                card_h = 68
                 if lecturer:
                     card_h += 12
 
@@ -190,7 +190,8 @@ class TimetableGenerator:
 
                 # Venue
                 pdf.setFont("Helvetica-Bold", 7)
-                pdf.drawString(x + 5, y - 42, f"📍 {venue}")
+                venue_display = venue[:27] + "..." if len(venue) > 27 else venue
+                pdf.drawString(x + 5, y - 42, f"Venue: {venue_display}")
 
                 # Type badge
                 pdf.setFont("Helvetica", 6)
@@ -215,7 +216,7 @@ class TimetableGenerator:
                     pdf.setFillColor(text_color)
                     pdf.setFont("Helvetica", 6.5)
                     lec_display = lecturer[:25] + "..." if len(lecturer) > 25 else lecturer
-                    pdf.drawString(x + 5, y - 55, lec_display)
+                    pdf.drawString(x + 5, y - 55, f"Lect: {lec_display}")
 
                 y -= card_h + card_gap
 

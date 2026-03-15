@@ -8,7 +8,7 @@ interface SearchResult {
   id: string;
   title: string;
   snippet: string;
-  type: "announcement" | "event" | "resource";
+  type: "announcement" | "event" | "resource" | "notification";
   link: string;
   priority?: string;
   category?: string;
@@ -23,6 +23,7 @@ interface SearchResponse {
     announcements?: SearchResult[];
     events?: SearchResult[];
     resources?: SearchResult[];
+    notifications?: SearchResult[];
   };
 }
 
@@ -30,6 +31,7 @@ const TYPE_LABELS: Record<string, { label: string; color: string; bg: string }> 
   announcement: { label: "Announcement", color: "text-coral", bg: "bg-coral-light" },
   event: { label: "Event", color: "text-lavender", bg: "bg-lavender-light" },
   resource: { label: "Resource", color: "text-teal", bg: "bg-teal-light" },
+  notification: { label: "Notice", color: "text-sunny", bg: "bg-sunny-light" },
 };
 
 export default function GlobalSearch() {
@@ -76,6 +78,7 @@ export default function GlobalSearch() {
         ...(data.results.announcements || []),
         ...(data.results.events || []),
         ...(data.results.resources || []),
+        ...(data.results.notifications || []),
       ];
       setResults(flat);
       setTotal(data.total);
@@ -105,14 +108,14 @@ export default function GlobalSearch() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 bg-ghost border-[3px] border-navy/20 rounded-xl px-2.5 lg:px-3 py-2.5 text-sm text-slate hover:border-navy/40 hover:bg-cloud transition-all"
+        className="flex items-center gap-1.5 bg-ghost border-[3px] border-navy/20 rounded-xl px-2 lg:px-2.5 py-2.5 text-sm text-slate hover:border-navy/40 hover:bg-cloud transition-all"
         aria-label="Open search"
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z" clipRule="evenodd" />
         </svg>
-        <span className="hidden lg:inline">Search...</span>
-        <kbd className="hidden lg:inline-flex items-center text-[10px] font-bold text-navy/30 bg-snow border border-navy/15 rounded px-1.5 py-0.5 ml-4">
+        <span className="hidden lg:inline">Search</span>
+        <kbd className="hidden xl:inline-flex items-center text-[10px] font-bold text-navy/30 bg-snow border border-navy/15 rounded px-1.5 py-0.5 ml-2">
           {typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent) ? "⌘" : "Ctrl"}K
         </kbd>
       </button>
@@ -123,14 +126,14 @@ export default function GlobalSearch() {
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 z-50 bg-navy/40 backdrop-blur-sm"
+        className="fixed inset-0 z-[220] bg-navy/40 backdrop-blur-sm"
         onClick={() => setOpen(false)}
         aria-hidden="true"
       />
 
       {/* Search Dialog */}
-      <div className="fixed inset-x-4 top-[10%] sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-xl z-200">
-        <div className="bg-snow border-[4px] border-navy rounded-3xl shadow-[10px_10px_0_0_#000] overflow-hidden">
+      <div className="fixed inset-x-4 top-[max(0.75rem,env(safe-area-inset-top))] sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-xl z-[230]">
+        <div className="bg-snow border-4 border-navy rounded-3xl shadow-[10px_10px_0_0_#000] overflow-hidden">
           {/* Input */}
           <div className="flex items-center gap-3 px-5 py-4 border-b-[3px] border-navy/10">
             <svg className="w-5 h-5 text-slate shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -142,10 +145,10 @@ export default function GlobalSearch() {
               value={query}
               onChange={(e) => handleInputChange(e.target.value)}
               className="flex-1 bg-transparent text-navy font-medium text-base placeholder:text-slate focus:outline-none"
-              placeholder="Search announcements, events, resources..."
+              placeholder="Search announcements, events, resources, notices..."
             />
             {loading && (
-              <div className="w-5 h-5 border-[2px] border-lime border-t-transparent rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-lime border-t-transparent rounded-full animate-spin" />
             )}
             <button
               type="button"

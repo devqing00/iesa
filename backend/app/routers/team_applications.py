@@ -85,6 +85,21 @@ async def _get_reviewer_teams(user_id: str, session_id: str) -> list[str] | None
     return allowed
 
 
+async def _ensure_team_application_reviewer(user: dict, session_id: str) -> list[str] | None:
+    """Validate user is allowed to review team applications.
+
+    Returns reviewer scope:
+    - None => global reviewer (all teams)
+    - [..] => scoped teams for team head
+    Raises 403 when user has no review scope.
+    """
+    user_id = user.get("_id") or user.get("id")
+    allowed_teams = await _get_reviewer_teams(user_id, session_id)
+    if allowed_teams is not None and not allowed_teams:
+        raise HTTPException(403, "Team application review permissions required")
+    return allowed_teams
+
+
 async def _get_team_settings(db, unit: str, session_id: str) -> dict:
     """Get team settings, defaulting to unlimited/open if not configured."""
     doc = await db["unit_settings"].find_one({"unit": unit, "sessionId": session_id})
@@ -258,7 +273,7 @@ async def my_applications(
 
 @router.get("/overview")
 async def teams_overview(
-    user=Depends(require_permission("team:review")),
+    user=Depends(get_current_user),
     session=Depends(get_current_session),
 ):
     """
@@ -266,10 +281,8 @@ async def teams_overview(
     Scoped: committee heads see only their unit(s); global reviewers see all.
     """
     db = get_database()
-    user_id = user.get("_id") or user.get("id")
     session_id = str(session["_id"])
-
-    allowed_teams = await _get_reviewer_teams(user_id, session_id)
+    allowed_teams = await _ensure_team_application_reviewer(user, session_id)
     team_slugs = list(TEAM_LABELS.keys())
     if allowed_teams is not None:
         team_slugs = [u for u in team_slugs if u in allowed_teams]
@@ -362,15 +375,13 @@ async def teams_overview(
 
 @router.get("/settings")
 async def get_team_settings_endpoint(
-    user=Depends(require_permission("team:review")),
+    user=Depends(get_current_user),
     session=Depends(get_current_session),
 ):
     """Get team settings for the current session (scoped by reviewer's teams)."""
     db = get_database()
-    user_id = user.get("_id") or user.get("id")
     session_id = str(session["_id"])
-
-    allowed_teams = await _get_reviewer_teams(user_id, session_id)
+    allowed_teams = await _ensure_team_application_reviewer(user, session_id)
     team_slugs = list(TEAM_LABELS.keys())
     if allowed_teams is not None:
         team_slugs = [t for t in team_slugs if t in allowed_teams]
@@ -388,7 +399,7 @@ async def update_team_settings(
     team: str,
     body: TeamSettingsUpdate,
     request: Request,
-    user=Depends(require_permission("team:review")),
+    user=Depends(get_current_user),
     session=Depends(get_current_session),
 ):
     """Update team settings. Scoped: team heads can only update their own team."""
@@ -402,8 +413,7 @@ async def update_team_settings(
     db = get_database()
     user_id = user.get("_id") or user.get("id")
     session_id = str(session["_id"])
-
-    allowed_teams = await _get_reviewer_teams(user_id, session_id)
+    allowed_teams = await _ensure_team_application_reviewer(user, session_id)
     if allowed_teams is not None and team not in allowed_teams:
         raise HTTPException(403, "You can only manage settings for your own team")
 
@@ -441,7 +451,7 @@ async def list_applications(
     search: Optional[str] = Query(None, description="Search by student name or email"),
     limit: int = Query(20, ge=1, le=100),
     skip: int = Query(0, ge=0),
-    user=Depends(require_permission("team:review")),
+    user=Depends(get_current_user),
     session=Depends(get_current_session),
 ):
     """
@@ -449,11 +459,10 @@ async def list_applications(
     global reviewers (president, VP, gen-sec, super admin) see all.
     """
     db = get_database()
-    user_id = user.get("_id") or user.get("id")
     session_id = str(session["_id"])
 
     # ── Scope by reviewer's allowed units ────────────────────────
-    allowed_teams = await _get_reviewer_teams(user_id, session_id)
+    allowed_teams = await _ensure_team_application_reviewer(user, session_id)
 
     query: dict = {"sessionId": session_id}
 
@@ -488,12 +497,13 @@ async def review_application(
     application_id: str,
     body: TeamApplicationReview,
     request: Request,
-    user=Depends(require_permission("team:review")),
+    user=Depends(get_current_user),
     session=Depends(get_current_session),
 ):
     db = get_database()
     user_id = user.get("_id") or user.get("id")
     session_id = str(session["_id"])
+    allowed_teams = await _ensure_team_application_reviewer(user, session_id)
 
     if body.status.value not in ("accepted", "rejected"):
         raise HTTPException(400, "Status must be 'accepted' or 'rejected'")
@@ -511,7 +521,6 @@ async def review_application(
         raise HTTPException(400, f"Application already {app_doc['status']}")
 
     # ── Scope check: reviewer must have access to this unit ──────
-    allowed_teams = await _get_reviewer_teams(user_id, session_id)
     if allowed_teams is not None and app_doc["unit"] not in allowed_teams:
         raise HTTPException(403, "You can only review applications for your own team")
 
@@ -603,7 +612,7 @@ async def revoke_membership(
     application_id: str,
     request: Request,
     feedback: Optional[str] = Query(None, max_length=500),
-    user=Depends(require_permission("team:review")),
+    user=Depends(get_current_user),
     session=Depends(get_current_session),
 ):
     """
@@ -613,6 +622,7 @@ async def revoke_membership(
     db = get_database()
     user_id = user.get("_id") or user.get("id")
     session_id = str(session["_id"])
+    allowed_teams = await _ensure_team_application_reviewer(user, session_id)
 
     try:
         oid = ObjectId(application_id)
@@ -626,7 +636,6 @@ async def revoke_membership(
         raise HTTPException(400, "Only accepted applications can be revoked")
 
     # Scope check
-    allowed_teams = await _get_reviewer_teams(user_id, session_id)
     if allowed_teams is not None and app_doc["unit"] not in allowed_teams:
         raise HTTPException(403, "You can only manage members of your own team")
 

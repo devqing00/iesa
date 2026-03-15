@@ -55,7 +55,21 @@ interface Task {
   createdAt: string;
 }
 
-type Tab = "overview" | "members" | "noticeboard" | "tasks" | "analytics" | "announce";
+interface TeamApplicationItem {
+  id: string;
+  userName: string;
+  userEmail: string;
+  userLevel?: string | null;
+  team: string;
+  teamLabel: string;
+  motivation: string;
+  skills?: string | null;
+  status: "pending" | "accepted" | "rejected" | "revoked";
+  feedback?: string | null;
+  createdAt: string;
+}
+
+type Tab = "overview" | "members" | "applications" | "noticeboard" | "tasks" | "analytics" | "announce";
 
 /* ── Analytics types ────────────────────────────────────── */
 interface MemberStat {
@@ -113,6 +127,15 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
           d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z"
           clipRule="evenodd"
         />
+      </svg>
+    ),
+  },
+  {
+    key: "applications",
+    label: "Applications",
+    icon: (
+      <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+        <path fillRule="evenodd" d="M6.75 3.75A2.25 2.25 0 0 0 4.5 6v12a2.25 2.25 0 0 0 2.25 2.25h10.5A2.25 2.25 0 0 0 19.5 18V9.878a2.25 2.25 0 0 0-.659-1.591l-3.128-3.128a2.25 2.25 0 0 0-1.591-.659H6.75Zm6 2.56v2.94A1.5 1.5 0 0 0 14.25 10.75h2.94l-4.44-4.44ZM8.25 13a.75.75 0 0 1 .75-.75h6a.75.75 0 0 1 0 1.5H9A.75.75 0 0 1 8.25 13Zm0 3a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5H9A.75.75 0 0 1 8.25 16Z" clipRule="evenodd" />
       </svg>
     ),
   },
@@ -211,6 +234,9 @@ export function TeamHeadPortal() {
   const [members, setMembers] = useState<Member[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [applications, setApplications] = useState<TeamApplicationItem[]>([]);
+  const [appLoading, setAppLoading] = useState(false);
+  const [appStatusFilter, setAppStatusFilter] = useState<string>("pending");
   const [memberSearch, setMemberSearch] = useState("");
   const [taskFilter, setTaskFilter] = useState<string>("");
 
@@ -302,6 +328,33 @@ export function TeamHeadPortal() {
     [apiFetch],
   );
 
+  const loadApplications = useCallback(
+    async (slug: string) => {
+      setAppLoading(true);
+      try {
+        const token = await getAccessToken();
+        const query = new URLSearchParams({ unit: slug, limit: "100" });
+        if (appStatusFilter && appStatusFilter !== "all") {
+          query.set("status", appStatusFilter);
+        }
+        const res = await fetch(
+          getApiUrl(`/api/v1/team-applications/?${query.toString()}`),
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+        if (!res.ok) throw new Error("Failed to load applications");
+        const data = await res.json();
+        setApplications(Array.isArray(data?.items) ? data.items : []);
+      } finally {
+        setAppLoading(false);
+      }
+    },
+    [appStatusFilter, getAccessToken],
+  );
+
   /* ── initial load ────────────────────────────────────────── */
   useEffect(() => {
     async function init() {
@@ -328,6 +381,7 @@ export function TeamHeadPortal() {
     if (!activeUnit || loading) return;
     const slug = activeUnit.unitSlug;
     if (tab === "overview" || tab === "members") loadMembers(slug).catch(() => {});
+    if (tab === "applications") loadApplications(slug).catch(() => {});
     if (tab === "overview" || tab === "noticeboard") loadNotices(slug).catch(() => {});
     if (tab === "overview" || tab === "tasks") loadTasks(slug).catch(() => {});
     if (tab === "analytics") loadAnalytics(slug).catch(() => {});
@@ -340,6 +394,11 @@ export function TeamHeadPortal() {
     loadTasks(activeUnit.unitSlug).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskFilter]);
+
+  useEffect(() => {
+    if (!activeUnit || tab !== "applications") return;
+    loadApplications(activeUnit.unitSlug).catch(() => {});
+  }, [activeUnit, tab, appStatusFilter, loadApplications]);
 
   /* ── actions ─────────────────────────────────────────────── */
   async function createNotice() {
@@ -438,6 +497,31 @@ export function TeamHeadPortal() {
       toast.error("Failed to send announcement");
     } finally {
       setFormLoading(false);
+    }
+  }
+
+  async function reviewApplication(applicationId: string, status: "accepted" | "rejected") {
+    if (!activeUnit) return;
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(
+        getApiUrl(`/api/v1/team-applications/${applicationId}/review`),
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status }),
+        },
+      );
+      if (!res.ok) {
+        throw new Error("Review failed");
+      }
+      toast.success(`Application ${status === "accepted" ? "accepted" : "rejected"}`);
+      await loadApplications(activeUnit.unitSlug);
+    } catch {
+      toast.error("Could not review application");
     }
   }
 
@@ -690,6 +774,96 @@ export function TeamHeadPortal() {
                     </div>
                   </div>
                 </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── APPLICATIONS ───────────────────────────────────── */}
+      {tab === "applications" && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {[
+              { key: "all", label: "All" },
+              { key: "pending", label: "Pending" },
+              { key: "accepted", label: "Accepted" },
+              { key: "rejected", label: "Rejected" },
+            ].map((opt) => (
+              <button
+                key={opt.key}
+                onClick={() => setAppStatusFilter(opt.key)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition-all ${
+                  appStatusFilter === opt.key
+                    ? "bg-lime text-navy border-navy"
+                    : "bg-snow text-slate border-transparent hover:border-navy hover:text-navy"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {appLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="w-10 h-10 border-[3px] border-navy border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : applications.length === 0 ? (
+            <div className="bg-ghost border-4 border-navy rounded-3xl p-10 text-center shadow-[8px_8px_0_0_#000]">
+              <p className="text-slate">No applications found for this filter.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {applications.map((app) => (
+                <article
+                  key={app.id}
+                  className="bg-snow border-[3px] border-navy rounded-2xl p-5 shadow-[5px_5px_0_0_#000]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-display font-black text-navy">
+                          {app.userName}
+                        </h4>
+                        <span className="text-label-sm bg-lavender-light text-navy px-2 py-0.5 rounded-lg font-bold">
+                          {app.userLevel || "—"}
+                        </span>
+                        <span className={`text-label-sm px-2 py-0.5 rounded-lg font-bold ${
+                          app.status === "pending"
+                            ? "bg-sunny-light text-navy"
+                            : app.status === "accepted"
+                              ? "bg-teal-light text-teal"
+                              : "bg-coral-light text-coral"
+                        }`}>
+                          {app.status.toUpperCase()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate mt-1">{app.userEmail}</p>
+                      <p className="text-sm text-navy mt-3 whitespace-pre-line">{app.motivation}</p>
+                      {app.skills && (
+                        <p className="text-xs text-slate mt-2">Skills: {app.skills}</p>
+                      )}
+                      <p className="text-xs text-slate mt-2">Applied {timeAgo(app.createdAt)}</p>
+                    </div>
+
+                    {app.status === "pending" && (
+                      <div className="flex flex-col gap-2 shrink-0">
+                        <button
+                          onClick={() => reviewApplication(app.id, "accepted")}
+                          className="bg-teal border-[2px] border-navy press-2 press-navy px-3 py-1.5 rounded-xl text-xs font-bold text-navy"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          onClick={() => reviewApplication(app.id, "rejected")}
+                          className="bg-coral-light border-[2px] border-navy press-2 press-black px-3 py-1.5 rounded-xl text-xs font-bold text-navy"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </article>
               ))}
             </div>
           )}

@@ -366,12 +366,7 @@ export default function ProfilePage() {
     return (
       <div className="min-h-screen bg-ghost p-4 sm:p-6 lg:p-8">
         <div className="max-w-6xl mx-auto space-y-6">
-          <div className="grid grid-cols-12 gap-4">
-            <div className="col-span-12 md:col-span-7 h-44 bg-cloud rounded-[2rem] animate-pulse" />
-            <div className="col-span-12 md:col-span-5 grid grid-cols-2 gap-3">
-              {[...Array(4)].map((_, i) => (<div key={i} className="h-20 bg-cloud rounded-[1.5rem] animate-pulse" />))}
-            </div>
-          </div>
+          <div className="h-44 bg-cloud rounded-[2rem] animate-pulse" />
           <div className="h-64 bg-cloud rounded-[2rem] animate-pulse" />
           <div className="h-80 bg-cloud rounded-[2rem] animate-pulse" />
         </div>
@@ -523,7 +518,7 @@ export default function ProfilePage() {
         ════════════════════════════════════════ */}
         <div className="grid grid-cols-12 gap-4">
           {/* left: title + avatar card */}
-          <div className="col-span-12 md:col-span-7 bg-coral border-[3px] border-navy rounded-[2rem] p-8 shadow-[4px_4px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
+          <div className="col-span-12 bg-coral border-[3px] border-navy rounded-[2rem] p-8 shadow-[4px_4px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
             <div className="flex items-start gap-5">
               {/* avatar */}
               <div className="relative flex-shrink-0">
@@ -570,62 +565,26 @@ export default function ProfilePage() {
                     <span className="w-1.5 h-1.5 rounded-full bg-lavender" />
                     {profileData.matricNumber || "N/A"}
                   </span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-navy/15 font-display font-bold text-[10px] text-snow uppercase tracking-[0.08em]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sunny" />
+                    {profileData.hasCompletedOnboarding ? "Active" : "Pending"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-navy/15 font-display font-bold text-[10px] text-snow uppercase tracking-[0.08em]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-coral" />
+                    {new Date(profileData.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-navy/15 font-display font-bold text-[10px] text-snow uppercase tracking-[0.08em]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal" />
+                    {profileData.department || "N/A"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-navy/15 font-display font-bold text-[10px] text-snow uppercase tracking-[0.08em]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-lime" />
+                    Admission {profileData.admissionYear || "N/A"}
+                  </span>
                 </div>
               </div>
             </div>
             <div className="absolute -bottom-6 -right-6 w-28 h-28 rounded-full bg-navy/8" />
-          </div>
-
-          {/* right: 2×2 stats */}
-          <div className="col-span-12 md:col-span-5 grid grid-cols-2 gap-3">
-            <div className="bg-teal-light border-[3px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
-              <div className="w-8 h-8 rounded-xl bg-teal/30 flex items-center justify-center mb-2">
-                <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" />
-                </svg>
-              </div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Status</div>
-              <div className="font-display font-black text-lg text-navy">
-                {profileData.hasCompletedOnboarding ? "Active" : "Pending"}
-              </div>
-            </div>
-
-            <div className="bg-lavender-light border-[3px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.6deg] hover:rotate-0 transition-transform">
-              <div className="w-8 h-8 rounded-xl bg-lavender/30 flex items-center justify-center mb-2">
-                <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Member Since</div>
-              <div className="font-display font-black text-base text-navy">
-                {new Date(profileData.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-              </div>
-            </div>
-
-            <div className="bg-sunny-light border-[3px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[0.7deg] hover:rotate-0 transition-transform">
-              <div className="w-8 h-8 rounded-xl bg-sunny/30 flex items-center justify-center mb-2">
-                <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M1 2.75A.75.75 0 011.75 2h16.5a.75.75 0 010 1.5H18v8.75A2.75 2.75 0 0115.25 15h-1.072l.798 3.06a.75.75 0 01-1.452.38L13.41 18H6.59l-.114.44a.75.75 0 01-1.452-.38L5.822 15H4.75A2.75 2.75 0 012 12.25V3.5h-.25A.75.75 0 011 2.75zM7.373 15l-.391 1.5h6.037l-.392-1.5H7.373zm.879-6.206a.75.75 0 00-.146 1.49A13.94 13.94 0 0010 10.5c.65 0 1.286-.056 1.894-.216a.75.75 0 10-.382-1.45A12.41 12.41 0 0110 9c-.59 0-1.18-.043-1.748-.206z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Department</div>
-              <div className="font-display font-black text-[11px] text-navy leading-tight">
-                {profileData.department?.split(" ").slice(0, 3).join(" ") || "N/A"}
-              </div>
-            </div>
-
-            <div className="bg-coral-light border-[3px] border-navy rounded-[1.5rem] p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
-              <div className="w-8 h-8 rounded-xl bg-coral/30 flex items-center justify-center mb-2">
-                <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M4.214 3.227a.75.75 0 00-1.156-.955 8.97 8.97 0 00-1.856 3.825.75.75 0 001.466.316 7.47 7.47 0 011.546-3.186zM16.942 2.272a.75.75 0 00-1.157.955 7.47 7.47 0 011.547 3.186.75.75 0 001.466-.316 8.97 8.97 0 00-1.856-3.825z" />
-                  <path fillRule="evenodd" d="M10 2a6 6 0 00-5.547 8.247l-.634 4.217a1 1 0 001.136 1.136l3.153-.474A6 6 0 1010 2zM6.5 8a3.5 3.5 0 117 0 3.5 3.5 0 01-7 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">Admission</div>
-              <div className="font-display font-black text-lg text-navy">
-                {profileData.admissionYear || "N/A"}
-              </div>
-            </div>
           </div>
         </div>
 

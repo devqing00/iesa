@@ -242,26 +242,30 @@ function AdminMessagesPage() {
         )}
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Badges */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="flex flex-wrap gap-2">
           {[
-            { label: "Unread", count: stats.unread, color: "coral" },
-            { label: "Read", count: stats.read, color: "lavender" },
-            { label: "Replied", count: stats.replied, color: "teal" },
-            { label: "Archived", count: stats.archived, color: "slate" },
-          ].map(({ label, count, color }) => (
-            <button
-              key={label}
-              onClick={() => setStatusFilter(label.toLowerCase() === statusFilter ? "all" : label.toLowerCase())}
-              className={`bg-snow border-[3px] border-navy rounded-2xl p-4 text-left press-3 press-black transition-all ${
-                statusFilter === label.toLowerCase() ? "ring-2 ring-lime ring-offset-2" : ""
-              }`}
-            >
-              <p className={`text-2xl font-display font-black text-${color}`}>{count}</p>
-              <p className="text-xs font-bold text-navy/60 uppercase tracking-wider">{label}</p>
-            </button>
-          ))}
+            { key: "unread", label: "Unread", count: stats.unread, activeBg: "bg-coral", activeText: "text-snow" },
+            { key: "read", label: "Read", count: stats.read, activeBg: "bg-lavender", activeText: "text-snow" },
+            { key: "replied", label: "Replied", count: stats.replied, activeBg: "bg-teal", activeText: "text-navy" },
+            { key: "archived", label: "Archived", count: stats.archived, activeBg: "bg-cloud", activeText: "text-navy" },
+          ].map((item) => {
+            const active = statusFilter === item.key;
+            return (
+              <button
+                key={item.key}
+                onClick={() => setStatusFilter(active ? "all" : item.key)}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider border-2 transition-all ${
+                  active
+                    ? `${item.activeBg} ${item.activeText} border-navy press-2 press-navy`
+                    : "bg-snow text-navy border-navy/20 hover:border-navy"
+                }`}
+              >
+                {item.label}: {item.count}
+              </button>
+            );
+          })}
         </div>
       )}
 

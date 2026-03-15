@@ -745,7 +745,7 @@ export default function IESAAIPage() {
                   IESA AI
                 </h1>
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">
-                  Smart Campus Assistant
+                  Smart Assistant
                 </p>
               </div>
             </div>

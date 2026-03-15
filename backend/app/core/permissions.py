@@ -185,6 +185,7 @@ PERMISSIONS = {
     "class_rep:manage_relay": "Create/edit/delete lecturer relay board posts",
     "class_rep:pin_relay": "Pin/unpin relay board posts",
     "class_rep:view_stats": "View cohort stats (enrollment, payments)",
+    "class_rep:manage_timetable": "Create/edit/delete timetable entries for own level",
 
     # Team Head Portal permissions
     "team_head:view_members": "View member list for own team",
@@ -337,7 +338,7 @@ DEFAULT_PERMISSIONS = {
         "class_rep:view_cohort", "class_rep:export_cohort",
         "class_rep:manage_deadlines", "class_rep:manage_polls",
         "class_rep:manage_relay", "class_rep:pin_relay",
-        "class_rep:view_stats",
+        "class_rep:view_stats", "class_rep:manage_timetable",
     ],
 
     # ── Assistant Class Representatives ──────────────────────────────
@@ -362,7 +363,7 @@ DEFAULT_PERMISSIONS = {
         "class_rep:view_cohort", "class_rep:export_cohort",
         "class_rep:manage_deadlines", "class_rep:manage_polls",
         "class_rep:manage_relay", "class_rep:pin_relay",
-        "class_rep:view_stats",
+        "class_rep:view_stats", "class_rep:manage_timetable",
     ],
 
     # ── Team Heads ─────────────────────────────────────────────────

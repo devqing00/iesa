@@ -231,6 +231,10 @@ class ChatResponse(BaseModel):
     data: Optional[dict] = None
 
 
+class ConversationSyncPayload(BaseModel):
+    conversations: List[dict] = []
+
+
 # IESA Knowledge Base - Comprehensive reference for RAG
 IESA_KNOWLEDGE = """
 ## About IESA
@@ -354,6 +358,36 @@ Academic issues: Contact Academic Director or your class rep
 Welfare issues: Contact Welfare Director
 Payment issues: Contact Financial Secretary or Treasurer
 """
+
+
+POSITION_LABELS = {
+    "president": "President",
+    "vice_president": "Vice President",
+    "general_secretary": "General Secretary",
+    "assistant_general_secretary": "Asst. General Secretary",
+    "treasurer": "Treasurer",
+    "social_director": "Social Director",
+    "sports_secretary": "Sports Secretary",
+    "assistant_sports_secretary": "Asst. Sports Secretary",
+    "pro": "Public Relations Officer",
+    "financial_secretary": "Financial Secretary",
+    "director_of_socials": "Director of Socials",
+    "director_of_sports": "Director of Sports",
+    "director_of_welfare": "Director of Welfare",
+    "committee_academic": "Academic Committee",
+    "committee_welfare": "Welfare Committee",
+    "committee_sports": "Sports Committee",
+    "committee_socials": "Socials Committee",
+}
+
+
+def format_position_label(position: str) -> str:
+    if not position:
+        return "Role"
+    if position.startswith("class_rep_"):
+        level = position.replace("class_rep_", "").upper()
+        return f"{level} Class Rep"
+    return POSITION_LABELS.get(position, position.replace("_", " ").title())
 
 
 async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
@@ -565,6 +599,102 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
         except Exception:
             return {}
 
+    async def _fetch_team_roles():
+        """Fetch current role holders for the active session (for role Q&A grounding)."""
+        try:
+            roles_list = await db.roles.find({"sessionId": session_id}).to_list(length=250)
+            if not roles_list:
+                return {"executives": [], "class_reps": [], "committees": []}
+
+            exec_positions = {
+                "president",
+                "vice_president",
+                "general_secretary",
+                "assistant_general_secretary",
+                "treasurer",
+                "social_director",
+                "sports_secretary",
+                "assistant_sports_secretary",
+                "pro",
+                "financial_secretary",
+            }
+            exec_position_aliases = {
+                "social_director": {"social_director", "director_of_socials"},
+                "sports_secretary": {"sports_secretary", "director_of_sports"},
+            }
+            committee_positions = {
+                "committee_academic",
+                "committee_welfare",
+                "committee_sports",
+                "committee_socials",
+            }
+
+            relevant_roles = []
+            for role in roles_list:
+                position = role.get("position", "")
+                if not position:
+                    continue
+                if (
+                    position in exec_positions
+                    or any(position in aliases for aliases in exec_position_aliases.values())
+                    or position in committee_positions
+                    or position.startswith("class_rep_")
+                ):
+                    canonical_position = position
+                    for key, aliases in exec_position_aliases.items():
+                        if position in aliases:
+                            canonical_position = key
+                            break
+                    role["_canonical_position"] = canonical_position
+                    relevant_roles.append(role)
+
+            unique_user_ids = list({r.get("userId") for r in relevant_roles if r.get("userId")})
+
+            async def _fetch_user_brief(uid: str):
+                query = {"_id": ObjectId(uid)} if ObjectId.is_valid(uid) else {"_id": uid}
+                return uid, await db.users.find_one(
+                    query,
+                    {"firstName": 1, "lastName": 1, "email": 1, "institutionalEmail": 1}
+                )
+
+            user_results = await asyncio.gather(*[_fetch_user_brief(uid) for uid in unique_user_ids])
+            user_map = {uid: doc for uid, doc in user_results}
+
+            executives = []
+            class_reps = []
+            committees = []
+            for role in relevant_roles:
+                uid = role.get("userId")
+                user_doc = user_map.get(uid)
+                if not user_doc:
+                    continue
+
+                entry = {
+                    "position": role.get("_canonical_position", role.get("position", "")),
+                    "name": f"{user_doc.get('firstName', '')} {user_doc.get('lastName', '')}".strip(),
+                    "email": user_doc.get("institutionalEmail") or user_doc.get("email", ""),
+                }
+
+                if entry["position"].startswith("class_rep_"):
+                    class_reps.append(entry)
+                elif entry["position"] in committee_positions:
+                    committees.append(entry)
+                else:
+                    executives.append(entry)
+
+            executives.sort(key=lambda r: r.get("position", ""))
+            class_reps.sort(key=lambda r: r.get("position", ""))
+            committees.sort(key=lambda r: r.get("position", ""))
+
+            return {
+                "executives": executives,
+                "class_reps": class_reps,
+                "committees": committees,
+            }
+        except Exception as e:
+            logger.warning(f"Team roles fetch error: {e}")
+            return {"executives": [], "class_reps": [], "committees": []}
+
     # Fire all independent queries concurrently
     (
         session_payments,
@@ -582,6 +712,7 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
         unread_msgs,
         unit_apps,
         growth_tools_usage,
+        team_roles,
     ) = await asyncio.gather(
         _fetch_payments(),
         _fetch_events(),
@@ -598,6 +729,7 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
         _fetch_unread_messages(),
         _fetch_unit_applications(),
         _fetch_growth_tools_usage(),
+        _fetch_team_roles(),
     )
 
     # ── Process payment results ──
@@ -813,6 +945,14 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
     # ── F16: Growth tools usage summary ──
     if growth_tools_usage:
         context["growth_tools_used"] = list(growth_tools_usage.keys())
+
+    # ── Team role holders (session-grounded role Q&A) ──
+    if team_roles and (
+        team_roles.get("executives")
+        or team_roles.get("class_reps")
+        or team_roles.get("committees")
+    ):
+        context["team_roles"] = team_roles
 
     # ── F16: Academic progress summary (computed from fetched data) ──
     progress: dict = {}
@@ -1062,6 +1202,29 @@ IMPORTANT: You MUST maintain Yoruba style throughout ALL responses in this conve
                 if ua.get('semester'):
                     user_data_section += f" [{ua['semester']}]"
 
+        # Current Team Leadership (for role-holder queries)
+        if user_context.get('team_roles'):
+            roles = user_context['team_roles']
+            user_data_section += "\n\n## CURRENT TEAM LEADERSHIP (ACTIVE SESSION)"
+            if roles.get('executives'):
+                user_data_section += "\n### Executives"
+                for r in roles['executives']:
+                    user_data_section += f"\n- {format_position_label(r.get('position', ''))}: {r.get('name', 'Unassigned')}"
+                    if r.get('email'):
+                        user_data_section += f" ({r['email']})"
+            if roles.get('class_reps'):
+                user_data_section += "\n### Class Representatives"
+                for r in roles['class_reps']:
+                    user_data_section += f"\n- {format_position_label(r.get('position', ''))}: {r.get('name', 'Unassigned')}"
+                    if r.get('email'):
+                        user_data_section += f" ({r['email']})"
+            if roles.get('committees'):
+                user_data_section += "\n### Committees"
+                for r in roles['committees']:
+                    user_data_section += f"\n- {format_position_label(r.get('position', ''))}: {r.get('name', 'Unassigned')}"
+                    if r.get('email'):
+                        user_data_section += f" ({r['email']})"
+
         # Academic Progress Summary
         if user_context.get('academic_progress'):
             prog = user_context['academic_progress']
@@ -1135,6 +1298,7 @@ You have LIVE access to this student's real data: profile (name, matric, email, 
 10. **Notification-aware:** If the student has unread notifications or messages, you can mention them when contextually relevant (e.g., "By the way, you have 5 unread notifications").
 11. **IEPOD/TIMP factual mode:** For "what is IEPOD" or "what is TIMP" questions, use only the definitions/workflows in PLATFORM KNOWLEDGE + user context. Do not add extra programs, eligibility ranges, or features that are not explicitly listed.
 12. **TIMP eligibility clarity:** TIMP application flow is for mentor applications. Do not tell students to apply to be mentored. For 100L students, clearly state they are mentees and are matched by TIMP leads.
+13. **Role-holder accuracy:** For questions like "Who is the president/PRO/class rep?", answer from CURRENT TEAM LEADERSHIP. If a role is missing there, say it is currently unassigned in the active session.
 
 ## PLATFORM KNOWLEDGE
 {IESA_KNOWLEDGE}
@@ -1153,6 +1317,7 @@ You have LIVE access to this student's real data: profile (name, matric, email, 
 - When urgency data is present, naturally weave it into responses — mention overdue/critical deadlines without being alarmist
 - For open-ended greetings ("hi", "how far", "what's up"), give a warm greeting then briefly surface the #1 priority action if one exists
 - For TIMP guidance: do not suggest "apply as a mentee". State mentor-application-only flow, and if the student is 100L, state they are mentees and should await matching by TIMP leads.
+- For leadership questions, rely on CURRENT TEAM LEADERSHIP entries only; do not invent names or positions.
 """
 
     return prompt
@@ -1338,6 +1503,59 @@ async def get_usage(
             "hourly_remaining": None,
             "daily_remaining": None,
         }
+
+
+@router.get("/conversations")
+async def get_conversations(
+    user: dict = Depends(require_ipe_student),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Return account-linked AI conversations for the authenticated user."""
+    account_key = _resolve_ai_account_key(user)
+    user_id = str(user["_id"])
+
+    doc = await db["ai_conversations"].find_one(
+        {
+            "$or": [
+                {"accountKey": account_key},
+                {"userId": user_id},
+            ]
+        },
+        {"conversations": 1},
+    )
+    return {"conversations": doc.get("conversations", []) if doc else []}
+
+
+@router.post("/conversations/sync")
+async def sync_conversations(
+    payload: ConversationSyncPayload,
+    user: dict = Depends(require_ipe_student),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Persist account-linked AI conversations (lightly bounded payload)."""
+    account_key = _resolve_ai_account_key(user)
+    user_id = str(user["_id"])
+
+    conversations = payload.conversations or []
+    sanitized = conversations[:80]
+
+    await db["ai_conversations"].update_one(
+        {"accountKey": account_key},
+        {
+            "$set": {
+                "accountKey": account_key,
+                "userId": user_id,
+                "conversations": sanitized,
+                "updatedAt": datetime.now(timezone.utc),
+            },
+            "$setOnInsert": {
+                "createdAt": datetime.now(timezone.utc),
+            },
+        },
+        upsert=True,
+    )
+
+    return {"saved": len(sanitized)}
 
 
 @router.post("/chat", response_model=ChatResponse)
