@@ -47,6 +47,14 @@ interface MemberUnitData {
   tasks: MemberTask[];
 }
 
+interface MemberOverview {
+  membershipCount: number;
+  activeTasks: number;
+  overdueTasks: number;
+  pinnedNotices: number;
+  openNotices: number;
+}
+
 /* ── Helpers ───────────────────────────────────────────── */
 
 function formatDate(d: string | Date | null | undefined): string {
@@ -140,7 +148,10 @@ export default function TeamsPage() {
 
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [teamData, setTeamData] = useState<MemberUnitData[]>([]);
+  const [overview, setOverview] = useState<MemberOverview | null>(null);
   const [loadingMemberships, setLoadingMemberships] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [updatingTask, setUpdatingTask] = useState<string | null>(null);
   // Track whether this user heads any team (not just elevated permissions)
   const isTeamHead = memberships.some((membership) => membership.head?.userId === userProfile?.id);
@@ -163,32 +174,64 @@ export default function TeamsPage() {
     [getAccessToken],
   );
 
-  /* ── Load memberships + unit data ────────────────────────── */
-  useEffect(() => {
-    async function load() {
-      setLoadingMemberships(true);
-      try {
-        const data = await apiFetch("/my-memberships");
-        const list: Membership[] = data || [];
-        setMemberships(list);
+  const loadMembershipData = useCallback(
+    async (initialLoad = false) => {
+      let fetchSucceeded = false;
+      if (initialLoad) {
+        setLoadingMemberships(true);
+      } else {
+        setRefreshing(true);
+      }
 
-        // Load member-view for each team
+      try {
+        const [membershipData, overviewData] = await Promise.all([
+          apiFetch("/my-memberships"),
+          apiFetch("/member/overview"),
+        ]);
+
+        const list: Membership[] = membershipData || [];
+        setMemberships(list);
+        setOverview((overviewData as MemberOverview | null) || null);
+
         const views = await Promise.all(
-          list.map(async (m) => {
-            const view = await apiFetch(`/${m.unitSlug}/member-view`);
+          list.map(async (membership) => {
+            const view = await apiFetch(`/${membership.unitSlug}/member-view`);
             return view as MemberUnitData | null;
           }),
         );
         setTeamData(views.filter(Boolean) as MemberUnitData[]);
+        fetchSucceeded = true;
       } catch {
         /* silently fail */
       } finally {
-        setLoadingMemberships(false);
+        if (fetchSucceeded) {
+          setLastUpdatedAt(new Date());
+        }
+        if (initialLoad) {
+          setLoadingMemberships(false);
+        } else {
+          setRefreshing(false);
+        }
       }
-    }
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    },
+    [apiFetch],
+  );
+
+  /* ── Load memberships + unit data ────────────────────────── */
+  useEffect(() => {
+    void loadMembershipData(true);
+  }, [loadMembershipData]);
+
+  /* ── Soft live refresh (20s) ─────────────────────────────── */
+  useEffect(() => {
+    if (loadingMemberships) return;
+
+    const interval = window.setInterval(() => {
+      void loadMembershipData(false);
+    }, 20_000);
+
+    return () => window.clearInterval(interval);
+  }, [loadMembershipData, loadingMemberships]);
 
   /* ── Update task status ──────────────────────────────────── */
   async function updateTaskStatus(unitSlug: string, taskId: string, status: string) {
@@ -246,7 +289,7 @@ export default function TeamsPage() {
       <ToolHelpModal toolId="teams" isOpen={showHelp} onClose={closeHelp} />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="font-display font-black text-display-lg text-navy">
               <span className="brush-highlight">Teams</span>
@@ -254,13 +297,57 @@ export default function TeamsPage() {
             <p className="mt-2 text-slate text-body">
               IESA operational teams — apply for roles or manage your team work.
             </p>
+            {lastUpdatedAt && (
+              <p className="mt-1 text-xs text-slate">
+                Last updated {lastUpdatedAt.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" })}
+              </p>
+            )}
           </div>
-          <HelpButton onClick={openHelp} />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void loadMembershipData(false)}
+              disabled={refreshing || loadingMemberships}
+              className="bg-snow border-[3px] border-navy press-3 press-black rounded-2xl px-4 py-2 text-xs font-bold text-navy disabled:opacity-60"
+            >
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </button>
+            <HelpButton onClick={openHelp} />
+          </div>
         </div>
+
+        {overview && overview.membershipCount > 0 && (
+          <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="bg-lavender-light border-[3px] border-navy rounded-2xl p-4 shadow-[5px_5px_0_0_#000]">
+              <p className="text-label-sm text-slate">Teams</p>
+              <p className="font-display font-black text-2xl text-navy">{overview.membershipCount}</p>
+            </div>
+            <div className="bg-teal-light border-[3px] border-navy rounded-2xl p-4 shadow-[5px_5px_0_0_#000]">
+              <p className="text-label-sm text-slate">Active Tasks</p>
+              <p className="font-display font-black text-2xl text-navy">{overview.activeTasks}</p>
+            </div>
+            <div className="bg-coral-light border-[3px] border-navy rounded-2xl p-4 shadow-[5px_5px_0_0_#000]">
+              <p className="text-label-sm text-slate">Overdue</p>
+              <p className="font-display font-black text-2xl text-navy">{overview.overdueTasks}</p>
+            </div>
+            <div className="bg-sunny-light border-[3px] border-navy rounded-2xl p-4 shadow-[5px_5px_0_0_#000]">
+              <p className="text-label-sm text-slate">Pinned Notices</p>
+              <p className="font-display font-black text-2xl text-navy">{overview.pinnedNotices}</p>
+            </div>
+            <div className="bg-cloud border-[3px] border-navy rounded-2xl p-4 shadow-[5px_5px_0_0_#000]">
+              <p className="text-label-sm text-slate">Total Notices</p>
+              <p className="font-display font-black text-2xl text-navy">{overview.openNotices}</p>
+            </div>
+          </section>
+        )}
+
+        {refreshing && !loadingMemberships && (
+          <p className="text-xs text-slate">Refreshing team updates…</p>
+        )}
 
         {/* ── Team Head Banner ─────────────────────────────── */}
         {isTeamHead && (
-          <div className="bg-lime border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="bg-lime border-4 border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex-1">
               <p className="text-label uppercase tracking-wider text-navy/60 mb-1">Team Head</p>
               <h2 className="font-display font-black text-xl text-navy">You head a team this session</h2>
@@ -417,7 +504,7 @@ export default function TeamsPage() {
 
         {/* ── No memberships empty state ───────────────────── */}
         {!loadingMemberships && memberships.length === 0 && (
-          <div className="bg-snow border-[4px] border-navy rounded-3xl p-8 shadow-[8px_8px_0_0_#000] text-center">
+          <div className="bg-snow border-4 border-navy rounded-3xl p-8 shadow-[8px_8px_0_0_#000] text-center">
             <div className="w-14 h-14 bg-lavender-light rounded-2xl flex items-center justify-center mx-auto mb-4 border-[3px] border-navy">
               <svg className="w-7 h-7 text-navy" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />

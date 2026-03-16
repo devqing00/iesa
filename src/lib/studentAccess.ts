@@ -65,6 +65,7 @@ export const EXTERNAL_HIDDEN_HREFS = new Set([
   "/dashboard/receipt",
   "/dashboard/calendar",
   "/dashboard/messages",
+  "/dashboard/cohort",
   "/dashboard/class-rep",
   "/dashboard/team-head",
   "/dashboard/freshers",

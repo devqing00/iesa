@@ -166,6 +166,72 @@ async def _get_level_cohort_user_ids(db, session_id: str, level: str) -> list[st
     return list(dict.fromkeys(cohort_ids))
 
 
+def _normalize_level_label(level: str) -> str:
+    digits = "".join(ch for ch in str(level) if ch.isdigit())
+    if not digits:
+        raise HTTPException(status_code=400, detail="Invalid level")
+    level_num = int(digits)
+    if level_num not in [100, 200, 300, 400, 500]:
+        raise HTTPException(status_code=400, detail="Invalid level")
+    return f"{level_num}L"
+
+
+async def _get_level_leadership_user_ids(db, session_id: str, level: str) -> set[str]:
+    """Return active class rep / assistant user IDs for a level in the active session."""
+    role_docs = await db["roles"].find(
+        {
+            "sessionId": session_id,
+            "isActive": True,
+            "$or": [
+                {"position": f"class_rep_{level}"},
+                {"position": f"asst_class_rep_{level}"},
+                {
+                    "$and": [
+                        {"position": {"$regex": "^(class_rep_|asst_class_rep_)"}},
+                        {"level": level},
+                    ]
+                },
+            ],
+        },
+        {"userId": 1},
+    ).to_list(None)
+    return {str(r.get("userId", "")) for r in role_docs if r.get("userId")}
+
+
+async def _get_member_level(current_user: dict, session_id: str) -> str:
+    """Resolve level for a student-facing cohort view in the active session."""
+    db = get_database()
+    uid = _user_id(current_user)
+
+    enrollment = await db["enrollments"].find_one(
+        {
+            "sessionId": session_id,
+            "isActive": True,
+            "$or": [
+                {"studentId": uid},
+                {"userId": uid},
+                {"userId": ObjectId(uid)} if ObjectId.is_valid(uid) else {"userId": uid},
+            ],
+        },
+        {"level": 1},
+        sort=[("updatedAt", -1), ("createdAt", -1)],
+    )
+    if enrollment and enrollment.get("level"):
+        return _normalize_level_label(str(enrollment.get("level")))
+
+    # Fallback for reps/assistants who may use this route.
+    try:
+        return await _get_rep_level(current_user)
+    except HTTPException:
+        pass
+
+    profile_level = current_user.get("currentLevel") or current_user.get("level")
+    if profile_level:
+        return _normalize_level_label(str(profile_level))
+
+    raise HTTPException(status_code=403, detail="Unable to determine your cohort level")
+
+
 async def _find_timetable_conflict(
     db,
     *,
@@ -491,6 +557,72 @@ async def cohort_stats(current_user: dict = Depends(get_current_user)):
         "enrolledCount": enrolled_count,
         "payments": payment_stats,
     }
+
+
+# ──────────────────────────────────────────────────────────────────
+# STUDENT COHORT PORTAL
+# ──────────────────────────────────────────────────────────────────
+
+@router.get("/member/overview")
+async def member_overview(current_user: dict = Depends(get_current_user)):
+    """Student-facing cohort overview (member metrics exclude rep/asst)."""
+    session_id = await _get_active_session_id()
+    level = await _get_member_level(current_user, session_id)
+    db = get_database()
+
+    cohort_ids = await _get_level_cohort_user_ids(db, session_id, level)
+    leadership_ids = await _get_level_leadership_user_ids(db, session_id, level)
+    eligible_member_ids = [sid for sid in cohort_ids if sid not in leadership_ids]
+
+    deadlines_count = await db["class_rep_deadlines"].count_documents({
+        "level": level,
+        "sessionId": session_id,
+    })
+    active_polls_count = await db["class_rep_polls"].count_documents({
+        "level": level,
+        "sessionId": session_id,
+        "isActive": True,
+    })
+    updates_count = await db["class_rep_relay"].count_documents({
+        "level": level,
+        "sessionId": session_id,
+    })
+
+    return {
+        "level": level,
+        "totalCohortCount": len(cohort_ids),
+        "eligibleMemberCount": len(eligible_member_ids),
+        "activeDeadlines": deadlines_count,
+        "activePolls": active_polls_count,
+        "updates": updates_count,
+    }
+
+
+@router.get("/member/deadlines")
+async def list_member_deadlines(current_user: dict = Depends(get_current_user)):
+    """Student-facing deadline list for the caller's level cohort."""
+    session_id = await _get_active_session_id()
+    level = await _get_member_level(current_user, session_id)
+    db = get_database()
+
+    docs = await db["class_rep_deadlines"].find({
+        "level": level,
+        "sessionId": session_id,
+    }).sort("dueDate", 1).to_list(None)
+
+    deadlines = []
+    for d in docs:
+        deadlines.append({
+            "id": str(d["_id"]),
+            "title": d.get("title", ""),
+            "course": d.get("course", ""),
+            "description": d.get("description", ""),
+            "dueDate": d["dueDate"].isoformat() if d.get("dueDate") else None,
+            "createdByName": d.get("createdByName", ""),
+            "createdAt": d.get("createdAt", ""),
+        })
+
+    return {"level": level, "deadlines": deadlines}
 
 
 @router.get(
@@ -971,15 +1103,29 @@ async def list_polls(current_user: dict = Depends(get_current_user)):
     }).sort("createdAt", -1).to_list(None)
 
     uid = _user_id(current_user)
+    leadership_ids = await _get_level_leadership_user_ids(db, session_id, level)
+    cohort_ids = await _get_level_cohort_user_ids(db, session_id, level)
+    eligible_member_ids = {sid for sid in cohort_ids if sid not in leadership_ids}
     polls = []
     for d in docs:
         votes = d.get("votes") or {}  # {optionIndex: [userId, ...]}
         total_votes = sum(len(v) for v in votes.values())
+        member_voters: set[str] = set()
         user_vote = None
         for opt_idx, voter_ids in votes.items():
             if uid in voter_ids:
                 user_vote = int(opt_idx)
                 break
+            member_voters.update(str(voter_id) for voter_id in voter_ids if str(voter_id) in eligible_member_ids)
+
+        # If the caller voted and belongs to eligible members but the vote was found before set update,
+        # ensure they are still counted.
+        for voter_ids in votes.values():
+            member_voters.update(str(voter_id) for voter_id in voter_ids if str(voter_id) in eligible_member_ids)
+
+        eligible_count = len(eligible_member_ids)
+        member_vote_count = len(member_voters)
+        turnout_percentage = round((member_vote_count / eligible_count) * 100, 1) if eligible_count else 0.0
 
         options_out = []
         for i, opt in enumerate(d.get("options", [])):
@@ -993,6 +1139,9 @@ async def list_polls(current_user: dict = Depends(get_current_user)):
             "question": d["question"],
             "options": options_out,
             "totalVotes": total_votes,
+            "eligibleMembers": eligible_count,
+            "memberVotes": member_vote_count,
+            "turnoutPercentage": turnout_percentage,
             "userVote": user_vote,
             "isActive": d.get("isActive", True),
             "createdBy": d.get("createdBy", ""),
@@ -1000,6 +1149,111 @@ async def list_polls(current_user: dict = Depends(get_current_user)):
             "createdAt": d.get("createdAt", ""),
         })
     return {"level": level, "polls": polls}
+
+
+@router.get("/member/polls")
+async def list_member_polls(current_user: dict = Depends(get_current_user)):
+    """Student-facing poll list with member-only turnout metrics."""
+    session_id = await _get_active_session_id()
+    level = await _get_member_level(current_user, session_id)
+    db = get_database()
+
+    docs = await db["class_rep_polls"].find({
+        "level": level,
+        "sessionId": session_id,
+    }).sort("createdAt", -1).to_list(None)
+
+    uid = _user_id(current_user)
+    leadership_ids = await _get_level_leadership_user_ids(db, session_id, level)
+    cohort_ids = await _get_level_cohort_user_ids(db, session_id, level)
+    eligible_member_ids = {sid for sid in cohort_ids if sid not in leadership_ids}
+
+    polls = []
+    for d in docs:
+        votes = d.get("votes") or {}
+        total_votes = sum(len(v) for v in votes.values())
+        user_vote = None
+        member_voters: set[str] = set()
+
+        for opt_idx, voter_ids in votes.items():
+            if uid in voter_ids:
+                user_vote = int(opt_idx)
+            member_voters.update(str(voter_id) for voter_id in voter_ids if str(voter_id) in eligible_member_ids)
+
+        eligible_count = len(eligible_member_ids)
+        member_vote_count = len(member_voters)
+        turnout_percentage = round((member_vote_count / eligible_count) * 100, 1) if eligible_count else 0.0
+
+        options_out = []
+        for i, opt in enumerate(d.get("options", [])):
+            options_out.append({
+                "text": opt,
+                "voteCount": len(votes.get(str(i), [])),
+            })
+
+        polls.append({
+            "id": str(d["_id"]),
+            "question": d.get("question", ""),
+            "options": options_out,
+            "totalVotes": total_votes,
+            "eligibleMembers": eligible_count,
+            "memberVotes": member_vote_count,
+            "turnoutPercentage": turnout_percentage,
+            "userVote": user_vote,
+            "isActive": d.get("isActive", True),
+            "createdByName": d.get("createdByName", ""),
+            "createdAt": d.get("createdAt", ""),
+        })
+
+    return {"level": level, "polls": polls}
+
+
+@router.post("/member/polls/{poll_id}/vote")
+async def vote_on_member_poll(
+    poll_id: str,
+    body: dict,
+    current_user: dict = Depends(get_current_user),
+):
+    """Vote on a cohort poll from the student-facing cohort portal."""
+    if not ObjectId.is_valid(poll_id):
+        raise HTTPException(status_code=400, detail="Invalid poll ID")
+
+    option_index = body.get("optionIndex")
+    if option_index is None:
+        raise HTTPException(status_code=400, detail="optionIndex is required")
+
+    session_id = await _get_active_session_id()
+    level = await _get_member_level(current_user, session_id)
+    db = get_database()
+
+    poll = await db["class_rep_polls"].find_one(
+        {"_id": ObjectId(poll_id), "sessionId": session_id, "level": level}
+    )
+    if not poll:
+        raise HTTPException(status_code=404, detail="Poll not found")
+    if not poll.get("isActive", True):
+        raise HTTPException(status_code=400, detail="Poll is closed")
+    if int(option_index) < 0 or int(option_index) >= len(poll.get("options", [])):
+        raise HTTPException(status_code=400, detail="Invalid option index")
+
+    uid = _user_id(current_user)
+    cohort_ids = await _get_level_cohort_user_ids(db, session_id, level)
+    if uid not in set(cohort_ids):
+        raise HTTPException(status_code=403, detail="You are not in this cohort")
+
+    votes = poll.get("votes") or {}
+    for idx_key, voter_list in votes.items():
+        if uid in voter_list:
+            await db["class_rep_polls"].update_one(
+                {"_id": ObjectId(poll_id)},
+                {"$pull": {f"votes.{idx_key}": uid}},
+            )
+
+    await db["class_rep_polls"].update_one(
+        {"_id": ObjectId(poll_id)},
+        {"$addToSet": {f"votes.{option_index}": uid}},
+    )
+    return {"message": "Vote recorded"}
 
 
 @router.post(
@@ -1155,6 +1409,35 @@ async def list_relay_posts(current_user: dict = Depends(get_current_user)):
             "createdAt": d.get("createdAt", ""),
         })
     return {"level": level, "posts": posts}
+
+
+@router.get("/member/updates")
+async def list_member_updates(current_user: dict = Depends(get_current_user)):
+    """Student-facing class updates feed for the caller's cohort."""
+    session_id = await _get_active_session_id()
+    level = await _get_member_level(current_user, session_id)
+    db = get_database()
+
+    docs = await db["class_rep_relay"].find({
+        "level": level,
+        "sessionId": session_id,
+    }).sort([("isPinned", -1), ("createdAt", -1)]).to_list(None)
+
+    posts = []
+    for d in docs:
+        posts.append({
+            "id": str(d["_id"]),
+            "title": d.get("title", ""),
+            "content": d.get("content", ""),
+            "course": d.get("course", ""),
+            "lecturerName": d.get("lecturerName", ""),
+            "attachmentUrl": d.get("attachmentUrl"),
+            "isPinned": d.get("isPinned", False),
+            "createdByName": d.get("createdByName", ""),
+            "createdAt": d.get("createdAt", ""),
+        })
+
+    return {"level": level, "updates": posts}
 
 
 @router.post(

@@ -42,11 +42,23 @@ interface BellNotice {
   createdAt: string;
 }
 
+interface TeamMemberOverview {
+  membershipCount?: number;
+  activeTasks?: number;
+  pinnedNotices?: number;
+}
+
+interface TeamHeadOverview {
+  headedTeamCount?: number;
+  pendingAssignedTasks?: number;
+  inProgressAssignedTasks?: number;
+}
+
 /* ─── Page Component ────────────────────────────────────────────── */
 
 export default function StudentDashboardPage() {
   const { user, userProfile, refreshProfile, getAccessToken } = useAuth();
-  const { hasAnyPermission } = usePermissions();
+  const { hasAnyPermission, hasPermission } = usePermissions();
   const { currentSession } = useSession();
   const { showHelp, openHelp, closeHelp } = useToolHelp("student-dashboard");
   const enabled = !!user;
@@ -64,6 +76,9 @@ export default function StudentDashboardPage() {
     [data],
   );
   const [bellNotices, setBellNotices] = useState<BellNotice[]>([]);
+  const [openCohortPolls, setOpenCohortPolls] = useState<number | null>(null);
+  const [teamOverview, setTeamOverview] = useState<TeamMemberOverview | null>(null);
+  const [teamHeadOverview, setTeamHeadOverview] = useState<TeamHeadOverview | null>(null);
 
   const events: UpcomingEvent[] = useMemo(
     () => data?.events ?? [],
@@ -149,6 +164,63 @@ export default function StudentDashboardPage() {
 
     void fetchBellNotices();
   }, [getAccessToken, user]);
+
+  useEffect(() => {
+    const fetchCohortOverview = async () => {
+      if (!user || external) return;
+      try {
+        const token = await getAccessToken();
+        const response = await fetch(getApiUrl("/api/v1/class-rep/member/overview"), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+        const payload: { activePolls?: number } = await response.json();
+        setOpenCohortPolls(typeof payload.activePolls === "number" ? payload.activePolls : 0);
+      } catch {
+        /* silent */
+      }
+    };
+
+    void fetchCohortOverview();
+  }, [external, getAccessToken, user]);
+
+  useEffect(() => {
+    const fetchTeamOverview = async () => {
+      if (!user || external) return;
+      try {
+        const token = await getAccessToken();
+        const response = await fetch(getApiUrl("/api/v1/team-head/member/overview"), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+        const payload: TeamMemberOverview = await response.json();
+        setTeamOverview(payload);
+      } catch {
+        /* silent */
+      }
+    };
+
+    void fetchTeamOverview();
+  }, [external, getAccessToken, user]);
+
+  useEffect(() => {
+    const fetchTeamHeadOverview = async () => {
+      if (!user || external || !hasPermission("team_head:view_members")) return;
+      try {
+        const token = await getAccessToken();
+        const response = await fetch(getApiUrl("/api/v1/team-head/head/overview"), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+        const payload: TeamHeadOverview = await response.json();
+        setTeamHeadOverview(payload);
+      } catch {
+        /* silent */
+      }
+    };
+
+    void fetchTeamHeadOverview();
+  }, [external, getAccessToken, hasPermission, user]);
 
   // Full-page shimmer skeleton while initial data loads (after all hooks)
   if (loading && !data) return <StudentDashboardSkeleton />;
@@ -451,6 +523,21 @@ export default function StudentDashboardPage() {
                   <span className="text-[10px] font-bold text-navy bg-coral rounded-md px-3 py-1 uppercase tracking-wider">
                     {events.length} upcoming event{events.length !== 1 ? "s" : ""}
                   </span>
+                  {openCohortPolls !== null && (
+                    <span className="text-[10px] font-bold text-navy bg-lavender rounded-md px-3 py-1 uppercase tracking-wider">
+                      {openCohortPolls} open cohort poll{openCohortPolls !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                  {!!teamOverview?.membershipCount && typeof teamOverview.activeTasks === "number" && (
+                    <span className="text-[10px] font-bold text-navy bg-teal rounded-md px-3 py-1 uppercase tracking-wider">
+                      {teamOverview.activeTasks} active team task{teamOverview.activeTasks !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                  {!!teamHeadOverview?.headedTeamCount && typeof teamHeadOverview.pendingAssignedTasks === "number" && (
+                    <span className="text-[10px] font-bold text-navy bg-sunny rounded-md px-3 py-1 uppercase tracking-wider">
+                      Team Head: {teamHeadOverview.headedTeamCount} team{teamHeadOverview.headedTeamCount !== 1 ? "s" : ""} · {teamHeadOverview.pendingAssignedTasks} pending assigned
+                    </span>
+                  )}
                 </>
               )}
             </div>
@@ -698,7 +785,7 @@ export default function StudentDashboardPage() {
             </div>
 
             {/* CTA Cards — side by side on lg+ */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {/* First CTA: IESA AI (IPE) or IEPOD (External) */}
               {external ? (
                 <Link href={iepodHref} className="block bg-navy border-[3px] border-lime rounded-3xl p-6 relative overflow-hidden group">
@@ -757,6 +844,88 @@ export default function StudentDashboardPage() {
                   </svg>
                 </span>
               </Link>
+
+              {/* Cohort Portal CTA — IPE students only */}
+              {!external && (
+                <Link href="/dashboard/cohort" className="block bg-lavender-light border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group press-4 press-black">
+                  <svg aria-hidden="true" className="absolute top-3 right-4 w-4 h-4 text-lavender/25 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+                  </svg>
+                  <div className="w-10 h-10 rounded-xl bg-lavender/20 flex items-center justify-center mb-3">
+                    <svg aria-hidden="true" className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <h3 className="font-display font-black text-xl text-navy mb-1">Cohort Portal</h3>
+                  <p className="text-slate text-xs font-medium mb-3">Deadlines, polls, and class updates in one place</p>
+                  <span className="inline-flex items-center gap-1.5 text-navy text-xs font-bold group-hover:gap-2.5 transition-all bg-snow/70 rounded-md px-3 py-1.5">
+                    Open portal
+                    <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                    </svg>
+                  </span>
+                </Link>
+              )}
+
+              {!external && (
+                <Link href="/dashboard/teams" className="block bg-teal-light border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group press-4 press-black">
+                  <svg aria-hidden="true" className="absolute top-3 right-4 w-4 h-4 text-teal/30 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+                  </svg>
+                  <div className="w-10 h-10 rounded-xl bg-teal/20 flex items-center justify-center mb-3">
+                    <svg aria-hidden="true" className="w-5 h-5 text-teal" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <h3 className="font-display font-black text-xl text-navy mb-1">Teams Portal</h3>
+                  <p className="text-slate text-xs font-medium mb-3">
+                    {teamOverview?.membershipCount
+                      ? `${teamOverview.membershipCount} team${teamOverview.membershipCount !== 1 ? "s" : ""} · ${teamOverview.activeTasks ?? 0} active tasks`
+                      : "Tasks, notices, and team coordination in one place"}
+                  </p>
+                  {teamOverview?.pinnedNotices ? (
+                    <span className="inline-flex items-center gap-1.5 text-navy text-xs font-bold bg-snow/70 rounded-md px-3 py-1.5 mb-2">
+                      {teamOverview.pinnedNotices} pinned notice{teamOverview.pinnedNotices !== 1 ? "s" : ""}
+                    </span>
+                  ) : null}
+                  <span className="inline-flex items-center gap-1.5 text-navy text-xs font-bold group-hover:gap-2.5 transition-all bg-snow/70 rounded-md px-3 py-1.5">
+                    Open teams
+                    <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                    </svg>
+                  </span>
+                </Link>
+              )}
+
+              {!external && hasPermission("team_head:view_members") && (
+                <Link href="/dashboard/team-head" className="block bg-navy border-[3px] border-lime rounded-3xl p-6 relative overflow-hidden group press-4 press-lime">
+                  <svg aria-hidden="true" className="absolute top-3 right-4 w-4 h-4 text-lime/25 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+                  </svg>
+                  <div className="w-10 h-10 rounded-xl bg-lime/20 flex items-center justify-center mb-3">
+                    <svg aria-hidden="true" className="w-5 h-5 text-lime" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <h3 className="font-display font-black text-xl text-snow mb-1">Team Head Portal</h3>
+                  <p className="text-ghost/55 text-xs font-medium mb-3">
+                    {typeof teamHeadOverview?.pendingAssignedTasks === "number"
+                      ? `${teamHeadOverview.pendingAssignedTasks} pending assigned task${teamHeadOverview.pendingAssignedTasks !== 1 ? "s" : ""}`
+                      : "Manage members, notices, and tasks for your team"}
+                  </p>
+                  {typeof teamHeadOverview?.headedTeamCount === "number" && teamHeadOverview.headedTeamCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 text-lime text-xs font-bold bg-lime/10 rounded-md px-3 py-1.5 mb-2">
+                      {teamHeadOverview.headedTeamCount} headed team{teamHeadOverview.headedTeamCount !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1.5 text-lime text-xs font-bold group-hover:gap-2.5 transition-all bg-lime/10 rounded-md px-3 py-1.5">
+                    Open lead portal
+                    <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                    </svg>
+                  </span>
+                </Link>
+              )}
             </div>
           </div>
 

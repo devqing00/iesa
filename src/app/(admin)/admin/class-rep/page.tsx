@@ -81,6 +81,9 @@ interface Poll {
   question: string;
   options: PollOption[];
   totalVotes: number;
+  eligibleMembers: number;
+  memberVotes: number;
+  turnoutPercentage: number;
   userVote: number | null;
   isActive: boolean;
   createdByName: string;
@@ -154,7 +157,7 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   },
   {
     key: "relay",
-    label: "Relay Board",
+    label: "Class Updates",
     icon: (
       <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M16.881 4.345A23.112 23.112 0 0 1 8.25 6H7.5a5.25 5.25 0 0 0-.88 10.427 21.593 21.593 0 0 0 1.378 3.94c.464 1.004 1.674 1.32 2.582.796l.657-.379c.88-.508 1.165-1.593.772-2.468a17.116 17.116 0 0 1-.628-1.607c1.918.258 3.76.75 5.5 1.446A21.727 21.727 0 0 0 18 11.25c0-2.414-.393-4.735-1.119-6.905Z" /></svg>
     ),
@@ -401,6 +404,14 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
     if (tab === "timetable") loadTimetable().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  useEffect(() => {
+    if (loading || tab !== "polls") return;
+    const interval = window.setInterval(() => {
+      loadPolls().catch(() => {});
+    }, 20000);
+    return () => window.clearInterval(interval);
+  }, [loading, tab, loadPolls]);
 
   /* ── actions ─────────────────────────────────────────────── */
   async function createDeadline() {
@@ -994,14 +1005,16 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
                     );
                   })}
                 </div>
-                <p className="text-xs text-slate mt-2">{p.totalVotes} vote{p.totalVotes !== 1 ? "s" : ""} · By {p.createdByName} · {timeAgo(p.createdAt)}</p>
+                <p className="text-xs text-slate mt-2">
+                  {p.totalVotes} vote{p.totalVotes !== 1 ? "s" : ""} · Turnout {p.memberVotes}/{p.eligibleMembers} ({p.turnoutPercentage}%) · By {p.createdByName} · {timeAgo(p.createdAt)}
+                </p>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── RELAY BOARD ───────────────────────────────────── */}
+      {/* ── CLASS UPDATES ─────────────────────────────────── */}
       {tab === "relay" && (
         <div className="space-y-4">
           {canManageRelay && (
@@ -1009,7 +1022,7 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
               onClick={() => setShowRelayForm(!showRelayForm)}
               className="bg-lime border-[3px] border-navy rounded-2xl px-5 py-3 font-bold text-sm text-navy press-3 press-navy"
             >
-              {showRelayForm ? "Cancel" : "+ New Post"}
+              {showRelayForm ? "Cancel" : "+ New Update"}
             </button>
           )}
 
@@ -1022,7 +1035,7 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
               </div>
               <textarea value={relayContent} onChange={e => setRelayContent(e.target.value)} placeholder="Content / Instructions *" rows={4} className="w-full border-[3px] border-navy rounded-2xl px-4 py-3 text-sm font-medium text-navy placeholder:text-slate focus:outline-none focus:border-lime resize-none" />
               <button onClick={createRelayPost} disabled={!relayTitle || !relayContent || formLoading} className="bg-lime border-[3px] border-navy rounded-2xl px-6 py-3 font-bold text-sm text-navy press-3 press-navy disabled:opacity-50">
-                {formLoading ? "Posting..." : "Post to Relay Board"}
+                {formLoading ? "Posting..." : "Post Update"}
               </button>
             </div>
           )}
@@ -1030,7 +1043,7 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
           <div className="space-y-3">
             {relayPosts.length === 0 ? (
               <div className="bg-snow border-4 border-navy rounded-3xl p-8 shadow-[8px_8px_0_0_#000] text-center">
-                <p className="text-slate">No relay posts yet.</p>
+                <p className="text-slate">No class updates yet.</p>
               </div>
             ) : relayPosts.map((post) => (
               <div key={post.id} className={`border-4 border-navy rounded-3xl p-5 shadow-[5px_5px_0_0_#000] ${post.isPinned ? "bg-sunny-light" : "bg-snow"}`}>

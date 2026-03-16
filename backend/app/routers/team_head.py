@@ -10,6 +10,7 @@ Provides a workspace for team/committee heads to manage their team:
 
 Endpoints:
   GET    /api/v1/team-head/my-teams                    — Which teams this user heads
+    GET    /api/v1/team-head/head/overview               — Team-head summary metrics for dashboard badge
   GET    /api/v1/team-head/{unit}/members               — Member roster
   GET    /api/v1/team-head/{unit}/noticeboard           — List noticeboard posts
   POST   /api/v1/team-head/{unit}/noticeboard           — Create noticeboard post
@@ -24,6 +25,7 @@ Endpoints:
   GET    /api/v1/team-head/{unit}/admin-content         — Admin view of noticeboard + tasks
 
 Member-facing (authenticated, no head role):
+    GET    /api/v1/team-head/member/overview              — Aggregate member overview metrics
   GET    /api/v1/team-head/my-memberships               — Which units this user belongs to
   GET    /api/v1/team-head/{unit}/member-view            — Member view (noticeboard + tasks)
   PATCH  /api/v1/team-head/{unit}/tasks/{id}/status     — Member updates own task status
@@ -232,6 +234,50 @@ async def my_headed_teams(
     user_id = str(user.get("_id") or user.get("id"))
     session_id = str(session["_id"])
     return await _get_user_headed_teams(user_id, session_id, db)
+
+
+@router.get("/head/overview")
+async def team_head_overview(
+    user=Depends(require_permission("team_head:view_members")),
+    session=Depends(get_current_session),
+):
+    """Return team-head summary for dashboard badges."""
+    db = get_database()
+    user_id = str(user.get("_id") or user.get("id"))
+    session_id = str(session["_id"])
+
+    headed_units = await _get_user_headed_teams(user_id, session_id, db)
+    unit_slugs = [unit["unitSlug"] for unit in headed_units if unit.get("unitSlug")]
+
+    if not unit_slugs:
+        return {
+            "headedTeamCount": 0,
+            "pendingAssignedTasks": 0,
+            "inProgressAssignedTasks": 0,
+        }
+
+    pending_assigned_tasks = await db["unit_tasks"].count_documents(
+        {
+            "sessionId": session_id,
+            "unitSlug": {"$in": unit_slugs},
+            "createdBy": user_id,
+            "status": "pending",
+        }
+    )
+    in_progress_assigned_tasks = await db["unit_tasks"].count_documents(
+        {
+            "sessionId": session_id,
+            "unitSlug": {"$in": unit_slugs},
+            "createdBy": user_id,
+            "status": "in_progress",
+        }
+    )
+
+    return {
+        "headedTeamCount": len(unit_slugs),
+        "pendingAssignedTasks": pending_assigned_tasks,
+        "inProgressAssignedTasks": in_progress_assigned_tasks,
+    }
 
 
 @router.get("/{team}/members")
@@ -801,6 +847,97 @@ async def my_memberships(
             })
 
     return result
+
+
+@router.get("/member/overview")
+async def member_overview(
+    user=Depends(get_current_user),
+    session=Depends(get_current_session),
+):
+    """Return aggregate overview for team members (memberships, tasks, notices)."""
+    db = get_database()
+    user_id = str(user.get("_id") or user.get("id"))
+    session_id = str(session["_id"])
+
+    roles = await db["roles"].find({
+        "userId": user_id,
+        "sessionId": session_id,
+        "isActive": True,
+    }).to_list(length=100)
+
+    position_to_unit = {}
+    for slug, info in TEAM_ROLE_MAP.items():
+        position_to_unit[info["position"]] = slug
+
+    membership_slugs: list[str] = []
+    for role in roles:
+        slug = position_to_unit.get(role["position"])
+        if not slug and (
+            role["position"].startswith("team_member_custom_")
+            or role["position"].startswith("unit_member_custom_")
+        ):
+            slug = role["position"].replace("team_member_custom_", "", 1).replace("unit_member_custom_", "", 1)
+        if slug and slug not in membership_slugs:
+            membership_slugs.append(slug)
+
+    if not membership_slugs:
+        return {
+            "membershipCount": 0,
+            "activeTasks": 0,
+            "overdueTasks": 0,
+            "pinnedNotices": 0,
+            "openNotices": 0,
+        }
+
+    task_docs = await db["unit_tasks"].find(
+        {
+            "unitSlug": {"$in": membership_slugs},
+            "sessionId": session_id,
+            "$or": [
+                {"assignedTo": user_id},
+                {"assignedTo": None},
+                {"assignedTo": {"$exists": False}},
+            ],
+        },
+        {"status": 1, "dueDate": 1},
+    ).to_list(length=500)
+
+    now = datetime.now(timezone.utc)
+    active_tasks = 0
+    overdue_tasks = 0
+    for task in task_docs:
+        if task.get("status") != "done":
+            active_tasks += 1
+            due_date_value = task.get("dueDate")
+            if due_date_value:
+                try:
+                    due_dt = datetime.fromisoformat(str(due_date_value).replace("Z", "+00:00"))
+                    if due_dt < now:
+                        overdue_tasks += 1
+                except ValueError:
+                    pass
+
+    pinned_notices = await db["unit_noticeboard"].count_documents(
+        {
+            "unitSlug": {"$in": membership_slugs},
+            "sessionId": session_id,
+            "isPinned": True,
+        }
+    )
+    open_notices = await db["unit_noticeboard"].count_documents(
+        {
+            "unitSlug": {"$in": membership_slugs},
+            "sessionId": session_id,
+        }
+    )
+
+    return {
+        "membershipCount": len(membership_slugs),
+        "activeTasks": active_tasks,
+        "overdueTasks": overdue_tasks,
+        "pinnedNotices": pinned_notices,
+        "openNotices": open_notices,
+    }
 
 
 @router.get("/{team}/member-view")

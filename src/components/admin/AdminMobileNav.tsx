@@ -86,7 +86,8 @@ export default function AdminMobileNav() {
       anyPermission: ["event:create", "event:edit", "event:view", "event:manage"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-          <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
+          <path fillRule="evenodd" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" clipRule="evenodd" />
+          <path d="M14.625 13.5a1.125 1.125 0 0 0-1.125 1.125v4.5c0 .621.504 1.125 1.125 1.125h4.5c.621 0 1.125-.504 1.125-1.125v-4.5c0-.621-.504-1.125-1.125-1.125h-4.5Z" />
         </svg>
       ),
     },
@@ -149,7 +150,8 @@ export default function AdminMobileNav() {
       anyPermission: ["team:review"],
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM14.25 8.625a3.375 3.375 0 1 1 6.75 0 3.375 3.375 0 0 1-6.75 0ZM1.5 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122ZM17.25 19.128l-.001.144a2.25 2.25 0 0 1-.233.96 10.088 10.088 0 0 0 5.06-1.01.75.75 0 0 0 .42-.643 4.875 4.875 0 0 0-6.957-4.611 8.586 8.586 0 0 1 1.71 5.157v.003Z" />
+          <path d="M12 3.75a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5ZM6 15.75a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5ZM18 15.75a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5Z" />
+          <path d="M11.25 8.25h1.5V12h-1.5V8.25ZM6 11.25h12v1.5H6v-1.5Z" />
         </svg>
       ),
     },
@@ -305,7 +307,7 @@ export default function AdminMobileNav() {
               setIsMenuOpen(nextOpen);
             }}
             aria-label="More options"
-            aria-expanded={isMenuOpen}
+            aria-expanded={isMenuOpen ? "true" : "false"}
             className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all ${
               isMenuOpen ? "text-navy bg-lime font-bold" : "text-slate hover:text-navy"
             }`}
