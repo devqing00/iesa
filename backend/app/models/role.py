@@ -23,6 +23,8 @@ class RoleBase(BaseModel):
     department: str = Field(default="Industrial Engineering")
     level: Optional[str] = Field(None, description="For class reps (100L, 200L, etc.)")
     customTitle: Optional[str] = Field(None, description="For 'other' position type")
+    societyId: Optional[str] = Field(None, description="Context society ID for scoped roles (e.g., IEPOD Hub Lead)")
+    societyName: Optional[str] = Field(None, description="Cached society name for scoped role labels")
     
     # Phase 1: Permission-based RBAC
     permissions: list[str] = Field(
@@ -41,6 +43,8 @@ class RoleUpdate(BaseModel):
     position: Optional[PositionType] = None
     level: Optional[str] = Field(None, description="For class reps (100L, 200L, etc.)")
     customTitle: Optional[str] = Field(None, description="For 'other' position type")
+    societyId: Optional[str] = Field(None, description="Context society ID for scoped roles")
+    societyName: Optional[str] = Field(None, description="Context society name for scoped roles")
     permissions: Optional[list[str]] = Field(None, description="Update permissions")
     isActive: Optional[bool] = Field(None, description="Update active status")
 

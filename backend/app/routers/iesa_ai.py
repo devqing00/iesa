@@ -378,16 +378,82 @@ POSITION_LABELS = {
     "committee_welfare": "Welfare Committee",
     "committee_sports": "Sports Committee",
     "committee_socials": "Socials Committee",
+    "timp_lead": "TIMP Lead",
+    "timp_mentor": "TIMP Mentor",
+    "timp_mentee": "TIMP Mentee",
+    "press_editor_in_chief": "Press Editor-in-Chief",
+    "press_head": "Press Head",
+    "press_member": "Press Member",
+    "press_niche_editor": "Press Niche Editor",
+    "press_pro": "Press PRO",
+    "iepod_hub_director": "IEPOD Hub Director",
+    "iepod_hub_lead": "IEPOD Hub Lead",
+    "iepod_conference_lead": "IEPOD Conference Lead",
+    "iepod_program_coordinator": "IEPOD Program Coordinator",
+    "iepod_communications_officer": "IEPOD Communications Officer",
 }
 
+PUBLIC_FOUNDER_PROFILE = {
+    "name": "Alexander Adetayo",
+    "aka": "Alex Qing",
+    "role": "Platform Developer",
+    "portfolio": "https://alexqing.tech",
+    "intro": "Built and actively maintains the IESA web platform experience.",
+}
 
-def format_position_label(position: str) -> str:
+AI_CONTEXT_MODULES = [
+    {
+        "key": "academics",
+        "label": "Academic data",
+        "includes": ["today classes", "weekly timetable", "enrollments", "academic calendar"],
+    },
+    {
+        "key": "finance",
+        "label": "Payment intelligence",
+        "includes": ["paid vs unpaid dues", "deadline urgency", "payment status snapshot"],
+    },
+    {
+        "key": "community",
+        "label": "Community context",
+        "includes": ["upcoming events", "recent announcements", "study groups", "team roles"],
+    },
+    {
+        "key": "growth",
+        "label": "Growth tools context",
+        "includes": ["CGPA progress", "growth tools usage", "habit tracking summary"],
+    },
+    {
+        "key": "programs",
+        "label": "Program context",
+        "includes": ["IEPOD status", "TIMP status", "unit applications"],
+    },
+    {
+        "key": "public_profiles",
+        "label": "Public profile snippets",
+        "includes": ["founder/developer public bio", "portfolio links", "non-private role info"],
+    },
+]
+
+
+def format_position_label(position: str, society_name: str | None = None) -> str:
     if not position:
         return "Role"
     if position.startswith("class_rep_"):
         level = position.replace("class_rep_", "").upper()
         return f"{level} Class Rep"
-    return POSITION_LABELS.get(position, position.replace("_", " ").title())
+    if position.startswith("team_head_"):
+        suffix = position.replace("team_head_", "", 1).replace("_", " ").title()
+        return f"Team Head ({suffix})"
+    if position.startswith("team_") and position.endswith("_member"):
+        suffix = position.replace("team_", "", 1).replace("_member", "").replace("_", " ").title()
+        return f"Team Member ({suffix})"
+    if position.startswith("team_member_custom_"):
+        suffix = position.replace("team_member_custom_", "", 1).replace("_", " ").title()
+        return f"Team Member ({suffix})"
+    base_label = POSITION_LABELS.get(position, position.replace("_", " ").title())
+    if position == "iepod_hub_lead" and society_name:
+        return f"{base_label} ({society_name})"
+    return base_label
 
 
 async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
@@ -436,6 +502,58 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
 
     session_id = str(active_session["_id"])
     context["session"] = active_session.get("name", "Current session")
+
+    async def _fetch_founder_public_profile():
+        """Fetch safe, public-only founder profile fields for word-of-mouth queries."""
+        try:
+            founder_query = {
+                "firstName": {"$regex": r"^alexander$", "$options": "i"},
+                "lastName": {"$regex": r"^adetayo$", "$options": "i"},
+            }
+            founder = await db.users.find_one(
+                founder_query,
+                {
+                    "firstName": 1,
+                    "lastName": 1,
+                    "currentLevel": 1,
+                    "department": 1,
+                    "role": 1,
+                },
+            )
+
+            profile = {
+                **PUBLIC_FOUNDER_PROFILE,
+                "current_positions": [],
+                "department": "Industrial Engineering",
+                "level": None,
+            }
+
+            if not founder:
+                return profile
+
+            founder_id = str(founder.get("_id"))
+            role_docs = await db.roles.find(
+                {"userId": founder_id, "sessionId": session_id, "isActive": True},
+                {"position": 1, "societyName": 1},
+            ).to_list(length=30)
+
+            profile["name"] = f"{founder.get('firstName', '')} {founder.get('lastName', '')}".strip() or PUBLIC_FOUNDER_PROFILE["name"]
+            profile["department"] = founder.get("department") or "Industrial Engineering"
+            profile["level"] = founder.get("currentLevel")
+            profile["account_role"] = founder.get("role", "student")
+            profile["current_positions"] = [
+                format_position_label(
+                    str(r.get("position", "")),
+                    str(r.get("societyName") or "").strip() or None,
+                )
+                for r in role_docs
+                if r.get("position")
+            ]
+
+            return profile
+        except Exception as e:
+            logger.warning(f"Founder profile context fetch error: {e}")
+            return {**PUBLIC_FOUNDER_PROFILE, "current_positions": []}
 
     # ── Derive numeric level once ──
     numeric_level = None
@@ -524,16 +642,38 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
             app = await db.timpApplications.find_one({
                 "userId": user_id, "sessionId": session_id
             })
-            pair = None
-            if app:
-                pair = await db.timpPairs.find_one({
-                    "$or": [{"mentorId": user_id}, {"menteeId": user_id}],
-                    "sessionId": session_id
-                })
-            return app, pair
+            mentee_pair = await db.timpPairs.find_one({
+                "menteeId": user_id,
+                "sessionId": session_id,
+                "status": {"$in": ["active", "paused"]},
+            })
+            mentor_pairs = await db.timpPairs.find({
+                "mentorId": user_id,
+                "sessionId": session_id,
+                "status": {"$in": ["active", "paused"]},
+            }).sort("createdAt", -1).to_list(length=20)
+            return app, mentee_pair, mentor_pairs
         except Exception as e:
             logger.warning(f"TIMP fetch error: {e}")
-            return None, None
+            return None, None, []
+
+    async def _fetch_my_active_roles():
+        try:
+            role_docs = await db.roles.find(
+                {"userId": user_id, "sessionId": session_id, "isActive": True},
+                {"position": 1, "societyName": 1},
+            ).to_list(length=60)
+            labels = [
+                format_position_label(
+                    str(r.get("position", "")),
+                    str(r.get("societyName") or "").strip() or None,
+                )
+                for r in role_docs
+                if r.get("position")
+            ]
+            return sorted(set(labels))
+        except Exception:
+            return []
 
     async def _fetch_enrollments():
         try:
@@ -604,7 +744,15 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
         try:
             roles_list = await db.roles.find({"sessionId": session_id}).to_list(length=250)
             if not roles_list:
-                return {"executives": [], "class_reps": [], "committees": []}
+                return {
+                    "executives": [],
+                    "class_reps": [],
+                    "committees": [],
+                    "press": [],
+                    "iepod": [],
+                    "timp": [],
+                    "teams": [],
+                }
 
             exec_positions = {
                 "president",
@@ -639,6 +787,12 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
                     or any(position in aliases for aliases in exec_position_aliases.values())
                     or position in committee_positions
                     or position.startswith("class_rep_")
+                    or position.startswith("press_")
+                    or position.startswith("iepod_")
+                    or position.startswith("timp_")
+                    or position == "timp_lead"
+                    or position.startswith("team_head_")
+                    or position.startswith("team_")
                 ):
                     canonical_position = position
                     for key, aliases in exec_position_aliases.items():
@@ -663,6 +817,10 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
             executives = []
             class_reps = []
             committees = []
+            press_roles = []
+            iepod_roles = []
+            timp_roles = []
+            team_roles_bucket = []
             for role in relevant_roles:
                 uid = role.get("userId")
                 user_doc = user_map.get(uid)
@@ -671,6 +829,10 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
 
                 entry = {
                     "position": role.get("_canonical_position", role.get("position", "")),
+                    "positionLabel": format_position_label(
+                        role.get("_canonical_position", role.get("position", "")),
+                        str(role.get("societyName") or "").strip() or None,
+                    ),
                     "name": f"{user_doc.get('firstName', '')} {user_doc.get('lastName', '')}".strip(),
                     "email": user_doc.get("institutionalEmail") or user_doc.get("email", ""),
                 }
@@ -679,21 +841,45 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
                     class_reps.append(entry)
                 elif entry["position"] in committee_positions:
                     committees.append(entry)
+                elif entry["position"].startswith("press_"):
+                    press_roles.append(entry)
+                elif entry["position"].startswith("iepod_"):
+                    iepod_roles.append(entry)
+                elif entry["position"].startswith("timp_") or entry["position"] == "timp_lead":
+                    timp_roles.append(entry)
+                elif entry["position"].startswith("team_head_") or entry["position"].startswith("team_"):
+                    team_roles_bucket.append(entry)
                 else:
                     executives.append(entry)
 
             executives.sort(key=lambda r: r.get("position", ""))
             class_reps.sort(key=lambda r: r.get("position", ""))
             committees.sort(key=lambda r: r.get("position", ""))
+            press_roles.sort(key=lambda r: r.get("position", ""))
+            iepod_roles.sort(key=lambda r: r.get("position", ""))
+            timp_roles.sort(key=lambda r: r.get("position", ""))
+            team_roles_bucket.sort(key=lambda r: r.get("position", ""))
 
             return {
                 "executives": executives,
                 "class_reps": class_reps,
                 "committees": committees,
+                "press": press_roles,
+                "iepod": iepod_roles,
+                "timp": timp_roles,
+                "teams": team_roles_bucket,
             }
         except Exception as e:
             logger.warning(f"Team roles fetch error: {e}")
-            return {"executives": [], "class_reps": [], "committees": []}
+            return {
+                "executives": [],
+                "class_reps": [],
+                "committees": [],
+                "press": [],
+                "iepod": [],
+                "timp": [],
+                "teams": [],
+            }
 
     # Fire all independent queries concurrently
     (
@@ -712,7 +898,9 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
         unread_msgs,
         unit_apps,
         growth_tools_usage,
+        my_active_roles,
         team_roles,
+        founder_public_profile,
     ) = await asyncio.gather(
         _fetch_payments(),
         _fetch_events(),
@@ -729,7 +917,9 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
         _fetch_unread_messages(),
         _fetch_unit_applications(),
         _fetch_growth_tools_usage(),
+        _fetch_my_active_roles(),
         _fetch_team_roles(),
+        _fetch_founder_public_profile(),
     )
 
     # ── Process payment results ──
@@ -862,14 +1052,26 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
         context["iepod"] = {"registered": False}
 
     # ── Process TIMP ──
-    timp_app, timp_pair = timp_result
-    if timp_app:
+    timp_app, timp_mentee_pair, timp_mentor_pairs = timp_result
+    if timp_app or timp_mentee_pair or timp_mentor_pairs:
+        is_mentor = bool(timp_mentor_pairs)
+        is_mentee = bool(timp_mentee_pair)
+        role_label = "mentor" if is_mentor else "mentee" if is_mentee else "mentor"
+        partner_name = None
+        if is_mentor and timp_mentor_pairs:
+            partner_name = timp_mentor_pairs[0].get("menteeName")
+        elif is_mentee and timp_mentee_pair:
+            partner_name = timp_mentee_pair.get("mentorName")
+
         context["timp"] = {
-            "applied": True,
-            "role": "mentor",
-            "status": timp_app.get("status", "pending"),
-            "paired": bool(timp_pair),
-            "partner_name": timp_pair.get("menteeName") if timp_pair else None,
+            "applied": bool(timp_app),
+            "role": role_label,
+            "status": timp_app.get("status", "active" if (is_mentor or is_mentee) else "pending") if timp_app else ("active" if (is_mentor or is_mentee) else "not_applied"),
+            "paired": bool(is_mentor or is_mentee),
+            "partner_name": partner_name,
+            "mentor_name": timp_mentee_pair.get("mentorName") if timp_mentee_pair else None,
+            "mentees": [p.get("menteeName") for p in timp_mentor_pairs if p.get("menteeName")],
+            "pair_count": len(timp_mentor_pairs),
         }
     else:
         context["timp"] = {"applied": False}
@@ -951,8 +1153,19 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
         team_roles.get("executives")
         or team_roles.get("class_reps")
         or team_roles.get("committees")
+        or team_roles.get("press")
+        or team_roles.get("iepod")
+        or team_roles.get("timp")
+        or team_roles.get("teams")
     ):
         context["team_roles"] = team_roles
+
+    if my_active_roles:
+        context["my_active_roles"] = my_active_roles
+
+    if founder_public_profile:
+        context["public_profiles"] = {"founder": founder_public_profile}
+    context["available_context_modules"] = AI_CONTEXT_MODULES
 
     # ── F16: Academic progress summary (computed from fetched data) ──
     progress: dict = {}
@@ -1132,6 +1345,11 @@ IMPORTANT: You MUST maintain Yoruba style throughout ALL responses in this conve
                 user_data_section += f"\n- Current Phase: {iepod['phase']}"
         else:
             user_data_section += "\n- Not yet registered for IEPOD this session"
+
+        if user_context.get('my_active_roles'):
+            user_data_section += "\n\n## YOUR ACTIVE ROLES"
+            for role_label in user_context['my_active_roles']:
+                user_data_section += f"\n- {role_label}"
         
         # TIMP
         timp = user_context.get('timp', {})
@@ -1145,6 +1363,11 @@ IMPORTANT: You MUST maintain Yoruba style throughout ALL responses in this conve
                 user_data_section += f"\n- Paired with {label}: {partner}"
             else:
                 user_data_section += "\n- Not yet paired"
+            if timp.get('mentor_name'):
+                user_data_section += f"\n- Your mentor: {timp.get('mentor_name')}"
+            if timp.get('mentees'):
+                user_data_section += "\n- Your mentees: " + ", ".join(timp.get('mentees', []))
+                user_data_section += f"\n- Total mentees: {timp.get('pair_count', len(timp.get('mentees', [])))}"
         else:
             user_data_section += "\n- Has not applied to TIMP this session"
 
@@ -1209,21 +1432,70 @@ IMPORTANT: You MUST maintain Yoruba style throughout ALL responses in this conve
             if roles.get('executives'):
                 user_data_section += "\n### Executives"
                 for r in roles['executives']:
-                    user_data_section += f"\n- {format_position_label(r.get('position', ''))}: {r.get('name', 'Unassigned')}"
+                    user_data_section += f"\n- {r.get('positionLabel') or format_position_label(r.get('position', ''))}: {r.get('name', 'Unassigned')}"
                     if r.get('email'):
                         user_data_section += f" ({r['email']})"
             if roles.get('class_reps'):
                 user_data_section += "\n### Class Representatives"
                 for r in roles['class_reps']:
-                    user_data_section += f"\n- {format_position_label(r.get('position', ''))}: {r.get('name', 'Unassigned')}"
+                    user_data_section += f"\n- {r.get('positionLabel') or format_position_label(r.get('position', ''))}: {r.get('name', 'Unassigned')}"
                     if r.get('email'):
                         user_data_section += f" ({r['email']})"
             if roles.get('committees'):
                 user_data_section += "\n### Committees"
                 for r in roles['committees']:
-                    user_data_section += f"\n- {format_position_label(r.get('position', ''))}: {r.get('name', 'Unassigned')}"
+                    user_data_section += f"\n- {r.get('positionLabel') or format_position_label(r.get('position', ''))}: {r.get('name', 'Unassigned')}"
                     if r.get('email'):
                         user_data_section += f" ({r['email']})"
+            if roles.get('press'):
+                user_data_section += "\n### Press"
+                for r in roles['press']:
+                    user_data_section += f"\n- {r.get('positionLabel') or format_position_label(r.get('position', ''))}: {r.get('name', 'Unassigned')}"
+                    if r.get('email'):
+                        user_data_section += f" ({r['email']})"
+            if roles.get('iepod'):
+                user_data_section += "\n### IEPOD"
+                for r in roles['iepod']:
+                    user_data_section += f"\n- {r.get('positionLabel') or format_position_label(r.get('position', ''))}: {r.get('name', 'Unassigned')}"
+                    if r.get('email'):
+                        user_data_section += f" ({r['email']})"
+            if roles.get('timp'):
+                user_data_section += "\n### TIMP"
+                for r in roles['timp']:
+                    user_data_section += f"\n- {r.get('positionLabel') or format_position_label(r.get('position', ''))}: {r.get('name', 'Unassigned')}"
+                    if r.get('email'):
+                        user_data_section += f" ({r['email']})"
+            if roles.get('teams'):
+                user_data_section += "\n### Other Teams"
+                for r in roles['teams']:
+                    user_data_section += f"\n- {r.get('positionLabel') or format_position_label(r.get('position', ''))}: {r.get('name', 'Unassigned')}"
+                    if r.get('email'):
+                        user_data_section += f" ({r['email']})"
+
+        # Public profile snippets (safe to share on request)
+        founder = (user_context.get('public_profiles') or {}).get('founder')
+        if founder:
+            user_data_section += "\n\n## PUBLIC COMMUNITY PROFILE (SAFE TO SHARE)"
+            user_data_section += f"\n- Name: {founder.get('name', '')}"
+            if founder.get('aka'):
+                user_data_section += f"\n- Also known as: {founder.get('aka')}"
+            if founder.get('role'):
+                user_data_section += f"\n- Platform role: {founder.get('role')}"
+            if founder.get('intro'):
+                user_data_section += f"\n- About: {founder.get('intro')}"
+            if founder.get('portfolio'):
+                user_data_section += f"\n- Portfolio: {founder.get('portfolio')}"
+            if founder.get('department'):
+                user_data_section += f"\n- Department: {founder.get('department')}"
+            if founder.get('level'):
+                user_data_section += f"\n- Level: {founder.get('level')}"
+            if founder.get('current_positions'):
+                user_data_section += "\n- Current positions: " + ", ".join(founder['current_positions'])
+
+        if user_context.get('available_context_modules'):
+            user_data_section += "\n\n## AVAILABLE CONTEXT MODULES"
+            for module in user_context['available_context_modules']:
+                user_data_section += f"\n- {module.get('label', module.get('key', 'module'))}: " + ", ".join(module.get('includes', []))
 
         # Academic Progress Summary
         if user_context.get('academic_progress'):
@@ -1248,6 +1520,8 @@ IMPORTANT: You MUST maintain Yoruba style throughout ALL responses in this conve
         if user_context.get('is_birthday'):
             user_data_section += "\n\n## 🎂 TODAY IS THIS STUDENT'S BIRTHDAY!"
             user_data_section += "\nMake your greeting extra warm and celebratory. Wish them a happy birthday naturally in your first response."
+            if user_context.get('my_active_roles'):
+                user_data_section += "\nAlso acknowledge and appreciate their current service roles briefly."
     
     # Build unpaid / paid payment details for the prompt
     payment_detail_section = ""
@@ -1299,6 +1573,8 @@ You have LIVE access to this student's real data: profile (name, matric, email, 
 11. **IEPOD/TIMP factual mode:** For "what is IEPOD" or "what is TIMP" questions, use only the definitions/workflows in PLATFORM KNOWLEDGE + user context. Do not add extra programs, eligibility ranges, or features that are not explicitly listed.
 12. **TIMP eligibility clarity:** TIMP application flow is for mentor applications. Do not tell students to apply to be mentored. For 100L students, clearly state they are mentees and are matched by TIMP leads.
 13. **Role-holder accuracy:** For questions like "Who is the president/PRO/class rep?", answer from CURRENT TEAM LEADERSHIP. If a role is missing there, say it is currently unassigned in the active session.
+14. **Public profile sharing:** If asked who built the platform or about the founder/developer, answer from PUBLIC COMMUNITY PROFILE only.
+15. **Context discoverability:** If asked what else you can help with, summarize AVAILABLE CONTEXT MODULES in plain language.
 
 ## PLATFORM KNOWLEDGE
 {IESA_KNOWLEDGE}
@@ -1318,6 +1594,7 @@ You have LIVE access to this student's real data: profile (name, matric, email, 
 - For open-ended greetings ("hi", "how far", "what's up"), give a warm greeting then briefly surface the #1 priority action if one exists
 - For TIMP guidance: do not suggest "apply as a mentee". State mentor-application-only flow, and if the student is 100L, state they are mentees and should await matching by TIMP leads.
 - For leadership questions, rely on CURRENT TEAM LEADERSHIP entries only; do not invent names or positions.
+- For founder/developer queries, share only PUBLIC COMMUNITY PROFILE details; do not reveal private or sensitive data.
 """
 
     return prompt

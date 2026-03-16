@@ -8,7 +8,7 @@ from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from ..core.permissions import get_current_user, get_current_session, require_permission
+from ..core.permissions import get_current_user, get_current_session, require_permission, invalidate_permissions_cache
 from ..core.security import require_ipe_student
 from ..core.audit import AuditLogger
 from ..db import get_database
@@ -89,6 +89,78 @@ async def _is_timp_lead(db, user_id: str, session_id: str) -> bool:
         "isActive": True,
     })
     return role is not None
+
+
+async def _sync_pair_role_tags(db, session_id: str, mentor_id: str, mentee_id: str) -> None:
+    """Ensure TIMP mentor/mentee role tags match active pair state."""
+    now = datetime.now(timezone.utc)
+
+    mentor_active_pairs = await db.timpPairs.count_documents({
+        "mentorId": mentor_id,
+        "sessionId": session_id,
+        "status": PairStatus.active.value,
+    })
+    mentee_active_pairs = await db.timpPairs.count_documents({
+        "menteeId": mentee_id,
+        "sessionId": session_id,
+        "status": PairStatus.active.value,
+    })
+
+    async def _upsert_active_role(user_id: str, position: str, permissions: list[str]):
+        existing = await db.roles.find_one({
+            "userId": user_id,
+            "sessionId": session_id,
+            "position": position,
+            "isActive": True,
+        })
+        if existing:
+            return
+
+        dormant = await db.roles.find_one({
+            "userId": user_id,
+            "sessionId": session_id,
+            "position": position,
+        })
+        if dormant:
+            await db.roles.update_one(
+                {"_id": dormant["_id"]},
+                {"$set": {"isActive": True, "permissions": permissions, "updatedAt": now}},
+            )
+        else:
+            await db.roles.insert_one({
+                "userId": user_id,
+                "sessionId": session_id,
+                "position": position,
+                "permissions": permissions,
+                "assignedBy": "system:timp_pair_activation",
+                "isActive": True,
+                "createdAt": now,
+                "updatedAt": now,
+            })
+
+    async def _deactivate_role(user_id: str, position: str):
+        await db.roles.update_many(
+            {
+                "userId": user_id,
+                "sessionId": session_id,
+                "position": position,
+                "isActive": True,
+            },
+            {"$set": {"isActive": False, "updatedAt": now}},
+        )
+
+    if mentor_active_pairs > 0:
+        await _upsert_active_role(mentor_id, "timp_mentor", ["timp:view", "announcement:view"])
+    else:
+        await _deactivate_role(mentor_id, "timp_mentor")
+
+    if mentee_active_pairs > 0:
+        await _upsert_active_role(mentee_id, "timp_mentee", ["timp:view", "announcement:view"])
+    else:
+        await _deactivate_role(mentee_id, "timp_mentee")
+
+    invalidate_permissions_cache(mentor_id)
+    invalidate_permissions_cache(mentee_id)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -607,6 +679,11 @@ async def create_pair(
     result = await db.timpPairs.insert_one(doc)
     doc["_id"] = result.inserted_id
 
+    try:
+        await _sync_pair_role_tags(db, sid, data.mentorId, data.menteeId)
+    except Exception:
+        pass
+
     await AuditLogger.log(
         action="timp.pair_created",
         actor_id=str(user["_id"]),
@@ -690,6 +767,11 @@ async def update_pair_status(
     )
     if not result:
         raise HTTPException(status_code=404, detail="Pair not found")
+
+    try:
+        await _sync_pair_role_tags(db, session_id, result.get("mentorId", ""), result.get("menteeId", ""))
+    except Exception:
+        pass
 
     await AuditLogger.log(
         action=f"timp.pair_{status.value}",

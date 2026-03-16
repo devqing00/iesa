@@ -24,6 +24,7 @@ from app.core.sanitization import sanitize_html, validate_no_scripts
 from app.core.audit import AuditLogger
 from app.core.email import send_announcement_email
 from app.core.notification_utils import get_notification_emails, should_send_email, should_send_in_app
+from app.models.team_application import TEAM_TO_HEAD_POSITION
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,129 @@ def _normalize_levels(levels: list) -> list:
     return out
 
 
+TEAM_HEAD_POSITIONS = set(TEAM_TO_HEAD_POSITION.values())
+
+
+def _is_team_lead_position(position: str) -> bool:
+    return position in TEAM_HEAD_POSITIONS or position.startswith("team_head_custom_")
+
+
+def _position_matches_audience(position: str, target_audience: str) -> bool:
+    if target_audience == "team_leads_only":
+        return _is_team_lead_position(position)
+    if target_audience == "class_rep_and_assistant":
+        return position.startswith("class_rep_") or position.startswith("asst_class_rep_")
+    return False
+
+
+async def _resolve_target_user_ids(
+    db,
+    *,
+    session_id: str,
+    target_levels: list[str],
+    target_audience: str,
+    target_user_ids: list[str],
+) -> list[str]:
+    users_col = db["users"]
+    enrollments_col = db["enrollments"]
+    roles_col = db["roles"]
+
+    if target_audience == "specific_students":
+        valid_ids = [uid for uid in target_user_ids if ObjectId.is_valid(uid)]
+        if not valid_ids:
+            return []
+        docs = await users_col.find(
+            {"_id": {"$in": [ObjectId(uid) for uid in valid_ids]}},
+            {"_id": 1},
+        ).to_list(length=None)
+        return [str(doc["_id"]) for doc in docs]
+
+    if target_audience == "exco_only":
+        docs = await users_col.find({"role": "exco"}, {"_id": 1}).to_list(length=None)
+        return [str(doc["_id"]) for doc in docs]
+
+    if target_audience in {"team_leads_only", "class_rep_and_assistant"}:
+        role_docs = await roles_col.find(
+            {"sessionId": session_id, "isActive": True},
+            {"userId": 1, "position": 1},
+        ).to_list(length=None)
+        matched = {
+            str(role_doc.get("userId"))
+            for role_doc in role_docs
+            if _position_matches_audience(str(role_doc.get("position", "")), target_audience)
+            and role_doc.get("userId")
+        }
+        return list(matched)
+
+    if target_levels:
+        enrolled = await enrollments_col.find(
+            {"sessionId": session_id, "level": {"$in": target_levels}, "isActive": True}
+        ).to_list(length=None)
+    else:
+        enrolled = await enrollments_col.find(
+            {"sessionId": session_id, "isActive": True}
+        ).to_list(length=None)
+
+    user_ids = list({str(e.get("studentId") or e.get("userId") or e["_id"]) for e in enrolled})
+
+    if not user_ids and not target_levels:
+        logger.warning("[NOTIF] No enrollments for session %s — using all student users", session_id)
+        all_students = await users_col.find({"role": "student"}, {"_id": 1}).to_list(length=None)
+        user_ids = [str(u["_id"]) for u in all_students]
+
+    if target_audience in {"all", "specific_levels"}:
+        return user_ids
+
+    if not user_ids:
+        return []
+
+    dept_query: dict = {"_id": {"$in": [ObjectId(uid) for uid in user_ids if ObjectId.is_valid(uid)]}}
+    if target_audience == "ipe":
+        dept_query["department"] = "Industrial Engineering"
+    elif target_audience == "external":
+        dept_query["department"] = {"$ne": "Industrial Engineering"}
+    matched = await users_col.find(dept_query, {"_id": 1}).to_list(length=None)
+    return [str(u["_id"]) for u in matched]
+
+
+async def _user_matches_target_audience(
+    db,
+    *,
+    user_id: str,
+    user_role: str,
+    user_department: str,
+    session_id: str,
+    target_audience: str,
+    target_user_ids: list[str],
+    user_positions: list[str] | None = None,
+) -> bool:
+    if target_audience in {"all", "specific_levels"}:
+        return True
+    if target_audience == "ipe":
+        return user_department == "Industrial Engineering"
+    if target_audience == "external":
+        return user_department != "Industrial Engineering"
+    if target_audience == "specific_students":
+        return user_id in set(target_user_ids or [])
+    if target_audience == "exco_only":
+        return user_role == "exco"
+
+    positions = user_positions or []
+    if not positions and target_audience in {"team_leads_only", "class_rep_and_assistant"}:
+        role_docs = await db["roles"].find(
+            {"userId": user_id, "sessionId": session_id, "isActive": True},
+            {"position": 1},
+        ).to_list(length=None)
+        positions = [str(doc.get("position", "")) for doc in role_docs]
+
+    if target_audience == "team_leads_only":
+        return any(_is_team_lead_position(pos) for pos in positions)
+    if target_audience == "class_rep_and_assistant":
+        return any(pos.startswith("class_rep_") or pos.startswith("asst_class_rep_") for pos in positions)
+
+    return True
+
+
 async def _fire_announcement_notifications(ann_doc: dict, db) -> None:
     """
     Shared helper: create in-app notifications for students + all admin/exco users
@@ -57,74 +181,31 @@ async def _fire_announcement_notifications(ann_doc: dict, db) -> None:
 
         ann_id = str(ann_doc.get("_id", ""))
         target_levels = _normalize_levels(ann_doc.get("targetLevels") or [])
+        target_user_ids = [str(uid) for uid in (ann_doc.get("targetUserIds") or [])]
         session_id = ann_doc.get("sessionId", "")
         notif_audience = ann_doc.get("targetAudience") or "all"
-        enrollments_coll = db["enrollments"]
 
         logger.info(
             "[NOTIF] '%s': sessionId=%s levels=%s audience=%s",
             ann_doc.get("title"), session_id, target_levels or "ALL", notif_audience,
         )
 
-        if target_levels:
-            enrolled = await enrollments_coll.find(
-                {"sessionId": session_id, "level": {"$in": target_levels}, "isActive": True}
-            ).to_list(length=None)
-        else:
-            enrolled = await enrollments_coll.find(
-                {"sessionId": session_id, "isActive": True}
-            ).to_list(length=None)
+        recipient_ids = await _resolve_target_user_ids(
+            db,
+            session_id=session_id,
+            target_levels=target_levels,
+            target_audience=notif_audience,
+            target_user_ids=target_user_ids,
+        )
 
-        student_ids = list({str(e.get("studentId") or e.get("userId") or e["_id"]) for e in enrolled})
-
-        # Fallback: no enrollments + all-levels → notify all student users
-        if not student_ids and not target_levels:
-            logger.warning("[NOTIF] No enrollments for session %s — using all student users", session_id)
-            all_students = await db["users"].find(
-                {"role": "student"}, {"_id": 1, "department": 1}
-            ).to_list(length=None)
-            student_ids = [str(u["_id"]) for u in all_students]
-
-        # Filter by department if audience is targeted
-        if notif_audience != "all" and student_ids:
-            dept_query: dict = {"_id": {"$in": [ObjectId(sid) for sid in student_ids]}}
-            if notif_audience == "ipe":
-                dept_query["department"] = "Industrial Engineering"
-            elif notif_audience == "external":
-                dept_query["department"] = {"$ne": "Industrial Engineering"}
-            matched = await db["users"].find(dept_query, {"_id": 1}).to_list(length=None)
-            student_ids = [str(u["_id"]) for u in matched]
-
-        # Fetch admin/exco IDs upfront so we can exclude them from the student path
-        # (admins who are also enrolled get exactly one notification — the admin-link variant)
-        admin_users = await db["users"].find(
-            {"role": {"$in": ["admin", "exco"]}}, {"_id": 1}
-        ).to_list(length=None)
-        admin_ids = [str(u["_id"]) for u in admin_users]
-        admin_id_set = set(admin_ids)
-
-        # Remove admins/exco from student set to avoid duplicates
-        student_ids = [sid for sid in student_ids if sid not in admin_id_set]
-
-        logger.info("[NOTIF] Student recipients: %d", len(student_ids))
-        if student_ids:
+        logger.info("[NOTIF] Recipients: %d", len(recipient_ids))
+        if recipient_ids:
             await create_bulk_notifications(
-                user_ids=student_ids,
+                user_ids=recipient_ids,
                 type="announcement",
                 title=f"📢 {ann_doc['title']}",
                 message=(ann_doc.get("content") or "")[:200],
                 link=f"/dashboard/announcements?highlight={ann_id}",
-                related_id=ann_id,
-                category="announcements",
-            )
-
-        if admin_ids:
-            await create_bulk_notifications(
-                user_ids=admin_ids,
-                type="announcement",
-                title=f"📢 {ann_doc['title']}",
-                message=(ann_doc.get("content") or "")[:200],
-                link="/admin/announcements",
                 related_id=ann_id,
                 category="announcements",
             )
@@ -140,50 +221,49 @@ async def _notify_students_of_announcement(
     priority: str,
     db,
     target_audience: str = "all",
+    target_user_ids: Optional[List[str]] = None,
 ):
-    """Fire-and-forget: email all enrolled students matching the target levels and audience."""
+    """Fire-and-forget: email all targeted users matching audience/level/specific rules."""
     try:
         users_col = db["users"]
-        enrollments_col = db["enrollments"]
 
         # Build target label string
-        audience_labels = {"all": "All Students", "ipe": "IPE Students", "external": "External Students"}
-        # Normalise levels to handle legacy integer format (300 → '300L')
-        if not target_levels:
-            target_label = audience_labels.get(target_audience, "All Students")
-            query: dict = {"sessionId": session_id, "isActive": True}
-        else:
+        audience_labels = {
+            "all": "All Students",
+            "ipe": "IPE Students",
+            "external": "External Students",
+            "exco_only": "EXCO Members",
+            "team_leads_only": "Team Leads",
+            "class_rep_and_assistant": "Class Reps & Assistants",
+            "specific_students": "Selected Students",
+            "specific_levels": "Specific Levels",
+        }
+        target_levels = _normalize_levels(target_levels or [])
+        if target_levels:
             target_levels = _normalize_levels(target_levels)
             level_map = {
                 "100L": "100 Level", "200L": "200 Level", "300L": "300 Level",
                 "400L": "400 Level", "500L": "500 Level", "PG": "Postgraduate",
             }
             target_label = ", ".join(level_map.get(lv, lv) for lv in target_levels)
-            if target_audience != "all":
+            if target_audience not in {"all", "specific_levels"}:
                 target_label += f" ({audience_labels.get(target_audience, '')})"
-            query = {"sessionId": session_id, "isActive": True, "level": {"$in": target_levels}}
+        else:
+            target_label = audience_labels.get(target_audience, "All Students")
 
-        cursor = enrollments_col.find(query, {"studentId": 1})
-        student_ids = [doc["studentId"] async for doc in cursor]
+        recipient_ids = await _resolve_target_user_ids(
+            db,
+            session_id=session_id,
+            target_levels=target_levels,
+            target_audience=target_audience,
+            target_user_ids=[str(uid) for uid in (target_user_ids or [])],
+        )
 
-        # Fallback: if no enrollments and all-levels, use all student users
-        if not student_ids and not target_levels:
-            logger.warning("[EMAIL] No enrollments for session %s — falling back to all student users", session_id)
-            all_students = await users_col.find({"role": "student"}, {"_id": 1}).to_list(length=None)
-            student_ids = [str(u["_id"]) for u in all_students]
-
-        if not student_ids:
+        if not recipient_ids:
             return
 
-        # Build user query — filter by department when audience is targeted
-        user_query: dict = {"_id": {"$in": [ObjectId(sid) for sid in student_ids]}}
-        if target_audience == "ipe":
-            user_query["department"] = "Industrial Engineering"
-        elif target_audience == "external":
-            user_query["department"] = {"$ne": "Industrial Engineering"}
-
         students = await users_col.find(
-            user_query,
+            {"_id": {"$in": [ObjectId(uid) for uid in recipient_ids if ObjectId.is_valid(uid)]}},
             {"email": 1, "firstName": 1, "lastName": 1,
              "secondaryEmail": 1, "secondaryEmailVerified": 1,
              "notificationEmailPreference": 1, "notificationChannelPreference": 1}
@@ -261,6 +341,16 @@ async def create_announcement(
     
     # Create announcement document
     announcement_dict = announcement_data.model_dump()
+    target_audience = announcement_dict.get("targetAudience") or "all"
+    raw_target_user_ids = [str(uid) for uid in (announcement_dict.get("targetUserIds") or [])]
+    valid_target_user_ids = [uid for uid in raw_target_user_ids if ObjectId.is_valid(uid)]
+    if target_audience == "specific_students" and not valid_target_user_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Select at least one valid student for specific student targeting",
+        )
+    announcement_dict["targetUserIds"] = valid_target_user_ids if target_audience == "specific_students" else []
+
     announcement_dict["authorName"] = author_name
     announcement_dict["readBy"] = []
     announcement_dict["createdAt"] = datetime.now(timezone.utc)
@@ -306,6 +396,7 @@ async def create_announcement(
             priority=announcement_data.priority,
             db=db,
             target_audience=announcement_data.targetAudience or "all",
+            target_user_ids=announcement_data.targetUserIds or [],
         ))
 
     if not is_scheduled:
@@ -434,8 +525,15 @@ async def list_announcements(
     result = []
     user_role = user.get("role", "student")
     is_admin_user = user_role in ("admin", "super_admin")
+    user_id = str(user.get("_id", ""))
     user_department = user.get("department", "Industrial Engineering")
-    is_ipe_student = user_department == "Industrial Engineering"
+    user_positions: list[str] = []
+    if not is_admin_user:
+        role_docs = await db["roles"].find(
+            {"userId": user_id, "sessionId": session_id, "isActive": True},
+            {"position": 1},
+        ).to_list(length=None)
+        user_positions = [str(doc.get("position", "")) for doc in role_docs]
 
     for announcement in announcement_list:
         # Check if announcement is targeted to specific levels
@@ -448,11 +546,20 @@ async def list_announcements(
 
         # Check audience targeting (ipe-only vs external-only vs all)
         target_audience = announcement.get("targetAudience", "all")
-        if target_audience != "all" and not is_admin_user:
-            if target_audience == "ipe" and not is_ipe_student:
-                continue  # IPE-only announcement, skip for external students
-            if target_audience == "external" and is_ipe_student:
-                continue  # External-only announcement, skip for IPE students
+        target_user_ids = [str(uid) for uid in (announcement.get("targetUserIds") or [])]
+        if not is_admin_user:
+            allowed = await _user_matches_target_audience(
+                db,
+                user_id=user_id,
+                user_role=user_role,
+                user_department=user_department,
+                session_id=session_id,
+                target_audience=target_audience,
+                target_user_ids=target_user_ids,
+                user_positions=user_positions,
+            )
+            if not allowed:
+                continue
         
         announcement["_id"] = str(announcement["_id"])
         
@@ -466,6 +573,52 @@ async def list_announcements(
         result.append(announcement_with_status)
     
     return {"items": result, "total": total}
+
+
+@router.get("/recipient-search")
+async def search_announcement_recipients(
+    q: str = Query(..., min_length=2, description="Search by name, matric number, or email"),
+    limit: int = Query(10, ge=1, le=20),
+    _: dict = Depends(require_permission("announcement:create")),
+):
+    db = get_database()
+    users = db["users"]
+
+    escaped = re.escape(q.strip())
+    query = {
+        "$or": [
+            {"firstName": {"$regex": escaped, "$options": "i"}},
+            {"lastName": {"$regex": escaped, "$options": "i"}},
+            {"email": {"$regex": escaped, "$options": "i"}},
+            {"matricNumber": {"$regex": escaped, "$options": "i"}},
+        ]
+    }
+    docs = await users.find(
+        query,
+        {
+            "firstName": 1,
+            "lastName": 1,
+            "email": 1,
+            "matricNumber": 1,
+            "role": 1,
+            "currentLevel": 1,
+        },
+    ).sort("firstName", 1).limit(limit).to_list(length=limit)
+
+    return {
+        "items": [
+            {
+                "id": str(doc["_id"]),
+                "firstName": doc.get("firstName", ""),
+                "lastName": doc.get("lastName", ""),
+                "email": doc.get("email", ""),
+                "matricNumber": doc.get("matricNumber"),
+                "role": doc.get("role", "student"),
+                "currentLevel": doc.get("currentLevel"),
+            }
+            for doc in docs
+        ]
+    }
 
 
 @router.get("/{announcement_id}", response_model=AnnouncementWithStatus)
@@ -571,6 +724,23 @@ async def update_announcement(
             detail="No fields to update"
         )
     
+    if "targetAudience" in update_data or "targetUserIds" in update_data:
+        existing = await announcements.find_one({"_id": ObjectId(announcement_id)})
+        if not existing:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Announcement {announcement_id} not found"
+            )
+        effective_audience = update_data.get("targetAudience", existing.get("targetAudience", "all"))
+        raw_target_user_ids = [str(uid) for uid in update_data.get("targetUserIds", existing.get("targetUserIds") or [])]
+        valid_target_user_ids = [uid for uid in raw_target_user_ids if ObjectId.is_valid(uid)]
+        if effective_audience == "specific_students" and not valid_target_user_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Select at least one valid student for specific student targeting",
+            )
+        update_data["targetUserIds"] = valid_target_user_ids if effective_audience == "specific_students" else []
+
     update_data["updatedAt"] = datetime.now(timezone.utc)
 
     # Snapshot isPublished BEFORE updating so we can detect first-publish
@@ -735,6 +905,7 @@ async def publish_scheduled_announcements(
                 priority=ann.get("priority", "normal"),
                 db=db,
                 target_audience=ann.get("targetAudience", "all"),
+                target_user_ids=ann.get("targetUserIds") or [],
             ))
 
         # SSE + cache

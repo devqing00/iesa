@@ -41,7 +41,17 @@ export const AnnouncementSchema = z.object({
   priority: z.enum(["low", "normal", "high", "urgent"] as const),
   isPinned: z.boolean().optional(),
   targetLevels: z.array(z.string()).optional(),
-  targetAudience: z.enum(["all", "ipe", "external"] as const).optional(),
+  targetAudience: z.enum([
+    "all",
+    "ipe",
+    "external",
+    "exco_only",
+    "team_leads_only",
+    "class_rep_and_assistant",
+    "specific_students",
+    "specific_levels",
+  ] as const).optional(),
+  targetUserIds: z.array(z.string()).optional(),
   expiresAt: z.string().optional(),
 });
 

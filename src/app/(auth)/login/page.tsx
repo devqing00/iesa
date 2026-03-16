@@ -3,12 +3,19 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { PasswordInput } from "@/components/ui/Input";
+import { AUTH_RETURN_TO_PARAM, sanitizeReturnToPath } from "@/lib/authRedirect";
 
 export default function StudentLoginPage() {
   const { signInWithEmail, signInWithGoogle, sendPasswordReset } = useAuth();
+  const searchParams = useSearchParams();
+  const returnTo = sanitizeReturnToPath(searchParams?.get(AUTH_RETURN_TO_PARAM));
+  const registerHref = returnTo
+    ? `/register?${AUTH_RETURN_TO_PARAM}=${encodeURIComponent(returnTo)}`
+    : "/register";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -27,7 +34,7 @@ export default function StudentLoginPage() {
     setLoading(true);
 
     try {
-      await signInWithEmail(email, password);
+      await signInWithEmail(email, password, returnTo || undefined);
       toast.success("Welcome back!", { description: "Redirecting to your dashboard..." });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message || "Failed to login" : "Failed to login";
@@ -45,7 +52,7 @@ export default function StudentLoginPage() {
     setError("");
     setGoogleLoading(true);
     try {
-      const success = await signInWithGoogle();
+      const success = await signInWithGoogle(returnTo || undefined);
       if (success) {
         toast.success("Welcome!", { description: "Redirecting to your dashboard..." });
       }
@@ -223,7 +230,7 @@ export default function StudentLoginPage() {
                         {/* No account found — offer to register */}
                         {error.includes("No account found") && (
                           <a
-                            href="/register"
+                            href={registerHref}
                             className="text-xs font-display font-bold text-navy/60 hover:text-navy hover:underline mt-2 inline-block transition-colors"
                           >
                             Create an account &rarr;

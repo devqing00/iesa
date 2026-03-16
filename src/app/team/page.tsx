@@ -11,6 +11,13 @@ interface TeamMember {
   user: { firstName: string; lastName: string; email: string };
 }
 
+interface TeamLead {
+  team: string;
+  teamLabel: string;
+  isCustom: boolean;
+  lead: { firstName: string; lastName: string; email: string } | null;
+}
+
 /* ─── Helpers ─── */
 const POSITION_LABELS: Record<string, string> = {
   president: "President",
@@ -50,11 +57,11 @@ const ACCENT_CYCLE = [
 ];
 
 /* ─── Tabs ─── */
-type TabKey = "central" | "classreps" | "committees";
+type TabKey = "central" | "classreps" | "teams";
 const TABS: { key: TabKey; label: string; dot: string; bgLight: string }[] = [
   { key: "central", label: "Central Excos", dot: "bg-coral", bgLight: "bg-coral-light" },
   { key: "classreps", label: "Class Reps", dot: "bg-lavender", bgLight: "bg-lavender-light" },
-  { key: "committees", label: "Committees", dot: "bg-teal", bgLight: "bg-teal-light" },
+  { key: "teams", label: "Teams & Leads", dot: "bg-teal", bgLight: "bg-teal-light" },
 ];
 
 /* ─── Component ─── */
@@ -62,20 +69,20 @@ export default function PublicTeamPage() {
   const [tab, setTab] = useState<TabKey>("central");
   const [executives, setExecutives] = useState<TeamMember[]>([]);
   const [classReps, setClassReps] = useState<TeamMember[]>([]);
-  const [committees, setCommittees] = useState<TeamMember[]>([]);
+  const [teamsAndLeads, setTeamsAndLeads] = useState<TeamLead[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [execRes, repsRes, comRes] = await Promise.all([
+        const [execRes, repsRes, teamsRes] = await Promise.all([
           fetch(`${API_BASE}/api/v1/roles/public/executives`),
           fetch(`${API_BASE}/api/v1/roles/public/class-reps`),
-          fetch(`${API_BASE}/api/v1/roles/public/committees`),
+          fetch(`${API_BASE}/api/v1/roles/public/teams-leads`),
         ]);
         if (execRes.ok) setExecutives(await execRes.json());
         if (repsRes.ok) setClassReps(await repsRes.json());
-        if (comRes.ok) setCommittees(await comRes.json());
+        if (teamsRes.ok) setTeamsAndLeads(await teamsRes.json());
       } catch {
         // silently fail
       } finally {
@@ -88,17 +95,16 @@ export default function PublicTeamPage() {
   const president = executives.find((e) => e.position === "president");
   const otherExcos = executives.filter((e) => e.position !== "president");
 
-  const currentMembers =
-    tab === "central" ? executives : tab === "classreps" ? classReps : committees;
+  const currentMembersCount =
+    tab === "central" ? executives.length : tab === "classreps" ? classReps.length : teamsAndLeads.length;
 
   return (
     <div className="min-h-screen bg-ghost text-navy overflow-x-hidden">
-      {/* Diamond sparkle decorators */}
       {[
-        { cls: "top-20 left-[8%] w-3 h-3 md:w-5 md:h-5 text-teal/8 md:text-teal/14 animate-float-slow" },
-        { cls: "hidden md:block top-[35%] right-[10%] w-6 h-6 text-coral/12 animate-float-medium" },
-        { cls: "hidden md:block bottom-[40%] left-[5%] w-7 h-7 text-lavender/16 animate-float-slow" },
-        { cls: "bottom-[15%] right-[12%] w-3 h-3 md:w-5 md:h-5 text-sunny/8 md:text-sunny/14 animate-float-fast" },
+        { cls: "top-16 left-[7%] w-3 h-3 md:w-5 md:h-5 text-teal/14 animate-float-slow" },
+        { cls: "hidden md:block top-[28%] right-[12%] w-7 h-7 text-coral/14 animate-float-medium" },
+        { cls: "hidden md:block bottom-[36%] left-[5%] w-6 h-6 text-lavender/16 animate-float-slow" },
+        { cls: "bottom-[16%] right-[10%] w-3 h-3 md:w-6 md:h-6 text-sunny/16 animate-float-fast" },
       ].map((item, i) => (
         <svg
           key={i}
@@ -114,62 +120,52 @@ export default function PublicTeamPage() {
       <Header />
 
       <main id="main-content" className="pt-14 sm:pt-16">
-        {/* ── Hero ── */}
-        <section className="pt-12 pb-10 md:pt-16 md:pb-12 relative md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
+        <section className="pt-12 pb-12 md:pt-16 md:pb-16 relative md:min-h-[calc(100vh-5rem)] flex flex-col justify-center">
           <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-            <div className="absolute top-12 right-[6%] w-20 h-20 md:w-32 md:h-32 rounded-3xl bg-lime-light/50 md:bg-lime-light border-[3px] border-navy/10 animate-float-slow" />
-            <div className="hidden sm:block absolute top-[28%] left-[4%] w-24 h-24 rounded-2xl bg-coral-light border-[3px] border-navy/10 animate-float-fast" />
-            <div className="absolute bottom-[18%] right-[12%] w-16 h-16 md:w-28 md:h-28 rounded-2xl bg-lavender-light/50 md:bg-lavender-light border-[3px] border-navy/10 animate-float-medium" />
+            <div className="absolute -top-2 right-[5%] w-20 h-20 md:w-40 md:h-40 rounded-3xl bg-lime-light border-[4px] border-navy/15 animate-float-slow" />
+            <div className="hidden md:block absolute top-[34%] left-[2%] w-32 h-32 rounded-2xl bg-coral-light border-[4px] border-navy/15 animate-float-fast" />
+            <div className="absolute bottom-[12%] right-[11%] w-14 h-14 md:w-28 md:h-28 rounded-2xl bg-lavender-light border-[4px] border-navy/15 animate-float-medium" />
+            <div className="hidden md:block absolute inset-x-0 top-[42%] h-32 bg-[radial-gradient(ellipse_at_center,oklch(95%_0.08_128/.45)_0%,transparent_72%)]" />
           </div>
 
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10 relative z-10">
-            <div className="max-w-3xl">
-              <p className="text-label uppercase tracking-wider text-slate mb-3">Leadership</p>
-              <h1 className="font-display font-black text-[2.1rem] sm:text-[4rem] lg:text-[5rem] leading-[0.92] text-navy max-w-[12ch]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 relative z-10">
+            <div className="max-w-4xl">
+              <p className="text-label uppercase tracking-wider text-slate mb-3">IESA Leadership</p>
+              <h1 className="font-display font-black text-[2.1rem] sm:text-[3.8rem] lg:text-[5rem] leading-[0.9] text-navy max-w-[13ch]">
                 Meet the{" "}
                 <span className="brush-highlight">IESA Team</span>
               </h1>
-              <p className="text-base sm:text-lg text-slate mt-4 max-w-xl">
-                The people driving the Industrial Engineering Students&apos; Association forward — united in purpose, driven by excellence.
+              <p className="text-base sm:text-lg text-navy-muted mt-4 max-w-2xl">
+                A premium showcase of the students serving the department — executive leadership, class representation, and committee structure in one vibrant experience.
               </p>
-              <Link
-                href="/contact"
-                className="inline-flex items-center gap-2 mt-6 bg-lime border-[4px] border-navy press-5 press-navy px-8 py-4 rounded-2xl font-display font-black text-lg text-navy transition-all"
-              >
-                Contact Us
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                </svg>
-              </Link>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-5">
+              <div className="bg-snow border-[4px] border-navy rounded-3xl p-4 md:p-5 shadow-[4px_4px_0_0_#000] md:shadow-[6px_6px_0_0_#000] md:rotate-[-0.5deg] md:hover:rotate-0 transition-transform">
                 <p className="text-label-sm text-slate uppercase">Executive Roles</p>
-                <p className="font-display font-black text-3xl text-navy mt-1">{executives.length}</p>
+                <p className="font-display font-black text-3xl md:text-4xl text-navy mt-1">{executives.length}</p>
               </div>
-              <div className="bg-lavender-light border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000] rotate-[0.3deg] hover:rotate-0 transition-transform">
+              <div className="bg-lavender-light border-[4px] border-navy rounded-3xl p-4 md:p-5 shadow-[4px_4px_0_0_#000] md:shadow-[6px_6px_0_0_#000] md:rotate-[0.4deg] md:hover:rotate-0 transition-transform">
                 <p className="text-label-sm text-slate uppercase">Class Reps</p>
-                <p className="font-display font-black text-3xl text-navy mt-1">{classReps.length}</p>
+                <p className="font-display font-black text-3xl md:text-4xl text-navy mt-1">{classReps.length}</p>
               </div>
-              <div className="bg-teal-light border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000] rotate-[-0.2deg] hover:rotate-0 transition-transform">
-                <p className="text-label-sm text-slate uppercase">Committees</p>
-                <p className="font-display font-black text-3xl text-navy mt-1">{committees.length}</p>
+              <div className="bg-teal-light border-[4px] border-navy rounded-3xl p-4 md:p-5 shadow-[4px_4px_0_0_#000] md:shadow-[6px_6px_0_0_#000] md:rotate-[-0.3deg] md:hover:rotate-0 transition-transform">
+                <p className="text-label-sm text-slate uppercase">Teams</p>
+                <p className="font-display font-black text-3xl md:text-4xl text-navy mt-1">{teamsAndLeads.length}</p>
               </div>
             </div>
 
-            {/* ── Tab navigation ── */}
-            <div className="bg-snow border-[3px] border-navy rounded-[1.5rem] p-2 shadow-[4px_4px_0_0_#000]">
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+            <div className="bg-snow border-[4px] border-navy rounded-3xl p-2 shadow-[4px_4px_0_0_#000] md:shadow-[6px_6px_0_0_#000] md:sticky md:top-20 z-20">
+              <div className="flex flex-wrap md:flex-nowrap gap-2 overflow-visible md:overflow-x-auto scrollbar-hide">
                 {TABS.map((t) => {
                   const isActive = tab === t.key;
                   return (
                     <button
                       key={t.key}
                       onClick={() => setTab(t.key)}
-                      className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-xl font-display font-bold text-xs uppercase tracking-[0.08em] transition-all ${
+                      className={`flex-1 md:flex-none min-w-0 shrink-0 flex items-center justify-center gap-1.5 px-3 md:px-5 py-2.5 rounded-2xl font-display font-bold text-[11px] md:text-xs uppercase tracking-[0.08em] transition-all ${
                         isActive
-                          ? `${t.bgLight} border-[3px] border-navy text-navy shadow-[3px_3px_0_0_#0F0F2D]`
+                          ? `${t.bgLight} border-[3px] border-navy text-navy shadow-[4px_4px_0_0_#0F0F2D]`
                           : "border-[3px] border-transparent text-navy/50 hover:text-navy hover:bg-cloud"
                       }`}
                     >
@@ -189,7 +185,7 @@ export default function PublicTeamPage() {
             )}
 
             {/* ── Empty ── */}
-            {!loading && currentMembers.length === 0 && (
+            {!loading && currentMembersCount === 0 && (
               <div className="bg-snow border-[3px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
                 <p className="font-display font-black text-xl text-navy mb-2">No members assigned yet</p>
                 <p className="text-sm text-slate">Check back once positions have been assigned for the current session.</p>
@@ -198,71 +194,70 @@ export default function PublicTeamPage() {
 
             {/* ── Central Excos Tab ── */}
             {!loading && tab === "central" && executives.length > 0 && (
-              <div className="space-y-6">
-                {/* President hero */}
-                {president && (
-                  <div className="bg-navy border-[3px] border-lime rounded-[2rem] p-6 md:p-8 shadow-[3px_3px_0_0_#C8F31D] rotate-[-0.3deg] hover:rotate-0 transition-transform relative overflow-hidden">
-                    <div className="flex items-center gap-5">
-                      <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-lime flex items-center justify-center flex-shrink-0 border-[3px] border-ghost/20">
-                        <span className="font-display font-black text-2xl md:text-3xl text-navy">
-                          {president.user.firstName[0]}
-                        </span>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-5">
+                <div className="lg:col-span-5 lg:sticky lg:top-28 self-start">
+                  {president && (
+                    <div className="bg-navy border-[4px] border-lime rounded-[2rem] p-5 md:p-8 shadow-[6px_6px_0_0_#C8F31D] md:shadow-[8px_8px_0_0_#C8F31D] relative overflow-hidden">
+                      <div className="absolute -top-10 -right-8 w-20 h-20 md:w-28 md:h-28 rounded-full bg-lime/20" />
+                      <div className="absolute -bottom-10 -left-10 w-24 h-24 md:w-32 md:h-32 rounded-full bg-teal/15" />
+                      <p className="text-label-sm uppercase text-lime tracking-widest mb-3">President</p>
+                      <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-lime border-[3px] border-navy flex items-center justify-center">
+                          <span className="font-display font-black text-2xl text-navy">{president.user.firstName[0]}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-display font-black text-xl md:text-2xl text-snow leading-tight truncate">
+                            {president.user.firstName} {president.user.lastName}
+                          </h3>
+                          <p className="text-snow/70 text-xs uppercase tracking-[0.08em] mt-1">Executive Lead</p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-teal/20 font-display font-bold text-[10px] text-snow uppercase tracking-[0.08em] mb-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-lime" />
-                          President
-                        </span>
-                        <h3 className="font-display font-black text-xl md:text-2xl text-snow">
-                          {president.user.firstName} {president.user.lastName}
-                        </h3>
-                        <a href={`mailto:${president.user.email}`} className="inline-flex items-center gap-1.5 text-snow/50 hover:text-snow transition-colors text-sm font-medium mt-2">
-                          <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a2 2 0 00-2 2v1.161l8.441 4.221a1.25 1.25 0 001.118 0L19 7.162V6a2 2 0 00-2-2H3z" /><path d="M19 8.839l-7.77 3.885a2.75 2.75 0 01-2.46 0L1 8.839V14a2 2 0 002 2h14a2 2 0 002-2V8.839z" /></svg>
-                          {president.user.email}
-                        </a>
-                      </div>
+                      <a
+                        href={`mailto:${president.user.email}`}
+                        className="mt-5 inline-flex items-center gap-1.5 text-snow/70 hover:text-snow transition-colors text-sm font-medium"
+                      >
+                        <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a2 2 0 00-2 2v1.161l8.441 4.221a1.25 1.25 0 001.118 0L19 7.162V6a2 2 0 00-2-2H3z" /><path d="M19 8.839l-7.77 3.885a2.75 2.75 0 01-2.46 0L1 8.839V14a2 2 0 002 2h14a2 2 0 002-2V8.839z" /></svg>
+                        {president.user.email}
+                      </a>
                     </div>
-                    <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full bg-teal/8" />
-                  </div>
-                )}
+                  )}
+                </div>
 
-                {/* Other excos */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                   {otherExcos.map((exco, i) => {
                     const accent = ACCENT_CYCLE[i % ACCENT_CYCLE.length];
-                    const rotations = ["rotate-[0.4deg]", "rotate-[-0.3deg]", "rotate-[0.5deg]", "rotate-[-0.4deg]"];
-                    const isSpotlight = i < 2;
+                    const highlight = i < 2;
                     return (
-                      <div
+                      <article
                         key={exco.position}
-                        className={`bg-snow border-[3px] border-navy border-l-[6px] ${accent.border} rounded-[1.5rem] ${isSpotlight ? "p-6 shadow-[6px_6px_0_0_#000]" : "p-5 shadow-[4px_4px_0_0_#000]"} ${rotations[i % rotations.length]} hover:rotate-0 transition-transform`}
+                        className={`bg-snow border-[4px] border-navy border-l-[8px] ${accent.border} rounded-3xl ${highlight ? "p-5 md:p-6 shadow-[6px_6px_0_0_#000] md:shadow-[8px_8px_0_0_#000]" : "p-4 md:p-5 shadow-[5px_5px_0_0_#000] md:shadow-[6px_6px_0_0_#000]"} hover:-translate-y-0.5 transition-all`}
                       >
-                        {isSpotlight && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-sunny-light border-[2px] border-navy font-display font-bold text-[10px] text-navy uppercase tracking-[0.08em] mb-3">
-                            Executive Spotlight
+                        {highlight && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-sunny-light border-[3px] border-navy font-display font-bold text-[10px] uppercase tracking-[0.08em] text-navy mb-3">
+                            Spotlight
                           </span>
                         )}
-                        <div className="flex items-start gap-4">
-                          <div className={`${isSpotlight ? "w-14 h-14" : "w-12 h-12"} rounded-xl ${accent.iconBg} flex items-center justify-center flex-shrink-0 border-[3px] border-navy`}>
-                            <span className={`font-display font-black ${isSpotlight ? "text-xl" : "text-lg"} text-navy`}>{exco.user.firstName[0]}</span>
+                        <div className="flex items-start gap-3.5">
+                          <div className={`w-13 h-13 rounded-xl ${accent.iconBg} border-[3px] border-navy flex items-center justify-center shrink-0`}>
+                            <span className="font-display font-black text-xl text-navy">{exco.user.firstName[0]}</span>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className={`font-display font-black ${isSpotlight ? "text-lg" : "text-base"} text-navy`}>
+                          <div className="min-w-0">
+                            <h3 className="font-display font-black text-lg text-navy truncate">
                               {exco.user.firstName} {exco.user.lastName}
                             </h3>
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg ${accent.bg} font-display font-bold text-[10px] text-navy uppercase tracking-[0.08em] mt-0.5`}>
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg ${accent.bg} text-[10px] font-bold uppercase tracking-[0.08em] text-navy mt-1`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${accent.dot}`} />
                               {getPositionLabel(exco.position)}
                             </span>
                           </div>
                         </div>
-                        <div className="mt-3 pt-3 border-t-[3px] border-navy/15">
-                          <a href={`mailto:${exco.user.email}`} className="inline-flex items-center gap-1.5 text-navy/50 hover:text-navy transition-colors text-sm font-medium">
+                        <div className="mt-4 pt-3 border-t-[3px] border-cloud">
+                          <a href={`mailto:${exco.user.email}`} className="inline-flex items-center gap-1.5 text-sm text-navy-muted hover:text-navy transition-colors">
                             <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a2 2 0 00-2 2v1.161l8.441 4.221a1.25 1.25 0 001.118 0L19 7.162V6a2 2 0 00-2-2H3z" /><path d="M19 8.839l-7.77 3.885a2.75 2.75 0 01-2.46 0L1 8.839V14a2 2 0 002 2h14a2 2 0 002-2V8.839z" /></svg>
                             <span className="truncate">{exco.user.email}</span>
                           </a>
                         </div>
-                      </div>
+                      </article>
                     );
                   })}
                 </div>
@@ -271,17 +266,16 @@ export default function PublicTeamPage() {
 
             {/* ── Class Reps Tab ── */}
             {!loading && tab === "classreps" && classReps.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {classReps.map((rep, i) => {
                   const accent = ACCENT_CYCLE[i % ACCENT_CYCLE.length];
-                  const rotations = ["rotate-[0.4deg]", "rotate-[-0.3deg]", "rotate-[0.5deg]", "rotate-[-0.4deg]"];
                   return (
                     <div
                       key={rep.position}
-                      className={`bg-snow border-[3px] border-navy border-l-[6px] ${accent.border} rounded-[1.5rem] p-5 shadow-[4px_4px_0_0_#000] ${rotations[i % rotations.length]} hover:rotate-0 transition-transform`}
+                      className={`bg-snow border-[4px] border-navy border-l-[8px] ${accent.border} rounded-3xl p-4 md:p-5 shadow-[5px_5px_0_0_#000] md:shadow-[6px_6px_0_0_#000] hover:-translate-y-0.5 transition-all`}
                     >
                       <div className="flex items-start gap-4">
-                        <div className={`w-12 h-12 rounded-xl ${accent.iconBg} flex items-center justify-center flex-shrink-0 border-[3px] border-navy`}>
+                        <div className={`w-11 h-11 md:w-12 md:h-12 rounded-xl ${accent.iconBg} flex items-center justify-center flex-shrink-0 border-[3px] border-navy`}>
                           <span className="font-display font-black text-lg text-navy">{rep.user.firstName[0]}</span>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -306,42 +300,67 @@ export default function PublicTeamPage() {
               </div>
             )}
 
-            {/* ── Committees Tab ── */}
-            {!loading && tab === "committees" && committees.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {committees.map((com, i) => {
+            {/* ── Teams & Leads Tab ── */}
+            {!loading && tab === "teams" && teamsAndLeads.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                {teamsAndLeads.map((team, i) => {
                   const accent = ACCENT_CYCLE[i % ACCENT_CYCLE.length];
-                  const rotations = ["rotate-[0.4deg]", "rotate-[-0.3deg]", "rotate-[0.5deg]", "rotate-[-0.4deg]"];
                   return (
                     <div
-                      key={com.position}
-                      className={`bg-snow border-[3px] border-navy border-l-[6px] ${accent.border} rounded-[1.5rem] p-5 shadow-[4px_4px_0_0_#000] ${rotations[i % rotations.length]} hover:rotate-0 transition-transform`}
+                      key={team.team}
+                      className={`bg-snow border-[4px] border-navy border-l-[8px] ${accent.border} rounded-3xl p-4 md:p-5 shadow-[5px_5px_0_0_#000] md:shadow-[6px_6px_0_0_#000] hover:-translate-y-0.5 transition-all`}
                     >
                       <div className="flex items-start gap-4">
-                        <div className={`w-12 h-12 rounded-xl ${accent.iconBg} flex items-center justify-center flex-shrink-0 border-[3px] border-navy`}>
-                          <span className="font-display font-black text-lg text-navy">{com.user.firstName[0]}</span>
+                        <div className={`w-11 h-11 md:w-12 md:h-12 rounded-xl ${accent.iconBg} flex items-center justify-center flex-shrink-0 border-[3px] border-navy`}>
+                          <span className="font-display font-black text-lg text-navy">{team.teamLabel[0]}</span>
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-display font-black text-base text-navy">
-                            {com.user.firstName} {com.user.lastName}
+                            {team.teamLabel}
                           </h3>
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg ${accent.bg} font-display font-bold text-[10px] text-navy uppercase tracking-[0.08em] mt-0.5`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${accent.dot}`} />
-                            {getPositionLabel(com.position)}
+                            {team.lead ? `${team.lead.firstName} ${team.lead.lastName}` : "Lead not assigned"}
                           </span>
                         </div>
                       </div>
-                      <div className="mt-3 pt-3 border-t-[3px] border-navy/15">
-                        <a href={`mailto:${com.user.email}`} className="inline-flex items-center gap-1.5 text-navy/50 hover:text-navy transition-colors text-sm font-medium">
-                          <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a2 2 0 00-2 2v1.161l8.441 4.221a1.25 1.25 0 001.118 0L19 7.162V6a2 2 0 00-2-2H3z" /><path d="M19 8.839l-7.77 3.885a2.75 2.75 0 01-2.46 0L1 8.839V14a2 2 0 002 2h14a2 2 0 002-2V8.839z" /></svg>
-                          <span className="truncate">{com.user.email}</span>
-                        </a>
-                      </div>
+                      {team.lead ? (
+                        <div className="mt-3 pt-3 border-t-[3px] border-navy/15">
+                          <a href={`mailto:${team.lead.email}`} className="inline-flex items-center gap-1.5 text-navy-muted hover:text-navy transition-colors text-sm font-medium">
+                            <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a2 2 0 00-2 2v1.161l8.441 4.221a1.25 1.25 0 001.118 0L19 7.162V6a2 2 0 00-2-2H3z" /><path d="M19 8.839l-7.77 3.885a2.75 2.75 0 01-2.46 0L1 8.839V14a2 2 0 002 2h14a2 2 0 002-2V8.839z" /></svg>
+                            <span className="truncate">{team.lead.email}</span>
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="mt-3 pt-3 border-t-[3px] border-navy/15">
+                          <p className="text-sm text-slate">Lead assignment pending.</p>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
             )}
+          </div>
+        </section>
+
+        <section className="pb-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="bg-navy border-[4px] border-lime rounded-3xl p-5 md:p-7 shadow-[6px_6px_0_0_#C8F31D] md:shadow-[8px_8px_0_0_#C8F31D] relative overflow-hidden">
+              <div className="absolute -right-10 -top-10 w-32 h-32 rounded-full bg-lime/20" />
+              <p className="text-label-sm text-lime uppercase tracking-widest">Want to reach the team?</p>
+              <h2 className="font-display font-black text-2xl md:text-display-sm text-snow mt-2">
+                Connect with IESA leadership directly.
+              </h2>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Link href="/contact" className="bg-lime border-[4px] border-navy rounded-2xl px-6 py-3 press-5 press-navy font-display font-black text-navy">
+                  Contact IESA
+                </Link>
+                <Link href="/history" className="bg-transparent border-[3px] border-lime rounded-2xl px-5 py-3 text-lime font-display font-bold hover:bg-lime hover:text-navy transition-colors">
+                  Explore our story
+                </Link>
+              </div>
+            </div>
           </div>
         </section>
       </main>

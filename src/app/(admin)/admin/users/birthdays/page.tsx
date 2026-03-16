@@ -17,6 +17,7 @@ interface BirthdayUser {
   matricNumber?: string;
   currentLevel?: string;
   department?: string;
+  activeRoles?: string[];
   daysUntil: number;
   birthdayMonth: number;
   birthdayDay: number;
@@ -174,7 +175,7 @@ function AdminUsersBirthdaysPage() {
             type="button"
             onClick={() => setFiltersOpen((prev) => !prev)}
             className="px-5 py-3 bg-snow border-[3px] border-navy rounded-2xl text-navy text-sm font-bold press-3 press-black"
-            aria-expanded={filtersOpen ? "true" : "false"}
+            aria-expanded={filtersOpen}
           >
             Filters
           </button>
@@ -248,6 +249,24 @@ function AdminUsersBirthdaysPage() {
                           <div className="min-w-0">
                             <p className="text-sm font-bold text-navy truncate">{item.firstName} {item.lastName}</p>
                             <p className="text-xs text-slate truncate">{item.currentLevel || "Student"}{item.matricNumber ? ` • ${item.matricNumber}` : ""}</p>
+                                  {item.activeRoles && item.activeRoles.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                      {item.activeRoles.slice(0, 3).map((roleLabel) => (
+                                        <span
+                                          key={roleLabel}
+                                          className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-cloud text-navy"
+                                          title={roleLabel}
+                                        >
+                                          {roleLabel}
+                                        </span>
+                                      ))}
+                                      {item.activeRoles.length > 3 && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-ghost text-slate">
+                                          +{item.activeRoles.length - 3} more
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
                           </div>
                         </div>
                       </td>

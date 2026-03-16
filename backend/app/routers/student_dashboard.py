@@ -23,6 +23,48 @@ router = APIRouter(prefix="/api/v1/student", tags=["Student Dashboard"])
 CACHE_TTL = 30  # seconds — short TTL because data is personalized per user
 
 
+def _is_team_lead_position(position: str) -> bool:
+    return position.startswith("team_head_") or position in {"ics_head", "academic_lead", "press_editor_in_chief"}
+
+
+async def _matches_announcement_audience(
+    db,
+    *,
+    user_id: str,
+    user_role: str,
+    user_department: str,
+    session_id: str,
+    target_audience: str,
+    target_user_ids: list[str],
+    user_positions: list[str] | None = None,
+) -> bool:
+    if target_audience in {"all", "specific_levels"}:
+        return True
+    if target_audience == "ipe":
+        return user_department == "Industrial Engineering"
+    if target_audience == "external":
+        return user_department != "Industrial Engineering"
+    if target_audience == "specific_students":
+        return user_id in set(target_user_ids or [])
+    if target_audience == "exco_only":
+        return user_role == "exco"
+
+    positions = user_positions or []
+    if not positions and target_audience in {"team_leads_only", "class_rep_and_assistant"}:
+        role_docs = await db["roles"].find(
+            {"userId": user_id, "sessionId": session_id, "isActive": True},
+            {"position": 1},
+        ).to_list(length=None)
+        positions = [str(doc.get("position", "")) for doc in role_docs]
+
+    if target_audience == "team_leads_only":
+        return any(_is_team_lead_position(pos) for pos in positions)
+    if target_audience == "class_rep_and_assistant":
+        return any(pos.startswith("class_rep_") or pos.startswith("asst_class_rep_") for pos in positions)
+
+    return True
+
+
 # ── helpers ──────────────────────────────────────────────────────
 
 async def _get_active_session(db):
@@ -60,7 +102,15 @@ async def _fetch_announcements(db, session_id: str, user_id: str, user_level: st
     )
     docs = await cursor.to_list(length=limit * 3)
 
-    is_ipe_student = user_department == "Industrial Engineering"
+    user_doc = await db["users"].find_one({"_id": ObjectId(user_id)}, {"role": 1})
+    user_role = (user_doc or {}).get("role", "student")
+    user_positions: list[str] = []
+    if not is_admin:
+        role_docs = await db["roles"].find(
+            {"userId": user_id, "sessionId": session_id, "isActive": True},
+            {"position": 1},
+        ).to_list(length=None)
+        user_positions = [str(doc.get("position", "")) for doc in role_docs]
     result = []
     for doc in docs:
         target_levels = doc.get("targetLevels")
@@ -68,12 +118,21 @@ async def _fetch_announcements(db, session_id: str, user_id: str, user_level: st
             if not user_level or user_level not in target_levels:
                 continue
 
-        # Audience targeting: ipe-only vs external-only vs all
+        # Audience targeting
         target_audience = doc.get("targetAudience", "all")
-        if target_audience != "all" and not is_admin:
-            if target_audience == "ipe" and not is_ipe_student:
-                continue
-            if target_audience == "external" and is_ipe_student:
+        target_user_ids = [str(uid) for uid in (doc.get("targetUserIds") or [])]
+        if not is_admin:
+            allowed = await _matches_announcement_audience(
+                db,
+                user_id=user_id,
+                user_role=user_role,
+                user_department=user_department,
+                session_id=session_id,
+                target_audience=target_audience,
+                target_user_ids=target_user_ids,
+                user_positions=user_positions,
+            )
+            if not allowed:
                 continue
         result.append({
             "id": str(doc["_id"]),

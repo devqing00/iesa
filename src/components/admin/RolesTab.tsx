@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { PermissionGate } from "@/lib/withAuth";
 import { getApiUrl } from "@/lib/api";
@@ -26,11 +26,19 @@ interface Session {
   isActive: boolean;
 }
 
+interface Society {
+  _id?: string;
+  id?: string;
+  name: string;
+}
+
 interface Role {
   id: string;
   userId: string;
   sessionId: string;
   position: string;
+  societyId?: string | null;
+  societyName?: string | null;
   permissions?: string[];
   user?: User;
   session?: Session;
@@ -111,6 +119,7 @@ export default function RolesTab() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [societies, setSocieties] = useState<Society[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -125,6 +134,7 @@ export default function RolesTab() {
     userId: "",
     sessionId: "",
     position: "",
+    societyId: "",
   });
 
   // User search in assign modal
@@ -145,14 +155,7 @@ export default function RolesTab() {
 
   /* ── Fetch ──────────────────────── */
 
-  useEffect(() => {
-    if (user && userProfile) {
-      fetchData();
-      fetchPermCatalogue();
-    }
-  }, [user, userProfile]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const token = await getAccessToken();
       if (!token) return;
@@ -204,7 +207,29 @@ export default function RolesTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getAccessToken, formData.sessionId]);
+
+  const fetchSocieties = useCallback(async () => {
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      const response = await fetch(getApiUrl("/api/v1/iepod/societies?active_only=true"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        setSocieties([]);
+        return;
+      }
+      const data = await response.json();
+      const normSocieties: Society[] = (data || []).map((soc: Society & { _id?: string }) => ({
+        ...soc,
+        id: soc.id || soc._id || "",
+      }));
+      setSocieties(normSocieties);
+    } catch {
+      setSocieties([]);
+    }
+  }, [getAccessToken]);
 
   /* ── Create ─────────────────────── */
 
@@ -212,8 +237,13 @@ export default function RolesTab() {
     e.preventDefault();
     setError(null);
     const effectivePosition = useCustomPosition ? customPosition.trim() : formData.position;
+    const requiresSocietyScope = effectivePosition === "iepod_hub_lead";
     if (!effectivePosition) {
       setError("Please select or enter a position.");
+      return;
+    }
+    if (requiresSocietyScope && !formData.societyId) {
+      setError("Please select a society for IEPOD Hub Lead.");
       return;
     }
     const isCustomPosition = useCustomPosition;
@@ -225,7 +255,12 @@ export default function RolesTab() {
       const response = await fetch(getApiUrl("/api/v1/roles/"), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, position: effectivePosition }),
+        body: JSON.stringify({
+          userId: formData.userId,
+          sessionId: formData.sessionId,
+          position: effectivePosition,
+          societyId: requiresSocietyScope ? formData.societyId : undefined,
+        }),
       });
 
       if (!response.ok) await throwApiError(response, "assign role");
@@ -235,7 +270,7 @@ export default function RolesTab() {
 
       await fetchData();
 
-      setFormData({ userId: "", sessionId: formData.sessionId, position: "" });
+      setFormData({ userId: "", sessionId: formData.sessionId, position: "", societyId: "" });
       setCustomPosition("");
       setUseCustomPosition(false);
       setUserSearchQuery("");
@@ -288,7 +323,7 @@ export default function RolesTab() {
 
   /* ── Permissions Catalogue ────────── */
 
-  const fetchPermCatalogue = async () => {
+  const fetchPermCatalogue = useCallback(async () => {
     try {
       const token = await getAccessToken();
       if (!token) return;
@@ -305,7 +340,15 @@ export default function RolesTab() {
         setDefaultPermsByPosition(data.defaults || {});
       }
     } catch { /* silent */ }
-  };
+  }, [getAccessToken]);
+
+  useEffect(() => {
+    if (user && userProfile) {
+      fetchData();
+      fetchSocieties();
+      fetchPermCatalogue();
+    }
+  }, [user, userProfile, fetchData, fetchSocieties, fetchPermCatalogue]);
 
   /* ── Edit Permissions ─────────────── */
 
@@ -413,7 +456,7 @@ export default function RolesTab() {
             <div key={role.id} className="bg-snow border-[3px] border-navy rounded-3xl p-6 press-4 press-black transition-all group">
               <div className="flex items-start justify-between mb-4">
                 <span className={`px-3 py-1 rounded-full text-xs font-bold ${badgeClassName}`}>
-                  {getPositionLabel(role.position)}
+                  {getRoleLabel(role)}
                 </span>
                 <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                   <PermissionGate permission="role:edit">
@@ -433,7 +476,7 @@ export default function RolesTab() {
                       onClick={() => handleDeleteRole(role.id)}
                       className="p-1.5 rounded-xl hover:bg-coral-light text-slate hover:text-coral transition-colors"
                       title="Remove role"
-                      aria-label={`Remove ${role.user?.firstName || ""} ${role.user?.lastName || ""} from ${getPositionLabel(role.position)}`}
+                      aria-label={`Remove ${role.user?.firstName || ""} ${role.user?.lastName || ""} from ${getRoleLabel(role)}`}
                     >
                       <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                         <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
@@ -479,6 +522,14 @@ export default function RolesTab() {
 
   const getPositionLabel = (position: string) => {
     return POSITIONS.find((p) => p.value === position)?.label || position.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+  };
+
+  const getRoleLabel = (role: Pick<Role, "position" | "societyName">) => {
+    const base = getPositionLabel(role.position);
+    if (role.position === "iepod_hub_lead" && role.societyName) {
+      return `${base} (${role.societyName})`;
+    }
+    return base;
   };
 
   if (authLoading || loading) {
@@ -827,10 +878,14 @@ export default function RolesTab() {
               {/* ── Position / Custom ── */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-bold text-navy">Position</label>
+                  <label htmlFor="position-select" className="text-sm font-bold text-navy">Position</label>
                   <button
                     type="button"
-                    onClick={() => { setUseCustomPosition(!useCustomPosition); setFormData({ ...formData, position: "" }); setCustomPosition(""); }}
+                    onClick={() => {
+                      setUseCustomPosition(!useCustomPosition);
+                      setFormData({ ...formData, position: "", societyId: "" });
+                      setCustomPosition("");
+                    }}
                     className="text-[11px] font-bold text-lavender hover:text-lavender/70 transition-colors"
                   >
                     {useCustomPosition ? "← Choose from list" : "Custom position →"}
@@ -858,7 +913,7 @@ export default function RolesTab() {
                   <select
                     id="position-select"
                     value={formData.position}
-                    onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, position: e.target.value, societyId: "" })}
                     className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
                     required
                   >
@@ -877,6 +932,30 @@ export default function RolesTab() {
                 )}
               </div>
 
+              {(() => {
+                const effectivePosition = useCustomPosition ? customPosition.trim() : formData.position;
+                if (effectivePosition !== "iepod_hub_lead") return null;
+                return (
+                  <div className="space-y-1.5">
+                    <label htmlFor="society-select" className="text-sm font-bold text-navy">Society</label>
+                    <select
+                      id="society-select"
+                      value={formData.societyId}
+                      onChange={(e) => setFormData({ ...formData, societyId: e.target.value })}
+                      className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer transition-all"
+                      required
+                    >
+                      <option value="">Select a society</option>
+                      {societies.map((society) => (
+                        <option key={society.id || society._id} value={society.id || society._id || ""}>
+                          {society.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })()}
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
@@ -891,7 +970,7 @@ export default function RolesTab() {
                 </button>
                 <button
                   type="submit"
-                  disabled={assigning || !formData.userId || !formData.sessionId || (!useCustomPosition ? !formData.position : !customPosition.trim())}
+                  disabled={assigning || !formData.userId || !formData.sessionId || (!useCustomPosition ? !formData.position : !customPosition.trim()) || (((useCustomPosition ? customPosition.trim() : formData.position) === "iepod_hub_lead") && !formData.societyId)}
                   className="flex-1 px-5 py-2.5 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-4 press-lime disabled:opacity-40 transition-all flex items-center justify-center gap-2"
                 >
                   {assigning ? (
@@ -932,7 +1011,7 @@ export default function RolesTab() {
                 </h2>
                 <div className="flex items-center gap-2 mt-1.5">
                   <span className="px-2.5 py-0.5 rounded-full bg-lime-light text-navy text-xs font-bold">
-                    {getPositionLabel(editPermsRole.position)}
+                    {getRoleLabel(editPermsRole)}
                   </span>
                   <span className="text-xs text-slate">
                     {(defaultPermsByPosition[editPermsRole.position] || []).length} default ·{" "}

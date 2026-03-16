@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { getApiUrl } from "@/lib/api";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { getTimeGreeting } from "@/lib/greeting";
 import {
@@ -32,10 +33,19 @@ import { usePermissions } from "@/context/PermissionsContext";
 import { useSession } from "@/context/SessionContext";
 import { resolveProfileImageUrl } from "@/lib/profileImage";
 
+interface BellNotice {
+  _id: string;
+  title: string;
+  message: string;
+  type: string;
+  link?: string | null;
+  createdAt: string;
+}
+
 /* ─── Page Component ────────────────────────────────────────────── */
 
 export default function StudentDashboardPage() {
-  const { user, userProfile, refreshProfile } = useAuth();
+  const { user, userProfile, refreshProfile, getAccessToken } = useAuth();
   const { hasAnyPermission } = usePermissions();
   const { currentSession } = useSession();
   const { showHelp, openHelp, closeHelp } = useToolHelp("student-dashboard");
@@ -53,6 +63,7 @@ export default function StudentDashboardPage() {
     () => data?.announcements ?? [],
     [data],
   );
+  const [bellNotices, setBellNotices] = useState<BellNotice[]>([]);
 
   const events: UpcomingEvent[] = useMemo(
     () => data?.events ?? [],
@@ -112,6 +123,32 @@ export default function StudentDashboardPage() {
     } catch { /* localStorage unavailable */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  useEffect(() => {
+    const fetchBellNotices = async () => {
+      if (!user) return;
+      try {
+        const token = await getAccessToken();
+        const response = await fetch(getApiUrl("/api/v1/notifications/?limit=12"), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+        const data: BellNotice[] = await response.json();
+        const notices = (Array.isArray(data) ? data : [])
+          .filter((n) =>
+            ["announcement", "payment", "event", "team_task", "team_application", "planner_reminder", "system"].includes(
+              (n.type || "").toLowerCase(),
+            ),
+          )
+          .slice(0, 4);
+        setBellNotices(notices);
+      } catch {
+        /* silent */
+      }
+    };
+
+    void fetchBellNotices();
+  }, [getAccessToken, user]);
 
   // Full-page shimmer skeleton while initial data loads (after all hooks)
   if (loading && !data) return <StudentDashboardSkeleton />;
@@ -220,6 +257,18 @@ export default function StudentDashboardPage() {
   const dismissExternalWelcome = () => {
     setExternalWelcomeDismissed(true);
     try { localStorage.setItem(externalWelcomeKey, "1"); } catch { /* ignore */ }
+  };
+
+  const getNoticeHref = (notice: BellNotice) => {
+    if (!notice.link) return "/dashboard/announcements";
+    if (
+      notice.type === "announcement" &&
+      notice.link.startsWith("/admin/announcements")
+    ) {
+      const [, query] = notice.link.split("?");
+      return query ? `/dashboard/announcements?${query}` : "/dashboard/announcements";
+    }
+    return notice.link;
   };
 
   const handleOnboardingSkip = () => {
@@ -586,37 +635,64 @@ export default function StudentDashboardPage() {
                     <div key={i} className="h-16 bg-sunny/20 rounded-2xl animate-pulse" />
                   ))}
                 </div>
-              ) : announcements.length === 0 ? (
-                <div className="text-center py-10 bg-snow rounded-2xl border-[3px] border-navy/10">
-                  <p className="text-sm text-slate">No announcements yet</p>
-                </div>
               ) : (
-                <div className="space-y-2">
-                  {announcements.slice(0, 5).map((ann, idx) => (
-                    <Link
-                      key={ann.id || ann._id}
-                      href="/dashboard/announcements"
-                      className="flex items-center gap-4 p-4 rounded-2xl bg-snow hover:bg-ghost transition-colors group border-[2px] border-transparent hover:border-navy/10"
-                    >
-                      <span className="font-display font-black text-lg text-navy/20 w-8 text-center shrink-0">
-                        {String(idx + 1).padStart(2, "0")}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-navy group-hover:text-navy transition-colors truncate">
-                          {ann.title}
-                        </p>
-                        <p className="text-[10px] text-slate mt-0.5">
-                          {new Date(ann.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} &middot; {ann.category}
-                        </p>
+                <div className="space-y-3">
+                  {announcements.length === 0 ? (
+                    <div className="text-center py-10 bg-snow rounded-2xl border-[3px] border-navy/10">
+                      <p className="text-sm text-slate">No announcements yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {announcements.slice(0, 5).map((ann, idx) => (
+                        <Link
+                          key={ann.id || ann._id}
+                          href="/dashboard/announcements"
+                          className="flex items-center gap-4 p-4 rounded-2xl bg-snow hover:bg-ghost transition-colors group border-[2px] border-transparent hover:border-navy/10"
+                        >
+                          <span className="font-display font-black text-lg text-navy/20 w-8 text-center shrink-0">
+                            {String(idx + 1).padStart(2, "0")}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-navy group-hover:text-navy transition-colors truncate">
+                              {ann.title}
+                            </p>
+                            <p className="text-[10px] text-slate mt-0.5">
+                              {new Date(ann.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} &middot; {ann.category}
+                            </p>
+                          </div>
+                          {ann.priority === "urgent" && (
+                            <span className="text-[10px] font-bold text-snow bg-coral rounded-md px-2.5 py-0.5 shrink-0">URGENT</span>
+                          )}
+                          <svg aria-hidden="true" className="w-4 h-4 text-slate group-hover:text-navy transition-colors shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z" clipRule="evenodd" />
+                          </svg>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+
+                  {bellNotices.length > 0 && (
+                    <div className="bg-snow rounded-2xl border-[3px] border-navy/15 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Recent Notices</p>
+                        <Link href="/dashboard/announcements" className="text-[10px] font-bold text-navy hover:text-lavender transition-colors">
+                          Open
+                        </Link>
                       </div>
-                      {ann.priority === "urgent" && (
-                        <span className="text-[10px] font-bold text-snow bg-coral rounded-md px-2.5 py-0.5 shrink-0">URGENT</span>
-                      )}
-                      <svg aria-hidden="true" className="w-4 h-4 text-slate group-hover:text-navy transition-colors shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                        <path fillRule="evenodd" d="M16.28 11.47a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06L14.69 12 7.72 5.03a.75.75 0 0 1 1.06-1.06l7.5 7.5Z" clipRule="evenodd" />
-                      </svg>
-                    </Link>
-                  ))}
+                      <div className="space-y-2">
+                        {bellNotices.map((notice) => (
+                          <Link
+                            key={notice._id}
+                            href={getNoticeHref(notice)}
+                            className="block rounded-xl border-[2px] border-cloud bg-ghost hover:bg-cloud transition-colors p-2.5"
+                          >
+                            <p className="text-xs font-bold text-navy truncate">{notice.title || "Notice"}</p>
+                            <p className="text-[10px] text-slate truncate mt-0.5">{notice.message}</p>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

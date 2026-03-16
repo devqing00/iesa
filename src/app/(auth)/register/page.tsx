@@ -1,18 +1,21 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
 import { isInstitutionalEmail } from "@/lib/emailUtils";
+import { AUTH_RETURN_TO_PARAM, sanitizeReturnToPath } from "@/lib/authRedirect";
 import { toast } from "sonner";
 import { PasswordInput } from "@/components/ui/Input";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading, signUpWithEmail, signInWithGoogle } = useAuth();
+  const returnTo = sanitizeReturnToPath(searchParams?.get(AUTH_RETURN_TO_PARAM));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -108,9 +111,9 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      router.push("/dashboard");
+      router.push(returnTo || "/dashboard");
     }
-  }, [user, loading, router]);
+  }, [user, loading, returnTo, router]);
 
   const validateForm = (): boolean => {
     setError("");
@@ -149,7 +152,7 @@ export default function RegisterPage() {
         admissionYear: derivedAdmissionYear,
         department: isExternalStudent && department.trim() ? department.trim() : "Industrial Engineering",
         dateOfBirth: dateOfBirth || undefined,
-      });
+      }, returnTo || undefined);
       setRegistrationSuccess(true);
       toast.success("Account created!", { description: "Verification email sent. Check your inbox." });
     } catch (err: unknown) {
@@ -167,7 +170,7 @@ export default function RegisterPage() {
     setError("");
     setGoogleLoading(true);
     try {
-      const success = await signInWithGoogle();
+      const success = await signInWithGoogle(returnTo || undefined);
       if (success) {
         toast.success("Account ready!", { description: "Redirecting to your dashboard…" });
       }

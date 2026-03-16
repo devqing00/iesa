@@ -7,10 +7,11 @@ import { useAuth } from "@/context/AuthContext";
 import { SidebarProvider, useSidebar } from "@/context/SidebarContext";
 import { DMProvider } from "@/context/DMContext";
 import { FloatingToolProvider } from "@/context/FloatingToolContext";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useSSE } from "@/hooks/useSSE";
 import { isExternalStudent, isRouteAllowedForExternal } from "@/lib/studentAccess";
+import { buildAuthRedirect, pathWithQuery } from "@/lib/authRedirect";
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { isExpanded } = useSidebar();
@@ -43,13 +44,15 @@ export default function DashboardLayout({
   const { user, userProfile, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   // Redirect unauthenticated users to login
   useEffect(() => {
     if (!loading && !user) {
-      router.push("/login");
+      const targetPath = pathWithQuery(pathname, searchParams?.toString());
+      router.replace(buildAuthRedirect("/login", targetPath));
     }
-  }, [user, loading, router]);
+  }, [user, loading, pathname, searchParams, router]);
 
   // Redirect external students from restricted routes
   useEffect(() => {

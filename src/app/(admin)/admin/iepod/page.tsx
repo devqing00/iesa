@@ -680,7 +680,12 @@ function OverviewTab({ stats, loading }: { stats: IepodStats | null; loading: bo
           <div className="space-y-3">
             {stats.societyBreakdown.map((s) => (
               <div key={s.societyId} className="flex items-center justify-between">
-                <span className="font-bold text-sm text-lime/80">{s.societyName}</span>
+                <div>
+                  <span className="font-bold text-sm text-lime/80">{s.societyName}</span>
+                  {s.hubLeadName && (
+                    <p className="text-[10px] text-lime/50">Lead: {s.hubLeadName}</p>
+                  )}
+                </div>
                 <span className="font-display font-black text-lg text-lime">{s.memberCount}</span>
               </div>
             ))}
@@ -817,6 +822,17 @@ function SocietiesTab({ societies, loading, onAdd, onEdit, onDelete }: {
               </div>
               <p className="text-navy-muted text-xs mb-1">{s.focusArea}</p>
               <p className="text-xs text-slate mb-3">{s.memberCount} member{s.memberCount !== 1 ? "s" : ""}</p>
+              <div className="mb-3 rounded-xl bg-ghost border-2 border-cloud px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate mb-1">Hub Lead (Role)</p>
+                {s.hubLeadName ? (
+                  <>
+                    <p className="text-xs font-bold text-navy">{s.hubLeadName}</p>
+                    {s.hubLeadEmail && <p className="text-[11px] text-slate">{s.hubLeadEmail}</p>}
+                  </>
+                ) : (
+                  <p className="text-xs text-slate">Assign in Admin Roles as IEPOD Hub Lead ({s.name})</p>
+                )}
+              </div>
               <PermissionGate permission="iepod:manage">
                 <div className="flex gap-3">
                   <button onClick={() => onEdit(s)} className="text-lavender font-bold text-xs hover:underline">Edit</button>

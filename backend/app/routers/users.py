@@ -401,6 +401,69 @@ def _level_rank(level_value: str | None) -> int:
         return 9999
 
 
+ROLE_POSITION_LABELS = {
+    "president": "President",
+    "vice_president": "Vice President",
+    "general_secretary": "General Secretary",
+    "assistant_general_secretary": "Asst. General Secretary",
+    "treasurer": "Treasurer",
+    "social_director": "Social Director",
+    "sports_secretary": "Sports Secretary",
+    "assistant_sports_secretary": "Asst. Sports Secretary",
+    "pro": "Public Relations Officer",
+    "financial_secretary": "Financial Secretary",
+    "timp_lead": "TIMP Lead",
+    "timp_mentor": "TIMP Mentor",
+    "timp_mentee": "TIMP Mentee",
+    "press_editor_in_chief": "Press Editor-in-Chief",
+    "press_head": "Press Head",
+    "press_member": "Press Member",
+    "press_niche_editor": "Press Niche Editor",
+    "press_pro": "Press PRO",
+    "iepod_hub_director": "IEPOD Hub Director",
+    "iepod_hub_lead": "IEPOD Hub Lead",
+    "iepod_conference_lead": "IEPOD Conference Lead",
+    "iepod_program_coordinator": "IEPOD Program Coordinator",
+    "iepod_communications_officer": "IEPOD Communications Officer",
+}
+
+
+def _format_role_position_label(position: str | None, society_name: str | None = None) -> str:
+    if not position:
+        return "Role"
+    pos = str(position).strip()
+    if pos.startswith("class_rep_"):
+        level = pos.replace("class_rep_", "").upper()
+        return f"{level} Class Rep"
+    if pos.startswith("asst_class_rep_"):
+        level = pos.replace("asst_class_rep_", "").upper()
+        return f"{level} Asst. Class Rep"
+    if pos.startswith("team_head_"):
+        suffix = pos.replace("team_head_", "", 1).replace("_", " ").title()
+        return f"Team Head ({suffix})"
+    if pos.startswith("team_member_custom_"):
+        suffix = pos.replace("team_member_custom_", "", 1).replace("_", " ").title()
+        return f"Team Member ({suffix})"
+    if pos.startswith("team_") and pos.endswith("_member"):
+        suffix = pos.replace("team_", "", 1).replace("_member", "").replace("_", " ").title()
+        return f"Team Member ({suffix})"
+    base_label = ROLE_POSITION_LABELS.get(pos, pos.replace("_", " ").title())
+    if pos == "iepod_hub_lead" and society_name:
+        return f"{base_label} ({society_name})"
+    return base_label
+
+
+def _build_role_appreciation(role_labels: list[str]) -> str | None:
+    labels = [label for label in role_labels if label]
+    if not labels:
+        return None
+    if len(labels) == 1:
+        return f"Thank you for serving as {labels[0]}."
+    if len(labels) == 2:
+        return f"Thank you for serving as {labels[0]} and {labels[1]}."
+    return f"Thank you for serving as {labels[0]}, {labels[1]}, and {len(labels) - 2} other roles."
+
+
 @router.get("/birthdays")
 async def list_upcoming_birthdays(
     days_ahead: int = 90,
@@ -455,6 +518,7 @@ async def list_upcoming_birthdays(
     users = await db["users"].find(
         query,
         {
+            "_id": 1,
             "firstName": 1,
             "lastName": 1,
             "email": 1,
@@ -465,6 +529,40 @@ async def list_upcoming_birthdays(
             "dateOfBirth": 1,
         },
     ).to_list(length=None)
+
+    user_ids = [str(user.get("_id")) for user in users if user.get("_id")]
+    active_session_docs = await db["sessions"].find(
+        {"isActive": True},
+        {"_id": 1},
+    ).to_list(length=10)
+    active_session_ids = [str(s["_id"]) for s in active_session_docs if s.get("_id")]
+
+    role_labels_by_user: dict[str, list[str]] = {}
+    if user_ids:
+        role_query: dict = {
+            "userId": {"$in": user_ids},
+            "isActive": True,
+        }
+        if active_session_ids:
+            role_query["sessionId"] = {"$in": active_session_ids}
+
+        role_docs = await db["roles"].find(
+            role_query,
+            {"userId": 1, "position": 1, "societyName": 1},
+        ).to_list(length=5000)
+
+        for role_doc in role_docs:
+            role_user_id = str(role_doc.get("userId") or "")
+            label = _format_role_position_label(
+                role_doc.get("position"),
+                role_doc.get("societyName"),
+            )
+            if not role_user_id or not label:
+                continue
+            role_labels_by_user.setdefault(role_user_id, []).append(label)
+
+        for role_user_id, labels in role_labels_by_user.items():
+            role_labels_by_user[role_user_id] = sorted(set(labels))
 
     today = datetime.now(timezone.utc).date()
     upper = today + timedelta(days=days_ahead)
@@ -491,6 +589,7 @@ async def list_upcoming_birthdays(
                 "currentLevel": user.get("currentLevel"),
                 "department": user.get("department"),
                 "profilePictureUrl": user.get("profilePictureUrl"),
+                "activeRoles": role_labels_by_user.get(str(user["_id"]), []),
                 "daysUntil": days_until,
                 "birthdayMonth": next_birthday.month,
                 "birthdayDay": next_birthday.day,
@@ -537,6 +636,118 @@ async def list_upcoming_birthdays(
         "daysAhead": days_ahead,
         "sortBy": sort_key,
         "sortOrder": "desc" if order_desc else "asc",
+    }
+
+
+@router.get("/birthdays/today-preview")
+async def preview_today_birthday_messages(
+    _user: dict = Depends(require_permission("user:view_all")),
+):
+    """Preview today's role-aware birthday messages without sending notifications."""
+    db = get_database()
+    today = datetime.now(timezone.utc).date()
+
+    users = await db["users"].find(
+        {
+            "isActive": {"$ne": False},
+            "role": "student",
+            "dateOfBirth": {"$exists": True, "$ne": None},
+        },
+        {
+            "firstName": 1,
+            "lastName": 1,
+            "email": 1,
+            "currentLevel": 1,
+            "dateOfBirth": 1,
+        },
+    ).to_list(length=3000)
+
+    celebrants = []
+    celebrant_ids: list[str] = []
+    for user in users:
+        dob = _coerce_dob_to_date(user.get("dateOfBirth"))
+        if not dob:
+            continue
+        if dob.month == today.month and dob.day == today.day:
+            uid = str(user.get("_id"))
+            celebrant_ids.append(uid)
+            celebrants.append({
+                "id": uid,
+                "firstName": user.get("firstName", ""),
+                "lastName": user.get("lastName", ""),
+                "email": user.get("email", ""),
+                "currentLevel": user.get("currentLevel"),
+            })
+
+    active_session_docs = await db["sessions"].find(
+        {"isActive": True},
+        {"_id": 1},
+    ).to_list(length=10)
+    active_session_ids = [str(s["_id"]) for s in active_session_docs if s.get("_id")]
+
+    role_labels_by_user: dict[str, list[str]] = {}
+    if celebrant_ids:
+        role_query: dict = {
+            "userId": {"$in": celebrant_ids},
+            "isActive": True,
+        }
+        if active_session_ids:
+            role_query["sessionId"] = {"$in": active_session_ids}
+
+        role_docs = await db["roles"].find(
+            role_query,
+            {"userId": 1, "position": 1, "societyName": 1},
+        ).to_list(length=1500)
+
+        for role_doc in role_docs:
+            role_user_id = str(role_doc.get("userId") or "")
+            label = _format_role_position_label(
+                role_doc.get("position"),
+                role_doc.get("societyName"),
+            )
+            if not role_user_id or not label:
+                continue
+            role_labels_by_user.setdefault(role_user_id, []).append(label)
+
+        for role_user_id, labels in role_labels_by_user.items():
+            role_labels_by_user[role_user_id] = sorted(set(labels))
+
+    preview_items: list[dict] = []
+    for celebrant in celebrants:
+        uid = celebrant["id"]
+        first_name = celebrant.get("firstName", "")
+        full_name = f"{celebrant.get('firstName', '')} {celebrant.get('lastName', '')}".strip() or "Student"
+        role_labels = role_labels_by_user.get(uid, [])
+        role_appreciation = _build_role_appreciation(role_labels)
+        in_app_title = f"Happy Birthday, {first_name}! 🎂" if first_name else "Happy Birthday!"
+        in_app_message = (
+            "Wishing you a wonderful birthday from the entire IESA community! "
+            "Hope your day is as amazing as you are. 🎉"
+            + (f" {role_appreciation}" if role_appreciation else "")
+        )
+
+        preview_items.append({
+            "id": uid,
+            "name": full_name,
+            "email": celebrant.get("email", ""),
+            "currentLevel": celebrant.get("currentLevel"),
+            "activeRoles": role_labels,
+            "roleAppreciation": role_appreciation,
+            "inAppPreview": {
+                "title": in_app_title,
+                "message": in_app_message,
+            },
+            "emailPreview": {
+                "subject": "Happy Birthday from IESA",
+                "name": full_name,
+                "roleAppreciation": role_appreciation,
+            },
+        })
+
+    return {
+        "date": today.isoformat(),
+        "totalCelebrants": len(preview_items),
+        "items": preview_items,
     }
 
 

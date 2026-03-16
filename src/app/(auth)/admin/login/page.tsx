@@ -3,12 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { PasswordInput } from "@/components/ui/Input";
+import { AUTH_RETURN_TO_PARAM, sanitizeReturnToPath } from "@/lib/authRedirect";
 
 export default function AdminLoginPage() {
   const { signInWithEmail } = useAuth();
+  const searchParams = useSearchParams();
+  const returnTo = sanitizeReturnToPath(searchParams?.get(AUTH_RETURN_TO_PARAM));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -20,7 +24,7 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
-      await signInWithEmail(email, password);
+      await signInWithEmail(email, password, returnTo || undefined);
       toast.success("Welcome, Admin!", { description: "Redirecting to admin dashboard..." });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message || "Failed to login" : "Failed to login";

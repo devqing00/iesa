@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { usePermissions } from "@/context/PermissionsContext";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { toast } from "sonner";
 import {
@@ -101,7 +101,6 @@ function getPairMilestones(pair: MentorshipPair): { label: string; bg: string; t
 export default function TimpPage() {
   const { user } = useAuth();
   const { hasPermission, loading: permissionsLoading } = usePermissions();
-  const router = useRouter();
   const { showHelp, openHelp, closeHelp } = useToolHelp("timp");
   const [info, setInfo] = useState<MyTimpInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -141,13 +140,6 @@ export default function TimpPage() {
   useEffect(() => {
     if (user) fetchInfo();
   }, [user]);
-
-  useEffect(() => {
-    if (permissionsLoading) return;
-    if (hasPermission("timp:manage")) {
-      router.replace("/dashboard/timp/manage");
-    }
-  }, [hasPermission, permissionsLoading, router]);
 
   const fetchInfo = async () => {
     try {
@@ -282,7 +274,17 @@ export default function TimpPage() {
       <ToolHelpModal toolId="timp" isOpen={showHelp} onClose={closeHelp} />
 
       <div className="max-w-5xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8 space-y-8">
-        <div className="flex justify-end mb-3"><HelpButton onClick={openHelp} /></div>
+        <div className="flex items-center justify-end gap-2 mb-3">
+          {hasPermission("timp:manage") && (
+            <Link
+              href="/dashboard/timp/manage"
+              className="inline-flex items-center gap-1.5 bg-snow border-[3px] border-navy rounded-xl px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-slate hover:bg-cloud hover:text-navy transition-colors"
+            >
+              Manage TIMP
+            </Link>
+          )}
+          <HelpButton onClick={openHelp} />
+        </div>
         {/* ── Hero ── */}
         <div className="bg-teal border-4 border-navy rounded-3xl p-8 shadow-[6px_6px_0_0_#000] relative overflow-hidden">
           <div className="absolute -bottom-10 -right-10 w-36 h-36 rounded-full bg-navy/10 pointer-events-none" />

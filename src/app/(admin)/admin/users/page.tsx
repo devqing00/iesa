@@ -42,6 +42,7 @@ interface BirthdayUser {
   matricNumber?: string;
   currentLevel?: string;
   department?: string;
+  activeRoles?: string[];
   daysUntil: number;
   birthdayMonth: number;
   birthdayDay: number;
@@ -51,10 +52,18 @@ interface BirthdayUser {
 interface RoleAssignment {
   userId: string;
   position: string;
+  societyId?: string | null;
+  societyName?: string | null;
   isActive?: boolean;
   session?: {
     isActive?: boolean;
   };
+}
+
+interface AssignedRoleTag {
+  key: string;
+  position: string;
+  label: string;
 }
 
 const POSITION_LABELS: Record<string, string> = {
@@ -106,6 +115,14 @@ const EXEC_POSITIONS = new Set([
 
 function getPositionLabel(position: string): string {
   return POSITION_LABELS[position] || position.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function getRoleAssignmentLabel(role: Pick<RoleAssignment, "position" | "societyName">): string {
+  const base = getPositionLabel(role.position);
+  if (role.position === "iepod_hub_lead" && role.societyName) {
+    return `${base} (${role.societyName})`;
+  }
+  return base;
 }
 
 function getPositionBadge(position: string): string {
@@ -173,7 +190,7 @@ function AdminUsersPage() {
   const [bdLoading, setBdLoading] = useState(false);
   const [bdTotal, setBdTotal] = useState(0);
   const [bdPage, setBdPage] = useState(1);
-  const [activePositionsByUserId, setActivePositionsByUserId] = useState<Record<string, string[]>>({});
+  const [activePositionsByUserId, setActivePositionsByUserId] = useState<Record<string, AssignedRoleTag[]>>({});
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -227,15 +244,22 @@ function AdminUsersPage() {
         return;
       }
       const roles: RoleAssignment[] = await response.json();
-      const mapped: Record<string, string[]> = {};
+      const mapped: Record<string, AssignedRoleTag[]> = {};
 
       for (const role of roles) {
         if (!role?.userId || !role?.position) continue;
         if (role.isActive === false) continue;
         if (role.session?.isActive === false) continue;
         if (!mapped[role.userId]) mapped[role.userId] = [];
-        if (!mapped[role.userId].includes(role.position)) {
-          mapped[role.userId].push(role.position);
+        const roleKey = role.position === "iepod_hub_lead"
+          ? `${role.position}:${role.societyId || role.societyName || "__unspecified__"}`
+          : role.position;
+        if (!mapped[role.userId].some((entry) => entry.key === roleKey)) {
+          mapped[role.userId].push({
+            key: roleKey,
+            position: role.position,
+            label: getRoleAssignmentLabel(role),
+          });
         }
       }
 
@@ -567,7 +591,7 @@ function AdminUsersPage() {
             type="button"
             onClick={() => setUsersFiltersOpen((prev) => !prev)}
             className="px-5 py-3 bg-snow border-[3px] border-navy rounded-2xl text-navy text-sm font-bold press-3 press-black"
-            aria-expanded={usersFiltersOpen ? "true" : "false"}
+            aria-expanded={usersFiltersOpen}
           >
             Filters
           </button>
@@ -583,7 +607,7 @@ function AdminUsersPage() {
                 (() => {
                   const uid = u._id || u.id || "";
                   const assigned = activePositionsByUserId[uid] || [];
-                  if (assigned.length > 0) return assigned.map(getPositionLabel).join(" | ");
+                  if (assigned.length > 0) return assigned.map((item) => item.label).join(" | ");
                   if (u.role === "admin") return "admin";
                   if (u.role === "exco") return "exco";
                   return "student";
@@ -765,9 +789,9 @@ function AdminUsersPage() {
                           {(() => {
                             const uid = user._id || user.id || "";
                             const assigned = (activePositionsByUserId[uid] || []).filter(
-                              (position) => !["student", "admin", "super_admin"].includes(position)
+                              (entry) => !["student", "admin", "super_admin"].includes(entry.position)
                             );
-                            const hasExecutivePosition = assigned.some((position) => EXEC_POSITIONS.has(position));
+                            const hasExecutivePosition = assigned.some((entry) => EXEC_POSITIONS.has(entry.position));
 
                             const studentChip = (
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-lime-light text-navy">
@@ -776,7 +800,7 @@ function AdminUsersPage() {
                             );
 
                             const adminChip =
-                              user.role === "admin" || (activePositionsByUserId[uid] || []).some((position) => position === "admin" || position === "super_admin")
+                              user.role === "admin" || (activePositionsByUserId[uid] || []).some((entry) => entry.position === "admin" || entry.position === "super_admin")
                                 ? (
                                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-lavender-light text-lavender">
                                     admin
@@ -798,12 +822,12 @@ function AdminUsersPage() {
                                 {studentChip}
                                 {adminChip}
                                 {excoChip}
-                                {assigned.map((position) => (
+                                {assigned.map((entry) => (
                                   <span
-                                    key={position}
-                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold ${getPositionBadge(position)}`}
+                                    key={entry.key}
+                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-bold ${getPositionBadge(entry.position)}`}
                                   >
-                                    {getPositionLabel(position)}
+                                    {entry.label}
                                   </span>
                                 ))}
                               </>
@@ -902,7 +926,7 @@ function AdminUsersPage() {
                 type="button"
                 onClick={() => setBirthdaysFiltersOpen((prev) => !prev)}
                 className="px-5 py-3 bg-snow border-[3px] border-navy rounded-2xl text-navy text-sm font-bold press-3 press-black"
-                aria-expanded={birthdaysFiltersOpen ? "true" : "false"}
+                aria-expanded={birthdaysFiltersOpen}
               >
                 Filters
               </button>
@@ -1011,6 +1035,24 @@ function AdminUsersPage() {
                                 <div className="min-w-0">
                                   <p className="text-sm font-bold text-navy truncate">{item.firstName} {item.lastName}</p>
                                   <p className="text-xs text-slate truncate">{item.currentLevel || "Student"}{item.matricNumber ? ` • ${item.matricNumber}` : ""}</p>
+                                  {item.activeRoles && item.activeRoles.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                      {item.activeRoles.slice(0, 3).map((roleLabel) => (
+                                        <span
+                                          key={roleLabel}
+                                          className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-cloud text-navy"
+                                          title={roleLabel}
+                                        >
+                                          {roleLabel}
+                                        </span>
+                                      ))}
+                                      {item.activeRoles.length > 3 && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-ghost text-slate">
+                                          +{item.activeRoles.length - 3} more
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </td>
@@ -1190,7 +1232,7 @@ function AdminUsersPage() {
               <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Roles</p><p className="font-bold text-navy">{(() => {
                 const uid = selectedUser._id || selectedUser.id || "";
                 const assigned = activePositionsByUserId[uid] || [];
-                if (assigned.length > 0) return assigned.map(getPositionLabel).join(", ");
+                if (assigned.length > 0) return assigned.map((item) => item.label).join(", ");
                 return selectedUser.role || "—";
               })()}</p></div>
               <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Current Level</p><p className="font-bold text-navy">{selectedUser.currentLevel || "—"}</p></div>

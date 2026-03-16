@@ -14,7 +14,25 @@ import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 
 /* ─── Types ──────────────────────────────── */
 
-type TargetAudience = "all" | "ipe" | "external";
+type TargetAudience =
+  | "all"
+  | "ipe"
+  | "external"
+  | "exco_only"
+  | "team_leads_only"
+  | "class_rep_and_assistant"
+  | "specific_students"
+  | "specific_levels";
+
+interface RecipientOption {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  matricNumber?: string;
+  role?: string;
+  currentLevel?: string;
+}
 
 interface Announcement {
   _id: string;
@@ -23,6 +41,7 @@ interface Announcement {
   content: string;
   targetLevels: string[] | null;
   targetAudience?: TargetAudience;
+  targetUserIds?: string[];
   priority: "low" | "normal" | "high" | "urgent";
   isPinned: boolean;
   isPublished?: boolean;
@@ -41,6 +60,7 @@ interface FormState {
   priority: "low" | "normal" | "high" | "urgent";
   targetLevels: string[];
   targetAudience: TargetAudience;
+  targetUserIds: string[];
   isPinned: boolean;
   expiresAt: string;
   scheduledFor: string;
@@ -53,6 +73,7 @@ const EMPTY_FORM: FormState = {
   priority: "normal",
   targetLevels: [],
   targetAudience: "all",
+  targetUserIds: [],
   isPinned: false,
   expiresAt: "",
   scheduledFor: "",
@@ -63,6 +84,10 @@ const AUDIENCE_OPTIONS: { value: TargetAudience; label: string; desc: string }[]
   { value: "all", label: "All Students", desc: "Everyone sees this" },
   { value: "ipe", label: "IPE Only", desc: "Industrial Engineering students only" },
   { value: "external", label: "External Only", desc: "Students from other departments" },
+  { value: "exco_only", label: "EXCO Only", desc: "Send only to users with EXCO role" },
+  { value: "team_leads_only", label: "Team Leads Only", desc: "Send only to team leads" },
+  { value: "class_rep_and_assistant", label: "Class Reps + Assistants", desc: "Send to class reps and assistant class reps" },
+  { value: "specific_students", label: "Specific Students", desc: "Send only to selected students" },
 ];
 
 const LEVEL_OPTIONS = ["100L", "200L", "300L", "400L", "500L"];
@@ -94,6 +119,20 @@ function relativeTime(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function audienceBadge(targetAudience?: TargetAudience): { label: string; className: string } | null {
+  if (!targetAudience || targetAudience === "all") return null;
+  const map: Record<string, { label: string; className: string }> = {
+    ipe: { label: "IPE Only", className: "bg-lime-light text-navy" },
+    external: { label: "External Only", className: "bg-lavender-light text-lavender" },
+    exco_only: { label: "EXCO Only", className: "bg-coral-light text-coral" },
+    team_leads_only: { label: "Team Leads", className: "bg-teal-light text-teal" },
+    class_rep_and_assistant: { label: "Class Reps + Assist", className: "bg-sunny-light text-navy" },
+    specific_students: { label: "Specific Students", className: "bg-ghost text-navy" },
+    specific_levels: { label: "Specific Levels", className: "bg-cloud text-navy" },
+  };
+  return map[targetAudience] ?? { label: targetAudience, className: "bg-cloud text-navy" };
+}
+
 /* ─── Component ──────────────────────────── */
 
 function AdminAnnouncementsPage() {
@@ -116,6 +155,10 @@ function AdminAnnouncementsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+  const [recipientQuery, setRecipientQuery] = useState("");
+  const [recipientOptions, setRecipientOptions] = useState<RecipientOption[]>([]);
+  const [recipientLoading, setRecipientLoading] = useState(false);
+  const [selectedRecipients, setSelectedRecipients] = useState<RecipientOption[]>([]);
 
   /* ── Fetch ──────────────────────── */
 
@@ -155,12 +198,49 @@ function AdminAnnouncementsPage() {
     return () => clearTimeout(debounce);
   }, [fetchAnnouncements, searchQuery]);
 
+  useEffect(() => {
+    if (form.targetAudience !== "specific_students") {
+      setRecipientQuery("");
+      setRecipientOptions([]);
+      return;
+    }
+    const q = recipientQuery.trim();
+    if (q.length < 2) {
+      setRecipientOptions([]);
+      return;
+    }
+    const handle = setTimeout(async () => {
+      try {
+        setRecipientLoading(true);
+        const token = await getAccessToken();
+        const params = new URLSearchParams({ q, limit: "10" });
+        const res = await fetch(getApiUrl(`/api/v1/announcements/recipient-search?${params.toString()}`), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          setRecipientOptions([]);
+          return;
+        }
+        const data = await res.json();
+        setRecipientOptions(data.items ?? []);
+      } catch {
+        setRecipientOptions([]);
+      } finally {
+        setRecipientLoading(false);
+      }
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [form.targetAudience, recipientQuery, getAccessToken]);
+
   /* ── Create / Update ────────────── */
 
   const openCreate = () => {
     setEditingId(null);
     setForm(EMPTY_FORM);
     setFormErrors({});
+    setRecipientQuery("");
+    setRecipientOptions([]);
+    setSelectedRecipients([]);
     setModalOpen(true);
   };
 
@@ -172,16 +252,37 @@ function AdminAnnouncementsPage() {
       priority: a.priority,
       targetLevels: a.targetLevels ?? [],
       targetAudience: a.targetAudience ?? "all",
+      targetUserIds: a.targetUserIds ?? [],
       isPinned: a.isPinned,
       expiresAt: a.expiresAt ? a.expiresAt.slice(0, 16) : "",
       scheduledFor: a.scheduledFor ? a.scheduledFor.slice(0, 16) : "",
       sendEmail: a.sendEmail !== false,
     });
     setFormErrors({});
+    setRecipientQuery("");
+    setRecipientOptions([]);
+    setSelectedRecipients([]);
     setModalOpen(true);
   };
 
+  const addRecipient = (recipient: RecipientOption) => {
+    setForm((prev) => {
+      if (prev.targetUserIds.includes(recipient.id)) return prev;
+      return { ...prev, targetUserIds: [...prev.targetUserIds, recipient.id] };
+    });
+    setSelectedRecipients((prev) => (prev.some((u) => u.id === recipient.id) ? prev : [...prev, recipient]));
+  };
+
+  const removeRecipient = (userId: string) => {
+    setForm((prev) => ({ ...prev, targetUserIds: prev.targetUserIds.filter((id) => id !== userId) }));
+    setSelectedRecipients((prev) => prev.filter((u) => u.id !== userId));
+  };
+
   const handleSubmit = async () => {
+    if (form.targetAudience === "specific_students" && form.targetUserIds.length === 0) {
+      setFormErrors((prev) => ({ ...prev, targetUserIds: "Select at least one student" }));
+      return;
+    }
     const parsed = AnnouncementSchema.safeParse(form);
     if (!parsed.success) {
       setFormErrors(flattenZodErrors(parsed.error));
@@ -204,6 +305,7 @@ function AdminAnnouncementsPage() {
           priority: form.priority,
           targetLevels: form.targetLevels.length > 0 ? form.targetLevels : null,
           targetAudience: form.targetAudience,
+          targetUserIds: form.targetAudience === "specific_students" ? form.targetUserIds : [],
           isPinned: form.isPinned,
           expiresAt: form.expiresAt || null,
           scheduledFor: form.scheduledFor || null,
@@ -223,6 +325,7 @@ function AdminAnnouncementsPage() {
           sessionId: currentSession.id,
           targetLevels: form.targetLevels.length > 0 ? form.targetLevels : null,
           targetAudience: form.targetAudience,
+          targetUserIds: form.targetAudience === "specific_students" ? form.targetUserIds : [],
           isPinned: form.isPinned,
           expiresAt: form.expiresAt || null,
           scheduledFor: form.scheduledFor || null,
@@ -232,9 +335,11 @@ function AdminAnnouncementsPage() {
         const res = await fetch(getApiUrl("/api/v1/announcements/"), { method: "POST", headers, body: JSON.stringify(body) });
         if (!res.ok) await throwApiError(res, "create announcement");
         toast.success(
-          form.targetLevels.length > 0
-            ? `Announcement created for ${form.targetLevels.join(", ")}`
-            : "Announcement created for all students"
+          form.targetAudience === "specific_students"
+            ? `Announcement created for ${form.targetUserIds.length} selected student(s)`
+            : form.targetLevels.length > 0
+              ? `Announcement created for ${form.targetLevels.join(", ")}`
+              : "Announcement created"
         );
       }
 
@@ -242,6 +347,9 @@ function AdminAnnouncementsPage() {
       mutate("/api/v1/admin/stats");
       setModalOpen(false);
       setForm(EMPTY_FORM);
+      setRecipientQuery("");
+      setRecipientOptions([]);
+      setSelectedRecipients([]);
       setEditingId(null);
     } catch (err) {
       toast.error(getErrorMessage(err, "Failed to save announcement"));
@@ -419,6 +527,7 @@ function AdminAnnouncementsPage() {
               {announcements.map((a, idx) => {
                 const id = a.id || a._id;
                 const accentBorders = ["border-l-teal", "border-l-coral", "border-l-lavender", "border-l-sunny"];
+                const audience = audienceBadge(a.targetAudience);
                 return (
                   <div
                     key={id}
@@ -491,11 +600,14 @@ function AdminAnnouncementsPage() {
 
                     {/* Footer */}
                     <div className="mt-auto flex flex-wrap items-center gap-2 pt-4 border-t-[3px] border-navy/10">
-                      {a.targetAudience && a.targetAudience !== "all" && (
-                        <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold ${
-                          a.targetAudience === "ipe" ? "bg-lime-light text-navy" : "bg-lavender-light text-lavender"
-                        }`}>
-                          {a.targetAudience === "ipe" ? "IPE Only" : "External Only"}
+                      {audience && (
+                        <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold ${audience.className}`}>
+                          {audience.label}
+                        </span>
+                      )}
+                      {a.targetAudience === "specific_students" && (a.targetUserIds?.length ?? 0) > 0 && (
+                        <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-cloud text-navy/60">
+                          {a.targetUserIds?.length} selected
                         </span>
                       )}
                       {a.targetLevels && a.targetLevels.length > 0 ? (
@@ -521,7 +633,7 @@ function AdminAnnouncementsPage() {
       {/* ── Create / Edit Modal ───────── */}
       {modalOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-navy/50" onClick={() => { setModalOpen(false); setEditingId(null); setForm(EMPTY_FORM); setFormErrors({}); }} />
+          <div className="absolute inset-0 bg-navy/50" onClick={() => { setModalOpen(false); setEditingId(null); setForm(EMPTY_FORM); setFormErrors({}); setRecipientQuery(""); setRecipientOptions([]); setSelectedRecipients([]); }} />
 
           <div className="relative w-full max-w-lg max-h-[calc(100vh-2rem)] sm:max-h-[85vh] overflow-y-auto bg-snow rounded-3xl border-[3px] border-navy shadow-[4px_4px_0_0_#000] p-6 sm:p-8 space-y-6 flex flex-col">
             {/* Header */}
@@ -530,7 +642,7 @@ function AdminAnnouncementsPage() {
                 {editingId ? "Edit Announcement" : "New Announcement"}
               </h2>
               <button
-                onClick={() => { setModalOpen(false); setEditingId(null); setForm(EMPTY_FORM); setFormErrors({}); }}
+                onClick={() => { setModalOpen(false); setEditingId(null); setForm(EMPTY_FORM); setFormErrors({}); setRecipientQuery(""); setRecipientOptions([]); setSelectedRecipients([]); }}
                 className="p-2 rounded-xl hover:bg-cloud transition-colors"
                 aria-label="Close modal"
               >
@@ -597,7 +709,12 @@ function AdminAnnouncementsPage() {
                   <button
                     key={opt.value}
                     type="button"
-                    onClick={() => setForm((f) => ({ ...f, targetAudience: opt.value }))}
+                    onClick={() => setForm((f) => ({
+                      ...f,
+                      targetAudience: opt.value,
+                      targetLevels: ["all", "ipe", "external", "specific_levels"].includes(opt.value) ? f.targetLevels : [],
+                      targetUserIds: opt.value === "specific_students" ? f.targetUserIds : [],
+                    }))}
                     className={`px-4 py-2 rounded-xl text-xs font-bold border-[3px] transition-colors ${
                       form.targetAudience === opt.value
                         ? "bg-navy border-lime text-snow"
@@ -612,26 +729,79 @@ function AdminAnnouncementsPage() {
             </div>
 
             {/* Target Levels */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-bold text-navy">Target Levels</label>
-              <p className="text-xs text-slate">Leave empty to target all levels</p>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {LEVEL_OPTIONS.map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    onClick={() => toggleLevel(level)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold border-[3px] transition-colors ${
-                      form.targetLevels.includes(level)
-                        ? "bg-navy border-lime text-snow"
-                        : "border-navy/20 text-navy/60 hover:border-navy/40"
-                    }`}
-                  >
-                    {level}
-                  </button>
-                ))}
+            {["all", "ipe", "external", "specific_levels"].includes(form.targetAudience) && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-bold text-navy">Target Levels</label>
+                <p className="text-xs text-slate">Leave empty to target all levels</p>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {LEVEL_OPTIONS.map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => toggleLevel(level)}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold border-[3px] transition-colors ${
+                        form.targetLevels.includes(level)
+                          ? "bg-navy border-lime text-snow"
+                          : "border-navy/20 text-navy/60 hover:border-navy/40"
+                      }`}
+                    >
+                      {level}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {form.targetAudience === "specific_students" && (
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-navy">Select Students</label>
+                <input
+                  type="text"
+                  value={recipientQuery}
+                  onChange={(e) => {
+                    setRecipientQuery(e.target.value);
+                    setFormErrors((prev) => ({ ...prev, targetUserIds: undefined }));
+                  }}
+                  placeholder="Search by name, matric number, or email"
+                  className={`w-full px-4 py-3 rounded-2xl bg-ghost border-[3px] text-navy text-sm placeholder:text-slate transition-all ${formErrors.targetUserIds ? "border-coral" : "border-navy"}`}
+                />
+                {formErrors.targetUserIds && <p className="text-xs text-coral font-bold">{formErrors.targetUserIds}</p>}
+                {recipientLoading && <p className="text-xs text-slate">Searching students...</p>}
+                {!recipientLoading && recipientOptions.length > 0 && (
+                  <div className="max-h-36 overflow-y-auto rounded-2xl border-[2px] border-navy/20 bg-snow p-2 space-y-1">
+                    {recipientOptions.map((option) => {
+                      const selected = form.targetUserIds.includes(option.id);
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => addRecipient(option)}
+                          disabled={selected}
+                          className={`w-full text-left px-3 py-2 rounded-xl border-[2px] text-xs transition-colors ${selected ? "bg-cloud border-navy/20 text-slate" : "bg-ghost border-navy/15 hover:border-navy text-navy"}`}
+                        >
+                          <p className="font-bold">{option.firstName} {option.lastName}</p>
+                          <p className="text-slate">{option.email}{option.matricNumber ? ` · ${option.matricNumber}` : ""}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {form.targetUserIds.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {form.targetUserIds.map((userId) => (
+                      <span key={userId} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-cloud text-[11px] font-bold text-navy">
+                        {(() => {
+                          const selected = selectedRecipients.find((u) => u.id === userId);
+                          if (selected) return `${selected.firstName} ${selected.lastName}`.trim() || selected.email;
+                          return `${userId.slice(0, 8)}…`;
+                        })()}
+                        <button type="button" onClick={() => removeRecipient(userId)} className="text-coral hover:text-navy" aria-label="Remove recipient">×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Options Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -700,7 +870,7 @@ function AdminAnnouncementsPage() {
             {/* Actions */}
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
-                onClick={() => { setModalOpen(false); setEditingId(null); setForm(EMPTY_FORM); setFormErrors({}); }}
+                onClick={() => { setModalOpen(false); setEditingId(null); setForm(EMPTY_FORM); setFormErrors({}); setRecipientQuery(""); setRecipientOptions([]); setSelectedRecipients([]); }}
                 className="px-5 py-2.5 rounded-2xl border-[3px] border-navy text-sm font-bold text-navy hover:bg-cloud transition-colors"
               >
                 Cancel

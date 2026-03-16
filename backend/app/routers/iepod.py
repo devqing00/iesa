@@ -103,6 +103,66 @@ async def list_societies(
 ):
     """List campus societies linked to IEPOD."""
     db = get_database()
+    active_session = await db.sessions.find_one({"isActive": True}, {"_id": 1})
+    active_session_id = str(active_session["_id"]) if active_session and active_session.get("_id") else None
+
+    hub_lead_by_society: dict[str, dict] = {}
+    if active_session_id:
+        role_docs = await db.roles.find(
+            {
+                "sessionId": active_session_id,
+                "position": "iepod_hub_lead",
+                "isActive": True,
+                "societyId": {"$exists": True, "$ne": None},
+            },
+            {
+                "userId": 1,
+                "societyId": 1,
+                "societyName": 1,
+                "createdAt": 1,
+            },
+        ).to_list(length=500)
+
+        user_ids = [
+            ObjectId(str(r.get("userId")))
+            for r in role_docs
+            if r.get("userId") and ObjectId.is_valid(str(r.get("userId")))
+        ]
+        users_map: dict[str, dict] = {}
+        if user_ids:
+            users = await db.users.find(
+                {"_id": {"$in": user_ids}},
+                {"firstName": 1, "lastName": 1, "email": 1, "institutionalEmail": 1},
+            ).to_list(length=1000)
+            users_map = {str(u["_id"]): u for u in users}
+
+        for role_doc in role_docs:
+            society_id = str(role_doc.get("societyId") or "").strip()
+            user_id = str(role_doc.get("userId") or "").strip()
+            if not society_id or not user_id:
+                continue
+
+            existing = hub_lead_by_society.get(society_id)
+            existing_created = existing.get("_createdAt") if existing else None
+            created_at = role_doc.get("createdAt")
+            if existing and existing_created and created_at and existing_created > created_at:
+                continue
+
+            u = users_map.get(user_id)
+            full_name = ""
+            email = ""
+            if u:
+                full_name = f"{u.get('firstName', '')} {u.get('lastName', '')}".strip()
+                email = u.get("institutionalEmail") or u.get("email") or ""
+
+            hub_lead_by_society[society_id] = {
+                "userId": user_id,
+                "name": full_name,
+                "email": email,
+                "societyName": str(role_doc.get("societyName") or "").strip() or None,
+                "_createdAt": created_at,
+            }
+
     query = {"isActive": True} if active_only else {}
     cursor = db.iepod_societies.find(query).sort("name", 1)
     items = []
@@ -113,6 +173,19 @@ async def list_societies(
             {"societyId": str(doc["_id"]), "status": "approved"}
         )
         doc["memberCount"] = count
+        lead = hub_lead_by_society.get(doc["_id"])
+        if lead:
+            doc["hubLead"] = {
+                "userId": lead.get("userId"),
+                "name": lead.get("name") or "Unassigned",
+                "email": lead.get("email") or "",
+            }
+            doc["hubLeadName"] = lead.get("name") or None
+            doc["hubLeadEmail"] = lead.get("email") or None
+        else:
+            doc["hubLead"] = None
+            doc["hubLeadName"] = None
+            doc["hubLeadEmail"] = None
         items.append(doc)
     return items
 
@@ -1528,13 +1601,64 @@ async def get_iepod_stats(
         {"$group": {"_id": "$societyId", "count": {"$sum": 1}}},
     ]
     society_stats_raw = await db.iepod_registrations.aggregate(society_pipeline).to_list(100)
+
+    hub_roles = await db.roles.find(
+        {
+            "sessionId": session_id,
+            "position": "iepod_hub_lead",
+            "isActive": True,
+            "societyId": {"$exists": True, "$ne": None},
+        },
+        {"userId": 1, "societyId": 1, "createdAt": 1},
+    ).to_list(length=500)
+    hub_user_ids = [
+        ObjectId(str(r.get("userId")))
+        for r in hub_roles
+        if r.get("userId") and ObjectId.is_valid(str(r.get("userId")))
+    ]
+    hub_user_map: dict[str, dict] = {}
+    if hub_user_ids:
+        hub_users = await db.users.find(
+            {"_id": {"$in": hub_user_ids}},
+            {"firstName": 1, "lastName": 1, "email": 1, "institutionalEmail": 1},
+        ).to_list(length=1000)
+        hub_user_map = {str(u["_id"]): u for u in hub_users}
+
+    hub_by_society: dict[str, dict] = {}
+    for role_doc in hub_roles:
+        society_id = str(role_doc.get("societyId") or "").strip()
+        user_id = str(role_doc.get("userId") or "").strip()
+        if not society_id or not user_id:
+            continue
+        existing = hub_by_society.get(society_id)
+        existing_created = existing.get("_createdAt") if existing else None
+        created_at = role_doc.get("createdAt")
+        if existing and existing_created and created_at and existing_created > created_at:
+            continue
+
+        user_doc = hub_user_map.get(user_id)
+        full_name = ""
+        email = ""
+        if user_doc:
+            full_name = f"{user_doc.get('firstName', '')} {user_doc.get('lastName', '')}".strip()
+            email = user_doc.get("institutionalEmail") or user_doc.get("email") or ""
+
+        hub_by_society[society_id] = {
+            "name": full_name or None,
+            "email": email or None,
+            "_createdAt": created_at,
+        }
+
     society_stats = []
     for s in society_stats_raw:
         soc = await db.iepod_societies.find_one({"_id": _oid(s["_id"])})
+        lead = hub_by_society.get(str(s.get("_id") or ""))
         society_stats.append({
             "societyId": s["_id"],
             "societyName": soc["name"] if soc else "Unknown",
             "memberCount": s["count"],
+            "hubLeadName": lead.get("name") if lead else None,
+            "hubLeadEmail": lead.get("email") if lead else None,
         })
 
     return {

@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useSession } from "@/context/SessionContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useEffect, useState } from "react";
+import SignOutConfirmModal from "@/components/ui/SignOutConfirmModal";
 
 interface MobileNavLink {
   name: string;
@@ -23,6 +24,8 @@ export default function AdminMobileNav() {
   const { currentSession, allSessions } = useSession();
   const { hasPermission } = usePermissions();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<"operations" | "content" | "governance", boolean>>(() => {
     const fallback = { operations: true, content: false, governance: false };
     if (typeof window === "undefined") return fallback;
@@ -266,6 +269,16 @@ export default function AdminMobileNav() {
     });
   };
 
+  const handleConfirmSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      setSigningOut(false);
+      setShowSignOutConfirm(false);
+    }
+  };
+
   return (
     <>
       <nav aria-label="Mobile navigation" className="md:hidden fixed bottom-0 left-0 right-0 bg-snow border-t-[4px] border-navy z-50">
@@ -292,7 +305,7 @@ export default function AdminMobileNav() {
               setIsMenuOpen(nextOpen);
             }}
             aria-label="More options"
-            aria-expanded={isMenuOpen ? "true" : "false"}
+            aria-expanded={isMenuOpen}
             className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all ${
               isMenuOpen ? "text-navy bg-lime font-bold" : "text-slate hover:text-navy"
             }`}
@@ -426,7 +439,7 @@ export default function AdminMobileNav() {
               <button
                 onClick={() => {
                   setIsMenuOpen(false);
-                  signOut();
+                  setShowSignOutConfirm(true);
                 }}
                 className="w-full flex items-center gap-2.5 px-3 py-3 rounded-2xl text-sm font-bold text-coral hover:bg-coral-light transition-all"
               >
@@ -439,6 +452,13 @@ export default function AdminMobileNav() {
           </div>
         </div>
       )}
+
+      <SignOutConfirmModal
+        isOpen={showSignOutConfirm}
+        onClose={() => setShowSignOutConfirm(false)}
+        onConfirm={handleConfirmSignOut}
+        isLoading={signingOut}
+      />
     </>
   );
 }

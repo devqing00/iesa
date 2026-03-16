@@ -337,6 +337,12 @@ async def initialize_student_data(db, user: dict, level: str):
         }
         existing_anns = await db.announcements.find(ann_query).to_list(length=None)
         user_dept = user.get("department", "Industrial Engineering")
+        user_role = user.get("role", "student")
+        role_docs = await db.roles.find(
+            {"userId": user_id_str, "sessionId": session_id, "isActive": True},
+            {"position": 1},
+        ).to_list(length=None)
+        user_positions = [str(doc.get("position", "")) for doc in role_docs]
 
         for ann in existing_anns:
             ann_id = str(ann["_id"])
@@ -356,6 +362,18 @@ async def initialize_student_data(db, user: dict, level: str):
                 continue
             if target_audience == "external" and user_dept == "Industrial Engineering":
                 continue
+            if target_audience == "exco_only" and user_role != "exco":
+                continue
+            if target_audience == "team_leads_only":
+                if not any(pos.startswith("team_head_") or pos in {"ics_head", "academic_lead", "press_editor_in_chief"} for pos in user_positions):
+                    continue
+            if target_audience == "class_rep_and_assistant":
+                if not any(pos.startswith("class_rep_") or pos.startswith("asst_class_rep_") for pos in user_positions):
+                    continue
+            if target_audience == "specific_students":
+                target_ids = [str(uid) for uid in (ann.get("targetUserIds") or [])]
+                if user_id_str not in target_ids:
+                    continue
 
             # Skip if notification already exists
             existing_notif = await db.notifications.find_one(

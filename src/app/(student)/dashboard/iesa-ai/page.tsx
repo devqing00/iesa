@@ -35,6 +35,13 @@ interface ChatConversation {
   updatedAt: string;
 }
 
+interface AIUsage {
+  hourly_used: number;
+  hourly_limit: number;
+  daily_used: number;
+  daily_limit: number;
+}
+
 /* ═══════════════════════════════════════════
    Markdown formatter
 ═══════════════════════════════════════════ */
@@ -214,6 +221,7 @@ export default function IESAAIPage() {
   >([]);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [requestCount, setRequestCount] = useState(0);
+  const [usage, setUsage] = useState<AIUsage | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [conversationSearch, setConversationSearch] = useState("");
 
@@ -221,6 +229,7 @@ export default function IESAAIPage() {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const speechSynthRef = useRef<SpeechSynthesisUtterance | null>(null);
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const conversationSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // Tracks message count so scroll only fires when a new bubble is added,
   // not on every 30ms typing tick.
   const messagesLengthRef = useRef(0);
@@ -344,6 +353,9 @@ export default function IESAAIPage() {
       if (typingIntervalRef.current) {
         clearInterval(typingIntervalRef.current);
       }
+      if (conversationSyncTimeoutRef.current) {
+        clearTimeout(conversationSyncTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -382,51 +394,6 @@ export default function IESAAIPage() {
       scrollToBottom();
     }
   }, [messages, scrollToBottom]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("iesa-ai-conversations");
-    if (saved) {
-      try {
-        setConversations(JSON.parse(saved));
-      } catch {
-        /* silent */
-      }
-    }
-  }, []);
-
-  /* ── request count tracking (reset every hour) ── */
-  useEffect(() => {
-    const savedCount = localStorage.getItem("iesa-ai-request-count");
-    const savedTimestamp = localStorage.getItem("iesa-ai-request-timestamp");
-
-    if (savedCount && savedTimestamp) {
-      const hourAgo = Date.now() - 60 * 60 * 1000;
-      if (parseInt(savedTimestamp) > hourAgo) {
-        setRequestCount(parseInt(savedCount));
-      } else {
-        // Reset if over an hour old
-        localStorage.removeItem("iesa-ai-request-count");
-        localStorage.removeItem("iesa-ai-request-timestamp");
-        setRequestCount(0);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (messages.length > 0 && currentConversationId) {
-      // Use the ref so we always have fresh conversations without adding it to deps.
-      // Critically: do NOT call setConversations here — doing so on every messages
-      // change (e.g. every 30ms during typeMessage) causes cascading re-renders
-      // that exceed React's maximum update depth. Conversations state is updated
-      // explicitly in sendMessage / clearChat / loadConversation instead.
-      const updated = conversationsRef.current.map((conv) =>
-        conv.id === currentConversationId
-          ? { ...conv, messages, updatedAt: new Date().toISOString() }
-          : conv,
-      );
-      localStorage.setItem("iesa-ai-conversations", JSON.stringify(updated));
-    }
-  }, [messages, currentConversationId]);
 
   useEffect(() => {
     fetch(getApiUrl("/api/v1/iesa-ai/suggestions"))
@@ -473,6 +440,105 @@ export default function IESAAIPage() {
       ),
     );
   };
+
+  const syncConversationsToAccount = useCallback(
+    async (convs: ChatConversation[]) => {
+      try {
+        await fetch(getApiUrl("/api/v1/iesa-ai/conversations/sync"), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${await getAccessToken()}`,
+          },
+          body: JSON.stringify({ conversations: convs }),
+        });
+      } catch {
+        /* silent */
+      }
+    },
+    [getAccessToken],
+  );
+
+  const scheduleConversationSync = useCallback(
+    (convs: ChatConversation[]) => {
+      if (conversationSyncTimeoutRef.current) {
+        clearTimeout(conversationSyncTimeoutRef.current);
+      }
+      conversationSyncTimeoutRef.current = setTimeout(() => {
+        void syncConversationsToAccount(convs);
+      }, 700);
+    },
+    [syncConversationsToAccount],
+  );
+
+  const fetchUsage = useCallback(async () => {
+    try {
+      const res = await fetch(getApiUrl("/api/v1/iesa-ai/usage"), {
+        headers: {
+          Authorization: `Bearer ${await getAccessToken()}`,
+        },
+      });
+      if (!res.ok) return;
+      const data: AIUsage = await res.json();
+      setUsage(data);
+      setRequestCount(data.hourly_used ?? 0);
+    } catch {
+      /* silent */
+    }
+  }, [getAccessToken]);
+
+  useEffect(() => {
+    const loadConversations = async () => {
+      try {
+        const res = await fetch(getApiUrl("/api/v1/iesa-ai/conversations"), {
+          headers: {
+            Authorization: `Bearer ${await getAccessToken()}`,
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const serverConversations = Array.isArray(data?.conversations)
+            ? data.conversations
+            : [];
+          setConversations(serverConversations);
+          if (serverConversations.length > 0) {
+            setCurrentConversationId(serverConversations[0].id);
+          }
+          localStorage.setItem(
+            "iesa-ai-conversations",
+            JSON.stringify(serverConversations),
+          );
+          return;
+        }
+      } catch {
+        /* silent */
+      }
+
+      const saved = localStorage.getItem("iesa-ai-conversations");
+      if (saved) {
+        try {
+          setConversations(JSON.parse(saved));
+        } catch {
+          /* silent */
+        }
+      }
+    };
+
+    void loadConversations();
+    void fetchUsage();
+  }, [fetchUsage, getAccessToken]);
+
+  useEffect(() => {
+    if (messages.length > 0 && currentConversationId) {
+      const updated = conversationsRef.current.map((conv) =>
+        conv.id === currentConversationId
+          ? { ...conv, messages, updatedAt: new Date().toISOString() }
+          : conv,
+      );
+      localStorage.setItem("iesa-ai-conversations", JSON.stringify(updated));
+      scheduleConversationSync(updated);
+    }
+  }, [messages, currentConversationId, scheduleConversationSync]);
 
   /* ── typing animation ── */
   const typeMessage = (fullText: string, messageId: number, suggestions?: string[]) => {
@@ -532,6 +598,7 @@ export default function IESAAIPage() {
         "iesa-ai-conversations",
         JSON.stringify(updatedConvs),
       );
+      scheduleConversationSync(updatedConvs);
     }
 
     const userMessage: Message = {
@@ -545,11 +612,15 @@ export default function IESAAIPage() {
     setLoading(true);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
 
-    // Track request count
-    const count = requestCount + 1;
-    setRequestCount(count);
-    localStorage.setItem("iesa-ai-request-count", count.toString());
-    localStorage.setItem("iesa-ai-request-timestamp", Date.now().toString());
+    setRequestCount((prev) => prev + 1);
+    setUsage((prev) =>
+      prev
+        ? {
+            ...prev,
+            hourly_used: Math.min(prev.hourly_limit, prev.hourly_used + 1),
+          }
+        : prev,
+    );
 
     // Create AI message placeholder
     const aiMessageId = Date.now() + 1;
@@ -666,6 +737,7 @@ export default function IESAAIPage() {
       );
       setConversations(updated);
       localStorage.setItem("iesa-ai-conversations", JSON.stringify(updated));
+      scheduleConversationSync(updated);
     }
     const newId = Date.now().toString();
     const newConv: ChatConversation = {
@@ -679,6 +751,7 @@ export default function IESAAIPage() {
     setConversations(updatedConvs);
     setCurrentConversationId(newId);
     localStorage.setItem("iesa-ai-conversations", JSON.stringify(updatedConvs));
+    scheduleConversationSync(updatedConvs);
     setMessages([]);
     setLanguageLocked(false);
   };
@@ -696,6 +769,7 @@ export default function IESAAIPage() {
     const updated = conversations.filter((c) => c.id !== id);
     setConversations(updated);
     localStorage.setItem("iesa-ai-conversations", JSON.stringify(updated));
+    scheduleConversationSync(updated);
     if (currentConversationId === id) clearChat();
   };
 
@@ -745,7 +819,7 @@ export default function IESAAIPage() {
                   IESA AI
                 </h1>
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">
-                  Smart Assistant
+                  Smart Campus Assistant
                 </p>
               </div>
             </div>
@@ -757,9 +831,9 @@ export default function IESAAIPage() {
               {/* Token usage display */}
               <div
                 className={`flex items-center gap-1.5 px-2.5 py-1 border-[3px] border-navy rounded-xl ${
-                  requestCount >= 20
+                  requestCount >= (usage?.hourly_limit || 20)
                     ? "bg-coral-light"
-                    : requestCount >= 15
+                    : requestCount >= Math.max(1, Math.floor((usage?.hourly_limit || 20) * 0.75))
                       ? "bg-sunny-light"
                       : "bg-lavender-light"
                 }`}
@@ -773,7 +847,7 @@ export default function IESAAIPage() {
                   <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
                 </svg>
                 <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-navy">
-                  {requestCount}/20
+                  {requestCount}/{usage?.hourly_limit || 20}
                 </span>
               </div>
               <button
@@ -788,7 +862,7 @@ export default function IESAAIPage() {
                   <path d="M3.505 2.365A41.369 41.369 0 019 2c1.863 0 3.697.124 5.495.365 1.247.167 2.18 1.108 2.435 2.268a4.45 4.45 0 00-.577-.069 43.141 43.141 0 00-4.706 0C9.229 4.696 7.5 6.727 7.5 8.998v2.24c0 1.413.67 2.735 1.76 3.562l-2.98 2.98A.75.75 0 015 17.25v-3.443c-.501-.048-1-.106-1.495-.172C2.033 13.438 1 12.162 1 10.72V5.28c0-1.441 1.033-2.717 2.505-2.914z" />
                   <path d="M14 6c.762 0 1.52.02 2.272.062 1.21.068 2.228 1.024 2.228 2.236v2.12c0 1.213-1.018 2.168-2.228 2.236a41.29 41.29 0 01-1.522.062l-2.97 2.97a.75.75 0 01-1.28-.53V14.5a41.075 41.075 0 01-1.005-.064c-1.21-.068-2.228-1.022-2.228-2.236V8.298c0-1.212 1.018-2.168 2.228-2.236A41.148 41.148 0 0114 6z" />
                 </svg>
-                Chats ({conversations.length})
+                Chats
               </button>
               <button
                 onClick={clearChat}
@@ -821,7 +895,7 @@ export default function IESAAIPage() {
                         ?.flag
                     }
                   </span>
-                  <span>
+                  <span className="hidden lg:inline">
                     {
                       LANGUAGE_OPTIONS.find((l) => l.code === responseLanguage)
                         ?.label
@@ -895,27 +969,24 @@ export default function IESAAIPage() {
                   </>
                 )}
               </div>
-              {messages.length > 0 && (
-                <button
-                  onClick={exportChat}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-snow border-[3px] border-navy rounded-xl font-bold text-[10px] text-navy/60 uppercase tracking-[0.08em] hover:bg-cloud transition-colors"
-                  title="Export conversation"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
-                    <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
-                  </svg>
-                  Export
-                </button>
-              )}
             </div>
 
             {/* mobile menu trigger (<md) */}
             <div className="flex md:hidden items-center gap-2">
+              <div
+                className={`flex items-center gap-1 px-2 py-1 border-[2px] border-navy rounded-lg ${
+                  requestCount >= (usage?.hourly_limit || 20)
+                    ? "bg-coral-light"
+                    : requestCount >= Math.max(1, Math.floor((usage?.hourly_limit || 20) * 0.75))
+                      ? "bg-sunny-light"
+                      : "bg-lavender-light"
+                }`}
+                title="Messages sent this hour"
+              >
+                <span className="text-[10px] font-bold text-navy">
+                  {requestCount}/{usage?.hourly_limit || 20}
+                </span>
+              </div>
               {/* language flag quick-access on mobile */}
               <span className="text-sm">
                 {

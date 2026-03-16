@@ -16,7 +16,15 @@ interface Announcement {
   content: string;
   category: string;
   priority: string;
-  targetAudience?: "all" | "ipe" | "external";
+  targetAudience?:
+    | "all"
+    | "ipe"
+    | "external"
+    | "exco_only"
+    | "team_leads_only"
+    | "class_rep_and_assistant"
+    | "specific_students"
+    | "specific_levels";
   authorName?: string;
   author?: {
     firstName: string;
@@ -447,9 +455,27 @@ function AnnouncementsContent() {
                             <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold ${
                               announcement.targetAudience === "ipe"
                                 ? "bg-lime-light text-navy"
-                                : "bg-lavender-light text-lavender"
+                                : announcement.targetAudience === "external"
+                                  ? "bg-lavender-light text-lavender"
+                                  : announcement.targetAudience === "exco_only"
+                                    ? "bg-coral-light text-coral"
+                                    : announcement.targetAudience === "team_leads_only"
+                                      ? "bg-teal-light text-teal"
+                                      : "bg-cloud text-navy"
                             }`}>
-                              {announcement.targetAudience === "ipe" ? "IPE" : "External"}
+                              {announcement.targetAudience === "ipe"
+                                ? "IPE"
+                                : announcement.targetAudience === "external"
+                                  ? "External"
+                                  : announcement.targetAudience === "exco_only"
+                                    ? "EXCO"
+                                    : announcement.targetAudience === "team_leads_only"
+                                      ? "Team Leads"
+                                      : announcement.targetAudience === "class_rep_and_assistant"
+                                        ? "Class Reps"
+                                        : announcement.targetAudience === "specific_students"
+                                          ? "Selected"
+                                          : "Targeted"}
                             </span>
                             <span className="text-navy/15">|</span>
                           </>

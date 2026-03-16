@@ -177,6 +177,21 @@ const toolIcons: Record<string, React.ReactNode> = {
   ),
 };
 
+function renderToolTitleWithBrush(title: string) {
+  const words = title.trim().split(/\s+/);
+  if (words.length < 2) return title;
+
+  const leading = words.slice(0, -1).join(" ");
+  const emphasized = words[words.length - 1];
+
+  return (
+    <>
+      {leading}{" "}
+      <span className="brush-highlight">{emphasized}</span>
+    </>
+  );
+}
+
 /* ─── Component ─────────────────────────────────────────────────── */
 
 export default function GrowthPage() {
@@ -575,7 +590,9 @@ export default function GrowthPage() {
                         <span className={tool.color.iconText}>{toolIcons[tool.id]}</span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-display font-black text-lg text-navy mb-1">{tool.title}</h3>
+                        <h3 className="font-display font-black text-lg text-navy mb-1">
+                          {renderToolTitleWithBrush(tool.title)}
+                        </h3>
                         <p className="text-sm text-navy/50 mb-3">{tool.desc}</p>
                         <span className="text-[10px] font-bold text-slate uppercase tracking-wider">
                           {getToolStats(tool.id)}

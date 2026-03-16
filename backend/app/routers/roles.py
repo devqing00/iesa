@@ -19,10 +19,39 @@ from app.core.permissions import (
 )
 from app.core.audit import AuditLogger
 from app.models.role import Role, RoleCreate, RoleUpdate
+from app.models.team_application import TEAM_LABELS, TEAM_TO_HEAD_POSITION
 from app.models.user import User
 from app.db import get_database
 
 router = APIRouter(prefix="/api/v1/roles", tags=["roles"])
+
+MULTI_HOLDER_POSITIONS = {"super_admin", "admin"}
+SOCIETY_SCOPED_POSITIONS = {"iepod_hub_lead"}
+
+
+async def _resolve_role_scope(db, position: str, society_id: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    """Resolve and validate role scope metadata."""
+    normalized_position = str(position or "").strip()
+    if normalized_position not in SOCIETY_SCOPED_POSITIONS:
+        return None, None
+
+    scoped_society_id = (society_id or "").strip()
+    if not scoped_society_id:
+        raise HTTPException(
+            status_code=400,
+            detail="This position requires a society selection",
+        )
+    if not ObjectId.is_valid(scoped_society_id):
+        raise HTTPException(status_code=400, detail="Invalid society ID")
+
+    society = await db["iepod_societies"].find_one(
+        {"_id": ObjectId(scoped_society_id)},
+        {"name": 1},
+    )
+    if not society:
+        raise HTTPException(status_code=404, detail="Selected society was not found")
+
+    return scoped_society_id, str(society.get("name") or "").strip() or "Unknown Society"
 
 
 # ── Permission catalogue endpoints ───────────────────────────────
@@ -106,10 +135,42 @@ async def create_role(
                 detail=f"Invalid permission keys: {', '.join(sorted(invalid_perms))}"
             )
     
-    # Positions that allow multiple holders (admin roles)
-    MULTI_HOLDER_POSITIONS = {"super_admin", "admin"}
+    scoped_society_id, scoped_society_name = await _resolve_role_scope(
+        db,
+        role.position,
+        role.societyId,
+    )
     
-    if role.position not in MULTI_HOLDER_POSITIONS:
+    if role.position in SOCIETY_SCOPED_POSITIONS:
+        existing = await roles.find_one({
+            "sessionId": role.sessionId,
+            "position": role.position,
+            "societyId": scoped_society_id,
+            "isActive": True,
+        })
+        if existing:
+            if existing.get("userId") == role.userId:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"This user is already assigned '{role.position}' for "
+                        f"{scoped_society_name} in session {session['name']}"
+                    ),
+                )
+            current_holder = await users.find_one({"_id": ObjectId(existing["userId"])})
+            holder_name = (
+                f"{current_holder.get('firstName', '')} {current_holder.get('lastName', '')}"
+                if current_holder
+                else "Unknown"
+            )
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Position '{role.position}' is already held by {holder_name} "
+                    f"for {scoped_society_name} in session {session['name']}"
+                ),
+            )
+    elif role.position not in MULTI_HOLDER_POSITIONS:
         # Check if position already filled for this session
         existing = await roles.find_one({
             "sessionId": role.sessionId,
@@ -149,6 +210,8 @@ async def create_role(
     # Create role assignment
     role_data = role.model_dump()
     role_data["permissions"] = normalized_role_permissions
+    role_data["societyId"] = scoped_society_id
+    role_data["societyName"] = scoped_society_name
     role_data["assignedAt"] = datetime.now(timezone.utc)
     role_data["assignedBy"] = current_user.get("_id") or str(current_user.get("id", ""))
     role_data["isActive"] = True
@@ -506,11 +569,20 @@ async def update_role(
             )
         update_data["permissions"] = normalized_permissions
     
+    target_position = update_data.get("position", existing.get("position"))
+    requested_society_id = update_data.get("societyId", existing.get("societyId"))
+    scoped_society_id, scoped_society_name = await _resolve_role_scope(
+        db,
+        target_position,
+        requested_society_id,
+    )
+
     # If changing position, check if new position is available
-    if "position" in update_data:
+    if target_position in SOCIETY_SCOPED_POSITIONS:
         conflict = await roles.find_one({
             "sessionId": existing["sessionId"],
-            "position": update_data["position"],
+            "position": target_position,
+            "societyId": scoped_society_id,
             "isActive": True,
             "_id": {"$ne": ObjectId(role_id)}
         })
@@ -518,12 +590,35 @@ async def update_role(
             if conflict.get("userId") == existing.get("userId"):
                 raise HTTPException(
                     status_code=409,
-                    detail=f"This user is already assigned '{update_data['position']}' in this session"
+                    detail=(
+                        f"This user is already assigned '{target_position}' "
+                        f"for {scoped_society_name} in this session"
+                    )
                 )
             raise HTTPException(
                 status_code=400,
-                detail=f"Position '{update_data['position']}' is already filled"
+                detail=f"Position '{target_position}' is already filled for {scoped_society_name}"
             )
+    elif "position" in update_data:
+        conflict = await roles.find_one({
+            "sessionId": existing["sessionId"],
+            "position": target_position,
+            "isActive": True,
+            "_id": {"$ne": ObjectId(role_id)}
+        })
+        if conflict:
+            if conflict.get("userId") == existing.get("userId"):
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"This user is already assigned '{target_position}' in this session"
+                )
+            raise HTTPException(
+                status_code=400,
+                detail=f"Position '{target_position}' is already filled"
+            )
+
+    update_data["societyId"] = scoped_society_id
+    update_data["societyName"] = scoped_society_name
     
     update_data["updatedAt"] = datetime.now(timezone.utc)
     
@@ -744,6 +839,77 @@ async def get_public_committees():
             }
 
     return [committees[p] for p in committee_positions if p in committees]
+
+
+@router.get("/public/teams-leads")
+async def get_public_teams_leads():
+    """
+    Public endpoint: Get all teams and their current leads for the active session.
+    Returns team labels and lead public profile (name + email) when assigned.
+    """
+    db = get_database()
+    roles_collection = db["roles"]
+    sessions = db["sessions"]
+
+    active_session = await sessions.find_one({"isActive": True})
+    if not active_session:
+        return []
+    session_id = str(active_session["_id"])
+
+    head_positions = [pos for pos in TEAM_TO_HEAD_POSITION.values() if pos]
+    lead_roles = await roles_collection.find({
+        "sessionId": session_id,
+        "isActive": True,
+        "position": {"$in": head_positions},
+    }).to_list(length=500)
+
+    role_by_position = {r["position"]: r for r in lead_roles}
+
+    custom_units = await db["custom_units"].find(
+        {"isActive": True, "isStatic": {"$ne": True}},
+        {"slug": 1, "label": 1, "headUserId": 1},
+    ).to_list(length=200)
+
+    team_rows = []
+    user_ids = []
+
+    for team_slug, team_label in TEAM_LABELS.items():
+        head_position = TEAM_TO_HEAD_POSITION.get(team_slug)
+        role_doc = role_by_position.get(head_position) if head_position else None
+        lead_user_id = role_doc.get("userId") if role_doc else None
+        if lead_user_id:
+            user_ids.append(lead_user_id)
+        team_rows.append({
+            "team": team_slug,
+            "teamLabel": team_label,
+            "isCustom": False,
+            "leadUserId": lead_user_id,
+        })
+
+    for custom in custom_units:
+        lead_user_id = custom.get("headUserId")
+        if lead_user_id:
+            user_ids.append(lead_user_id)
+        team_rows.append({
+            "team": custom.get("slug", ""),
+            "teamLabel": custom.get("label", custom.get("slug", "")),
+            "isCustom": True,
+            "leadUserId": lead_user_id,
+        })
+
+    user_map = await _batch_users(db, user_ids, _USER_FIELDS_PUBLIC)
+
+    result = []
+    for row in team_rows:
+        lead = _user_info(user_map, row.get("leadUserId") or "", public=True) if row.get("leadUserId") else None
+        result.append({
+            "team": row["team"],
+            "teamLabel": row["teamLabel"],
+            "isCustom": row["isCustom"],
+            "lead": lead,
+        })
+
+    return result
 
 
 @router.get("/public/class-reps")

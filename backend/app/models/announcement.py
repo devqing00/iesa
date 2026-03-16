@@ -12,7 +12,16 @@ from bson import ObjectId
 
 
 PriorityLevel = Literal["low", "normal", "high", "urgent"]
-TargetAudience = Literal["all", "ipe", "external"]
+TargetAudience = Literal[
+    "all",
+    "ipe",
+    "external",
+    "exco_only",
+    "team_leads_only",
+    "class_rep_and_assistant",
+    "specific_students",
+    "specific_levels",  # legacy class-rep value
+]
 
 
 class AnnouncementBase(BaseModel):
@@ -22,6 +31,7 @@ class AnnouncementBase(BaseModel):
     priority: PriorityLevel = Field(default="normal")
     targetLevels: Optional[List[str]] = Field(None, description="Specific levels to show to (null = all)")
     targetAudience: TargetAudience = Field(default="all", description="Who sees this: all, ipe (IPE only), external (external depts only)")
+    targetUserIds: Optional[List[str]] = Field(None, description="Specific user IDs to target when targetAudience is specific_students")
     isPinned: bool = Field(default=False, description="Pinned announcements appear at top")
     expiresAt: Optional[datetime] = Field(None, description="Auto-hide after this date")
     scheduledFor: Optional[datetime] = Field(None, description="Publish at this time (null = publish immediately)")
@@ -55,6 +65,7 @@ class AnnouncementUpdate(BaseModel):
     priority: Optional[PriorityLevel] = None
     targetLevels: Optional[List[str]] = None
     targetAudience: Optional[TargetAudience] = None
+    targetUserIds: Optional[List[str]] = None
     isPinned: Optional[bool] = None
     expiresAt: Optional[datetime] = None
     scheduledFor: Optional[datetime] = None

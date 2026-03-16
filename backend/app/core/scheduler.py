@@ -34,6 +34,60 @@ except ImportError:
 _scheduler: "AsyncIOScheduler | None" = None
 
 
+_ROLE_LABELS = {
+    "president": "President",
+    "vice_president": "Vice President",
+    "general_secretary": "General Secretary",
+    "assistant_general_secretary": "Asst. General Secretary",
+    "treasurer": "Treasurer",
+    "social_director": "Social Director",
+    "sports_secretary": "Sports Secretary",
+    "assistant_sports_secretary": "Asst. Sports Secretary",
+    "pro": "Public Relations Officer",
+    "financial_secretary": "Financial Secretary",
+    "director_of_socials": "Director of Socials",
+    "director_of_sports": "Director of Sports",
+    "press_editor_in_chief": "Press Editor-in-Chief",
+    "press_member": "Press Member",
+    "press_niche_editor": "Press Niche Editor",
+    "press_pro": "Press PRO",
+    "timp_lead": "TIMP Lead",
+    "timp_mentor": "TIMP Mentor",
+    "timp_mentee": "TIMP Mentee",
+    "iepod_hub_director": "IEPOD Hub Director",
+    "iepod_hub_lead": "IEPOD Hub Lead",
+    "iepod_conference_lead": "IEPOD Conference Lead",
+    "iepod_program_coordinator": "IEPOD Program Coordinator",
+    "iepod_communications_officer": "IEPOD Communications Officer",
+}
+
+
+def _format_position_label(position: str, society_name: str | None = None) -> str:
+    if not position:
+        return "Role"
+    if position.startswith("class_rep_"):
+        level = position.replace("class_rep_", "").upper()
+        return f"{level} Class Rep"
+    base_label = _ROLE_LABELS.get(position, position.replace("_", " ").title())
+    if position == "iepod_hub_lead" and society_name:
+        return f"{base_label} ({society_name})"
+    return base_label
+
+
+def _build_role_appreciation(role_labels: list[str]) -> str | None:
+    labels = [label for label in role_labels if label]
+    if not labels:
+        return None
+    if len(labels) == 1:
+        return f"Thank you for serving as {labels[0]}."
+    if len(labels) == 2:
+        return f"Thank you for serving as {labels[0]} and {labels[1]}."
+    return (
+        f"Thank you for serving as {labels[0]}, {labels[1]}, "
+        f"and {len(labels) - 2} other role{'s' if len(labels) - 2 > 1 else ''}."
+    )
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # JOB 1 — Birthday Wishes
 # ─────────────────────────────────────────────────────────────────────────────
@@ -100,6 +154,28 @@ async def birthday_wishes() -> None:
         ).to_list(length=10)
         active_session_ids = [str(s["_id"]) for s in active_sessions if s.get("_id")]
 
+        celebrant_ids = [str(u["_id"]) for u in celebrants if u.get("_id")]
+        role_map: dict[str, list[str]] = {uid: [] for uid in celebrant_ids}
+        if celebrant_ids and active_session_ids:
+            role_docs = await db["roles"].find(
+                {
+                    "userId": {"$in": celebrant_ids},
+                    "sessionId": {"$in": active_session_ids},
+                    "isActive": True,
+                },
+                {"userId": 1, "position": 1, "societyName": 1},
+            ).to_list(length=1500)
+            for role_doc in role_docs:
+                role_uid = str(role_doc.get("userId") or "")
+                position = str(role_doc.get("position") or "").strip()
+                if not role_uid or not position:
+                    continue
+                role_map.setdefault(role_uid, []).append(
+                    _format_position_label(position, role_doc.get("societyName"))
+                )
+            for uid, labels in role_map.items():
+                role_map[uid] = sorted(set(labels))
+
         logger.info(
             "[Scheduler] birthday_wishes: %d birthday(s) on %02d-%02d",
             len(celebrants), month, day,
@@ -155,6 +231,7 @@ async def birthday_wishes() -> None:
             first_name = user.get("firstName", "")
             full_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip() or "Student"
             greeting = f"Happy Birthday, {first_name}! 🎂" if first_name else "Happy Birthday!"
+            role_appreciation = _build_role_appreciation(role_map.get(user_id, []))
 
             due_reminder = None
             if active_session_ids:
@@ -188,6 +265,7 @@ async def birthday_wishes() -> None:
                     message=(
                         "Wishing you a wonderful birthday from the entire IESA community! "
                         "Hope your day is as amazing as you are. 🎉"
+                        + (f" {role_appreciation}" if role_appreciation else "")
                         + (f" {due_reminder}" if due_reminder else "")
                     ),
                     link="/dashboard",
@@ -205,6 +283,7 @@ async def birthday_wishes() -> None:
                         await send_birthday_email(
                             to=email,
                             name=full_name,
+                            role_appreciation=role_appreciation,
                             due_reminder=due_reminder,
                             dashboard_url="https://iesa-ui.vercel.app/dashboard",
                         )

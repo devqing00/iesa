@@ -9,6 +9,7 @@ import { usePermissions } from "@/context/PermissionsContext";
 import { useDM } from "@/context/DMContext";
 import { useNotificationCount } from "@/hooks/useNotificationCount";
 import { isExternalStudent, EXTERNAL_HIDDEN_HREFS, hasAdminAccess, isRouteAllowedForExternal } from "@/lib/studentAccess";
+import SignOutConfirmModal from "@/components/ui/SignOutConfirmModal";
 
 interface MobileNavLink {
   name: string;
@@ -29,6 +30,8 @@ export default function MobileNav() {
   const { totalUnread } = useDM();
   const { unreadCount: notifUnread } = useNotificationCount();
   const [showMore, setShowMore] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<"academics" | "community" | "leadership", boolean>>(() => {
     const fallback = { academics: true, community: false, leadership: false };
     if (typeof window === "undefined") return fallback;
@@ -301,6 +304,16 @@ export default function MobileNav() {
     });
   };
 
+  const handleConfirmSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      setSigningOut(false);
+      setShowSignOutConfirm(false);
+    }
+  };
+
   return (
     <>
       {/* More menu overlay */}
@@ -424,7 +437,7 @@ export default function MobileNav() {
               <button
                 onClick={() => {
                   setShowMore(false);
-                  signOut();
+                  setShowSignOutConfirm(true);
                 }}
                 className="w-full flex items-center gap-2.5 px-3 py-3 rounded-2xl text-sm font-bold text-coral hover:bg-coral-light transition-all"
               >
@@ -478,6 +491,13 @@ export default function MobileNav() {
           </button>
         </div>
       </nav>
+
+      <SignOutConfirmModal
+        isOpen={showSignOutConfirm}
+        onClose={() => setShowSignOutConfirm(false)}
+        onConfirm={handleConfirmSignOut}
+        isLoading={signingOut}
+      />
     </>
   );
 }

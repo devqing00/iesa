@@ -14,6 +14,7 @@ import {
 } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
 import { getApiUrl, setTokenGetter } from "@/lib/api";
+import { sanitizeReturnToPath } from "@/lib/authRedirect";
 
 // ──────────────────────────────────────────────
 // Types
@@ -53,8 +54,8 @@ interface AuthContextType {
   userProfile: UserProfile | null; // alias for backward compat
   loading: boolean;
   firebaseUser: FirebaseUser | null;
-  signInWithEmail: (email: string, password: string) => Promise<void>;
-  signInWithGoogle: () => Promise<boolean>;
+  signInWithEmail: (email: string, password: string, redirectTo?: string) => Promise<void>;
+  signInWithGoogle: (redirectTo?: string) => Promise<boolean>;
   signUpWithEmail: (
     email: string,
     password: string,
@@ -68,7 +69,8 @@ interface AuthContextType {
       role?: string;
       department?: string;
       dateOfBirth?: string;
-    }
+    },
+    redirectTo?: string
   ) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -190,6 +192,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [getAccessToken]);
 
+  const getDefaultPostAuthPath = useCallback((profile: UserProfile | null) => {
+    if (!profile) return "/dashboard";
+    return profile.role === "admin" || profile.role === "exco"
+      ? "/admin/dashboard"
+      : "/dashboard";
+  }, []);
+
+  const resolvePostAuthPath = useCallback((profile: UserProfile | null, redirectTo?: string) => {
+    return sanitizeReturnToPath(redirectTo) || getDefaultPostAuthPath(profile);
+  }, [getDefaultPostAuthPath]);
+
   /**
    * Send profile data to backend after Firebase account creation.
    * Idempotent — safe to call multiple times.
@@ -273,7 +286,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // ─── Auth methods ────────────────────────────
 
-  const signInWithEmail = useCallback(async (email: string, password: string) => {
+  const signInWithEmail = useCallback(async (email: string, password: string, redirectTo?: string) => {
     let credential;
     try {
       credential = await signInWithEmailAndPassword(auth, email, password);
@@ -299,10 +312,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const normalized = { ...profile, id: profile._id || profile.id };
     setUser(normalized);
 
-    router.push("/dashboard");
-  }, [router]);
+    router.push(resolvePostAuthPath(normalized, redirectTo));
+  }, [router, resolvePostAuthPath]);
 
-  const signInWithGoogle = useCallback(async (): Promise<boolean> => {
+  const signInWithGoogle = useCallback(async (redirectTo?: string): Promise<boolean> => {
     let credential;
     try {
       credential = await signInWithPopup(auth, googleProvider);
@@ -322,10 +335,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const profile = await fetchUserProfile();
     if (profile) {
       setUser(profile);
-      router.push("/dashboard");
+      router.push(resolvePostAuthPath(profile, redirectTo));
     }
     return true;
-  }, [router, registerProfile, fetchUserProfile]);
+  }, [router, registerProfile, fetchUserProfile, resolvePostAuthPath]);
 
   const signUpWithEmail = useCallback(
     async (
@@ -341,7 +354,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         role?: string;
         department?: string;
         dateOfBirth?: string;
-      }
+      },
+      redirectTo?: string
     ) => {
       let credential;
       try {
@@ -364,10 +378,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const profile = await fetchUserProfile();
       if (profile) {
         setUser(profile);
-        router.push("/dashboard");
+        router.push(resolvePostAuthPath(profile, redirectTo));
       }
     },
-    [router, registerProfile, fetchUserProfile]
+    [router, registerProfile, fetchUserProfile, resolvePostAuthPath]
   );
 
   const handleSignOut = useCallback(async () => {

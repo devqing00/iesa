@@ -9,6 +9,7 @@ import { useSession } from "@/context/SessionContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { prefetchRoute } from "@/hooks/useData";
 import { useMemo, useState } from "react";
+import SignOutConfirmModal from "@/components/ui/SignOutConfirmModal";
 
 /* ─── Admin Nav Group Definitions ──────────────────────────────── */
 
@@ -212,6 +213,8 @@ export default function AdminSidebar() {
   const { hasPermission } = usePermissions();
   const activeSession = allSessions.find(s => s.isActive) ?? currentSession;
   const [manualOpenGroup, setManualOpenGroup] = useState<string | null>(null);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   const visibleGroups = useMemo(
     () => navGroups
@@ -233,6 +236,16 @@ export default function AdminSidebar() {
     [pathname, visibleGroups],
   );
   const openGroup = manualOpenGroup ?? activeGroupLabel ?? visibleGroups[0]?.label ?? null;
+
+  const handleConfirmSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      setSigningOut(false);
+      setShowSignOutConfirm(false);
+    }
+  };
 
   return (
     <>
@@ -399,7 +412,7 @@ export default function AdminSidebar() {
         {/* Sign Out */}
         <div className="p-2.5 mt-auto">
           <button
-            onClick={signOut}
+            onClick={() => setShowSignOutConfirm(true)}
             title={!isExpanded ? "Sign Out" : undefined}
             className={`w-full flex items-center gap-3 rounded-xl text-coral hover:bg-coral-light border-[2px] border-transparent hover:border-coral transition-all text-sm font-bold ${
               isExpanded ? "px-3 py-2.5" : "justify-center px-2 py-2.5"
@@ -412,6 +425,13 @@ export default function AdminSidebar() {
           </button>
         </div>
       </aside>
+
+      <SignOutConfirmModal
+        isOpen={showSignOutConfirm}
+        onClose={() => setShowSignOutConfirm(false)}
+        onConfirm={handleConfirmSignOut}
+        isLoading={signingOut}
+      />
 
       {/* Overlay backdrop — tablet only (md but not lg+) */}
       {isExpanded && (

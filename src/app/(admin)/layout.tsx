@@ -5,10 +5,11 @@ import AdminMobileNav from "@/components/admin/AdminMobileNav";
 import { useAuth } from "@/context/AuthContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { SidebarProvider, useSidebar } from "@/context/SidebarContext";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useSSE } from "@/hooks/useSSE";
 import { hasAdminAccess as checkAdminAccess } from "@/lib/studentAccess";
+import { buildAuthRedirect, pathWithQuery } from "@/lib/authRedirect";
 
 function AdminContent({ children }: { children: React.ReactNode }) {
   const { isExpanded } = useSidebar();
@@ -41,6 +42,8 @@ export default function AdminLayout({
   const { user, userProfile, loading } = useAuth();
   const { permissions, loading: permissionsLoading, loaded: permissionsLoaded } = usePermissions();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   // User has admin access if their role is admin/exco OR they have at least one
   // permission that goes beyond basic student-level view/access.
@@ -50,14 +53,15 @@ export default function AdminLayout({
     if (loading || permissionsLoading || !permissionsLoaded) return;
 
     if (!user) {
-      router.replace("/login");
+      const targetPath = pathWithQuery(pathname, searchParams?.toString());
+      router.replace(buildAuthRedirect("/admin/login", targetPath));
       return;
     }
     // Redirect users with no admin access
     if (userProfile && !userHasAdminAccess) {
       router.replace("/dashboard");
     }
-  }, [user, userProfile, loading, permissionsLoading, permissionsLoaded, userHasAdminAccess, router]);
+  }, [user, userProfile, loading, permissionsLoading, permissionsLoaded, userHasAdminAccess, pathname, searchParams, router]);
 
   if (loading || permissionsLoading || !permissionsLoaded) {
     return (

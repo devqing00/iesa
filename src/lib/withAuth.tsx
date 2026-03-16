@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, ComponentType } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { usePermissions } from "@/context/PermissionsContext";
+import { buildAuthRedirect, pathWithQuery } from "@/lib/authRedirect";
 
 interface WithAuthOptions {
   requiredPermission?: string;
@@ -49,6 +50,8 @@ export function withAuth<P extends object>(
     const { user, userProfile, loading: authLoading } = useAuth();
     const { hasPermission, hasAnyPermission, hasAllPermissions, loading: permissionsLoading, loaded: permissionsLoaded } = usePermissions();
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
 
     const {
       requiredPermission,
@@ -64,7 +67,8 @@ export function withAuth<P extends object>(
 
       // Check authentication
       if (!user) {
-        router.push(redirectTo);
+        const targetPath = pathWithQuery(pathname, searchParams?.toString());
+        router.push(buildAuthRedirect(redirectTo, targetPath));
         return;
       }
 
@@ -115,6 +119,8 @@ export function withAuth<P extends object>(
       anyPermission,
       allowedRoles,
       redirectTo,
+      pathname,
+      searchParams,
       router,
     ]);
 

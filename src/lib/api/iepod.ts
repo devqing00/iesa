@@ -23,6 +23,13 @@ export interface Society {
   focusArea: string;
   leadName?: string | null;
   leadEmail?: string | null;
+  hubLead?: {
+    userId: string;
+    name: string;
+    email: string;
+  } | null;
+  hubLeadName?: string | null;
+  hubLeadEmail?: string | null;
   color: string;
   iconUrl?: string | null;
   isActive: boolean;
@@ -270,7 +277,13 @@ export interface IepodStats {
   totalQuizzes: number;
   totalNicheAudits: number;
   totalSocieties: number;
-  societyBreakdown: { societyId: string; societyName: string; memberCount: number }[];
+  societyBreakdown: {
+    societyId: string;
+    societyName: string;
+    memberCount: number;
+    hubLeadName?: string | null;
+    hubLeadEmail?: string | null;
+  }[];
 }
 
 // ── Constants ────────────────────────────────────────────────────────
