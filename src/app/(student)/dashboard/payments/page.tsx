@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { getApiUrl, listBankAccounts, submitTransferProof, getMyTransfers, checkTransactionReference, NIGERIAN_BANKS, TRANSFER_STATUS_STYLES } from "@/lib/api";
 import type { BankAccount, BankTransfer } from "@/lib/api";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import FullScreenLoader from "@/components/ui/FullScreenLoader";
 import { toast } from "sonner";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
@@ -38,11 +39,7 @@ const ACCENT_CYCLE = ["border-l-teal", "border-l-coral", "border-l-lavender", "b
 
 export default function PaymentsPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-ghost flex items-center justify-center">
-        <div className="animate-pulse text-navy/60 font-medium">Loading payments...</div>
-      </div>
-    }>
+    <Suspense fallback={<FullScreenLoader size="md" label="Loading payments..." />}>
       <PaymentsContent />
     </Suspense>
   );

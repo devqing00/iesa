@@ -85,7 +85,8 @@ export default function ContactPage() {
               <span className="inline-block bg-coral text-navy border-[2px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[3px_3px_0_0_#000]">Touch</span>
             </h1>
             <p className="font-display font-medium text-base sm:text-lg text-snow/70 max-w-2xl leading-relaxed">
-              Have questions about IESA? Want to collaborate or partner with us?
+              Have questions about Industrial &amp; Production Engineering at UI?
+              Looking to collaborate on research, training, or industry partnerships?
               We&apos;d love to hear from you.
             </p>
           </div>
@@ -145,7 +146,7 @@ export default function ContactPage() {
                       setFormData({ ...formData, subject: e.target.value })
                     }
                     className="w-full px-4 py-3 bg-ghost border-[2px] border-navy rounded-xl font-display font-medium text-sm text-navy placeholder:text-slate focus:outline-none focus:border-coral transition-all"
-                    placeholder="What is this about?"
+                    placeholder="e.g. Workshop, internship, research, partnership"
                     required
                   />
                 </div>

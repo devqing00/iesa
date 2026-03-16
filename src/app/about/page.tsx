@@ -55,8 +55,8 @@ export default function AboutPage() {
             <p className="font-display text-base sm:text-lg text-snow/70 max-w-2xl leading-relaxed font-extralight">
               The Industrial Engineering Student Association (IESA) at the
               University of Ibadan is more than just a student organization —
-              we&apos;re a community dedicated to academic excellence,
-              professional development, and creating lasting impact.
+              we&apos;re a community developing engineers in operations research,
+              systems optimization, quality management, and industry leadership.
             </p>
           </div>
         </div>
@@ -87,10 +87,9 @@ export default function AboutPage() {
                 Empowering Students
               </h3>
               <p className="font-display font-medium text-sm sm:text-base text-snow/85 leading-relaxed">
-                To foster academic excellence, professional growth, and a
-                strong sense of community among industrial engineering
-                students while bridging the gap between theoretical knowledge
-                and practical application.
+                To build strong Industrial &amp; Production Engineering capacity
+                through rigorous academics, process-thinking culture, and
+                practical exposure that connects classroom models to real systems.
               </p>
             </div>
 
@@ -105,9 +104,9 @@ export default function AboutPage() {
                 Leading Innovation
               </h3>
               <p className="font-display font-medium text-sm sm:text-base text-navy/80 leading-relaxed">
-                To be the foremost student association in Nigeria, recognized
-                for producing industry-ready graduates who drive innovation
-                and excellence in industrial engineering.
+                To be the benchmark student association in Nigeria for producing
+                engineers who improve productivity, safety, quality, and sustainability
+                across manufacturing and service operations.
               </p>
             </div>
           </div>
@@ -131,7 +130,7 @@ export default function AboutPage() {
             {[
               {
                 title: "Academic Support",
-                description: "Tutorial sessions, study groups, past question resources, and academic mentorship programs.",
+                description: "Tutorials in operations research, production planning, ergonomics, and quality engineering.",
                 bg: "bg-lavender",
                 icon: (
                   <svg aria-hidden="true" className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20">
@@ -141,7 +140,7 @@ export default function AboutPage() {
               },
               {
                 title: "Industry Connections",
-                description: "Networking events, company visits, internship placements, and career guidance sessions.",
+                description: "Company visits, internship pipelines, and mentorship with operations, supply chain, and manufacturing professionals.",
                 bg: "bg-teal",
                 icon: (
                   <svg aria-hidden="true" className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20">
@@ -151,7 +150,7 @@ export default function AboutPage() {
               },
               {
                 title: "Workshops & Seminars",
-                description: "Technical workshops, soft skills training, and seminars featuring industry experts.",
+                description: "Hands-on workshops in lean thinking, process mapping, analytics, and continuous improvement.",
                 bg: "bg-coral",
                 icon: (
                   <svg aria-hidden="true" className="w-7 h-7 text-navy" fill="currentColor" viewBox="0 0 20 20">
@@ -259,8 +258,8 @@ export default function AboutPage() {
             <br />of Our Story
           </h2>
           <p className="font-display font-medium text-base sm:text-lg text-snow/85 max-w-md mx-auto mb-8 sm:mb-10">
-            Join IESA today and connect with fellow students, access exclusive
-            resources, and shape your engineering career.
+            Join IESA to sharpen your Industrial &amp; Production Engineering
+            skills, collaborate on system challenges, and accelerate your career.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link

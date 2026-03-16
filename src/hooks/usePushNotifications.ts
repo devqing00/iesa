@@ -35,11 +35,8 @@ export function usePushNotifications() {
 
   const logPushDebug = useCallback((message: string, details?: Record<string, unknown>) => {
     if (!isPushDebugEnabled()) return;
-    if (details) {
-      console.info(`[push-debug] ${message}`, details);
-      return;
-    }
-    console.info(`[push-debug] ${message}`);
+    void message;
+    void details;
   }, [isPushDebugEnabled]);
 
   // Check support + current state on mount

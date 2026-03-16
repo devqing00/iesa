@@ -115,7 +115,7 @@ export default function IepodLandingPage() {
               {/* Left: Text */}
               <div className="space-y-8 relative">
                 <div className="inline-block">
-                  <span className="text-label text-snow/60">IESA Professional Development Hub</span>
+                  <span className="text-label text-snow/60">Industrial &amp; Production Engineering Development Hub</span>
                 </div>
 
                 <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[4.5rem] leading-[0.9] text-snow">
@@ -129,7 +129,8 @@ export default function IepodLandingPage() {
                 <p className="font-display text-lg sm:text-xl text-snow/70 max-w-lg leading-relaxed font-light">
                   Your Process, Our Progress. Moving beyond &ldquo;results at any cost&rdquo;
                     toward a <strong className="font-bold text-snow">prototyping mindset</strong> —
-                  methodical growth, engineering rigor, and deep inquiry.
+                  methodical growth, engineering rigor, and deep inquiry across
+                  operations, quality, and production systems.
                 </p>
 
                 <div className="flex flex-wrap gap-4">
@@ -193,7 +194,7 @@ export default function IepodLandingPage() {
                 </span>
               </h2>
               <p className="text-slate font-medium mt-4 max-w-xl">
-                A three-phase journey that transforms how you think, build, and present solutions.
+                A three-phase journey that transforms how you think, model, optimize, and present solutions.
               </p>
             </div>
 

@@ -67,17 +67,17 @@ export default function Home() {
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-20 sm:py-28 md:py-0">
             <div className="max-w-2xl">
               <h1 className="font-display font-black text-[3rem] sm:text-[4.5rem] lg:text-[6rem] leading-[0.88] text-snow mb-6">
+                Industrial &amp;
+                <br />
+                <span className="text-lime">Production</span>
+                <br />
                 Engineering
-                <br />
-                <span className="text-lime">Excellence</span>
-                <br />
-                Starts Here
               </h1>
 
               <p className="font-display text-base sm:text-lg text-snow/75 max-w-lg mb-8 leading-relaxed font-medium">
-                Join IESA — the premier industrial engineering student
-                association at the University of Ibadan, building Africa&apos;s
-                next generation of engineers.
+                Join IESA — the Industrial &amp; Production Engineering student
+                community at the University of Ibadan focused on systems thinking,
+                operations excellence, and real-world impact.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 mb-14">
@@ -142,8 +142,8 @@ export default function Home() {
                   Our Mission
                 </h3>
                 <p className="font-display text-sm sm:text-base text-snow/85 leading-relaxed font-medium">
-                  Empower students through academic excellence and industry
-                  connections.
+                  Develop engineers who can model, optimize, and improve
+                  complex systems across production, logistics, and services.
                 </p>
               </div>
 
@@ -182,8 +182,8 @@ export default function Home() {
                   Our Vision
                 </h3>
                 <p className="font-display text-sm sm:text-base text-navy/80 leading-relaxed font-medium">
-                  Africa&apos;s leading industrial engineering student
-                  community.
+                  Africa&apos;s leading Industrial &amp; Production Engineering
+                  student ecosystem for innovation and operational impact.
                 </p>
               </div>
             </div>
@@ -222,30 +222,30 @@ export default function Home() {
               {[
                 {
                   title: "Workshops",
-                  desc: "Technical training and certifications",
-                  tags: ["CAD", "Python", "Leadership"],
+                  desc: "Hands-on labs in operations research, quality, and data-driven decision making",
+                  tags: ["OR", "Quality", "Analytics"],
                   bg: "bg-lavender",
                   img: "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?q=80&w=800",
                 },
                 {
-                  title: "Networking",
-                  desc: "Industry talks and career fairs",
-                  tags: ["Career Fair", "Talks", "Events"],
+                  title: "Industry Exposure",
+                  desc: "Factory tours, plant talks, and career pathways in production systems",
+                  tags: ["Factory Tours", "Talks", "Careers"],
                   bg: "bg-teal",
                   img: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?q=80&w=800",
                 },
                 {
-                  title: "Resources",
-                  desc: "Study materials and tutoring",
-                  tags: ["Past Qs", "Library", "Tutoring"],
+                  title: "Learning Resources",
+                  desc: "Past questions, process case studies, and guided peer support",
+                  tags: ["Past Qs", "Case Studies", "Tutoring"],
                   bg: "bg-coral",
                   light: false,
                   img: "https://images.unsplash.com/photo-1529390079861-591de354faf5?q=80&w=800",
                 },
                 {
                   title: "Mentorship",
-                  desc: "Connect with alumni and industry",
-                  tags: ["Alumni", "Seniors", "Industry"],
+                  desc: "Connect with alumni solving real operations and supply chain challenges",
+                  tags: ["Alumni", "Supply Chain", "Industry"],
                   bg: "bg-sunny",
                   img: "https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=800",
                 },
@@ -299,13 +299,13 @@ export default function Home() {
             </div>
 
             <h2 className="font-display text-4xl sm:text-6xl lg:text-7xl text-snow mb-6 sm:mb-8 leading-none font-black">
-              Start Your
+              Design Better
               <br />
-              Journey Today
+              Systems Today
             </h2>
 
             <p className="font-display text-base sm:text-xl text-snow/90 mb-8 sm:mb-12 max-w-2xl mx-auto font-bold">
-              Join 500+ students building the future of engineering in Nigeria
+              Join 500+ students building the future of Industrial &amp; Production Engineering in Nigeria
             </p>
 
             <div className="flex flex-col sm:flex-row justify-center gap-4">

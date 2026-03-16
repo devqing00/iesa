@@ -70,7 +70,7 @@ export default function MobileNav() {
     return link.anyPermission.some((p) => hasPermission(p));
   };
 
-  const mainLinks = [
+  const mainLinks: MobileNavLink[] = [
     {
       name: "Home",
       href: "/dashboard",

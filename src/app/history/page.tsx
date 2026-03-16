@@ -16,21 +16,21 @@ export default function HistoryPage() {
       year: "2019",
       title: "First Annual Summit",
       description:
-        "Organized the inaugural IESA Industrial Engineering Summit, bringing together students, faculty, and industry professionals for knowledge sharing.",
+        "Organized the inaugural IESA summit, connecting students, faculty, and industry experts around process improvement and systems design.",
       color: "bg-lavender",
     },
     {
       year: "2020",
       title: "Digital Transformation",
       description:
-        "Adapted to virtual operations during global challenges, launching online tutorials, webinars, and the IESA digital resource library.",
+        "Adapted to virtual operations, launching online tutorials, method-focused webinars, and a digital resource base for IPE courses.",
       color: "bg-teal",
     },
     {
       year: "2021",
       title: "Industry Partnerships",
       description:
-        "Established formal partnerships with leading manufacturing and consulting firms for internship placements and mentorship programs.",
+        "Expanded partnerships with manufacturing and consulting organizations for internships, mentoring, and real operations exposure.",
       color: "bg-coral",
     },
     {
@@ -98,7 +98,7 @@ export default function HistoryPage() {
             <p className="font-display font-medium text-base sm:text-lg text-snow/70 max-w-2xl leading-relaxed">
               From humble beginnings to becoming one of the most vibrant student
               associations at the University of Ibadan, our journey has been
-              defined by dedication, innovation, and community.
+              defined by process-thinking, continuous improvement, and community.
             </p>
           </div>
         </div>

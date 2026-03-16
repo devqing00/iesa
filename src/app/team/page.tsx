@@ -136,7 +136,7 @@ export default function PublicTeamPage() {
                 <span className="brush-highlight">IESA Team</span>
               </h1>
               <p className="text-base sm:text-lg text-navy-muted mt-4 max-w-2xl">
-                A premium showcase of the students serving the department — executive leadership, class representation, and committee structure in one vibrant experience.
+                Meet the student leaders driving Industrial &amp; Production Engineering growth — from executive strategy to class coordination and technical teams.
               </p>
             </div>
 

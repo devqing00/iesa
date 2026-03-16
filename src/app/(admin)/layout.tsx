@@ -2,11 +2,12 @@
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminMobileNav from "@/components/admin/AdminMobileNav";
+import FullScreenLoader from "@/components/ui/FullScreenLoader";
 import { useAuth } from "@/context/AuthContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { SidebarProvider, useSidebar } from "@/context/SidebarContext";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useSSE } from "@/hooks/useSSE";
 import { hasAdminAccess as checkAdminAccess } from "@/lib/studentAccess";
 import { buildAuthRedirect, pathWithQuery } from "@/lib/authRedirect";
@@ -34,7 +35,7 @@ function AdminContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function AdminLayout({
+function AdminLayoutInner({
   children,
 }: {
   children: React.ReactNode;
@@ -64,11 +65,7 @@ export default function AdminLayout({
   }, [user, userProfile, loading, permissionsLoading, permissionsLoaded, userHasAdminAccess, pathname, searchParams, router]);
 
   if (loading || permissionsLoading || !permissionsLoaded) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-ghost">
-        <div className="animate-spin rounded-full h-12 w-12 border-[3px] border-navy border-t-transparent"></div>
-      </div>
-    );
+    return <FullScreenLoader size="md" />;
   }
 
   if (!user) return null;
@@ -82,5 +79,17 @@ export default function AdminLayout({
     <SidebarProvider>
       <AdminContent>{children}</AdminContent>
     </SidebarProvider>
+  );
+}
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <Suspense fallback={<FullScreenLoader size="md" />}>
+      <AdminLayoutInner>{children}</AdminLayoutInner>
+    </Suspense>
   );
 }

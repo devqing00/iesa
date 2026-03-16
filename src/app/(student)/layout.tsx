@@ -3,12 +3,13 @@
 import Sidebar from "@/components/dashboard/Sidebar";
 import MobileNav from "@/components/dashboard/MobileNav";
 import FloatingToolPopup from "@/components/ui/FloatingToolPopup";
+import FullScreenLoader from "@/components/ui/FullScreenLoader";
 import { useAuth } from "@/context/AuthContext";
 import { SidebarProvider, useSidebar } from "@/context/SidebarContext";
 import { DMProvider } from "@/context/DMContext";
 import { FloatingToolProvider } from "@/context/FloatingToolContext";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useSSE } from "@/hooks/useSSE";
 import { isExternalStudent, isRouteAllowedForExternal } from "@/lib/studentAccess";
 import { buildAuthRedirect, pathWithQuery } from "@/lib/authRedirect";
@@ -36,7 +37,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function DashboardLayout({
+function DashboardLayoutInner({
   children,
 }: {
   children: React.ReactNode;
@@ -63,14 +64,7 @@ export default function DashboardLayout({
   }, [loading, user, userProfile, pathname, router]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-ghost">
-        <div className="space-y-4 text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-navy border-t-transparent mx-auto"></div>
-          <p className="font-display font-bold text-xs text-slate uppercase tracking-wider">Loading...</p>
-        </div>
-      </div>
-    );
+    return <FullScreenLoader size="sm" label="Loading..." />;
   }
 
   if (!user) return null;
@@ -83,5 +77,17 @@ export default function DashboardLayout({
         </FloatingToolProvider>
       </DMProvider>
     </SidebarProvider>
+  );
+}
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <Suspense fallback={<FullScreenLoader size="sm" label="Loading..." />}>
+      <DashboardLayoutInner>{children}</DashboardLayoutInner>
+    </Suspense>
   );
 }

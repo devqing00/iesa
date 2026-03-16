@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { getApiUrl } from "@/lib/api";
+import FullScreenLoader from "@/components/ui/FullScreenLoader";
 
 function VerifySecondaryEmailContent() {
   const router = useRouter();
@@ -168,14 +169,7 @@ function VerifySecondaryEmailContent() {
 
 export default function VerifySecondaryEmailPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-ghost">
-        <div className="text-center">
-          <div className="w-12 h-12 rounded-full border-4 border-navy border-t-lime animate-spin mx-auto mb-4" />
-          <p className="font-display font-bold text-navy">Loading...</p>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<FullScreenLoader size="md" label="Loading..." />}>
       <VerifySecondaryEmailContent />
     </Suspense>
   );

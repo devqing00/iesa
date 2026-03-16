@@ -1,6 +1,7 @@
 "use client";
 
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import FullScreenLoader from "@/components/ui/FullScreenLoader";
 import Pagination from "@/components/ui/Pagination";
 import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -67,11 +68,7 @@ const categoryColors: Record<string, string> = {
 
 export default function AnnouncementsPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-ghost flex items-center justify-center">
-        <div className="animate-pulse text-navy/60 font-medium">Loading announcements...</div>
-      </div>
-    }>
+    <Suspense fallback={<FullScreenLoader size="md" label="Loading announcements..." />}>
       <AnnouncementsContent />
     </Suspense>
   );

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { getApiUrl } from "@/lib/api";
+import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 
@@ -50,6 +51,10 @@ export default function BlogArticlePage() {
   const [loading, setLoading] = useState(true);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
+  const sanitizedContent = useMemo(
+    () => sanitizeRichHtml(article?.content || ""),
+    [article?.content],
+  );
 
   const fetchArticle = useCallback(async () => {
     try {
@@ -213,7 +218,7 @@ export default function BlogArticlePage() {
                   [&_ol]:list-decimal [&_ol]:pl-6
                   [&_code]:bg-ghost [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-lg [&_code]:text-sm [&_code]:font-mono
                 "
-                dangerouslySetInnerHTML={{ __html: article.content }}
+                dangerouslySetInnerHTML={{ __html: sanitizedContent }}
               />
 
               {/* Tags */}

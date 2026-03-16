@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { PasswordInput } from "@/components/ui/Input";
+import FullScreenLoader from "@/components/ui/FullScreenLoader";
 import { AUTH_RETURN_TO_PARAM, sanitizeReturnToPath } from "@/lib/authRedirect";
 
-export default function AdminLoginPage() {
+function AdminLoginContent() {
   const { signInWithEmail } = useAuth();
   const searchParams = useSearchParams();
   const returnTo = sanitizeReturnToPath(searchParams?.get(AUTH_RETURN_TO_PARAM));
@@ -145,5 +146,13 @@ export default function AdminLoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense fallback={<FullScreenLoader size="md" />}>
+      <AdminLoginContent />
+    </Suspense>
   );
 }

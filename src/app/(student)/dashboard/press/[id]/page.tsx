@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
+import { sanitizeRichHtml } from "@/lib/sanitizeHtml";
 import { toast } from "sonner";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 
@@ -56,6 +57,10 @@ export default function ArticleDetailPage() {
 
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const sanitizedContent = useMemo(
+    () => sanitizeRichHtml(article?.content || ""),
+    [article?.content],
+  );
 
   const fetchArticle = useCallback(async () => {
     try {
@@ -217,7 +222,7 @@ export default function ArticleDetailPage() {
             [&_blockquote]:border-l-[3px] [&_blockquote]:border-ghost/20 [&_blockquote]:pl-4 [&_blockquote]:italic
             [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5
           "
-          dangerouslySetInnerHTML={{ __html: article.content }}
+          dangerouslySetInnerHTML={{ __html: sanitizedContent }}
         />
       </div>
 

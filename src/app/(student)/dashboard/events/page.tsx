@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import { toast } from "sonner";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import FullScreenLoader from "@/components/ui/FullScreenLoader";
 import dynamic from "next/dynamic";
 import { useDrive } from "@/hooks/useDrive";
 import type { DriveItem } from "@/lib/api/drive";
@@ -1745,19 +1746,7 @@ function EventsPage() {
 
 function EventsPageWrapper() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-ghost">
-          <DashboardHeader title="Events" />
-          <div className="flex-1 flex items-center justify-center min-h-[60vh]">
-            <div className="text-center space-y-3">
-              <div className="w-8 h-8 border-[3px] border-coral border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-xs font-bold text-slate uppercase tracking-wider">Loading…</p>
-            </div>
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={<FullScreenLoader size="md" label="Loading events..." />}>
       <EventsPage />
     </Suspense>
   );

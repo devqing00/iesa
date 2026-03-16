@@ -121,10 +121,12 @@ export default function BlogPage() {
           </div>
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[5rem] leading-[0.9] text-snow mb-4">
-              IESA Blog
+              IESA Press &amp;
+              <br />
+              Process Stories
             </h1>
             <p className="text-lg text-snow/70 max-w-2xl">
-              Stories, features, and perspectives from the Industrial Engineering Students&apos; Association.
+              Stories, features, and perspectives on Industrial &amp; Production Engineering, student life, and professional growth at UI.
             </p>
           </div>
         </section>
@@ -184,7 +186,7 @@ export default function BlogPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
               <h3 className="font-display font-black text-xl text-navy mb-2">No articles yet</h3>
-              <p className="text-slate">Check back soon for stories from the press team.</p>
+              <p className="text-slate">Check back soon for IPE stories from the press team.</p>
             </div>
           ) : (
             <>

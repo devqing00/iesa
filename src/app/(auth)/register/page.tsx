@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -10,8 +10,9 @@ import { isInstitutionalEmail } from "@/lib/emailUtils";
 import { AUTH_RETURN_TO_PARAM, sanitizeReturnToPath } from "@/lib/authRedirect";
 import { toast } from "sonner";
 import { PasswordInput } from "@/components/ui/Input";
+import FullScreenLoader from "@/components/ui/FullScreenLoader";
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading, signUpWithEmail, signInWithGoogle } = useAuth();
@@ -186,11 +187,7 @@ export default function RegisterPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-ghost">
-        <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-navy border-t-transparent"></div>
-      </div>
-    );
+    return <FullScreenLoader size="sm" />;
   }
 
   const inputClass = "w-full px-4 py-3.5 bg-snow border-[3px] border-navy rounded-2xl text-navy font-display font-normal placeholder:text-slate focus:outline-none focus:border-coral transition-all";
@@ -664,5 +661,13 @@ export default function RegisterPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<FullScreenLoader size="sm" />}>
+      <RegisterContent />
+    </Suspense>
   );
 }

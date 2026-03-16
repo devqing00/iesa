@@ -117,14 +117,15 @@ export default async function EventsPage() {
           {/* Hero Content */}
           <div className="max-w-4xl space-y-8">
             <h1 className="font-display font-black text-[2.5rem] sm:text-[4rem] lg:text-[5rem] leading-[0.9] text-snow">
-              Connect, Learn,
+              Engineer,
               <br />
-              &amp; <span className="inline-block bg-sunny text-navy border-[2px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[3px_3px_0_0_#000]">Grow</span>
+              <span className="inline-block bg-sunny text-navy border-[2px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[3px_3px_0_0_#000]">Optimize</span>
+              &amp; Lead
             </h1>
             <p className="font-display font-medium text-base sm:text-lg text-snow/70 max-w-2xl leading-relaxed">
-              From technical workshops to networking events, IESA hosts a
-              variety of programs designed to enhance your academic journey and
-              professional development.
+              From operations workshops and plant-focused talks to career and
+              innovation events, IESA programs are built to strengthen your
+              Industrial &amp; Production Engineering journey.
             </p>
           </div>
         </div>
@@ -145,7 +146,7 @@ export default async function EventsPage() {
           {upcoming.length === 0 ? (
             <div className="bg-ghost border-[2px] border-cloud rounded-3xl p-8 sm:p-12 text-center">
               <p className="font-display font-bold text-lg text-slate">No upcoming events at the moment</p>
-              <p className="font-display font-medium text-sm text-slate mt-2">Check back soon for new events!</p>
+              <p className="font-display font-medium text-sm text-slate mt-2">Check back soon for the next IPE-focused workshops and sessions.</p>
             </div>
           ) : (
             <div className="space-y-6">
