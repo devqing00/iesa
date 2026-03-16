@@ -671,6 +671,118 @@ async def get_transactions(
         )
 
 
+@router.get("/transactions/export/pdf")
+async def export_transactions_pdf(
+    status: Optional[str] = Query("all", description="Status filter: all|success|pending|failed"),
+    limit: int = Query(2000, ge=1, le=5000),
+    current_user: dict = Depends(get_current_user),
+):
+    """Export Paystack transactions as PDF (admin only)."""
+    try:
+        from app.db import get_database
+        from app.core.permissions import get_user_permissions
+        from app.utils.tabular_pdf import generate_tabular_pdf
+
+        db = get_database()
+
+        sessions = db["sessions"]
+        active_session = await sessions.find_one({"isActive": True})
+        if not active_session:
+            raise HTTPException(status_code=404, detail="No active session found")
+
+        user_id = current_user.get("_id") or current_user.get("id")
+        user_permissions = await get_user_permissions(user_id, str(active_session["_id"]))
+        is_admin = "payment:create" in user_permissions
+        if not is_admin:
+            raise HTTPException(status_code=403, detail="Not enough permissions")
+
+        query = {}
+        if status and status != "all":
+            query["status"] = status
+
+        raw_transactions = []
+        cursor = db.paystackTransactions.find(query).sort("createdAt", -1).limit(limit)
+        async for txn in cursor:
+            txn["_id"] = str(txn["_id"])
+            raw_transactions.append(txn)
+
+        payment_ids = list({
+            txn["paymentId"] for txn in raw_transactions
+            if txn.get("paymentId") and ObjectId.is_valid(txn["paymentId"])
+        })
+        payment_map: dict = {}
+        if payment_ids:
+            pay_cursor = db.payments.find(
+                {"_id": {"$in": [ObjectId(pid) for pid in payment_ids]}},
+                {"title": 1, "category": 1},
+            )
+            async for pay in pay_cursor:
+                payment_map[str(pay["_id"])] = pay
+
+        event_ids = list({
+            txn["eventId"] for txn in raw_transactions
+            if txn.get("eventId") and ObjectId.is_valid(txn["eventId"])
+        })
+        event_map: dict = {}
+        if event_ids:
+            ev_cursor = db.events.find(
+                {"_id": {"$in": [ObjectId(eid) for eid in event_ids]}},
+                {"title": 1, "category": 1},
+            )
+            async for ev in ev_cursor:
+                event_map[str(ev["_id"])] = ev
+
+        rows = []
+        for txn in raw_transactions:
+            student_name = txn.get("studentName") or "Unknown"
+            pid = txn.get("paymentId")
+            eid = txn.get("eventId")
+            if pid and pid in payment_map:
+                payment_category = payment_map[pid].get("category", "General")
+                payment_title = payment_map[pid].get("title", "Payment")
+            elif eid and eid in event_map:
+                payment_category = "Event"
+                payment_title = event_map[eid].get("title", "Event")
+            else:
+                payment_category = txn.get("paymentCategory") or "General"
+                payment_title = txn.get("paymentTitle") or "Payment"
+
+            created_at = txn.get("createdAt")
+            created_label = created_at.strftime("%Y-%m-%d") if isinstance(created_at, datetime) else "—"
+
+            rows.append([
+                txn.get("reference", ""),
+                student_name,
+                str(txn.get("amount", 0)),
+                str(txn.get("status", "")).capitalize(),
+                payment_category,
+                payment_title,
+                created_label,
+            ])
+
+        now = datetime.now(timezone.utc)
+        subtitle_status = status if status and status != "all" else "all"
+        pdf_buffer = generate_tabular_pdf(
+            title="IESA Transactions Export",
+            subtitle=f"Status: {subtitle_status} · Generated {now.strftime('%Y-%m-%d %H:%M UTC')} · Rows: {len(rows)}",
+            headers=["Reference", "Student", "Amount", "Status", "Category", "Payment", "Date"],
+            rows=rows,
+        )
+
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=iesa-transactions-{now.strftime('%Y%m%d')}.pdf"},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=safe_detail("Failed to export transactions PDF", e)
+        )
+
+
 @router.get("/receipt/data")
 async def get_receipt_data(
     reference: str = Query(..., description="Transaction reference"),

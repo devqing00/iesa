@@ -417,10 +417,33 @@ function AdminEventsPage() {
     }
   };
 
-  const downloadRegistrants = (format: "csv" | "json") => {
+  const downloadRegistrants = async (format: "csv" | "json" | "pdf") => {
     if (!registrantsData || !registrantsEvent) return;
     const { registrants, eventTitle } = registrantsData;
     const filename = `${eventTitle.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_registrants`;
+
+    if (format === "pdf") {
+      try {
+        const token = await getToken();
+        const res = await fetch(getApiUrl(`/api/v1/events/${registrantsEvent.id}/registrations/export/pdf`), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) await throwApiError(res, "export registrants PDF");
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${filename}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        toast.error(getErrorMessage(err, "export registrants PDF"));
+      } finally {
+        setShowDownloadMenu(false);
+      }
+      return;
+    }
 
     let blob: Blob;
     if (format === "csv") {
@@ -1152,6 +1175,16 @@ function AdminEventsPage() {
                           <path fillRule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875ZM9.75 14.25a.75.75 0 0 0 0 1.5H15a.75.75 0 0 0 0-1.5H9.75Z" clipRule="evenodd" />
                         </svg>
                         CSV (.csv)
+                      </button>
+                      <div className="border-t-[2px] border-navy/10" />
+                      <button
+                        onClick={() => downloadRegistrants("pdf")}
+                        className="w-full px-4 py-2.5 text-left text-xs font-bold text-navy hover:bg-sunny-light transition-colors flex items-center gap-2"
+                      >
+                        <svg aria-hidden="true" className="w-3.5 h-3.5 text-sunny shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="M6.75 3A2.25 2.25 0 0 0 4.5 5.25v13.5A2.25 2.25 0 0 0 6.75 21h10.5a2.25 2.25 0 0 0 2.25-2.25V8.56a2.25 2.25 0 0 0-.659-1.59l-2.81-2.81A2.25 2.25 0 0 0 14.44 3H6.75Zm7.5 6A2.25 2.25 0 0 1 12 6.75V4.5H6.75a.75.75 0 0 0-.75.75v13.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75V9h-3.75Zm-4.5 3a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-4.5Zm0 3a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-4.5Z" clipRule="evenodd" />
+                        </svg>
+                        PDF (.pdf)
                       </button>
                       <div className="border-t-[2px] border-navy/10" />
                       <button

@@ -35,10 +35,11 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from app.core.error_handling import fire_and_forget
+from app.core.audit import AuditLogger
 from app.core.permissions import get_current_session, require_permission
 from app.core.security import get_current_user
 from app.db import get_database
@@ -220,6 +221,29 @@ def _ser(doc: dict) -> dict:
     return doc
 
 
+async def _log_team_head_action(
+    *,
+    action: str,
+    user: dict,
+    resource_type: str,
+    resource_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    details: Optional[dict] = None,
+    request: Optional[Request] = None,
+):
+    await AuditLogger.log(
+        action=action,
+        actor_id=str(user.get("_id") or user.get("id") or ""),
+        actor_email=user.get("email", "unknown"),
+        resource_type=resource_type,
+        resource_id=resource_id,
+        session_id=session_id,
+        details=details or {},
+        ip_address=request.client.host if request and request.client else None,
+        user_agent=request.headers.get("user-agent") if request else None,
+    )
+
+
 # ═══════════════════════════════════════════════════════════
 # HEAD ENDPOINTS (require team_head:* permissions)
 # ═══════════════════════════════════════════════════════════
@@ -319,6 +343,7 @@ async def list_notices(
 async def create_notice(
     team: str,
     body: NoticeCreate,
+    request: Request,
     user=Depends(require_permission("team_head:manage_noticeboard")),
     session=Depends(get_current_session),
 ):
@@ -342,6 +367,21 @@ async def create_notice(
     }
     result = await db["unit_noticeboard"].insert_one(doc)
     doc["_id"] = result.inserted_id
+
+    await _log_team_head_action(
+        action="team_head.notice_created",
+        user=user,
+        resource_type="team_notice",
+        resource_id=str(result.inserted_id),
+        session_id=session_id,
+        details={
+            "unitSlug": team,
+            "title": body.title.strip(),
+            "isPinned": body.isPinned,
+        },
+        request=request,
+    )
+
     return _ser(doc)
 
 
@@ -350,6 +390,7 @@ async def update_notice(
     team: str,
     post_id: str,
     body: NoticeUpdate,
+    request: Request,
     user=Depends(require_permission("team_head:manage_noticeboard")),
     session=Depends(get_current_session),
 ):
@@ -360,6 +401,13 @@ async def update_notice(
 
     if not ObjectId.is_valid(post_id):
         raise HTTPException(400, "Invalid post ID")
+
+    existing_post = await db["unit_noticeboard"].find_one(
+        {"_id": ObjectId(post_id), "unitSlug": team, "sessionId": session_id},
+        {"title": 1, "content": 1, "isPinned": 1},
+    )
+    if not existing_post:
+        raise HTTPException(404, "Post not found")
 
     updates: dict = {"updatedAt": datetime.now(timezone.utc)}
     if body.title is not None:
@@ -375,6 +423,29 @@ async def update_notice(
     )
     if res.matched_count == 0:
         raise HTTPException(404, "Post not found")
+
+    changed_fields = [k for k in ("title", "content", "isPinned") if k in updates]
+    await _log_team_head_action(
+        action="team_head.notice_updated",
+        user=user,
+        resource_type="team_notice",
+        resource_id=post_id,
+        session_id=session_id,
+        details={
+            "unitSlug": team,
+            "changedFields": changed_fields,
+            "previous": {
+                "title": existing_post.get("title", ""),
+                "isPinned": existing_post.get("isPinned", False),
+            },
+            "updated": {
+                "title": updates.get("title", existing_post.get("title", "")),
+                "isPinned": updates.get("isPinned", existing_post.get("isPinned", False)),
+            },
+        },
+        request=request,
+    )
+
     return {"updated": True}
 
 
@@ -382,6 +453,7 @@ async def update_notice(
 async def delete_notice(
     team: str,
     post_id: str,
+    request: Request,
     user=Depends(require_permission("team_head:manage_noticeboard")),
     session=Depends(get_current_session),
 ):
@@ -392,11 +464,34 @@ async def delete_notice(
 
     if not ObjectId.is_valid(post_id):
         raise HTTPException(400, "Invalid post ID")
+
+    existing_post = await db["unit_noticeboard"].find_one(
+        {"_id": ObjectId(post_id), "unitSlug": team, "sessionId": session_id},
+        {"title": 1, "isPinned": 1},
+    )
+    if not existing_post:
+        raise HTTPException(404, "Post not found")
+
     res = await db["unit_noticeboard"].delete_one(
         {"_id": ObjectId(post_id), "unitSlug": team, "sessionId": session_id},
     )
     if res.deleted_count == 0:
         raise HTTPException(404, "Post not found")
+
+    await _log_team_head_action(
+        action="team_head.notice_deleted",
+        user=user,
+        resource_type="team_notice",
+        resource_id=post_id,
+        session_id=session_id,
+        details={
+            "unitSlug": team,
+            "title": existing_post.get("title", ""),
+            "isPinned": existing_post.get("isPinned", False),
+        },
+        request=request,
+    )
+
     return {"deleted": True}
 
 
@@ -442,6 +537,7 @@ async def list_tasks(
 async def create_task(
     team: str,
     body: TaskCreate,
+    request: Request,
     user=Depends(require_permission("team_head:manage_tasks")),
     session=Depends(get_current_session),
 ):
@@ -483,6 +579,23 @@ async def create_task(
             related_id=str(result.inserted_id),
         ))
 
+    await _log_team_head_action(
+        action="team_head.task_created",
+        user=user,
+        resource_type="team_task",
+        resource_id=str(result.inserted_id),
+        session_id=session_id,
+        details={
+            "unitSlug": team,
+            "unitLabel": team_info.get("unitLabel", team),
+            "title": doc.get("title", ""),
+            "assignedTo": body.assignedTo,
+            "priority": body.priority,
+            "dueDate": body.dueDate,
+        },
+        request=request,
+    )
+
     s = _ser(doc)
     s["assignedToName"] = "Everyone"
     return s
@@ -493,6 +606,7 @@ async def update_task(
     team: str,
     task_id: str,
     body: TaskUpdate,
+    request: Request,
     user=Depends(require_permission("team_head:manage_tasks")),
     session=Depends(get_current_session),
 ):
@@ -503,6 +617,13 @@ async def update_task(
 
     if not ObjectId.is_valid(task_id):
         raise HTTPException(400, "Invalid task ID")
+
+    existing_task = await db["unit_tasks"].find_one(
+        {"_id": ObjectId(task_id), "unitSlug": team, "sessionId": session_id},
+        {"title": 1, "status": 1, "assignedTo": 1, "priority": 1, "dueDate": 1},
+    )
+    if not existing_task:
+        raise HTTPException(404, "Task not found")
 
     updates: dict = {"updatedAt": datetime.now(timezone.utc)}
     for field in ("title", "description", "assignedTo", "dueDate", "priority", "status"):
@@ -516,6 +637,35 @@ async def update_task(
     )
     if res.matched_count == 0:
         raise HTTPException(404, "Task not found")
+
+    changed_fields = [k for k in ("title", "description", "assignedTo", "dueDate", "priority", "status") if k in updates]
+    await _log_team_head_action(
+        action="team_head.task_updated",
+        user=user,
+        resource_type="team_task",
+        resource_id=task_id,
+        session_id=session_id,
+        details={
+            "unitSlug": team,
+            "changedFields": changed_fields,
+            "previous": {
+                "title": existing_task.get("title", ""),
+                "status": existing_task.get("status", "pending"),
+                "priority": existing_task.get("priority", "normal"),
+                "assignedTo": existing_task.get("assignedTo"),
+                "dueDate": existing_task.get("dueDate"),
+            },
+            "updated": {
+                "title": updates.get("title", existing_task.get("title", "")),
+                "status": updates.get("status", existing_task.get("status", "pending")),
+                "priority": updates.get("priority", existing_task.get("priority", "normal")),
+                "assignedTo": updates.get("assignedTo", existing_task.get("assignedTo")),
+                "dueDate": updates.get("dueDate", existing_task.get("dueDate")),
+            },
+        },
+        request=request,
+    )
+
     return {"updated": True}
 
 
@@ -523,6 +673,7 @@ async def update_task(
 async def delete_task(
     team: str,
     task_id: str,
+    request: Request,
     user=Depends(require_permission("team_head:manage_tasks")),
     session=Depends(get_current_session),
 ):
@@ -533,11 +684,36 @@ async def delete_task(
 
     if not ObjectId.is_valid(task_id):
         raise HTTPException(400, "Invalid task ID")
+
+    existing_task = await db["unit_tasks"].find_one(
+        {"_id": ObjectId(task_id), "unitSlug": team, "sessionId": session_id},
+        {"title": 1, "status": 1, "assignedTo": 1, "priority": 1},
+    )
+    if not existing_task:
+        raise HTTPException(404, "Task not found")
+
     res = await db["unit_tasks"].delete_one(
         {"_id": ObjectId(task_id), "unitSlug": team, "sessionId": session_id},
     )
     if res.deleted_count == 0:
         raise HTTPException(404, "Task not found")
+
+    await _log_team_head_action(
+        action="team_head.task_deleted",
+        user=user,
+        resource_type="team_task",
+        resource_id=task_id,
+        session_id=session_id,
+        details={
+            "unitSlug": team,
+            "title": existing_task.get("title", ""),
+            "status": existing_task.get("status", "pending"),
+            "assignedTo": existing_task.get("assignedTo"),
+            "priority": existing_task.get("priority", "normal"),
+        },
+        request=request,
+    )
+
     return {"deleted": True}
 
 
@@ -547,6 +723,7 @@ async def delete_task(
 async def create_team_announcement(
     team: str,
     body: AnnouncePayload,
+    request: Request,
     user=Depends(require_permission("team_head:announce")),
     session=Depends(get_current_session),
 ):
@@ -584,6 +761,22 @@ async def create_team_announcement(
             link="/dashboard/announcements",
             related_id=str(result.inserted_id),
         ))
+
+    await _log_team_head_action(
+        action="team_head.announcement_created",
+        user=user,
+        resource_type="announcement",
+        resource_id=str(result.inserted_id),
+        session_id=session_id,
+        details={
+            "unitSlug": team,
+            "unitLabel": team_info.get("unitLabel", team),
+            "title": body.title.strip(),
+            "priority": body.priority,
+            "recipientCount": len(member_ids),
+        },
+        request=request,
+    )
 
     return {"id": str(result.inserted_id), "message": f"Announcement sent to {len(member_ids)} member(s)"}
 
@@ -990,6 +1183,7 @@ async def member_update_task_status(
     team: str,
     task_id: str,
     body: TaskStatusUpdate,
+    request: Request,
     user=Depends(get_current_user),
     session=Depends(get_current_session),
 ):
@@ -1005,6 +1199,22 @@ async def member_update_task_status(
 
     if not ObjectId.is_valid(task_id):
         raise HTTPException(400, "Invalid task ID")
+
+    existing_task = await db["unit_tasks"].find_one(
+        {
+            "_id": ObjectId(task_id),
+            "unitSlug": team,
+            "sessionId": session_id,
+            "$or": [
+                {"assignedTo": user_id},
+                {"assignedTo": None},
+                {"assignedTo": {"$exists": False}},
+            ],
+        },
+        {"status": 1, "title": 1},
+    )
+    if not existing_task:
+        raise HTTPException(404, "Task not found or not assigned to you")
 
     # Only allow updating tasks assigned to this user or to everyone
     res = await db["unit_tasks"].update_one(
@@ -1022,4 +1232,21 @@ async def member_update_task_status(
     )
     if res.matched_count == 0:
         raise HTTPException(404, "Task not found or not assigned to you")
+
+    await _log_team_head_action(
+        action="team_head.task_status_updated",
+        user=user,
+        resource_type="team_task",
+        resource_id=task_id,
+        session_id=session_id,
+        details={
+            "unitSlug": team,
+            "title": existing_task.get("title", ""),
+            "previousStatus": existing_task.get("status", "pending"),
+            "newStatus": body.status,
+            "updatedByRole": "member",
+        },
+        request=request,
+    )
+
     return {"updated": True}

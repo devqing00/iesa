@@ -184,6 +184,8 @@ function AdminPaymentsPage() {
   }
   const [analytics, setAnalytics] = useState<PaymentAnalytics | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [exportingPaymentsPdf, setExportingPaymentsPdf] = useState(false);
+  const [exportingTransactionsPdf, setExportingTransactionsPdf] = useState(false);
 
   const fetchAnalytics = useCallback(async () => {
     setAnalyticsLoading(true);
@@ -594,6 +596,69 @@ function AdminPaymentsPage() {
     return statusFilter === "all" || t.status === statusFilter;
   });
 
+  const exportPaymentsPDF = async () => {
+    setExportingPaymentsPdf(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+
+      const params = new URLSearchParams();
+      params.set("category", categoryFilter);
+      params.set("status_filter", statusFilter);
+
+      const activeSession = sessions.find((s) => s.isActive);
+      const activeSessionId = activeSession?.id || activeSession?._id;
+      if (activeSessionId) params.set("session_id", activeSessionId);
+
+      const res = await fetch(getApiUrl(`/api/v1/payments/export/pdf?${params.toString()}`), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) await throwApiError(res, "export payments PDF");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `iesa-payments-${new Date().toISOString().split("T")[0]}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Payments PDF exported");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to export payments PDF"));
+    } finally {
+      setExportingPaymentsPdf(false);
+    }
+  };
+
+  const exportTransactionsPDF = async () => {
+    setExportingTransactionsPdf(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+
+      const params = new URLSearchParams();
+      if (statusFilter !== "all") params.set("status", statusFilter);
+
+      const res = await fetch(getApiUrl(`/api/v1/paystack/transactions/export/pdf?${params.toString()}`), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) await throwApiError(res, "export transactions PDF");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `iesa-transactions-${new Date().toISOString().split("T")[0]}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Transactions PDF exported");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to export transactions PDF"));
+    } finally {
+      setExportingTransactionsPdf(false);
+    }
+  };
+
   // ── Sort helpers ──
   const sortCompare = useCallback((a: string | number | undefined | null, b: string | number | undefined | null, dir: SortDir) => {
     const va = a ?? "";
@@ -858,33 +923,46 @@ function AdminPaymentsPage() {
             )}
 
             <PermissionGate permission="payment:view_all">
-            <button
-              onClick={() => {
-                const headers = ["Title", "Category", "Amount", "Deadline", "Paid By Count"];
-                const rows = filteredPayments.map((p) => [
-                  p.title,
-                  p.category,
-                  p.amount,
-                  p.deadline ? new Date(p.deadline).toLocaleDateString() : "N/A",
-                  p.paidBy?.length || 0,
-                ]);
-                const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-                const blob = new Blob([csv], { type: "text/csv" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `iesa-payments-${new Date().toISOString().split("T")[0]}.csv`;
-                a.click();
-                URL.revokeObjectURL(url);
-              }}
-              className="ml-auto px-4 py-2.5 bg-navy border-[3px] border-lime rounded-2xl text-snow text-sm font-bold flex items-center gap-2 press-3 press-lime transition-all"
-              title="Export payments as CSV"
-            >
-              <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Export
-            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const headers = ["Title", "Category", "Amount", "Deadline", "Paid By Count"];
+                  const rows = filteredPayments.map((p) => [
+                    p.title,
+                    p.category,
+                    p.amount,
+                    p.deadline ? new Date(p.deadline).toLocaleDateString() : "N/A",
+                    p.paidBy?.length || 0,
+                  ]);
+                  const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+                  const blob = new Blob([csv], { type: "text/csv" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `iesa-payments-${new Date().toISOString().split("T")[0]}.csv`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="px-4 py-2.5 bg-navy border-[3px] border-lime rounded-2xl text-snow text-sm font-bold flex items-center gap-2 press-3 press-lime transition-all"
+                title="Export payments as CSV"
+              >
+                <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export CSV
+              </button>
+              <button
+                onClick={exportPaymentsPDF}
+                disabled={exportingPaymentsPdf}
+                className="px-4 py-2.5 bg-lime border-[3px] border-navy rounded-2xl text-navy text-sm font-bold flex items-center gap-2 press-3 press-navy transition-all disabled:opacity-50"
+                title="Export payments as PDF"
+              >
+                <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                {exportingPaymentsPdf ? "Exporting..." : "Export PDF"}
+              </button>
+            </div>
             </PermissionGate>
           </div>
 
@@ -1036,34 +1114,47 @@ function AdminPaymentsPage() {
                 )}
 
                 <PermissionGate permission="payment:view_all">
-                <button
-                  onClick={() => {
-                    const headers = ["Reference", "Student", "Amount", "Status", "Category", "Date"];
-                    const rows = filteredTransactions.map((t) => [
-                      t.reference,
-                      t.user ? `${t.user.firstName} ${t.user.lastName}` : "N/A",
-                      t.amount,
-                      t.status,
-                      t.paymentCategory || "N/A",
-                      t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "N/A",
-                    ]);
-                    const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-                    const blob = new Blob([csv], { type: "text/csv" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `iesa-transactions-${new Date().toISOString().split("T")[0]}.csv`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                  className="px-4 py-2.5 bg-navy border-[3px] border-lime rounded-2xl text-snow text-sm font-bold flex items-center gap-2 press-3 press-lime transition-all"
-                  title="Export transactions as CSV"
-                >
-                  <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Export
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const headers = ["Reference", "Student", "Amount", "Status", "Category", "Date"];
+                      const rows = filteredTransactions.map((t) => [
+                        t.reference,
+                        t.user ? `${t.user.firstName} ${t.user.lastName}` : "N/A",
+                        t.amount,
+                        t.status,
+                        t.paymentCategory || "N/A",
+                        t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "N/A",
+                      ]);
+                      const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+                      const blob = new Blob([csv], { type: "text/csv" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `iesa-transactions-${new Date().toISOString().split("T")[0]}.csv`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="px-4 py-2.5 bg-navy border-[3px] border-lime rounded-2xl text-snow text-sm font-bold flex items-center gap-2 press-3 press-lime transition-all"
+                    title="Export transactions as CSV"
+                  >
+                    <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Export CSV
+                  </button>
+                  <button
+                    onClick={exportTransactionsPDF}
+                    disabled={exportingTransactionsPdf}
+                    className="px-4 py-2.5 bg-lime border-[3px] border-navy rounded-2xl text-navy text-sm font-bold flex items-center gap-2 press-3 press-navy transition-all disabled:opacity-50"
+                    title="Export transactions as PDF"
+                  >
+                    <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {exportingTransactionsPdf ? "Exporting..." : "Export PDF"}
+                  </button>
+                </div>
                 </PermissionGate>
               </div>
             </div>

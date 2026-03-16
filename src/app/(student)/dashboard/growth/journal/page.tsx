@@ -266,7 +266,6 @@ export default function JournalPage() {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-3 h-8 rounded-full bg-sunny" />
                 <h2 className="font-display font-black text-xl text-navy">
                   {editId ? "Edit Entry" : "This Week"}: {currentWeekLabel}
                 </h2>
@@ -399,7 +398,6 @@ export default function JournalPage() {
             {hasCurrentWeek && (
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-3 h-8 rounded-full bg-sunny" />
                   <h2 className="font-display font-black text-xl text-navy">Your Reflections</h2>
                 </div>
                 <button

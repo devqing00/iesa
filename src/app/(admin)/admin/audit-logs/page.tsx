@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -53,6 +53,22 @@ function formatTimestamp(ts: string): { date: string; time: string } {
   };
 }
 
+function formatDetailKey(key: string): string {
+  return key
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function stringifyDetailValue(value: unknown): string {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return JSON.stringify(value);
+  if (typeof value === "object") return JSON.stringify(value, null, 2);
+  return String(value);
+}
+
 const RESOURCE_TYPES = ["", "user", "session", "payment", "enrollment", "event", "announcement", "role"];
 
 const ACTION_TYPES = [
@@ -76,6 +92,7 @@ function AuditLogsPage() {
 
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [page, setPage] = useState(0); // page = skip index
 
   /* Filters */
@@ -129,6 +146,18 @@ function AuditLogsPage() {
   /* Actor search is now server-side — displayedLogs = logs directly */
   const displayedLogs = logs;
 
+  const actionOptions = useMemo(() => {
+    const base = ACTION_TYPES.filter(Boolean);
+    const dynamic = logs.map((entry) => entry.action).filter(Boolean);
+    return ["", ...Array.from(new Set([...base, ...dynamic])).sort((a, b) => a.localeCompare(b))];
+  }, [logs]);
+
+  const resourceTypeOptions = useMemo(() => {
+    const base = RESOURCE_TYPES.filter(Boolean);
+    const dynamic = logs.map((entry) => entry.resource?.type).filter(Boolean) as string[];
+    return ["", ...Array.from(new Set([...base, ...dynamic])).sort((a, b) => a.localeCompare(b))];
+  }, [logs]);
+
   /* Export CSV */
   const exportCSV = () => {
     const headers = ["Timestamp", "Actor Email", "Action", "Resource Type", "Resource ID", "Details"];
@@ -148,6 +177,40 @@ function AuditLogsPage() {
     a.download = `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const exportPDF = async () => {
+    setExportingPdf(true);
+    try {
+      const token = await getAccessToken();
+      const params = new URLSearchParams({
+        limit: "1000",
+      });
+      if (actionFilter) params.set("action", actionFilter);
+      if (resourceTypeFilter) params.set("resource_type", resourceTypeFilter);
+      if (actorQuery) params.set("actor_email", actorQuery);
+      if (fromDate) params.set("from_date", fromDate);
+      if (toDate) params.set("to_date", toDate);
+
+      const res = await fetch(getApiUrl(`/api/v1/audit-logs/export/pdf?${params}`), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      if (!res.ok) await throwApiError(res, "export audit logs PDF");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `audit-logs-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Audit logs PDF exported");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to export audit logs PDF"));
+    } finally {
+      setExportingPdf(false);
+    }
   };
 
   const currentSkip = page * LIMIT;
@@ -172,15 +235,28 @@ function AuditLogsPage() {
           </p>
         </div>
         <PermissionGate permission="audit:export">
-          <button
-            onClick={exportCSV}
-            className="shrink-0 bg-lime border-[3px] border-navy press-3 press-navy px-5 py-3 rounded-2xl font-display text-navy text-sm transition-all flex items-center gap-2"
-          >
-            <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            Export CSV
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={exportCSV}
+              className="shrink-0 bg-lime border-[3px] border-navy press-3 press-navy px-5 py-3 rounded-2xl font-display text-navy text-sm transition-all flex items-center gap-2"
+            >
+              <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Export CSV
+            </button>
+            <button
+              onClick={exportPDF}
+              disabled={exportingPdf}
+              className="shrink-0 bg-teal border-[3px] border-navy press-3 press-navy px-5 py-3 rounded-2xl font-display text-navy text-sm transition-all disabled:opacity-50 flex items-center gap-2"
+            >
+              <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625ZM7.5 15a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7.5 15Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H8.25Z" clipRule="evenodd" />
+                <path d="M12.971 1.816A5.23 5.23 0 0 1 14.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 0 1 3.434 1.279 9.768 9.768 0 0 0-6.963-6.963Z" />
+              </svg>
+              {exportingPdf ? "Exporting..." : "Export PDF"}
+            </button>
+          </div>
         </PermissionGate>
       </div>
 
@@ -226,13 +302,15 @@ function AuditLogsPage() {
 
           {/* Resource type */}
           <div>
-            <label className="text-label uppercase tracking-wider text-xs text-slate block mb-2">Resource Type</label>
+            <label htmlFor="audit-resource-type" className="text-label uppercase tracking-wider text-xs text-slate block mb-2">Resource Type</label>
             <select
+              id="audit-resource-type"
+              title="Filter by resource type"
               value={resourceTypeFilter}
               onChange={(e) => setResourceTypeFilter(e.target.value)}
               className="w-full bg-ghost border-[3px] border-navy rounded-xl px-4 py-2 font-normal text-navy text-sm focus:outline-none focus:border-coral appearance-none"
             >
-              {RESOURCE_TYPES.map((t) => (
+              {resourceTypeOptions.map((t) => (
                 <option key={t} value={t}>{t || "All resource types"}</option>
               ))}
             </select>
@@ -240,13 +318,15 @@ function AuditLogsPage() {
 
           {/* Action */}
           <div>
-            <label className="text-label uppercase tracking-wider text-xs text-slate block mb-2">Action</label>
+            <label htmlFor="audit-action-type" className="text-label uppercase tracking-wider text-xs text-slate block mb-2">Action</label>
             <select
+              id="audit-action-type"
+              title="Filter by action type"
               value={actionFilter}
               onChange={(e) => setActionFilter(e.target.value)}
               className="w-full bg-ghost border-[3px] border-navy rounded-xl px-4 py-2 font-normal text-navy text-sm focus:outline-none focus:border-coral appearance-none"
             >
-              {ACTION_TYPES.map((a) => (
+              {actionOptions.map((a) => (
                 <option key={a} value={a}>{a ? formatAction(a) : "All actions"}</option>
               ))}
             </select>
@@ -256,8 +336,10 @@ function AuditLogsPage() {
         {/* Date range row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <div>
-            <label className="text-label uppercase tracking-wider text-xs text-slate block mb-2">From Date</label>
+            <label htmlFor="audit-from-date" className="text-label uppercase tracking-wider text-xs text-slate block mb-2">From Date</label>
             <input
+              id="audit-from-date"
+              title="Filter logs from date"
               type="date"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
@@ -265,8 +347,10 @@ function AuditLogsPage() {
             />
           </div>
           <div>
-            <label className="text-label uppercase tracking-wider text-xs text-slate block mb-2">To Date</label>
+            <label htmlFor="audit-to-date" className="text-label uppercase tracking-wider text-xs text-slate block mb-2">To Date</label>
             <input
+              id="audit-to-date"
+              title="Filter logs to date"
               type="date"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
@@ -378,11 +462,19 @@ function AuditLogsPage() {
                                 {Object.keys(log.details).length === 0 ? (
                                   <p className="text-slate">No details recorded</p>
                                 ) : (
-                                  <dl className="space-y-1">
+                                  <dl className="space-y-2">
                                     {Object.entries(log.details).map(([k, v]) => (
-                                      <div key={k} className="flex gap-2">
-                                        <dt className="text-slate shrink-0 capitalize">{k}:</dt>
-                                        <dd className="text-navy font-normal truncate">{String(v)}</dd>
+                                      <div key={k} className="flex flex-col gap-1">
+                                        <dt className="text-slate shrink-0">{formatDetailKey(k)}</dt>
+                                        <dd className="text-navy font-normal break-words">
+                                          {typeof v === "object" && v !== null ? (
+                                            <pre className="bg-ghost border-[2px] border-cloud rounded-xl p-2 text-[11px] leading-relaxed whitespace-pre-wrap break-words">
+                                              {stringifyDetailValue(v)}
+                                            </pre>
+                                          ) : (
+                                            stringifyDetailValue(v)
+                                          )}
+                                        </dd>
                                       </div>
                                     ))}
                                   </dl>

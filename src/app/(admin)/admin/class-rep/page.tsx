@@ -228,7 +228,9 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
   const [complianceModalOpen, setComplianceModalOpen] = useState(false);
   const [complianceLoading, setComplianceLoading] = useState(false);
   const [remindingUnpaid, setRemindingUnpaid] = useState(false);
+  const [exportingCohortPdf, setExportingCohortPdf] = useState(false);
   const [exportingUnpaid, setExportingUnpaid] = useState(false);
+  const [exportingUnpaidPdf, setExportingUnpaidPdf] = useState(false);
 
   /* ── form states ─────────────────────────────────────────── */
   const [showDeadlineForm, setShowDeadlineForm] = useState(false);
@@ -354,6 +356,7 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
     setComplianceModalOpen(true);
     setRemindingUnpaid(false);
     setExportingUnpaid(false);
+    setExportingUnpaidPdf(false);
     try {
       const data = await apiFetch(`/payments/${paymentId}/compliance`);
       setPaymentCompliance(data);
@@ -595,6 +598,35 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
     }
   }
 
+  async function exportUnpaidCompliancePDF() {
+    if (!paymentCompliance?.payment?.id) return;
+    setExportingUnpaidPdf(true);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl(`/api/v1/class-rep/payments/${paymentCompliance.payment.id}/unpaid/export/pdf`), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || "Failed to export unpaid PDF");
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${level}_${paymentCompliance.payment.title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_unpaid.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Unpaid PDF exported");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Failed to export unpaid PDF";
+      toast.error(message);
+    } finally {
+      setExportingUnpaidPdf(false);
+    }
+  }
+
   function startEditTimetable(entry: TimetableEntry) {
     setEditingTimetableId(entry.id);
     setTtCourseCode(entry.courseCode);
@@ -630,6 +662,33 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
     a.download = `${level}_cohort.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function exportPDF() {
+    setExportingCohortPdf(true);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl("/api/v1/class-rep/cohort/export/pdf"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || "Failed to export cohort PDF");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${level}_cohort.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Cohort PDF exported");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Failed to export cohort PDF";
+      toast.error(message);
+    } finally {
+      setExportingCohortPdf(false);
+    }
   }
 
   /* ── gate ─────────────────────────────────────────────────── */
@@ -811,6 +870,11 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
             {canExport && (
               <button onClick={exportCSV} className="bg-teal border-[3px] border-navy rounded-2xl px-5 py-3 font-bold text-sm text-navy press-3 press-navy">
                 Export CSV
+              </button>
+            )}
+            {canExport && (
+              <button onClick={exportPDF} disabled={exportingCohortPdf} className="bg-lime border-[3px] border-navy rounded-2xl px-5 py-3 font-bold text-sm text-navy press-3 press-navy disabled:opacity-50">
+                {exportingCohortPdf ? "Exporting..." : "Export PDF"}
               </button>
             )}
           </div>
@@ -1281,6 +1345,13 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
                 className="bg-teal border-[3px] border-navy rounded-xl px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-navy press-2 press-navy disabled:opacity-50"
               >
                 {exportingUnpaid ? "Exporting..." : "Export Unpaid CSV"}
+              </button>
+              <button
+                onClick={exportUnpaidCompliancePDF}
+                disabled={exportingUnpaidPdf}
+                className="bg-lime border-[3px] border-navy rounded-xl px-3.5 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-navy press-2 press-navy disabled:opacity-50"
+              >
+                {exportingUnpaidPdf ? "Exporting..." : "Export Unpaid PDF"}
               </button>
               <button
                 onClick={sendUnpaidReminders}

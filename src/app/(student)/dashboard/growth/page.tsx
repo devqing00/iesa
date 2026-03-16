@@ -486,7 +486,6 @@ export default function GrowthPage() {
         {(stats.weeklyFocusMinutes > 0 || stats.weeklyHabitCompletions > 0 || stats.weeklyJournalEntries > 0 || stats.weeklyTasksCompleted > 0) && (
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-3 h-8 rounded-full bg-teal" />
               <h2 className="font-display font-black text-xl text-navy">This Week</h2>
               <span className="text-[10px] font-bold text-slate uppercase tracking-[0.1em] ml-auto">
                 Mon – Sun

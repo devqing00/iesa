@@ -235,7 +235,6 @@ export default function CourseProgressPage() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-3 h-8 rounded-full bg-coral" />
               <h2 className="font-display font-black text-xl text-navy">Your Courses</h2>
             </div>
             <button

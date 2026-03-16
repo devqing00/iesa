@@ -26,8 +26,9 @@ from app.core.auth import (
     RegisterProfileRequest,
 )
 from app.core.security import get_current_user
-from app.core.email import send_verification_email
+from app.core.email import send_verification_email, send_welcome_email
 from app.core.error_handling import safe_detail
+from app.core.error_handling import fire_and_forget
 from app.db import get_database
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
@@ -135,6 +136,21 @@ async def register_profile(request: Request, data: RegisterProfileRequest):
 
     # Auto-enroll in active session
     await _auto_enroll(db, user_id, data.level)
+
+    # Send welcome email asynchronously (non-blocking)
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+    dashboard_url = f"{frontend_url}/dashboard"
+    student_name = f"{data.firstName} {data.lastName}".strip() or "Student"
+    fire_and_forget(
+        send_welcome_email(
+            to=email,
+            name=student_name,
+            dashboard_url=dashboard_url,
+            student_level=str(data.level) if data.level is not None else None,
+            matric_number=data.matricNumber,
+            department=data.department or "Industrial Engineering",
+        )
+    )
 
     user_doc["_id"] = user_id
     return {"message": "Profile created", "user": user_doc}

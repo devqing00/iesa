@@ -326,7 +326,6 @@ export default function HabitTrackerPage() {
         {todayHabits.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-3 h-8 rounded-full bg-teal" />
               <h2 className="font-display font-black text-xl text-navy">Today&apos;s Check-In</h2>
               <span className="ml-auto text-xs font-bold text-slate uppercase tracking-wider">
                 {todayDone}/{todayTotal} done
@@ -386,7 +385,6 @@ export default function HabitTrackerPage() {
         {activeHabits.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-3 h-8 rounded-full bg-lavender" />
               <h2 className="font-display font-black text-xl text-navy">This Week</h2>
             </div>
 
@@ -460,7 +458,6 @@ export default function HabitTrackerPage() {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-3 h-8 rounded-full bg-coral" />
                 <h2 className="font-display font-black text-xl text-navy">Your Habits</h2>
               </div>
               <button

@@ -191,6 +191,7 @@ function AdminUsersPage() {
   const [bdTotal, setBdTotal] = useState(0);
   const [bdPage, setBdPage] = useState(1);
   const [activePositionsByUserId, setActivePositionsByUserId] = useState<Record<string, AssignedRoleTag[]>>({});
+  const [exportingUsersPdf, setExportingUsersPdf] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -338,6 +339,39 @@ function AdminUsersPage() {
   }, [fetchBirthdays, bdSearch, activeTab]);
 
   const totalPages = Math.ceil(totalUsers / ITEMS_PER_PAGE);
+
+  const exportUsersPDF = async () => {
+    setExportingUsersPdf(true);
+    try {
+      const token = await getAccessToken();
+      const params = new URLSearchParams();
+      if (roleFilter !== "all") params.set("role", roleFilter);
+      if (deptFilter !== "all") params.set("department", deptFilter);
+      if (levelFilter !== "all") params.set("level", levelFilter);
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      params.set("sort_by", sortBy);
+      params.set("sort_order", sortOrder);
+      if (searchQuery.trim()) params.set("search", searchQuery.trim());
+
+      const res = await fetch(getApiUrl(`/api/v1/users/export/pdf?${params.toString()}`), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) await throwApiError(res, "export users PDF");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `iesa-users-${new Date().toISOString().split("T")[0]}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Users PDF exported");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to export users PDF"));
+    } finally {
+      setExportingUsersPdf(false);
+    }
+  };
   const bdTotalPages = Math.ceil(bdTotal / BD_PER_PAGE);
   const todayCount = useMemo(() => bdItems.filter((b) => b.daysUntil === 0).length, [bdItems]);
 
@@ -597,40 +631,53 @@ function AdminUsersPage() {
           </button>
 
           <PermissionGate permission="user:export">
-          <button
-            onClick={() => {
-              const headers = ["Name", "Email", "Department", "Role", "Status"];
-              const rows = users.map((u) => [
-                `${u.firstName} ${u.lastName}`,
-                u.email,
-                u.department === "Industrial Engineering" ? "IPE" : (u.department || "External"),
-                (() => {
-                  const uid = u._id || u.id || "";
-                  const assigned = activePositionsByUserId[uid] || [];
-                  if (assigned.length > 0) return assigned.map((item) => item.label).join(" | ");
-                  if (u.role === "admin") return "admin";
-                  if (u.role === "exco") return "exco";
-                  return "student";
-                })(),
-                u.isActive !== false ? "Active" : "Inactive",
-              ]);
-              const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-              const blob = new Blob([csv], { type: "text/csv" });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `iesa-users-${new Date().toISOString().split("T")[0]}.csv`;
-              a.click();
-              URL.revokeObjectURL(url);
-            }}
-            className="px-5 py-3 bg-navy border-[3px] border-lime rounded-2xl text-snow text-sm font-bold flex items-center gap-2 press-3 press-lime transition-all"
-            title="Export filtered users as CSV"
-          >
-            <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Export CSV
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const headers = ["Name", "Email", "Department", "Role", "Status"];
+                const rows = users.map((u) => [
+                  `${u.firstName} ${u.lastName}`,
+                  u.email,
+                  u.department === "Industrial Engineering" ? "IPE" : (u.department || "External"),
+                  (() => {
+                    const uid = u._id || u.id || "";
+                    const assigned = activePositionsByUserId[uid] || [];
+                    if (assigned.length > 0) return assigned.map((item) => item.label).join(" | ");
+                    if (u.role === "admin") return "admin";
+                    if (u.role === "exco") return "exco";
+                    return "student";
+                  })(),
+                  u.isActive !== false ? "Active" : "Inactive",
+                ]);
+                const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+                const blob = new Blob([csv], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `iesa-users-${new Date().toISOString().split("T")[0]}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="px-5 py-3 bg-navy border-[3px] border-lime rounded-2xl text-snow text-sm font-bold flex items-center gap-2 press-3 press-lime transition-all"
+              title="Export filtered users as CSV"
+            >
+              <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export CSV
+            </button>
+            <button
+              onClick={exportUsersPDF}
+              disabled={exportingUsersPdf}
+              className="px-5 py-3 bg-lime border-[3px] border-navy rounded-2xl text-navy text-sm font-bold flex items-center gap-2 press-3 press-navy transition-all disabled:opacity-50"
+              title="Export filtered users as PDF"
+            >
+              <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              {exportingUsersPdf ? "Exporting..." : "Export PDF"}
+            </button>
+          </div>
           </PermissionGate>
         </div>
 

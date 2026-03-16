@@ -9,12 +9,33 @@ from fastapi import APIRouter, HTTPException, Depends, status, Query
 from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime, timezone
+from fastapi.responses import StreamingResponse
 
 from app.core.security import get_current_user
 from app.core.permissions import require_permission
 from app.core.audit import AuditLogger
 
 router = APIRouter(prefix="/api/v1/audit-logs", tags=["Audit Logs"])
+
+
+def _parse_date_range(from_date: Optional[str], to_date: Optional[str]) -> tuple[Optional[datetime], Optional[datetime]]:
+    parsed_from = None
+    parsed_to = None
+    if from_date:
+        try:
+            parsed_from = datetime.fromisoformat(from_date.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid from_date format. Use ISO 8601 (e.g. 2025-01-01)")
+
+    if to_date:
+        try:
+            parsed_to = datetime.fromisoformat(to_date.replace("Z", "+00:00"))
+            if parsed_to.hour == 0 and parsed_to.minute == 0 and parsed_to.second == 0 and parsed_to.tzinfo is None:
+                parsed_to = parsed_to.replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid to_date format. Use ISO 8601 (e.g. 2025-12-31)")
+
+    return parsed_from, parsed_to
 
 
 class AuditLogResponse(BaseModel):
@@ -75,24 +96,7 @@ async def get_audit_logs(
     Requires audit:view permission (admin only).
     Returns logs sorted by timestamp (newest first).
     """
-    # Parse date strings into datetime objects
-    parsed_from = None
-    parsed_to = None
-    if from_date:
-        try:
-            parsed_from = datetime.fromisoformat(from_date.replace("Z", "+00:00"))
-        except ValueError:
-            from fastapi import HTTPException as HE
-            raise HE(status_code=400, detail="Invalid from_date format. Use ISO 8601 (e.g. 2025-01-01)")
-    if to_date:
-        try:
-            parsed_to = datetime.fromisoformat(to_date.replace("Z", "+00:00"))
-            # If only a date (no time), set to end of day
-            if parsed_to.hour == 0 and parsed_to.minute == 0 and parsed_to.second == 0 and parsed_to.tzinfo is None:
-                parsed_to = parsed_to.replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
-        except ValueError:
-            from fastapi import HTTPException as HE
-            raise HE(status_code=400, detail="Invalid to_date format. Use ISO 8601 (e.g. 2025-12-31)")
+    parsed_from, parsed_to = _parse_date_range(from_date, to_date)
 
     logs = await AuditLogger.get_logs(
         resource_type=resource_type,
@@ -120,6 +124,72 @@ async def get_audit_logs(
         )
         for log in logs
     ]
+
+
+@router.get("/export/pdf")
+async def export_audit_logs_pdf(
+    resource_type: Optional[str] = Query(None, description="Filter by resource type (user, session, payment, etc.)"),
+    resource_id: Optional[str] = Query(None, description="Filter by specific resource ID"),
+    actor_id: Optional[str] = Query(None, description="Filter by actor (user who performed action)"),
+    actor_email: Optional[str] = Query(None, description="Filter by actor email (partial, case-insensitive)"),
+    action: Optional[str] = Query(None, description="Filter by action type"),
+    session_id: Optional[str] = Query(None, description="Filter by academic session"),
+    from_date: Optional[str] = Query(None, description="Start of date range (ISO 8601, e.g. 2025-01-01)"),
+    to_date: Optional[str] = Query(None, description="End of date range (ISO 8601, e.g. 2025-12-31)"),
+    limit: int = Query(1000, ge=1, le=2000, description="Maximum logs to include in PDF"),
+    user: dict = Depends(require_permission("audit:export")),
+):
+    from app.utils.tabular_pdf import generate_tabular_pdf
+
+    parsed_from, parsed_to = _parse_date_range(from_date, to_date)
+
+    logs = await AuditLogger.get_logs(
+        resource_type=resource_type,
+        resource_id=resource_id,
+        actor_id=actor_id,
+        actor_email=actor_email,
+        action=action,
+        session_id=session_id,
+        from_date=parsed_from,
+        to_date=parsed_to,
+        limit=limit,
+        skip=0,
+    )
+
+    rows = [
+        [
+            log.get("timestamp").isoformat() if log.get("timestamp") else "",
+            (log.get("actor") or {}).get("email", ""),
+            log.get("action", ""),
+            (log.get("resource") or {}).get("type", ""),
+            (log.get("resource") or {}).get("id", ""),
+            str(log.get("sessionId") or ""),
+            str(log.get("details") or {}),
+        ]
+        for log in logs
+    ]
+
+    subtitle_parts = [
+        f"Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+        f"Rows: {len(rows)}",
+    ]
+    if action:
+        subtitle_parts.append(f"Action: {action}")
+    if resource_type:
+        subtitle_parts.append(f"Resource: {resource_type}")
+
+    pdf_buffer = generate_tabular_pdf(
+        title="IESA Audit Logs Export",
+        subtitle=" · ".join(subtitle_parts),
+        headers=["Timestamp", "Actor Email", "Action", "Resource Type", "Resource ID", "Session", "Details"],
+        rows=rows,
+    )
+
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=audit-logs-{datetime.now(timezone.utc).strftime('%Y%m%d')}.pdf"},
+    )
 
 
 @router.get("/user/{user_id}", response_model=List[AuditLogResponse])

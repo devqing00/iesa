@@ -436,16 +436,31 @@ class EmailService:
 
         elif template == EmailTemplate.WELCOME:
             dashboard_url = _esc(context.get("dashboard_url", "#"))
-            subject = "Welcome to IESA Platform!"
+            student_level = _esc(context.get("student_level", ""))
+            matric_number = _esc(context.get("matric_number", ""))
+            department = _esc(context.get("department", "Industrial Engineering"))
+
+            profile_bits = []
+            if student_level:
+                profile_bits.append(f"<p style='margin:0 0 8px;font-size:13px;color:#0F0F2D;'><strong>Level:</strong> {student_level}</p>")
+            if matric_number:
+                profile_bits.append(f"<p style='margin:0 0 8px;font-size:13px;color:#0F0F2D;'><strong>Matric No:</strong> {matric_number}</p>")
+            profile_bits.append(f"<p style='margin:0;font-size:13px;color:#0F0F2D;'><strong>Department:</strong> {department}</p>")
+
+            subject = "Welcome to IESA Platform 🎉"
             body = f"""
-            <p style="margin:0 0 14px;font-size:14px;line-height:1.7;color:#334155;">Welcome {_esc(context.get('name', 'Student'))}! Your account is now active.</p>
+            <p style="margin:0 0 14px;font-size:14px;line-height:1.7;color:#334155;">Welcome {_esc(context.get('name', 'Student'))}! Your IESA student account has been created successfully.</p>
             <div style="background:#F8FAFF;border:2px solid #0F0F2D;border-radius:14px;padding:14px 16px;margin:0 0 16px;">
-                <p style="margin:0 0 8px;font-size:13px;color:#0F0F2D;">You can now access announcements, events, payments, resources, and your academic tools.</p>
+                <p style="margin:0 0 8px;font-size:13px;color:#0F0F2D;">You can now access announcements, events, payments, resources, growth tools, and your student dashboard.</p>
+                {''.join(profile_bits)}
+            </div>
+            <div style="background:#ECFDF5;border:2px solid #14B8A6;border-radius:12px;padding:12px 14px;margin:0 0 16px;">
+                <p style="margin:0;font-size:13px;color:#0F0F2D;"><strong>Next Step:</strong> Open your dashboard and complete your profile setup to personalize your IESA experience.</p>
             </div>
             <a href="{dashboard_url}" style="display:inline-block;background:#C8F31D;color:#0F0F2D;font-size:13px;font-weight:900;text-decoration:none;padding:12px 18px;border:3px solid #0F0F2D;border-radius:12px;box-shadow:3px 3px 0 #0F0F2D;">Open Dashboard</a>
             """
             html = _shell(
-                preheader="Your IESA account is ready.",
+                preheader="Welcome to IESA — your student account is ready.",
                 eyebrow="Account",
                 title="Welcome to IESA",
                 body_html=body,
@@ -648,7 +663,14 @@ async def send_payment_receipt(
     return await service.send_email(to, subject, html, attachments=attachments)
 
 
-async def send_welcome_email(to: str, name: str, dashboard_url: str):
+async def send_welcome_email(
+    to: str,
+    name: str,
+    dashboard_url: str,
+    student_level: str | None = None,
+    matric_number: str | None = None,
+    department: str | None = None,
+):
     """Send a welcome email to new users"""
     service = get_email_service()
     return await service.send_template_email(
@@ -656,7 +678,10 @@ async def send_welcome_email(to: str, name: str, dashboard_url: str):
         template=EmailTemplate.WELCOME,
         context={
             "name": name,
-            "dashboard_url": dashboard_url
+            "dashboard_url": dashboard_url,
+            "student_level": student_level,
+            "matric_number": matric_number,
+            "department": department,
         }
     )
 

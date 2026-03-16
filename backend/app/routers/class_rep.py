@@ -2,7 +2,7 @@
 Class Rep Portal Router
 
 Provides level-scoped features for class representatives and their assistants:
-- Cohort directory & CSV export
+- Cohort directory & CSV/PDF export
 - Cohort stats (enrollment, payment compliance)
 - Deadline board (CRUD)
 - Quick polls (CRUD + voting)
@@ -508,6 +508,61 @@ async def export_cohort_csv(
     )
 
 
+@router.get(
+    "/cohort/export/pdf",
+    dependencies=[Depends(require_permission("class_rep:export_cohort"))],
+)
+async def export_cohort_pdf(
+    current_user: dict = Depends(get_current_user),
+):
+    """Download the level cohort as a PDF file."""
+    from app.utils.tabular_pdf import generate_tabular_pdf
+
+    level = await _get_rep_level(current_user)
+    session_id = await _get_active_session_id()
+    db = get_database()
+
+    enrollments = await db["enrollments"].find({
+        "sessionId": session_id,
+        "level": level,
+        "isActive": True,
+    }).to_list(None)
+
+    student_ids = [
+        e.get("studentId") or str(e.get("userId", ""))
+        for e in enrollments
+    ]
+    oid_list = [ObjectId(s) for s in student_ids if ObjectId.is_valid(s)]
+
+    users = await db["users"].find(
+        {"_id": {"$in": oid_list}},
+        {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1, "phone": 1},
+    ).sort("lastName", 1).to_list(None)
+
+    rows = [
+        [
+            f"{u.get('firstName', '')} {u.get('lastName', '')}".strip(),
+            u.get("email", ""),
+            u.get("matricNumber", ""),
+            u.get("phone", ""),
+        ]
+        for u in users
+    ]
+
+    pdf_buffer = generate_tabular_pdf(
+        title=f"{level} Cohort Directory",
+        subtitle=f"Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+        headers=["Name", "Email", "Matric Number", "Phone"],
+        rows=rows,
+    )
+
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={level}_cohort.pdf"},
+    )
+
+
 # ──────────────────────────────────────────────────────────────────
 # COHORT STATS
 # ──────────────────────────────────────────────────────────────────
@@ -772,6 +827,79 @@ async def export_unpaid_payment_csv(
     return StreamingResponse(
         iter([buf.getvalue()]),
         media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.get(
+    "/payments/{payment_id}/unpaid/export/pdf",
+    dependencies=[Depends(require_permission("class_rep:view_stats"))],
+)
+async def export_unpaid_payment_pdf(
+    payment_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Download unpaid students for a specific payment as PDF."""
+    from app.utils.tabular_pdf import generate_tabular_pdf
+
+    if not ObjectId.is_valid(payment_id):
+        raise HTTPException(status_code=400, detail="Invalid payment ID")
+
+    level = await _get_rep_level(current_user)
+    session_id = await _get_active_session_id()
+    db = get_database()
+
+    payment = await db["payments"].find_one(
+        {"_id": ObjectId(payment_id), "sessionId": session_id},
+        {"title": 1, "paidBy": 1},
+    )
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+
+    cohort_ids = await _get_level_cohort_user_ids(db, session_id, level)
+    paid_by = set(str(uid) for uid in (payment.get("paidBy") or []))
+    unpaid_ids = [uid for uid in cohort_ids if uid not in paid_by]
+
+    oid_list = [ObjectId(s) for s in unpaid_ids if ObjectId.is_valid(s)]
+    users = await db["users"].find(
+        {"_id": {"$in": oid_list}},
+        {
+            "firstName": 1,
+            "lastName": 1,
+            "email": 1,
+            "matricNumber": 1,
+            "phone": 1,
+            "currentLevel": 1,
+        },
+    ).sort("lastName", 1).to_list(None)
+
+    users_by_id = {str(u["_id"]): u for u in users}
+
+    rows = []
+    for uid in unpaid_ids:
+        user_doc = users_by_id.get(uid, {})
+        rows.append([
+            f"{user_doc.get('firstName', '')} {user_doc.get('lastName', '')}".strip(),
+            user_doc.get("email", ""),
+            user_doc.get("matricNumber", ""),
+            user_doc.get("phone", ""),
+            user_doc.get("currentLevel", level),
+            payment.get("title", "Payment"),
+        ])
+
+    safe_title = "".join(ch if ch.isalnum() else "_" for ch in str(payment.get("title", "payment"))).strip("_") or "payment"
+    filename = f"{level}_{safe_title}_unpaid.pdf"
+
+    pdf_buffer = generate_tabular_pdf(
+        title=f"Unpaid Students · {payment.get('title', 'Payment')}",
+        subtitle=f"Level {level} · Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
+        headers=["Name", "Email", "Matric Number", "Phone", "Level", "Payment"],
+        rows=rows,
+    )
+
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 

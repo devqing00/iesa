@@ -219,7 +219,6 @@ export function StudentDashboardSkeleton() {
             {/* Schedule skeleton */}
             <div className="bg-snow border-[3px] border-cloud rounded-3xl p-6">
               <div className="flex items-center gap-3 mb-5">
-                <Skeleton className="w-3 h-8 rounded-full" />
                 <Skeleton className="h-5 w-40 rounded" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -239,7 +238,6 @@ export function StudentDashboardSkeleton() {
             {/* Announcements skeleton */}
             <div className="bg-snow border-[3px] border-cloud rounded-3xl p-6">
               <div className="flex items-center gap-3 mb-5">
-                <Skeleton className="w-3 h-8 rounded-full" />
                 <Skeleton className="h-5 w-36 rounded" />
               </div>
               <div className="space-y-2">
@@ -260,7 +258,6 @@ export function StudentDashboardSkeleton() {
           <div className="lg:col-span-4 space-y-4">
             <div className="bg-snow border-[3px] border-cloud rounded-3xl p-6 space-y-3">
               <div className="flex items-center gap-2 mb-2">
-                <Skeleton className="w-2.5 h-6 rounded-full" />
                 <Skeleton className="h-4 w-28 rounded" />
               </div>
               {Array.from({ length: 2 }).map((_, i) => (
@@ -272,7 +269,6 @@ export function StudentDashboardSkeleton() {
             </div>
             <div className="bg-snow border-[3px] border-cloud rounded-3xl p-6 space-y-3">
               <div className="flex items-center gap-2 mb-2">
-                <Skeleton className="w-2.5 h-6 rounded-full" />
                 <Skeleton className="h-4 w-24 rounded" />
               </div>
               {Array.from({ length: 3 }).map((_, i) => (

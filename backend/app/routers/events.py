@@ -1126,6 +1126,58 @@ async def list_event_registrations(
     }
 
 
+@router.get("/{event_id}/registrations/export/pdf")
+async def export_event_registrations_pdf(
+    event_id: str,
+    user: dict = Depends(require_permission("event:manage"))
+):
+    """Admin: Export event registrants as PDF."""
+    from app.utils.tabular_pdf import generate_tabular_pdf
+
+    db = get_database()
+    events_col = db["events"]
+    users_col = db["users"]
+
+    if not ObjectId.is_valid(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID")
+
+    event = await events_col.find_one({"_id": ObjectId(event_id)})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    registered_ids = event.get("registrations", [])
+    attended_ids = event.get("attendees", [])
+
+    rows = []
+    for uid in registered_ids:
+        student = await users_col.find_one({"_id": ObjectId(uid)})
+        if not student:
+            continue
+        rows.append([
+            f"{student.get('firstName', '')} {student.get('lastName', '')}".strip(),
+            student.get("matricNumber", ""),
+            student.get("email", ""),
+            student.get("level", ""),
+            "Yes" if uid in attended_ids else "No",
+        ])
+
+    event_title = str(event.get("title", "Event"))
+    safe_event_title = "".join(ch if ch.isalnum() else "_" for ch in event_title).strip("_") or "event"
+
+    pdf_buffer = generate_tabular_pdf(
+        title=f"Event Registrants · {event_title}",
+        subtitle=f"Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} · Rows: {len(rows)}",
+        headers=["Name", "Matric No", "Email", "Level", "Attended"],
+        rows=rows,
+    )
+
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={safe_event_title}_registrants.pdf"},
+    )
+
+
 @router.delete("/{event_id}/registrations/{user_id}", status_code=204)
 async def admin_remove_registration(
     event_id: str,

@@ -255,11 +255,15 @@ async def download_timetable_pdf(
     """Download timetable as a PDF for the current session."""
     from ..utils.timetable_generator import generate_timetable_pdf
 
+    user_id = user.get("_id") or user.get("sub")
+    if not user_id or not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=401, detail="Invalid user identity")
+
     # Resolve level from user profile if not supplied
     student_level = level
     if not student_level:
         user_doc = await db["users"].find_one(
-            {"_id": ObjectId(user["sub"])},
+            {"_id": ObjectId(user_id)},
             {"currentLevel": 1, "level": 1}
         )
         if user_doc:
@@ -284,7 +288,7 @@ async def download_timetable_pdf(
 
     # Get student name
     user_doc = await db["users"].find_one(
-        {"_id": ObjectId(user["sub"])},
+        {"_id": ObjectId(user_id)},
         {"firstName": 1, "lastName": 1}
     )
     student_name = f"{user_doc.get('firstName', '')} {user_doc.get('lastName', '')}".strip() if user_doc else "Student"

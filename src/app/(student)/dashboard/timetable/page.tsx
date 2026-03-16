@@ -290,10 +290,6 @@ export default function TimetablePage() {
   }, [classes, cancellations, date, view]);
 
   const todaysClasses = useMemo(() => events.filter((e) => isSameDay(e.start, new Date())), [events]);
-  const upcomingClasses = useMemo(() => {
-    const now = new Date();
-    return events.filter((e) => e.start > now && e.start <= addDays(now, 7)).sort((a, b) => a.start.getTime() - b.start.getTime()).slice(0, 5);
-  }, [events]);
 
   const nextClass = useMemo(() => {
     const now = new Date();
@@ -484,14 +480,14 @@ export default function TimetablePage() {
         <div className="flex justify-end mb-3"><HelpButton onClick={openHelp} /></div>
 
         {(screenSize !== "desktop" && nextClass) && (
-          <div className="sticky top-2 z-20 mb-4 lg:hidden">
+          <div className="sticky top-18 z-20 mb-4 lg:hidden">
             <button
               onClick={() => {
                 setDate(nextClass.start);
                 setView("day");
                 setDetailEvent(nextClass);
               }}
-              className="w-full bg-lime-light border-[3px] border-navy rounded-2xl px-4 py-3 shadow-[4px_4px_0_0_#000] text-left press-3 press-navy"
+              className="w-full bg-lime-light border-[3px] border-navy rounded-b-2xl px-4 py-3 shadow-[4px_4px_0_0_#000] text-left press-3 press-navy"
             >
               <p className="text-[10px] font-bold text-navy uppercase tracking-[0.12em]">Next Class</p>
               <p className="font-display font-black text-base text-navy leading-tight mt-0.5">
@@ -580,7 +576,6 @@ export default function TimetablePage() {
         {exams.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-3 h-8 rounded-full bg-coral" />
               <h2 className="font-display font-black text-xl text-navy">Upcoming Exams</h2>
               <span className="px-2.5 py-0.5 rounded-md bg-coral-light text-coral text-xs font-bold">{exams.length}</span>
             </div>
@@ -637,7 +632,6 @@ export default function TimetablePage() {
         {todaysClasses.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-3 h-8 rounded-full bg-coral" />
               <h2 className="font-display font-black text-xl text-navy">Today&apos;s Classes</h2>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
@@ -685,41 +679,6 @@ export default function TimetablePage() {
                     {isCancelled && cancellationReason && (
                       <p className="text-xs font-bold text-coral mt-2">Reason: {cancellationReason}</p>
                     )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ═══════════════════════════════════════════════════════
-            UPCOMING CLASSES
-            ═══════════════════════════════════════════════════════ */}
-        {upcomingClasses.length > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-3 h-8 rounded-full bg-lavender" />
-              <h2 className="font-display font-black text-xl text-navy">Coming Up</h2>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-              {upcomingClasses.map((event, i) => {
-                const { classSession, isCancelled } = event.resource;
-                const daysUntil = Math.ceil((event.start.getTime() - Date.now()) / 86400000);
-                const rotation = i % 3 === 1 ? "rotate-[0.5deg] hover:rotate-0" : i % 3 === 2 ? "rotate-[-0.5deg] hover:rotate-0" : "";
-
-                return (
-                  <button key={event.id} onClick={() => setDetailEvent(event)} className={`text-left w-full bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000] transition-all hover:translate-y-[-1px] cursor-pointer ${isCancelled ? "opacity-50" : ""} ${rotation}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-display font-black text-base text-navy">{classSession.courseCode}</span>
-                      <span className="text-[10px] font-bold text-slate uppercase tracking-wider bg-cloud rounded-md px-2 py-0.5">
-                        {daysUntil}d
-                      </span>
-                    </div>
-                    <div className="space-y-1 text-[10px] font-bold text-slate uppercase tracking-wider">
-                      <p>{format(event.start, "EEE, MMM d")}</p>
-                      <p>{format(event.start, "h:mm a")}</p>
-                      <p className="truncate">{classSession.venue}</p>
-                    </div>
                   </button>
                 );
               })}

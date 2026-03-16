@@ -7,7 +7,8 @@ Users are persistent across sessions.
 
 import re
 
-from fastapi import APIRouter, HTTPException, Depends, status, Request, File, UploadFile
+from fastapi import APIRouter, HTTPException, Depends, status, Request, File, UploadFile, Query
+from fastapi.responses import StreamingResponse
 from typing import List, Optional
 from datetime import date, datetime, timedelta, timezone
 from bson import ObjectId
@@ -352,6 +353,92 @@ async def list_users(
         ],
         "total": total
     }
+
+
+@router.get("/export/pdf")
+async def export_users_pdf(
+    role: Optional[str] = None,
+    department: Optional[str] = None,
+    level: Optional[str] = None,
+    status: Optional[str] = None,
+    sort_by: str = "time",
+    sort_order: str = "desc",
+    search: Optional[str] = None,
+    limit: int = Query(1000, ge=1, le=5000),
+    user: dict = Depends(require_permission("user:export")),
+):
+    """Export filtered users as PDF."""
+    from app.utils.tabular_pdf import generate_tabular_pdf
+
+    db = get_database()
+    users = db["users"]
+
+    query = {}
+    if role and role != "all":
+        query["role"] = role
+    if department and department != "all":
+        if department == "external":
+            query["isExternalStudent"] = True
+        elif department == "ipe":
+            query["department"] = "Industrial Engineering"
+        else:
+            query["department"] = department
+    if level and level != "all":
+        normalized_level = level.strip().upper()
+        if normalized_level.isdigit():
+            normalized_level = f"{normalized_level}L"
+        query["currentLevel"] = normalized_level
+    if status and status != "all":
+        if status == "active":
+            query["isActive"] = {"$ne": False}
+        elif status == "inactive":
+            query["isActive"] = False
+    if search:
+        escaped = re.escape(search)
+        query["$or"] = [
+            {"firstName": {"$regex": escaped, "$options": "i"}},
+            {"lastName": {"$regex": escaped, "$options": "i"}},
+            {"email": {"$regex": escaped, "$options": "i"}},
+            {"currentLevel": {"$regex": escaped, "$options": "i"}},
+            {"matricNumber": {"$regex": escaped, "$options": "i"}},
+        ]
+
+    direction = -1 if str(sort_order).lower() == "desc" else 1
+    sort_map = {
+        "time": [("createdAt", direction), ("_id", direction)],
+        "name": [("firstName", direction), ("lastName", direction), ("_id", 1)],
+        "level": [("currentLevel", direction), ("firstName", 1), ("_id", 1)],
+    }
+    sort_fields = sort_map.get(str(sort_by).lower(), sort_map["time"])
+
+    user_list = await users.find(
+        query,
+        {"passwordHash": 0},
+    ).sort(sort_fields).limit(limit).to_list(length=limit)
+
+    rows = []
+    for u in user_list:
+        rows.append([
+            f"{u.get('firstName', '')} {u.get('lastName', '')}".strip(),
+            u.get("email", ""),
+            "IPE" if u.get("department") == "Industrial Engineering" else (u.get("department") or "External"),
+            u.get("currentLevel", ""),
+            u.get("role", "student"),
+            "Active" if u.get("isActive", True) else "Inactive",
+        ])
+
+    pdf_buffer = generate_tabular_pdf(
+        title="IESA Users Export",
+        subtitle=f"Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} · Rows: {len(rows)}",
+        headers=["Name", "Email", "Department", "Level", "Role", "Status"],
+        rows=rows,
+    )
+
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=iesa-users-{datetime.now(timezone.utc).strftime('%Y%m%d')}.pdf"},
+    )
 
 
 def _safe_birthday_for_year(dob: date, year: int) -> date:
@@ -1255,6 +1342,7 @@ async def delete_user_by_admin(
 
 @router.delete("/me")
 async def delete_account(
+    request: Request,
     user: dict = Depends(get_current_user),
 ):
     """
@@ -1265,6 +1353,38 @@ async def delete_account(
     db = get_database()
     user_id = str(user["_id"])
 
+    db_user = await db["users"].find_one(
+        {"_id": ObjectId(user_id)},
+        {"role": 1},
+    )
+    current_role = db_user.get("role", "") if db_user else ""
+    if current_role == "student":
+        await AuditLogger.log(
+            action="user.self_delete_blocked",
+            actor_id=user_id,
+            actor_email=user.get("email", "unknown"),
+            resource_type="user",
+            resource_id=user_id,
+            details={"reason": "student_account_not_allowed", "role": current_role},
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="Account deletion is not available for student accounts",
+        )
+
     await _delete_user_account_data(db, user_id)
+
+    await AuditLogger.log(
+        action="user.self_deleted",
+        actor_id=user_id,
+        actor_email=user.get("email", "unknown"),
+        resource_type="user",
+        resource_id=user_id,
+        details={"role": current_role or "unknown"},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
 
     return {"message": "Account deleted successfully"}

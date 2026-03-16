@@ -179,6 +179,72 @@ async def list_payments(
     return {"items": result, "total": total}
 
 
+@router.get("/export/pdf")
+async def export_payments_pdf(
+    session_id: Optional[str] = Query(None, description="Filter by session ID. Defaults to active session."),
+    category: Optional[str] = Query("all", description="Category filter"),
+    status_filter: Optional[str] = Query("all", description="Status filter: all|pending|paid|overdue"),
+    limit: int = Query(2000, ge=1, le=5000),
+    user: dict = Depends(require_permission("payment:view_all")),
+):
+    """Export payments list as PDF (admin)."""
+    from app.utils.tabular_pdf import generate_tabular_pdf
+
+    db = get_database()
+    payments = db["payments"]
+    sessions = db["sessions"]
+
+    if not session_id:
+        active_session = await sessions.find_one({"isActive": True})
+        if not active_session:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No active session found")
+        session_id = str(active_session["_id"])
+
+    session = await _resolve_session_for_payments(db, session_id)
+    if not session:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid session reference: {session_id}")
+    resolved_session_id = str(session["_id"])
+
+    query = {"sessionId": resolved_session_id}
+    if category and category != "all":
+        query["category"] = category
+
+    payment_list = await payments.find(query).sort("deadline", 1).limit(limit).to_list(length=limit)
+
+    now = datetime.now(timezone.utc)
+    rows = []
+    for payment in payment_list:
+        paid_count = len(payment.get("paidBy") or [])
+        deadline = payment.get("deadline")
+        is_overdue = bool(deadline and isinstance(deadline, datetime) and deadline < now and paid_count == 0)
+        derived_status = "overdue" if is_overdue else ("paid" if paid_count > 0 else "pending")
+        if status_filter and status_filter != "all" and derived_status != status_filter:
+            continue
+
+        rows.append([
+            payment.get("title", ""),
+            payment.get("category", ""),
+            f"{payment.get('amount', 0)}",
+            deadline.strftime("%Y-%m-%d") if isinstance(deadline, datetime) else "—",
+            "Yes" if payment.get("mandatory") else "No",
+            str(paid_count),
+            derived_status.capitalize(),
+        ])
+
+    pdf_buffer = generate_tabular_pdf(
+        title="IESA Payments Export",
+        subtitle=f"Session: {session.get('name', 'Unknown')} · Generated {now.strftime('%Y-%m-%d %H:%M UTC')} · Rows: {len(rows)}",
+        headers=["Title", "Category", "Amount", "Deadline", "Mandatory", "Paid By", "Status"],
+        rows=rows,
+    )
+
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=iesa-payments-{now.strftime('%Y%m%d')}.pdf"},
+    )
+
+
 @router.get("/{payment_id}", response_model=PaymentWithStatus)
 async def get_payment(
     payment_id: str,

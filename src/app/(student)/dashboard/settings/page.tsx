@@ -3,7 +3,6 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useSession } from "@/context/SessionContext";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -89,10 +88,9 @@ const CATEGORY_META: { key: NotifCategory; label: string; desc: string; icon: Re
 /* ─── Page ───────────────────────────────────────────────── */
 
 export default function SettingsPage() {
-  const { userProfile, firebaseUser, refreshProfile, signOut, sendPasswordReset } = useAuth();
+  const { userProfile, firebaseUser, refreshProfile, sendPasswordReset } = useAuth();
   const { showHelp, openHelp, closeHelp } = useToolHelp("settings");
   const { allSessions } = useSession();
-  const router = useRouter();
 
   /* ── Password Reset ───────────────────────── */
   const [resetLoading, setResetLoading] = useState(false);
@@ -111,11 +109,6 @@ export default function SettingsPage() {
   };
   const [categories, setCategories] = useState<Record<NotifCategory, boolean>>(defaultCats);
   const [catLoading, setCatLoading] = useState<NotifCategory | null>(null);
-
-  /* ── Account Deletion ─────────────────────── */
-  const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const [showDeleteZone, setShowDeleteZone] = useState(false);
 
   // Sync prefs from user profile
   useEffect(() => {
@@ -201,26 +194,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleDeleteAccount = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (deleteConfirmText !== "DELETE MY ACCOUNT") {
-      toast.error('Please type "DELETE MY ACCOUNT" to confirm');
-      return;
-    }
-    setDeleteLoading(true);
-    try {
-      await api.delete("/api/v1/users/me");
-      toast.success("Account deleted. Redirecting...");
-      await signOut();
-      router.push("/");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to delete account";
-      toast.error(msg);
-    } finally {
-      setDeleteLoading(false);
-    }
-  };
-
   const hasSecondary = !!userProfile?.secondaryEmail;
   const secondaryVerified = !!userProfile?.secondaryEmailVerified;
   const hasPasswordProvider = !!firebaseUser?.providerData?.some((provider) => provider.providerId === "password");
@@ -237,7 +210,7 @@ export default function SettingsPage() {
             <span className="brush-highlight">Settings</span>
           </h1>
           <p className="mt-2 text-slate text-body">
-            Manage your security, notification preferences, and account.
+            Manage your security and notification preferences.
           </p>
         </div>
         <HelpButton onClick={openHelp} />
@@ -459,82 +432,6 @@ export default function SettingsPage() {
         </section>
       )}
 
-      {/* ═══════════════════════════════════════════════════════
-          SECTION 4: DANGER ZONE
-          ═══════════════════════════════════════════════════════ */}
-      <section className="bg-snow border-[4px] border-coral rounded-3xl p-6 sm:p-8 shadow-[8px_8px_0_0_#000]">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-coral-light rounded-xl flex items-center justify-center">
-            <svg className="w-5 h-5 text-coral" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div>
-            <h2 className="font-display font-black text-xl text-coral">Danger Zone</h2>
-            <p className="text-sm text-slate">Irreversible actions — proceed with caution</p>
-          </div>
-        </div>
-
-        {!showDeleteZone ? (
-          <button
-            type="button"
-            onClick={() => setShowDeleteZone(true)}
-            className="bg-coral/10 border-[3px] border-coral px-6 py-3 rounded-xl font-display font-bold text-coral hover:bg-coral hover:text-snow transition-all"
-          >
-            Delete My Account
-          </button>
-        ) : (
-          <form onSubmit={handleDeleteAccount} className="space-y-4 mt-4">
-            <div className="bg-coral-light border-[2px] border-coral/30 rounded-xl p-4">
-              <p className="text-sm text-navy font-bold mb-2">
-                This will permanently delete your account and all associated data:
-              </p>
-              <ul className="text-sm text-slate list-disc pl-5 space-y-1">
-                <li>Your profile and personal information</li>
-                <li>All enrollments and academic records</li>
-                <li>Payment histories and bank transfers</li>
-                <li>All notifications</li>
-              </ul>
-              <p className="text-sm text-coral font-bold mt-3">This action cannot be undone.</p>
-            </div>
-
-            <div>
-              <label htmlFor="delete-confirm" className="block text-sm font-bold text-navy mb-1">
-                Type <span className="text-coral font-black">DELETE MY ACCOUNT</span> to confirm
-              </label>
-              <input
-                id="delete-confirm"
-                type="text"
-                value={deleteConfirmText}
-                onChange={(e) => setDeleteConfirmText(e.target.value)}
-                required
-                className="w-full px-4 py-3 border-[3px] border-coral rounded-xl bg-ghost text-navy font-medium focus:outline-none focus:ring-2 focus:ring-coral transition-all"
-                placeholder="DELETE MY ACCOUNT"
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                type="submit"
-                disabled={deleteLoading || deleteConfirmText !== "DELETE MY ACCOUNT"}
-                className="bg-coral border-[4px] border-navy press-5 press-navy px-8 py-3 rounded-2xl font-display font-black text-snow disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                {deleteLoading ? "Deleting..." : "Permanently Delete Account"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDeleteZone(false);
-                  setDeleteConfirmText("");
-                }}
-                className="bg-ghost border-[3px] border-navy px-6 py-3 rounded-xl font-display font-bold text-navy hover:bg-cloud transition-all"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
-      </section>
     </div>
   );
 }

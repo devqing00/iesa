@@ -652,7 +652,6 @@ export default function StudentDashboardPage() {
             <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
-                  {/* <div className="w-3 h-8 rounded-full bg-teal" /> */}
                   <h3 className="font-display font-black text-xl text-navy">Today&apos;s Schedule</h3>
                 </div>
                 <Link href="/dashboard/timetable" className="text-xs font-bold text-slate hover:text-navy transition-colors flex items-center gap-1">
@@ -706,7 +705,6 @@ export default function StudentDashboardPage() {
             <div className="flex-1 bg-sunny-light border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
-                  {/* <div className="w-3 h-8 rounded-full bg-sunny" /> */}
                   <h3 className="font-display font-black text-xl text-navy">Announcements</h3>
                 </div>
                 <Link href="/dashboard/announcements" className="text-xs font-bold text-navy/50 hover:text-navy transition-colors flex items-center gap-1">
@@ -940,7 +938,6 @@ export default function StudentDashboardPage() {
             <div className="bg-coral-light border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  {/* <div className="w-2.5 h-6 rounded-full bg-coral" /> */}
                   <h3 className="font-display font-black text-lg text-navy">Pending Dues</h3>
                 </div>
                 <Link href="/dashboard/payments" className="text-[10px] font-bold text-navy/50 hover:text-navy transition-colors uppercase tracking-wider">
@@ -990,7 +987,6 @@ export default function StudentDashboardPage() {
             <div className="bg-snow border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  {/* <div className="w-2.5 h-6 rounded-full bg-lavender" /> */}
                   <h3 className="font-display font-black text-lg text-navy">Upcoming</h3>
                 </div>
                 <Link href="/dashboard/events" className="text-[10px] font-bold text-slate hover:text-navy transition-colors uppercase tracking-wider">
