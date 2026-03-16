@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
+import { toast } from "sonner";
 import {
   type FileMetaResponse,
   type FileBookmark,
@@ -54,6 +55,14 @@ function ExternalLinkIcon({ className = "w-4 h-4" }: { className?: string }) {
   return (
     <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+    </svg>
+  );
+}
+
+function EllipsisVerticalIcon({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path fillRule="evenodd" d="M10.5 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm0 6a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clipRule="evenodd" />
     </svg>
   );
 }
@@ -115,6 +124,8 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
   const [currentPage, setCurrentPage] = useState(meta.progress?.currentPage || 1);
   const [totalPages, setTotalPages] = useState(meta.progress?.totalPages || 0);
   const [zoom, setZoom] = useState(1);
+  const [fitMode, setFitMode] = useState<"width" | "actual">("width");
+  const [pageWidth, setPageWidth] = useState(0);
   const [pdfLoading, setPdfLoading] = useState(true);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -328,6 +339,27 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
     return () => clearTimeout(timer);
   }, [zoom, totalPages, resolveCurrentPageFromScroll]);
 
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const syncWidth = () => {
+      const containerWidth = Math.max(280, container.clientWidth - 20);
+      setPageWidth(containerWidth);
+    };
+
+    syncWidth();
+
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(syncWidth);
+      observer.observe(container);
+      return () => observer.disconnect();
+    }
+
+    window.addEventListener("resize", syncWidth);
+    return () => window.removeEventListener("resize", syncWidth);
+  }, []);
+
   // Register page ref callback
   const setPageRef = useCallback((pageNum: number, el: HTMLDivElement | null) => {
     if (el) {
@@ -387,7 +419,17 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
         {/* Zoom */}
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
+            onClick={() => {
+              setFitMode((prev) => (prev === "width" ? "actual" : "width"));
+              setZoom(1);
+            }}
+            title={fitMode === "width" ? "Switch to actual size" : "Switch to fit width"}
+            className="px-2.5 h-7 rounded-lg bg-ghost flex items-center justify-center hover:bg-cloud text-[9px] font-bold text-navy"
+          >
+            {fitMode === "width" ? "Fit" : "Cover"}
+          </button>
+          <button
+            onClick={() => setZoom(Math.max(0.25, zoom - 0.25))}
             title="Zoom out"
             className="w-7 h-7 rounded-lg bg-ghost flex items-center justify-center hover:bg-cloud"
           >
@@ -405,7 +447,7 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
       </div>
 
       {/* PDF content area */}
-      <div ref={containerRef} className="flex-1 overflow-auto bg-navy-light">
+      <div ref={containerRef} className="flex-1 overflow-auto bg-navy-light touch-pan-x touch-pan-y">
         {(cacheStatus === "checking" || cacheStatus === "downloading" || pdfLoading) && (
           <div className="flex items-center justify-center h-full">
             <div className="text-center space-y-3">
@@ -442,7 +484,7 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
             onLoadError={handleDocumentLoadError}
             loading={null}
           >
-            <div className="flex flex-col items-center gap-2 py-4">
+            <div className="inline-flex flex-col items-center gap-2 py-4 min-w-full">
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
                 <div
                   key={pageNum}
@@ -452,6 +494,7 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
                 >
                   <Page
                     pageNumber={pageNum}
+                    width={fitMode === "width" ? (pageWidth || undefined) : undefined}
                     scale={zoom}
                     renderTextLayer
                     renderAnnotationLayer
@@ -1001,6 +1044,8 @@ export default function ResourceViewer({
   const [bookmarks, setBookmarks] = useState<FileBookmark[]>(meta?.bookmarks || []);
   const [currentPage, setCurrentPage] = useState(meta?.progress?.currentPage || 1);
   const [currentTime, setCurrentTime] = useState(meta?.progress?.currentTime || 0);
+  const [showActionMenu, setShowActionMenu] = useState(false);
+  const [bookmarkPanelOpen, setBookmarkPanelOpen] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // No need to sync from meta — parent uses key={meta.id} to remount when file changes
@@ -1040,6 +1085,14 @@ export default function ResourceViewer({
       cancelled = true;
     };
   }, [token, getAccessToken, meta?.id]);
+
+  useEffect(() => {
+    setShowActionMenu(false);
+  }, [meta?.id]);
+
+  useEffect(() => {
+    setBookmarkPanelOpen(false);
+  }, [meta?.id]);
 
   useEffect(() => {
     if (!meta) return;
@@ -1149,9 +1202,35 @@ export default function ResourceViewer({
   const canPreview = isPDF || isVideo || isImage || isEmbed;
   const showBookmarkPanel = isPDF || isEmbed;
   const canDirectDownload = !meta.mimeType.startsWith("application/vnd.google-apps.");
-  const downloadUrl = resolvedToken
-    ? `${getDriveStreamUrl(meta.id)}?token=${encodeURIComponent(resolvedToken)}&download=1`
-    : null;
+
+  const handleDownload = async () => {
+    if (!canDirectDownload) return;
+    try {
+      const accessToken = await getAccessToken();
+      const streamUrl = getDriveStreamUrl(meta.id);
+      const res = await fetch(`${streamUrl}?download=1`, {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+        credentials: "include",
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const blob = await res.blob();
+      if (!blob || blob.size === 0) throw new Error("Empty download");
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = meta.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setShowActionMenu(false);
+    } catch {
+      toast.error("Download failed. Please try again.");
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-snow flex flex-col">
@@ -1193,39 +1272,72 @@ export default function ResourceViewer({
             <ChevronRightIcon className="w-4 h-4 text-navy" />
           </button>
         </div>
-        {canDirectDownload && (
-          <a
-            href={downloadUrl || "#"}
-            onClick={(e) => {
-              if (!downloadUrl) e.preventDefault();
-            }}
-            className={`shrink-0 text-xs border-2 rounded-lg px-3 py-1.5 font-bold flex items-center gap-1 ${
-              downloadUrl
-                ? "bg-lime text-navy border-navy press-2 press-navy"
-                : "bg-cloud text-slate border-navy/20 cursor-not-allowed"
-            }`}
-            download={meta.name}
-            title={downloadUrl ? "Download file" : "Preparing download..."}
-          >
-            <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-              <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v10.19l2.72-2.72a.75.75 0 1 1 1.06 1.06l-4 4a.75.75 0 0 1-1.06 0l-4-4a.75.75 0 1 1 1.06-1.06l2.72 2.72V3a.75.75 0 0 1 .75-.75Zm-8.25 12a.75.75 0 0 1 .75.75v3a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-3a.75.75 0 0 1 1.5 0v3a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-3a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
-            </svg>
-            Download
-          </a>
-        )}
+        <div className="hidden lg:flex shrink-0 items-center gap-2">
+          {canDirectDownload && (
+            <button
+              onClick={handleDownload}
+              className="text-xs border-2 rounded-lg px-3 py-1.5 font-bold flex items-center gap-1 bg-lime text-navy border-navy press-2 press-navy"
+              title="Download file"
+            >
+              <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v10.19l2.72-2.72a.75.75 0 1 1 1.06 1.06l-4 4a.75.75 0 0 1-1.06 0l-4-4a.75.75 0 1 1 1.06-1.06l2.72 2.72V3a.75.75 0 0 1 .75-.75Zm-8.25 12a.75.75 0 0 1 .75.75v3a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-3a.75.75 0 0 1 1.5 0v3a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-3a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+              </svg>
+              Download
+            </button>
+          )}
 
-        {/* Open in Drive */}
-        {meta.webViewLink && (
-          <a
-            href={meta.webViewLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 text-xs bg-navy text-lime border-2 border-lime rounded-lg px-3 py-1.5 press-2 press-lime font-bold flex items-center gap-1"
+          {meta.webViewLink && (
+            <a
+              href={meta.webViewLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs bg-navy text-lime border-2 border-lime rounded-lg px-3 py-1.5 press-2 press-lime font-bold flex items-center gap-1"
+            >
+              <ExternalLinkIcon className="w-3.5 h-3.5" />
+              Drive
+            </a>
+          )}
+        </div>
+
+        <div className="lg:hidden relative shrink-0">
+          <button
+            onClick={() => setShowActionMenu((prev) => !prev)}
+            className="w-9 h-9 rounded-xl bg-ghost border-2 border-navy flex items-center justify-center press-2 press-navy"
+            title="More actions"
+            aria-label="More actions"
           >
-            <ExternalLinkIcon className="w-3.5 h-3.5" />
-            Drive
-          </a>
-        )}
+            <EllipsisVerticalIcon className="w-4 h-4 text-navy" />
+          </button>
+
+          {showActionMenu && (
+            <div className="absolute right-0 mt-2 w-44 rounded-2xl border-[3px] border-navy bg-snow shadow-[3px_3px_0_0_#000] p-2 z-30">
+              {canDirectDownload && (
+                <button
+                  onClick={handleDownload}
+                  className="w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-xl bg-lime text-navy border-2 border-navy font-bold text-xs"
+                >
+                  <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v10.19l2.72-2.72a.75.75 0 1 1 1.06 1.06l-4 4a.75.75 0 0 1-1.06 0l-4-4a.75.75 0 1 1 1.06-1.06l2.72 2.72V3a.75.75 0 0 1 .75-.75Zm-8.25 12a.75.75 0 0 1 .75.75v3a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-3a.75.75 0 0 1 1.5 0v3a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-3a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+                  </svg>
+                  Download
+                </button>
+              )}
+
+              {meta.webViewLink && (
+                <a
+                  href={meta.webViewLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setShowActionMenu(false)}
+                  className="mt-2 w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-xl bg-navy text-lime border-2 border-lime font-bold text-xs"
+                >
+                  <ExternalLinkIcon className="w-4 h-4" />
+                  Open in Drive
+                </a>
+              )}
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Viewer area */}
@@ -1276,16 +1388,38 @@ export default function ResourceViewer({
         )}
       </div>
 
-      {/* Bookmark panel */}
+      {/* Bookmark toggle + panel */}
       {showBookmarkPanel && (
-        <BookmarkPanel
-          bookmarks={bookmarks}
-          onJumpTo={handleJumpTo}
-          onDelete={handleDeleteBookmark}
-          onAdd={handleAddBookmark}
-          currentPage={isPDF ? currentPage : undefined}
-          currentTime={isVideo ? currentTime : undefined}
-        />
+        <div className="shrink-0">
+          <div className="bg-snow border-t-2 border-navy px-3 py-1.5 flex justify-center">
+            <button
+              onClick={() => setBookmarkPanelOpen((prev) => !prev)}
+              className="w-9 h-7 rounded-lg bg-lime border-[2px] border-navy press-2 press-navy flex items-center justify-center"
+              aria-label={bookmarkPanelOpen ? "Hide bookmarks" : "Show bookmarks"}
+              title={bookmarkPanelOpen ? "Hide bookmarks" : "Show bookmarks"}
+            >
+              <svg
+                aria-hidden="true"
+                className={`w-4 h-4 text-navy transition-transform ${bookmarkPanelOpen ? "rotate-180" : "rotate-0"}`}
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path fillRule="evenodd" d="M12 7.5a.75.75 0 0 1 .6.3l4.5 6a.75.75 0 1 1-1.2.9L12 9.6l-3.9 5.1a.75.75 0 0 1-1.2-.9l4.5-6a.75.75 0 0 1 .6-.3Z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+
+          {bookmarkPanelOpen && (
+            <BookmarkPanel
+              bookmarks={bookmarks}
+              onJumpTo={handleJumpTo}
+              onDelete={handleDeleteBookmark}
+              onAdd={handleAddBookmark}
+              currentPage={isPDF ? currentPage : undefined}
+              currentTime={isVideo ? currentTime : undefined}
+            />
+          )}
+        </div>
       )}
     </div>
   );

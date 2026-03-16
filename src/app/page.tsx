@@ -67,11 +67,9 @@ export default function Home() {
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-20 sm:py-28 md:py-0">
             <div className="max-w-2xl">
               <h1 className="font-display font-black text-[3rem] sm:text-[4.5rem] lg:text-[6rem] leading-[0.88] text-snow mb-6">
-                Industrial &amp;
+                Industrial &amp; <span className="text-lime">Production</span>
                 <br />
-                <span className="text-lime">Production</span>
-                <br />
-                Engineering
+                Engineering Students Association
               </h1>
 
               <p className="font-display text-base sm:text-lg text-snow/75 max-w-lg mb-8 leading-relaxed font-medium">
