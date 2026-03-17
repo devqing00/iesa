@@ -58,13 +58,13 @@ interface TeamHeadOverview {
 
 export default function StudentDashboardPage() {
   const { user, userProfile, refreshProfile, getAccessToken } = useAuth();
-  const { hasAnyPermission, hasPermission } = usePermissions();
+  const { hasAnyPermission, hasPermission, loaded: permissionsLoaded } = usePermissions();
   const { currentSession } = useSession();
   const { showHelp, openHelp, closeHelp } = useToolHelp("student-dashboard");
   const enabled = !!user;
   const isIepodAdminRole = hasAnyPermission(["iepod:manage", "iepod:view"]);
   const iepodHref = isIepodAdminRole ? "/dashboard/iepod/manage" : "/dashboard/iepod";
-  const isClassRepOrAssistant = hasPermission("class_rep:view_cohort") && !hasPermission("freshers:manage");
+  const isClassRepOrAssistant = permissionsLoaded && hasPermission("class_rep:view_cohort");
 
   const { data, isLoading: loading } = useStudentDashboard(enabled);
   const external = isExternalStudent(userProfile?.department);
@@ -845,7 +845,7 @@ export default function StudentDashboardPage() {
               </Link>
 
               {/* Cohort Portal CTA — IPE students only */}
-              {!external && !isClassRepOrAssistant && (
+              {!external && permissionsLoaded && !isClassRepOrAssistant && (
                 <Link href="/dashboard/cohort" className="block bg-lavender-light border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group press-4 press-black">
                   <svg aria-hidden="true" className="absolute top-3 right-4 w-4 h-4 text-lavender/25 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />

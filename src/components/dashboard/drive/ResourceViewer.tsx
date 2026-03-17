@@ -1070,7 +1070,10 @@ export default function ResourceViewer({
   const [currentTime, setCurrentTime] = useState(meta?.progress?.currentTime || 0);
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [bookmarkPanelOpen, setBookmarkPanelOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadCooldown, setDownloadCooldown] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const downloadCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // No need to sync from meta — parent uses key={meta.id} to remount when file changes
 
@@ -1115,7 +1118,21 @@ export default function ResourceViewer({
 
   useEffect(() => {
     setShowActionMenu(false);
+    setIsDownloading(false);
+    setDownloadCooldown(false);
+    if (downloadCooldownTimerRef.current) {
+      clearTimeout(downloadCooldownTimerRef.current);
+      downloadCooldownTimerRef.current = null;
+    }
   }, [meta?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (downloadCooldownTimerRef.current) {
+        clearTimeout(downloadCooldownTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     setBookmarkPanelOpen(false);
@@ -1239,7 +1256,9 @@ export default function ResourceViewer({
   const canDirectDownload = !meta.mimeType.startsWith("application/vnd.google-apps.");
 
   const handleDownload = async () => {
-    if (!canDirectDownload) return;
+    if (!canDirectDownload || isDownloading || downloadCooldown) return;
+    setIsDownloading(true);
+    toast.info("Preparing your download...");
     try {
       const accessToken = await getAccessToken();
       const streamUrl = getDriveStreamUrl(meta.id);
@@ -1261,9 +1280,20 @@ export default function ResourceViewer({
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+      toast.success("Download started");
+      setDownloadCooldown(true);
+      if (downloadCooldownTimerRef.current) {
+        clearTimeout(downloadCooldownTimerRef.current);
+      }
+      downloadCooldownTimerRef.current = setTimeout(() => {
+        setDownloadCooldown(false);
+        downloadCooldownTimerRef.current = null;
+      }, 1500);
       setShowActionMenu(false);
     } catch {
       toast.error("Download failed. Please try again.");
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -1311,13 +1341,28 @@ export default function ResourceViewer({
           {canDirectDownload && (
             <button
               onClick={handleDownload}
-              className="text-xs border-2 rounded-lg px-3 py-1.5 font-bold flex items-center gap-1 bg-lime text-navy border-navy press-2 press-navy"
+              disabled={isDownloading || downloadCooldown}
+              className="text-xs border-2 rounded-lg px-3 py-1.5 font-bold flex items-center gap-1 bg-lime text-navy border-navy press-2 press-navy disabled:opacity-60 disabled:cursor-not-allowed"
               title="Download file"
             >
-              <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v10.19l2.72-2.72a.75.75 0 1 1 1.06 1.06l-4 4a.75.75 0 0 1-1.06 0l-4-4a.75.75 0 1 1 1.06-1.06l2.72 2.72V3a.75.75 0 0 1 .75-.75Zm-8.25 12a.75.75 0 0 1 .75.75v3a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-3a.75.75 0 0 1 1.5 0v3a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-3a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
-              </svg>
-              Download
+              {isDownloading ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-navy border-t-transparent rounded-full animate-spin" />
+                  Downloading...
+                </>
+              ) : downloadCooldown ? (
+                <>
+                  <span className="w-3.5 h-3.5 rounded-full bg-navy/50" />
+                  Please wait...
+                </>
+              ) : (
+                <>
+                  <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v10.19l2.72-2.72a.75.75 0 1 1 1.06 1.06l-4 4a.75.75 0 0 1-1.06 0l-4-4a.75.75 0 1 1 1.06-1.06l2.72 2.72V3a.75.75 0 0 1 .75-.75Zm-8.25 12a.75.75 0 0 1 .75.75v3a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-3a.75.75 0 0 1 1.5 0v3a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-3a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+                  </svg>
+                  Download
+                </>
+              )}
             </button>
           )}
 
@@ -1349,12 +1394,27 @@ export default function ResourceViewer({
               {canDirectDownload && (
                 <button
                   onClick={handleDownload}
-                  className="w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-xl bg-lime text-navy border-2 border-navy font-bold text-xs"
+                  disabled={isDownloading || downloadCooldown}
+                  className="w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-xl bg-lime text-navy border-2 border-navy font-bold text-xs disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v10.19l2.72-2.72a.75.75 0 1 1 1.06 1.06l-4 4a.75.75 0 0 1-1.06 0l-4-4a.75.75 0 1 1 1.06-1.06l2.72 2.72V3a.75.75 0 0 1 .75-.75Zm-8.25 12a.75.75 0 0 1 .75.75v3a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-3a.75.75 0 0 1 1.5 0v3a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-3a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
-                  </svg>
-                  Download
+                  {isDownloading ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-navy border-t-transparent rounded-full animate-spin" />
+                      Downloading...
+                    </>
+                  ) : downloadCooldown ? (
+                    <>
+                      <span className="w-4 h-4 rounded-full bg-navy/50" />
+                      Please wait...
+                    </>
+                  ) : (
+                    <>
+                      <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v10.19l2.72-2.72a.75.75 0 1 1 1.06 1.06l-4 4a.75.75 0 0 1-1.06 0l-4-4a.75.75 0 1 1 1.06-1.06l2.72 2.72V3a.75.75 0 0 1 .75-.75Zm-8.25 12a.75.75 0 0 1 .75.75v3a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-3a.75.75 0 0 1 1.5 0v3a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-3a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+                      </svg>
+                      Download
+                    </>
+                  )}
                 </button>
               )}
 

@@ -245,7 +245,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { signOut, userProfile } = useAuth();
   const { isExpanded, toggleSidebar, closeSidebar } = useSidebar();
-  const { hasPermission, permissions } = usePermissions();
+  const { hasPermission, permissions, loaded: permissionsLoaded } = usePermissions();
   const { totalUnread } = useDM();
   const { unreadCount: notifUnread } = useNotificationCount();
   const [manualOpenGroup, setManualOpenGroup] = useState<string | null>(null);
@@ -253,7 +253,7 @@ export default function Sidebar() {
   const [signingOut, setSigningOut] = useState(false);
 
   const external = isExternalStudent(userProfile?.department);
-  const isClassRepOrAssistant = hasPermission("class_rep:view_cohort") && !hasPermission("freshers:manage");
+  const isClassRepOrAssistant = permissionsLoaded && hasPermission("class_rep:view_cohort");
 
   const visibleGroups = useMemo(
     () => navGroups
@@ -261,6 +261,7 @@ export default function Sidebar() {
         ...group,
         links: group.links.filter((link) => {
           if (link.href === "/dashboard/freshers" && userProfile?.role === "admin") return false;
+          if (link.href === "/dashboard/cohort" && !permissionsLoaded) return false;
           if (link.href === "/dashboard/cohort" && isClassRepOrAssistant) return false;
           if (external && EXTERNAL_HIDDEN_HREFS.has(link.href)) return false;
           if (external && link.href.startsWith("/dashboard") && !isRouteAllowedForExternal(link.href)) return false;
@@ -269,7 +270,7 @@ export default function Sidebar() {
         }),
       }))
       .filter((group) => group.links.length > 0),
-    [external, hasPermission, isClassRepOrAssistant, userProfile?.role],
+    [external, hasPermission, isClassRepOrAssistant, permissionsLoaded, userProfile?.role],
   );
 
   const activeGroupLabel = useMemo(
