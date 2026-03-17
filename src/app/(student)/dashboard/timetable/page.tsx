@@ -59,9 +59,21 @@ interface CalendarEvent {
   resource: {
     classSession: ClassSession;
     isCancelled: boolean;
+    classStatus?: "holding" | "suspended" | "not_holding" | "postponed" | "cancelled";
+    classStatusNote?: string;
+    isOngoing?: boolean;
     hasCollision?: boolean;
     cancellationReason?: string;
   };
+}
+
+interface ClassStatusUpdate {
+  _id: string;
+  classSessionId: string;
+  date: string;
+  status: "holding" | "suspended" | "not_holding" | "postponed" | "cancelled";
+  note?: string;
+  updatedAt: string;
 }
 
 interface ExamEntry {
@@ -126,6 +138,16 @@ const VIEW_LABELS: Record<View, string> = {
   work_week: "Work Week",
 };
 
+const CLASS_STATUS_META: Record<ClassStatusUpdate["status"], { label: string; badge: string }> = {
+  holding: { label: "Holding", badge: "bg-teal text-navy" },
+  suspended: { label: "Suspended", badge: "bg-coral text-snow" },
+  not_holding: { label: "Not Holding", badge: "bg-coral text-snow" },
+  postponed: { label: "Postponed", badge: "bg-sunny text-navy" },
+  cancelled: { label: "Cancelled", badge: "bg-slate text-snow" },
+};
+
+const BLOCKED_CLASS_STATUSES = new Set<ClassStatusUpdate["status"]>(["suspended", "not_holding", "postponed", "cancelled"]);
+
 function getDefaultViewByWidth(width: number): View {
   return width < 768 ? "day" : "week";
 }
@@ -153,11 +175,19 @@ export default function TimetablePage() {
   const [screenSize, setScreenSize] = useState<"mobile" | "tablet" | "desktop">("desktop");
   const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null);
   const [exams, setExams] = useState<ExamEntry[]>([]);
+  const [classStatusUpdates, setClassStatusUpdates] = useState<ClassStatusUpdate[]>([]);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [statusClassId, setStatusClassId] = useState<string>("");
+  const [statusDate, setStatusDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [statusValue, setStatusValue] = useState<ClassStatusUpdate["status"]>("holding");
+  const [statusNote, setStatusNote] = useState("");
+  const [savingStatus, setSavingStatus] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
 
   // Parse level from userProfile (stored as "200L", "300L", etc.)
   const userLevel = parseInt(String(userProfile?.level || userProfile?.currentLevel || "300")) || 300;
   const canCancelClasses = (user as { permissions?: string[] })?.permissions?.includes("timetable:cancel") || false;
+  const canUpdateClassStatus = canCancelClasses;
   const currentViewLabel = VIEW_LABELS[view] || "Schedule View";
 
   /* ── Responsive ── */
@@ -182,6 +212,14 @@ export default function TimetablePage() {
     window.localStorage.setItem(TIMETABLE_VIEW_PREF_KEY, view);
   }, [view]);
 
+  const getClassStatusForDate = useCallback((classSessionId: string, targetDate: Date) => {
+    const key = format(targetDate, "yyyy-MM-dd");
+    const matches = classStatusUpdates
+      .filter((status) => status.classSessionId === classSessionId && status.date === key)
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    return matches[0] || null;
+  }, [classStatusUpdates]);
+
   /* ── Data fetching ── */
   const fetchTimetable = useCallback(async () => {
     try {
@@ -202,6 +240,19 @@ export default function TimetablePage() {
         const examsRes = await fetch(getApiUrl(`/api/v1/timetable/exams?level=${userLevel}`), { headers: { Authorization: `Bearer ${token}` } });
         if (examsRes.ok) setExams(await examsRes.json());
       } catch { /* exam fetch non-critical */ }
+
+      // Fetch class status updates for the current window
+      try {
+        const statusStart = format(addDays(date, -1), "yyyy-MM-dd");
+        const statusEnd = format(addDays(date, 14), "yyyy-MM-dd");
+        const statusRes = await fetch(
+          getApiUrl(`/api/v1/timetable/class-status?level=${userLevel}&start_date=${statusStart}&end_date=${statusEnd}`),
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (statusRes.ok) setClassStatusUpdates(await statusRes.json());
+      } catch {
+        // non-critical; timetable still renders
+      }
     } catch {
       toast.error("Failed to load timetable. Please try again.");
     } finally {
@@ -210,6 +261,32 @@ export default function TimetablePage() {
   }, [userLevel, date, getAccessToken]);
 
   useEffect(() => { fetchTimetable(); }, [fetchTimetable]);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | null = null;
+    let stopped = false;
+
+    const runReminderDispatch = async () => {
+      try {
+        const token = await getAccessToken();
+        if (stopped) return;
+        await fetch(getApiUrl(`/api/v1/timetable/reminders/dispatch?level=${userLevel}`), {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {
+        // non-critical
+      }
+    };
+
+    runReminderDispatch();
+    timer = setInterval(runReminderDispatch, 60_000);
+
+    return () => {
+      stopped = true;
+      if (timer) clearInterval(timer);
+    };
+  }, [getAccessToken, userLevel]);
 
   /* ── Auto-scroll ── */
   useEffect(() => {
@@ -263,16 +340,30 @@ export default function TimetablePage() {
         startDT.setHours(startH, startM, 0, 0);
         const endDT = new Date(cursor);
         endDT.setHours(endH, endM, 0, 0);
-        const cancellation = cancellations.find((c) => c.classSessionId === cls._id && isSameDay(parseISO(c.date), cursor));
+        const cancellationRecord = cancellations.find(
+          (c) => c.classSessionId === cls._id && isSameDay(parseISO(c.date), cursor)
+        );
+        const cancellationReason = cancellationRecord
+          ? (cancellationRecord as { reason?: string }).reason
+          : undefined;
+        const classStatus = getClassStatusForDate(cls._id, cursor);
+        const statusLabel = classStatus ? ` • ${CLASS_STATUS_META[classStatus.status].label}` : "";
 
         calendarEvents.push({
           id: `${cls._id}-${format(cursor, "yyyy-MM-dd")}`,
           title: view === "agenda"
-            ? `${cls.courseCode} - ${cls.courseTitle}${cls.lecturer ? ` • ${cls.lecturer}` : ""}`
+            ? `${cls.courseCode} - ${cls.courseTitle}${cls.lecturer ? ` • ${cls.lecturer}` : ""}${statusLabel}`
             : `${cls.courseCode} - ${cls.courseTitle}`,
           start: startDT,
           end: endDT,
-          resource: { classSession: cls, isCancelled: !!cancellation, cancellationReason: cancellation?.reason, hasCollision: false },
+          resource: {
+            classSession: cls,
+            isCancelled: !!cancellationRecord,
+            cancellationReason,
+            classStatus: classStatus?.status,
+            classStatusNote: classStatus?.note,
+            hasCollision: false,
+          },
         });
       }
     });
@@ -297,13 +388,14 @@ export default function TimetablePage() {
     });
 
     return calendarEvents;
-  }, [classes, cancellations, date, view]);
+  }, [classes, cancellations, date, view, getClassStatusForDate]);
 
   const todaysClasses = useMemo(() => events.filter((e) => isSameDay(e.start, new Date())), [events]);
 
   const nextClass = useMemo(() => {
     const now = new Date();
-    const candidates: CalendarEvent[] = [];
+    const ongoingCandidates: CalendarEvent[] = [];
+    const upcomingCandidates: CalendarEvent[] = [];
 
     classes.forEach((cls) => {
       const dayNum = DAY_TO_INDEX[cls.day];
@@ -318,26 +410,53 @@ export default function TimetablePage() {
         startDT.setHours(startH, startM, 0, 0);
         const endDT = new Date(candidate);
         endDT.setHours(endH, endM, 0, 0);
-        if (startDT <= now) continue;
 
-        const cancellation = cancellations.find((c) => c.classSessionId === cls._id && isSameDay(parseISO(c.date), candidate));
-        candidates.push({
+        const cancellationRecord = cancellations.find(
+          (c) => c.classSessionId === cls._id && isSameDay(parseISO(c.date), candidate)
+        );
+        const cancellationReason = cancellationRecord
+          ? (cancellationRecord as { reason?: string }).reason
+          : undefined;
+        const classStatus = getClassStatusForDate(cls._id, candidate);
+        const statusValue = classStatus?.status;
+
+        if (cancellationRecord || (statusValue && BLOCKED_CLASS_STATUSES.has(statusValue))) {
+          continue;
+        }
+
+        const event: CalendarEvent = {
           id: `${cls._id}-${format(candidate, "yyyy-MM-dd")}-next`,
           title: `${cls.courseCode} - ${cls.courseTitle}`,
           start: startDT,
           end: endDT,
           resource: {
             classSession: cls,
-            isCancelled: !!cancellation,
-            cancellationReason: cancellation?.reason,
+            isCancelled: !!cancellationRecord,
+            cancellationReason,
+            classStatus: classStatus?.status,
+            classStatusNote: classStatus?.note,
+            isOngoing: startDT <= now && now < endDT,
             hasCollision: false,
           },
-        });
+        };
+
+        if (startDT <= now && now < endDT) {
+          ongoingCandidates.push(event);
+          continue;
+        }
+
+        if (startDT > now) {
+          upcomingCandidates.push(event);
+        }
       }
     });
 
-    return candidates.sort((a, b) => a.start.getTime() - b.start.getTime())[0] || null;
-  }, [classes, cancellations]);
+    if (ongoingCandidates.length > 0) {
+      return ongoingCandidates.sort((a, b) => a.start.getTime() - b.start.getTime())[0];
+    }
+
+    return upcomingCandidates.sort((a, b) => a.start.getTime() - b.start.getTime())[0] || null;
+  }, [classes, cancellations, getClassStatusForDate]);
 
   const classStats = useMemo(() => ({
     total: events.length,
@@ -438,6 +557,44 @@ export default function TimetablePage() {
     } finally { setCancelling(false); }
   };
 
+  const handleUpdateClassStatus = async () => {
+    if (!statusClassId || !statusDate || !statusValue) {
+      toast.warning("Missing Fields", { description: "Please choose class, date, and status" });
+      return;
+    }
+    setSavingStatus(true);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl(`/api/v1/timetable/classes/${statusClassId}/status`), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          date: statusDate,
+          status: statusValue,
+          note: statusNote.trim() || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.detail || "Failed to update class status");
+      }
+
+      toast.success("Status Updated", { description: "Students will now see the latest class status." });
+      setShowStatusModal(false);
+      setStatusNote("");
+      await fetchTimetable();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to update class status";
+      toast.error("Update Failed", { description: message });
+    } finally {
+      setSavingStatus(false);
+    }
+  };
+
   /* ── Calendar styling ── */
   const eventStyleGetter = (event: CalendarEvent) => {
     const style = typeStyles[event.resource.classSession.classType] || typeStyles.lecture;
@@ -499,9 +656,9 @@ export default function TimetablePage() {
               }}
               className="w-full bg-lime-light border-[3px] border-navy rounded-b-2xl px-4 py-3 shadow-[4px_4px_0_0_#000] text-left press-3 press-navy"
             >
-              <p className="text-[10px] font-bold text-navy uppercase tracking-[0.12em]">Next Class</p>
+              <p className="text-[10px] font-bold text-navy uppercase tracking-[0.12em]">{nextClass.resource.isOngoing ? "Ongoing Class" : "Next Class"}</p>
               <p className="font-display font-black text-base text-navy leading-tight mt-0.5">
-                {nextClass.resource.classSession.courseCode} • {format(nextClass.start, "EEE, h:mm a")}
+                {nextClass.resource.classSession.courseCode} • {nextClass.resource.isOngoing ? `Now • ends ${format(nextClass.end, "h:mm a")}` : format(nextClass.start, "EEE, h:mm a")}
               </p>
               <p className="text-xs text-slate truncate mt-0.5">
                 {nextClass.resource.classSession.venue} • {nextClass.resource.classSession.lecturer || "Lecturer TBA"}
@@ -646,9 +803,10 @@ export default function TimetablePage() {
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               {todaysClasses.map((event, i) => {
-                const { classSession, isCancelled, cancellationReason } = event.resource;
+                const { classSession, isCancelled, cancellationReason, classStatus, classStatusNote, isOngoing } = event.resource;
                 const style = typeStyles[classSession.classType] || typeStyles.lecture;
                 const card = todayCardColors[i % todayCardColors.length];
+                const statusMeta = classStatus ? CLASS_STATUS_META[classStatus] : null;
 
                 return (
                   <button key={event.id} onClick={() => setDetailEvent(event)} className={`text-left w-full ${card.bg} border-[3px] ${card.border} rounded-3xl p-5 ${card.shadow} ${isCancelled ? "opacity-50" : ""} transition-all hover:translate-y-[-1px] cursor-pointer`}>
@@ -660,6 +818,14 @@ export default function TimetablePage() {
                         <span className={`text-[10px] font-bold uppercase tracking-wider rounded-md px-2.5 py-1 ${style.bg} ${style.text}`}>
                           {classSession.classType}
                         </span>
+                        {statusMeta && (
+                          <span className={`text-[10px] font-bold uppercase tracking-wider rounded-md px-2.5 py-1 ${statusMeta.badge}`}>
+                            {statusMeta.label}
+                          </span>
+                        )}
+                        {isOngoing && (
+                          <span className="text-[10px] font-bold uppercase tracking-wider rounded-md px-2.5 py-1 bg-teal text-navy">Live</span>
+                        )}
                         {isCancelled && (
                           <span className="text-[10px] font-bold uppercase tracking-wider rounded-md px-2.5 py-1 bg-coral text-snow">Cancelled</span>
                         )}
@@ -688,6 +854,9 @@ export default function TimetablePage() {
                     </div>
                     {isCancelled && cancellationReason && (
                       <p className="text-xs font-bold text-coral mt-2">Reason: {cancellationReason}</p>
+                    )}
+                    {!isCancelled && classStatusNote && (
+                      <p className="text-xs font-bold text-navy mt-2">Status note: {classStatusNote}</p>
                     )}
                   </button>
                 );
@@ -806,8 +975,9 @@ export default function TimetablePage() {
             ═══════════════════════════════════════════════════════ */}
         <Modal isOpen={!!detailEvent} onClose={() => setDetailEvent(null)} title="" size="md">
           {detailEvent && (() => {
-            const { classSession, isCancelled, cancellationReason } = detailEvent.resource;
+            const { classSession, isCancelled, cancellationReason, classStatus, classStatusNote } = detailEvent.resource;
             const style = typeStyles[classSession.classType] || typeStyles.lecture;
+            const statusMeta = classStatus ? CLASS_STATUS_META[classStatus] : null;
             return (
               <div className="space-y-5">
                 {/* Header */}
@@ -822,6 +992,11 @@ export default function TimetablePage() {
                     <span className={`text-[10px] font-bold uppercase tracking-wider rounded-md px-3 py-1.5 ${style.bg} ${style.text}`}>
                       {classSession.classType}
                     </span>
+                    {statusMeta && (
+                      <span className={`text-[10px] font-bold uppercase tracking-wider rounded-md px-3 py-1.5 ${statusMeta.badge}`}>
+                        {statusMeta.label}
+                      </span>
+                    )}
                     {isCancelled && (
                       <span className="text-[10px] font-bold uppercase tracking-wider rounded-md px-3 py-1.5 bg-coral text-snow">
                         Cancelled
@@ -890,6 +1065,20 @@ export default function TimetablePage() {
                       Recurring Weekly
                     </span>
                   )}
+                  {canUpdateClassStatus && (
+                    <button
+                      onClick={() => {
+                        setStatusClassId(classSession._id);
+                        setStatusDate(format(detailEvent.start, "yyyy-MM-dd"));
+                        setStatusValue("holding");
+                        setStatusNote("");
+                        setShowStatusModal(true);
+                      }}
+                      className="bg-lime border-[2px] border-navy rounded-md px-3 py-1.5 text-[10px] font-bold text-navy uppercase tracking-wider press-2 press-navy"
+                    >
+                      Update Class Status
+                    </button>
+                  )}
                 </div>
 
                 {/* Cancellation notice */}
@@ -903,9 +1092,90 @@ export default function TimetablePage() {
                     )}
                   </div>
                 )}
+
+                {!isCancelled && statusMeta && classStatusNote && (
+                  <div className="bg-sunny-light border-[2px] border-sunny/40 rounded-2xl p-4">
+                    <p className="text-xs font-bold text-navy uppercase tracking-wider mb-1">
+                      Status Note
+                    </p>
+                    <p className="text-sm text-navy">{classStatusNote}</p>
+                  </div>
+                )}
               </div>
             );
           })()}
+        </Modal>
+
+        <Modal isOpen={showStatusModal} onClose={() => setShowStatusModal(false)} title="Update Class Status" size="md">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="status-class" className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">Class</label>
+              <select
+                id="status-class"
+                value={statusClassId}
+                onChange={(e) => setStatusClassId(e.target.value)}
+                className="w-full px-4 py-3 bg-ghost border-[3px] border-navy text-sm text-navy rounded-xl focus:outline-none focus:border-teal transition-all"
+              >
+                <option value="">Choose a class…</option>
+                {classes.map((cls) => (
+                  <option key={cls._id} value={cls._id}>{cls.courseCode} - {cls.day} {cls.startTime}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="status-date" className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">Date</label>
+              <input
+                id="status-date"
+                type="date"
+                value={statusDate}
+                onChange={(e) => setStatusDate(e.target.value)}
+                className="w-full px-4 py-3 bg-ghost border-[3px] border-navy text-sm text-navy rounded-xl focus:outline-none focus:border-teal transition-all"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="status-value" className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">Status</label>
+              <select
+                id="status-value"
+                value={statusValue}
+                onChange={(e) => setStatusValue(e.target.value as ClassStatusUpdate["status"])}
+                className="w-full px-4 py-3 bg-ghost border-[3px] border-navy text-sm text-navy rounded-xl focus:outline-none focus:border-teal transition-all"
+              >
+                {Object.entries(CLASS_STATUS_META).map(([key, cfg]) => (
+                  <option key={key} value={key}>{cfg.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="status-note" className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">Note (optional)</label>
+              <textarea
+                id="status-note"
+                value={statusNote}
+                onChange={(e) => setStatusNote(e.target.value)}
+                rows={3}
+                placeholder="Why this status update?"
+                className="w-full px-4 py-3 bg-ghost border-[3px] border-navy text-sm text-navy rounded-xl focus:outline-none focus:border-teal transition-all resize-none"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setShowStatusModal(false)}
+                className="flex-1 px-4 py-3 rounded-2xl border-[3px] border-navy text-navy font-bold text-xs uppercase tracking-wider hover:bg-cloud transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateClassStatus}
+                disabled={savingStatus}
+                className="flex-1 px-4 py-3 rounded-2xl bg-teal text-navy font-bold text-xs uppercase tracking-wider border-[3px] border-navy press-3 press-navy transition-all disabled:opacity-50"
+              >
+                {savingStatus ? "Saving..." : "Save Status"}
+              </button>
+            </div>
+          </div>
         </Modal>
 
         {/* ═══════════════════════════════════════════════════════

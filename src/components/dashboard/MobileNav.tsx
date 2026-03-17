@@ -52,6 +52,7 @@ export default function MobileNav() {
   });
   const activeSession = allSessions.find(s => s.isActive) ?? currentSession;
   const external = isExternalStudent(userProfile?.department);
+  const isClassRepOrAssistant = hasPermission("class_rep:view_cohort") && !hasPermission("freshers:manage");
 
   useEffect(() => {
     try {
@@ -63,6 +64,7 @@ export default function MobileNav() {
 
   const isVisible = (link: MobileNavLink) => {
     if (link.href === "/dashboard/freshers" && userProfile?.role === "admin") return false;
+    if (link.href === "/dashboard/cohort" && isClassRepOrAssistant) return false;
     // Hide IPE-only links for external students
     if (external && EXTERNAL_HIDDEN_HREFS.has(link.href)) return false;
     if (external && link.href.startsWith("/dashboard") && !isRouteAllowedForExternal(link.href)) return false;

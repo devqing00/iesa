@@ -203,6 +203,24 @@ async def _get_member_level(current_user: dict, session_id: str) -> str:
     db = get_database()
     uid = _user_id(current_user)
 
+    blocked_role = await db["roles"].find_one(
+        {
+            "userId": uid,
+            "sessionId": session_id,
+            "isActive": True,
+            "$or": [
+                {"position": {"$regex": "^class_rep_"}},
+                {"position": {"$regex": "^asst_class_rep_"}},
+            ],
+        },
+        {"_id": 1},
+    )
+    if blocked_role:
+        raise HTTPException(
+            status_code=403,
+            detail="Class reps and assistants cannot access the cohort portal.",
+        )
+
     enrollment = await db["enrollments"].find_one(
         {
             "sessionId": session_id,

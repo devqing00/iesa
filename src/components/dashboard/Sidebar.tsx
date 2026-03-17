@@ -253,6 +253,7 @@ export default function Sidebar() {
   const [signingOut, setSigningOut] = useState(false);
 
   const external = isExternalStudent(userProfile?.department);
+  const isClassRepOrAssistant = hasPermission("class_rep:view_cohort") && !hasPermission("freshers:manage");
 
   const visibleGroups = useMemo(
     () => navGroups
@@ -260,6 +261,7 @@ export default function Sidebar() {
         ...group,
         links: group.links.filter((link) => {
           if (link.href === "/dashboard/freshers" && userProfile?.role === "admin") return false;
+          if (link.href === "/dashboard/cohort" && isClassRepOrAssistant) return false;
           if (external && EXTERNAL_HIDDEN_HREFS.has(link.href)) return false;
           if (external && link.href.startsWith("/dashboard") && !isRouteAllowedForExternal(link.href)) return false;
           if (!link.anyPermission) return true;
@@ -267,7 +269,7 @@ export default function Sidebar() {
         }),
       }))
       .filter((group) => group.links.length > 0),
-    [external, hasPermission, userProfile?.role],
+    [external, hasPermission, isClassRepOrAssistant, userProfile?.role],
   );
 
   const activeGroupLabel = useMemo(

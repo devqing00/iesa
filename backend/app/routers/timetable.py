@@ -3,7 +3,7 @@ Timetable Router - Dynamic class schedule + exam timetable management
 """
 
 from datetime import datetime, date, timedelta, timezone
-from typing import List, Optional
+from typing import List, Optional, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -107,6 +107,28 @@ class WeeklyScheduleResponse(BaseModel):
     weekEnd: str
 
 
+class ClassStatusUpdateCreate(BaseModel):
+    date: str  # YYYY-MM-DD
+    status: Literal["holding", "suspended", "not_holding", "postponed", "cancelled"]
+    note: Optional[str] = Field(None, max_length=300)
+
+
+class ClassStatusUpdateResponse(BaseModel):
+    id: str = Field(alias="_id")
+    classSessionId: str
+    sessionId: str
+    level: int
+    date: str
+    status: str
+    note: Optional[str] = None
+    updatedBy: str
+    createdAt: datetime
+    updatedAt: datetime
+
+    class Config:
+        populate_by_name = True
+
+
 # Helper functions
 async def get_current_session(db: AsyncIOMotorDatabase):
     """Get the current active session"""
@@ -144,6 +166,18 @@ def get_week_dates(week_start: Optional[date] = None):
     
     week_end = week_start + timedelta(days=6)
     return week_start, week_end
+
+
+def parse_level_value(raw_level: Optional[str]) -> Optional[int]:
+    if not raw_level:
+        return None
+    digits = "".join(ch for ch in str(raw_level) if ch.isdigit())
+    if not digits:
+        return None
+    try:
+        return int(digits)
+    except ValueError:
+        return None
 
 
 # Routes
@@ -487,6 +521,271 @@ async def cancel_class(
     )
 
     return CancellationResponse(**cancellation_doc)
+
+
+@router.post("/classes/{class_id}/status", response_model=ClassStatusUpdateResponse)
+async def update_class_status(
+    class_id: str,
+    status_data: ClassStatusUpdateCreate,
+    request: Request,
+    user: dict = Depends(require_permission("timetable:cancel")),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Class rep/admin sets the status of a class instance for a specific date."""
+    if not ObjectId.is_valid(class_id):
+        raise HTTPException(status_code=400, detail="Invalid class ID")
+
+    class_doc = await db["classSessions"].find_one({"_id": ObjectId(class_id)})
+    if not class_doc:
+        raise HTTPException(status_code=404, detail="Class not found")
+
+    try:
+        datetime.strptime(status_data.date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    session_id = str(class_doc.get("sessionId", ""))
+    level = int(class_doc.get("level", 0))
+    now = datetime.now(timezone.utc)
+
+    update_doc = {
+        "classSessionId": ObjectId(class_id),
+        "sessionId": session_id,
+        "level": level,
+        "date": status_data.date,
+        "status": status_data.status,
+        "note": status_data.note,
+        "updatedBy": str(user.get("_id") or user.get("uid") or ""),
+        "updatedAt": now,
+    }
+
+    await db["classStatusUpdates"].update_one(
+        {"classSessionId": ObjectId(class_id), "date": status_data.date},
+        {
+            "$set": update_doc,
+            "$setOnInsert": {"createdAt": now},
+        },
+        upsert=True,
+    )
+
+    saved = await db["classStatusUpdates"].find_one(
+        {"classSessionId": ObjectId(class_id), "date": status_data.date}
+    )
+    if not saved:
+        raise HTTPException(status_code=500, detail="Failed to save class status")
+
+    saved["_id"] = str(saved["_id"])
+    saved["classSessionId"] = str(saved["classSessionId"])
+    saved["updatedBy"] = str(saved.get("updatedBy", ""))
+
+    status_label_map = {
+        "holding": "Class holding",
+        "suspended": "Class suspended",
+        "not_holding": "Class not holding",
+        "postponed": "Class postponed",
+        "cancelled": "Class cancelled",
+    }
+    status_label = status_label_map.get(status_data.status, "Class status updated")
+    message = f"{class_doc.get('courseCode', 'Class')} on {status_data.date}: {status_label}."
+    if status_data.note:
+        message = f"{message} Note: {status_data.note}"
+
+    fire_and_forget(_notify_level_students(
+        db,
+        level,
+        session_id,
+        "Timetable Status Update",
+        message,
+    ))
+
+    await AuditLogger.log(
+        action="timetable.class_status_updated",
+        actor_id=str(user.get("_id") or user.get("uid") or ""),
+        actor_email=user.get("email", "unknown"),
+        resource_type="class_session",
+        resource_id=class_id,
+        details={
+            "courseCode": class_doc.get("courseCode"),
+            "date": status_data.date,
+            "status": status_data.status,
+            "note": status_data.note,
+        },
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    return ClassStatusUpdateResponse(**saved)
+
+
+@router.get("/class-status", response_model=List[ClassStatusUpdateResponse])
+async def list_class_status_updates(
+    level: Optional[int] = Query(None, description="Filter by level"),
+    start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    user: dict = Depends(require_ipe_student),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """List class status updates for the current session/date range."""
+    session = await get_current_session(db)
+    query: dict[str, object] = {"sessionId": str(session["_id"])}
+
+    effective_level = level
+    if not effective_level:
+        effective_level = parse_level_value(
+            str(user.get("currentLevel") or user.get("level") or "")
+        )
+    if effective_level:
+        query["level"] = effective_level
+
+    date_filter: dict = {}
+    if start_date:
+        try:
+            datetime.strptime(start_date, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format. Use YYYY-MM-DD")
+        date_filter["$gte"] = start_date
+    if end_date:
+        try:
+            datetime.strptime(end_date, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD")
+        date_filter["$lte"] = end_date
+    if date_filter:
+        query["date"] = date_filter
+
+    cursor = db["classStatusUpdates"].find(query).sort([("date", 1), ("updatedAt", -1)])
+    docs = await cursor.to_list(length=500)
+    response: List[ClassStatusUpdateResponse] = []
+    for doc in docs:
+        doc["_id"] = str(doc["_id"])
+        doc["classSessionId"] = str(doc["classSessionId"])
+        doc["updatedBy"] = str(doc.get("updatedBy", ""))
+        response.append(ClassStatusUpdateResponse(**doc))
+    return response
+
+
+@router.post("/reminders/dispatch")
+async def dispatch_class_reminders(
+    level: Optional[int] = Query(None, description="Student level override"),
+    user: dict = Depends(require_ipe_student),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Create in-app reminders for classes that are 30m/15m away or ongoing (deduped per user/day)."""
+    from app.routers.notifications import create_notification
+
+    session = await get_current_session(db)
+    user_id = str(user.get("_id") or user.get("uid") or "")
+    if not user_id or not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=401, detail="Invalid user identity")
+
+    effective_level = level or parse_level_value(str(user.get("currentLevel") or user.get("level") or "")) or 300
+    now = datetime.now()
+    today = now.date().isoformat()
+    weekday = now.strftime("%A")
+
+    classes_cursor = db["classSessions"].find(
+        {"sessionId": str(session["_id"]), "level": effective_level, "day": weekday},
+        {"courseCode": 1, "courseTitle": 1, "startTime": 1, "endTime": 1, "venue": 1, "level": 1},
+    )
+    classes = await classes_cursor.to_list(length=100)
+    if not classes:
+        return {"created": 0, "reminders": []}
+
+    cancellations_cursor = db["classCancellations"].find(
+        {"date": today, "classSessionId": {"$in": [c["_id"] for c in classes]}}
+    )
+    cancelled_ids = {str(item.get("classSessionId")) async for item in cancellations_cursor}
+
+    status_cursor = db["classStatusUpdates"].find(
+        {
+            "sessionId": str(session["_id"]),
+            "level": effective_level,
+            "date": today,
+            "classSessionId": {"$in": [c["_id"] for c in classes]},
+        }
+    ).sort("updatedAt", -1)
+    status_map: dict[str, str] = {}
+    async for update in status_cursor:
+        class_id = str(update.get("classSessionId"))
+        if class_id not in status_map:
+            status_map[class_id] = str(update.get("status") or "")
+
+    skipped_statuses = {"suspended", "not_holding", "postponed", "cancelled"}
+    created = 0
+    reminders: list[dict] = []
+
+    for cls in classes:
+        class_id = str(cls.get("_id"))
+        if class_id in cancelled_ids:
+            continue
+        if status_map.get(class_id) in skipped_statuses:
+            continue
+
+        try:
+            start_dt = datetime.combine(now.date(), datetime.strptime(cls["startTime"], "%H:%M").time())
+            end_dt = datetime.combine(now.date(), datetime.strptime(cls["endTime"], "%H:%M").time())
+        except Exception:
+            continue
+
+        kind: Optional[str] = None
+        if start_dt <= now < end_dt:
+            kind = "ongoing"
+        else:
+            mins_to_start = (start_dt - now).total_seconds() / 60
+            if 14.5 <= mins_to_start <= 15.5:
+                kind = "15min"
+            elif 29.5 <= mins_to_start <= 30.5:
+                kind = "30min"
+
+        if not kind:
+            continue
+
+        dedupe_key = f"{user_id}:{class_id}:{today}:{kind}"
+        dedupe_result = await db["timetableReminderLogs"].update_one(
+            {"key": dedupe_key},
+            {
+                "$setOnInsert": {
+                    "key": dedupe_key,
+                    "userId": user_id,
+                    "classSessionId": class_id,
+                    "date": today,
+                    "kind": kind,
+                    "createdAt": datetime.now(timezone.utc),
+                }
+            },
+            upsert=True,
+        )
+        if not getattr(dedupe_result, "upserted_id", None):
+            continue
+
+        if kind == "ongoing":
+            title = "Class is live now"
+            message = f"{cls.get('courseCode', 'Class')} is currently holding at {cls.get('venue', 'its venue')}."
+        elif kind == "15min":
+            title = "Class starts in 15 minutes"
+            message = f"{cls.get('courseCode', 'Class')} starts at {cls.get('startTime')} in {cls.get('venue', 'its venue')}."
+        else:
+            title = "Class starts in 30 minutes"
+            message = f"{cls.get('courseCode', 'Class')} starts at {cls.get('startTime')} in {cls.get('venue', 'its venue')}."
+
+        await create_notification(
+            user_id=user_id,
+            type="timetable_reminder",
+            title=title,
+            message=message,
+            link="/dashboard/timetable",
+            related_id=class_id,
+            category="timetable",
+        )
+        created += 1
+        reminders.append({
+            "classSessionId": class_id,
+            "kind": kind,
+            "courseCode": cls.get("courseCode"),
+            "startTime": cls.get("startTime"),
+        })
+
+    return {"created": created, "reminders": reminders}
 
 
 @router.patch("/classes/{class_id}")

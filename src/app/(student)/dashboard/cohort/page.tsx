@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { withAuth } from "@/lib/withAuth";
 import { useAuth } from "@/context/AuthContext";
+import { usePermissions } from "@/context/PermissionsContext";
 import { getApiUrl } from "@/lib/api";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 type Tab = "overview" | "deadlines" | "polls" | "updates";
 
@@ -80,6 +82,8 @@ function timeAgo(d: string | Date | null | undefined): string {
 
 function CohortPortalPage() {
   const { getAccessToken } = useAuth();
+  const { hasPermission } = usePermissions();
+  const router = useRouter();
 
   const [tab, setTab] = useState<Tab>("overview");
   const [level, setLevel] = useState("");
@@ -90,6 +94,12 @@ function CohortPortalPage() {
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [polls, setPolls] = useState<Poll[]>([]);
   const [updates, setUpdates] = useState<UpdatePost[]>([]);
+  const isClassRepOrAssistant = hasPermission("class_rep:view_cohort") && !hasPermission("freshers:manage");
+
+  useEffect(() => {
+    if (!isClassRepOrAssistant) return;
+    router.replace("/dashboard");
+  }, [isClassRepOrAssistant, router]);
 
   const apiFetch = useCallback(
     async (path: string, options?: RequestInit) => {
@@ -137,6 +147,7 @@ function CohortPortalPage() {
   }, [apiFetch]);
 
   useEffect(() => {
+    if (isClassRepOrAssistant) return;
     async function init() {
       setLoading(true);
       setError(null);
@@ -149,17 +160,18 @@ function CohortPortalPage() {
       }
     }
     init();
-  }, [loadOverview, loadDeadlines, loadPolls, loadUpdates]);
+  }, [isClassRepOrAssistant, loadOverview, loadDeadlines, loadPolls, loadUpdates]);
 
   useEffect(() => {
-    if (loading || tab !== "polls") return;
+    if (isClassRepOrAssistant || loading || tab !== "polls") return;
     const interval = window.setInterval(() => {
       loadPolls().catch(() => {});
     }, 20000);
     return () => window.clearInterval(interval);
-  }, [loading, tab, loadPolls]);
+  }, [isClassRepOrAssistant, loading, tab, loadPolls]);
 
   const votePoll = useCallback(async (pollId: string, optionIndex: number) => {
+    if (isClassRepOrAssistant) return;
     try {
       await apiFetch(`/polls/${pollId}/vote`, {
         method: "POST",
@@ -170,7 +182,11 @@ function CohortPortalPage() {
     } catch {
       toast.error("Failed to cast vote");
     }
-  }, [apiFetch, loadPolls]);
+  }, [apiFetch, isClassRepOrAssistant, loadPolls]);
+
+  if (isClassRepOrAssistant) {
+    return null;
+  }
 
   if (loading) {
     return (

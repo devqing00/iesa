@@ -108,7 +108,7 @@ export interface SubmitEventTransferData {
   bankAccountId: string;
   senderName: string;
   senderBank: string;
-  transactionReference: string;
+  transactionReference?: string;
   transferDate: string;
   narration?: string;
 }

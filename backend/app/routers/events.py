@@ -375,14 +375,32 @@ async def get_batch_payment_status(
     async for t in approved_cursor:
         approved_map[t["eventId"]] = t.get("transactionReference", "")
 
-    # Batch-fetch pending bank transfers
-    pending_cursor = db.bankTransfers.find(
-        {"eventId": {"$in": valid_ids}, "studentId": user_id, "status": "pending"},
-        {"eventId": 1},
-    )
-    pending_set: set[str] = set()
-    async for t in pending_cursor:
-        pending_set.add(t["eventId"])
+    # Batch-fetch latest transfer state (pending/rejected) and admin note per event
+    transfer_cursor = db.bankTransfers.find(
+        {"eventId": {"$in": valid_ids}, "studentId": user_id},
+        {
+            "eventId": 1,
+            "status": 1,
+            "adminNote": 1,
+            "transactionReference": 1,
+            "receiptImageUrl": 1,
+            "createdAt": 1,
+            "updatedAt": 1,
+        },
+    ).sort("createdAt", -1)
+    latest_transfer_map: dict[str, dict] = {}
+    async for transfer in transfer_cursor:
+        event_id = transfer.get("eventId")
+        if not event_id or event_id in latest_transfer_map:
+            continue
+        latest_transfer_map[event_id] = {
+            "status": transfer.get("status"),
+            "adminNote": transfer.get("adminNote"),
+            "transactionReference": transfer.get("transactionReference"),
+            "receiptImageUrl": transfer.get("receiptImageUrl"),
+            "createdAt": transfer.get("createdAt"),
+            "updatedAt": transfer.get("updatedAt"),
+        }
 
     # Batch-fetch events to check legacy paymentId → paidBy
     events_cursor = db.events.find(
@@ -415,10 +433,13 @@ async def get_batch_payment_status(
     for eid in valid_ids:
         has_paid = eid in txn_map or eid in approved_map or eid in legacy_paid
         ref = txn_map.get(eid) or approved_map.get(eid)
+        latest_transfer = latest_transfer_map.get(eid)
+        latest_transfer_status = (latest_transfer or {}).get("status")
         result[eid] = {
             "hasPaid": has_paid,
             "paymentReference": ref,
-            "hasPendingTransfer": eid in pending_set,
+            "hasPendingTransfer": latest_transfer_status == "pending",
+            "latestTransfer": latest_transfer,
         }
     return result
 
@@ -791,7 +812,7 @@ class EventBankTransferCreate(BaseModel):
     bankAccountId: str
     senderName: str
     senderBank: str
-    transactionReference: str
+    transactionReference: Optional[str] = None
     transferDate: str
     narration: Optional[str] = None
 
@@ -853,23 +874,29 @@ async def submit_event_bank_transfer(
     if approved_transfer:
         raise HTTPException(status_code=400, detail="Your bank transfer for this event has already been approved")
     
-    # Check for duplicate transaction reference globally
-    duplicate_ref = await db.bankTransfers.find_one({
-        "transactionReference": data.transactionReference
-    })
-    if duplicate_ref:
-        raise HTTPException(
-            status_code=409,
-            detail=f"A transfer submission with reference '{data.transactionReference}' already exists. "
-                   "Each bank transaction can only be submitted once."
-        )
-    # Also check approved transactions collection
-    duplicate_txn = await db.transactions.find_one({"reference": data.transactionReference})
-    if duplicate_txn:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Reference '{data.transactionReference}' has already been used for a verified payment."
-        )
+    provided_reference = (data.transactionReference or "").strip()
+    if provided_reference:
+        # Check for duplicate transaction reference globally
+        duplicate_ref = await db.bankTransfers.find_one({
+            "transactionReference": provided_reference
+        })
+        if duplicate_ref:
+            raise HTTPException(
+                status_code=409,
+                detail=f"A transfer submission with reference '{provided_reference}' already exists. "
+                       "Each bank transaction can only be submitted once."
+            )
+        # Also check approved transactions collection
+        duplicate_txn = await db.transactions.find_one({"reference": provided_reference})
+        if duplicate_txn:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Reference '{provided_reference}' has already been used for a verified payment."
+            )
+
+    transaction_reference = provided_reference or (
+        f"EVT-BT-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{str(ObjectId())[-6:].upper()}"
+    )
     
     # Validate bank account exists and is active
     bank_account = await db.bankAccounts.find_one({
@@ -893,7 +920,7 @@ async def submit_event_bank_transfer(
         "amount": amount,
         "senderName": data.senderName,
         "senderBank": data.senderBank,
-        "transactionReference": data.transactionReference,
+        "transactionReference": transaction_reference,
         "transferDate": data.transferDate,
         "narration": data.narration,
         "status": "pending",

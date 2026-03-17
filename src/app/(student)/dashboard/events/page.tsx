@@ -54,6 +54,15 @@ interface Event {
   };
 }
 
+interface EventTransferMeta {
+  status?: "pending" | "approved" | "rejected";
+  adminNote?: string | null;
+  transactionReference?: string | null;
+  receiptImageUrl?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 interface GalleryAlbumMeta {
   title: string;
   eventDate?: string;
@@ -195,6 +204,7 @@ function EventsPage() {
   const [paidEvents, setPaidEvents] = useState<Set<string>>(new Set());
   const [paymentRefs, setPaymentRefs] = useState<Record<string, string>>({});
   const [pendingTransfers, setPendingTransfers] = useState<Set<string>>(new Set());
+  const [eventTransfers, setEventTransfers] = useState<Record<string, EventTransferMeta>>({});
   const [registering, setRegistering] = useState<string | null>(null);
   const [paying, setPaying] = useState<string | null>(null);
   // Payment method modal
@@ -213,6 +223,7 @@ function EventsPage() {
   });
   const [downloadingReceipt, setDownloadingReceipt] = useState<string | null>(null);
   const [downloadingTicket, setDownloadingTicket] = useState<string | null>(null);
+  const [receiptImage, setReceiptImage] = useState<File | null>(null);
   // Platform settings
   const [onlinePaymentEnabled, setOnlinePaymentEnabled] = useState(true);
   // Reference duplicate check
@@ -414,6 +425,7 @@ function EventsPage() {
       const paidSet = new Set<string>();
       const pendingSet = new Set<string>();
       const refs: Record<string, string> = {};
+      const transferMeta: Record<string, EventTransferMeta> = {};
 
       // Seed with inline hasPaid flags from list response
       for (const e of mappedData) {
@@ -428,10 +440,19 @@ function EventsPage() {
           );
           if (batchRes.ok) {
             const statusMap = await batchRes.json();
-            for (const [eid, s] of Object.entries(statusMap) as [string, { hasPaid: boolean; paymentReference?: string; hasPendingTransfer: boolean }][]) {
+            for (const [eid, s] of Object.entries(statusMap) as [
+              string,
+              {
+                hasPaid: boolean;
+                paymentReference?: string;
+                hasPendingTransfer: boolean;
+                latestTransfer?: EventTransferMeta;
+              }
+            ][]) {
               if (s.hasPaid) paidSet.add(eid);
               if (s.paymentReference) refs[eid] = s.paymentReference;
               if (s.hasPendingTransfer) pendingSet.add(eid);
+              if (s.latestTransfer) transferMeta[eid] = s.latestTransfer;
             }
           }
         } catch { /* non-critical */ }
@@ -440,6 +461,7 @@ function EventsPage() {
       setPaidEvents(paidSet);
       setPaymentRefs(refs);
       setPendingTransfers(pendingSet);
+      setEventTransfers(transferMeta);
     } catch (err) {
       setError("Failed to load events. Please try again.");
     } finally {
@@ -543,8 +565,12 @@ function EventsPage() {
     if (!bankTransferEvent || transferSubmitting) return;
 
     if (!transferForm.bankAccountId || !transferForm.senderName || !transferForm.senderBank
-        || !transferForm.transactionReference || !transferForm.transferDate) {
+        || !transferForm.transferDate) {
       toast.error("Missing Fields", { description: "Please fill in all required fields" });
+      return;
+    }
+    if (!receiptImage) {
+      toast.error("Receipt Required", { description: "Please upload your receipt screenshot before submitting." });
       return;
     }
     if (refExistsError) {
@@ -556,20 +582,50 @@ function EventsPage() {
 
   const doConfirmedEventTransferSubmit = async () => {
     if (!bankTransferEvent || transferSubmitting) return;
+    if (!receiptImage) {
+      toast.error("Receipt Required", { description: "Please upload your receipt screenshot before submitting." });
+      return;
+    }
     setShowConfirmTransfer(false);
     setTransferSubmitting(true);
     try {
-      await submitEventBankTransfer(bankTransferEvent.id, {
+      const result = await submitEventBankTransfer(bankTransferEvent.id, {
         bankAccountId: transferForm.bankAccountId,
         senderName: transferForm.senderName,
         senderBank: transferForm.senderBank,
-        transactionReference: transferForm.transactionReference,
+        transactionReference: transferForm.transactionReference.trim() || undefined,
         transferDate: transferForm.transferDate,
         narration: transferForm.narration || undefined,
       });
+
+      if (!result?._id) {
+        throw new Error("Transfer submitted without an ID. Please try again.");
+      }
+
+      const formData = new FormData();
+      formData.append("file", receiptImage);
+      const token = await getAccessToken();
+      const uploadRes = await fetch(getApiUrl(`/api/v1/bank-transfers/${result._id}/upload-receipt`), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!uploadRes.ok) {
+        let uploadMessage = "Failed to upload receipt screenshot";
+        try {
+          const uploadError = await uploadRes.json();
+          uploadMessage = uploadError?.detail || uploadMessage;
+        } catch {
+          // Keep default message
+        }
+        throw new Error(uploadMessage);
+      }
+
       toast.success("Transfer Submitted", { description: "Your bank transfer proof has been submitted for admin review." });
+      setReceiptImage(null);
       setBankTransferEvent(null);
       setPendingTransfers(prev => new Set([...prev, bankTransferEvent.id]));
+      await fetchEvents();
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Failed to submit transfer proof";
       toast.error("Submission Failed", { description: msg });
@@ -610,6 +666,7 @@ function EventsPage() {
       narration: "",
     });
     setRefExistsError("");
+    setReceiptImage(null);
     setShowConfirmTransfer(false);
     setBankTransferEvent(event);
   };
@@ -998,6 +1055,9 @@ function EventsPage() {
               const isRegistered = registeredEvents.has(event.id);
               const isProcessing = registering === event.id;
               const isFull = Boolean(event.maxAttendees && event.attendeeCount >= event.maxAttendees);
+              const transferMeta = eventTransfers[event.id];
+              const transferStatus = transferMeta?.status;
+              const transferRejected = transferStatus === "rejected";
               const accent = cardAccents[index % cardAccents.length];
               const rotation = index % 3 === 1 ? "rotate-[0.5deg] hover:rotate-0" : index % 3 === 2 ? "rotate-[-0.5deg] hover:rotate-0" : "";
 
@@ -1099,19 +1159,51 @@ function EventsPage() {
                       <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border-[2px] ${
                         paidEvents.has(event.id) 
                           ? "bg-teal-light border-teal/30" 
+                          : transferRejected
+                          ? "bg-coral-light border-coral/30"
                           : pendingTransfers.has(event.id)
                           ? "bg-sunny-light border-sunny/30"
                           : "bg-sunny-light border-sunny/30"
                       }`}>
-                        <svg aria-hidden="true" className={`w-3.5 h-3.5 ${paidEvents.has(event.id) ? "text-teal" : "text-sunny"}`} fill="currentColor" viewBox="0 0 24 24">
+                        <svg
+                          aria-hidden="true"
+                          className={`w-3.5 h-3.5 ${
+                            paidEvents.has(event.id) ? "text-teal" : transferRejected ? "text-coral" : "text-sunny"
+                          }`}
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
                           <path d="M12 7.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" />
                           <path fillRule="evenodd" d="M1.5 4.875C1.5 3.839 2.34 3 3.375 3h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 17.625V4.875z" clipRule="evenodd" />
                         </svg>
                         <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                          paidEvents.has(event.id) ? "text-teal" : pendingTransfers.has(event.id) ? "text-sunny" : "text-navy/60"
+                          paidEvents.has(event.id)
+                            ? "text-teal"
+                            : transferRejected
+                            ? "text-coral"
+                            : pendingTransfers.has(event.id)
+                            ? "text-sunny"
+                            : "text-navy/60"
                         }`}>
-                          {paidEvents.has(event.id) ? "Paid" : pendingTransfers.has(event.id) ? "Transfer Pending Review" : `₦${(event.paymentAmount || 0).toLocaleString()} required`}
+                          {paidEvents.has(event.id)
+                            ? "Paid"
+                            : transferRejected
+                            ? "Transfer Rejected"
+                            : pendingTransfers.has(event.id)
+                            ? "Transfer Pending Review"
+                            : `₦${(event.paymentAmount || 0).toLocaleString()} required`}
                         </span>
+                      </div>
+                    )}
+
+                    {event.requiresPayment && transferStatus && !paidEvents.has(event.id) && (
+                      <div className={`rounded-xl border-[2px] px-3 py-2 ${transferRejected ? "bg-coral-light border-coral/30" : "bg-sunny-light border-sunny/30"}`}>
+                        <p className={`text-[10px] font-bold uppercase tracking-wider ${transferRejected ? "text-coral" : "text-sunny"}`}>
+                          {transferRejected ? "Latest transfer was rejected" : "Latest transfer is under review"}
+                        </p>
+                        {transferMeta?.adminNote && (
+                          <p className="text-[11px] text-navy mt-1">Admin note: {transferMeta.adminNote}</p>
+                        )}
                       </div>
                     )}
 
@@ -1178,6 +1270,13 @@ function EventsPage() {
                         <div className="w-full py-3 text-center font-bold text-xs uppercase tracking-wider border-[3px] border-sunny/40 text-sunny bg-sunny-light rounded-2xl">
                           Transfer Under Review
                         </div>
+                      ) : transferRejected ? (
+                        <button
+                          onClick={() => openPaymentModal(event)}
+                          className="w-full py-3 font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 rounded-2xl border-[3px] bg-coral text-snow border-navy press-3 press-black"
+                        >
+                          Resubmit Transfer / Pay Now
+                        </button>
                       ) : (
                         <button
                           onClick={() => openPaymentModal(event)}
@@ -1549,7 +1648,7 @@ function EventsPage() {
           BANK TRANSFER MODAL
           ═══════════════════════════════════════════════════════ */}
       {bankTransferEvent && (
-        <div className="fixed inset-0 z-[70] bg-navy/60 flex items-center justify-center p-4" onClick={() => setBankTransferEvent(null)}>
+        <div className="fixed inset-0 z-[70] bg-navy/60 flex items-center justify-center p-4" onClick={() => { setBankTransferEvent(null); setReceiptImage(null); }}>
           <div className="bg-snow border-[3px] border-navy rounded-3xl shadow-[12px_12px_0_0_#000] max-w-lg w-full max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="bg-navy p-6 border-b-[4px] border-ghost/20 sticky top-0 z-10">
               <h2 className="font-display font-black text-xl text-snow">Bank Transfer</h2>
@@ -1561,6 +1660,7 @@ function EventsPage() {
                 <div>
                   <label className="text-label text-navy/60 mb-2 block">Transfer To</label>
                   <select
+                    title="Select destination bank account"
                     value={transferForm.bankAccountId}
                     onChange={e => setTransferForm(f => ({ ...f, bankAccountId: e.target.value }))}
                     className="w-full bg-ghost border-[3px] border-navy/20 rounded-xl px-4 py-3 font-bold text-sm text-navy focus:border-navy outline-none"
@@ -1600,6 +1700,7 @@ function EventsPage() {
               <div>
                 <label className="text-label text-navy/60 mb-2 block">Your Bank</label>
                 <select
+                  title="Select your bank"
                   value={transferForm.senderBank}
                   onChange={e => setTransferForm(f => ({ ...f, senderBank: e.target.value }))}
                   className="w-full bg-ghost border-[3px] border-navy/20 rounded-xl px-4 py-3 font-bold text-sm text-navy focus:border-navy outline-none"
@@ -1613,7 +1714,7 @@ function EventsPage() {
 
               {/* Transaction Reference */}
               <div>
-                <label className="text-label text-navy/60 mb-2 block">Transaction Reference / Session ID</label>
+                <label className="text-label text-navy/60 mb-2 block">Transaction Reference / Session ID <span className="text-navy/30">(optional)</span></label>
                 <div className="relative">
                   <input
                     type="text"
@@ -1637,11 +1738,56 @@ function EventsPage() {
                 )}
               </div>
 
+              {/* Receipt Image (Required) */}
+              <div>
+                <label className="text-label text-navy/60 mb-2 block">Receipt Screenshot <span className="text-coral">(required)</span></label>
+                {receiptImage ? (
+                  <div className="flex items-center gap-3 bg-teal-light border-[3px] border-teal/30 rounded-xl px-4 py-3">
+                    <svg aria-hidden="true" className="w-5 h-5 text-teal shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+                    <span className="font-display font-medium text-sm text-navy truncate flex-1">{receiptImage.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setReceiptImage(null)}
+                      aria-label="Remove receipt image"
+                      className="w-6 h-6 rounded-lg bg-coral/20 hover:bg-coral/40 flex items-center justify-center transition-colors shrink-0"
+                    >
+                      <svg aria-hidden="true" className="w-3.5 h-3.5 text-coral" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex items-center gap-3 bg-ghost border-[3px] border-dashed border-navy/20 rounded-xl px-4 py-4 cursor-pointer hover:border-navy/40 hover:bg-cloud transition-colors">
+                    <svg aria-hidden="true" className="w-6 h-6 text-navy/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    <div>
+                      <span className="font-display font-bold text-sm text-navy/60">Upload receipt screenshot</span>
+                      <span className="block font-display text-xs text-navy/30 mt-0.5">JPEG, PNG or WebP — max 5MB</span>
+                    </div>
+                    <input
+                      type="file"
+                      title="Upload receipt screenshot"
+                      aria-label="Upload receipt screenshot"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.size > 5 * 1024 * 1024) {
+                            toast.error("File Too Large", { description: "Receipt image must be under 5MB" });
+                            return;
+                          }
+                          setReceiptImage(file);
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+
               {/* Transfer Date */}
               <div>
                 <label className="text-label text-navy/60 mb-2 block">Transfer Date</label>
                 <input
                   type="date"
+                  title="Transfer date"
                   value={transferForm.transferDate}
                   onChange={e => setTransferForm(f => ({ ...f, transferDate: e.target.value }))}
                   className="w-full bg-ghost border-[3px] border-navy/20 rounded-xl px-4 py-3 font-bold text-sm text-navy focus:border-navy outline-none"
@@ -1663,14 +1809,14 @@ function EventsPage() {
               {/* Actions */}
               <div className="flex gap-3 pt-2">
                 <button
-                  onClick={() => setBankTransferEvent(null)}
+                  onClick={() => { setBankTransferEvent(null); setReceiptImage(null); }}
                   className="flex-1 py-3 border-[3px] border-navy text-navy rounded-2xl font-display font-bold text-sm hover:bg-cloud transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleBankTransferSubmit}
-                  disabled={transferSubmitting || bankAccounts.length === 0 || !!refExistsError}
+                  disabled={transferSubmitting || bankAccounts.length === 0 || !!refExistsError || !receiptImage}
                   className="flex-1 py-3 bg-lime border-[3px] border-navy rounded-2xl font-display font-bold text-sm text-navy press-3 press-navy disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {transferSubmitting ? (
@@ -1709,7 +1855,8 @@ function EventsPage() {
                 { label: "Amount", value: `₦${(bankTransferEvent.paymentAmount || 0).toLocaleString()}` },
                 { label: "Your Name", value: transferForm.senderName },
                 { label: "Your Bank", value: transferForm.senderBank },
-                { label: "Reference", value: transferForm.transactionReference },
+                { label: "Reference", value: transferForm.transactionReference || "Not provided" },
+                { label: "Receipt", value: receiptImage?.name || "Not attached" },
                 { label: "Transfer Date", value: new Date(transferForm.transferDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) },
                 ...(transferForm.narration ? [{ label: "Narration", value: transferForm.narration }] : []),
               ].map(({ label, value }) => (

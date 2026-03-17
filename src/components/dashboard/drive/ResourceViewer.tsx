@@ -218,7 +218,8 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
       setPdfError(null);
       setCacheStatus("cached");
       return true;
-    } catch {
+    } catch (error) {
+      console.warn("[ResourceViewer] PDF fallback fetch failed", error);
       return false;
     }
   }, [fileId, getAccessToken, meta.mimeType, meta.name, streamUrl, token]);
@@ -810,7 +811,9 @@ function ImageViewer({ fileId, meta, token }: { fileId: string; meta: FileMetaRe
         const blob = await res.blob();
         if (cancelled) return;
 
-        cacheFile(fileId, blob, meta.name, meta.mimeType).catch(() => {});
+        cacheFile(fileId, blob, meta.name, meta.mimeType).catch((error) => {
+          console.warn("[ResourceViewer] Failed to cache image", error);
+        });
         objectUrlToRevoke = URL.createObjectURL(blob);
         setImageUrl(objectUrlToRevoke);
       } catch {
@@ -1081,7 +1084,9 @@ export default function ResourceViewer({
         fileName: meta.name,
         fileMimeType: meta.mimeType,
         ...updates,
-      }).catch(() => {}); // silent fail
+      }).catch((error) => {
+        console.warn("[ResourceViewer] Failed to save progress", error);
+      });
     }, 2000);
   }, [meta]);
 
@@ -1097,7 +1102,8 @@ export default function ResourceViewer({
       try {
         const accessToken = await getAccessToken();
         if (!cancelled) setResolvedToken(accessToken || null);
-      } catch {
+      } catch (error) {
+        console.warn("[ResourceViewer] Failed to resolve access token", error);
         if (!cancelled) setResolvedToken(null);
       }
     })();
@@ -1121,7 +1127,9 @@ export default function ResourceViewer({
       fileId: meta.id,
       fileName: meta.name,
       fileMimeType: meta.mimeType,
-    }).catch(() => {});
+    }).catch((error) => {
+      console.warn("[ResourceViewer] Initial progress save failed", error);
+    });
   }, [meta]);
 
   useEffect(() => {
@@ -1183,7 +1191,10 @@ export default function ResourceViewer({
           createdAt: new Date().toISOString(),
         },
       ]);
-    } catch {}
+    } catch (error) {
+      console.warn("[ResourceViewer] Failed to add bookmark", error);
+      toast.error("Could not add bookmark right now.");
+    }
   }, [meta]);
 
   const handleDeleteBookmark = useCallback(async (bookmarkId: string) => {
@@ -1191,7 +1202,10 @@ export default function ResourceViewer({
     try {
       await deleteDriveBookmark(meta.id, bookmarkId);
       setBookmarks((prev) => prev.filter((b) => b._id !== bookmarkId));
-    } catch {}
+    } catch (error) {
+      console.warn("[ResourceViewer] Failed to delete bookmark", error);
+      toast.error("Could not remove bookmark right now.");
+    }
   }, [meta]);
 
   const handleJumpTo = useCallback((bm: FileBookmark) => {

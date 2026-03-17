@@ -500,7 +500,7 @@ export default function DriveExplorer({
   if (notConfigured) return <NotConfigured />;
 
   return (
-    <div className="min-w-0 overflow-x-hidden">
+    <div className="min-w-0">
       {/* Breadcrumb nav — always shown (shows Drive root when at root) */}
       <div className="mb-4 overflow-hidden">
         <Breadcrumbs

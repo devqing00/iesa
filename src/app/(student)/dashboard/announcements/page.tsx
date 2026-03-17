@@ -88,6 +88,7 @@ function AnnouncementsContent() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [readAnnouncements, setReadAnnouncements] = useState<Set<string>>(new Set());
   const [bellNotices, setBellNotices] = useState<BellNotice[]>([]);
+  const [bellFilter, setBellFilter] = useState<"all" | "timetable">("all");
   const [highlightApplied, setHighlightApplied] = useState(false);
   const [page, setPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
@@ -172,12 +173,16 @@ function AnnouncementsContent() {
       if (!response.ok) return;
       const data: BellNotice[] = await response.json();
       const notices = (Array.isArray(data) ? data : [])
-        .filter((n) => ["announcement", "payment", "event", "team_task", "team_application", "planner_reminder", "system"].includes((n.type || "").toLowerCase()))
+        .filter((n) => ["announcement", "payment", "event", "team_task", "team_application", "planner_reminder", "system", "timetable", "timetable_reminder"].includes((n.type || "").toLowerCase()))
         .slice(0, 8);
       setBellNotices(notices);
     } catch {
     }
   };
+
+  const visibleBellNotices = bellFilter === "timetable"
+    ? bellNotices.filter((n) => ["timetable", "timetable_reminder"].includes((n.type || "").toLowerCase()))
+    : bellNotices;
 
   const markAsRead = async (id: string) => {
     if (!user || readAnnouncements.has(id)) return;
@@ -287,8 +292,27 @@ function AnnouncementsContent() {
               <h2 className="font-display font-black text-base md:text-lg text-navy">Recent Notices</h2>
               <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate">From Notification Bell</span>
             </div>
+            <div className="flex gap-2 mb-3">
+              <button
+                onClick={() => setBellFilter("all")}
+                className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border-2 ${bellFilter === "all" ? "bg-navy text-snow border-lime" : "bg-ghost text-navy border-navy/20"}`}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setBellFilter("timetable")}
+                className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg border-2 ${bellFilter === "timetable" ? "bg-teal text-navy border-navy" : "bg-ghost text-navy border-navy/20"}`}
+              >
+                Timetable
+              </button>
+            </div>
             <div className="space-y-2">
-              {bellNotices.map((notice) => (
+              {visibleBellNotices.length === 0 && (
+                <div className="rounded-2xl border-[2px] border-navy/15 bg-ghost px-3 py-3">
+                  <p className="text-xs font-bold text-slate uppercase tracking-wider">No timetable notices yet</p>
+                </div>
+              )}
+              {visibleBellNotices.map((notice) => (
                 <a
                   key={notice._id}
                   href={notice.link || "/dashboard/announcements"}

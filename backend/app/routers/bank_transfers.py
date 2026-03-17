@@ -409,11 +409,11 @@ async def review_transfer(
         student_id = transfer["studentId"]
         session_id = transfer.get("sessionId")  # Get session ID from transfer
 
-        # For dues (payment-linked transfers), a receipt image is mandatory
-        if transfer.get("paymentId") and not transfer.get("receiptImageUrl"):
+        # For dues and event-linked transfers, a receipt image is mandatory
+        if (transfer.get("paymentId") or transfer.get("eventId")) and not transfer.get("receiptImageUrl"):
             raise HTTPException(
                 status_code=400,
-                detail="Cannot approve this dues transfer without a receipt screenshot."
+                detail="Cannot approve this transfer without a receipt screenshot."
             )
         
         # Handle event bank transfers (have eventId instead of paymentId)
