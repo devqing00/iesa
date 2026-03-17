@@ -126,6 +126,10 @@ const VIEW_LABELS: Record<View, string> = {
   work_week: "Work Week",
 };
 
+function getDefaultViewByWidth(width: number): View {
+  return width < 768 ? "day" : "week";
+}
+
 /* ─── Component ─────────────────────────────────────────────────── */
 
 export default function TimetablePage() {
@@ -137,7 +141,7 @@ export default function TimetablePage() {
   const [view, setView] = useState<View>(() => {
     if (typeof window === "undefined") return "week";
     const saved = window.localStorage.getItem(TIMETABLE_VIEW_PREF_KEY) as View | null;
-    if (!saved) return "week";
+    if (!saved) return getDefaultViewByWidth(window.innerWidth);
     return VIEW_OPTIONS.some((option) => option.key === saved) ? saved : "week";
   });
   const [date, setDate] = useState(new Date());
@@ -163,6 +167,10 @@ export default function TimetablePage() {
       if (width < 768) { setScreenSize("mobile"); }
       else if (width < 1024) { setScreenSize("tablet"); }
       else setScreenSize("desktop");
+
+      if (!window.localStorage.getItem(TIMETABLE_VIEW_PREF_KEY)) {
+        setView(getDefaultViewByWidth(width));
+      }
     };
     handleResize();
     window.addEventListener("resize", handleResize);
@@ -259,7 +267,9 @@ export default function TimetablePage() {
 
         calendarEvents.push({
           id: `${cls._id}-${format(cursor, "yyyy-MM-dd")}`,
-          title: `${cls.courseCode} - ${cls.courseTitle}`,
+          title: view === "agenda"
+            ? `${cls.courseCode} - ${cls.courseTitle}${cls.lecturer ? ` • ${cls.lecturer}` : ""}`
+            : `${cls.courseCode} - ${cls.courseTitle}`,
           start: startDT,
           end: endDT,
           resource: { classSession: cls, isCancelled: !!cancellation, cancellationReason: cancellation?.reason, hasCollision: false },

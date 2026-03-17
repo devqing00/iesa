@@ -69,7 +69,7 @@ export interface SubmitTransferProofData {
   amount: number;
   senderName: string;
   senderBank: string;
-  transactionReference: string;
+  transactionReference?: string;
   transferDate: string;
   narration?: string;
 }

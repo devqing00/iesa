@@ -318,8 +318,12 @@ function PaymentsContent() {
 
   const handleTransferSubmit = () => {
     if (!showTransferModal || transferSubmitting) return;
-    if (!transferForm.bankAccountId || !transferForm.senderName || !transferForm.senderBank || !transferForm.transactionReference || !transferForm.transferDate) {
+    if (!transferForm.bankAccountId || !transferForm.senderName || !transferForm.senderBank || !transferForm.transferDate) {
       toast.error("Missing Fields", { description: "Please fill in all required fields" });
+      return;
+    }
+    if (!receiptImage) {
+      toast.error("Receipt Required", { description: "Please upload your receipt screenshot before submitting." });
       return;
     }
     if (refExistsError) {
@@ -331,6 +335,10 @@ function PaymentsContent() {
 
   const doConfirmedTransferSubmit = async () => {
     if (!showTransferModal || transferSubmitting) return;
+    if (!receiptImage) {
+      toast.error("Receipt Required", { description: "Please upload your receipt screenshot before submitting." });
+      return;
+    }
     const payment = showTransferModal;
     setShowConfirmModal(false);
     setTransferSubmitting(true);
@@ -341,26 +349,32 @@ function PaymentsContent() {
         amount: payment.amount,
         senderName: transferForm.senderName,
         senderBank: transferForm.senderBank,
-        transactionReference: transferForm.transactionReference,
+        transactionReference: transferForm.transactionReference.trim() || undefined,
         transferDate: transferForm.transferDate,
         narration: transferForm.narration || undefined,
       });
 
-      // Upload receipt image if selected
-      if (receiptImage && result._id) {
+      // Upload receipt image (mandatory)
+      if (!result._id) {
+        throw new Error("Transfer submitted without an ID. Please try again.");
+      }
+      const formData = new FormData();
+      formData.append("file", receiptImage);
+      const token = await getAccessToken();
+      const uploadRes = await fetch(getApiUrl(`/api/v1/bank-transfers/${result._id}/upload-receipt`), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!uploadRes.ok) {
+        let uploadMessage = "Failed to upload receipt screenshot";
         try {
-          const formData = new FormData();
-          formData.append("file", receiptImage);
-          const token = await getAccessToken();
-          await fetch(getApiUrl(`/api/v1/bank-transfers/${result._id}/upload-receipt`), {
-            method: "POST",
-            headers: { Authorization: `Bearer ${token}` },
-            body: formData,
-          });
+          const uploadError = await uploadRes.json();
+          uploadMessage = uploadError?.detail || uploadMessage;
         } catch {
-          // Non-critical — transfer was submitted successfully
-          toast.info("Note", { description: "Transfer submitted but receipt image upload failed. You can re-upload later." });
+          // Keep default message
         }
+        throw new Error(uploadMessage);
       }
 
       toast.success("Transfer Submitted", { description: "Your bank transfer proof has been submitted for admin review." });
@@ -888,7 +902,7 @@ function PaymentsContent() {
 
                   {/* Transaction Reference */}
                   <div className="space-y-2">
-                    <label className="text-label text-navy/60">Transaction Reference / Receipt No.</label>
+                    <label className="text-label text-navy/60">Transaction Reference / Receipt No. <span className="text-navy/30">(optional)</span></label>
                     <div className="relative">
                       <input
                         type="text"
@@ -936,9 +950,9 @@ function PaymentsContent() {
                     />
                   </div>
 
-                  {/* Receipt Image (Optional) */}
+                  {/* Receipt Image (Required) */}
                   <div className="space-y-2">
-                    <label className="text-label text-navy/60">Receipt Screenshot <span className="text-navy/30">(optional)</span></label>
+                    <label className="text-label text-navy/60">Receipt Screenshot <span className="text-coral">(required)</span></label>
                     <div className="relative">
                       {receiptImage ? (
                         <div className="flex items-center gap-3 bg-teal-light border-[3px] border-teal/30 rounded-xl px-4 py-3">
@@ -990,7 +1004,7 @@ function PaymentsContent() {
                     </button>
                     <button
                       onClick={handleTransferSubmit}
-                      disabled={transferSubmitting || !!refExistsError || !transferForm.bankAccountId || !transferForm.senderName || !transferForm.senderBank || !transferForm.transactionReference}
+                      disabled={transferSubmitting || !!refExistsError || !transferForm.bankAccountId || !transferForm.senderName || !transferForm.senderBank || !receiptImage}
                       className="flex-1 bg-lime border-[3px] border-navy px-6 py-3.5 rounded-xl font-display font-bold text-sm text-navy press-3 press-navy transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {transferSubmitting ? "Submitting..." : "Review & Submit"}
@@ -1023,7 +1037,7 @@ function PaymentsContent() {
                 { label: "Amount", value: `₦${showTransferModal.amount.toLocaleString()}` },
                 { label: "Your Name", value: transferForm.senderName },
                 { label: "Your Bank", value: transferForm.senderBank },
-                { label: "Reference", value: transferForm.transactionReference },
+                { label: "Reference", value: transferForm.transactionReference || "Not provided" },
                 { label: "Transfer Date", value: new Date(transferForm.transferDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) },
                 ...(transferForm.narration ? [{ label: "Narration", value: transferForm.narration }] : []),
               ].map(({ label, value }) => (

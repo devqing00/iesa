@@ -917,12 +917,33 @@ function ImageViewer({ fileId, meta, token }: { fileId: string; meta: FileMetaRe
 
 // ── Embed Viewer (Google Docs/Sheets/Slides/Office) ──────────
 
+function resolveEmbedSrc(meta: FileMetaResponse): string | null {
+  if (meta.embedUrl) return meta.embedUrl;
+  if (!meta.webViewLink) return null;
+
+  const officeMimeTypes = [
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ];
+
+  if (officeMimeTypes.includes(meta.mimeType)) {
+    return `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(meta.webViewLink)}`;
+  }
+
+  return null;
+}
+
 function EmbedViewer({ meta }: { meta: FileMetaResponse }) {
-  if (!meta.embedUrl) return null;
+  const embedSrc = resolveEmbedSrc(meta);
+  if (!embedSrc) return null;
   return (
     <div className="flex-1 h-full">
       <iframe
-        src={meta.embedUrl}
+        src={embedSrc}
         className="w-full h-full border-0"
         title={meta.name}
         sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
@@ -1198,7 +1219,7 @@ export default function ResourceViewer({
   const isVideo = meta.fileType === "video";
   const isPDF = meta.fileType === "pdf";
   const isImage = meta.fileType === "image";
-  const isEmbed = !!meta.embedUrl;
+  const isEmbed = !!resolveEmbedSrc(meta);
   const canPreview = isPDF || isVideo || isImage || isEmbed;
   const showBookmarkPanel = isPDF || isEmbed;
   const canDirectDownload = !meta.mimeType.startsWith("application/vnd.google-apps.");

@@ -56,7 +56,7 @@ class TransferProofCreate(BaseModel):
     amount: float = Field(..., gt=0, description="Amount transferred in Naira")
     senderName: str = Field(..., min_length=2, max_length=200, description="Name on sender's account")
     senderBank: str = Field(..., min_length=2, max_length=100, description="Sender's bank name")
-    transactionReference: str = Field(..., min_length=3, max_length=100, description="Bank transaction/session ID from receipt")
+    transactionReference: Optional[str] = Field(None, max_length=100, description="Bank transaction/session ID from receipt (optional)")
     transferDate: str = Field(..., description="Date of transfer (YYYY-MM-DD)")
     narration: Optional[str] = Field(None, max_length=300, description="Transfer narration/description if any")
 
@@ -159,6 +159,10 @@ async def check_transaction_reference(
     Check whether a transaction reference has already been submitted.
     Returns {"exists": bool} — used for real-time frontend validation.
     """
+    reference = (reference or "").strip()
+    if not reference:
+        return {"exists": False}
+
     db = get_database()
     in_transfers = await db.bankTransfers.find_one({"transactionReference": reference})
     in_transactions = await db.transactions.find_one({"reference": reference})
@@ -205,23 +209,31 @@ async def submit_transfer_proof(
             detail="You already have a pending transfer submission for this payment. Please wait for admin review."
         )
 
-    # Check for duplicate transaction reference globally
-    duplicate_ref = await db.bankTransfers.find_one({
-        "transactionReference": data.transactionReference
-    })
-    if duplicate_ref:
-        raise HTTPException(
-            status_code=409,
-            detail=f"A transfer submission with reference '{data.transactionReference}' already exists. "
-                   "Each bank transaction can only be submitted once."
-        )
-    # Also check transactions collection (approved transfers)
-    duplicate_txn = await db.transactions.find_one({"reference": data.transactionReference})
-    if duplicate_txn:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Reference '{data.transactionReference}' has already been used for a verified payment."
-        )
+    provided_reference = (data.transactionReference or "").strip()
+
+    if provided_reference:
+        # Check for duplicate transaction reference globally
+        duplicate_ref = await db.bankTransfers.find_one({
+            "transactionReference": provided_reference
+        })
+        if duplicate_ref:
+            raise HTTPException(
+                status_code=409,
+                detail=f"A transfer submission with reference '{provided_reference}' already exists. "
+                    "Each bank transaction can only be submitted once."
+            )
+
+        # Also check transactions collection (approved transfers)
+        duplicate_txn = await db.transactions.find_one({"reference": provided_reference})
+        if duplicate_txn:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Reference '{provided_reference}' has already been used for a verified payment."
+            )
+
+    transaction_reference = provided_reference or (
+        f"BT-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{str(ObjectId())[-6:].upper()}"
+    )
     
     # Validate bank account exists and is active
     bank_account = await db.bankAccounts.find_one({"_id": ObjectId(data.bankAccountId), "isActive": True})
@@ -249,7 +261,7 @@ async def submit_transfer_proof(
         "amount": data.amount,
         "senderName": data.senderName,
         "senderBank": data.senderBank,
-        "transactionReference": data.transactionReference,
+        "transactionReference": transaction_reference,
         "transferDate": data.transferDate,
         "narration": data.narration,
         "status": "pending",  # pending | approved | rejected
@@ -396,6 +408,13 @@ async def review_transfer(
     if data.status == "approved":
         student_id = transfer["studentId"]
         session_id = transfer.get("sessionId")  # Get session ID from transfer
+
+        # For dues (payment-linked transfers), a receipt image is mandatory
+        if transfer.get("paymentId") and not transfer.get("receiptImageUrl"):
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot approve this dues transfer without a receipt screenshot."
+            )
         
         # Handle event bank transfers (have eventId instead of paymentId)
         event_id = transfer.get("eventId")

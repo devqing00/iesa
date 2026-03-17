@@ -572,6 +572,15 @@ async def delete_class_session(
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Class not found")
 
+    if session_doc:
+        fire_and_forget(_notify_level_students(
+            db,
+            int(session_doc.get("level", 0)),
+            str(session_doc.get("sessionId", "")),
+            "Class Removed",
+            f"{session_doc.get('courseCode', 'A class')} on {session_doc.get('day', '')} at {session_doc.get('startTime', '')} was removed.",
+        ))
+
     await AuditLogger.log(
         action="timetable.class_deleted",
         actor_id=str(user["_id"]),
@@ -650,6 +659,14 @@ async def create_exam(
     result = await db["examTimetable"].insert_one(doc)
     doc["_id"] = str(result.inserted_id)
 
+    fire_and_forget(_notify_level_students(
+        db,
+        exam_data.level,
+        str(session["_id"]),
+        "New Exam Added",
+        f"{exam_data.courseCode.upper()} exam is scheduled for {exam_data.date} ({exam_data.startTime}–{exam_data.endTime}) at {exam_data.venue}.",
+    ))
+
     await AuditLogger.log(
         action="timetable.exam_created",
         actor_id=str(user["_id"]),
@@ -717,10 +734,33 @@ async def update_exam(
     if "level" in updates and updates["level"] not in [100, 200, 300, 400, 500]:
         raise HTTPException(status_code=400, detail="Invalid level")
 
+    existing_exam = await db["examTimetable"].find_one({"_id": ObjectId(exam_id)})
+    if not existing_exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
     updates["updatedAt"] = datetime.now(timezone.utc)
     result = await db["examTimetable"].update_one({"_id": ObjectId(exam_id)}, {"$set": updates})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Exam not found")
+
+    affected_levels = {
+        int(existing_exam.get("level", 0)),
+        int(updates.get("level", existing_exam.get("level", 0))),
+    }
+    new_course_code = updates.get("courseCode", existing_exam.get("courseCode", ""))
+    new_date = updates.get("date", existing_exam.get("date", ""))
+    new_start = updates.get("startTime", existing_exam.get("startTime", ""))
+
+    for level in affected_levels:
+        if level <= 0:
+            continue
+        fire_and_forget(_notify_level_students(
+            db,
+            level,
+            str(existing_exam.get("sessionId", "")),
+            "Exam Timetable Updated",
+            f"{new_course_code} exam details were updated. Date: {new_date}, Time: {new_start}.",
+        ))
 
     await AuditLogger.log(
         action="timetable.exam_updated",
@@ -753,6 +793,15 @@ async def delete_exam(
     result = await db["examTimetable"].delete_one({"_id": ObjectId(exam_id)})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Exam not found")
+
+    if doc:
+        fire_and_forget(_notify_level_students(
+            db,
+            int(doc.get("level", 0)),
+            str(doc.get("sessionId", "")),
+            "Exam Removed",
+            f"{doc.get('courseCode', 'An exam')} scheduled for {doc.get('date', '')} was removed from the timetable.",
+        ))
 
     await AuditLogger.log(
         action="timetable.exam_deleted",
