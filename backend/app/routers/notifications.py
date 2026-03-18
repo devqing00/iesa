@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from bson import ObjectId
 import logging
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from app.core.security import get_current_user
 from app.core.notification_utils import should_notify_category
@@ -18,6 +19,69 @@ from app.db import get_database
 logger = logging.getLogger("iesa_backend")
 
 router = APIRouter(prefix="/api/v1/notifications", tags=["Notifications"])
+
+
+def _append_query_params(url: str, params: dict[str, str]) -> str:
+    if not url:
+        return url
+    parts = urlsplit(url)
+    existing = dict(parse_qsl(parts.query, keep_blank_values=True))
+    existing.update({k: v for k, v in params.items() if v})
+    query = urlencode(existing)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, query, parts.fragment))
+
+
+def _resolve_notification_link(
+    type_: str,
+    link: str | None,
+    related_id: str | None,
+    title: str | None = None,
+) -> str:
+    default_links = {
+        "announcement": "/dashboard/announcements",
+        "event": "/dashboard/events",
+        "payment": "/dashboard/payments",
+        "transfer_approved": "/dashboard/payments?tab=bank-transfer",
+        "transfer_rejected": "/dashboard/payments?tab=bank-transfer",
+        "message": "/dashboard/messages",
+        "message_request": "/dashboard/messages",
+        "message_request_accepted": "/dashboard/messages",
+        "study_group": "/dashboard/study-groups",
+        "study_group_message": "/dashboard/study-groups",
+        "timetable": "/dashboard/timetable",
+        "timetable_reminder": "/dashboard/timetable",
+        "role_assigned": "/dashboard/profile",
+        "enrollment": "/dashboard/archive",
+        "system": "/dashboard",
+    }
+
+    base = (link or "").strip() or default_links.get(type_, "/dashboard")
+    route_params = {
+        "source": "notification",
+        "notificationType": type_,
+    }
+
+    if related_id:
+        key_map = {
+            "announcement": "announcementId",
+            "event": "eventId",
+            "payment": "paymentId",
+            "transfer_approved": "paymentId",
+            "transfer_rejected": "paymentId",
+            "timetable": "classId",
+            "timetable_reminder": "classId",
+            "study_group": "groupId",
+            "study_group_message": "groupId",
+        }
+        key = key_map.get(type_)
+        if key:
+            route_params[key] = related_id
+
+    if type_ in {"message", "message_request", "message_request_accepted"} and title:
+        route_params["context"] = "notification"
+        route_params["contextLabel"] = title
+
+    return _append_query_params(base, route_params)
 
 
 # ─── Helper (for other routers to import) ────────────────────────
@@ -52,12 +116,14 @@ async def create_notification(
             logger.debug(f"Skipping notification for user {user_id}: category '{category}' disabled")
             return None
 
+    normalized_link = _resolve_notification_link(type, link, related_id, title)
+
     doc = {
         "userId": user_id,
         "type": type,
         "title": title,
         "message": message,
-        "link": link,
+        "link": normalized_link,
         "relatedId": related_id,
         "category": category,
         "isRead": False,
@@ -86,7 +152,7 @@ async def create_notification(
                 user_id=user_id,
                 title=title,
                 body=message,
-                url=link,
+                url=normalized_link,
                 tag=type,
             ))
     except Exception:
@@ -133,6 +199,7 @@ async def create_bulk_notifications(
             return 0
         user_ids = allowed_ids
 
+    normalized_link = _resolve_notification_link(type, link, related_id, title)
     now = datetime.now(timezone.utc)
     docs = [
         {
@@ -140,7 +207,7 @@ async def create_bulk_notifications(
             "type": type,
             "title": title,
             "message": message,
-            "link": link,
+            "link": normalized_link,
             "relatedId": related_id,
             "category": category,
             "isRead": False,
@@ -170,7 +237,7 @@ async def create_bulk_notifications(
                 user_ids=user_ids,
                 title=title,
                 body=message,
-                url=link,
+                url=normalized_link,
                 tag=type,
             ))
     except Exception:

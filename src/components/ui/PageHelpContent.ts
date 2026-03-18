@@ -324,7 +324,7 @@ export const PAGE_HELP_STUDENT: Record<string, ToolHelpContent> = {
     accentColor: "bg-sunny",
     steps: [
       { icon: "chart", title: "Cohort Snapshot", desc: "See enrollment totals and active class activities at a glance" },
-      { icon: "clock", title: "Important Deadlines", desc: "Publish key onboarding and academic deadlines for freshers" },
+      { icon: "clock", title: "Important Deadlines", desc: "Publish key onboarding and academic deadlines" },
       { icon: "list", title: "Pulse Checks", desc: "Create polls to collect quick feedback from your cohort" },
       { icon: "users", title: "Announcements", desc: "Send focused updates to keep freshers informed and aligned" },
     ],
@@ -371,7 +371,7 @@ export const PAGE_HELP_STUDENT: Record<string, ToolHelpContent> = {
   iepod: {
     toolId: "iepod",
     title: "IEPOD Hub",
-    subtitle: "Industrial Engineering Orientation Programme for freshers",
+    subtitle: "Industrial Engineering Orientation Programme",
     accentColor: "bg-coral",
     steps: [
       { icon: "check", title: "Register", desc: "Sign up for the IEPOD programme if you haven't already" },
@@ -380,7 +380,7 @@ export const PAGE_HELP_STUDENT: Record<string, ToolHelpContent> = {
       { icon: "users", title: "Team Activities", desc: "Join a team for the hackathon and group projects" },
     ],
     tips: [
-      "IEPOD is required for freshers — complete all phases",
+      "IEPOD is required — complete all phases",
       "Check back regularly for new quizzes and team assignments",
     ],
   },

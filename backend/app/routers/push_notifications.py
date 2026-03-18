@@ -255,6 +255,29 @@ def _subscription_debug_meta(sub_doc: dict) -> dict:
     }
 
 
+def _build_push_actions(url: str, tag: str | None) -> list[dict[str, str]]:
+    notification_type = (tag or "").strip().lower()
+
+    primary_title = "Open"
+    if notification_type in {"message", "message_request", "message_request_accepted", "study_group_message"}:
+        primary_title = "Open chat"
+    elif notification_type in {"timetable", "timetable_reminder"}:
+        primary_title = "View timetable"
+    elif notification_type in {"payment", "transfer_approved", "transfer_rejected"}:
+        primary_title = "Pay now"
+    elif notification_type == "event":
+        primary_title = "View event"
+    elif notification_type == "announcement":
+        primary_title = "Read now"
+    elif notification_type == "study_group":
+        primary_title = "Open group"
+
+    return [
+        {"action": "open_main", "title": primary_title, "url": url},
+        {"action": "dismiss", "title": "Dismiss", "url": url},
+    ]
+
+
 # ── Pydantic models ───────────────────────────────────────────
 
 class PushSubscription(BaseModel):
@@ -468,6 +491,7 @@ async def send_push_to_user(
         "url": url or "/dashboard",
         "tag": tag or "iesa-notification",
         "icon": "/assets/images/iesa-logo.png",
+        "actions": _build_push_actions(url or "/dashboard", tag),
     })
 
     stale_ids: list[ObjectId] = []

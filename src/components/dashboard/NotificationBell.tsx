@@ -52,6 +52,21 @@ const TYPE_LABEL: Record<string, string> = {
   system: "System",
 };
 
+const TYPE_ACTION_LABEL: Record<string, string> = {
+  message: "Open chat",
+  message_request: "Open chat",
+  message_request_accepted: "Open chat",
+  study_group_message: "Open chat",
+  timetable: "View timetable",
+  timetable_reminder: "View timetable",
+  payment: "Pay now",
+  transfer_approved: "Pay now",
+  transfer_rejected: "Pay now",
+  event: "View event",
+  announcement: "Read now",
+  study_group: "Open group",
+};
+
 function timeAgo(ts: string): string {
   const diff = Date.now() - new Date(ts).getTime();
   const mins = Math.floor(diff / 60000);
@@ -161,31 +176,34 @@ export default function NotificationBell() {
   /** Wrapper: renders Link when notification has a link, div otherwise */
   const NotificationRow = ({ n }: { n: Notification }) => {
     const resolvedLink = (() => {
+      if (n.link) {
+        const role = String(user?.role || "").toLowerCase();
+        const isAdminLike = role === "admin" || role === "exco";
+
+        if (
+          n.type === "announcement" &&
+          !isAdminLike &&
+          n.link.startsWith("/admin/announcements")
+        ) {
+          const [, query] = n.link.split("?");
+          return query ? `/dashboard/announcements?${query}` : "/dashboard/announcements";
+        }
+
+        return n.link;
+      }
+
       const isMessageLike = ["message", "message_request", "message_request_accepted", "study_group_message"].includes(n.type);
       if (isMessageLike) {
         return buildMessagesHref({
           context: "notification",
-          contextId: n._id,
+          contextId: n.relatedId || n._id,
           contextLabel: n.title || TYPE_LABEL[n.type] || "Notification",
         });
       }
 
-      if (!n.link) return null;
-
-      const role = String(user?.role || "").toLowerCase();
-      const isAdminLike = role === "admin" || role === "exco";
-
-      if (
-        n.type === "announcement" &&
-        !isAdminLike &&
-        n.link.startsWith("/admin/announcements")
-      ) {
-        const [, query] = n.link.split("?");
-        return query ? `/dashboard/announcements?${query}` : "/dashboard/announcements";
-      }
-
-      return n.link;
+      return null;
     })();
+    const actionLabel = TYPE_ACTION_LABEL[n.type] || "Open";
 
     const inner = (
       <div className="flex gap-3 px-4 py-3">
@@ -202,9 +220,12 @@ export default function NotificationBell() {
             )}
           </div>
           <p className="text-slate text-xs mt-0.5 line-clamp-1 font-normal">{n.message}</p>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className="text-[10px] text-slate font-normal">{timeAgo(n.createdAt)}</span>
             <span className="text-[10px] text-slate font-normal">· {TYPE_LABEL[n.type] ?? n.type}</span>
+            {resolvedLink && (
+              <span className="text-[10px] font-bold text-lavender">· {actionLabel} →</span>
+            )}
           </div>
         </div>
       </div>

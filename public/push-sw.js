@@ -30,11 +30,23 @@ self.addEventListener("push", (event) => {
     renotify: true,
     data: {
       url: data.url || "/dashboard",
+      actionUrls: Array.isArray(data.actions)
+        ? data.actions.reduce((acc, action) => {
+            if (action && typeof action.action === "string" && typeof action.url === "string") {
+              acc[action.action] = action.url;
+            }
+            return acc;
+          }, {})
+        : {},
     },
-    actions: [
-      { action: "open", title: "Open" },
-      { action: "dismiss", title: "Dismiss" },
-    ],
+    actions: Array.isArray(data.actions)
+      ? data.actions
+          .filter((action) => action && typeof action.action === "string" && typeof action.title === "string")
+          .map((action) => ({ action: action.action, title: action.title }))
+      : [
+          { action: "open_main", title: "Open" },
+          { action: "dismiss", title: "Dismiss" },
+        ],
   };
 
   event.waitUntil(
@@ -47,7 +59,10 @@ self.addEventListener("notificationclick", (event) => {
 
   if (event.action === "dismiss") return;
 
-  const url = event.notification.data?.url || "/dashboard";
+  const defaultUrl = event.notification.data?.url || "/dashboard";
+  const actionUrl = event.notification.data?.actionUrls?.[event.action];
+  const targetUrl = actionUrl || defaultUrl;
+  const url = new URL(targetUrl, self.location.origin).toString();
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {

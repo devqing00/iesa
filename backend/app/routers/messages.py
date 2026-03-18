@@ -20,6 +20,7 @@ Collections used:
 
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
+from urllib.parse import urlencode
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, UploadFile, File, Form
@@ -106,6 +107,41 @@ ATTACHMENT_MAX_SIZE_MB = 10
 def _conversation_key(uid_a: str, uid_b: str) -> str:
     """Deterministic conversation key regardless of sender/recipient order."""
     return "|".join(sorted([uid_a, uid_b]))
+
+
+def _dm_notification_link(
+    other_user_id: str,
+    context_id: str | None = None,
+    context_label: str | None = None,
+) -> str:
+    params = {
+        "dmUserId": other_user_id,
+        "context": "notification",
+    }
+    if context_id:
+        params["contextId"] = context_id
+    if context_label:
+        params["contextLabel"] = context_label
+    return f"/dashboard/messages?{urlencode(params)}"
+
+
+def _attachment_preview_label(attachments: Optional[List[dict]]) -> str:
+    if not attachments:
+        return "Sent an attachment"
+    if len(attachments) > 1:
+        return f"Sent {len(attachments)} attachments"
+
+    att = attachments[0] or {}
+    resource_type = str(att.get("resourceType") or "").lower()
+    mime_type = str(att.get("type") or "").lower()
+
+    if mime_type.startswith("audio/"):
+        return "Sent a voice note"
+    if resource_type == "image" or mime_type.startswith("image/"):
+        return "Sent a photo"
+    if resource_type == "video" or mime_type.startswith("video/"):
+        return "Sent a video"
+    return "Sent a file"
 
 
 async def _check_rate_limit(db: AsyncIOMotorDatabase, user_id: str) -> None:
@@ -712,7 +748,11 @@ async def respond_to_message_request(
                 type="message_request_accepted",
                 title="Message Request Accepted",
                 message=f"{user_name or 'A student'} accepted your message request.",
-                link="/dashboard/messages",
+                link=_dm_notification_link(
+                    other_user_id=user_id,
+                    context_id=request_id,
+                    context_label="Message Request Accepted",
+                ),
                 related_id=user_id,
             )
         except Exception:
@@ -1098,7 +1138,10 @@ async def send_message(
                 type="message_request",
                 title="New Message Request",
                 message=f"{sender_name or 'A student'} sent you a message request.",
-                link="/dashboard/messages",
+                link=_dm_notification_link(
+                    other_user_id=sender_id,
+                    context_label="Message Request",
+                ),
                 related_id=sender_id,
             )
         except Exception:
@@ -1185,7 +1228,11 @@ async def send_message(
                 type="message",
                 title="New Message",
                 message=f"{sender_label}: {preview}" if preview else f"{sender_label} sent you a message.",
-                link="/dashboard/messages",
+                link=_dm_notification_link(
+                    other_user_id=sender_id,
+                    context_id=str(result.inserted_id),
+                    context_label="New Message",
+                ),
                 related_id=str(result.inserted_id),
             )
         except Exception:
@@ -1290,7 +1337,7 @@ async def list_conversations(
         last_msg = doc["lastMessage"][:100] if doc.get("lastMessage") else ""
         # Fallback: attachment-only message → show label
         if not last_msg and doc.get("lastAttachments"):
-            last_msg = "Sent an attachment"
+            last_msg = _attachment_preview_label(doc.get("lastAttachments"))
         # Check if last message was deleted
         if doc.get("lastDeletedAt"):
             last_msg = "This message was deleted"
@@ -1598,8 +1645,12 @@ async def upload_attachment(
                 user_id=recipientId,
                 type="message",
                 title="New Message",
-                message=f"{sender_name or 'A student'} sent you an attachment.",
-                link="/dashboard/messages",
+                message=f"{sender_name or 'A student'}: {_attachment_preview_label([attachment]).lower()}.",
+                link=_dm_notification_link(
+                    other_user_id=sender_id,
+                    context_id=str(insert_result.inserted_id),
+                    context_label="New Message",
+                ),
                 related_id=str(insert_result.inserted_id),
             )
         except Exception:

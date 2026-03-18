@@ -160,8 +160,25 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
+const VN_PLAY_EVENT = "iesa:vn-play";
+
+function getAttachmentPreviewLabel(attachments?: Attachment[]): string {
+  if (!attachments || attachments.length === 0) return "Sent an attachment";
+  if (attachments.length > 1) return `Sent ${attachments.length} attachments`;
+
+  const attachment = attachments[0];
+  const type = (attachment.type || "").toLowerCase();
+  const resourceType = (attachment.resourceType || "").toLowerCase();
+
+  if (type.startsWith("audio/")) return "Sent a voice note";
+  if (resourceType === "image" || type.startsWith("image/")) return "Sent a photo";
+  if (resourceType === "video" || type.startsWith("video/")) return "Sent a video";
+  return "Sent a file";
+}
+
 function AudioWaveformPlayer({ attachment }: { attachment: Attachment }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playerIdRef = useRef(`vn-${Math.random().toString(36).slice(2, 11)}`);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -209,6 +226,22 @@ function AudioWaveformPlayer({ attachment }: { attachment: Attachment }) {
     };
   }, [attachment.url]);
 
+  useEffect(() => {
+    const handleOtherPlayerStart = (event: Event) => {
+      const detail = (event as CustomEvent<{ playerId?: string }>).detail;
+      if (!detail || detail.playerId === playerIdRef.current) return;
+      const audio = audioRef.current;
+      if (audio && !audio.paused) {
+        audio.pause();
+      }
+    };
+
+    window.addEventListener(VN_PLAY_EVENT, handleOtherPlayerStart as EventListener);
+    return () => {
+      window.removeEventListener(VN_PLAY_EVENT, handleOtherPlayerStart as EventListener);
+    };
+  }, []);
+
   const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
   const playedBars = Math.floor(progress * Math.max(1, samples.length));
 
@@ -220,7 +253,10 @@ function AudioWaveformPlayer({ attachment }: { attachment: Attachment }) {
           onClick={() => {
             const audio = audioRef.current;
             if (!audio) return;
-            if (audio.paused) void audio.play();
+            if (audio.paused) {
+              window.dispatchEvent(new CustomEvent(VN_PLAY_EVENT, { detail: { playerId: playerIdRef.current } }));
+              void audio.play();
+            }
             else audio.pause();
           }}
           className="w-8 h-8 rounded-lg bg-lime border-[2px] border-navy text-navy flex items-center justify-center press-1 press-navy"
@@ -236,8 +272,10 @@ function AudioWaveformPlayer({ attachment }: { attachment: Attachment }) {
           {samples.map((h, idx) => (
             <span
               key={`${attachment.url}-${idx}`}
-              className={`w-[2px] rounded-full ${idx <= playedBars ? "bg-teal" : "bg-navy/20"}`}
-              style={{ height: `${h}%` }}
+              className={`w-[2px] rounded-full transition-[height,background-color] duration-150 ${idx <= playedBars ? "bg-teal" : "bg-navy/20"}`}
+              style={{
+                height: `${playing ? Math.max(10, Math.min(100, h * (0.75 + 0.25 * Math.sin((currentTime * 8) + idx * 0.65)))) : h}%`,
+              }}
             />
           ))}
         </div>
@@ -1240,7 +1278,7 @@ export default function MessagesPage() {
           if (existing) {
             const updated: Conversation = {
               ...existing,
-              lastMessage: msg.content ? msg.content.slice(0, 100) : (msg.attachments?.length ? "Sent an attachment" : ""),
+              lastMessage: msg.content ? msg.content.slice(0, 100) : getAttachmentPreviewLabel(msg.attachments),
               lastSenderId: msg.senderId,
               lastAt: msg.createdAt,
               unreadCount:
@@ -1259,7 +1297,7 @@ export default function MessagesPage() {
               otherUserName: msg.senderName || "Unknown",
               otherUserEmail: "",
               isOnline: false,
-              lastMessage: msg.content ? msg.content.slice(0, 100) : (msg.attachments?.length ? "Sent an attachment" : ""),
+              lastMessage: msg.content ? msg.content.slice(0, 100) : getAttachmentPreviewLabel(msg.attachments),
               lastSenderId: msg.senderId,
               lastAt: msg.createdAt,
               unreadCount: msg.senderId !== meId ? 1 : 0,
@@ -2536,7 +2574,7 @@ export default function MessagesPage() {
                             Replying to {replyTo.senderId === currentUserId ? "yourself" : (otherUser?.name || "them")}
                           </span>
                           <p className="text-xs text-navy-muted truncate">
-                            {replyTo.content || (replyTo.attachments?.length ? "Attachment" : "")}
+                            {replyTo.content || (replyTo.attachments?.length ? getAttachmentPreviewLabel(replyTo.attachments).replace(/^Sent\s+/i, "") : "")}
                           </p>
                         </div>
                         <button
