@@ -36,10 +36,13 @@ interface ChatConversation {
 }
 
 interface AIUsage {
-  hourly_used: number;
+  hourly_used?: number;
   hourly_limit: number;
-  daily_used: number;
+  daily_used?: number;
   daily_limit: number;
+  hourly_remaining?: number | null;
+  daily_remaining?: number | null;
+  reset_at?: string;
 }
 
 /* ═══════════════════════════════════════════
@@ -480,8 +483,14 @@ export default function IESAAIPage() {
       });
       if (!res.ok) return;
       const data: AIUsage = await res.json();
+      const derivedHourlyUsed =
+        typeof data.hourly_used === "number"
+          ? data.hourly_used
+          : typeof data.hourly_remaining === "number"
+            ? Math.max(0, data.hourly_limit - data.hourly_remaining)
+            : 0;
       setUsage(data);
-      setRequestCount(data.hourly_used ?? 0);
+      setRequestCount(derivedHourlyUsed);
     } catch (error) {
       console.warn("[IESA AI] Failed to fetch usage", error);
     }
@@ -527,6 +536,27 @@ export default function IESAAIPage() {
     void loadConversations();
     void fetchUsage();
   }, [fetchUsage, getAccessToken]);
+
+  useEffect(() => {
+    const poll = setInterval(() => {
+      void fetchUsage();
+    }, 15000);
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void fetchUsage();
+      }
+    };
+
+    window.addEventListener("focus", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      clearInterval(poll);
+      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [fetchUsage]);
 
   useEffect(() => {
     if (messages.length > 0 && currentConversationId) {
@@ -617,7 +647,7 @@ export default function IESAAIPage() {
       prev
         ? {
             ...prev,
-            hourly_used: Math.min(prev.hourly_limit, prev.hourly_used + 1),
+            hourly_used: Math.min(prev.hourly_limit, (prev.hourly_used ?? 0) + 1),
           }
         : prev,
     );
@@ -675,6 +705,7 @@ export default function IESAAIPage() {
       );
     } finally {
       setLoading(false);
+      void fetchUsage();
     }
   };
 

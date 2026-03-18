@@ -42,6 +42,7 @@ from app.core.drive import (
     list_folder,
     get_file_metadata,
     download_file_bytes,
+    export_google_file_pdf_bytes,
     search_files,
     get_folder_breadcrumbs,
     classify_mime,
@@ -95,21 +96,23 @@ class BookmarkDelete(BaseModel):
 
 def _serialize_item(item: dict) -> dict:
     """Transform a Drive API file dict into a clean frontend-ready dict."""
+    item_id = str(item.get("id") or "")
+    item_name = str(item.get("name") or item.get("title") or "Untitled resource")
     mime = item.get("mimeType", "")
     file_type = classify_mime(mime)
     is_folder = file_type == "folder"
     size = int(item.get("size", 0)) if item.get("size") else None
 
     result = {
-        "id": item["id"],
-        "name": item["name"],
+        "id": item_id,
+        "name": item_name,
         "mimeType": mime,
         "fileType": file_type,
         "isFolder": is_folder,
         "size": size,
         "modifiedTime": item.get("modifiedTime"),
         "thumbnailUrl": item.get("thumbnailLink") or (
-            get_thumbnail_url(item["id"]) if not is_folder else None
+            get_thumbnail_url(item_id) if (not is_folder and item_id) else None
         ),
         "previewable": is_previewable(mime),
     }
@@ -391,6 +394,65 @@ async def stream_file(
     )
 
 
+@router.get("/file/{file_id}/export-pdf")
+async def export_file_as_pdf(
+    file_id: str,
+    download: bool = Query(True, description="Download PDF as attachment"),
+    user: dict = Depends(_stream_auth_user),
+):
+    """Convert supported Google-native files to PDF and stream the result."""
+    loop = asyncio.get_event_loop()
+
+    try:
+        meta = await loop.run_in_executor(None, lambda: get_file_metadata(file_id))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=safe_detail("Failed to fetch file", e))
+
+    mime = meta.get("mimeType", "")
+    convertible_mimes = {
+        "application/vnd.google-apps.document",
+        "application/vnd.google-apps.spreadsheet",
+        "application/vnd.google-apps.presentation",
+    }
+    if mime not in convertible_mimes:
+        raise HTTPException(
+            status_code=400,
+            detail="PDF conversion is only available for Google Docs, Sheets, and Slides.",
+        )
+
+    try:
+        buf = await loop.run_in_executor(None, lambda: export_google_file_pdf_bytes(file_id))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=safe_detail("Failed to convert file to PDF", e))
+
+    if buf.getbuffer().nbytes == 0:
+        try:
+            buf = await loop.run_in_executor(None, lambda: export_google_file_pdf_bytes(file_id))
+        except Exception:
+            pass
+
+    if buf.getbuffer().nbytes == 0:
+        raise HTTPException(status_code=502, detail="Drive returned an empty PDF export. Please retry.")
+
+    base_name = meta.get("name", "resource")
+    if "." in base_name:
+        base_name = base_name.rsplit(".", 1)[0]
+    file_name = f"{base_name}.pdf"
+    disposition = "attachment" if download else "inline"
+
+    headers = {
+        "Content-Disposition": f'{disposition}; filename="{file_name}"',
+        "Content-Length": str(buf.getbuffer().nbytes),
+        "Cache-Control": "private, max-age=3600",
+    }
+
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
+        headers=headers,
+    )
+
+
 @router.get("/search")
 async def search_drive(
     q: str = Query(..., min_length=2, max_length=100, description="Search query"),
@@ -407,8 +469,19 @@ async def search_drive(
         logger.error("Drive search error: %s", e)
         raise HTTPException(status_code=502, detail=safe_detail("Drive search failed", e))
 
+    safe_results: list[dict] = []
+    for raw in results:
+        try:
+            serialized = _serialize_item(raw)
+            if serialized.get("id"):
+                safe_results.append(serialized)
+            else:
+                logger.warning("Drive search skipping item without id: keys=%s", list(raw.keys()))
+        except Exception as e:
+            logger.warning("Drive search skipping malformed item: %s", e)
+
     return {
-        "results": [_serialize_item(r) for r in results],
+        "results": safe_results,
         "query": q,
     }
 

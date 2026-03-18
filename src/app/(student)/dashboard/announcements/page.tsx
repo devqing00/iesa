@@ -5,6 +5,7 @@ import FullScreenLoader from "@/components/ui/FullScreenLoader";
 import Pagination from "@/components/ui/Pagination";
 import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { usePermissions } from "@/context/PermissionsContext";
 import { getApiUrl } from "@/lib/api";
 import { useSearchParams } from "next/navigation";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
@@ -76,6 +77,7 @@ export default function AnnouncementsPage() {
 
 function AnnouncementsContent() {
   const { user, getAccessToken } = useAuth();
+  const { hasPermission, loaded: permissionsLoaded } = usePermissions();
   const { showHelp, openHelp, closeHelp } = useToolHelp("announcements");
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("highlight");
@@ -141,7 +143,7 @@ function AnnouncementsContent() {
         id: item.id || item._id,
       }));
       setAnnouncements(mappedData);
-    } catch (err) {
+    } catch {
       setError("Failed to load announcements. Please try again.");
     } finally {
       setLoading(false);
@@ -159,7 +161,7 @@ function AnnouncementsContent() {
         const readIds = await response.json();
         setReadAnnouncements(new Set(readIds));
       }
-    } catch (err) {
+    } catch {
     }
   };
 
@@ -184,6 +186,58 @@ function AnnouncementsContent() {
     ? bellNotices.filter((n) => ["timetable", "timetable_reminder"].includes((n.type || "").toLowerCase()))
     : bellNotices;
 
+  const isClassRepOrAssistant = permissionsLoaded && hasPermission("class_rep:view_cohort");
+  const canUseCohort = permissionsLoaded && !isClassRepOrAssistant;
+
+  const getNoticeHref = (notice: BellNotice) => {
+    if (!notice.link) return "/dashboard/announcements";
+    if (
+      notice.type === "announcement" &&
+      notice.link.startsWith("/admin/announcements")
+    ) {
+      const [, query] = notice.link.split("?");
+      return query ? `/dashboard/announcements?${query}` : "/dashboard/announcements";
+    }
+    return notice.link;
+  };
+
+  const getNoticeAction = (notice: BellNotice): { label: string; href: string } => {
+    const text = `${notice.title || ""} ${notice.message || ""}`.toLowerCase();
+    const type = (notice.type || "").toLowerCase();
+
+    if (type.includes("payment") || text.includes("pay")) {
+      return { label: "Pay now", href: "/dashboard/payments" };
+    }
+    if ((text.includes("vote") || text.includes("poll")) && canUseCohort) {
+      return { label: "Vote now", href: "/dashboard/cohort?tab=polls" };
+    }
+    if ((text.includes("class note") || text.includes("note")) && canUseCohort) {
+      return { label: "Open class note", href: "/dashboard/cohort?tab=notes" };
+    }
+    if (type.includes("timetable") || type.includes("class_status") || text.includes("class")) {
+      return { label: "View update", href: "/dashboard/timetable" };
+    }
+
+    return { label: "Open", href: getNoticeHref(notice) };
+  };
+
+  const trackUsefulAction = async (actionType: string) => {
+    if (!user) return;
+    try {
+      const token = await getAccessToken();
+      await fetch(getApiUrl("/api/v1/growth/rewards/action"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ actionType }),
+      });
+    } catch {
+      // non-blocking
+    }
+  };
+
   const markAsRead = async (id: string) => {
     if (!user || readAnnouncements.has(id)) return;
     try {
@@ -193,7 +247,7 @@ function AnnouncementsContent() {
         headers: { Authorization: `Bearer ${token}` },
       });
       setReadAnnouncements((prev) => new Set([...prev, id]));
-    } catch (err) {
+    } catch {
     }
   };
 
@@ -308,26 +362,34 @@ function AnnouncementsContent() {
             </div>
             <div className="space-y-2">
               {visibleBellNotices.length === 0 && (
-                <div className="rounded-2xl border-[2px] border-navy/15 bg-ghost px-3 py-3">
+                <div className="rounded-2xl border-2 border-navy/15 bg-ghost px-3 py-3">
                   <p className="text-xs font-bold text-slate uppercase tracking-wider">No timetable notices yet</p>
                 </div>
               )}
               {visibleBellNotices.map((notice) => (
-                <a
+                <div
                   key={notice._id}
-                  href={notice.link || "/dashboard/announcements"}
-                  className={`block rounded-2xl border-[2px] px-3 py-2.5 transition-colors ${notice.isRead ? "bg-ghost border-navy/15" : "bg-lime-light border-navy"}`}
+                  className={`block rounded-2xl border-2 px-3 py-2.5 transition-colors ${notice.isRead ? "bg-ghost border-navy/15" : "bg-lime-light border-navy"}`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-bold text-sm text-navy truncate">{notice.title}</p>
-                      <p className="text-xs text-slate line-clamp-2 mt-0.5">{notice.message}</p>
+                  <a href={getNoticeHref(notice)} className="block hover:opacity-90 transition-opacity">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-navy truncate">{notice.title}</p>
+                        <p className="text-xs text-slate line-clamp-2 mt-0.5">{notice.message}</p>
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate shrink-0">
+                        {new Date(notice.createdAt).toLocaleDateString()}
+                      </span>
                     </div>
-                    <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate shrink-0">
-                      {new Date(notice.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                </a>
+                  </a>
+                  <a
+                    href={getNoticeAction(notice).href}
+                    onClick={() => { void trackUsefulAction(`notice_action:${getNoticeAction(notice).label.toLowerCase().replace(/\s+/g, "_")}`); }}
+                    className="inline-flex mt-2 items-center gap-1.5 bg-snow border-2 border-navy rounded-lg px-2.5 py-1 text-[10px] font-bold text-navy press-1 press-black"
+                  >
+                    {getNoticeAction(notice).label}
+                  </a>
+                </div>
               ))}
             </div>
           </div>

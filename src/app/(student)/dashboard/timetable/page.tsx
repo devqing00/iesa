@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { usePermissions } from "@/context/PermissionsContext";
 import { getApiUrl } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import { Calendar, dateFnsLocalizer, View } from "react-big-calendar";
@@ -155,7 +156,8 @@ function getDefaultViewByWidth(width: number): View {
 /* ─── Component ─────────────────────────────────────────────────── */
 
 export default function TimetablePage() {
-  const { user, userProfile, getAccessToken } = useAuth();
+  const { userProfile, getAccessToken } = useAuth();
+  const { hasPermission, loaded: permissionsLoaded } = usePermissions();
   const { showHelp, openHelp, closeHelp } = useToolHelp("timetable");
   const [classes, setClasses] = useState<ClassSession[]>([]);
   const [cancellations, setCancellations] = useState<ClassCancellation[]>([]);
@@ -167,11 +169,6 @@ export default function TimetablePage() {
     return VIEW_OPTIONS.some((option) => option.key === saved) ? saved : "week";
   });
   const [date, setDate] = useState(new Date());
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [selectedClass, setSelectedClass] = useState<ClassSession | null>(null);
-  const [cancelDate, setCancelDate] = useState("");
-  const [cancelReason, setCancelReason] = useState("");
-  const [cancelling, setCancelling] = useState(false);
   const [screenSize, setScreenSize] = useState<"mobile" | "tablet" | "desktop">("desktop");
   const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null);
   const [exams, setExams] = useState<ExamEntry[]>([]);
@@ -186,8 +183,7 @@ export default function TimetablePage() {
 
   // Parse level from userProfile (stored as "200L", "300L", etc.)
   const userLevel = parseInt(String(userProfile?.level || userProfile?.currentLevel || "300")) || 300;
-  const canCancelClasses = (user as { permissions?: string[] })?.permissions?.includes("timetable:cancel") || false;
-  const canUpdateClassStatus = canCancelClasses;
+  const canUpdateClassStatus = permissionsLoaded && (hasPermission("timetable:cancel") || hasPermission("timetable:status"));
   const currentViewLabel = VIEW_LABELS[view] || "Schedule View";
 
   /* ── Responsive ── */
@@ -535,26 +531,6 @@ export default function TimetablePage() {
     } finally {
       setDownloadingPdf(false);
     }
-  };
-
-  /* ── Cancel class ── */
-  const handleCancelClass = async () => {
-    if (!selectedClass || !cancelDate || !cancelReason) { toast.warning("Missing Fields", { description: "Please fill in all fields" }); return; }
-    setCancelling(true);
-    try {
-      const token = await getAccessToken();
-      const res = await fetch(getApiUrl(`/api/v1/timetable/classes/${selectedClass._id}/cancel`), {
-        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ date: cancelDate, reason: cancelReason }),
-      });
-      if (!res.ok) { const error = await res.json(); throw new Error(error.detail || "Failed to cancel class"); }
-      toast.success("Class Cancelled", { description: "The class has been cancelled successfully" });
-      setShowCancelModal(false); setCancelDate(""); setCancelReason(""); setSelectedClass(null);
-      fetchTimetable();
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "Failed to cancel class";
-      toast.error("Cancellation Failed", { description: msg });
-    } finally { setCancelling(false); }
   };
 
   const handleUpdateClassStatus = async () => {
@@ -1177,85 +1153,6 @@ export default function TimetablePage() {
             </div>
           </div>
         </Modal>
-
-        {/* ═══════════════════════════════════════════════════════
-            CANCEL MODAL
-            ═══════════════════════════════════════════════════════ */}
-        {canCancelClasses && (
-          <button
-            onClick={() => setShowCancelModal(true)}
-            className="fixed bottom-24 md:bottom-8 right-6 bg-coral border-[3px] border-navy rounded-2xl px-5 py-3 press-3 press-black transition-all flex items-center gap-2 z-30"
-          >
-            <svg aria-hidden="true" className="w-5 h-5 text-snow" viewBox="0 0 24 24" fill="currentColor">
-              <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z" clipRule="evenodd" />
-            </svg>
-            <span className="font-bold text-xs text-snow uppercase tracking-wider">Cancel Class</span>
-          </button>
-        )}
-
-        {showCancelModal && (
-          <div className="fixed inset-0 bg-navy/80 z-[70] flex items-center justify-center px-4 py-4 sm:p-6" onClick={() => { setShowCancelModal(false); setSelectedClass(null); setCancelDate(""); setCancelReason(""); }}>
-            <div className="bg-snow border-[3px] border-navy rounded-3xl w-full max-w-md max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-hidden shadow-[4px_4px_0_0_#000]" onClick={(e) => e.stopPropagation()}>
-              {/* Header */}
-              <div className="p-6 border-b-[3px] border-navy/10 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-coral-light flex items-center justify-center">
-                    <svg aria-hidden="true" className="w-5 h-5 text-coral" viewBox="0 0 24 24" fill="currentColor">
-                      <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">Admin Action</p>
-                    <h2 className="font-display font-black text-lg text-navy">Cancel a Class</h2>
-                  </div>
-                </div>
-                <button onClick={() => { setShowCancelModal(false); setSelectedClass(null); setCancelDate(""); setCancelReason(""); }} className="w-10 h-10 rounded-xl hover:bg-cloud flex items-center justify-center transition-colors" disabled={cancelling} aria-label="Close">
-                  <svg aria-hidden="true" className="w-5 h-5 text-slate" viewBox="0 0 24 24" fill="currentColor">
-                    <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Form */}
-              <div className="p-6 space-y-4 flex-1 overflow-y-auto">
-                <div className="space-y-1.5">
-                  <label htmlFor="class-select" className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">Select Class</label>
-                  <select id="class-select" value={selectedClass?._id || ""} onChange={(e) => setSelectedClass(classes.find((c) => c._id === e.target.value) || null)} className="w-full px-4 py-3 bg-ghost border-[3px] border-navy text-sm text-navy rounded-xl focus:outline-none focus:border-coral transition-all">
-                    <option value="">Choose a class…</option>
-                    {classes.map((cls) => (
-                      <option key={cls._id} value={cls._id}>{cls.courseCode} - {cls.day} {cls.startTime} ({cls.venue})</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <label htmlFor="cancel-date" className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">Date</label>
-                  <input id="cancel-date" type="date" value={cancelDate} onChange={(e) => setCancelDate(e.target.value)} className="w-full px-4 py-3 bg-ghost border-[3px] border-navy text-sm text-navy rounded-xl focus:outline-none focus:border-coral transition-all" />
-                </div>
-                <div className="space-y-1.5">
-                  <label htmlFor="cancel-reason" className="text-[10px] font-bold text-slate uppercase tracking-[0.12em]">Reason</label>
-                  <textarea id="cancel-reason" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} rows={3} className="w-full px-4 py-3 bg-ghost border-[3px] border-navy text-sm text-navy rounded-xl focus:outline-none focus:border-coral transition-all resize-none" placeholder="e.g., Lecturer unavailable…" />
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="p-6 border-t-[3px] border-navy/10 flex gap-3">
-                <button onClick={() => { setShowCancelModal(false); setSelectedClass(null); setCancelDate(""); setCancelReason(""); }} disabled={cancelling} className="flex-1 px-4 py-3 rounded-2xl border-[3px] border-navy text-navy font-bold text-xs uppercase tracking-wider hover:bg-cloud transition-colors">
-                  Cancel
-                </button>
-                <button onClick={handleCancelClass} disabled={cancelling} className="flex-1 px-4 py-3 rounded-2xl bg-coral text-snow font-bold text-xs uppercase tracking-wider border-[3px] border-navy press-3 press-black transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                  {cancelling ? (
-                    <>
-                      <div className="w-4 h-4 border-[2px] border-snow border-t-transparent rounded-full animate-spin" />
-                      Cancelling…
-                    </>
-                  ) : (
-                    "Confirm Cancellation"
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

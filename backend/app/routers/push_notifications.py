@@ -15,6 +15,7 @@ If VAPID keys are not set, push is gracefully disabled — no errors.
 
 import asyncio
 import base64
+import binascii
 import logging
 import os
 from datetime import datetime, timezone
@@ -52,9 +53,11 @@ def _b64_decode_loose(value: str) -> bytes:
     """Decode base64/base64url with relaxed padding and whitespace handling."""
     compact = "".join(value.split())
     padded = compact + ("=" * ((4 - (len(compact) % 4)) % 4))
+    if "-" in compact or "_" in compact:
+        return base64.urlsafe_b64decode(padded)
     try:
-        return base64.b64decode(padded)
-    except Exception:
+        return base64.b64decode(padded, validate=True)
+    except (binascii.Error, ValueError):
         return base64.urlsafe_b64decode(padded)
 
 
@@ -407,7 +410,7 @@ async def send_push_test_by_email(
             "subscriptions": 0,
         }
 
-    await send_push_to_user(
+    stats = await send_push_to_user(
         user_id=user_id,
         title=payload.title,
         body=payload.body,
@@ -420,6 +423,10 @@ async def send_push_test_by_email(
         "email": email,
         "userId": user_id,
         "subscriptions": sub_count,
+        "attempted": stats.get("attempted", 0),
+        "sent": stats.get("sent", 0),
+        "failed": stats.get("failed", 0),
+        "stale_removed": stats.get("stale_removed", 0),
     }
 
 
@@ -431,27 +438,27 @@ async def send_push_to_user(
     body: str,
     url: str | None = None,
     tag: str | None = None,
-):
+)-> dict:
     """
     Send a Web Push notification to all subscriptions for a user.
     Called as fire-and-forget from create_notification.
     Silently removes expired/invalid subscriptions.
     """
     if not is_push_enabled():
-        return
+        return {"attempted": 0, "sent": 0, "failed": 0, "stale_removed": 0, "enabled": False}
 
     db = get_database()
     cursor = db["push_subscriptions"].find({"userId": user_id})
     subs = await cursor.to_list(None)
     if not subs:
-        return
+        return {"attempted": 0, "sent": 0, "failed": 0, "stale_removed": 0, "enabled": True}
 
     # Lazy-import pywebpush to avoid startup cost
     try:
         from pywebpush import webpush, WebPushException
     except ImportError:
         logger.warning("pywebpush not installed — skipping push")
-        return
+        return {"attempted": len(subs), "sent": 0, "failed": len(subs), "stale_removed": 0, "enabled": True}
 
     import json
 
@@ -464,11 +471,16 @@ async def send_push_to_user(
     })
 
     stale_ids: list[ObjectId] = []
+    attempted = 0
+    sent = 0
+    failed = 0
 
     for sub_doc in subs:
+        attempted += 1
         sub_meta = _subscription_debug_meta(sub_doc)
         if not _is_valid_subscription(sub_doc):
             stale_ids.append(sub_doc["_id"])
+            failed += 1
             logger.warning("Push subscription dropped (invalid keys) userId=%s meta=%s", user_id, sub_meta)
             continue
 
@@ -486,14 +498,18 @@ async def send_push_to_user(
                     data=payload,
                     vapid_private_key=_VAPID_PRIVATE_KEY,
                     vapid_claims=_VAPID_CLAIMS,
+                    ttl=60,
                 ),
             )
+            sent += 1
         except WebPushException as e:
-            # 410 Gone or 404 → subscription expired
+            # 410/404 expired, and 400/401/403 are commonly stale or invalid
+            # endpoint/key states on some providers (notably WNS/Edge).
             if hasattr(e, "response") and e.response is not None:
                 status = getattr(e.response, "status_code", 0)
-                if status in (404, 410):
+                if status in (400, 401, 403, 404, 410):
                     stale_ids.append(sub_doc["_id"])
+            failed += 1
             logger.warning(
                 "Push WebPushException userId=%s status=%s vapid_source=%s meta=%s error=%s",
                 user_id,
@@ -506,6 +522,7 @@ async def send_push_to_user(
             err_str = str(e)
             if "Could not deserialize key data" in err_str:
                 stale_ids.append(sub_doc["_id"])
+                failed += 1
                 logger.error(
                     "Push ASN.1 deserialize failure userId=%s vapid_source=%s vapid_public_len=%s meta=%s error=%s",
                     user_id,
@@ -515,6 +532,7 @@ async def send_push_to_user(
                     err_str,
                 )
             else:
+                failed += 1
                 logger.warning(
                     "Push error userId=%s vapid_source=%s meta=%s error=%s",
                     user_id,
@@ -526,6 +544,14 @@ async def send_push_to_user(
     # Clean up stale subscriptions
     if stale_ids:
         await db["push_subscriptions"].delete_many({"_id": {"$in": stale_ids}})
+
+    return {
+        "attempted": attempted,
+        "sent": sent,
+        "failed": failed,
+        "stale_removed": len(stale_ids),
+        "enabled": True,
+    }
 
 
 async def send_push_to_users(

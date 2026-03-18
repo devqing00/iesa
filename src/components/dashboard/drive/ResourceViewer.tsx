@@ -9,6 +9,7 @@ import {
   type FileMetaResponse,
   type FileBookmark,
   getDriveStreamUrl,
+  getDrivePdfExportUrl,
   saveDriveProgress,
   createDriveBookmark,
   deleteDriveBookmark,
@@ -107,6 +108,36 @@ function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
   );
 }
 
+function ProgressLoader({
+  title,
+  subtitle,
+  progress,
+  className = "",
+  tone = "dark",
+}: {
+  title: string;
+  subtitle?: string;
+  progress: number;
+  className?: string;
+  tone?: "dark" | "light";
+}) {
+  const safeProgress = Math.max(0, Math.min(100, Math.round(progress)));
+  const titleClass = tone === "dark" ? "text-snow" : "text-navy";
+  const subtitleClass = tone === "dark" ? "text-slate" : "text-navy-muted";
+  const progressClass = tone === "dark"
+    ? "w-full h-2.5 [&::-webkit-progress-bar]:bg-navy [&::-webkit-progress-value]:bg-lime [&::-moz-progress-bar]:bg-lime rounded-full overflow-hidden"
+    : "w-full h-2.5 [&::-webkit-progress-bar]:bg-cloud [&::-webkit-progress-value]:bg-lime-dark [&::-moz-progress-bar]:bg-lime-dark rounded-full overflow-hidden";
+  const percentClass = tone === "dark" ? "text-lime" : "text-navy";
+  return (
+    <div className={`text-center w-full max-w-xs space-y-2 ${className}`}>
+      <p className={`text-sm font-bold ${titleClass}`}>{title}</p>
+      {subtitle && <p className={`text-xs ${subtitleClass}`}>{subtitle}</p>}
+      <progress value={safeProgress} max={100} className={progressClass} aria-label={`${safeProgress}% loaded`} />
+      <p className={`text-[11px] font-bold ${percentClass}`}>{safeProgress}%</p>
+    </div>
+  );
+}
+
 // ── PDF Viewer (react-pdf based — real page tracking) ───────
 
 interface PDFViewerProps {
@@ -130,6 +161,7 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [cacheStatus, setCacheStatus] = useState<CacheStatus>("checking");
+  const [loadingProgress, setLoadingProgress] = useState(8);
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
@@ -196,6 +228,23 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
     };
   }, [fileId, streamUrl, streamSrc, token, getAccessToken]);
 
+  useEffect(() => {
+    if (!pdfLoading) return;
+
+    const target =
+      cacheStatus === "checking" ? 35 : cacheStatus === "downloading" ? 70 : 92;
+
+    const timer = window.setInterval(() => {
+      setLoadingProgress((prev) => {
+        if (prev >= target) return prev;
+        const step = target <= 40 ? 3 : target <= 75 ? 2 : 1;
+        return Math.min(target, prev + step);
+      });
+    }, 180);
+
+    return () => window.clearInterval(timer);
+  }, [cacheStatus, pdfLoading]);
+
   const fetchPdfBlobFallback = useCallback(async (): Promise<boolean> => {
     try {
       const accessToken = token || await getAccessToken();
@@ -225,6 +274,7 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
   }, [fileId, getAccessToken, meta.mimeType, meta.name, streamUrl, token]);
 
   const handleDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
+    setLoadingProgress(100);
     setTotalPages(numPages);
     setPdfLoading(false);
     setPdfError(null);
@@ -451,14 +501,17 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
       <div ref={containerRef} className="flex-1 overflow-auto bg-navy-light touch-pan-x touch-pan-y">
         {(cacheStatus === "checking" || cacheStatus === "downloading" || pdfLoading) && (
           <div className="flex items-center justify-center h-full">
-            <div className="text-center space-y-3">
-              <div className="animate-spin rounded-full h-8 w-8 border-[3px] border-lime border-t-transparent mx-auto" />
-              <p className="text-snow text-sm">
-                {cacheStatus === "checking" && "Checking cache..."}
-                {cacheStatus === "downloading" && "Preparing PDF..."}
-                {(cacheStatus === "cached" || cacheStatus === "ready") && pdfLoading && "Rendering PDF..."}
-              </p>
-            </div>
+            <ProgressLoader
+              title="Loading document"
+              subtitle={
+                cacheStatus === "checking"
+                  ? "Checking cache..."
+                  : cacheStatus === "downloading"
+                    ? "Preparing PDF..."
+                    : "Rendering PDF..."
+              }
+              progress={loadingProgress}
+            />
           </div>
         )}
 
@@ -1043,7 +1096,7 @@ function BookmarkPanel({ bookmarks, onJumpTo, onDelete, onAdd, currentPage, curr
 // ── Main ResourceViewer ──────────────────────────────────────
 
 export interface ResourceViewerProps {
-  meta: FileMetaResponse;
+  meta: FileMetaResponse | null;
   loading: boolean;
   onClose: () => void;
   token: string | null;
@@ -1071,7 +1124,9 @@ export default function ResourceViewer({
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [bookmarkPanelOpen, setBookmarkPanelOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isConvertingPdf, setIsConvertingPdf] = useState(false);
   const [downloadCooldown, setDownloadCooldown] = useState(false);
+  const [viewerProgress, setViewerProgress] = useState(12);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const downloadCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1115,6 +1170,19 @@ export default function ResourceViewer({
       cancelled = true;
     };
   }, [token, getAccessToken, meta?.id]);
+
+  useEffect(() => {
+    if (!loading) {
+      setViewerProgress(100);
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setViewerProgress((prev) => (prev >= 95 ? prev : Math.min(95, prev + 2)));
+    }, 160);
+
+    return () => window.clearInterval(timer);
+  }, [loading]);
 
   useEffect(() => {
     setShowActionMenu(false);
@@ -1233,10 +1301,16 @@ export default function ResourceViewer({
     // For videos, we'd need a ref to the player
   }, []);
 
-  if (loading) {
+  if (loading && !meta) {
     return (
       <div className="fixed inset-0 z-50 bg-snow flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-lime border-t-transparent rounded-full animate-spin" />
+        <ProgressLoader
+          title="Opening resource"
+          subtitle="Fetching file details..."
+          progress={viewerProgress}
+          tone="light"
+          className="max-w-sm"
+        />
       </div>
     );
   }
@@ -1254,6 +1328,46 @@ export default function ResourceViewer({
   const canPreview = isPDF || isVideo || isImage || isEmbed;
   const showBookmarkPanel = isPDF || isEmbed;
   const canDirectDownload = !meta.mimeType.startsWith("application/vnd.google-apps.");
+  const canConvertToPdf = meta.fileType === "google_doc" || meta.fileType === "google_sheet" || meta.fileType === "google_slide";
+
+  const handleConvertToPdf = async () => {
+    if (!canConvertToPdf || isConvertingPdf) return;
+    setIsConvertingPdf(true);
+    toast.info("Converting to PDF...");
+    try {
+      const accessToken = await getAccessToken();
+      const exportUrl = getDrivePdfExportUrl(meta.id);
+      const res = await fetch(`${exportUrl}?download=1`, {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(String(body?.detail || `HTTP ${res.status}`));
+      }
+
+      const blob = await res.blob();
+      if (!blob || blob.size === 0) throw new Error("Empty PDF export");
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const baseName = meta.name.includes(".") ? meta.name.slice(0, meta.name.lastIndexOf(".")) : meta.name;
+      a.download = `${baseName}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success("PDF download started");
+      setShowActionMenu(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not convert this file to PDF.";
+      toast.error(message || "Could not convert this file to PDF.");
+    } finally {
+      setIsConvertingPdf(false);
+    }
+  };
 
   const handleDownload = async () => {
     if (!canDirectDownload || isDownloading || downloadCooldown) return;
@@ -1338,6 +1452,29 @@ export default function ResourceViewer({
           </button>
         </div>
         <div className="hidden lg:flex shrink-0 items-center gap-2">
+          {canConvertToPdf && (
+            <button
+              onClick={handleConvertToPdf}
+              disabled={isConvertingPdf}
+              className="text-xs border-2 rounded-lg px-3 py-1.5 font-bold flex items-center gap-1 bg-sunny text-navy border-navy press-2 press-navy disabled:opacity-60 disabled:cursor-not-allowed"
+              title="Convert and download as PDF"
+            >
+              {isConvertingPdf ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-navy border-t-transparent rounded-full animate-spin" />
+                  Converting...
+                </>
+              ) : (
+                <>
+                  <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" d="M12 3a.75.75 0 0 1 .75.75v8.69l2.72-2.72a.75.75 0 1 1 1.06 1.06l-4 4a.75.75 0 0 1-1.06 0l-4-4a.75.75 0 1 1 1.06-1.06l2.72 2.72V3.75A.75.75 0 0 1 12 3Zm-6.75 12a.75.75 0 0 1 .75.75v2.25A1.5 1.5 0 0 0 7.5 19.5h9a1.5 1.5 0 0 0 1.5-1.5v-2.25a.75.75 0 0 1 1.5 0v2.25A3 3 0 0 1 16.5 21h-9a3 3 0 0 1-3-3v-2.25a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+                  </svg>
+                  Convert to PDF
+                </>
+              )}
+            </button>
+          )}
+
           {canDirectDownload && (
             <button
               onClick={handleDownload}
@@ -1391,6 +1528,28 @@ export default function ResourceViewer({
 
           {showActionMenu && (
             <div className="absolute right-0 mt-2 w-44 rounded-2xl border-[3px] border-navy bg-snow shadow-[3px_3px_0_0_#000] p-2 z-30">
+              {canConvertToPdf && (
+                <button
+                  onClick={handleConvertToPdf}
+                  disabled={isConvertingPdf}
+                  className="w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-xl bg-sunny text-navy border-2 border-navy font-bold text-xs disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isConvertingPdf ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-navy border-t-transparent rounded-full animate-spin" />
+                      Converting...
+                    </>
+                  ) : (
+                    <>
+                      <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path fillRule="evenodd" d="M12 3a.75.75 0 0 1 .75.75v8.69l2.72-2.72a.75.75 0 1 1 1.06 1.06l-4 4a.75.75 0 0 1-1.06 0l-4-4a.75.75 0 1 1 1.06-1.06l2.72 2.72V3.75A.75.75 0 0 1 12 3Zm-6.75 12a.75.75 0 0 1 .75.75v2.25A1.5 1.5 0 0 0 7.5 19.5h9a1.5 1.5 0 0 0 1.5-1.5v-2.25a.75.75 0 0 1 1.5 0v2.25A3 3 0 0 1 16.5 21h-9a3 3 0 0 1-3-3v-2.25a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+                      </svg>
+                      Convert to PDF
+                    </>
+                  )}
+                </button>
+              )}
+
               {canDirectDownload && (
                 <button
                   onClick={handleDownload}
@@ -1437,6 +1596,11 @@ export default function ResourceViewer({
 
       {/* Viewer area */}
       <div className="flex-1 overflow-hidden relative">
+        {loading && (
+          <div className="absolute top-3 right-3 z-20 rounded-xl border-2 border-navy bg-snow px-2.5 py-1 text-[11px] font-bold text-navy shadow-[2px_2px_0_0_#000]">
+            Loading next resource...
+          </div>
+        )}
         {isPDF && (
           <PDFViewer
             fileId={meta.id}

@@ -22,6 +22,7 @@ import type {
   TimpFeedback,
   TimpMessage,
 } from "@/lib/api";
+import { buildMessagesHref } from "@/lib/messaging";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Helpers ────────────────────────────── */
@@ -487,6 +488,7 @@ export default function TimpPage() {
 
             {info.pairs.map((pair) => {
               const otherName = info.isMentor ? pair.menteeName : pair.mentorName;
+              const otherUserId = info.isMentor ? pair.menteeId : pair.mentorId;
               const otherRole = info.isMentor ? "Mentee" : "Mentor";
               const statusStyle = PAIR_STATUS_STYLES[pair.status];
 
@@ -510,6 +512,18 @@ export default function TimpPage() {
                     </div>
 
                     <div className="flex gap-2 flex-wrap">
+                        <Link
+                          href={buildMessagesHref({
+                            userId: otherUserId,
+                            userName: otherName,
+                            context: "timp_pair",
+                            contextId: pair.id,
+                            contextLabel: `TIMP ${otherRole}`,
+                          })}
+                          className="bg-lime border-[3px] border-navy press-3 press-navy px-4 py-2 rounded-xl font-display font-bold text-xs text-navy transition-all"
+                        >
+                          Open DM
+                        </Link>
                         <button
                           onClick={() => loadMessages(pair.id)}
                           className={`border-[3px] px-4 py-2 rounded-xl font-display font-bold text-xs transition-all ${

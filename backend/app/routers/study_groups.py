@@ -185,16 +185,32 @@ class ChatManager:
 
     def __init__(self):
         self.connections: dict[str, list[WebSocket]] = {}
+        self.user_connections: dict[str, dict[str, int]] = {}
 
-    async def connect(self, group_id: str, ws: WebSocket):
+    async def connect(self, group_id: str, user_id: str, ws: WebSocket):
         await ws.accept(headers=[(b"X-Accel-Buffering", b"no")])
         self.connections.setdefault(group_id, []).append(ws)
+        group_users = self.user_connections.setdefault(group_id, {})
+        group_users[user_id] = group_users.get(user_id, 0) + 1
 
-    def disconnect(self, group_id: str, ws: WebSocket):
+    def disconnect(self, group_id: str, user_id: str, ws: WebSocket):
         if group_id in self.connections:
             self.connections[group_id] = [
                 c for c in self.connections[group_id] if c is not ws
             ]
+            if not self.connections[group_id]:
+                del self.connections[group_id]
+        group_users = self.user_connections.get(group_id)
+        if group_users:
+            if user_id in group_users:
+                group_users[user_id] = max(0, group_users[user_id] - 1)
+                if group_users[user_id] == 0:
+                    del group_users[user_id]
+            if not group_users:
+                del self.user_connections[group_id]
+
+    def online_user_ids(self, group_id: str) -> list[str]:
+        return list(self.user_connections.get(group_id, {}).keys())
 
     async def broadcast(self, group_id: str, data: dict):
         dead: list[WebSocket] = []
@@ -218,6 +234,7 @@ chat_manager = ChatManager()
 def serialize(doc: dict) -> dict:
     """Convert MongoDB document to JSON-serializable dict"""
     doc["id"] = str(doc.pop("_id"))
+    doc["onlineMemberIds"] = chat_manager.online_user_ids(doc["id"])
     doc["createdAt"] = doc.get("createdAt", "").isoformat() if isinstance(doc.get("createdAt"), datetime) else str(doc.get("createdAt", ""))
     doc["updatedAt"] = doc.get("updatedAt", "").isoformat() if isinstance(doc.get("updatedAt"), datetime) else str(doc.get("updatedAt", ""))
     for m in doc.get("members", []):
@@ -1345,7 +1362,11 @@ async def websocket_chat(
     first_name = user.get("firstName", "") if user else ""
     last_name = user.get("lastName", "") if user else ""
 
-    await chat_manager.connect(group_id, ws)
+    await chat_manager.connect(group_id, user_id, ws)
+    await chat_manager.broadcast(group_id, {
+        "type": "presence",
+        "data": {"onlineUserIds": chat_manager.online_user_ids(group_id)},
+    })
     try:
         while True:
             try:
@@ -1398,7 +1419,11 @@ async def websocket_chat(
     except WebSocketDisconnect:
         pass
     finally:
-        chat_manager.disconnect(group_id, ws)
+        chat_manager.disconnect(group_id, user_id, ws)
+        await chat_manager.broadcast(group_id, {
+            "type": "presence",
+            "data": {"onlineUserIds": chat_manager.online_user_ids(group_id)},
+        })
 
 
 # ─── STUDY SESSIONS (Scheduling) ───────────────────────────────────────

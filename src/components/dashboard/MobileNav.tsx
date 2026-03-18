@@ -27,7 +27,7 @@ export default function MobileNav() {
   const { signOut, userProfile } = useAuth();
   const { currentSession, allSessions } = useSession();
   const { hasPermission, permissions, loaded: permissionsLoaded } = usePermissions();
-  const { totalUnread } = useDM();
+  const { totalUnread, isConnected } = useDM();
   const { unreadCount: notifUnread } = useNotificationCount();
   const [showMore, setShowMore] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
@@ -404,6 +404,9 @@ export default function MobileNav() {
                               onClick={() => setShowMore(false)}
                             >
                               <span className={isActive ? "text-navy" : "text-navy/50"}>{link.icon}</span>
+                              {link.href === "/dashboard/messages" && isConnected && (
+                                <span className="absolute bottom-2 left-2 w-2 h-2 rounded-full bg-teal border border-snow" />
+                              )}
                               <span className="truncate">{link.name}</span>
                               {link.badge != null && link.badge > 0 && (
                                 <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-coral text-snow text-[10px] font-black flex items-center justify-center">

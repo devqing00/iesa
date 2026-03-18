@@ -34,6 +34,40 @@ router = APIRouter(prefix="/api/v1/iesa-ai", tags=["IESA AI"])
 # ─── Account-linked rate limiting (persists across devices) ────────────
 AI_HOURLY_LIMIT = int(os.getenv("AI_HOURLY_LIMIT", "20"))
 AI_DAILY_LIMIT = int(os.getenv("AI_DAILY_LIMIT", "60"))
+AI_MODEL_PRIMARY = os.getenv("AI_MODEL_PRIMARY", "llama-3.3-70b-versatile")
+AI_MODEL_FAST = os.getenv("AI_MODEL_FAST", "groq/compound-mini")
+AI_MODEL_SUMMARY = os.getenv("AI_MODEL_SUMMARY", "llama-3.3-70b-versatile")
+AI_MODEL_ROUTING_ENABLED = os.getenv("AI_MODEL_ROUTING_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
+
+
+def select_chat_model(user_message: str, conversation_history: Optional[List[dict]] = None) -> str:
+    """Choose a Groq model based on query complexity.
+
+    - Fast path (`AI_MODEL_FAST`) for short/simple operational requests
+    - Quality path (`AI_MODEL_PRIMARY`) for complex reasoning/policy guidance
+    """
+    if not AI_MODEL_ROUTING_ENABLED:
+        return AI_MODEL_PRIMARY
+
+    msg = (user_message or "").strip().lower()
+    history_len = len(conversation_history or [])
+
+    complex_markers = [
+        "explain", "compare", "difference", "analyze", "analysis", "strategy",
+        "roadmap", "plan", "why", "how does", "step by step", "research",
+        "policy", "compliance", "architecture", "design", "mentor", "timp",
+    ]
+    quick_markers = [
+        "hello", "hi", "hey", "how far", "what's up", "what classes",
+        "today class", "my dues", "payment", "event", "deadline", "where",
+        "when", "time", "venue", "status", "receipt", "link",
+    ]
+
+    if len(msg) > 280 or history_len > 12 or any(marker in msg for marker in complex_markers):
+        return AI_MODEL_PRIMARY
+    if len(msg) <= 140 and any(marker in msg for marker in quick_markers):
+        return AI_MODEL_FAST
+    return AI_MODEL_PRIMARY
 
 
 def _resolve_ai_account_key(user: dict) -> str:
@@ -203,6 +237,31 @@ async def _increment_ai_usage(account_key: str, db, legacy_user_id: str | None =
         },
         upsert=True,
     )
+
+
+async def _rollback_ai_usage(account_key: str, db, legacy_user_id: str | None = None) -> None:
+    """Best-effort rollback when provider-level failures happen after pre-increment."""
+    col = db["ai_rate_limits"]
+    hour_start = _current_hour_window()
+    day_start = _current_day_window()
+
+    doc = await _find_or_migrate_rate_limit_doc(account_key, db, legacy_user_id)
+    if not doc or not doc.get("_id"):
+        return
+
+    inc_fields: dict = {}
+    if doc.get("hourWindowStart") == hour_start and int(doc.get("hourlyCount", 0) or 0) > 0:
+        inc_fields["hourlyCount"] = -1
+    if doc.get("dayWindowStart") == day_start and int(doc.get("dailyCount", 0) or 0) > 0:
+        inc_fields["dailyCount"] = -1
+
+    update_doc: dict = {
+        "$set": {"updatedAt": datetime.now(timezone.utc)},
+    }
+    if inc_fields:
+        update_doc["$inc"] = inc_fields
+
+    await col.update_one({"_id": doc["_id"]}, update_doc)
 
 # Groq API setup
 try:
@@ -1243,7 +1302,7 @@ def build_system_prompt(user_context: dict, language: str = "en") -> str:
     
     # Language-specific instructions
     language_instructions = {
-        "en": "Respond in clear, friendly Nigerian English. Be conversational and warm.",
+        "en": "Respond in clear, professional Nigerian English. Be warm and respectful, with natural local phrasing where appropriate, but avoid slang-heavy wording.",
         
         "pcm": """Respond ENTIRELY in Nigerian Pidgin English throughout this conversation. 
 Use authentic expressions: "How far?", "E go sweet you", "No wahala", "Wetin dey happen?", "Na so", "Sharp sharp", "Bros/Sisi", "Chai!", "Ehen!", "Omo!", "E be like say".
@@ -1551,7 +1610,7 @@ IMPORTANT: You MUST maintain Yoruba style throughout ALL responses in this conve
 
     prompt = f"""You are IESA AI — the smart, friendly academic assistant built for students of the Industrial Engineering Students' Association (IESA) at the University of Ibadan, Nigeria.
 
-You are knowledgeable, encouraging, and grounded in real data. You speak like a helpful senior student who knows the platform inside out.
+You are knowledgeable, encouraging, and grounded in real data. Your tone is professional, warm, and confidently Nigerian — like a polished student-support advisor.
 
 ## LANGUAGE INSTRUCTION
 {lang_instruction}
@@ -1620,7 +1679,7 @@ async def summarize_conversation_history(history: List[dict]) -> str:
         
         loop = asyncio.get_running_loop()
         completion = await loop.run_in_executor(None, lambda: groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=AI_MODEL_SUMMARY,
             messages=[{"role": "user", "content": summary_prompt}],
             temperature=0.4,
             max_tokens=200,
@@ -1667,6 +1726,7 @@ async def chat_with_iesa_ai_stream(
     await _increment_ai_usage(account_key, db, legacy_user_id=user_id)
     
     async def generate():
+        full_response = ""
         try:
             # Get user context
             user_context = await get_user_context(str(user["_id"]), db)
@@ -1677,6 +1737,7 @@ async def chat_with_iesa_ai_stream(
             
             # Build system prompt
             system_prompt = build_system_prompt(user_context, chat_data.language or "en")
+            model_name = select_chat_model(chat_data.message, chat_data.conversationHistory)
             
             # Build messages with smart context window
             messages = [{"role": "system", "content": system_prompt}]
@@ -1704,7 +1765,7 @@ async def chat_with_iesa_ai_stream(
             # Stream from Groq (offload sync iterator to executor)
             loop = asyncio.get_running_loop()
             stream = await loop.run_in_executor(None, lambda: groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model=model_name,
                 messages=messages,  # type: ignore
                 temperature=0.6,
                 max_tokens=800,
@@ -1712,7 +1773,6 @@ async def chat_with_iesa_ai_stream(
                 stream=True
             ))
             
-            full_response = ""
             _sentinel = object()
             stream_iter = iter(stream)
             while True:
@@ -1735,6 +1795,11 @@ async def chat_with_iesa_ai_stream(
             logger.error(f"IESA AI stream error: {e}")
             
             if "rate_limit" in error_msg or "429" in error_msg:
+                if not full_response:
+                    try:
+                        await _rollback_ai_usage(account_key, db, legacy_user_id=user_id)
+                    except Exception:
+                        pass
                 yield f"data: {json.dumps({'error': 'Rate limit reached. Please wait a minute and try again.'})}\n\n"
             else:
                 yield f"data: {json.dumps({'error': 'An error occurred. Please try again.'})}\n\n"
@@ -1770,6 +1835,8 @@ async def get_usage(
             "daily_limit": rate_status["daily_limit"],
             "hourly_remaining": rate_status["hourly_remaining"],
             "daily_remaining": rate_status["daily_remaining"],
+            "hourly_used": max(0, rate_status["hourly_limit"] - rate_status["hourly_remaining"]),
+            "daily_used": max(0, rate_status["daily_limit"] - rate_status["daily_remaining"]),
             "reset_at": rate_status["reset_at"],
         }
     except Exception as e:
@@ -1779,6 +1846,8 @@ async def get_usage(
             "daily_limit": AI_DAILY_LIMIT,
             "hourly_remaining": None,
             "daily_remaining": None,
+            "hourly_used": None,
+            "daily_used": None,
         }
 
 
@@ -1886,6 +1955,7 @@ async def chat_with_iesa_ai(
         
         # Build system prompt with context and language preference
         system_prompt = build_system_prompt(user_context, chat_data.language or "en")
+        model_name = select_chat_model(chat_data.message, chat_data.conversationHistory)
         
         # Build conversation history
         messages = [{"role": "system", "content": system_prompt}]
@@ -1904,7 +1974,7 @@ async def chat_with_iesa_ai(
         # Call Groq API (offload sync SDK call to executor)
         loop = asyncio.get_running_loop()
         completion = await loop.run_in_executor(None, lambda: groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=model_name,
             messages=messages,  # type: ignore
             temperature=0.6,
             max_tokens=800,
@@ -1919,7 +1989,7 @@ async def chat_with_iesa_ai(
         return ChatResponse(
             reply=ai_response,
             suggestions=suggestions,
-            data={"user_context": user_context}
+            data={"user_context": user_context, "model": model_name}
         )
         
     except Exception as e:
@@ -1928,6 +1998,10 @@ async def chat_with_iesa_ai(
         
         # Handle Groq rate limit errors specifically
         if "rate_limit" in error_msg or "429" in error_msg or "rate limit" in error_msg:
+            try:
+                await _rollback_ai_usage(account_key, db, legacy_user_id=user_id)
+            except Exception:
+                pass
             return ChatResponse(
                 reply="I've hit my thinking limit for now! 🧠 Groq's free tier has request limits. Please wait a minute and try again, or keep your questions concise to use fewer tokens.",
                 suggestions=["Try again in 1 minute", "Check the Events page", "View your Timetable"]

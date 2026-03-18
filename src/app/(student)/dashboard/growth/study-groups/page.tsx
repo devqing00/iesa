@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl, getWsUrl } from "@/lib/api";
+import { buildMessagesHref } from "@/lib/messaging";
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -83,6 +84,7 @@ interface StudyGroup {
   messages?: GroupMessage[];
   sessions?: GroupSession[];
   resources?: GroupResource[];
+  onlineMemberIds?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -109,12 +111,15 @@ interface ChatPanelProps {
   groupId: string;
   userId: string;
   getAccessToken: () => Promise<string | null>;
+  initialOnlineUserIds?: string[];
+  onPresenceChange?: (onlineUserIds: string[]) => void;
 }
 
-function GroupChatPanel({ groupId, userId, getAccessToken }: ChatPanelProps) {
+function GroupChatPanel({ groupId, userId, getAccessToken, initialOnlineUserIds = [], onPresenceChange }: ChatPanelProps) {
   const [messages, setMessages] = useState<GroupMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [wsStatus, setWsStatus] = useState<"connecting" | "open" | "closed">("connecting");
+  const [onlineUserIds, setOnlineUserIds] = useState<string[]>(initialOnlineUserIds);
   const wsRef = useRef<WebSocket | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const isInitialScrollRef = useRef(true);
@@ -157,6 +162,10 @@ function GroupChatPanel({ groupId, userId, getAccessToken }: ChatPanelProps) {
             setMessages((prev) =>
               prev.some((m) => m.id === packet.data.id) ? prev : [...prev, packet.data]
             );
+          } else if (packet.type === "presence") {
+            const onlineIds = Array.isArray(packet.data?.onlineUserIds) ? packet.data.onlineUserIds : [];
+            setOnlineUserIds(onlineIds);
+            onPresenceChange?.(onlineIds);
           }
           // pong from server — ignore (just keeps the connection alive)
         } catch { /* ignore */ }
@@ -202,6 +211,10 @@ function GroupChatPanel({ groupId, userId, getAccessToken }: ChatPanelProps) {
     };
   }, [groupId, getAccessToken]);
 
+  useEffect(() => {
+    setOnlineUserIds(initialOnlineUserIds);
+  }, [initialOnlineUserIds]);
+
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (messages.length === 0) return;
@@ -221,6 +234,9 @@ function GroupChatPanel({ groupId, userId, getAccessToken }: ChatPanelProps) {
 
   return (
     <div className="p-6">
+      <div className="mb-2 text-[11px] text-slate font-medium">
+        {onlineUserIds.length > 0 ? `${onlineUserIds.length} member${onlineUserIds.length === 1 ? "" : "s"} online` : "No members online right now"}
+      </div>
       {wsStatus !== "open" && (
         <div className={`flex items-center gap-2 text-xs mb-3 ${wsStatus === "connecting" ? "text-slate" : "text-coral"}`}>
           <span className={`w-2 h-2 rounded-full ${wsStatus === "connecting" ? "bg-slate animate-pulse" : "bg-coral animate-pulse"}`} />
@@ -1153,6 +1169,7 @@ export default function StudyGroupFinderPage() {
       { key: "sessions", label: "Sessions", count: sessions.length },
       { key: "resources", label: "Resources", count: resources.length },
     ];
+    const onlineMemberSet = new Set(g.onlineMemberIds || []);
 
     return (
       <div className="space-y-6">
@@ -1400,8 +1417,11 @@ export default function StudyGroupFinderPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {g.members.map((m) => (
                         <div key={m.userId} className="flex items-center gap-3 bg-ghost rounded-xl px-4 py-3 group">
-                          <div className="w-8 h-8 rounded-full bg-navy text-snow flex items-center justify-center font-display font-bold text-sm">
+                          <div className="relative w-8 h-8 rounded-full bg-navy text-snow flex items-center justify-center font-display font-bold text-sm">
                             {m.firstName?.[0]}{m.lastName?.[0]}
+                            {onlineMemberSet.has(m.userId) && (
+                              <span className="absolute -bottom-0.5 -right-0.5 inline-flex w-2.5 h-2.5 rounded-full bg-teal border border-snow" />
+                            )}
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="font-medium text-navy text-sm truncate">
@@ -1410,8 +1430,25 @@ export default function StudyGroupFinderPage() {
                                 <span className="ml-1 text-[9px] font-bold uppercase text-lavender bg-lavender-light px-1.5 py-0.5 rounded">Head</span>
                               )}
                             </p>
-                            {m.matricNumber && <p className="text-xs text-slate">{m.matricNumber}</p>}
+                            <p className="text-xs text-slate">
+                              {m.matricNumber || ""}
+                              {onlineMemberSet.has(m.userId) ? `${m.matricNumber ? " · " : ""}Online` : ""}
+                            </p>
                           </div>
+                          {m.userId !== userId && (
+                            <Link
+                              href={buildMessagesHref({
+                                userId: m.userId,
+                                userName: `${m.firstName} ${m.lastName}`,
+                                context: "study_group",
+                                contextId: g.id,
+                                contextLabel: g.name,
+                              })}
+                              className="text-[10px] font-bold bg-lime border-2 border-navy rounded-lg px-2 py-1 text-navy press-1 press-navy shrink-0"
+                            >
+                              Message
+                            </Link>
+                          )}
                           {creator && m.userId !== g.createdBy && (
                             <button
                               onClick={() => removeMember(g.id, m.userId)}
@@ -1585,6 +1622,8 @@ export default function StudyGroupFinderPage() {
                   groupId={g.id}
                   userId={userId}
                   getAccessToken={getAccessToken}
+                  initialOnlineUserIds={g.onlineMemberIds || []}
+                  onPresenceChange={(onlineUserIds) => setSelectedGroup((prev) => prev ? { ...prev, onlineMemberIds: onlineUserIds } : prev)}
                 />
               )}
 
@@ -1779,13 +1818,30 @@ export default function StudyGroupFinderPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {g.members.map((m) => (
                 <div key={m.userId} className="flex items-center gap-3 bg-ghost rounded-xl px-4 py-3">
-                  <div className="w-8 h-8 rounded-full bg-navy text-snow flex items-center justify-center font-display font-bold text-sm">
+                  <div className="relative w-8 h-8 rounded-full bg-navy text-snow flex items-center justify-center font-display font-bold text-sm">
                     {m.firstName?.[0]}{m.lastName?.[0]}
+                    {(g.onlineMemberIds || []).includes(m.userId) && (
+                      <span className="absolute -bottom-0.5 -right-0.5 inline-flex w-2.5 h-2.5 rounded-full bg-teal border border-snow" />
+                    )}
                   </div>
                   <p className="font-medium text-navy text-sm truncate">
                     {m.firstName} {m.lastName}
                     {m.userId === g.createdBy && <span className="ml-1 text-[9px] font-bold uppercase text-lavender bg-lavender-light px-1.5 py-0.5 rounded">Head</span>}
                   </p>
+                  {m.userId !== userId && (
+                    <Link
+                      href={buildMessagesHref({
+                        userId: m.userId,
+                        userName: `${m.firstName} ${m.lastName}`,
+                        context: "study_group_preview",
+                        contextId: g.id,
+                        contextLabel: g.name,
+                      })}
+                      className="ml-auto text-[10px] font-bold bg-lime border-2 border-navy rounded-lg px-2 py-1 text-navy press-1 press-navy shrink-0"
+                    >
+                      Message
+                    </Link>
+                  )}
                 </div>
               ))}
             </div>

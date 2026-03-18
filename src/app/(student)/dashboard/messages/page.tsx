@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
 import { useDM } from "@/context/DMContext";
@@ -16,11 +17,13 @@ interface Conversation {
   otherUserId: string;
   otherUserName: string;
   otherUserEmail: string;
+  isOnline?: boolean;
   lastMessage: string;
   lastSenderId: string;
   lastAt: string;
   unreadCount: number;
   isBlocked?: boolean;
+  mutedUntil?: string | null;
 }
 
 interface ReplyTo {
@@ -52,6 +55,7 @@ interface Message {
   content: string;
   isRead: boolean;
   createdAt: string;
+  deliveredAt?: string | null;
   readAt?: string | null;
   deletedAt?: string | null;
   replyTo?: ReplyTo | null;
@@ -137,6 +141,16 @@ function formatDate(dateStr: string): string {
   });
 }
 
+function formatDateTimeShort(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleString("en-NG", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function initials(name: string): string {
   return name
     .split(" ")
@@ -144,6 +158,107 @@ function initials(name: string): string {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+function AudioWaveformPlayer({ attachment }: { attachment: Attachment }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [samples, setSamples] = useState<number[]>([]);
+
+  const formatSeconds = (secs: number) => {
+    const safe = Math.max(0, Math.floor(secs));
+    const m = Math.floor(safe / 60);
+    const s = safe % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  };
+
+  useEffect(() => {
+    let active = true;
+    const run = async () => {
+      try {
+        const res = await fetch(attachment.url);
+        if (!res.ok) throw new Error("Failed to fetch audio");
+        const arrayBuffer = await res.arrayBuffer();
+        const AudioCtx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0));
+        const data = decoded.getChannelData(0);
+        const bars = 40;
+        const blockSize = Math.max(1, Math.floor(data.length / bars));
+        const next: number[] = [];
+        for (let i = 0; i < bars; i += 1) {
+          let sum = 0;
+          const start = i * blockSize;
+          const end = Math.min(start + blockSize, data.length);
+          for (let j = start; j < end; j += 1) sum += Math.abs(data[j]);
+          const avg = sum / Math.max(1, end - start);
+          next.push(Math.max(10, Math.min(100, avg * 220)));
+        }
+        if (active) setSamples(next);
+        void ctx.close();
+      } catch {
+        if (active) setSamples(Array.from({ length: 40 }, (_, i) => 25 + ((i * 13) % 60)));
+      }
+    };
+    void run();
+    return () => {
+      active = false;
+    };
+  }, [attachment.url]);
+
+  const progress = duration > 0 ? Math.min(1, currentTime / duration) : 0;
+  const playedBars = Math.floor(progress * Math.max(1, samples.length));
+
+  return (
+    <div className="rounded-xl border-[2px] border-cloud bg-snow/60 px-3 py-2.5">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            const audio = audioRef.current;
+            if (!audio) return;
+            if (audio.paused) void audio.play();
+            else audio.pause();
+          }}
+          className="w-8 h-8 rounded-lg bg-lime border-[2px] border-navy text-navy flex items-center justify-center press-1 press-navy"
+          aria-label={playing ? "Pause voice note" : "Play voice note"}
+        >
+          {playing ? (
+            <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z" /></svg>
+          ) : (
+            <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+          )}
+        </button>
+        <div className="flex-1 flex items-end gap-[2px] h-8">
+          {samples.map((h, idx) => (
+            <span
+              key={`${attachment.url}-${idx}`}
+              className={`w-[2px] rounded-full ${idx <= playedBars ? "bg-teal" : "bg-navy/20"}`}
+              style={{ height: `${h}%` }}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="mt-1 flex items-center justify-between text-[10px] text-slate font-medium">
+        <span>{attachment.name}</span>
+        <span>{formatSeconds(currentTime)} / {formatSeconds(duration)}</span>
+      </div>
+      <audio
+        ref={audioRef}
+        src={attachment.url}
+        preload="metadata"
+        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
+        onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime || 0)}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+        className="hidden"
+      />
+    </div>
+  );
 }
 
 /* ─── Tabs ──────────────────────────────────────────────────────── */
@@ -154,6 +269,8 @@ type SidebarTab = "chats" | "requests" | "connections";
 
 export default function MessagesPage() {
   const { getAccessToken, userProfile } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { showHelp, openHelp, closeHelp } = useToolHelp("messages");
   const { subscribe, setMessagesPageOpen, syncTotalUnread, sendWsMessage } = useDM();
   const currentUserId = userProfile?.id || "";
@@ -177,6 +294,7 @@ export default function MessagesPage() {
   const [isConnected, setIsConnected] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockedByMe, setBlockedByMe] = useState(false);
+  const [conversationMutedUntil, setConversationMutedUntil] = useState<string | null>(null);
 
   /* ── State: Tabs ── */
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("chats");
@@ -220,6 +338,8 @@ export default function MessagesPage() {
   /* ── Scroll ref ── */
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isInitialScrollRef = useRef(true);
+  const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
   /* ── selectedConv stable ref (for WS event handlers) ── */
   const selectedConvRef = useRef<Conversation | null>(null);
@@ -228,6 +348,7 @@ export default function MessagesPage() {
   /* ── Conversations ref for syncing unread on unmount ── */
   const conversationsRef = useRef<Conversation[]>([]);
   conversationsRef.current = conversations;
+  const deepLinkHandledRef = useRef<string>("");
 
   /* ── State: Typing Indicator ── */
   const [otherTyping, setOtherTyping] = useState(false);
@@ -243,6 +364,12 @@ export default function MessagesPage() {
   /* ── State: File Upload ── */
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const voiceChunksRef = useRef<Blob[]>([]);
+  const [recordingVoice, setRecordingVoice] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /* ── State: Message Search ── */
   const [msgSearchOpen, setMsgSearchOpen] = useState(false);
@@ -339,6 +466,7 @@ export default function MessagesPage() {
         setIsConnected(data.isConnected ?? false);
         setIsBlocked(data.isBlocked ?? false);
         setBlockedByMe(data.blockedByMe ?? false);
+        setConversationMutedUntil(data.mutedUntil ?? null);
 
         // Mark as read
         await apiFetch(
@@ -352,7 +480,7 @@ export default function MessagesPage() {
         setLoadingMsgs(false);
       }
     },
-    [apiFetch, fetchConversations, toast]
+    [apiFetch, fetchConversations]
   );
 
   /* ── Fetch requests ── */
@@ -606,6 +734,109 @@ export default function MessagesPage() {
     }
   };
 
+  const jumpToMessage = useCallback((messageId?: string | null) => {
+    if (!messageId) return;
+    const target = messageRefs.current[messageId];
+    if (!target) {
+      toast.info("Original message is outside the current loaded window.");
+      return;
+    }
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedMessageId(messageId);
+    window.setTimeout(() => {
+      setHighlightedMessageId((prev) => (prev === messageId ? null : prev));
+    }, 1800);
+  }, []);
+
+  const muteConversation = async (durationHours: 8 | 24 | 168) => {
+    if (!selectedConv) return;
+    try {
+      const res = await apiFetch(`/api/v1/messages/conversation/${selectedConv.otherUserId}/mute`, {
+        method: "POST",
+        body: JSON.stringify({ durationHours }),
+      });
+      if (!res.ok) throw new Error();
+      const payload = await res.json();
+      setConversationMutedUntil(payload.mutedUntil || null);
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.otherUserId === selectedConv.otherUserId
+            ? { ...conv, mutedUntil: payload.mutedUntil || null }
+            : conv
+        )
+      );
+      toast.success(`Conversation muted for ${durationHours === 168 ? "7 days" : `${durationHours} hours`}.`);
+    } catch {
+      toast.error("Failed to mute conversation");
+    }
+  };
+
+  const unmuteConversation = async () => {
+    if (!selectedConv) return;
+    try {
+      const res = await apiFetch(`/api/v1/messages/conversation/${selectedConv.otherUserId}/mute`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error();
+      setConversationMutedUntil(null);
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.otherUserId === selectedConv.otherUserId
+            ? { ...conv, mutedUntil: null }
+            : conv
+        )
+      );
+      toast.success("Conversation unmuted");
+    } catch {
+      toast.error("Failed to unmute conversation");
+    }
+  };
+
+  const stopVoiceRecording = useCallback(() => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    mediaRecorderRef.current?.stop();
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+    setRecordingVoice(false);
+  }, []);
+
+  const startVoiceRecording = async () => {
+    if (!isConnected || uploading || recordingVoice) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      voiceChunksRef.current = [];
+      setRecordingSeconds(0);
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) voiceChunksRef.current.push(event.data);
+      };
+
+      recorder.onstop = () => {
+        const chunks = voiceChunksRef.current;
+        voiceChunksRef.current = [];
+        const mimeType = recorder.mimeType || "audio/webm";
+        const ext = mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "m4a" : "webm";
+        const blob = new Blob(chunks, { type: mimeType });
+        const file = new File([blob], `voice-note-${Date.now()}.${ext}`, { type: mimeType });
+        if (file.size > 0) void handleFileUpload(file);
+      };
+
+      recorder.start();
+      setRecordingVoice(true);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => prev + 1);
+      }, 1000);
+    } catch {
+      toast.error("Microphone access is required to record voice notes.");
+    }
+  };
+
   /* ── Delete message ── */
   const handleDeleteMessage = async (messageId: string) => {
     try {
@@ -825,6 +1056,13 @@ export default function MessagesPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [contextMenu, activeMsgId, threadToolsOpen]);
 
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
   /* ── Can delete check (within 5 min, own message, not deleted) ── */
   const canDelete = (msg: Message) => {
     if (msg.senderId !== currentUserId || msg.deletedAt) return false;
@@ -834,7 +1072,7 @@ export default function MessagesPage() {
 
   /* ═══ Navigation ═══ */
 
-  const startConversation = (user: { id: string; name: string; email: string }) => {
+  const startConversation = useCallback((user: { id: string; name: string; email: string }) => {
     const existingConv = conversations.find((c) => c.otherUserId === user.id);
     const conv: Conversation = existingConv || {
       conversationKey: "",
@@ -845,6 +1083,7 @@ export default function MessagesPage() {
       lastSenderId: "",
       lastAt: new Date().toISOString(),
       unreadCount: 0,
+      mutedUntil: null,
     };
     setSelectedConv(conv);
     setOtherUser({ id: user.id, name: user.name, email: user.email });
@@ -853,9 +1092,9 @@ export default function MessagesPage() {
     setShowThread(true);
     isInitialScrollRef.current = true;
     fetchMessages(user.id);
-  };
+  }, [conversations, fetchMessages]);
 
-  const selectConversation = (conv: Conversation) => {
+  const selectConversation = useCallback((conv: Conversation) => {
     setSelectedConv(conv);
     setShowThread(true);
     isInitialScrollRef.current = true;
@@ -868,7 +1107,39 @@ export default function MessagesPage() {
       );
     }
     fetchMessages(conv.otherUserId);
-  };
+  }, [fetchMessages]);
+
+  const openConversationFromDeepLink = useCallback(() => {
+    const dmUserId = searchParams.get("dmUserId")?.trim() || "";
+    if (!dmUserId || dmUserId === currentUserIdRef.current || loadingConvs) return;
+
+    const dmName = searchParams.get("dmName")?.trim() || "";
+    const dmEmail = searchParams.get("dmEmail")?.trim() || "";
+    const prefill = searchParams.get("prefill")?.trim() || "";
+    const context = searchParams.get("context")?.trim() || "";
+    const contextLabel = searchParams.get("contextLabel")?.trim() || "";
+    const deepLinkKey = `${dmUserId}|${prefill}|${context}|${contextLabel}`;
+
+    if (deepLinkHandledRef.current === deepLinkKey) return;
+    deepLinkHandledRef.current = deepLinkKey;
+
+    const existing = conversations.find((conv) => conv.otherUserId === dmUserId);
+    if (existing) {
+      selectConversation(existing);
+    } else {
+      startConversation({
+        id: dmUserId,
+        name: dmName || "New conversation",
+        email: dmEmail,
+      });
+    }
+
+    if (prefill) {
+      setNewMessage(prefill);
+    }
+
+    router.replace("/dashboard/messages", { scroll: false });
+  }, [conversations, loadingConvs, router, searchParams, selectConversation, startConversation]);
 
   /* ═══ Effects ═══ */
 
@@ -902,6 +1173,10 @@ export default function MessagesPage() {
     if (sidebarTab === "requests") fetchRequests();
     if (sidebarTab === "connections") fetchConnectionsList();
   }, [sidebarTab, fetchRequests, fetchConnectionsList]);
+
+  useEffect(() => {
+    openConversationFromDeepLink();
+  }, [openConversationFromDeepLink]);
 
   /* ── Initial load + WS ── */
   useEffect(() => {
@@ -943,6 +1218,7 @@ export default function MessagesPage() {
                     content: msg.content,
                     isRead: msg.isRead,
                     createdAt: msg.createdAt,
+                    deliveredAt: msg.deliveredAt || null,
                     replyTo: msg.replyTo || null,
                     attachments: msg.attachments || [],
                     reactions: [],
@@ -982,6 +1258,7 @@ export default function MessagesPage() {
               otherUserId,
               otherUserName: msg.senderName || "Unknown",
               otherUserEmail: "",
+              isOnline: false,
               lastMessage: msg.content ? msg.content.slice(0, 100) : (msg.attachments?.length ? "Sent an attachment" : ""),
               lastSenderId: msg.senderId,
               lastAt: msg.createdAt,
@@ -1000,7 +1277,12 @@ export default function MessagesPage() {
           setMessages((prev) =>
             prev.map((m) =>
               m.recipientId === readBy && !m.isRead
-                ? { ...m, isRead: true, readAt: readAt || new Date().toISOString() }
+                ? {
+                    ...m,
+                    isRead: true,
+                    deliveredAt: m.deliveredAt || readAt || new Date().toISOString(),
+                    readAt: readAt || new Date().toISOString(),
+                  }
                 : m
             )
           );
@@ -1095,6 +1377,13 @@ export default function MessagesPage() {
     });
   }, [subscribe, fetchRequests, fetchConnectionsList, fetchConversations, fetchMuteStatus]);
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void fetchConversations();
+    }, 20_000);
+    return () => clearInterval(timer);
+  }, [fetchConversations]);
+
   /* ── Auto-scroll ── */
   useEffect(() => {
     if (messages.length === 0) return;
@@ -1122,6 +1411,10 @@ export default function MessagesPage() {
       groupedMessages[groupedMessages.length - 1].msgs.push(msg);
     }
   }
+
+  const selectedUserOnline = selectedConv
+    ? conversations.find((c) => c.otherUserId === selectedConv.otherUserId)?.isOnline
+    : false;
 
   const totalUnread = conversations.reduce((s, c) => s + c.unreadCount, 0);
   const totalRequests = msgRequests.length + connRequests.length;
@@ -1316,19 +1609,27 @@ export default function MessagesPage() {
                       >
                         <div className="flex items-center gap-3">
                           {/* Avatar */}
-                          <div className={`w-10 h-10 rounded-full border-[2px] border-navy flex items-center justify-center shrink-0 ${
+                          <div className={`relative w-10 h-10 rounded-full border-[2px] border-navy flex items-center justify-center shrink-0 ${
                             conv.isBlocked ? "bg-cloud" : "bg-lavender-light"
                           }`}>
                             <span className="font-display font-black text-xs text-navy">
                               {initials(conv.otherUserName)}
                             </span>
+                            {conv.isOnline && !conv.isBlocked && (
+                              <span className="absolute -bottom-0.5 -right-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-teal border border-snow" />
+                            )}
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between">
-                              <span className={`font-bold text-sm truncate ${
+                              <span className={`font-bold text-sm truncate flex items-center gap-1 ${
                                 conv.isBlocked ? "text-slate line-through" : "text-navy"
                               }`}>
-                                {conv.otherUserName}
+                                <span className="truncate">{conv.otherUserName}</span>
+                                {conv.mutedUntil && (
+                                  <svg aria-hidden="true" className="w-3 h-3 text-slate shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M6 10v4h4l5 5V5l-5 5H6Zm10.7-1.7a1 1 0 0 1 1.4 0l1 1 1-1a1 1 0 1 1 1.4 1.4l-1 1 1 1a1 1 0 1 1-1.4 1.4l-1-1-1 1a1 1 0 1 1-1.4-1.4l1-1-1-1a1 1 0 0 1 0-1.4Z" />
+                                  </svg>
+                                )}
                               </span>
                               <span className="text-[10px] text-slate ml-2 shrink-0">
                                 {timeAgo(conv.lastAt)}
@@ -1549,10 +1850,14 @@ export default function MessagesPage() {
                     <div className="text-[10px] text-slate">
                       {otherTyping ? (
                         <span className="text-teal font-medium animate-pulse">typing...</span>
+                      ) : conversationMutedUntil ? (
+                        <span className="text-slate">Conversation muted until {formatDateTimeShort(conversationMutedUntil)}</span>
                       ) : isBlocked
                         ? blockedByMe
                           ? "You blocked this user"
                           : "This user has blocked you"
+                        : selectedUserOnline
+                          ? "Online now"
                         : isConnected
                           ? "Connected"
                           : "Not connected — messages go as requests"}
@@ -1593,6 +1898,38 @@ export default function MessagesPage() {
                         </svg>
                       </button>
                     )}
+                    {conversationMutedUntil ? (
+                      <button
+                        onClick={() => { void unmuteConversation(); }}
+                        className="text-[10px] font-bold text-teal bg-teal-light px-2 py-1 rounded-lg hover:bg-teal/20 transition-colors"
+                      >
+                        Unmute
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => { void muteConversation(8); }}
+                          className="text-[10px] font-bold text-navy bg-ghost px-2 py-1 rounded-lg hover:bg-cloud transition-colors"
+                          title="Mute for 8 hours"
+                        >
+                          8h
+                        </button>
+                        <button
+                          onClick={() => { void muteConversation(24); }}
+                          className="text-[10px] font-bold text-navy bg-ghost px-2 py-1 rounded-lg hover:bg-cloud transition-colors"
+                          title="Mute for 24 hours"
+                        >
+                          24h
+                        </button>
+                        <button
+                          onClick={() => { void muteConversation(168); }}
+                          className="text-[10px] font-bold text-navy bg-ghost px-2 py-1 rounded-lg hover:bg-cloud transition-colors"
+                          title="Mute for 7 days"
+                        >
+                          7d
+                        </button>
+                      </div>
+                    )}
                     {/* Block / Unblock */}
                     {blockedByMe ? (
                       <button
@@ -1625,7 +1962,6 @@ export default function MessagesPage() {
                       onClick={() => setThreadToolsOpen((prev) => !prev)}
                       className="p-1.5 rounded-lg text-slate hover:text-navy hover:bg-ghost transition-colors"
                       aria-label="Thread tools"
-                      aria-expanded={threadToolsOpen}
                     >
                       <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M5.25 12a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm6.75 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm5.25 1.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
@@ -1652,6 +1988,35 @@ export default function MessagesPage() {
                           >
                             Report user
                           </button>
+                        )}
+                        {conversationMutedUntil ? (
+                          <button
+                            onClick={() => { void unmuteConversation(); setThreadToolsOpen(false); }}
+                            className="w-full text-left px-3 py-2 text-sm text-teal hover:bg-ghost"
+                          >
+                            Unmute conversation
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => { void muteConversation(8); setThreadToolsOpen(false); }}
+                              className="w-full text-left px-3 py-2 text-sm text-navy hover:bg-ghost"
+                            >
+                              Mute 8 hours
+                            </button>
+                            <button
+                              onClick={() => { void muteConversation(24); setThreadToolsOpen(false); }}
+                              className="w-full text-left px-3 py-2 text-sm text-navy hover:bg-ghost"
+                            >
+                              Mute 24 hours
+                            </button>
+                            <button
+                              onClick={() => { void muteConversation(168); setThreadToolsOpen(false); }}
+                              className="w-full text-left px-3 py-2 text-sm text-navy hover:bg-ghost"
+                            >
+                              Mute 7 days
+                            </button>
+                          </>
                         )}
                         {blockedByMe ? (
                           <button
@@ -1715,6 +2080,10 @@ export default function MessagesPage() {
                         {group.msgs.map((msg, msgIdx) => {
                           const isMine = msg.senderId === currentUserId;
                           const isDeleted = !!msg.deletedAt;
+                          const prevMsg = msgIdx > 0 ? group.msgs[msgIdx - 1] : null;
+                          const nextMsg = msgIdx < group.msgs.length - 1 ? group.msgs[msgIdx + 1] : null;
+                          const prevSameSender = !!prevMsg && prevMsg.senderId === msg.senderId;
+                          const nextSameSender = !!nextMsg && nextMsg.senderId === msg.senderId;
                           const isLastMyMsg =
                             isMine &&
                             msgIdx === group.msgs.length - 1 &&
@@ -1733,9 +2102,16 @@ export default function MessagesPage() {
                             map.forEach((v, emoji) => reactionGroups.push({ emoji, count: v.count, myReaction: v.mine }));
                           }
 
+                          const bubbleShapeClass = isMine
+                            ? `${prevSameSender ? "rounded-tr-md" : "rounded-tr-2xl"} ${nextSameSender ? "rounded-br-md" : "rounded-br-2xl"} rounded-tl-2xl rounded-bl-2xl`
+                            : `${prevSameSender ? "rounded-tl-md" : "rounded-tl-2xl"} ${nextSameSender ? "rounded-bl-md" : "rounded-bl-2xl"} rounded-tr-2xl rounded-br-2xl`;
+
                           return (
                             <div
                               key={msg.id}
+                              ref={(el) => {
+                                messageRefs.current[msg.id] = el;
+                              }}
                               className={`flex mb-2 group relative ${isMine ? "justify-end" : "justify-start"}`}
                               style={{
                                 transform: swipeOffsets[msg.id] ? `translateX(${swipeOffsets[msg.id]}px)` : undefined,
@@ -1769,16 +2145,20 @@ export default function MessagesPage() {
                               <div className={`max-w-[75%] ${isMine ? "items-end" : "items-start"} flex flex-col`}>
                                 {/* Reply preview */}
                                 {msg.replyTo && !isDeleted && (
-                                  <div className={`text-[10px] mb-0.5 px-3 py-1 rounded-t-xl border-l-[3px] ${
-                                    isMine ? "bg-lime-light/60 border-navy/30" : "bg-ghost border-lavender"
-                                  }`}>
+                                  <button
+                                    type="button"
+                                    onClick={() => jumpToMessage(msg.replyTo?.id)}
+                                    className={`text-left w-full text-[10px] mb-0.5 px-3 py-1 rounded-t-xl border-l-[3px] ${
+                                      isMine ? "bg-lime-light/60 border-navy/30" : "bg-ghost border-lavender"
+                                    }`}
+                                  >
                                     <span className="font-bold text-navy-muted">
                                       {msg.replyTo.senderId === currentUserId ? "You" : msg.replyTo.senderName}
                                     </span>
                                     <p className="text-slate truncate max-w-[200px]">
                                       {msg.replyTo.content || (msg.replyTo.hasAttachment ? "Attachment" : "")}
                                     </p>
-                                  </div>
+                                  </button>
                                 )}
 
                                 {/* Pin indicator */}
@@ -1792,12 +2172,12 @@ export default function MessagesPage() {
                                 )}
 
                                 <div
-                                  className={`px-4 py-2.5 rounded-2xl relative ${
+                                  className={`px-4 py-2.5 relative ${bubbleShapeClass} ${highlightedMessageId === msg.id ? "ring-2 ring-teal" : ""} ${
                                     isDeleted
                                       ? "bg-cloud/50 text-slate italic"
                                       : isMine
-                                        ? "bg-lime text-navy rounded-br-md"
-                                        : "bg-ghost text-navy rounded-bl-md"
+                                        ? "bg-lime text-navy"
+                                        : "bg-ghost text-navy"
                                   }`}
                                 >
                                   {/* Desktop action bar (click-triggered, persistent) — hidden on touch */}
@@ -1910,6 +2290,8 @@ export default function MessagesPage() {
                                                   className="max-w-full max-h-56 rounded-xl border-[2px] border-cloud object-cover hover:opacity-90 transition-opacity cursor-zoom-in"
                                                 />
                                               </button>
+                                            ) : att.type?.startsWith("audio/") ? (
+                                              <AudioWaveformPlayer key={i} attachment={att} />
                                             ) : (
                                               <a
                                                 key={i}
@@ -1947,19 +2329,36 @@ export default function MessagesPage() {
                                     </span>
                                     {isMine && !isDeleted && (
                                       <>
-                                        <svg
-                                          className={`w-3 h-3 ${msg.isRead ? "text-teal" : "text-navy-muted"}`}
-                                          viewBox="0 0 24 24"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          strokeWidth={2.5}
-                                        >
-                                          {msg.isRead ? (
-                                            <path d="M18 7l-8.5 8.5L5 11M22 7l-8.5 8.5" />
-                                          ) : (
-                                            <path d="M20 6L9 17l-5-5" />
-                                          )}
-                                        </svg>
+                                        {(() => {
+                                          const isReadMsg = !!msg.isRead;
+                                          const isDeliveredMsg = isReadMsg || !!msg.deliveredAt;
+                                          if (!isDeliveredMsg) {
+                                            return (
+                                              <svg
+                                                className="w-3 h-3 text-navy-muted"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth={2.5}
+                                                aria-label="Sent"
+                                              >
+                                                <path d="M20 6L9 17l-5-5" />
+                                              </svg>
+                                            );
+                                          }
+                                          return (
+                                            <svg
+                                              className={`w-3 h-3 ${isReadMsg ? "text-teal" : "text-navy-muted"}`}
+                                              viewBox="0 0 24 24"
+                                              fill="none"
+                                              stroke="currentColor"
+                                              strokeWidth={2.5}
+                                              aria-label={isReadMsg ? "Read" : "Delivered"}
+                                            >
+                                              <path d="M18 7l-8.5 8.5L5 11M22 7l-8.5 8.5" />
+                                            </svg>
+                                          );
+                                        })()}
                                         {msg.readAt && isLastMyMsg && (
                                           <span className="text-[9px] text-teal ml-0.5">
                                             Seen {formatTime(msg.readAt)}
@@ -2116,6 +2515,19 @@ export default function MessagesPage() {
                       </div>
                     )}
 
+                    {recordingVoice && (
+                      <div className="mb-2 flex items-center justify-between gap-2 px-3 py-2 bg-coral-light rounded-xl border-[2px] border-coral/30">
+                        <p className="text-xs font-bold text-navy">Recording voice note… {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, "0")}</p>
+                        <button
+                          type="button"
+                          onClick={stopVoiceRecording}
+                          className="px-2.5 py-1 rounded-lg bg-coral border-[2px] border-navy text-snow text-[10px] font-bold press-1 press-black"
+                        >
+                          Stop & send
+                        </button>
+                      </div>
+                    )}
+
                     {/* Reply preview bar */}
                     {replyTo && (
                       <div className="mb-2 flex items-center gap-2 px-3 py-2 bg-lavender-light rounded-xl border-l-[3px] border-lavender">
@@ -2154,12 +2566,26 @@ export default function MessagesPage() {
                             type="file"
                             className="hidden"
                             title="Choose file to attach"
-                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+                            accept="image/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
                             onChange={(e) => {
                               const f = e.target.files?.[0];
                               if (f) handleFileUpload(f);
                             }}
                           />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (recordingVoice) stopVoiceRecording();
+                              else void startVoiceRecording();
+                            }}
+                            disabled={uploading}
+                            className={`shrink-0 w-10 h-10 rounded-xl border-[2px] flex items-center justify-center transition-colors disabled:opacity-50 ${recordingVoice ? "bg-coral-light border-coral text-coral" : "bg-ghost border-cloud text-slate hover:border-navy"}`}
+                            title={recordingVoice ? "Stop recording" : "Record voice note"}
+                          >
+                            <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm5-3a1 1 0 1 1 2 0 7 7 0 0 1-6 6.93V21h2a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2h2v-3.07A7 7 0 0 1 5 11a1 1 0 1 1 2 0 5 5 0 1 0 10 0Z" />
+                            </svg>
+                          </button>
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}

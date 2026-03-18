@@ -439,6 +439,7 @@ export default function SettingsPage() {
 /* ── Push Notification Toggle ─────────────────────────────── */
 function PushNotificationToggle() {
   const { supported, permission, subscribed, loading, error, subscribe, unsubscribe } = usePushNotifications();
+  const isBrave = typeof navigator !== "undefined" && !!(navigator as Navigator & { brave?: unknown }).brave;
 
   if (!supported) return null;
 
@@ -446,14 +447,21 @@ function PushNotificationToggle() {
     <div className="mb-8">
       <h3 className="font-display font-bold text-navy text-base mb-1">Browser Push Notifications</h3>
       <p className="text-sm text-slate mb-4">
-        Get notified even when the tab is closed. Works on Chrome, Firefox, Edge, and Safari 16+.
+        Get instant alerts for announcements, deadlines, and timetable changes even when this tab is closed.
+        Works on Chrome, Firefox, Edge, and Safari 16+.
       </p>
+
+      {isBrave && (
+        <div className="mb-4 bg-sunny-light border-2 border-navy rounded-2xl p-3 text-xs text-navy font-medium">
+          Brave users: if enabling push fails, disable Shields for this site and allow Notifications in site settings, then retry.
+        </div>
+      )}
 
       <div className="flex items-center gap-4">
         {permission === "denied" ? (
           <div className="bg-coral-light border-[3px] border-navy/20 rounded-2xl p-4 text-sm text-navy">
             <span className="font-bold">Push blocked.</span> You previously denied notification permissions.
-            Open your browser settings to re-enable them for this site.
+            Re-enable notifications for this site in your browser settings so you don&apos;t miss critical school updates.
           </div>
         ) : subscribed ? (
           <button
@@ -471,7 +479,7 @@ function PushNotificationToggle() {
             disabled={loading}
             className="bg-lime border-[3px] border-navy rounded-2xl px-6 py-3 font-display font-bold text-sm text-navy press-3 press-navy disabled:opacity-50 transition-all"
           >
-            {loading ? "Enabling..." : "Enable Push Notifications"}
+            {loading ? "Enabling..." : "Enable Notifications Now"}
           </button>
         )}
 

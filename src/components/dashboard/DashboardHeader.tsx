@@ -5,11 +5,13 @@ import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useSession } from "@/context/SessionContext";
+import { useDM } from "@/context/DMContext";
 import NotificationBell from "@/components/dashboard/NotificationBell";
 import GlobalSearch from "@/components/dashboard/GlobalSearch";
 import UrgentBar from "@/components/dashboard/UrgentBar";
 import { getTimeGreeting } from "@/lib/greeting";
 import { resolveProfileImageUrl } from "@/lib/profileImage";
+import { buildMessagesHref } from "@/lib/messaging";
 
 function SessionSelector() {
   const { currentSession, allSessions, switchSession, isLoading } = useSession();
@@ -93,6 +95,7 @@ function SessionSelector() {
 
 export default function DashboardHeader({ title = "Dashboard", showGreeting = true }: { title?: string; showGreeting?: boolean }) {
   const { userProfile } = useAuth();
+  const { totalUnread, isConnected } = useDM();
   const profileImageUrl = resolveProfileImageUrl(userProfile);
 
   return (
@@ -113,6 +116,26 @@ export default function DashboardHeader({ title = "Dashboard", showGreeting = tr
           <SessionSelector />
           <GlobalSearch />
           <NotificationBell />
+          <Link
+            href={buildMessagesHref({ context: "header" })}
+            className="relative w-10 h-10 rounded-xl bg-ghost border-[3px] border-navy flex items-center justify-center hover:bg-cloud hover:border-navy transition-colors"
+            aria-label={`Messages${totalUnread > 0 ? ` (${totalUnread} unread)` : ""}`}
+          >
+            <svg aria-hidden="true" className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 0 0-1.032-.211 50.89 50.89 0 0 0-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 0 0 2.433 3.984L7.28 21.53A.75.75 0 0 1 6 21v-2.234a4.75 4.75 0 0 1-1.087-3.275V10.66a4.795 4.795 0 0 1 0-7.893Z" />
+              <path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.814 2.67 2.94 1.243.102 2.5.157 3.768.165l2.782 2.781a.75.75 0 0 0 1.28-.53v-2.39l.33-.026c1.542-.125 2.67-1.433 2.67-2.94v-4.286c0-1.505-1.125-2.811-2.664-2.94A49.392 49.392 0 0 0 15.75 7.5Z" />
+            </svg>
+            {isConnected && (
+              <span className="absolute bottom-0.5 left-0.5 w-2 h-2 rounded-full bg-teal border border-snow" />
+            )}
+            {totalUnread > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-coral border-[2px] border-snow rounded-full flex items-center justify-center">
+                <span className="text-snow text-[10px] font-display font-black px-1">
+                  {totalUnread > 9 ? "9+" : totalUnread}
+                </span>
+              </span>
+            )}
+          </Link>
           {userProfile && (
             <Link
               href="/dashboard/profile"

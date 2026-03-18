@@ -969,7 +969,7 @@ export default function ResourcesPage() {
       {(drive.viewingFile || drive.viewerLoading) && (
         <ResourceViewer
           key={drive.viewingFile?.id}
-          meta={drive.viewingFile!}
+          meta={drive.viewingFile}
           loading={drive.viewerLoading}
           onClose={drive.closeViewer}
           token={null}

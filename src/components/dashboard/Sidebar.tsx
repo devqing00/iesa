@@ -246,7 +246,7 @@ export default function Sidebar() {
   const { signOut, userProfile } = useAuth();
   const { isExpanded, toggleSidebar, closeSidebar } = useSidebar();
   const { hasPermission, permissions, loaded: permissionsLoaded } = usePermissions();
-  const { totalUnread } = useDM();
+  const { totalUnread, isConnected } = useDM();
   const { unreadCount: notifUnread } = useNotificationCount();
   const [manualOpenGroup, setManualOpenGroup] = useState<string | null>(null);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
@@ -402,6 +402,9 @@ export default function Sidebar() {
                             <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-coral text-snow text-[10px] font-black flex items-center justify-center">
                               {totalUnread > 9 ? "9+" : totalUnread}
                             </span>
+                          )}
+                          {link.href === "/dashboard/messages" && isConnected && (
+                            <span className={`${isExpanded ? "ml-1" : "absolute bottom-1.5 left-1.5"} w-2 h-2 rounded-full bg-teal border border-snow`} />
                           )}
                           {!isExpanded && link.href === "/dashboard/messages" && totalUnread > 0 && (
                             <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-coral border border-snow" />

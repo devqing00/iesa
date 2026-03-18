@@ -519,6 +519,7 @@ export default function DriveExplorer({
           onSearch={onSearchSubmit}
           loading={searchLoading}
         />
+        <p className="mt-1 text-xs text-slate">Searches folders and files across nested locations in this drive.</p>
       </div>
 
       {/* Recently viewed (only on root) */}

@@ -131,6 +131,7 @@ PERMISSIONS = {
     "timetable:create": "Create timetable entries",
     "timetable:edit": "Edit timetable entries",
     "timetable:cancel": "Cancel timetable entries",
+    "timetable:status": "Set class status updates",
     "timetable:exam": "Manage exam timetable entries",
     
     # Press permissions
@@ -334,7 +335,7 @@ DEFAULT_PERMISSIONS = {
         "announcement:create", "announcement:edit", "announcement:delete", "announcement:view",
         "event:view",
         "payment:view_all",
-        "timetable:view",
+        "timetable:view", "timetable:status",
         "class_rep:view_cohort", "class_rep:export_cohort",
         "class_rep:manage_deadlines", "class_rep:manage_polls",
         "class_rep:manage_relay", "class_rep:pin_relay",
@@ -346,7 +347,7 @@ DEFAULT_PERMISSIONS = {
         "announcement:create", "announcement:view",
         "event:view",
         "payment:view_all",
-        "timetable:view",
+        "timetable:view", "timetable:status",
         "class_rep:view_cohort",
         "class_rep:manage_deadlines",
         "class_rep:manage_relay",

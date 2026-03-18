@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
 import Link from "next/link";
+import { buildMessagesHref } from "@/lib/messaging";
 
 interface Notification {
   _id: string;
@@ -160,6 +161,15 @@ export default function NotificationBell() {
   /** Wrapper: renders Link when notification has a link, div otherwise */
   const NotificationRow = ({ n }: { n: Notification }) => {
     const resolvedLink = (() => {
+      const isMessageLike = ["message", "message_request", "message_request_accepted", "study_group_message"].includes(n.type);
+      if (isMessageLike) {
+        return buildMessagesHref({
+          context: "notification",
+          contextId: n._id,
+          contextLabel: n.title || TYPE_LABEL[n.type] || "Notification",
+        });
+      }
+
       if (!n.link) return null;
 
       const role = String(user?.role || "").toLowerCase();

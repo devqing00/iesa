@@ -6,6 +6,7 @@ import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
+import { buildMessagesHref } from "@/lib/messaging";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { toast } from "sonner";
 
@@ -388,8 +389,23 @@ export default function TeamsPage() {
                         {m.memberCount} member{m.memberCount !== 1 ? "s" : ""}
                       </span>
                       {m.head && (
-                        <span className="bg-snow/80 text-navy font-bold px-2 py-1 rounded-lg">
+                        <span className="bg-snow/80 text-navy font-bold px-2 py-1 rounded-lg inline-flex items-center gap-2">
                           Head: {m.head.firstName} {m.head.lastName}
+                          {m.head.userId !== userProfile?.id && (
+                            <Link
+                              href={buildMessagesHref({
+                                userId: m.head.userId,
+                                userName: `${m.head.firstName} ${m.head.lastName}`,
+                                userEmail: m.head.email,
+                                context: "team_head",
+                                contextId: m.unitSlug,
+                                contextLabel: m.unitLabel,
+                              })}
+                              className="bg-lime border-2 border-navy rounded-lg px-2 py-0.5 text-[10px] font-black text-navy press-1 press-navy"
+                            >
+                              Message
+                            </Link>
+                          )}
                         </span>
                       )}
                       {m.joinedAt && (

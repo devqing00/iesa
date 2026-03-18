@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { getApiUrl } from "@/lib/api";
 import { withAuth } from "@/lib/withAuth";
+import { buildMessagesHref } from "@/lib/messaging";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { toast } from "sonner";
 import { resolveProfileImageUrl } from "@/lib/profileImage";
@@ -768,6 +770,19 @@ export function TeamHeadPortal() {
                           {m.level}
                         </span>
                       )}
+                      <Link
+                        href={buildMessagesHref({
+                          userId: m.id,
+                          userName: `${m.firstName} ${m.lastName}`,
+                          userEmail: m.email,
+                          context: "team_head_members",
+                          contextId: activeUnit?.unitSlug,
+                          contextLabel: activeUnit?.unitLabel,
+                        })}
+                        className="text-label-sm bg-lime border-2 border-navy px-2 py-0.5 rounded-lg font-bold text-navy press-1 press-navy"
+                      >
+                        Message
+                      </Link>
                       {m.joinedAt && (
                         <span className="text-label-sm text-slate">Joined {formatDate(m.joinedAt)}</span>
                       )}
@@ -1108,6 +1123,22 @@ export function TeamHeadPortal() {
                         <p className="text-xs text-slate mt-2">
                           Assigned: {t.assignedToName} · {t.dueDate ? `Due: ${formatDate(t.dueDate)}` : "No due date"} · {timeAgo(t.createdAt)}
                         </p>
+                        {t.assignedTo && (
+                          <div className="mt-2">
+                            <Link
+                              href={buildMessagesHref({
+                                userId: t.assignedTo,
+                                userName: t.assignedToName,
+                                context: "team_head_task",
+                                contextId: t.id,
+                                contextLabel: t.title,
+                              })}
+                              className="inline-flex text-[10px] font-bold bg-lime border-2 border-navy px-2.5 py-1 rounded-lg text-navy press-1 press-navy"
+                            >
+                              Message assignee
+                            </Link>
+                          </div>
+                        )}
                       </div>
 
                       {canManageTasks && (

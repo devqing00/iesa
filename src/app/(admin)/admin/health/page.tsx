@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
 import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
-import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { withAuth } from "@/lib/withAuth";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
@@ -27,6 +26,14 @@ interface HealthData {
   };
 }
 
+interface VapidStatusData {
+  enabled: boolean;
+  public_key_length: number;
+  private_key_present: boolean;
+  private_key_source: string | null;
+  claims: { sub?: string } | null;
+}
+
 const statusColors: Record<string, { bg: string; text: string; dot: string }> = {
   healthy: { bg: "bg-teal-light", text: "text-teal", dot: "bg-teal" },
   degraded: { bg: "bg-sunny-light", text: "text-sunny", dot: "bg-sunny" },
@@ -41,6 +48,13 @@ function AdminHealthPage() {
   const [error, setError] = useState("");
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [basicPing, setBasicPing] = useState<number | null>(null);
+  const [pushStatus, setPushStatus] = useState<VapidStatusData | null>(null);
+  const [pushStatusLoading, setPushStatusLoading] = useState(false);
+  const [pushStatusError, setPushStatusError] = useState("");
+  const [pushTestEmail, setPushTestEmail] = useState("");
+  const [pushTestLoading, setPushTestLoading] = useState(false);
+  const [pushTestResult, setPushTestResult] = useState("");
+  const [pushTestError, setPushTestError] = useState("");
 
   const fetchHealth = useCallback(async () => {
     try {
@@ -64,14 +78,87 @@ function AdminHealthPage() {
     }
   }, [getAccessToken]);
 
+  const fetchPushStatus = useCallback(async () => {
+    setPushStatusLoading(true);
+    setPushStatusError("");
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl("/api/v1/push/vapid-status"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) await throwApiError(res, "load push status");
+      const json: VapidStatusData = await res.json();
+      setPushStatus(json);
+    } catch (err) {
+      setPushStatusError(getErrorMessage(err, "Failed to load push diagnostics"));
+    } finally {
+      setPushStatusLoading(false);
+    }
+  }, [getAccessToken]);
+
+  const sendPushTest = useCallback(async () => {
+    const email = pushTestEmail.trim();
+    if (!email) {
+      setPushTestError("Enter a user email to test push delivery");
+      setPushTestResult("");
+      return;
+    }
+
+    setPushTestLoading(true);
+    setPushTestError("");
+    setPushTestResult("");
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl("/api/v1/push/test/send-by-email"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          email,
+          title: "IESA Push Health Test",
+          body: "Push health test from Admin Health page.",
+          url: "/dashboard/announcements",
+          tag: "push-health-test",
+        }),
+      });
+      if (!res.ok) await throwApiError(res, "send push test");
+      const json = await res.json();
+      const attempted = typeof json?.attempted === "number" ? json.attempted : 0;
+      const sent = typeof json?.sent === "number" ? json.sent : 0;
+      const failed = typeof json?.failed === "number" ? json.failed : 0;
+      const stale = typeof json?.stale_removed === "number" ? json.stale_removed : 0;
+      const subscriptions = typeof json?.subscriptions === "number" ? json.subscriptions : 0;
+      setPushTestResult(
+        subscriptions === 0
+          ? `No active push subscriptions found for ${email}.`
+          : sent > 0
+            ? `Push sent for ${email}: ${sent}/${attempted} delivered${failed > 0 ? `, ${failed} failed` : ""}${stale > 0 ? `, ${stale} stale removed` : ""}.`
+            : `Push delivery failed for ${email}: 0/${attempted} sent${stale > 0 ? `, ${stale} stale removed` : ""}.`,
+      );
+    } catch (err) {
+      setPushTestError(getErrorMessage(err, "Failed to send push test"));
+    } finally {
+      setPushTestLoading(false);
+    }
+  }, [getAccessToken, pushTestEmail]);
+
   useEffect(() => {
     fetchHealth();
     const interval = setInterval(fetchHealth, 30000); // Refresh every 30s
     return () => clearInterval(interval);
   }, [fetchHealth]);
 
+  useEffect(() => {
+    fetchPushStatus();
+  }, [fetchPushStatus]);
+
   const overall = data?.overall || "unhealthy";
   const colors = statusColors[overall] || statusColors.unhealthy;
+  const pingValue = basicPing ?? 0;
+  const pingWidthClass =
+    pingValue < 500 ? "w-1/4" : pingValue < 1000 ? "w-2/4" : pingValue < 1500 ? "w-3/4" : "w-full";
 
   return (
     <div className="min-h-screen bg-ghost">
@@ -154,8 +241,7 @@ function AdminHealthPage() {
                 </div>
                 <div className="h-2 bg-cloud rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all ${(basicPing ?? 0) < 500 ? "bg-teal" : (basicPing ?? 0) < 1500 ? "bg-sunny" : "bg-coral"}`}
-                    style={{ width: `${Math.min(100, ((basicPing ?? 0) / 3000) * 100)}%` }}
+                    className={`h-full rounded-full transition-all ${pingWidthClass} ${(basicPing ?? 0) < 500 ? "bg-teal" : (basicPing ?? 0) < 1500 ? "bg-sunny" : "bg-coral"}`}
                   />
                 </div>
                 <p className="text-[10px] text-navy/40 mt-1">{(basicPing ?? 0) < 500 ? "Excellent" : (basicPing ?? 0) < 1500 ? "Acceptable" : "Slow"}</p>
@@ -231,6 +317,82 @@ function AdminHealthPage() {
                 </div>
               </div>
             )}
+
+            <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] mt-8">
+              <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+                <h2 className="font-display font-black text-xl text-navy">Push Health</h2>
+                <button
+                  type="button"
+                  onClick={fetchPushStatus}
+                  disabled={pushStatusLoading}
+                  className="bg-lime border-[3px] border-navy rounded-xl px-4 py-2 font-display font-bold text-sm text-navy press-3 press-navy disabled:opacity-50"
+                >
+                  {pushStatusLoading ? "Checking..." : "Check VAPID"}
+                </button>
+              </div>
+
+              {pushStatusError ? (
+                <div className="bg-coral-light border-[2px] border-coral rounded-2xl p-3 text-sm text-coral font-medium mb-4">
+                  {pushStatusError}
+                </div>
+              ) : pushStatus ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                  <div className="bg-ghost rounded-2xl p-4 border-[2px] border-cloud">
+                    <p className="text-label text-slate mb-1">Push Enabled</p>
+                    <p className={`font-display font-black text-lg ${pushStatus.enabled ? "text-teal" : "text-coral"}`}>
+                      {pushStatus.enabled ? "Yes" : "No"}
+                    </p>
+                  </div>
+                  <div className="bg-ghost rounded-2xl p-4 border-[2px] border-cloud">
+                    <p className="text-label text-slate mb-1">Public Key Length</p>
+                    <p className="font-display font-black text-lg text-navy">{pushStatus.public_key_length || 0}</p>
+                  </div>
+                  <div className="bg-ghost rounded-2xl p-4 border-[2px] border-cloud">
+                    <p className="text-label text-slate mb-1">Private Key</p>
+                    <p className={`font-display font-black text-lg ${pushStatus.private_key_present ? "text-teal" : "text-coral"}`}>
+                      {pushStatus.private_key_present ? "Present" : "Missing"}
+                    </p>
+                  </div>
+                  <div className="bg-ghost rounded-2xl p-4 border-[2px] border-cloud">
+                    <p className="text-label text-slate mb-1">Key Source</p>
+                    <p className="font-display font-black text-sm text-navy break-words">{pushStatus.private_key_source || "—"}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-slate mb-4">Loading push diagnostics...</p>
+              )}
+
+              <div className="border-t-[2px] border-cloud pt-4">
+                <p className="text-sm text-slate mb-3">Send a test push to verify subscription delivery for a specific user.</p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="email"
+                    value={pushTestEmail}
+                    onChange={(e) => setPushTestEmail(e.target.value)}
+                    placeholder="student@ui.edu.ng"
+                    className="flex-1 bg-snow border-[3px] border-navy rounded-xl px-4 py-2.5 text-sm text-navy placeholder:text-slate"
+                  />
+                  <button
+                    type="button"
+                    onClick={sendPushTest}
+                    disabled={pushTestLoading || !pushTestEmail.trim()}
+                    className="bg-navy border-[3px] border-lime rounded-xl px-5 py-2.5 font-display font-bold text-sm text-lime press-3 press-lime disabled:opacity-50"
+                  >
+                    {pushTestLoading ? "Sending..." : "Send Test"}
+                  </button>
+                </div>
+                {pushTestResult && (
+                  <div className="mt-3 bg-teal-light border-[2px] border-teal rounded-2xl p-3 text-sm text-teal font-medium">
+                    {pushTestResult}
+                  </div>
+                )}
+                {pushTestError && (
+                  <div className="mt-3 bg-coral-light border-[2px] border-coral rounded-2xl p-3 text-sm text-coral font-medium">
+                    {pushTestError}
+                  </div>
+                )}
+              </div>
+            </div>
           </>
         )}
       </main>

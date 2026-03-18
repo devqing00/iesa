@@ -121,6 +121,13 @@ export function getDriveStreamUrl(fileId: string): string {
 }
 
 /**
+ * Get URL for server-side Drive PDF export (Google Docs/Sheets/Slides only).
+ */
+export function getDrivePdfExportUrl(fileId: string): string {
+  return `${API_BASE_URL}/api/v1/drive/file/${fileId}/export-pdf`;
+}
+
+/**
  * Search files by name
  */
 export async function searchDrive(q: string, folderId?: string): Promise<SearchResponse> {

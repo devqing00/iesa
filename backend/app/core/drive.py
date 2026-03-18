@@ -233,6 +233,19 @@ def download_file_bytes(file_id: str) -> io.BytesIO:
     return buf
 
 
+def export_google_file_pdf_bytes(file_id: str) -> io.BytesIO:
+    """Export a Google-native file (Docs/Sheets/Slides) to PDF bytes."""
+    service = get_drive_service()
+    request = service.files().export_media(fileId=file_id, mimeType="application/pdf")
+    buf = io.BytesIO()
+    downloader = MediaIoBaseDownload(buf, request)
+    done = False
+    while not done:
+        _, done = downloader.next_chunk()
+    buf.seek(0)
+    return buf
+
+
 def search_files(query_text: str, folder_id: Optional[str] = None, page_size: int = 30):
     """Search files by name across the entire departmental Drive folder tree.
     
@@ -251,27 +264,52 @@ def search_files(query_text: str, folder_id: Optional[str] = None, page_size: in
 
     if folder_id:
         # Restricted search: collect all descendant folder IDs, then search within them
+        # with paginated requests so deep/large folder trees are fully covered.
         all_folder_ids = _collect_descendant_folders(service, root)
         all_folder_ids.add(root)
 
-        # Drive API doesn't support OR on parents easily, so we batch search
-        # across folder groups (max ~10 parents per query to stay within limits)
-        all_results = []
+        all_results: list[dict] = []
+        seen_ids: set[str] = set()
         folder_list = list(all_folder_ids)
         batch_size = 10
+        fields = "nextPageToken, files(id, name, mimeType, size, modifiedTime, parents, thumbnailLink, webViewLink)"
+
         for i in range(0, len(folder_list), batch_size):
             batch = folder_list[i : i + batch_size]
             parent_clauses = " or ".join(f"'{fid}' in parents" for fid in batch)
-            q = f"name contains '{safe_query}' and trashed = false and ({parent_clauses})"
-            fields = "files(id, name, mimeType, size, modifiedTime, parents, thumbnailLink, webViewLink)"
-            result = (
-                service.files()
-                .list(q=q, fields=fields, pageSize=page_size, supportsAllDrives=True, includeItemsFromAllDrives=True)
+            q = (
+                f"(name contains '{safe_query}' or fullText contains '{safe_query}') "
+                f"and trashed = false and ({parent_clauses})"
             )
-            result = _execute_with_retry(result)
-            all_results.extend(result.get("files", []))
-            if len(all_results) >= page_size:
-                break
+
+            page_token: Optional[str] = None
+            while True:
+                result = (
+                    service.files()
+                    .list(
+                        q=q,
+                        fields=fields,
+                        pageSize=min(page_size, 100),
+                        pageToken=page_token,
+                        supportsAllDrives=True,
+                        includeItemsFromAllDrives=True,
+                    )
+                )
+                result = _execute_with_retry(result)
+
+                for f in result.get("files", []):
+                    file_id = f.get("id")
+                    if not file_id or file_id in seen_ids:
+                        continue
+                    seen_ids.add(file_id)
+                    all_results.append(f)
+                    if len(all_results) >= page_size:
+                        return all_results[:page_size]
+
+                page_token = result.get("nextPageToken")
+                if not page_token:
+                    break
+
         return all_results[:page_size]
     else:
         # Global search within full root tree — use fullText contains for richer matching
@@ -286,29 +324,45 @@ def search_files(query_text: str, folder_id: Optional[str] = None, page_size: in
         return result.get("files", [])
 
 
-def _collect_descendant_folders(service, parent_id: str, max_depth: int = 8) -> set:
+def _collect_descendant_folders(service, parent_id: str, max_folders: int = 5000) -> set:
     """Recursively collect all subfolder IDs under a given parent folder."""
     folder_ids = set()
     queue = [parent_id]
-    depth = 0
-    while queue and depth < max_depth:
+    while queue and len(folder_ids) < max_folders:
         next_queue = []
         for pid in queue:
             q = f"'{pid}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
             try:
-                result = (
-                    service.files()
-                    .list(q=q, fields="files(id)", pageSize=200, supportsAllDrives=True, includeItemsFromAllDrives=True)
-                )
-                result = _execute_with_retry(result)
-                for f in result.get("files", []):
-                    if f["id"] not in folder_ids:
-                        folder_ids.add(f["id"])
-                        next_queue.append(f["id"])
+                page_token: Optional[str] = None
+                while True:
+                    result = (
+                        service.files()
+                        .list(
+                            q=q,
+                            fields="nextPageToken, files(id)",
+                            pageSize=200,
+                            pageToken=page_token,
+                            supportsAllDrives=True,
+                            includeItemsFromAllDrives=True,
+                        )
+                    )
+                    result = _execute_with_retry(result)
+
+                    for f in result.get("files", []):
+                        folder_id = f.get("id")
+                        if not folder_id or folder_id in folder_ids:
+                            continue
+                        folder_ids.add(folder_id)
+                        next_queue.append(folder_id)
+                        if len(folder_ids) >= max_folders:
+                            return folder_ids
+
+                    page_token = result.get("nextPageToken")
+                    if not page_token:
+                        break
             except Exception:
                 continue
         queue = next_queue
-        depth += 1
     return folder_ids
 
 

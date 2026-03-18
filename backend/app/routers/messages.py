@@ -89,6 +89,10 @@ class ReactionBody(BaseModel):
     emoji: str = Field(..., min_length=1, max_length=8)
 
 
+class ConversationMuteBody(BaseModel):
+    durationHours: int = Field(..., ge=1, le=168)
+
+
 # --- Constants: Allowed reaction emojis & limits ---
 ALLOWED_REACTIONS = {"👍", "❤️", "😂", "😮", "😢", "🔥", "👎", "🎉"}
 MAX_REACTIONS_PER_MESSAGE = 50
@@ -167,6 +171,17 @@ async def _check_mute(db: AsyncIOMotorDatabase, user_id: str) -> None:
         )
 
 
+async def _get_conversation_mute(db: AsyncIOMotorDatabase, user_id: str, other_user_id: str) -> dict | None:
+    now = datetime.now(timezone.utc)
+    return await db["dm_conversation_mutes"].find_one(
+        {
+            "userId": user_id,
+            "otherUserId": other_user_id,
+            "mutedUntil": {"$gt": now},
+        }
+    )
+
+
 async def _are_connected(db: AsyncIOMotorDatabase, user_a: str, user_b: str) -> bool:
     """Check if two users have an accepted mutual connection."""
     conn = await db["dm_connections"].find_one({
@@ -223,6 +238,9 @@ class DMManager:
             self.connections[user_id] = [c for c in self.connections[user_id] if c is not ws]
             if not self.connections[user_id]:
                 del self.connections[user_id]
+
+    def is_online(self, user_id: str) -> bool:
+        return bool(self.connections.get(user_id))
 
     async def notify(self, user_id: str, data: dict):
         """Push a message event to all connected sockets for this user."""
@@ -790,6 +808,62 @@ async def get_mute_status(
     return {"muted": False}
 
 
+@router.post("/conversation/{other_user_id}/mute")
+async def mute_conversation(
+    other_user_id: str,
+    body: ConversationMuteBody,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    if not ObjectId.is_valid(other_user_id):
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+
+    user_id = str(user["_id"])
+    if other_user_id == user_id:
+        raise HTTPException(status_code=400, detail="Cannot mute yourself")
+
+    if body.durationHours not in {8, 24, 168}:
+        raise HTTPException(status_code=400, detail="durationHours must be one of 8, 24, or 168")
+
+    now = datetime.now(timezone.utc)
+    muted_until = now + timedelta(hours=body.durationHours)
+    await db["dm_conversation_mutes"].update_one(
+        {"userId": user_id, "otherUserId": other_user_id},
+        {
+            "$set": {
+                "mutedUntil": muted_until,
+                "updatedAt": now,
+            },
+            "$setOnInsert": {
+                "userId": user_id,
+                "otherUserId": other_user_id,
+                "createdAt": now,
+            },
+        },
+        upsert=True,
+    )
+
+    return {
+        "muted": True,
+        "otherUserId": other_user_id,
+        "mutedUntil": muted_until.isoformat(),
+    }
+
+
+@router.delete("/conversation/{other_user_id}/mute")
+async def unmute_conversation(
+    other_user_id: str,
+    user: dict = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    if not ObjectId.is_valid(other_user_id):
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+
+    user_id = str(user["_id"])
+    await db["dm_conversation_mutes"].delete_one({"userId": user_id, "otherUserId": other_user_id})
+    return {"muted": False, "otherUserId": other_user_id}
+
+
 # ===================================================================
 # ADMIN: Report Review + Mute Management
 # ===================================================================
@@ -1041,6 +1115,7 @@ async def send_message(
     # Connected -- send the message directly
     conv_key = _conversation_key(sender_id, recipient_id)
     now = datetime.now(timezone.utc)
+    delivered_at = now if dm_manager.is_online(recipient_id) else None
 
     # Require content or at least a reply reference (allows empty content if attachment sent separately)
     if not body.content.strip() and not body.replyToId:
@@ -1053,6 +1128,7 @@ async def send_message(
         "content": body.content.strip(),
         "isRead": False,
         "createdAt": now,
+        "deliveredAt": delivered_at,
     }
 
     # Handle reply
@@ -1090,6 +1166,7 @@ async def send_message(
             "content": body.content.strip(),
             "isRead": False,
             "createdAt": now.isoformat(),
+            "deliveredAt": delivered_at.isoformat() if delivered_at else None,
             "replyTo": doc.get("replyTo"),
             "attachments": doc.get("attachments", []),
         },
@@ -1097,20 +1174,22 @@ async def send_message(
     await dm_manager.notify(recipient_id, ws_payload)
     await dm_manager.notify(sender_id, ws_payload)
 
-    try:
-        from app.routers.notifications import create_notification
-        sender_label = sender_name or "A student"
-        preview = body.content.strip()[:120]
-        await create_notification(
-            user_id=recipient_id,
-            type="message",
-            title="New Message",
-            message=f"{sender_label}: {preview}" if preview else f"{sender_label} sent you a message.",
-            link="/dashboard/messages",
-            related_id=str(result.inserted_id),
-        )
-    except Exception:
-        pass
+    recipient_muted = await _get_conversation_mute(db, recipient_id, sender_id)
+    if not recipient_muted:
+        try:
+            from app.routers.notifications import create_notification
+            sender_label = sender_name or "A student"
+            preview = body.content.strip()[:120]
+            await create_notification(
+                user_id=recipient_id,
+                type="message",
+                title="New Message",
+                message=f"{sender_label}: {preview}" if preview else f"{sender_label} sent you a message.",
+                link="/dashboard/messages",
+                related_id=str(result.inserted_id),
+            )
+        except Exception:
+            pass
 
     return {
         "id": str(result.inserted_id),
@@ -1191,6 +1270,20 @@ async def list_conversations(
     async for b in db["dm_blocks"].find({"blockerId": user_id}, {"blockedId": 1}):
         blocked_ids.add(b["blockedId"])
 
+    now = datetime.now(timezone.utc)
+    mute_map: dict[str, datetime] = {}
+    if other_ids:
+        async for mute in db["dm_conversation_mutes"].find(
+            {
+                "userId": user_id,
+                "otherUserId": {"$in": list(other_ids)},
+                "mutedUntil": {"$gt": now},
+            },
+            {"otherUserId": 1, "mutedUntil": 1},
+        ):
+            if mute.get("otherUserId") and mute.get("mutedUntil"):
+                mute_map[mute["otherUserId"]] = mute["mutedUntil"]
+
     conversations = []
     for doc, other_id in raw_convs:
         info = user_map.get(other_id, {"name": "Unknown", "email": ""})
@@ -1206,11 +1299,13 @@ async def list_conversations(
             "otherUserId": other_id,
             "otherUserName": info["name"],
             "otherUserEmail": info["email"],
+            "isOnline": dm_manager.is_online(other_id),
             "lastMessage": last_msg,
             "lastSenderId": doc["lastSenderId"],
             "lastAt": doc["lastAt"].isoformat() if doc["lastAt"] else None,
             "unreadCount": doc["unreadCount"],
             "isBlocked": other_id in blocked_ids,
+            "mutedUntil": mute_map[other_id].isoformat() if other_id in mute_map else None,
         })
 
     return conversations
@@ -1249,6 +1344,7 @@ async def get_conversation(
             "content": doc["content"] if not doc.get("deletedAt") else "",
             "isRead": doc.get("isRead", False),
             "createdAt": doc["createdAt"].isoformat(),
+            "deliveredAt": doc["deliveredAt"].isoformat() if doc.get("deliveredAt") else None,
             "readAt": doc["readAt"].isoformat() if doc.get("readAt") else None,
             "deletedAt": doc["deletedAt"].isoformat() if doc.get("deletedAt") else None,
             "replyTo": doc.get("replyTo"),
@@ -1273,6 +1369,7 @@ async def get_conversation(
             {"blockerId": other_user_id, "blockedId": user_id},
         ]
     })
+    conversation_mute = await _get_conversation_mute(db, user_id, other_user_id)
 
     return {
         "messages": messages,
@@ -1284,6 +1381,7 @@ async def get_conversation(
         "isConnected": connected,
         "isBlocked": block is not None,
         "blockedByMe": block is not None and block.get("blockerId") == user_id if block else False,
+        "mutedUntil": conversation_mute["mutedUntil"].isoformat() if conversation_mute else None,
     }
 
 
@@ -1468,6 +1566,7 @@ async def upload_attachment(
         "content": "",
         "isRead": False,
         "createdAt": now,
+        "deliveredAt": now if dm_manager.is_online(recipientId) else None,
         "attachments": [attachment],
     }
     insert_result = await db["direct_messages"].insert_one(doc)
@@ -1484,24 +1583,27 @@ async def upload_attachment(
             "content": "",
             "isRead": False,
             "createdAt": now.isoformat(),
+            "deliveredAt": doc["deliveredAt"].isoformat() if doc.get("deliveredAt") else None,
             "attachments": [attachment],
         },
     }
     await dm_manager.notify(recipientId, ws_payload)
     await dm_manager.notify(sender_id, ws_payload)
 
-    try:
-        from app.routers.notifications import create_notification
-        await create_notification(
-            user_id=recipientId,
-            type="message",
-            title="New Message",
-            message=f"{sender_name or 'A student'} sent you an attachment.",
-            link="/dashboard/messages",
-            related_id=str(insert_result.inserted_id),
-        )
-    except Exception:
-        pass
+    recipient_muted = await _get_conversation_mute(db, recipientId, sender_id)
+    if not recipient_muted:
+        try:
+            from app.routers.notifications import create_notification
+            await create_notification(
+                user_id=recipientId,
+                type="message",
+                title="New Message",
+                message=f"{sender_name or 'A student'} sent you an attachment.",
+                link="/dashboard/messages",
+                related_id=str(insert_result.inserted_id),
+            )
+        except Exception:
+            pass
 
     return {
         "id": str(insert_result.inserted_id),

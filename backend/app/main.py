@@ -54,6 +54,13 @@ async def lifespan(app: FastAPI):
     # AI rate limits — unique userId index for fast upserts
     await db["ai_rate_limits"].create_index("userId", unique=True, background=True)
 
+    # Engagement rewards — indexes for snapshot/action upserts and leaderboard queries
+    await db["engagement_rewards"].create_index("userId", unique=True, background=True)
+    await db["engagement_rewards"].create_index(
+        [("weekKey", 1), ("privacyOptIn", 1), ("weeklyUsefulActions", -1), ("visitStreak", -1)],
+        background=True,
+    )
+
     # Users — unique index on firebaseUid for fast token→user lookups
     try:
         await db["users"].create_index("firebaseUid", unique=True, sparse=True, background=True)
@@ -89,6 +96,14 @@ async def lifespan(app: FastAPI):
 
     # DM mutes — userId + active mute lookup
     await db["dm_mutes"].create_index("userId", unique=True, background=True)
+
+    # DM conversation mutes — per-user per-conversation mute state
+    await db["dm_conversation_mutes"].create_index(
+        [("userId", 1), ("otherUserId", 1)], unique=True, background=True
+    )
+    await db["dm_conversation_mutes"].create_index(
+        [("userId", 1), ("mutedUntil", -1)], background=True
+    )
 
     # Direct messages — conversationKey for fast conversation fetches
     await db["direct_messages"].create_index(

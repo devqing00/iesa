@@ -3,6 +3,7 @@ Timetable Router - Dynamic class schedule + exam timetable management
 """
 
 from datetime import datetime, date, timedelta, timezone
+from zoneinfo import ZoneInfo
 from typing import List, Optional, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
@@ -11,12 +12,13 @@ from pydantic import BaseModel, Field
 from bson import ObjectId
 
 from ..core.security import get_current_user, require_ipe_student
-from ..core.permissions import require_permission
+from ..core.permissions import require_permission, require_any_permission
 from ..core.database import get_database
 from ..core.audit import AuditLogger
 from ..core.error_handling import fire_and_forget
 
 router = APIRouter(prefix="/api/v1/timetable", tags=["timetable"])
+LAGOS_TZ = ZoneInfo("Africa/Lagos")
 
 
 # ── Timetable change notification helper ───────────────────────────
@@ -528,7 +530,7 @@ async def update_class_status(
     class_id: str,
     status_data: ClassStatusUpdateCreate,
     request: Request,
-    user: dict = Depends(require_permission("timetable:cancel")),
+    user: dict = Depends(require_any_permission(["timetable:cancel", "timetable:status"])),
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
     """Class rep/admin sets the status of a class instance for a specific date."""
@@ -679,7 +681,7 @@ async def dispatch_class_reminders(
         raise HTTPException(status_code=401, detail="Invalid user identity")
 
     effective_level = level or parse_level_value(str(user.get("currentLevel") or user.get("level") or "")) or 300
-    now = datetime.now()
+    now = datetime.now(LAGOS_TZ)
     today = now.date().isoformat()
     weekday = now.strftime("%A")
 
@@ -722,8 +724,16 @@ async def dispatch_class_reminders(
             continue
 
         try:
-            start_dt = datetime.combine(now.date(), datetime.strptime(cls["startTime"], "%H:%M").time())
-            end_dt = datetime.combine(now.date(), datetime.strptime(cls["endTime"], "%H:%M").time())
+            start_dt = datetime.combine(
+                now.date(),
+                datetime.strptime(cls["startTime"], "%H:%M").time(),
+                tzinfo=LAGOS_TZ,
+            )
+            end_dt = datetime.combine(
+                now.date(),
+                datetime.strptime(cls["endTime"], "%H:%M").time(),
+                tzinfo=LAGOS_TZ,
+            )
         except Exception:
             continue
 

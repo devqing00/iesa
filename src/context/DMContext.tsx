@@ -53,6 +53,8 @@ export type DMEvent = {
 interface DMContextValue {
   /** Total unread messages across all conversations (for sidebar badge) */
   totalUnread: number;
+  /** Whether shared DM websocket is currently connected */
+  isConnected: boolean;
   /**
    * Subscribe to raw DM WebSocket events (called from messages page).
    * Returns an unsubscribe function.
@@ -83,6 +85,7 @@ interface DMContextValue {
 
 const DMContext = createContext<DMContextValue>({
   totalUnread: 0,
+  isConnected: false,
   subscribe: () => () => {},
   setMessagesPageOpen: () => {},
   markConversationRead: () => {},
@@ -99,6 +102,7 @@ export function useDM() {
 export function DMProvider({ children }: { children: React.ReactNode }) {
   const { getAccessToken, userProfile } = useAuth();
   const [totalUnread, setTotalUnread] = useState(0);
+  const [isConnected, setIsConnected] = useState(false);
 
   // Refs so closures inside the WS handlers always see the latest value
   const totalUnreadRef = useRef(0);
@@ -166,6 +170,7 @@ export function DMProvider({ children }: { children: React.ReactNode }) {
       wsRef.current = ws;
 
       ws.onopen = () => {
+        setIsConnected(true);
         // Start heartbeat to keep connection alive through proxies
         if (heartbeatRef.current) clearInterval(heartbeatRef.current);
         heartbeatRef.current = setInterval(() => {
@@ -201,6 +206,7 @@ export function DMProvider({ children }: { children: React.ReactNode }) {
       };
 
       ws.onclose = () => {
+        setIsConnected(false);
         if (heartbeatRef.current) {
           clearInterval(heartbeatRef.current);
           heartbeatRef.current = null;
@@ -217,6 +223,7 @@ export function DMProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       closedRef.current = true;
+      setIsConnected(false);
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       if (heartbeatRef.current) clearInterval(heartbeatRef.current);
       if (wsRef.current) {
@@ -230,6 +237,7 @@ export function DMProvider({ children }: { children: React.ReactNode }) {
     <DMContext.Provider
       value={{
         totalUnread,
+        isConnected,
         subscribe,
         setMessagesPageOpen,
         markConversationRead,

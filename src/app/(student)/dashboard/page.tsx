@@ -29,6 +29,7 @@ import { getQuoteOfTheDay } from "@/lib/quotes";
 import { isExternalStudent } from "@/lib/studentAccess";
 import DeadlineWidget from "@/components/dashboard/DeadlineWidget";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { buildMessagesHref } from "@/lib/messaging";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useSession } from "@/context/SessionContext";
 import { resolveProfileImageUrl } from "@/lib/profileImage";
@@ -52,6 +53,32 @@ interface TeamHeadOverview {
   headedTeamCount?: number;
   pendingAssignedTasks?: number;
   inProgressAssignedTasks?: number;
+}
+
+interface RewardsSnapshot {
+  visitStreak: number;
+  streakUpdatedToday: boolean;
+  weeklyUsefulActions: number;
+  privacyOptIn: boolean;
+  priorityPins: string[];
+  perkUtilities: string[];
+  recognitionLevel: string;
+  weeklyResetCelebration: boolean;
+  isAtRisk: boolean;
+}
+
+interface LeaderboardItem {
+  rank: number;
+  name: string;
+  weeklyUsefulActions: number;
+  isMe: boolean;
+}
+
+interface ChainAction {
+  title: string;
+  detail: string;
+  href: string;
+  cta: string;
 }
 
 /* ─── Page Component ────────────────────────────────────────────── */
@@ -80,6 +107,19 @@ export default function StudentDashboardPage() {
   const [openCohortPolls, setOpenCohortPolls] = useState<number | null>(null);
   const [teamOverview, setTeamOverview] = useState<TeamMemberOverview | null>(null);
   const [teamHeadOverview, setTeamHeadOverview] = useState<TeamHeadOverview | null>(null);
+  const [visitStreak, setVisitStreak] = useState<number>(1);
+  const [streakUpdatedToday, setStreakUpdatedToday] = useState<boolean>(false);
+  const [weeklyUsefulActions, setWeeklyUsefulActions] = useState<number>(0);
+  const [unlockedPerk, setUnlockedPerk] = useState<string>("None yet");
+  const [perkUtilities, setPerkUtilities] = useState<string[]>([]);
+  const [recognitionLevel, setRecognitionLevel] = useState<string>("Starter");
+  const [privacyOptIn, setPrivacyOptIn] = useState<boolean>(false);
+  const [cohortLeaders, setCohortLeaders] = useState<LeaderboardItem[]>([]);
+  const [teamLeaders, setTeamLeaders] = useState<LeaderboardItem[]>([]);
+  const [priorityPins, setPriorityPins] = useState<string[]>([]);
+  const [nextChain, setNextChain] = useState<ChainAction | null>(null);
+  const [weeklyResetCelebration, setWeeklyResetCelebration] = useState<boolean>(false);
+  const [streakAtRisk, setStreakAtRisk] = useState<boolean>(false);
 
   const events: UpcomingEvent[] = useMemo(
     () => data?.events ?? [],
@@ -141,6 +181,37 @@ export default function StudentDashboardPage() {
   }, [user?.id]);
 
   useEffect(() => {
+    const fetchRewardsSnapshot = async () => {
+      if (!user) return;
+      try {
+        const token = await getAccessToken();
+        const response = await fetch(getApiUrl("/api/v1/growth/rewards"), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+        const snapshot: RewardsSnapshot = await response.json();
+        setVisitStreak(snapshot.visitStreak || 1);
+        setStreakUpdatedToday(!!snapshot.streakUpdatedToday);
+        setWeeklyUsefulActions(snapshot.weeklyUsefulActions || 0);
+        setPrivacyOptIn(!!snapshot.privacyOptIn);
+        setPriorityPins(Array.isArray(snapshot.priorityPins) ? snapshot.priorityPins : []);
+        const utilities = Array.isArray(snapshot.perkUtilities) ? snapshot.perkUtilities : [];
+        setPerkUtilities(utilities);
+        setRecognitionLevel(snapshot.recognitionLevel || "Starter");
+        setWeeklyResetCelebration(!!snapshot.weeklyResetCelebration);
+        setStreakAtRisk(!!snapshot.isAtRisk);
+        if (utilities.includes("priority_pin_slots")) setUnlockedPerk("Priority resource spotlight unlocked");
+        else if (utilities.includes("fast_shortcuts")) setUnlockedPerk("Fast-lane action badge unlocked");
+        else setUnlockedPerk("None yet");
+      } catch {
+        // silent fallback
+      }
+    };
+
+    void fetchRewardsSnapshot();
+  }, [getAccessToken, user]);
+
+  useEffect(() => {
     const fetchBellNotices = async () => {
       if (!user) return;
       try {
@@ -152,7 +223,7 @@ export default function StudentDashboardPage() {
         const data: BellNotice[] = await response.json();
         const notices = (Array.isArray(data) ? data : [])
           .filter((n) =>
-            ["announcement", "payment", "event", "team_task", "team_application", "planner_reminder", "system"].includes(
+            ["announcement", "payment", "event", "team_task", "team_application", "planner_reminder", "system", "timetable", "timetable_reminder", "class_status", "cohort_poll"].includes(
               (n.type || "").toLowerCase(),
             ),
           )
@@ -205,6 +276,37 @@ export default function StudentDashboardPage() {
   }, [external, getAccessToken, user]);
 
   useEffect(() => {
+    const fetchRecognitionFeed = async () => {
+      if (!user || external) return;
+      try {
+        const token = await getAccessToken();
+        const [cohortRes, teamRes] = await Promise.all([
+          fetch(getApiUrl("/api/v1/growth/rewards/leaderboard?scope=cohort&limit=5"), {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(getApiUrl("/api/v1/growth/rewards/leaderboard?scope=team&limit=5"), {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        if (cohortRes.ok) {
+          const payload = await cohortRes.json();
+          setCohortLeaders(Array.isArray(payload.items) ? payload.items : []);
+        }
+
+        if (teamRes.ok) {
+          const payload = await teamRes.json();
+          setTeamLeaders(Array.isArray(payload.items) ? payload.items : []);
+        }
+      } catch {
+        // silent fallback
+      }
+    };
+
+    void fetchRecognitionFeed();
+  }, [external, getAccessToken, user]);
+
+  useEffect(() => {
     const fetchTeamHeadOverview = async () => {
       if (!user || external || !hasPermission("team_head:view_members")) return;
       try {
@@ -222,9 +324,6 @@ export default function StudentDashboardPage() {
 
     void fetchTeamHeadOverview();
   }, [external, getAccessToken, hasPermission, user]);
-
-  // Full-page shimmer skeleton while initial data loads (after all hooks)
-  if (loading && !data) return <StudentDashboardSkeleton />;
 
   const greeting = () => getTimeGreeting(isMyBirthday);
   const quoteOfTheDay = getQuoteOfTheDay();
@@ -344,6 +443,180 @@ export default function StudentDashboardPage() {
     return notice.link;
   };
 
+  const currentLevelValue = parseInt(String(userProfile?.currentLevel || userProfile?.level || "0"), 10) || 0;
+  const canUseCohort = !external && permissionsLoaded && !isClassRepOrAssistant;
+
+  const dashboardPersona = (() => {
+    if (external) return "You’re in visitor mode — stay on top of announcements and IEPOD milestones.";
+    if (hasPermission("team_head:view_members")) return "Lead view active — check your pending assignments and team updates.";
+    if (hasPermission("class_rep:view_cohort")) return "Class representative mode — keep timetable and notices aligned for your level.";
+    if (currentLevelValue >= 400) return "Final stretch — prioritize dues, major deadlines, and revision sessions.";
+    if (currentLevelValue >= 300) return "Mid-level momentum — balance classes with growth and team consistency.";
+    return "Foundation phase — build strong routines with timetable and daily growth tools.";
+  })();
+
+  const getNoticeAction = (notice: BellNotice): { label: string; href: string } => {
+    const text = `${notice.title || ""} ${notice.message || ""}`.toLowerCase();
+    const type = (notice.type || "").toLowerCase();
+
+    if (type.includes("message") || type.includes("dm")) {
+      return {
+        label: "Open messages",
+        href: buildMessagesHref({
+          context: "dashboard_notice",
+          contextId: notice._id,
+          contextLabel: notice.title || "Notice",
+        }),
+      };
+    }
+
+    if (type.includes("payment") || text.includes("pay")) {
+      return { label: "Pay now", href: "/dashboard/payments" };
+    }
+    if ((text.includes("vote") || text.includes("poll")) && canUseCohort) {
+      return { label: "Vote now", href: "/dashboard/cohort?tab=polls" };
+    }
+    if ((text.includes("class note") || text.includes("note")) && canUseCohort) {
+      return { label: "Open class note", href: "/dashboard/cohort?tab=notes" };
+    }
+    if (type.includes("timetable") || type.includes("class_status") || text.includes("class")) {
+      return { label: "View update", href: "/dashboard/timetable" };
+    }
+    return { label: "Open", href: getNoticeHref(notice) };
+  };
+
+  const trackUsefulAction = async (actionType: string) => {
+    if (!user) return;
+    try {
+      const token = await getAccessToken();
+      const response = await fetch(getApiUrl("/api/v1/growth/rewards/action"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ actionType }),
+      });
+      if (!response.ok) return;
+      const payload = await response.json();
+      const actions = Number(payload.weeklyUsefulActions || 0);
+      const utilities = Array.isArray(payload.perkUtilities) ? payload.perkUtilities : [];
+
+      setWeeklyUsefulActions(actions);
+      setVisitStreak(Number(payload.visitStreak || visitStreak));
+      setStreakUpdatedToday(!!payload.streakUpdatedToday);
+      setPerkUtilities(utilities);
+      setRecognitionLevel(payload.recognitionLevel || recognitionLevel);
+      setStreakAtRisk(false);
+      setNextChain(payload.nextChain || null);
+
+      if (utilities.includes("priority_pin_slots")) setUnlockedPerk("Priority resource spotlight unlocked");
+      else if (utilities.includes("fast_shortcuts")) setUnlockedPerk("Fast-lane action badge unlocked");
+      else setUnlockedPerk("None yet");
+    } catch {
+      // non-blocking
+    }
+  };
+
+  const toggleRecognitionOptIn = async () => {
+    if (!user) return;
+    const next = !privacyOptIn;
+    setPrivacyOptIn(next);
+    try {
+      const token = await getAccessToken();
+      const response = await fetch(getApiUrl("/api/v1/growth/rewards/privacy"), {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ optIn: next }),
+      });
+      if (!response.ok) setPrivacyOptIn(!next);
+    } catch {
+      setPrivacyOptIn(!next);
+    }
+  };
+
+  const togglePriorityPin = async (href: string) => {
+    if (!user || !perkUtilities.includes("priority_pin_slots")) return;
+    const isPinned = priorityPins.includes(href);
+    const nextPins = isPinned
+      ? priorityPins.filter((p) => p !== href)
+      : [...priorityPins, href].slice(0, 2);
+
+    setPriorityPins(nextPins);
+    try {
+      const token = await getAccessToken();
+      const response = await fetch(getApiUrl("/api/v1/growth/rewards/pins"), {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ pins: nextPins }),
+      });
+      if (!response.ok) setPriorityPins(priorityPins);
+    } catch {
+      setPriorityPins(priorityPins);
+    }
+  };
+
+  const nextActions = (() => {
+    const actions: Array<{ title: string; detail: string; href: string; cta: string; tone: string }> = [];
+
+    if (pendingPayments.length > 0) {
+      actions.push({
+        title: "Clear a pending due",
+        detail: `${pendingPayments.length} pending payment${pendingPayments.length > 1 ? "s" : ""} waiting`,
+        href: "/dashboard/payments",
+        cta: "Pay now",
+        tone: "bg-coral-light",
+      });
+    }
+
+    if (todayClasses.length > 0) {
+      actions.push({
+        title: "Review today’s class plan",
+        detail: `${todayClasses[0].courseCode} starts at ${todayClasses[0].startTime}`,
+        href: "/dashboard/timetable",
+        cta: "Open timetable",
+        tone: "bg-teal-light",
+      });
+    }
+
+    if (bellNotices.length > 0) {
+      const action = getNoticeAction(bellNotices[0]);
+      actions.push({
+        title: bellNotices[0].title || "Recent notice",
+        detail: bellNotices[0].message || "Take action from your latest notification",
+        href: action.href,
+        cta: action.label,
+        tone: "bg-lavender-light",
+      });
+    }
+
+    actions.push({
+      title: visitStreak >= 3 ? "Keep your consistency streak alive" : "Start your consistency streak",
+      detail: `${visitStreak}-day dashboard streak${streakUpdatedToday ? " • updated today" : ""}`,
+      href: "/dashboard/growth",
+      cta: "Open growth tools",
+      tone: "bg-sunny-light",
+    });
+
+    return actions.slice(0, 3);
+  })();
+
+  const recognitionPosts = (() => {
+    const posts: string[] = [];
+    if (streakUpdatedToday) posts.push(`Nice one — your streak just moved to ${visitStreak} day${visitStreak === 1 ? "" : "s"}.`);
+    else posts.push(`Current streak: ${visitStreak} day${visitStreak === 1 ? "" : "s"}. Keep it steady.`);
+    posts.push(`Useful actions this week: ${weeklyUsefulActions}.`);
+    if (unlockedPerk !== "None yet") posts.push(`Perk unlocked: ${unlockedPerk}.`);
+    else posts.push("Next perk unlock at 6 useful actions this week.");
+    return posts;
+  })();
+
   const handleOnboardingSkip = () => {
     setShowOnboardingModal(false);
     try { localStorage.setItem(modalSeenKey, "1"); } catch { /* ignore */ }
@@ -357,6 +630,8 @@ export default function StudentDashboardPage() {
     // Just refresh the profile so the UI reflects hasCompletedOnboarding = true.
     await refreshProfile();
   };
+
+  if (loading && !data) return <StudentDashboardSkeleton />;
 
   return (
     <div className="min-h-screen bg-ghost">
@@ -495,6 +770,11 @@ export default function StudentDashboardPage() {
                   {getContextTagline()}
                 </p>
               )}
+              {!loading && (
+                <p className="text-ghost/45 text-xs font-medium mt-2">
+                  {dashboardPersona}
+                </p>
+              )}
             </div>
             <div className="relative z-10 flex flex-wrap items-center gap-2 mt-6">
               {userProfile?.level && (
@@ -512,6 +792,9 @@ export default function StudentDashboardPage() {
                   Semester {currentSession.currentSemester}
                 </span>
               )}
+              <span className="text-[10px] font-bold text-navy bg-sunny rounded-md px-3 py-1 uppercase tracking-wider">
+                {visitStreak}-day streak
+              </span>
               {external ? (
                 <span className="text-[10px] font-bold text-navy bg-lavender rounded-md px-3 py-1 uppercase tracking-wider">
                   {userProfile?.department ?? "External"}
@@ -568,6 +851,139 @@ export default function StudentDashboardPage() {
           </div>
           )}
         </div>
+
+        {!external && weeklyResetCelebration && (
+          <div className="mb-5 bg-teal-light border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
+            <p className="text-sm font-bold text-navy">New week unlocked — your useful actions counter has reset. Let’s build momentum again.</p>
+          </div>
+        )}
+
+        {!external && streakAtRisk && (
+          <div className="mb-5 bg-coral-light border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
+            <p className="text-sm font-bold text-navy">Your streak is at risk. Complete one useful action now to keep momentum alive.</p>
+          </div>
+        )}
+
+        {!external && nextActions.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+            {nextActions.map((action) => (
+              <div key={`${action.title}-${action.href}`} className={`${action.tone} border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]`}>
+                <p className="text-xs font-bold text-navy truncate">{action.title}</p>
+                <p className="text-[11px] text-slate mt-1 line-clamp-2 min-h-[2.5rem]">{action.detail}</p>
+                <Link
+                  href={action.href}
+                  onClick={() => { void trackUsefulAction(`next_action:${action.cta.toLowerCase().replace(/\s+/g, "_")}`); }}
+                  className="inline-flex mt-3 items-center gap-1.5 bg-navy border-2 border-lime px-3 py-1.5 rounded-lg text-[11px] font-bold text-lime press-2 press-lime"
+                >
+                  {action.cta}
+                </Link>
+                {perkUtilities.includes("priority_pin_slots") && (
+                  <button
+                    onClick={() => { void togglePriorityPin(action.href); }}
+                    className="inline-flex mt-2 items-center gap-1 text-[10px] font-bold text-navy"
+                  >
+                    {priorityPins.includes(action.href) ? "★ Pinned" : "☆ Pin action"}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!external && nextChain && (
+          <div className="mb-5 bg-lavender-light border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
+            <p className="text-sm font-bold text-navy">{nextChain.title}</p>
+            <p className="text-xs text-slate mt-1">{nextChain.detail}</p>
+            <Link
+              href={nextChain.href}
+              onClick={() => { void trackUsefulAction(`chain_action:${nextChain.cta.toLowerCase().replace(/\s+/g, "_")}`); }}
+              className="inline-flex mt-3 items-center gap-1.5 bg-snow border-2 border-navy px-3 py-1.5 rounded-lg text-[11px] font-bold text-navy press-2 press-black"
+            >
+              {nextChain.cta}
+            </Link>
+          </div>
+        )}
+
+        {!external && perkUtilities.includes("fast_shortcuts") && (
+          <div className="mb-5 bg-sunny-light border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate">Perk Utility Unlocked</p>
+            <h3 className="font-display font-black text-lg text-navy">Fast Shortcuts</h3>
+            <div className="flex flex-wrap gap-2 mt-3">
+              <Link href="/dashboard/payments" className="bg-snow border-2 border-navy rounded-lg px-3 py-1.5 text-xs font-bold text-navy press-1 press-black">Pay dues</Link>
+              <Link href="/dashboard/timetable" className="bg-snow border-2 border-navy rounded-lg px-3 py-1.5 text-xs font-bold text-navy press-1 press-black">Open timetable</Link>
+              <Link href="/dashboard/announcements" className="bg-snow border-2 border-navy rounded-lg px-3 py-1.5 text-xs font-bold text-navy press-1 press-black">See notices</Link>
+            </div>
+          </div>
+        )}
+
+        {!external && (
+          <div className="bg-snow border-[3px] border-navy rounded-3xl p-5 mb-5 shadow-[4px_4px_0_0_#000]">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h3 className="font-display font-black text-navy text-lg">Recognition Board</h3>
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-lime-light text-navy rounded-md px-2.5 py-1 border border-navy/20">
+                {recognitionLevel}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="bg-lavender-light border-2 border-navy rounded-2xl p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate">Streak</p>
+                <p className="font-display font-black text-2xl text-navy mt-1">{visitStreak}d</p>
+              </div>
+              <div className="bg-teal-light border-2 border-navy rounded-2xl p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate">Useful Actions</p>
+                <p className="font-display font-black text-2xl text-navy mt-1">{weeklyUsefulActions}</p>
+              </div>
+              <div className="bg-sunny-light border-2 border-navy rounded-2xl p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate">Perk</p>
+                <p className="text-xs font-bold text-navy mt-2 leading-tight">{unlockedPerk}</p>
+              </div>
+            </div>
+            <div className="mt-3 space-y-1.5">
+              {recognitionPosts.map((post) => (
+                <div key={post} className="bg-ghost border-2 border-cloud rounded-xl px-3 py-2">
+                  <p className="text-xs text-navy">{post}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 bg-ghost border-2 border-cloud rounded-2xl p-3">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate">Recognition Feed (Opt-in)</p>
+                <button
+                  onClick={() => { void toggleRecognitionOptIn(); }}
+                  className={`px-2.5 py-1 rounded-md text-[10px] font-bold border ${privacyOptIn ? "bg-lime-light border-navy text-navy" : "bg-snow border-cloud text-slate"}`}
+                >
+                  {privacyOptIn ? "Visible" : "Hidden"}
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate mb-1">Cohort Top Consistency</p>
+                  <div className="space-y-1">
+                    {cohortLeaders.length === 0 ? (
+                      <p className="text-[11px] text-slate">No opt-in entries yet.</p>
+                    ) : cohortLeaders.map((entry) => (
+                      <p key={`cohort-${entry.rank}-${entry.name}`} className="text-[11px] text-navy">
+                        #{entry.rank} {entry.name}{entry.isMe ? " (You)" : ""} — {entry.weeklyUsefulActions}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate mb-1">Team Top Consistency</p>
+                  <div className="space-y-1">
+                    {teamLeaders.length === 0 ? (
+                      <p className="text-[11px] text-slate">No opt-in entries yet.</p>
+                    ) : teamLeaders.map((entry) => (
+                      <p key={`team-${entry.rank}-${entry.name}`} className="text-[11px] text-navy">
+                        #{entry.rank} {entry.name}{entry.isMe ? " (You)" : ""} — {entry.weeklyUsefulActions}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ═══ IEPOD PROMO BANNER (IPE students only) ═══ */}
         {!external && !isIepodAdminRole && (
@@ -767,14 +1183,22 @@ export default function StudentDashboardPage() {
                       </div>
                       <div className="space-y-2">
                         {bellNotices.map((notice) => (
-                          <Link
+                          <div
                             key={notice._id}
-                            href={getNoticeHref(notice)}
-                            className="block rounded-xl border-[2px] border-cloud bg-ghost hover:bg-cloud transition-colors p-2.5"
+                            className="rounded-xl border-2 border-cloud bg-ghost p-2.5"
                           >
-                            <p className="text-xs font-bold text-navy truncate">{notice.title || "Notice"}</p>
-                            <p className="text-[10px] text-slate truncate mt-0.5">{notice.message}</p>
-                          </Link>
+                            <Link href={getNoticeHref(notice)} className="block hover:opacity-85 transition-opacity">
+                              <p className="text-xs font-bold text-navy truncate">{notice.title || "Notice"}</p>
+                              <p className="text-[10px] text-slate truncate mt-0.5">{notice.message}</p>
+                            </Link>
+                            <Link
+                              href={getNoticeAction(notice).href}
+                              onClick={() => { void trackUsefulAction(`notice_action:${getNoticeAction(notice).label.toLowerCase().replace(/\s+/g, "_")}`); }}
+                              className="inline-flex mt-2 items-center gap-1.5 bg-snow border-2 border-navy rounded-lg px-2.5 py-1 text-[10px] font-bold text-navy press-1 press-black"
+                            >
+                              {getNoticeAction(notice).label}
+                            </Link>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -820,7 +1244,7 @@ export default function StudentDashboardPage() {
                 <h3 className="font-display font-black text-lg text-ghost mb-1">IESA AI</h3>
                 <p className="text-ghost/40 text-xs font-medium mb-3">Ask anything about the department</p>
                 <span className="inline-flex items-center gap-1.5 text-lavender text-xs font-bold group-hover:gap-2.5 transition-all">
-                  Start chatting
+                  Open AI
                   <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                   </svg>
@@ -1025,6 +1449,16 @@ export default function StudentDashboardPage() {
                             <p className={`text-[10px] truncate ${ec.text} opacity-60`}>{evt.location}</p>
                           )}
                         </div>
+                        <Link
+                          href={buildMessagesHref({
+                            context: "event_coordination",
+                            contextId: String(evt.id || evt._id || ""),
+                            contextLabel: evt.title,
+                          })}
+                          className="text-[10px] font-bold bg-snow/70 border-2 border-navy rounded-lg px-2 py-1 text-navy press-1 press-black shrink-0"
+                        >
+                          Chat
+                        </Link>
                       </div>
                     );
                   })}
@@ -1051,6 +1485,30 @@ export default function StudentDashboardPage() {
               </div>
               <span className="inline-flex items-center gap-1.5 text-snow/70 text-xs font-bold group-hover:text-snow group-hover:gap-2.5 transition-all">
                 Open groups
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                </svg>
+              </span>
+            </Link>
+
+            <Link
+              href={buildMessagesHref({ context: "dashboard_quick_chat", contextLabel: "Dashboard quick chat" })}
+              className="block bg-snow border-[3px] border-navy rounded-3xl p-6 press-4 press-black group"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-xl bg-lime-light flex items-center justify-center shrink-0 border-[2px] border-navy">
+                  <svg className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 0 0-1.032-.211 50.89 50.89 0 0 0-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 0 0 2.433 3.984L7.28 21.53A.75.75 0 0 1 6 21v-2.234a4.75 4.75 0 0 1-1.087-3.275V10.66a4.795 4.795 0 0 1 0-7.893Z" />
+                    <path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.814 2.67 2.94 1.243.102 2.5.157 3.768.165l2.782 2.781a.75.75 0 0 0 1.28-.53v-2.39l.33-.026c1.542-.125 2.67-1.433 2.67-2.94v-4.286c0-1.505-1.125-2.811-2.664-2.94A49.392 49.392 0 0 0 15.75 7.5Z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-display font-black text-base text-navy">Continue chat</h3>
+                  <p className="text-navy-muted text-[10px] font-medium">Jump into your latest DM threads</p>
+                </div>
+              </div>
+              <span className="inline-flex items-center gap-1.5 text-navy text-xs font-bold group-hover:gap-2.5 transition-all">
+                Open messages
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                 </svg>
