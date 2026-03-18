@@ -20,7 +20,7 @@
       "type": "image/png"
     },
     {
-      "src": "/assets/images/logo-light.svg",
+      "src": "/assets/images/logo.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
