@@ -1,4 +1,3 @@
-/* eslint-disable no-restricted-globals */
 /**
  * IESA Push Notification Service Worker
  *
@@ -7,6 +6,140 @@
  *
  * This file lives in /public so it's served at the root scope.
  */
+
+const SHELL_CACHE = "iesa-shell-v3";
+const RUNTIME_CACHE = "iesa-runtime-v3";
+const VALID_CACHES = [SHELL_CACHE, RUNTIME_CACHE];
+const SHELL_ASSETS = [
+  "/",
+  "/offline.html",
+  "/assets/images/iesa-logo.png",
+];
+
+const SAFE_SHELL_ROUTES = new Set([
+  "/",
+  "/about",
+  "/contact",
+  "/events",
+  "/history",
+  "/iepod",
+  "/team",
+  "/blog",
+  "/login",
+  "/register",
+]);
+
+function isSameOrigin(url) {
+  return url.origin === self.location.origin;
+}
+
+function isApiRequest(url) {
+  return url.pathname.startsWith("/api/");
+}
+
+function isSensitiveAppRoute(url) {
+  return url.pathname.startsWith("/dashboard") || url.pathname.startsWith("/admin");
+}
+
+function isStaticAsset(url) {
+  return (
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.startsWith("/assets/") ||
+    /\.(?:css|js|mjs|woff2?|ttf|otf|svg|png|jpe?g|gif|webp|ico)$/i.test(url.pathname)
+  );
+}
+
+async function networkFirst(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  try {
+    const response = await fetch(request);
+    if (response && response.ok) {
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (error) {
+    const cached = await cache.match(request);
+    if (cached) return cached;
+    throw error;
+  }
+}
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL_ASSETS)).catch(() => undefined),
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil((async () => {
+    const names = await caches.keys();
+    await Promise.all(
+      names
+        .filter((name) => !VALID_CACHES.includes(name))
+        .map((name) => caches.delete(name)),
+    );
+    await self.clients.claim();
+  })());
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  if (request.method !== "GET") return;
+
+  const url = new URL(request.url);
+  if (!isSameOrigin(url)) return;
+
+  if (isApiRequest(url)) {
+    event.respondWith(fetch(request, { cache: "no-store" }));
+    return;
+  }
+
+  const isNavigation = request.mode === "navigate";
+  if (isNavigation) {
+    if (isSensitiveAppRoute(url)) {
+      event.respondWith(
+        fetch(request, { cache: "no-store" }).catch(async () => {
+          const offline = await caches.match("/offline.html");
+          return offline || Response.error();
+        }),
+      );
+      return;
+    }
+
+    if (SAFE_SHELL_ROUTES.has(url.pathname)) {
+      event.respondWith(
+        networkFirst(request, RUNTIME_CACHE).catch(async () => {
+          const fallback = await caches.match(request);
+          if (fallback) return fallback;
+          const offline = await caches.match("/offline.html");
+          return offline || Response.error();
+        }),
+      );
+      return;
+    }
+
+    event.respondWith(
+      fetch(request, { cache: "no-store" }).catch(async () => {
+        const offline = await caches.match("/offline.html");
+        return offline || Response.error();
+      }),
+    );
+    return;
+  }
+
+  if (isStaticAsset(url)) {
+    event.respondWith(
+      networkFirst(request, RUNTIME_CACHE).catch(() => caches.match(request)),
+    );
+  }
+});
 
 self.addEventListener("push", (event) => {
   if (!event.data) return;

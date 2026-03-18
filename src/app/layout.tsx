@@ -8,6 +8,7 @@ export const metadata: Metadata = {
     default: "IESA | Industrial Engineering Students' Association",
     template: "%s | IESA Platform",
   },
+  manifest: "/manifest.webmanifest",
   description:
     "Official platform of the Industrial Engineering Students' Association, University of Ibadan. Access your dashboard, events, academic resources, and community tools.",
   keywords: [

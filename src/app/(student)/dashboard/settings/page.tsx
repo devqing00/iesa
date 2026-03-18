@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 
 /* ─── Types ──────────────────────────────────────────────── */
 
@@ -302,6 +303,9 @@ export default function SettingsPage() {
         {/* Push Notifications */}
         <PushNotificationToggle />
 
+        {/* Install App */}
+        <InstallAppSettingsCard />
+
         {/* Email Preference — only shown if secondary email exists */}
         <div>
           <h3 className="font-display font-bold text-navy text-base mb-1">Email Recipient</h3>
@@ -498,6 +502,84 @@ function PushNotificationToggle() {
           {error}
         </div>
       )}
+    </div>
+  );
+}
+
+function InstallAppSettingsCard() {
+  const {
+    canInstall,
+    isIosSafari,
+    shouldShowInstallCard,
+    promptInstall,
+    snoozeInstallPrompt,
+    dismissInstallPrompt,
+  } = useInstallPrompt();
+
+  if (!shouldShowInstallCard) {
+    return null;
+  }
+
+  const handleInstall = async () => {
+    const result = await promptInstall();
+    if (result.outcome === "accepted") {
+      toast.success("IESA app installed", {
+        description: "You can now launch IESA directly from your home screen.",
+      });
+      return;
+    }
+
+    toast.info("Install prompt dismissed", {
+      description: "You can install later from this Settings page.",
+    });
+    snoozeInstallPrompt(24);
+  };
+
+  return (
+    <div className="mb-8">
+      <h3 className="font-display font-bold text-navy text-base mb-1">Install as App</h3>
+      {canInstall ? (
+        <p className="text-sm text-slate mb-4">
+          Install IESA for faster access, full-screen mode, and a cleaner app-like experience.
+        </p>
+      ) : isIosSafari ? (
+        <div className="text-sm text-slate mb-4 space-y-1">
+          <p>On iPhone/iPad, install manually in Safari:</p>
+          <p>1. Tap Share</p>
+          <p>2. Tap Add to Home Screen</p>
+          <p>3. Tap Add</p>
+        </div>
+      ) : (
+        <p className="text-sm text-slate mb-4">Install is not available on this browser right now.</p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        {canInstall && (
+          <button
+            type="button"
+            onClick={() => { void handleInstall(); }}
+            className="bg-lime border-[3px] border-navy rounded-2xl px-6 py-3 font-display font-bold text-sm text-navy press-3 press-navy transition-all"
+          >
+            Install App
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={() => snoozeInstallPrompt(24)}
+          className="bg-snow border-[3px] border-navy rounded-2xl px-5 py-2.5 font-display font-bold text-xs text-navy press-2 press-black transition-all"
+        >
+          Remind me tomorrow
+        </button>
+
+        <button
+          type="button"
+          onClick={dismissInstallPrompt}
+          className="bg-transparent border-[2px] border-navy rounded-2xl px-5 py-2.5 font-display font-bold text-xs text-navy hover:bg-cloud transition-colors"
+        >
+          Don&apos;t show again
+        </button>
+      </div>
     </div>
   );
 }

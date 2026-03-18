@@ -269,7 +269,43 @@ class LimitRequestBodyMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+SENSITIVE_NO_STORE_PREFIXES = (
+    f"{API_V1_PREFIX}/auth",
+    f"{API_V1_PREFIX}/messages",
+    f"{API_V1_PREFIX}/payments",
+    f"{API_V1_PREFIX}/paystack",
+    f"{API_V1_PREFIX}/bank-transfers",
+    f"{API_V1_PREFIX}/users",
+    f"{API_V1_PREFIX}/students",
+    f"{API_V1_PREFIX}/notifications",
+)
+
+
+class SensitiveNoStoreMiddleware(BaseHTTPMiddleware):
+    """Prevent caching of sensitive/authenticated API responses."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+
+        path = request.url.path
+        is_api = path.startswith(API_V1_PREFIX)
+        has_auth_header = bool(request.headers.get("authorization"))
+        is_sensitive_prefix = any(path.startswith(prefix) for prefix in SENSITIVE_NO_STORE_PREFIXES)
+
+        if is_api and (has_auth_header or is_sensitive_prefix):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            existing_vary = response.headers.get("Vary", "")
+            vary_set = {v.strip() for v in existing_vary.split(",") if v.strip()}
+            vary_set.update({"Authorization", "Cookie"})
+            response.headers["Vary"] = ", ".join(sorted(vary_set))
+
+        return response
+
+
 app.add_middleware(LimitRequestBodyMiddleware)
+app.add_middleware(SensitiveNoStoreMiddleware)
 
 # Setup rate limiting
 limiter = setup_rate_limiting(app)

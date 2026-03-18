@@ -5,6 +5,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { SessionProvider } from "@/context/SessionContext";
 import { PermissionsProvider } from "@/context/PermissionsContext";
 import { ToastProvider } from "@/components/ui";
+import ServiceWorkerManager from "@/components/layout/ServiceWorkerManager";
 import { Toaster } from "sonner";
 import * as React from "react";
 
@@ -25,6 +26,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <AuthProvider>
         <SessionProvider>
           <PermissionsProvider>
+            <ServiceWorkerManager />
             <ToastProvider>{children}</ToastProvider>
             <Toaster
               position="top-right"

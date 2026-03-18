@@ -28,6 +28,7 @@ const BirthdayConfetti = dynamic(
 import { getQuoteOfTheDay } from "@/lib/quotes";
 import { isExternalStudent } from "@/lib/studentAccess";
 import DeadlineWidget from "@/components/dashboard/DeadlineWidget";
+import InstallAppCard from "@/components/dashboard/InstallAppCard";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { buildMessagesHref } from "@/lib/messaging";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -736,6 +737,9 @@ export default function StudentDashboardPage() {
             </div>
           </div>
         )}
+
+        {/* ═══ INSTALL APP CTA ═══ */}
+        <InstallAppCard />
 
         {/* ═══════════════════════════════════════════════════════════
             ROW 1 — Hero Bento: Greeting (8 cols) + Classes Today (4 cols)
