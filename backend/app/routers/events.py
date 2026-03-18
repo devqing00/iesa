@@ -10,7 +10,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import re
 from typing import List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from bson import ObjectId
 import cloudinary
 import cloudinary.uploader
@@ -24,8 +25,43 @@ from app.core.security import get_current_user, require_ipe_student
 from app.core.permissions import require_permission
 from app.core.sanitization import sanitize_html, validate_no_scripts
 from app.core.audit import AuditLogger
+from app.core.error_handling import safe_detail
 
 router = APIRouter(prefix="/api/v1/events", tags=["Events"])
+LAGOS_TZ = ZoneInfo("Africa/Lagos")
+
+
+def _to_lagos_datetime(value: object) -> Optional[datetime]:
+    if not isinstance(value, datetime):
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(LAGOS_TZ)
+
+
+def _attendance_window_status(event: dict) -> tuple[bool, str]:
+    start_dt = _to_lagos_datetime(event.get("date"))
+    if not start_dt:
+        return False, "Attendance is unavailable because event time is missing."
+
+    end_dt = _to_lagos_datetime(event.get("endDate"))
+    if not end_dt or end_dt <= start_dt:
+        end_dt = start_dt + timedelta(hours=6)
+
+    day_end = start_dt.replace(hour=23, minute=59, second=59, microsecond=0)
+    if end_dt > day_end:
+        end_dt = day_end
+
+    now = datetime.now(LAGOS_TZ)
+    event_day = start_dt.strftime("%a, %b %d, %Y")
+
+    if now.date() != start_dt.date():
+        return False, f"Attendance can only be taken on {event_day}."
+    if now < start_dt:
+        return False, f"Attendance opens at {start_dt.strftime('%I:%M %p')} on {event_day}."
+    if now > end_dt:
+        return False, "Attendance window has closed for this event."
+    return True, "Attendance window is open."
 
 
 @router.post("/", response_model=Event, status_code=status.HTTP_201_CREATED)
@@ -1127,6 +1163,7 @@ async def list_event_registrations(
 
     registered_ids = event.get("registrations", [])
     attended_ids   = event.get("attendees", [])
+    attendance_window_open, attendance_window_message = _attendance_window_status(event)
 
     result = []
     for uid in registered_ids:
@@ -1149,6 +1186,8 @@ async def list_event_registrations(
         "eventTitle":      event.get("title", ""),
         "totalRegistered": len(result),
         "totalAttended":   sum(1 for r in result if r["hasAttended"]),
+        "attendanceWindowOpen": attendance_window_open,
+        "attendanceWindowMessage": attendance_window_message,
         "registrants":     result,
     }
 
@@ -1259,6 +1298,10 @@ async def admin_mark_all_attended(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
+    attendance_window_open, attendance_window_message = _attendance_window_status(event)
+    if not attendance_window_open:
+        raise HTTPException(status_code=400, detail=attendance_window_message)
+
     registered = set(event.get("registrations", []))
     valid_ids = [uid for uid in user_ids if uid in registered]
 
@@ -1302,6 +1345,10 @@ async def admin_mark_attended(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
+    attendance_window_open, attendance_window_message = _attendance_window_status(event)
+    if not attendance_window_open:
+        raise HTTPException(status_code=400, detail=attendance_window_message)
+
     if body.userId not in event.get("registrations", []):
         raise HTTPException(status_code=400, detail="User is not registered for this event")
 
@@ -1327,6 +1374,14 @@ async def admin_unmark_attended(
 
     if not ObjectId.is_valid(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID")
+
+    event = await events_col.find_one({"_id": ObjectId(event_id)})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    attendance_window_open, attendance_window_message = _attendance_window_status(event)
+    if not attendance_window_open:
+        raise HTTPException(status_code=400, detail=attendance_window_message)
 
     await events_col.update_one(
         {"_id": ObjectId(event_id)},

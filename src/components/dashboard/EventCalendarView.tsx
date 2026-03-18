@@ -257,6 +257,14 @@ export default function EventCalendarView() {
               Today
             </button>
             </div>
+            <div className="w-full flex justify-end mt-2">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-lime-light border border-navy/15 px-2.5 py-1">
+                <svg aria-hidden="true" className="w-3 h-3 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M3.75 3a.75.75 0 0 1 .75.75v16.5a.75.75 0 0 1-1.5 0V3.75A.75.75 0 0 1 3.75 3ZM8.25 3a.75.75 0 0 1 .75.75v16.5a.75.75 0 0 1-1.5 0V3.75A.75.75 0 0 1 8.25 3Zm4.5 0a.75.75 0 0 1 .75.75v16.5a.75.75 0 0 1-1.5 0V3.75a.75.75 0 0 1 .75-.75Zm4.5 0a.75.75 0 0 1 .75.75v16.5a.75.75 0 0 1-1.5 0V3.75a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+                </svg>
+                <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy">Tap an event to view details</span>
+              </span>
+            </div>
           </div>
 
           {loading ? (
@@ -334,7 +342,7 @@ export default function EventCalendarView() {
                     <button
                       key={e.id}
                       onClick={() => setSelectedEvent(e.resource)}
-                      className="w-full text-left group"
+                      className="w-full text-left group rounded-xl border border-transparent hover:border-snow/20 px-2 py-1.5 transition-colors"
                     >
                       <p className="text-snow text-sm font-display font-black group-hover:text-snow transition-colors line-clamp-1">
                         {e.title}
@@ -344,6 +352,12 @@ export default function EventCalendarView() {
                           ? format(e.start, "d MMM yyyy")
                           : format(e.start, "d MMM, h:mm a")}
                       </p>
+                      <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-lime">
+                        <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                          <path fillRule="evenodd" d="M3.75 3a.75.75 0 0 1 .75.75v16.5a.75.75 0 0 1-1.5 0V3.75A.75.75 0 0 1 3.75 3ZM8.25 3a.75.75 0 0 1 .75.75v16.5a.75.75 0 0 1-1.5 0V3.75A.75.75 0 0 1 8.25 3Zm4.5 0a.75.75 0 0 1 .75.75v16.5a.75.75 0 0 1-1.5 0V3.75a.75.75 0 0 1 .75-.75Zm4.5 0a.75.75 0 0 1 .75.75v16.5a.75.75 0 0 1-1.5 0V3.75a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+                        </svg>
+                        View details
+                      </span>
                     </button>
                   );
                 })}

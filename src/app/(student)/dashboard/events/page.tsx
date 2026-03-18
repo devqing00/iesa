@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import FullScreenLoader from "@/components/ui/FullScreenLoader";
+import { ConfirmModal, Modal } from "@/components/ui/Modal";
 import dynamic from "next/dynamic";
 import { useDrive } from "@/hooks/useDrive";
 import type { DriveItem } from "@/lib/api/drive";
@@ -223,6 +224,9 @@ function EventsPage() {
   });
   const [downloadingReceipt, setDownloadingReceipt] = useState<string | null>(null);
   const [downloadingTicket, setDownloadingTicket] = useState<string | null>(null);
+  const [eventDetailsLoading, setEventDetailsLoading] = useState(false);
+  const [eventDetails, setEventDetails] = useState<Event | null>(null);
+  const [unregisterConfirmEventId, setUnregisterConfirmEventId] = useState<string | null>(null);
   const [receiptImage, setReceiptImage] = useState<File | null>(null);
   // Platform settings
   const [onlinePaymentEnabled, setOnlinePaymentEnabled] = useState(true);
@@ -529,6 +533,32 @@ function EventsPage() {
       toast.error("Unregister Failed", { description: "Failed to unregister from event" });
     } finally {
       setRegistering(null);
+    }
+  };
+
+  const openEventDetails = async (eventId: string) => {
+    if (!user) return;
+    const fallback = events.find((event) => event.id === eventId) || null;
+    setEventDetails(fallback);
+    setEventDetailsLoading(true);
+    try {
+      const token = await getAccessToken();
+      const response = await fetch(getApiUrl(`/api/v1/events/${eventId}`), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error("Failed to load event details");
+      const data = await response.json();
+      setEventDetails({
+        ...data,
+        id: data.id || data._id,
+      });
+    } catch {
+      if (!fallback) {
+        toast.error("Could not open details", { description: "Please try again." });
+        setEventDetails(null);
+      }
+    } finally {
+      setEventDetailsLoading(false);
     }
   };
 
@@ -1064,7 +1094,8 @@ function EventsPage() {
               return (
                 <article
                   key={event.id}
-                  className={`bg-snow border-[3px] ${accent.border} rounded-3xl overflow-hidden press-4 press-black transition-all ${rotation}`}
+                  className={`bg-snow border-[3px] ${accent.border} rounded-3xl overflow-hidden press-4 press-black transition-all cursor-pointer ${rotation}`}
+                  onClick={() => openEventDetails(event.id)}
                 >
                   {/* Card Header — event image or colored accent */}
                   {event.imageUrl ? (
@@ -1125,6 +1156,12 @@ function EventsPage() {
 
                   {/* Body */}
                   <div className="p-5 space-y-4">
+                    <div className="inline-flex items-center gap-1.5 rounded-md bg-lime-light border border-navy/15 px-2.5 py-1">
+                      <svg aria-hidden="true" className="w-3 h-3 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                        <path fillRule="evenodd" d="M3.75 3a.75.75 0 0 1 .75.75v16.5a.75.75 0 0 1-1.5 0V3.75A.75.75 0 0 1 3.75 3ZM8.25 3a.75.75 0 0 1 .75.75v16.5a.75.75 0 0 1-1.5 0V3.75A.75.75 0 0 1 8.25 3Zm4.5 0a.75.75 0 0 1 .75.75v16.5a.75.75 0 0 1-1.5 0V3.75a.75.75 0 0 1 .75-.75Zm4.5 0a.75.75 0 0 1 .75.75v16.5a.75.75 0 0 1-1.5 0V3.75a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy">View details</span>
+                    </div>
                     <div>
                       <h3 className="font-display font-black text-lg text-navy mb-1.5 line-clamp-2 leading-snug">{event.title}</h3>
                       <p className="text-xs text-slate line-clamp-2 leading-relaxed">{event.description}</p>
@@ -1208,7 +1245,7 @@ function EventsPage() {
                     )}
 
                     {/* Action Buttons */}
-                    <div className="space-y-2">
+                    <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                     {isRegistered ? (
                       <>
                         {/* Receipt + Ticket Buttons for paid events */}
@@ -1245,7 +1282,7 @@ function EventsPage() {
                           </div>
                         )}
                         <button
-                          onClick={() => handleUnregister(event.id)}
+                          onClick={() => setUnregisterConfirmEventId(event.id)}
                           disabled={isProcessing}
                           className="w-full py-3 font-bold text-xs uppercase tracking-wider border-[3px] border-navy text-navy hover:bg-cloud transition-all disabled:opacity-50 flex items-center justify-center gap-2 rounded-2xl"
                         >
@@ -1576,6 +1613,51 @@ function EventsPage() {
         />
       )}
 
+      <Modal
+        isOpen={!!eventDetails || eventDetailsLoading}
+        onClose={() => {
+          setEventDetails(null);
+          setEventDetailsLoading(false);
+        }}
+        title={eventDetails?.title || "Event Details"}
+        size="lg"
+      >
+        {eventDetailsLoading && !eventDetails ? (
+          <div className="flex items-center justify-center py-10">
+            <div className="w-8 h-8 border-[3px] border-navy border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : eventDetails ? (
+          <div className="space-y-4">
+            {eventDetails.imageUrl && (
+              <div className="rounded-2xl overflow-hidden border-[3px] border-navy h-56">
+                <img src={eventDetails.imageUrl} alt={eventDetails.title} className="w-full h-full object-cover" />
+              </div>
+            )}
+            <p className="text-sm text-navy-muted leading-relaxed">{eventDetails.description}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate">Date & Time</p>
+                <p className="text-sm font-bold text-navy mt-1">{formatDate(eventDetails.date)} · {formatTime(eventDetails.date)}</p>
+              </div>
+              <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate">Location</p>
+                <p className="text-sm font-bold text-navy mt-1">{eventDetails.location}</p>
+              </div>
+              <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate">Category</p>
+                <p className="text-sm font-bold text-navy mt-1">{eventDetails.category}</p>
+              </div>
+              <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate">Attendance</p>
+                <p className="text-sm font-bold text-navy mt-1">
+                  {eventDetails.attendeeCount} going{eventDetails.maxAttendees ? ` / ${eventDetails.maxAttendees} max` : ""}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+
       {/* ═══════════════════════════════════════════════════════
           PAYMENT METHOD MODAL
           ═══════════════════════════════════════════════════════ */}
@@ -1887,6 +1969,21 @@ function EventsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!unregisterConfirmEventId}
+        onClose={() => setUnregisterConfirmEventId(null)}
+        onConfirm={async () => {
+          if (!unregisterConfirmEventId) return;
+          const eventId = unregisterConfirmEventId;
+          setUnregisterConfirmEventId(null);
+          await handleUnregister(eventId);
+        }}
+        title="Unregister From Event"
+        message="Are you sure you want to unregister from this event?"
+        confirmLabel="Unregister"
+        variant="danger"
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ Daily background jobs that run at server time (UTC):
   08:00 UTC — birthday_wishes          (users with birthday today)
   08:00 UTC — event_reminders          (events happening tomorrow)
   08:05 UTC — payment_deadline_reminders (payments due tomorrow for unpaid students)
+    every minute — timetable_class_reminders (30m/15m/ongoing class reminders)
 
 All jobs are fire-and-forget — failures are logged but never crash the server.
 """
@@ -23,6 +24,7 @@ logger = logging.getLogger("iesa_backend.scheduler")
 try:
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
     from apscheduler.triggers.cron import CronTrigger
+    from apscheduler.triggers.interval import IntervalTrigger
     _HAS_APSCHEDULER = True
 except ImportError:
     _HAS_APSCHEDULER = False
@@ -574,6 +576,68 @@ async def planner_deadline_alerts() -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# JOB 5 — Timetable Class Reminders (30m/15m/ongoing)
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def timetable_class_reminders() -> None:
+    """Dispatch timetable reminders for students automatically every minute."""
+    try:
+        from zoneinfo import ZoneInfo
+        from app.db import get_database
+        from app.routers.timetable import _dispatch_class_reminders_for_users
+
+        lagos_tz = ZoneInfo("Africa/Lagos")
+        now_lagos = datetime.now(lagos_tz)
+        weekday = now_lagos.strftime("%A")
+        db = get_database()
+
+        session = await db["sessions"].find_one({"isActive": True}, {"_id": 1})
+        if not session:
+            return
+
+        session_id = str(session["_id"])
+        classes = await db["classSessions"].find(
+            {"sessionId": session_id, "day": weekday},
+            {"level": 1},
+        ).to_list(length=500)
+        if not classes:
+            return
+
+        levels = sorted({int(cls.get("level", 0)) for cls in classes if cls.get("level")})
+        if not levels:
+            return
+
+        total_created = 0
+        for level in levels:
+            users_cursor = db["users"].find(
+                {
+                    "role": "student",
+                    "isActive": {"$ne": False},
+                    "isExternalStudent": {"$ne": True},
+                    "currentLevel": {"$regex": f"^{level}"},
+                },
+                {"_id": 1},
+            )
+            user_ids = [str(user["_id"]) async for user in users_cursor if user.get("_id")]
+            if not user_ids:
+                continue
+
+            outcome = await _dispatch_class_reminders_for_users(
+                db=db,
+                session_id=session_id,
+                level=level,
+                user_ids=user_ids,
+                now=now_lagos,
+            )
+            total_created += int(outcome.get("created", 0))
+
+        if total_created:
+            logger.info("[Scheduler] timetable_class_reminders: created %d reminder notification(s)", total_created)
+    except Exception as exc:
+        logger.error("[Scheduler] timetable_class_reminders job crashed: %s", exc, exc_info=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Scheduler lifecycle
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -634,11 +698,24 @@ def start_scheduler() -> None:
         misfire_grace_time=3600,
     )
 
+    # Job 5: Timetable reminders — every minute
+    _scheduler.add_job(
+        timetable_class_reminders,
+        IntervalTrigger(minutes=1, timezone="UTC"),
+        id="timetable_class_reminders",
+        name="Timetable Class Reminders",
+        replace_existing=True,
+        misfire_grace_time=50,
+        coalesce=True,
+        max_instances=1,
+    )
+
     _scheduler.start()
     logger.info(
-        "[Scheduler] Started — 4 jobs registered: "
+        "[Scheduler] Started — 5 jobs registered: "
         "birthday_wishes@08:00, event_reminders@08:00, "
-        "payment_deadline_reminders@08:05, planner_deadline_alerts@07:00 (all UTC)"
+        "payment_deadline_reminders@08:05, planner_deadline_alerts@07:00, "
+        "timetable_class_reminders@every-1m (all UTC)"
     )
 
 

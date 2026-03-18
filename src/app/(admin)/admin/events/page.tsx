@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { mutate } from "swr";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -58,6 +58,8 @@ interface RegistrantsData {
   eventTitle: string;
   totalRegistered: number;
   totalAttended: number;
+  attendanceWindowOpen?: boolean;
+  attendanceWindowMessage?: string;
   registrants: RegistrantInfo[];
 }
 
@@ -165,6 +167,7 @@ function AdminEventsPage() {
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
   const [removeRegConfirm, setRemoveRegConfirm] = useState<{ isOpen: boolean; eventId: string; userId: string }>({ isOpen: false, eventId: "", userId: "" });
+  const attendanceSectionRef = useRef<HTMLDivElement | null>(null);
 
   /* ── Fetch ──────────────────────── */
 
@@ -359,6 +362,9 @@ function AdminEventsPage() {
     setRegistrantSearch("");
     setRegistrantsData(null);
     setRegistrantsLoading(true);
+    requestAnimationFrame(() => {
+      attendanceSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
     try {
       const token = await getToken();
       const res = await fetch(getApiUrl(`/api/v1/events/${event.id}/registrations`), {
@@ -495,6 +501,8 @@ function AdminEventsPage() {
   const totalUpcoming = events.filter((e) => new Date(e.date) >= statsNow).length;
   const totalPast = events.filter((e) => new Date(e.date) < statsNow).length;
   const totalAttendees = events.reduce((s, e) => s + attendeeCount(e), 0);
+  const attendanceWindowOpen = !!registrantsData?.attendanceWindowOpen;
+  const attendanceWindowMessage = registrantsData?.attendanceWindowMessage || "Attendance can only be taken on the event date at the scheduled time.";
 
   /* ── Render ─────────────────────── */
 
@@ -739,7 +747,7 @@ function AdminEventsPage() {
                         <button
                           onClick={() => openRegistrants(event)}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-lavender-light border-[3px] border-lavender text-lavender text-sm font-bold hover:bg-lavender hover:text-snow transition-colors"
-                          title="View registered students"
+                          title="Open attendance"
                         >
                           <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                             <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
@@ -775,6 +783,174 @@ function AdminEventsPage() {
         </div>
       </div>
       <Pagination page={page} totalPages={totalEventPages} onPage={setPage} className="mt-5" />
+
+      <div ref={attendanceSectionRef} id="attendance-section" className="max-w-7xl mx-auto mt-8 bg-snow border-[3px] border-navy rounded-3xl shadow-[4px_4px_0_0_#000] overflow-hidden">
+        <div className="p-6 border-b-[3px] border-navy bg-ghost">
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Attendance</p>
+          <h2 className="font-display font-black text-2xl text-navy">Event Attendance Section</h2>
+          <p className="text-sm text-navy-muted mt-1">Select an event card above to manage attendance in this section.</p>
+        </div>
+
+        {!registrantsEvent ? (
+          <div className="p-8 text-center">
+            <p className="text-sm font-bold text-navy">No event selected yet.</p>
+            <p className="text-xs text-slate mt-1">Use the attendance button on any event card to load registrants.</p>
+          </div>
+        ) : (
+          <div className="p-6 space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Selected Event</p>
+                <h3 className="font-display font-black text-xl text-navy leading-snug">{registrantsEvent.title}</h3>
+                {registrantsData && (
+                  <div className="flex items-center gap-3 mt-2">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-lavender-light text-lavender text-xs font-bold">
+                      {registrantsData.totalRegistered} registered
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-teal-light text-teal text-xs font-bold">
+                      {registrantsData.totalAttended} attended
+                    </span>
+                  </div>
+                )}
+              </div>
+              {registrantsData && (
+                <div className="flex items-center gap-2">
+                  <PermissionGate permission="event:manage">
+                  <button
+                    onClick={markAllAttended}
+                    disabled={
+                      markingAll ||
+                      !attendanceWindowOpen ||
+                      !registrantsData ||
+                      registrantsData.registrants.every((r) => r.hasAttended)
+                    }
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal border-[3px] border-navy text-snow text-xs font-bold press-3 press-black transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {markingAll ? "Marking…" : "Mark all attended"}
+                  </button>
+                  </PermissionGate>
+                  <PermissionGate permission="event:manage">
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowDownloadMenu((v) => !v)}
+                      disabled={registrantsData.registrants.length === 0}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-lime border-[3px] border-navy text-navy text-xs font-bold press-3 press-navy transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Download ▾
+                    </button>
+                    {showDownloadMenu && (
+                      <div className="absolute right-0 top-full mt-1.5 w-36 bg-snow border-[3px] border-navy rounded-2xl shadow-[4px_4px_0_0_#000] overflow-hidden z-10">
+                        <button onClick={() => downloadRegistrants("csv")} className="w-full px-4 py-2.5 text-left text-xs font-bold text-navy hover:bg-cloud transition-colors">CSV (.csv)</button>
+                        <div className="border-t-[2px] border-navy/10" />
+                        <button onClick={() => downloadRegistrants("pdf")} className="w-full px-4 py-2.5 text-left text-xs font-bold text-navy hover:bg-sunny-light transition-colors">PDF (.pdf)</button>
+                        <div className="border-t-[2px] border-navy/10" />
+                        <button onClick={() => downloadRegistrants("json")} className="w-full px-4 py-2.5 text-left text-xs font-bold text-navy hover:bg-lavender-light transition-colors">JSON (.json)</button>
+                      </div>
+                    )}
+                  </div>
+                  </PermissionGate>
+                </div>
+              )}
+            </div>
+
+            <div className={`rounded-2xl border-[3px] p-3 ${attendanceWindowOpen ? "bg-teal-light border-teal/30" : "bg-sunny-light border-sunny/30"}`}>
+              <p className={`text-xs font-bold ${attendanceWindowOpen ? "text-teal" : "text-sunny"}`}>
+                {attendanceWindowOpen ? "Attendance window is open" : attendanceWindowMessage}
+              </p>
+            </div>
+
+            <div className="relative">
+              <svg aria-hidden="true" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+                <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z" clipRule="evenodd" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search by name or matric number…"
+                value={registrantSearch}
+                onChange={(e) => setRegistrantSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-ghost border-[3px] border-navy rounded-xl text-sm text-navy placeholder:text-slate focus:outline-none transition-all"
+              />
+            </div>
+
+            <div className="space-y-3">
+              {registrantsLoading ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-3">
+                  <div className="w-8 h-8 border-[3px] border-navy border-t-transparent rounded-full animate-spin" />
+                  <p className="text-sm text-navy-muted font-bold">Loading registrants…</p>
+                </div>
+              ) : !registrantsData || registrantsData.registrants.length === 0 ? (
+                <p className="text-sm text-navy-muted">No registrations yet for this event.</p>
+              ) : (
+                (() => {
+                  const q = registrantSearch.toLowerCase();
+                  const filtered = registrantsData.registrants.filter(
+                    (r) =>
+                      !q ||
+                      `${r.firstName} ${r.lastName}`.toLowerCase().includes(q) ||
+                      r.matricNumber.toLowerCase().includes(q) ||
+                      r.email.toLowerCase().includes(q)
+                  );
+                  if (filtered.length === 0) return (
+                    <p className="text-sm text-navy-muted">No registrants match your search.</p>
+                  );
+                  return filtered.map((r) => (
+                    <div
+                      key={r.id}
+                      className={`flex items-center justify-between gap-3 p-3 rounded-2xl border-[3px] transition-all ${
+                        r.hasAttended
+                          ? "border-teal bg-teal-light"
+                          : "border-navy/20 bg-ghost hover:border-navy"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        {resolveProfileImageUrl(r) ? (
+                          <img src={resolveProfileImageUrl(r)!} alt="" className="w-9 h-9 rounded-xl object-cover shrink-0 border-2 border-navy" />
+                        ) : (
+                          <div className="w-9 h-9 rounded-xl bg-lavender-light border-2 border-navy flex items-center justify-center shrink-0">
+                            <span className="font-display font-black text-xs text-lavender">{r.firstName[0]}{r.lastName[0]}</span>
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="font-display font-bold text-sm text-navy truncate">{r.firstName} {r.lastName}</p>
+                          <p className="text-[11px] text-slate truncate">{r.matricNumber || r.email} {r.level && `· ${r.level}`}</p>
+                        </div>
+                      </div>
+
+                      <PermissionGate permission="event:manage">
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => toggleAttendance(registrantsEvent.id!, r.id, r.hasAttended)}
+                          disabled={!attendanceWindowOpen}
+                          title={r.hasAttended ? "Mark as absent" : "Mark as attended"}
+                          className={`p-1.5 rounded-lg border-2 transition-colors ${
+                            r.hasAttended
+                              ? "border-teal bg-teal text-snow hover:bg-teal-light hover:text-teal"
+                              : "border-navy/20 text-navy/40 hover:border-teal hover:text-teal hover:bg-teal-light"
+                          } disabled:opacity-40 disabled:cursor-not-allowed`}
+                        >
+                          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                            <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => setRemoveRegConfirm({ isOpen: true, eventId: registrantsEvent.id!, userId: r.id })}
+                          title="Remove registration"
+                          className="p-1.5 rounded-lg border-2 border-navy/20 text-navy/40 hover:border-coral hover:text-coral hover:bg-coral-light transition-colors"
+                        >
+                          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
+                      </PermissionGate>
+                    </div>
+                  ));
+                })()
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ── Create / Edit Modal ── */}
       {showModal && (
@@ -980,234 +1156,6 @@ function AdminEventsPage() {
               >
                 {submitting ? "Saving..." : editingEvent ? "Save Changes" : "Create Event"}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Registrants Panel ─────────────────────────────────────────── */}
-      {registrantsEvent && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-navy/60 backdrop-blur-sm" onClick={() => setRegistrantsEvent(null)} />
-
-          <div className="relative bg-snow border-[3px] border-navy rounded-3xl w-full max-w-2xl max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-hidden shadow-[6px_6px_0_0_#000]">
-            {/* Header */}
-            <div className="flex items-start justify-between p-6 border-b-[4px] border-navy">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Event Registrations</p>
-                <h2 className="font-display font-black text-xl text-navy leading-snug">{registrantsEvent.title}</h2>
-                {registrantsData && (
-                  <div className="flex items-center gap-3 mt-2">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-lavender-light text-lavender text-xs font-bold">
-                      <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                        <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
-                      </svg>
-                      {registrantsData.totalRegistered} registered
-                    </span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-teal-light text-teal text-xs font-bold">
-                      <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                        <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0 1 12 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 0 1 3.498 1.307 4.491 4.491 0 0 1 1.307 3.497A4.49 4.49 0 0 1 21.75 12a4.49 4.49 0 0 1-1.549 3.397 4.491 4.491 0 0 1-1.307 3.497 4.491 4.491 0 0 1-3.497 1.307A4.49 4.49 0 0 1 12 21.75a4.49 4.49 0 0 1-3.397-1.549 4.491 4.491 0 0 1-3.498-1.307 4.491 4.491 0 0 1-1.307-3.497A4.49 4.49 0 0 1 2.25 12a4.49 4.49 0 0 1 1.549-3.397 4.491 4.491 0 0 1 1.307-3.498A4.491 4.491 0 0 1 8.603 3.8Zm7.44 1.994a3 3 0 0 0-2.25-1.043 3 3 0 0 0-2.25 1.043 3 3 0 0 0-2.344.88 3 3 0 0 0-.878 2.344 3 3 0 0 0-1.043 2.25 3 3 0 0 0 1.043 2.25 3 3 0 0 0 .879 2.344 3 3 0 0 0 2.343.88 3 3 0 0 0 2.25 1.043 3 3 0 0 0 2.25-1.043 3 3 0 0 0 2.344-.879 3 3 0 0 0 .878-2.344 3 3 0 0 0 1.043-2.25 3 3 0 0 0-1.043-2.25 3 3 0 0 0-.878-2.344 3 3 0 0 0-2.344-.879Zm-1.44 5.706a.75.75 0 0 1 0 1.06l-3 3a.75.75 0 0 1-1.06-1.06l3-3a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
-                      </svg>
-                      {registrantsData.totalAttended} attended
-                    </span>
-                  </div>
-                )}
-              </div>
-              <button
-                onClick={() => setRegistrantsEvent(null)}
-                className="p-2 rounded-xl hover:bg-cloud transition-colors"
-                aria-label="Close"
-              >
-                <svg aria-hidden="true" className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
-                  <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Search */}
-            <div className="px-6 pt-4">
-              <div className="relative">
-                <svg aria-hidden="true" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
-                  <path fillRule="evenodd" d="M10.5 3.75a6.75 6.75 0 1 0 0 13.5 6.75 6.75 0 0 0 0-13.5ZM2.25 10.5a8.25 8.25 0 1 1 14.59 5.28l4.69 4.69a.75.75 0 1 1-1.06 1.06l-4.69-4.69A8.25 8.25 0 0 1 2.25 10.5Z" clipRule="evenodd" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search by name or matric number…"
-                  value={registrantSearch}
-                  onChange={(e) => setRegistrantSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-ghost border-[3px] border-navy rounded-xl text-sm text-navy placeholder:text-slate focus:outline-none transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-3">
-              {registrantsLoading ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <div className="w-8 h-8 border-[3px] border-navy border-t-transparent rounded-full animate-spin" />
-                  <p className="text-sm text-navy/60 font-bold">Loading registrants…</p>
-                </div>
-              ) : !registrantsData || registrantsData.registrants.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-                  <div className="w-14 h-14 rounded-2xl bg-cloud flex items-center justify-center">
-                    <svg aria-hidden="true" className="w-7 h-7 text-slate" viewBox="0 0 24 24" fill="currentColor">
-                      <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <p className="font-display font-black text-navy">No registrations yet</p>
-                  <p className="text-sm text-navy/50">Students who register will appear here</p>
-                </div>
-              ) : (
-                (() => {
-                  const q = registrantSearch.toLowerCase();
-                  const filtered = registrantsData.registrants.filter(
-                    (r) =>
-                      !q ||
-                      `${r.firstName} ${r.lastName}`.toLowerCase().includes(q) ||
-                      r.matricNumber.toLowerCase().includes(q) ||
-                      r.email.toLowerCase().includes(q)
-                  );
-                  if (filtered.length === 0) return (
-                    <p className="text-center text-sm text-navy/50 py-8">No registrants match your search.</p>
-                  );
-                  return filtered.map((r) => (
-                    <div
-                      key={r.id}
-                      className={`flex items-center justify-between gap-3 p-3 rounded-2xl border-[3px] transition-all ${
-                        r.hasAttended
-                          ? "border-teal bg-teal-light"
-                          : "border-navy/20 bg-ghost hover:border-navy"
-                      }`}
-                    >
-                      {/* Avatar + info */}
-                      <div className="flex items-center gap-3 min-w-0">
-                        {resolveProfileImageUrl(r) ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={resolveProfileImageUrl(r)!} alt="" className="w-9 h-9 rounded-xl object-cover shrink-0 border-2 border-navy" />
-                        ) : (
-                          <div className="w-9 h-9 rounded-xl bg-lavender-light border-2 border-navy flex items-center justify-center shrink-0">
-                            <span className="font-display font-black text-xs text-lavender">
-                              {r.firstName[0]}{r.lastName[0]}
-                            </span>
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <p className="font-display font-bold text-sm text-navy truncate">{r.firstName} {r.lastName}</p>
-                          <p className="text-[11px] text-slate truncate">{r.matricNumber || r.email} {r.level && `· ${r.level}`}</p>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <PermissionGate permission="event:manage">
-                      <div className="flex items-center gap-2 shrink-0">
-                        {/* Toggle attendance */}
-                        <button
-                          onClick={() => toggleAttendance(registrantsEvent!.id!, r.id, r.hasAttended)}
-                          title={r.hasAttended ? "Mark as absent" : "Mark as attended"}
-                          className={`p-1.5 rounded-lg border-2 transition-colors ${
-                            r.hasAttended
-                              ? "border-teal bg-teal text-snow hover:bg-teal-light hover:text-teal"
-                              : "border-navy/20 text-navy/40 hover:border-teal hover:text-teal hover:bg-teal-light"
-                          }`}
-                        >
-                          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                            <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                        {/* Remove registration */}
-                        <button
-                          onClick={() => setRemoveRegConfirm({ isOpen: true, eventId: registrantsEvent!.id!, userId: r.id })}
-                          title="Remove registration"
-                          className="p-1.5 rounded-lg border-2 border-navy/20 text-navy/40 hover:border-coral hover:text-coral hover:bg-coral-light transition-colors"
-                        >
-                          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                            <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </div>
-                      </PermissionGate>
-                    </div>
-                  ));
-                })()
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="px-6 py-4 border-t-[4px] border-navy flex items-center justify-between gap-3 flex-wrap">
-              <p className="text-[11px] text-navy/50 font-bold">
-                Tick the checkmark to mark attendance · Trash to remove registration
-              </p>
-              <div className="flex items-center gap-2">
-                {/* Mark all attended */}
-                <PermissionGate permission="event:manage">
-                <button
-                  onClick={markAllAttended}
-                  disabled={markingAll || !registrantsData || registrantsData.registrants.every((r) => r.hasAttended)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal border-[3px] border-navy text-snow text-xs font-bold press-3 press-black transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                    <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0 1 12 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 0 1 3.498 1.307 4.491 4.491 0 0 1 1.307 3.497A4.49 4.49 0 0 1 21.75 12a4.49 4.49 0 0 1-1.549 3.397 4.491 4.491 0 0 1-1.307 3.497 4.491 4.491 0 0 1-3.497 1.307A4.49 4.49 0 0 1 12 21.75a4.49 4.49 0 0 1-3.397-1.549 4.491 4.491 0 0 1-3.498-1.307 4.491 4.491 0 0 1-1.307-3.497A4.49 4.49 0 0 1 2.25 12a4.49 4.49 0 0 1 1.549-3.397 4.491 4.491 0 0 1 1.307-3.498A4.491 4.491 0 0 1 8.603 3.8Zm7.44 1.994a3 3 0 0 0-2.25-1.043 3 3 0 0 0-2.25 1.043 3 3 0 0 0-2.344.88 3 3 0 0 0-.878 2.344 3 3 0 0 0-1.043 2.25 3 3 0 0 0 1.043 2.25 3 3 0 0 0 .879 2.344 3 3 0 0 0 2.343.88 3 3 0 0 0 2.25 1.043 3 3 0 0 0 2.25-1.043 3 3 0 0 0 2.344-.879 3 3 0 0 0 .878-2.344 3 3 0 0 0 1.043-2.25 3 3 0 0 0-1.043-2.25 3 3 0 0 0-.878-2.344 3 3 0 0 0-2.344-.879Zm-1.44 5.706a.75.75 0 0 1 0 1.06l-3 3a.75.75 0 0 1-1.06-1.06l3-3a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
-                  </svg>
-                  {markingAll ? "Marking…" : "Mark all attended"}
-                </button>
-                </PermissionGate>
-
-                {/* Download dropdown */}
-                <PermissionGate permission="event:manage">
-                <div className="relative">
-                  <button
-                    onClick={() => setShowDownloadMenu((v) => !v)}
-                    disabled={!registrantsData || registrantsData.registrants.length === 0}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-lime border-[3px] border-navy text-navy text-xs font-bold press-3 press-navy transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                      <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
-                    </svg>
-                    Download ▾
-                  </button>
-                  {showDownloadMenu && (
-                    <div className="absolute right-0 bottom-full mb-1.5 w-36 bg-snow border-[3px] border-navy rounded-2xl shadow-[4px_4px_0_0_#000] overflow-hidden z-10">
-                      <button
-                        onClick={() => downloadRegistrants("csv")}
-                        className="w-full px-4 py-2.5 text-left text-xs font-bold text-navy hover:bg-cloud transition-colors flex items-center gap-2"
-                      >
-                        <svg aria-hidden="true" className="w-3.5 h-3.5 text-teal shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                          <path fillRule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875ZM9.75 14.25a.75.75 0 0 0 0 1.5H15a.75.75 0 0 0 0-1.5H9.75Z" clipRule="evenodd" />
-                        </svg>
-                        CSV (.csv)
-                      </button>
-                      <div className="border-t-[2px] border-navy/10" />
-                      <button
-                        onClick={() => downloadRegistrants("pdf")}
-                        className="w-full px-4 py-2.5 text-left text-xs font-bold text-navy hover:bg-sunny-light transition-colors flex items-center gap-2"
-                      >
-                        <svg aria-hidden="true" className="w-3.5 h-3.5 text-sunny shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                          <path fillRule="evenodd" d="M6.75 3A2.25 2.25 0 0 0 4.5 5.25v13.5A2.25 2.25 0 0 0 6.75 21h10.5a2.25 2.25 0 0 0 2.25-2.25V8.56a2.25 2.25 0 0 0-.659-1.59l-2.81-2.81A2.25 2.25 0 0 0 14.44 3H6.75Zm7.5 6A2.25 2.25 0 0 1 12 6.75V4.5H6.75a.75.75 0 0 0-.75.75v13.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75V9h-3.75Zm-4.5 3a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-4.5Zm0 3a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-4.5Z" clipRule="evenodd" />
-                        </svg>
-                        PDF (.pdf)
-                      </button>
-                      <div className="border-t-[2px] border-navy/10" />
-                      <button
-                        onClick={() => downloadRegistrants("json")}
-                        className="w-full px-4 py-2.5 text-left text-xs font-bold text-navy hover:bg-lavender-light transition-colors flex items-center gap-2"
-                      >
-                        <svg aria-hidden="true" className="w-3.5 h-3.5 text-lavender shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                          <path fillRule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875ZM9.75 17.25a.75.75 0 0 0 0 1.5H15a.75.75 0 0 0 0-1.5H9.75Zm0-3a.75.75 0 0 0 0 1.5H15a.75.75 0 0 0 0-1.5H9.75Z" clipRule="evenodd" />
-                        </svg>
-                        JSON (.json)
-                      </button>
-                    </div>
-                  )}
-                </div>
-                </PermissionGate>
-
-                <button
-                  onClick={() => setRegistrantsEvent(null)}
-                  className="px-5 py-2 rounded-2xl border-[3px] border-navy text-sm font-bold text-navy hover:bg-cloud transition-colors"
-                >
-                  Close
-                </button>
-              </div>
             </div>
           </div>
         </div>

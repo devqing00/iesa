@@ -666,44 +666,42 @@ async def list_class_status_updates(
     return response
 
 
-@router.post("/reminders/dispatch")
-async def dispatch_class_reminders(
-    level: Optional[int] = Query(None, description="Student level override"),
-    user: dict = Depends(require_ipe_student),
-    db: AsyncIOMotorDatabase = Depends(get_database),
-):
-    """Create in-app reminders for classes that are 30m/15m away or ongoing (deduped per user/day)."""
+async def _dispatch_class_reminders_for_users(
+    db: AsyncIOMotorDatabase,
+    session_id: str,
+    level: int,
+    user_ids: list[str],
+    now: Optional[datetime] = None,
+) -> dict:
     from app.routers.notifications import create_notification
 
-    session = await get_current_session(db)
-    user_id = str(user.get("_id") or user.get("uid") or "")
-    if not user_id or not ObjectId.is_valid(user_id):
-        raise HTTPException(status_code=401, detail="Invalid user identity")
+    if not user_ids:
+        return {"created": 0, "reminders": []}
 
-    effective_level = level or parse_level_value(str(user.get("currentLevel") or user.get("level") or "")) or 300
-    now = datetime.now(LAGOS_TZ)
-    today = now.date().isoformat()
-    weekday = now.strftime("%A")
+    current_time = now or datetime.now(LAGOS_TZ)
+    today = current_time.date().isoformat()
+    weekday = current_time.strftime("%A")
 
     classes_cursor = db["classSessions"].find(
-        {"sessionId": str(session["_id"]), "level": effective_level, "day": weekday},
+        {"sessionId": session_id, "level": level, "day": weekday},
         {"courseCode": 1, "courseTitle": 1, "startTime": 1, "endTime": 1, "venue": 1, "level": 1},
     )
-    classes = await classes_cursor.to_list(length=100)
+    classes = await classes_cursor.to_list(length=120)
     if not classes:
         return {"created": 0, "reminders": []}
 
+    class_ids = [cls["_id"] for cls in classes]
     cancellations_cursor = db["classCancellations"].find(
-        {"date": today, "classSessionId": {"$in": [c["_id"] for c in classes]}}
+        {"date": today, "classSessionId": {"$in": class_ids}}
     )
     cancelled_ids = {str(item.get("classSessionId")) async for item in cancellations_cursor}
 
     status_cursor = db["classStatusUpdates"].find(
         {
-            "sessionId": str(session["_id"]),
-            "level": effective_level,
+            "sessionId": session_id,
+            "level": level,
             "date": today,
-            "classSessionId": {"$in": [c["_id"] for c in classes]},
+            "classSessionId": {"$in": class_ids},
         }
     ).sort("updatedAt", -1)
     status_map: dict[str, str] = {}
@@ -725,12 +723,12 @@ async def dispatch_class_reminders(
 
         try:
             start_dt = datetime.combine(
-                now.date(),
+                current_time.date(),
                 datetime.strptime(cls["startTime"], "%H:%M").time(),
                 tzinfo=LAGOS_TZ,
             )
             end_dt = datetime.combine(
-                now.date(),
+                current_time.date(),
                 datetime.strptime(cls["endTime"], "%H:%M").time(),
                 tzinfo=LAGOS_TZ,
             )
@@ -738,34 +736,16 @@ async def dispatch_class_reminders(
             continue
 
         kind: Optional[str] = None
-        if start_dt <= now < end_dt:
+        if start_dt <= current_time < end_dt:
             kind = "ongoing"
         else:
-            mins_to_start = (start_dt - now).total_seconds() / 60
+            mins_to_start = (start_dt - current_time).total_seconds() / 60
             if 14.5 <= mins_to_start <= 15.5:
                 kind = "15min"
             elif 29.5 <= mins_to_start <= 30.5:
                 kind = "30min"
 
         if not kind:
-            continue
-
-        dedupe_key = f"{user_id}:{class_id}:{today}:{kind}"
-        dedupe_result = await db["timetableReminderLogs"].update_one(
-            {"key": dedupe_key},
-            {
-                "$setOnInsert": {
-                    "key": dedupe_key,
-                    "userId": user_id,
-                    "classSessionId": class_id,
-                    "date": today,
-                    "kind": kind,
-                    "createdAt": datetime.now(timezone.utc),
-                }
-            },
-            upsert=True,
-        )
-        if not getattr(dedupe_result, "upserted_id", None):
             continue
 
         if kind == "ongoing":
@@ -778,24 +758,69 @@ async def dispatch_class_reminders(
             title = "Class starts in 30 minutes"
             message = f"{cls.get('courseCode', 'Class')} starts at {cls.get('startTime')} in {cls.get('venue', 'its venue')}."
 
-        await create_notification(
-            user_id=user_id,
-            type="timetable_reminder",
-            title=title,
-            message=message,
-            link="/dashboard/timetable",
-            related_id=class_id,
-            category="timetable",
+        for user_id in user_ids:
+            dedupe_key = f"{user_id}:{class_id}:{today}:{kind}"
+            dedupe_result = await db["timetableReminderLogs"].update_one(
+                {"key": dedupe_key},
+                {
+                    "$setOnInsert": {
+                        "key": dedupe_key,
+                        "userId": user_id,
+                        "classSessionId": class_id,
+                        "date": today,
+                        "kind": kind,
+                        "createdAt": datetime.now(timezone.utc),
+                    }
+                },
+                upsert=True,
+            )
+            if not getattr(dedupe_result, "upserted_id", None):
+                continue
+
+            await create_notification(
+                user_id=user_id,
+                type="timetable_reminder",
+                title=title,
+                message=message,
+                link="/dashboard/timetable",
+                related_id=class_id,
+                category="timetable",
+            )
+            created += 1
+
+        reminders.append(
+            {
+                "classSessionId": class_id,
+                "kind": kind,
+                "courseCode": cls.get("courseCode"),
+                "startTime": cls.get("startTime"),
+                "recipientCount": len(user_ids),
+            }
         )
-        created += 1
-        reminders.append({
-            "classSessionId": class_id,
-            "kind": kind,
-            "courseCode": cls.get("courseCode"),
-            "startTime": cls.get("startTime"),
-        })
 
     return {"created": created, "reminders": reminders}
+
+
+@router.post("/reminders/dispatch")
+async def dispatch_class_reminders(
+    level: Optional[int] = Query(None, description="Student level override"),
+    user: dict = Depends(require_ipe_student),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Create in-app reminders for classes that are 30m/15m away or ongoing (deduped per user/day)."""
+    session = await get_current_session(db)
+    user_id = str(user.get("_id") or user.get("uid") or "")
+    if not user_id or not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=401, detail="Invalid user identity")
+
+    effective_level = level or parse_level_value(str(user.get("currentLevel") or user.get("level") or "")) or 300
+    return await _dispatch_class_reminders_for_users(
+        db=db,
+        session_id=str(session["_id"]),
+        level=effective_level,
+        user_ids=[user_id],
+        now=datetime.now(LAGOS_TZ),
+    )
 
 
 @router.patch("/classes/{class_id}")
