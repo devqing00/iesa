@@ -191,6 +191,7 @@ async def _fetch_payments(db, session_id: str, user_id: str):
 async def _fetch_today_classes(db, session_id: str, user_level: int | None):
     """Today's class sessions for the student's level."""
     day_name = date.today().strftime("%A")  # e.g. "Monday"
+    today_iso = date.today().isoformat()
 
     query: dict = {"sessionId": session_id, "day": day_name}
     if user_level:
@@ -203,10 +204,48 @@ async def _fetch_today_classes(db, session_id: str, user_level: int | None):
     cursor = db["classSessions"].find(query).sort("startTime", 1)
     docs = await cursor.to_list(length=20)
 
+    if not docs:
+        return []
+
+    class_object_ids = [doc["_id"] for doc in docs]
+
+    cancellations = await db["classCancellations"].find(
+        {
+            "date": today_iso,
+            "classSessionId": {"$in": class_object_ids},
+        },
+        {"classSessionId": 1},
+    ).to_list(length=100)
+    cancelled_ids = {str(item.get("classSessionId")) for item in cancellations}
+
+    status_updates = await db["classStatusUpdates"].find(
+        {
+            "sessionId": session_id,
+            "date": today_iso,
+            "classSessionId": {"$in": class_object_ids},
+        },
+        {"classSessionId": 1, "status": 1, "updatedAt": 1},
+    ).sort("updatedAt", -1).to_list(length=200)
+
+    latest_status_by_class: dict[str, str] = {}
+    for item in status_updates:
+        class_id = str(item.get("classSessionId"))
+        if class_id not in latest_status_by_class:
+            latest_status_by_class[class_id] = str(item.get("status") or "")
+
+    blocked_statuses = {"suspended", "not_holding", "postponed", "cancelled"}
+
     result = []
     for doc in docs:
+        class_id = str(doc["_id"])
+        if class_id in cancelled_ids:
+            continue
+
+        if latest_status_by_class.get(class_id) in blocked_statuses:
+            continue
+
         result.append({
-            "id": str(doc["_id"]),
+            "id": class_id,
             "courseCode": doc.get("courseCode", ""),
             "courseTitle": doc.get("courseTitle", ""),
             "startTime": doc.get("startTime", ""),

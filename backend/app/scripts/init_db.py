@@ -148,6 +148,10 @@ async def create_indexes(db):
     await db.unit_applications.create_index("sessionId")
     await db.unit_applications.create_index("status")
     await db.unit_applications.create_index([("sessionId", 1), ("status", 1)])  # For filtering applications
+
+    # Email daily usage counters (provider/day quota tracking)
+    await db.email_daily_usage.create_index([("day", 1), ("provider", 1)], unique=True)
+    await db.email_daily_usage.create_index("updatedAt")
     
     # Paystack + Bank Transfers compound indexes for event payment lookups
     await db.paystackTransactions.create_index([("eventId", 1), ("studentId", 1), ("status", 1)])

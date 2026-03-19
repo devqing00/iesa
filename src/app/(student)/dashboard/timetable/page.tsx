@@ -259,6 +259,15 @@ export default function TimetablePage() {
   useEffect(() => { fetchTimetable(); }, [fetchTimetable]);
 
   useEffect(() => {
+    const handleTimetableRealtimeUpdate = () => {
+      void fetchTimetable();
+    };
+
+    window.addEventListener("sse:timetable", handleTimetableRealtimeUpdate);
+    return () => window.removeEventListener("sse:timetable", handleTimetableRealtimeUpdate);
+  }, [fetchTimetable]);
+
+  useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
     let stopped = false;
 

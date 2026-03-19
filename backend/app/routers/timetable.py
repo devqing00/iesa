@@ -16,6 +16,8 @@ from ..core.permissions import require_permission, require_any_permission
 from ..core.database import get_database
 from ..core.audit import AuditLogger
 from ..core.error_handling import fire_and_forget
+from ..core.cache import cache_delete_pattern
+from app.routers.sse import publish
 
 router = APIRouter(prefix="/api/v1/timetable", tags=["timetable"])
 LAGOS_TZ = ZoneInfo("Africa/Lagos")
@@ -522,6 +524,18 @@ async def cancel_class(
         user_agent=request.headers.get("user-agent"),
     )
 
+    fire_and_forget(cache_delete_pattern("student_dashboard:*"))
+    publish(
+        "class_cancelled",
+        {
+            "classId": class_id,
+            "level": class_session.get("level", 0),
+            "date": cancellation_data.date,
+            "reason": cancellation_data.reason,
+        },
+        ipe_only=True,
+    )
+
     return CancellationResponse(**cancellation_doc)
 
 
@@ -614,6 +628,19 @@ async def update_class_status(
         },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
+    )
+
+    fire_and_forget(cache_delete_pattern("student_dashboard:*"))
+    publish(
+        "class_status_updated",
+        {
+            "classId": class_id,
+            "level": level,
+            "date": status_data.date,
+            "status": status_data.status,
+            "note": status_data.note,
+        },
+        ipe_only=True,
     )
 
     return ClassStatusUpdateResponse(**saved)

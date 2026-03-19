@@ -94,7 +94,7 @@ export default function StudentDashboardPage() {
   const iepodHref = isIepodAdminRole ? "/dashboard/iepod/manage" : "/dashboard/iepod";
   const isClassRepOrAssistant = permissionsLoaded && hasPermission("class_rep:view_cohort");
 
-  const { data, isLoading: loading } = useStudentDashboard(enabled);
+  const { data, isLoading: loading, mutate: mutateStudentDashboard } = useStudentDashboard(enabled);
   const external = isExternalStudent(userProfile?.department);
 
   // ── All hooks must be called unconditionally before any early return
@@ -180,6 +180,15 @@ export default function StudentDashboardPage() {
     } catch { /* localStorage unavailable */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  useEffect(() => {
+    const handleTimetableRefresh = () => {
+      void mutateStudentDashboard();
+    };
+
+    window.addEventListener("sse:timetable", handleTimetableRefresh);
+    return () => window.removeEventListener("sse:timetable", handleTimetableRefresh);
+  }, [mutateStudentDashboard]);
 
   useEffect(() => {
     const fetchRewardsSnapshot = async () => {

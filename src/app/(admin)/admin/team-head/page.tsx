@@ -29,6 +29,7 @@ interface Member {
   email: string;
   matricNumber?: string;
   level?: string;
+  subTeam?: string | null;
   phone?: string;
   profilePhotoURL?: string;
   profilePictureUrl?: string;
@@ -66,6 +67,7 @@ interface TeamApplicationItem {
   teamLabel: string;
   motivation: string;
   skills?: string | null;
+  subTeam?: string | null;
   status: "pending" | "accepted" | "rejected" | "revoked";
   feedback?: string | null;
   createdAt: string;
@@ -599,6 +601,7 @@ export function TeamHeadPortal() {
           <h1 className="font-display font-black text-display-lg text-navy">
             <span className="brush-highlight">{activeUnit?.unitLabel}</span> Dashboard
           </h1>
+          <p className="text-sm text-navy-muted mt-1">Team operations, applications, tasks, and member coordination.</p>
         </div>
         <HelpButton onClick={openHelp} />
 
@@ -611,7 +614,7 @@ export function TeamHeadPortal() {
               setActiveUnit(u);
             }}
             aria-label="Select team"
-            className="bg-snow border-[3px] border-navy rounded-2xl px-4 py-2.5 font-bold text-sm text-navy shadow-[3px_3px_0_0_#000]"
+            className="bg-snow border-[3px] border-navy rounded-2xl px-3 py-2 font-bold text-sm text-navy shadow-[3px_3px_0_0_#000]"
           >
             {headedUnits.map((u) => (
               <option key={u.unitSlug} value={u.unitSlug}>
@@ -628,7 +631,7 @@ export function TeamHeadPortal() {
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold whitespace-nowrap transition-all border-[3px] ${
+            className={`flex items-center gap-2 px-3 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all border-[3px] ${
               tab === t.key
                 ? "bg-lime text-navy border-navy shadow-[3px_3px_0_0_#000]"
                 : "bg-snow text-slate border-transparent hover:border-navy hover:text-navy"
@@ -648,15 +651,15 @@ export function TeamHeadPortal() {
           {/* Stat cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-teal border-4 border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000]">
-              <p className="text-label-sm text-navy/60">MEMBERS</p>
+              <p className="text-label-sm text-navy-muted">MEMBERS</p>
               <p className="font-display font-black text-display-md text-navy">{members.length}</p>
             </div>
             <div className="bg-lavender border-4 border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000]">
-              <p className="text-label-sm text-navy/60">NOTICES</p>
+              <p className="text-label-sm text-navy-muted">NOTICES</p>
               <p className="font-display font-black text-display-md text-navy">{notices.length}</p>
             </div>
             <div className="bg-sunny border-4 border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000]">
-              <p className="text-label-sm text-navy/60">PENDING TASKS</p>
+              <p className="text-label-sm text-navy-muted">PENDING TASKS</p>
               <p className="font-display font-black text-display-md text-navy">
                 {tasks.filter((t) => t.status !== "done").length}
               </p>
@@ -770,6 +773,11 @@ export function TeamHeadPortal() {
                           {m.level}
                         </span>
                       )}
+                      {m.subTeam && (
+                        <span className="text-label-sm bg-sunny-light text-navy px-2 py-0.5 rounded-lg font-bold">
+                          {m.subTeam}
+                        </span>
+                      )}
                       <Link
                         href={buildMessagesHref({
                           userId: m.id,
@@ -808,7 +816,7 @@ export function TeamHeadPortal() {
               <button
                 key={opt.key}
                 onClick={() => setAppStatusFilter(opt.key)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 transition-all ${
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border-2 transition-all ${
                   appStatusFilter === opt.key
                     ? "bg-lime text-navy border-navy"
                     : "bg-snow text-slate border-transparent hover:border-navy hover:text-navy"
@@ -854,9 +862,17 @@ export function TeamHeadPortal() {
                         </span>
                       </div>
                       <p className="text-xs text-slate mt-1">{app.userEmail}</p>
-                      <p className="text-sm text-navy mt-3 whitespace-pre-line">{app.motivation}</p>
+                      {app.subTeam && (
+                        <p className="text-xs text-navy mt-2">
+                          <span className="font-bold">Sub-team:</span> {app.subTeam}
+                        </p>
+                      )}
+                      <p className="text-sm text-navy mt-2.5 whitespace-pre-line">{app.motivation}</p>
                       {app.skills && (
-                        <p className="text-xs text-slate mt-2">Skills: {app.skills}</p>
+                        <p className="text-xs text-slate mt-2"><span className="font-bold">Skills:</span> {app.skills}</p>
+                      )}
+                      {app.feedback && app.status !== "pending" && (
+                        <p className="text-xs text-navy-muted mt-2"><span className="font-bold">Review note:</span> {app.feedback}</p>
                       )}
                       <p className="text-xs text-slate mt-2">Applied {timeAgo(app.createdAt)}</p>
                     </div>
@@ -865,13 +881,13 @@ export function TeamHeadPortal() {
                       <div className="flex flex-col gap-2 shrink-0">
                         <button
                           onClick={() => reviewApplication(app.id, "accepted")}
-                          className="bg-teal border-[2px] border-navy press-2 press-navy px-3 py-1.5 rounded-xl text-xs font-bold text-navy"
+                          className="bg-teal border-2 border-navy press-2 press-navy px-3 py-1.5 rounded-xl text-xs font-bold text-navy"
                         >
                           Accept
                         </button>
                         <button
                           onClick={() => reviewApplication(app.id, "rejected")}
-                          className="bg-coral-light border-[2px] border-navy press-2 press-black px-3 py-1.5 rounded-xl text-xs font-bold text-navy"
+                          className="bg-coral-light border-2 border-navy press-2 press-black px-3 py-1.5 rounded-xl text-xs font-bold text-navy"
                         >
                           Reject
                         </button>

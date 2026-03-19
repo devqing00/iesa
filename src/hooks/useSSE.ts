@@ -34,6 +34,8 @@ const EVENT_KEY_MAP: Record<string, string[]> = {
   enrollment_created:   ["/api/v1/admin/stats"],
   enrollment_deleted:   ["/api/v1/admin/stats"],
   notification_created: ["/api/v1/notifications/"],
+  class_status_updated: ["/api/v1/student/dashboard", "/api/v1/timetable/classes"],
+  class_cancelled: ["/api/v1/student/dashboard", "/api/v1/timetable/classes"],
 };
 
 // Realtime events that should also trigger a notification bell refresh
@@ -44,6 +46,13 @@ const NOTIFICATION_EVENTS = new Set([
   "announcement_deleted",
   "event_created",
   "payment_created",
+  "class_status_updated",
+  "class_cancelled",
+]);
+
+const TIMETABLE_EVENTS = new Set([
+  "class_status_updated",
+  "class_cancelled",
 ]);
 
 /** Revalidate all SWR keys associated with an event type. */
@@ -56,6 +65,9 @@ function revalidateForEvent(eventType: string) {
   // Dispatch custom event so NotificationBell can refresh without waiting for poll
   if (NOTIFICATION_EVENTS.has(eventType)) {
     window.dispatchEvent(new CustomEvent("sse:notification"));
+  }
+  if (TIMETABLE_EVENTS.has(eventType)) {
+    window.dispatchEvent(new CustomEvent("sse:timetable"));
   }
 }
 

@@ -185,13 +185,30 @@ async def _get_team_members_full(team_slug: str, session_id: str, db) -> list[di
     if not member_roles:
         return []
 
-    user_ids = [ObjectId(r["userId"]) for r in member_roles]
+    member_user_ids = [r["userId"] for r in member_roles]
+    user_ids = [ObjectId(uid) for uid in member_user_ids]
     users = await db["users"].find(
         {"_id": {"$in": user_ids}},
         {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1,
          "currentLevel": 1, "profilePhotoURL": 1, "phone": 1},
     ).to_list(length=500)
     user_map = {str(u["_id"]): u for u in users}
+
+    accepted_apps = await db["unit_applications"].find(
+        {
+            "unit": team_slug,
+            "sessionId": session_id,
+            "status": "accepted",
+            "userId": {"$in": member_user_ids},
+        },
+        {"userId": 1, "subTeam": 1, "reviewedAt": 1, "createdAt": 1},
+    ).sort([("reviewedAt", -1), ("createdAt", -1)]).to_list(length=1000)
+
+    subteam_map: dict[str, Optional[str]] = {}
+    for app in accepted_apps:
+        uid = app.get("userId")
+        if uid not in subteam_map:
+            subteam_map[uid] = app.get("subTeam")
 
     result = []
     for r in member_roles:
@@ -204,6 +221,7 @@ async def _get_team_members_full(team_slug: str, session_id: str, db) -> list[di
                 "email": u.get("email", ""),
                 "matricNumber": u.get("matricNumber", ""),
                 "level": u.get("currentLevel", ""),
+                "subTeam": subteam_map.get(r["userId"]),
                 "phone": u.get("phone", ""),
                 "profilePhotoURL": u.get("profilePhotoURL"),
                 "joinedAt": r.get("createdAt"),

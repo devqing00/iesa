@@ -6,11 +6,15 @@ Supports multiple providers (SendGrid, Resend, SMTP).
 """
 
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 import logging
 from enum import Enum
 from html import escape
+
+from pymongo import ReturnDocument
+
+from app.db import get_database
 
 logger = logging.getLogger("iesa_backend")
 
@@ -53,6 +57,15 @@ class EmailService:
         self.from_name = os.getenv("EMAIL_FROM_NAME", "IESA Platform")
         self._healthy = False
         self.smtp_fallback_enabled = False
+        self.daily_limits_enabled = os.getenv("EMAIL_DAILY_LIMITS_ENABLED", "true").lower() == "true"
+        self.daily_limit_total = self._env_int("EMAIL_DAILY_LIMIT_TOTAL", 450)
+        self.daily_limit_resend = self._env_int("EMAIL_DAILY_LIMIT_RESEND", 95)
+        self.daily_limit_smtp = self._env_int("EMAIL_DAILY_LIMIT_SMTP", 450)
+        self.daily_limit_sendgrid = self._env_int("EMAIL_DAILY_LIMIT_SENDGRID", 450)
+        self.daily_limit_buffer = max(0, self._env_int("EMAIL_DAILY_LIMIT_BUFFER", 5))
+        self._limits_cache_ttl_seconds = 60
+        self._limits_cache_loaded_at = 0.0
+        self._limits_cache: dict[str, Any] | None = None
         
         if self.provider == EmailProvider.SENDGRID:
             self._init_sendgrid()
@@ -70,6 +83,255 @@ class EmailService:
             logger.info(
                 f"✅ SMTP fallback enabled (Host: {self.smtp_host}, Port: {self.smtp_port})"
             )
+
+    @staticmethod
+    def _env_int(name: str, default: int) -> int:
+        try:
+            return int(os.getenv(name, str(default)))
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
+    def _utc_day_key() -> str:
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    def invalidate_limit_cache(self) -> None:
+        self._limits_cache = None
+        self._limits_cache_loaded_at = 0.0
+
+    def get_default_limit_config(self) -> dict[str, Any]:
+        return {
+            "enabled": self.daily_limits_enabled,
+            "dailyLimitTotal": self.daily_limit_total,
+            "resendLimit": self.daily_limit_resend,
+            "smtpLimit": self.daily_limit_smtp,
+            "sendgridLimit": self.daily_limit_sendgrid,
+            "buffer": self.daily_limit_buffer,
+        }
+
+    async def get_effective_limit_config(self) -> dict[str, Any]:
+        return await self._resolve_limit_config()
+
+    async def _resolve_limit_config(self) -> dict[str, Any]:
+        import time
+
+        now = time.monotonic()
+        if self._limits_cache and (now - self._limits_cache_loaded_at) < self._limits_cache_ttl_seconds:
+            return self._limits_cache
+
+        defaults = self.get_default_limit_config()
+        source = "env"
+        effective = defaults.copy()
+
+        try:
+            db = get_database()
+            doc = await db["platformSettings"].find_one({"_id": "global"}, {"emailLimits": 1})
+            overrides = (doc or {}).get("emailLimits") or {}
+            if isinstance(overrides, dict) and overrides:
+                source = "db_overrides"
+                if "enabled" in overrides:
+                    effective["enabled"] = bool(overrides["enabled"])
+                if "dailyLimitTotal" in overrides:
+                    effective["dailyLimitTotal"] = max(0, int(overrides["dailyLimitTotal"]))
+                if "resendLimit" in overrides:
+                    effective["resendLimit"] = max(0, int(overrides["resendLimit"]))
+                if "smtpLimit" in overrides:
+                    effective["smtpLimit"] = max(0, int(overrides["smtpLimit"]))
+                if "sendgridLimit" in overrides:
+                    effective["sendgridLimit"] = max(0, int(overrides["sendgridLimit"]))
+                if "buffer" in overrides:
+                    effective["buffer"] = max(0, int(overrides["buffer"]))
+        except Exception:
+            source = "env_fallback"
+
+        effective["source"] = source
+        self._limits_cache = effective
+        self._limits_cache_loaded_at = now
+        return effective
+
+    def _daily_limit_for_provider(self, provider_key: str, limits: dict[str, Any]) -> int:
+        provider_limit_map = {
+            "resend": int(limits.get("resendLimit", self.daily_limit_resend)),
+            "smtp": int(limits.get("smtpLimit", self.daily_limit_smtp)),
+            "sendgrid": int(limits.get("sendgridLimit", self.daily_limit_sendgrid)),
+        }
+        daily_total = max(0, int(limits.get("dailyLimitTotal", self.daily_limit_total)))
+        provider_limit = provider_limit_map.get(provider_key, daily_total)
+        if daily_total > 0:
+            provider_limit = min(provider_limit, daily_total)
+        return max(0, provider_limit)
+
+    def _soft_stop_limit(self, provider_key: str, limits: dict[str, Any]) -> int:
+        hard_limit = self._daily_limit_for_provider(provider_key, limits)
+        buffer_size = max(0, int(limits.get("buffer", self.daily_limit_buffer)))
+        if hard_limit <= 0:
+            return 0
+        return max(0, hard_limit - buffer_size)
+
+    async def _reserve_send_slot(self, provider_key: str) -> tuple[bool, dict[str, int | str | bool]]:
+        limits = await self._resolve_limit_config()
+        limits_enabled = bool(limits.get("enabled", self.daily_limits_enabled))
+
+        if not limits_enabled:
+            return True, {
+                "enabled": False,
+                "provider": provider_key,
+                "day": self._utc_day_key(),
+                "hardLimit": 0,
+                "softStopAt": 0,
+                "sent": 0,
+                "remaining": 0,
+            }
+
+        day_key = self._utc_day_key()
+        hard_limit = self._daily_limit_for_provider(provider_key, limits)
+        soft_stop_at = self._soft_stop_limit(provider_key, limits)
+        if hard_limit <= 0 or soft_stop_at <= 0:
+            return False, {
+                "enabled": True,
+                "provider": provider_key,
+                "day": day_key,
+                "hardLimit": hard_limit,
+                "softStopAt": soft_stop_at,
+                "sent": 0,
+                "remaining": 0,
+            }
+
+        db = get_database()
+        coll = db["email_daily_usage"]
+        now = datetime.now(timezone.utc)
+
+        reserved = await coll.find_one_and_update(
+            {"day": day_key, "provider": provider_key, "sent": {"$lt": soft_stop_at}},
+            {
+                "$inc": {"sent": 1, "reserved": 1},
+                "$set": {"updatedAt": now},
+                "$setOnInsert": {"createdAt": now, "failed": 0, "blocked": 0, "success": 0},
+            },
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
+        )
+
+        if reserved:
+            sent_count = int(reserved.get("sent", 0))
+            return True, {
+                "enabled": True,
+                "provider": provider_key,
+                "day": day_key,
+                "hardLimit": hard_limit,
+                "softStopAt": soft_stop_at,
+                "sent": sent_count,
+                "remaining": max(0, soft_stop_at - sent_count),
+            }
+
+        existing = await coll.find_one(
+            {"day": day_key, "provider": provider_key},
+            {"sent": 1, "blocked": 1},
+        )
+        await coll.update_one(
+            {"day": day_key, "provider": provider_key},
+            {
+                "$inc": {"blocked": 1},
+                "$set": {"updatedAt": now},
+                "$setOnInsert": {"createdAt": now, "sent": 0, "failed": 0, "success": 0},
+            },
+            upsert=True,
+        )
+        sent_count = int((existing or {}).get("sent", 0))
+        return False, {
+            "enabled": True,
+            "provider": provider_key,
+            "day": day_key,
+            "hardLimit": hard_limit,
+            "softStopAt": soft_stop_at,
+            "sent": sent_count,
+            "remaining": max(0, soft_stop_at - sent_count),
+        }
+
+    async def _record_send_result(self, provider_key: str, success: bool) -> None:
+        limits = await self._resolve_limit_config()
+        if not bool(limits.get("enabled", self.daily_limits_enabled)):
+            return
+        db = get_database()
+        coll = db["email_daily_usage"]
+        day_key = self._utc_day_key()
+        now = datetime.now(timezone.utc)
+        inc = {"reserved": -1, "success": 1} if success else {"reserved": -1, "failed": 1}
+        await coll.update_one(
+            {"day": day_key, "provider": provider_key},
+            {
+                "$inc": inc,
+                "$set": {"updatedAt": now},
+                "$setOnInsert": {"createdAt": now, "sent": 0, "blocked": 0},
+            },
+            upsert=True,
+        )
+
+    async def get_daily_limit_report(self) -> dict[str, Any]:
+        limits = await self._resolve_limit_config()
+        limits_enabled = bool(limits.get("enabled", self.daily_limits_enabled))
+        day_key = self._utc_day_key()
+        provider_keys = ["resend", "smtp", "sendgrid"]
+        db = get_database()
+        coll = db["email_daily_usage"]
+
+        docs = await coll.find({"day": day_key, "provider": {"$in": provider_keys}}).to_list(length=20)
+        usage_by_provider = {str(doc.get("provider")): doc for doc in docs}
+
+        providers: dict[str, Any] = {}
+        for provider_key in provider_keys:
+            hard_limit = self._daily_limit_for_provider(provider_key, limits)
+            soft_stop_at = self._soft_stop_limit(provider_key, limits)
+            usage = usage_by_provider.get(provider_key, {})
+            sent = int(usage.get("sent", 0))
+            blocked = int(usage.get("blocked", 0))
+            failed = int(usage.get("failed", 0))
+            success = int(usage.get("success", 0))
+            providers[provider_key] = {
+                "hardLimit": hard_limit,
+                "softStopAt": soft_stop_at,
+                "sent": sent,
+                "success": success,
+                "failed": failed,
+                "blocked": blocked,
+                "remaining": max(0, soft_stop_at - sent) if soft_stop_at > 0 else 0,
+                "disabled": limits_enabled and soft_stop_at > 0 and sent >= soft_stop_at,
+            }
+
+        active_provider = self.provider.value
+        active = providers.get(active_provider, {
+            "hardLimit": 0,
+            "softStopAt": 0,
+            "sent": 0,
+            "success": 0,
+            "failed": 0,
+            "blocked": 0,
+            "remaining": 0,
+            "disabled": False,
+        })
+
+        return {
+            "enabled": limits_enabled,
+            "day": day_key,
+            "activeProvider": active_provider,
+            "dailyLimit": active["hardLimit"],
+            "softStopAt": active["softStopAt"],
+            "sentToday": active["sent"],
+            "successToday": active["success"],
+            "failedToday": active["failed"],
+            "blockedToday": active["blocked"],
+            "remaining": active["remaining"],
+            "disabled": bool(active["disabled"]),
+            "buffer": max(0, int(limits.get("buffer", self.daily_limit_buffer))),
+            "source": str(limits.get("source", "env")),
+            "effective": {
+                "dailyLimitTotal": max(0, int(limits.get("dailyLimitTotal", self.daily_limit_total))),
+                "resendLimit": max(0, int(limits.get("resendLimit", self.daily_limit_resend))),
+                "smtpLimit": max(0, int(limits.get("smtpLimit", self.daily_limit_smtp))),
+                "sendgridLimit": max(0, int(limits.get("sendgridLimit", self.daily_limit_sendgrid))),
+            },
+            "providers": providers,
+        }
     
     def _detect_provider(self) -> EmailProvider:
         """Auto-detect email provider based on environment variables"""
@@ -178,6 +440,13 @@ class EmailService:
         """Send email via SendGrid"""
         from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
         import base64
+
+        allowed, quota = await self._reserve_send_slot("sendgrid")
+        if not allowed:
+            logger.warning(
+                f"🚫 SendGrid daily email soft limit reached ({quota.get('sent')}/{quota.get('softStopAt')}) — email send skipped"
+            )
+            return False
         
         message = Mail(
             from_email=(self.from_email, self.from_name),
@@ -205,11 +474,20 @@ class EmailService:
             logger.info(f"✅ Email sent to {to} via SendGrid")
         else:
             logger.error(f"❌ SendGrid error: {response.status_code}")
+
+        await self._record_send_result("sendgrid", success)
         
         return success
     
     async def _send_resend(self, to, subject, html_content, text_content):
         """Send email via Resend"""
+        allowed, quota = await self._reserve_send_slot("resend")
+        if not allowed:
+            logger.warning(
+                f"🚫 Resend daily email soft limit reached ({quota.get('sent')}/{quota.get('softStopAt')}) — email send skipped"
+            )
+            return False
+
         params = {
             "from": f"{self.from_name} <{self.from_email}>",
             "to": [to],
@@ -227,6 +505,8 @@ class EmailService:
             logger.info(f"✅ Email sent to {to} via Resend")
         else:
             logger.error(f"❌ Resend error: {response}")
+
+        await self._record_send_result("resend", success)
         
         return success
     
@@ -244,6 +524,13 @@ class EmailService:
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
         from email.mime.application import MIMEApplication
+
+        allowed, quota = await self._reserve_send_slot("smtp")
+        if not allowed:
+            logger.warning(
+                f"🚫 SMTP daily email soft limit reached ({quota.get('sent')}/{quota.get('softStopAt')}) — email send skipped"
+            )
+            return False
 
         # Build the MIME message (CPU-only, non-blocking)
         msg = MIMEMultipart("mixed")
@@ -292,6 +579,7 @@ class EmailService:
                     timeout=20.0
                 )
                 logger.info(f"✅ Email sent to {to} via SMTP ({smtp_host})")
+                await self._record_send_result("smtp", True)
                 return True
 
             except asyncio.TimeoutError:
@@ -301,10 +589,12 @@ class EmailService:
                     logger.warning(f"   Retrying in {wait}s...")
                     await asyncio.sleep(wait)
                 else:
+                    await self._record_send_result("smtp", False)
                     return False
             except smtplib.SMTPAuthenticationError as e:
                 logger.error(f"❌ SMTP Authentication failed: {str(e)}")
                 logger.error("   Check your SMTP_USER and SMTP_PASSWORD (use App Password for Gmail)")
+                await self._record_send_result("smtp", False)
                 return False
             except (smtplib.SMTPServerDisconnected, smtplib.SMTPConnectError, OSError) as e:
                 # Permanent network errors (unreachable, refused, no route) — fall back to console immediately
@@ -320,6 +610,7 @@ class EmailService:
                         f"⚠️  SMTP network unreachable ({e}) — falling back to console output. "
                         f"Set EMAIL_PROVIDER=console in .env to suppress this warning in dev."
                     )
+                    await self._record_send_result("smtp", False)
                     return await self._send_console(to, subject, html_content)
                 # Transient network errors — retry
                 if attempt < max_retries:
@@ -328,12 +619,15 @@ class EmailService:
                     await asyncio.sleep(wait)
                 else:
                     logger.error(f"❌ SMTP failed after {max_retries} attempts: {str(e)}")
+                    await self._record_send_result("smtp", False)
                     return False
             except smtplib.SMTPException as e:
                 logger.error(f"❌ SMTP error: {str(e)}")
+                await self._record_send_result("smtp", False)
                 return False
             except Exception as e:
                 logger.error(f"❌ Failed to send email via SMTP: {str(e)}")
+                await self._record_send_result("smtp", False)
                 return False
 
         return False
@@ -818,6 +1112,14 @@ async def check_email_health() -> dict:
         "smtp_fallback_enabled": service.smtp_fallback_enabled,
         "status": "ok" if service._healthy else "degraded",
     }
+
+    try:
+        report["quota"] = await service.get_daily_limit_report()
+    except Exception as e:
+        report["quota"] = {
+            "enabled": service.daily_limits_enabled,
+            "error": f"quota-report-failed: {str(e)}",
+        }
 
     if service.provider == EmailProvider.SMTP:
         import smtplib

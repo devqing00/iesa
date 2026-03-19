@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
 import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
@@ -13,6 +13,70 @@ interface ServiceStatus {
   collections?: number;
   error?: string;
   details?: Record<string, unknown>;
+}
+
+interface EmailProviderQuota {
+  hardLimit: number;
+  softStopAt: number;
+  sent: number;
+  success: number;
+  failed: number;
+  blocked: number;
+  remaining: number;
+  disabled: boolean;
+}
+
+interface EmailQuotaDetails {
+  enabled: boolean;
+  day: string;
+  source?: string;
+  activeProvider: string;
+  dailyLimit: number;
+  softStopAt: number;
+  sentToday: number;
+  successToday: number;
+  failedToday: number;
+  blockedToday: number;
+  remaining: number;
+  disabled: boolean;
+  buffer: number;
+  providers: Record<string, EmailProviderQuota>;
+}
+
+interface EmailLimitSettingsResponse {
+  defaults: {
+    enabled: boolean;
+    dailyLimitTotal: number;
+    resendLimit: number;
+    smtpLimit: number;
+    sendgridLimit: number;
+    buffer: number;
+  };
+  overrides: Partial<{
+    enabled: boolean;
+    dailyLimitTotal: number;
+    resendLimit: number;
+    smtpLimit: number;
+    sendgridLimit: number;
+    buffer: number;
+  }>;
+  effective: {
+    enabled: boolean;
+    dailyLimitTotal: number;
+    resendLimit: number;
+    smtpLimit: number;
+    sendgridLimit: number;
+    buffer: number;
+    source: string;
+  };
+  recommended: {
+    enabled: boolean;
+    dailyLimitTotal: number;
+    resendLimit: number;
+    smtpLimit: number;
+    sendgridLimit: number;
+    buffer: number;
+  };
 }
 
 interface HealthData {
@@ -55,6 +119,19 @@ function AdminHealthPage() {
   const [pushTestLoading, setPushTestLoading] = useState(false);
   const [pushTestResult, setPushTestResult] = useState("");
   const [pushTestError, setPushTestError] = useState("");
+  const [emailLimitSettings, setEmailLimitSettings] = useState<EmailLimitSettingsResponse | null>(null);
+  const [emailSettingsLoading, setEmailSettingsLoading] = useState(false);
+  const [emailSettingsSaving, setEmailSettingsSaving] = useState(false);
+  const [emailSettingsError, setEmailSettingsError] = useState("");
+  const [emailSettingsResult, setEmailSettingsResult] = useState("");
+  const [emailLimitsForm, setEmailLimitsForm] = useState({
+    enabled: true,
+    dailyLimitTotal: 450,
+    resendLimit: 95,
+    smtpLimit: 450,
+    sendgridLimit: 450,
+    buffer: 5,
+  });
 
   const fetchHealth = useCallback(async () => {
     try {
@@ -144,6 +221,100 @@ function AdminHealthPage() {
     }
   }, [getAccessToken, pushTestEmail]);
 
+  const fetchEmailLimitSettings = useCallback(async () => {
+    setEmailSettingsLoading(true);
+    setEmailSettingsError("");
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl("/api/v1/settings/email-limits"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) await throwApiError(res, "load email limit settings");
+      const json: EmailLimitSettingsResponse = await res.json();
+      setEmailLimitSettings(json);
+      setEmailLimitsForm({
+        enabled: !!json.effective.enabled,
+        dailyLimitTotal: Number(json.effective.dailyLimitTotal || 0),
+        resendLimit: Number(json.effective.resendLimit || 0),
+        smtpLimit: Number(json.effective.smtpLimit || 0),
+        sendgridLimit: Number(json.effective.sendgridLimit || 0),
+        buffer: Number(json.effective.buffer || 0),
+      });
+    } catch (err) {
+      setEmailSettingsError(getErrorMessage(err, "Failed to load email limit settings"));
+    } finally {
+      setEmailSettingsLoading(false);
+    }
+  }, [getAccessToken]);
+
+  const saveEmailLimitSettings = useCallback(async () => {
+    setEmailSettingsSaving(true);
+    setEmailSettingsError("");
+    setEmailSettingsResult("");
+    try {
+      const token = await getAccessToken();
+      const payload = {
+        enabled: emailLimitsForm.enabled,
+        dailyLimitTotal: Number(emailLimitsForm.dailyLimitTotal),
+        resendLimit: Number(emailLimitsForm.resendLimit),
+        smtpLimit: Number(emailLimitsForm.smtpLimit),
+        sendgridLimit: Number(emailLimitsForm.sendgridLimit),
+        buffer: Number(emailLimitsForm.buffer),
+      };
+      const res = await fetch(getApiUrl("/api/v1/settings/email-limits"), {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) await throwApiError(res, "save email limit settings");
+      const json: EmailLimitSettingsResponse = await res.json();
+      setEmailLimitSettings(json);
+      setEmailSettingsResult("Email limit settings updated.");
+      fetchHealth();
+    } catch (err) {
+      setEmailSettingsError(getErrorMessage(err, "Failed to save email limit settings"));
+    } finally {
+      setEmailSettingsSaving(false);
+    }
+  }, [emailLimitsForm, fetchHealth, getAccessToken]);
+
+  const resetEmailLimitSettings = useCallback(async () => {
+    setEmailSettingsSaving(true);
+    setEmailSettingsError("");
+    setEmailSettingsResult("");
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl("/api/v1/settings/email-limits"), {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ resetToDefaults: true }),
+      });
+      if (!res.ok) await throwApiError(res, "reset email limit settings");
+      const json: EmailLimitSettingsResponse = await res.json();
+      setEmailLimitSettings(json);
+      setEmailLimitsForm({
+        enabled: !!json.effective.enabled,
+        dailyLimitTotal: Number(json.effective.dailyLimitTotal || 0),
+        resendLimit: Number(json.effective.resendLimit || 0),
+        smtpLimit: Number(json.effective.smtpLimit || 0),
+        sendgridLimit: Number(json.effective.sendgridLimit || 0),
+        buffer: Number(json.effective.buffer || 0),
+      });
+      setEmailSettingsResult("Email limits reset to defaults.");
+      fetchHealth();
+    } catch (err) {
+      setEmailSettingsError(getErrorMessage(err, "Failed to reset email limit settings"));
+    } finally {
+      setEmailSettingsSaving(false);
+    }
+  }, [fetchHealth, getAccessToken]);
+
   useEffect(() => {
     fetchHealth();
     const interval = setInterval(fetchHealth, 30000); // Refresh every 30s
@@ -154,11 +325,46 @@ function AdminHealthPage() {
     fetchPushStatus();
   }, [fetchPushStatus]);
 
+  useEffect(() => {
+    fetchEmailLimitSettings();
+  }, [fetchEmailLimitSettings]);
+
   const overall = data?.overall || "unhealthy";
   const colors = statusColors[overall] || statusColors.unhealthy;
   const pingValue = basicPing ?? 0;
   const pingWidthClass =
     pingValue < 500 ? "w-1/4" : pingValue < 1000 ? "w-2/4" : pingValue < 1500 ? "w-3/4" : "w-full";
+  const emailDetails = (data?.services?.email?.details as { quota?: EmailQuotaDetails; provider?: string } | undefined);
+  const emailQuota = emailDetails?.quota;
+  const emailLimitValidationErrors = useMemo(() => {
+    const errors: string[] = [];
+    if (!emailLimitsForm.enabled) return errors;
+
+    const total = Number(emailLimitsForm.dailyLimitTotal || 0);
+    const resend = Number(emailLimitsForm.resendLimit || 0);
+    const smtp = Number(emailLimitsForm.smtpLimit || 0);
+    const sendgrid = Number(emailLimitsForm.sendgridLimit || 0);
+    const buffer = Number(emailLimitsForm.buffer || 0);
+
+    if (total <= 0) {
+      errors.push("Daily total must be greater than 0 when limits are enabled.");
+    }
+
+    if (resend > total) errors.push("Resend limit cannot be greater than Daily Total.");
+    if (smtp > total) errors.push("SMTP limit cannot be greater than Daily Total.");
+    if (sendgrid > total) errors.push("SendGrid limit cannot be greater than Daily Total.");
+
+    const positiveLimits = [resend, smtp, sendgrid].filter((v) => v > 0);
+    if (positiveLimits.length > 0) {
+      const smallest = Math.min(...positiveLimits);
+      if (buffer >= smallest) {
+        errors.push(`Buffer must be smaller than the smallest provider limit (${smallest}).`);
+      }
+    }
+
+    return errors;
+  }, [emailLimitsForm]);
+  const hasEmailLimitValidationError = emailLimitValidationErrors.length > 0;
 
   return (
     <div className="min-h-screen bg-ghost">
@@ -175,7 +381,7 @@ function AdminHealthPage() {
             </div>
           </div>
         ) : error && !data ? (
-          <div className="bg-coral-light border-[4px] border-coral rounded-3xl p-8 text-center shadow-[8px_8px_0_0_#000]">
+          <div className="bg-coral-light border-4 border-coral rounded-3xl p-8 text-center shadow-[8px_8px_0_0_#000]">
             <h2 className="font-display font-black text-2xl text-coral mb-2">Health Check Failed</h2>
             <p className="text-navy/60 mb-4">{error}</p>
             <button onClick={fetchHealth} className="bg-navy text-snow px-6 py-2 rounded-xl font-bold press-3 press-lime">
@@ -185,7 +391,7 @@ function AdminHealthPage() {
         ) : data && (
           <>
             {/* Overall Status Banner */}
-            <div className={`${colors.bg} border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] mb-8`}>
+            <div className={`${colors.bg} border-4 border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] mb-8`}>
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-4">
                   <div className={`w-14 h-14 rounded-2xl ${colors.bg} border-[3px] border-navy flex items-center justify-center`}>
@@ -227,7 +433,7 @@ function AdminHealthPage() {
             {/* Services Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
               {/* API Response Time */}
-              <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000]">
+              <div className="bg-snow border-4 border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000]">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-xl bg-lavender-light flex items-center justify-center">
                     <svg aria-hidden="true" className="w-5 h-5 text-lavender" fill="currentColor" viewBox="0 0 24 24">
@@ -251,7 +457,7 @@ function AdminHealthPage() {
               {Object.entries(data.services).map(([name, svc]) => {
                 const sc = statusColors[svc.status] || statusColors.unhealthy;
                 return (
-                  <div key={name} className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000]">
+                  <div key={name} className="bg-snow border-4 border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000]">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div className={`w-3 h-3 rounded-full ${sc.dot}`} />
@@ -276,7 +482,7 @@ function AdminHealthPage() {
 
               {/* System Info */}
               {data.system && (
-                <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000]">
+                <div className="bg-snow border-4 border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000]">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-xl bg-lime-light flex items-center justify-center">
                       <svg aria-hidden="true" className="w-5 h-5 text-navy" fill="currentColor" viewBox="0 0 24 24">
@@ -303,13 +509,13 @@ function AdminHealthPage() {
 
             {/* Collection Stats */}
             {data.collections && Object.keys(data.collections).length > 0 && (
-              <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000]">
+              <div className="bg-snow border-4 border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000]">
                 <h2 className="font-display font-black text-xl text-navy mb-4">Database Collections</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                   {Object.entries(data.collections)
                     .sort(([, a], [, b]) => b - a)
                     .map(([name, count]) => (
-                      <div key={name} className="bg-ghost rounded-2xl p-4 text-center border-[2px] border-cloud">
+                      <div key={name} className="bg-ghost rounded-2xl p-4 text-center border-2 border-cloud">
                         <p className="font-display font-black text-2xl text-navy">{count >= 0 ? count.toLocaleString() : "?"}</p>
                         <p className="text-[10px] font-bold text-slate uppercase tracking-wider mt-1">{name}</p>
                       </div>
@@ -318,7 +524,150 @@ function AdminHealthPage() {
               </div>
             )}
 
-            <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] mt-8">
+            {emailQuota && (
+              <div className="bg-snow border-4 border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] mt-8">
+                <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+                  <h2 className="font-display font-black text-xl text-navy">Email Daily Limits</h2>
+                  <span className={`px-3 py-1 rounded-lg text-xs font-bold ${emailQuota.disabled ? "bg-coral-light text-coral" : "bg-teal-light text-teal"}`}>
+                    {emailQuota.disabled ? "DISABLED (SOFT STOP)" : "ACTIVE"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+                  <div className="bg-ghost rounded-2xl p-4 border-2 border-cloud">
+                    <p className="text-label text-slate mb-1">Provider</p>
+                    <p className="font-display font-black text-lg text-navy uppercase">{emailQuota.activeProvider || "—"}</p>
+                  </div>
+                  <div className="bg-ghost rounded-2xl p-4 border-2 border-cloud">
+                    <p className="text-label text-slate mb-1">Sent Today</p>
+                    <p className="font-display font-black text-lg text-navy">{emailQuota.sentToday}</p>
+                  </div>
+                  <div className="bg-ghost rounded-2xl p-4 border-2 border-cloud">
+                    <p className="text-label text-slate mb-1">Remaining</p>
+                    <p className={`font-display font-black text-lg ${emailQuota.remaining > 0 ? "text-teal" : "text-coral"}`}>{emailQuota.remaining}</p>
+                  </div>
+                  <div className="bg-ghost rounded-2xl p-4 border-2 border-cloud">
+                    <p className="text-label text-slate mb-1">Soft Stop At</p>
+                    <p className="font-display font-black text-lg text-navy">{emailQuota.softStopAt}</p>
+                  </div>
+                  <div className="bg-ghost rounded-2xl p-4 border-2 border-cloud">
+                    <p className="text-label text-slate mb-1">Hard Limit</p>
+                    <p className="font-display font-black text-lg text-navy">{emailQuota.dailyLimit}</p>
+                  </div>
+                </div>
+
+                <div className="bg-ghost rounded-2xl p-4 border-2 border-cloud">
+                  <p className="text-sm text-slate mb-2">
+                    Day: <span className="font-bold text-navy">{emailQuota.day}</span> • Buffer before stop: <span className="font-bold text-navy">{emailQuota.buffer}</span>
+                  </p>
+                  <p className="text-xs text-slate mb-2">
+                    Config source: <span className="font-bold text-navy">{emailQuota.source || "env"}</span>
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {Object.entries(emailQuota.providers || {}).map(([providerName, provider]) => (
+                      <div key={providerName} className="bg-snow rounded-xl p-3 border-2 border-cloud">
+                        <p className="text-label text-slate mb-1 uppercase">{providerName}</p>
+                        <p className="text-sm text-navy">Sent: <span className="font-bold">{provider.sent}</span> / {provider.softStopAt}</p>
+                        <p className="text-sm text-navy">Success: <span className="font-bold">{provider.success}</span> • Failed: <span className="font-bold">{provider.failed}</span></p>
+                        <p className="text-sm text-navy">Blocked: <span className="font-bold">{provider.blocked}</span></p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-ghost rounded-2xl p-4 border-2 border-cloud mt-4">
+                  <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+                    <h3 className="font-display font-black text-lg text-navy">Email Limit Settings</h3>
+                    <p className="text-xs text-slate">Recommended: Total 450, Resend 95, SMTP 450, SendGrid 450, Buffer 5</p>
+                  </div>
+
+                  {emailSettingsLoading ? (
+                    <p className="text-sm text-slate">Loading settings...</p>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <label className="flex items-center gap-2 text-sm text-navy">
+                          <input
+                            type="checkbox"
+                            checked={emailLimitsForm.enabled}
+                            onChange={(e) => setEmailLimitsForm((prev) => ({ ...prev, enabled: e.target.checked }))}
+                          />
+                          Enable limits
+                        </label>
+
+                        {[
+                          { key: "dailyLimitTotal", label: "Daily Total" },
+                          { key: "resendLimit", label: "Resend" },
+                          { key: "smtpLimit", label: "SMTP" },
+                          { key: "sendgridLimit", label: "SendGrid" },
+                          { key: "buffer", label: "Buffer" },
+                        ].map((field) => (
+                          <label key={field.key} className="flex flex-col gap-1 text-xs text-slate">
+                            <span>{field.label}</span>
+                            <input
+                              type="number"
+                              min={0}
+                              value={String(emailLimitsForm[field.key as keyof typeof emailLimitsForm])}
+                              onChange={(e) => {
+                                const value = Number(e.target.value || 0);
+                                setEmailLimitsForm((prev) => ({ ...prev, [field.key]: Number.isFinite(value) ? value : 0 }));
+                              }}
+                              className="bg-snow border-2 border-navy rounded-xl px-3 py-2 text-sm text-navy"
+                            />
+                          </label>
+                        ))}
+                      </div>
+
+                      {emailLimitSettings?.effective && (
+                        <p className="text-xs text-navy-muted mt-3">
+                          Effective now — Total: {emailLimitSettings.effective.dailyLimitTotal}, Resend: {emailLimitSettings.effective.resendLimit}, SMTP: {emailLimitSettings.effective.smtpLimit}, SendGrid: {emailLimitSettings.effective.sendgridLimit}, Buffer: {emailLimitSettings.effective.buffer}
+                        </p>
+                      )}
+
+                      {hasEmailLimitValidationError && (
+                        <div className="mt-3 bg-coral-light border-2 border-coral rounded-2xl p-3 text-sm text-coral font-medium">
+                          {emailLimitValidationErrors.map((msg, idx) => (
+                            <p key={`${msg}-${idx}`}>{msg}</p>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        <button
+                          type="button"
+                          onClick={saveEmailLimitSettings}
+                          disabled={emailSettingsSaving || hasEmailLimitValidationError}
+                          className="bg-lime border-[3px] border-navy rounded-xl px-4 py-2 text-sm font-bold text-navy press-3 press-navy disabled:opacity-50"
+                        >
+                          {emailSettingsSaving ? "Saving..." : "Save Settings"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={resetEmailLimitSettings}
+                          disabled={emailSettingsSaving}
+                          className="bg-snow border-[3px] border-navy rounded-xl px-4 py-2 text-sm font-bold text-navy press-3 press-black disabled:opacity-50"
+                        >
+                          Reset to Defaults
+                        </button>
+                      </div>
+
+                      {emailSettingsResult && (
+                        <div className="mt-3 bg-teal-light border-2 border-teal rounded-2xl p-3 text-sm text-teal font-medium">
+                          {emailSettingsResult}
+                        </div>
+                      )}
+                      {emailSettingsError && (
+                        <div className="mt-3 bg-coral-light border-2 border-coral rounded-2xl p-3 text-sm text-coral font-medium">
+                          {emailSettingsError}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="bg-snow border-4 border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] mt-8">
               <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
                 <h2 className="font-display font-black text-xl text-navy">Push Health</h2>
                 <button
@@ -332,37 +681,37 @@ function AdminHealthPage() {
               </div>
 
               {pushStatusError ? (
-                <div className="bg-coral-light border-[2px] border-coral rounded-2xl p-3 text-sm text-coral font-medium mb-4">
+                <div className="bg-coral-light border-2 border-coral rounded-2xl p-3 text-sm text-coral font-medium mb-4">
                   {pushStatusError}
                 </div>
               ) : pushStatus ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-                  <div className="bg-ghost rounded-2xl p-4 border-[2px] border-cloud">
+                  <div className="bg-ghost rounded-2xl p-4 border-2 border-cloud">
                     <p className="text-label text-slate mb-1">Push Enabled</p>
                     <p className={`font-display font-black text-lg ${pushStatus.enabled ? "text-teal" : "text-coral"}`}>
                       {pushStatus.enabled ? "Yes" : "No"}
                     </p>
                   </div>
-                  <div className="bg-ghost rounded-2xl p-4 border-[2px] border-cloud">
+                  <div className="bg-ghost rounded-2xl p-4 border-2 border-cloud">
                     <p className="text-label text-slate mb-1">Public Key Length</p>
                     <p className="font-display font-black text-lg text-navy">{pushStatus.public_key_length || 0}</p>
                   </div>
-                  <div className="bg-ghost rounded-2xl p-4 border-[2px] border-cloud">
+                  <div className="bg-ghost rounded-2xl p-4 border-2 border-cloud">
                     <p className="text-label text-slate mb-1">Private Key</p>
                     <p className={`font-display font-black text-lg ${pushStatus.private_key_present ? "text-teal" : "text-coral"}`}>
                       {pushStatus.private_key_present ? "Present" : "Missing"}
                     </p>
                   </div>
-                  <div className="bg-ghost rounded-2xl p-4 border-[2px] border-cloud">
+                  <div className="bg-ghost rounded-2xl p-4 border-2 border-cloud">
                     <p className="text-label text-slate mb-1">Key Source</p>
-                    <p className="font-display font-black text-sm text-navy break-words">{pushStatus.private_key_source || "—"}</p>
+                    <p className="font-display font-black text-sm text-navy wrap-break-word">{pushStatus.private_key_source || "—"}</p>
                   </div>
                 </div>
               ) : (
                 <p className="text-sm text-slate mb-4">Loading push diagnostics...</p>
               )}
 
-              <div className="border-t-[2px] border-cloud pt-4">
+              <div className="border-t-2 border-cloud pt-4">
                 <p className="text-sm text-slate mb-3">Send a test push to verify subscription delivery for a specific user.</p>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <input
@@ -382,12 +731,12 @@ function AdminHealthPage() {
                   </button>
                 </div>
                 {pushTestResult && (
-                  <div className="mt-3 bg-teal-light border-[2px] border-teal rounded-2xl p-3 text-sm text-teal font-medium">
+                  <div className="mt-3 bg-teal-light border-2 border-teal rounded-2xl p-3 text-sm text-teal font-medium">
                     {pushTestResult}
                   </div>
                 )}
                 {pushTestError && (
-                  <div className="mt-3 bg-coral-light border-[2px] border-coral rounded-2xl p-3 text-sm text-coral font-medium">
+                  <div className="mt-3 bg-coral-light border-2 border-coral rounded-2xl p-3 text-sm text-coral font-medium">
                     {pushTestError}
                   </div>
                 )}
