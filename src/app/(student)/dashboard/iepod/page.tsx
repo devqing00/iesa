@@ -226,6 +226,7 @@ export default function IepodStudentPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [committingSociety, setCommittingSociety] = useState<string | null>(null);
+  const [showAlreadySubmittedBadge, setShowAlreadySubmittedBadge] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -263,8 +264,14 @@ export default function IepodStudentPage() {
     preferredSocietyId?: string;
   }) => {
     try {
-      await registerForIepod(data);
-      toast.success("Application submitted! You'll be notified once approved.");
+      const result = await registerForIepod(data);
+      if (result?.alreadyRegistered || result?.reason === "already_registered") {
+        toast.info("You are already registered for IEPOD this session.");
+        setShowAlreadySubmittedBadge(true);
+      } else {
+        toast.success("Application submitted! You'll be notified once approved.");
+        setShowAlreadySubmittedBadge(false);
+      }
       await fetchData();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Registration failed";
@@ -364,6 +371,11 @@ export default function IepodStudentPage() {
         {isRegistered && reg?.status === "pending" && (
           <div className="max-w-2xl mx-auto">
             <div className="bg-sunny border-[4px] border-navy rounded-3xl p-8 shadow-[8px_8px_0_0_#000] text-center space-y-4">
+              {showAlreadySubmittedBadge && (
+                <div className="inline-flex items-center gap-2 bg-lime border-[2px] border-navy rounded-xl px-3 py-1.5">
+                  <span className="text-label-sm text-navy font-bold">Already submitted</span>
+                </div>
+              )}
               <div className="w-16 h-16 bg-navy rounded-2xl flex items-center justify-center mx-auto">
                 <svg className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />

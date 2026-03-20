@@ -71,6 +71,8 @@ export interface IepodRegistration {
   completedPhases: IepodPhase[];
   nicheAuditId?: string | null;
   teamId?: string | null;
+  alreadyRegistered?: boolean;
+  reason?: "already_registered" | string;
   createdAt: string;
   updatedAt: string;
 }

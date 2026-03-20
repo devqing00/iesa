@@ -21,7 +21,7 @@ from typing import Optional, List
 import re
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pymongo.errors import DuplicateKeyError
 
 from ..core.permissions import (
@@ -291,6 +291,7 @@ async def delete_society(
 @router.post("/register", status_code=201)
 async def register_for_iepod(
     data: RegistrationCreate,
+    response: Response,
     user: dict = Depends(get_current_user),
     session: dict = Depends(get_current_session),
 ):
@@ -302,7 +303,11 @@ async def register_for_iepod(
     # Check for duplicate
     existing = await _get_registration(db, user_id, session_id)
     if existing:
-        raise HTTPException(400, "You have already registered for this session's IEPOD program")
+        existing["_id"] = str(existing["_id"])
+        response.status_code = status.HTTP_200_OK
+        existing["alreadyRegistered"] = True
+        existing["reason"] = "already_registered"
+        return existing
 
     # Sanitise
     if not validate_no_scripts(data.whyJoin):
@@ -330,7 +335,14 @@ async def register_for_iepod(
     try:
         result = await db.iepod_registrations.insert_one(doc)
     except DuplicateKeyError:
-        raise HTTPException(400, "You have already registered for this session's IEPOD program")
+        existing = await _get_registration(db, user_id, session_id)
+        if existing:
+            existing["_id"] = str(existing["_id"])
+            response.status_code = status.HTTP_200_OK
+            existing["alreadyRegistered"] = True
+            existing["reason"] = "already_registered"
+            return existing
+        raise HTTPException(400, "Unable to complete registration at the moment. Please try again.")
     created = await db.iepod_registrations.find_one({"_id": result.inserted_id})
     created["_id"] = str(created["_id"])
 
