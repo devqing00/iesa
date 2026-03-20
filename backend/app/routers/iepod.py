@@ -86,10 +86,34 @@ async def _award_points(
     )
 
 
-async def _get_registration(db, user_id: str, session_id: str) -> dict | None:
-    return await db.iepod_registrations.find_one(
-        {"userId": user_id, "sessionId": session_id}
-    )
+async def _get_registration(
+    db,
+    user_id: str | ObjectId,
+    session_id: str,
+    user_email: str | None = None,
+) -> dict | None:
+    user_id_str = str(user_id).strip()
+    user_id_candidates: list = [user_id_str]
+    if ObjectId.is_valid(user_id_str):
+        user_id_candidates.append(ObjectId(user_id_str))
+
+    or_filters: list[dict] = [
+        {"userId": {"$in": user_id_candidates}},
+        {"studentId": {"$in": user_id_candidates}},
+    ]
+
+    if user_email:
+        normalized_email = str(user_email).strip().lower()
+        if normalized_email:
+            or_filters.append({"userEmail": normalized_email})
+            or_filters.append({"userEmail": {"$regex": f"^{re.escape(normalized_email)}$", "$options": "i"}})
+
+    query: dict = {
+        "sessionId": session_id,
+        "$or": or_filters,
+    }
+
+    return await db.iepod_registrations.find_one(query)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -298,10 +322,11 @@ async def register_for_iepod(
     """Student registers for the IEPOD program in the current session."""
     db = get_database()
     session_id = str(session["_id"])
-    user_id = user["_id"]
+    user_id = str(user["_id"])
+    user_email = str(user.get("email") or "").strip().lower()
 
     # Check for duplicate
-    existing = await _get_registration(db, user_id, session_id)
+    existing = await _get_registration(db, user_id, session_id, user_email=user_email)
     if existing:
         existing["_id"] = str(existing["_id"])
         response.status_code = status.HTTP_200_OK
@@ -317,7 +342,8 @@ async def register_for_iepod(
         doc["priorExperience"] = sanitize_html(doc.get("priorExperience", ""))
     doc["userId"] = user_id
     doc["userName"] = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
-    doc["userEmail"] = user.get("email", "")
+    doc["userEmail"] = user_email
+    doc["studentId"] = user_id
     doc["sessionId"] = session_id
     doc["level"] = user.get("currentLevel") or user.get("level") or "N/A"
     doc["department"] = user.get("department", "Industrial Engineering")
@@ -336,7 +362,7 @@ async def register_for_iepod(
     try:
         result = await db.iepod_registrations.insert_one(doc)
     except DuplicateKeyError:
-        existing = await _get_registration(db, user_id, session_id)
+        existing = await _get_registration(db, user_id, session_id, user_email=user_email)
         if existing:
             existing["_id"] = str(existing["_id"])
             response.status_code = status.HTTP_200_OK
