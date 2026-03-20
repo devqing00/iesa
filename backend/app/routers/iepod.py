@@ -309,11 +309,12 @@ async def register_for_iepod(
         existing["reason"] = "already_registered"
         return existing
 
-    # Sanitise
-    if not validate_no_scripts(data.whyJoin):
-        raise HTTPException(400, "Invalid characters in motivation text")
-
     doc = data.model_dump()
+    doc["whyJoin"] = sanitize_html(doc.get("whyJoin", ""))
+    if len((doc.get("whyJoin") or "").strip()) < 10:
+        raise HTTPException(400, "Please provide a clearer motivation statement (at least 10 characters)")
+    if doc.get("priorExperience"):
+        doc["priorExperience"] = sanitize_html(doc.get("priorExperience", ""))
     doc["userId"] = user_id
     doc["userName"] = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
     doc["userEmail"] = user.get("email", "")
