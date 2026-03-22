@@ -53,6 +53,8 @@ class MentorApplicationResponse(BaseModel):
     reviewedBy: Optional[str] = None
     createdAt: datetime
     updatedAt: Optional[datetime] = None
+    alreadyApplied: Optional[bool] = None
+    reason: Optional[str] = None
 
 
 # ── Mentorship Pair ───────────────────────────────────────────────

@@ -158,8 +158,12 @@ export default function TimpPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await applyAsMentor(applyForm);
-      toast.success("Mentor application submitted!");
+      const result = await applyAsMentor(applyForm);
+      if (result.alreadyApplied || result.reason === "already_applied") {
+        toast.info("You already have an active TIMP mentor application for this session.");
+      } else {
+        toast.success("Mentor application submitted!");
+      }
       setShowApply(false);
       await fetchInfo();
     } catch {

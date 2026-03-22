@@ -24,6 +24,8 @@ export interface MentorApplication {
   reviewedBy?: string | null;
   createdAt: string;
   updatedAt?: string | null;
+  alreadyApplied?: boolean;
+  reason?: string;
 }
 
 export interface MentorshipPair {

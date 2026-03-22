@@ -5,7 +5,8 @@ from typing import Optional
 import re
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from pymongo.errors import DuplicateKeyError
 from pydantic import BaseModel, Field
 
 from ..core.permissions import get_current_user, get_current_session, require_permission, invalidate_permissions_cache
@@ -46,6 +47,8 @@ def _app_to_response(doc: dict) -> MentorApplicationResponse:
         reviewedBy=doc.get("reviewedBy"),
         createdAt=doc["createdAt"],
         updatedAt=doc.get("updatedAt"),
+        alreadyApplied=doc.get("alreadyApplied"),
+        reason=doc.get("reason"),
     )
 
 
@@ -217,6 +220,7 @@ async def update_timp_settings(
 
 @router.post("/apply", response_model=MentorApplicationResponse, status_code=201)
 async def apply_as_mentor(
+    response: Response,
     data: MentorApplicationCreate,
     user: dict = Depends(require_ipe_student),
     session: dict = Depends(get_current_session),
@@ -251,15 +255,17 @@ async def apply_as_mentor(
 
     # Check if already has pending/approved application this session
     existing = await db.timpApplications.find_one({
-        "userId": uid,
+        "$or": [{"userId": uid}, {"studentId": uid}],
         "sessionId": sid,
         "status": {"$in": ["pending", "approved"]},
     })
     if existing:
-        raise HTTPException(
-            status_code=400,
-            detail="You already have an active mentor application for this session",
-        )
+        response.status_code = 200
+        return _app_to_response({
+            **existing,
+            "alreadyApplied": True,
+            "reason": "already_applied",
+        })
 
     raw_level = user.get("level") or user.get("currentLevel")
     stored_level = None
@@ -271,6 +277,7 @@ async def apply_as_mentor(
 
     doc = {
         "userId": uid,
+        "studentId": uid,
         "userName": f"{user.get('firstName', '')} {user.get('lastName', '')}".strip(),
         "userLevel": stored_level,
         "motivation": data.motivation,
@@ -284,7 +291,25 @@ async def apply_as_mentor(
         "createdAt": datetime.now(timezone.utc),
         "updatedAt": None,
     }
-    result = await db.timpApplications.insert_one(doc)
+    try:
+        result = await db.timpApplications.insert_one(doc)
+    except DuplicateKeyError:
+        existing_after = await db.timpApplications.find_one({
+            "$or": [{"userId": uid}, {"studentId": uid}],
+            "sessionId": sid,
+            "status": {"$in": ["pending", "approved"]},
+        })
+        if existing_after:
+            response.status_code = 200
+            return _app_to_response({
+                **existing_after,
+                "alreadyApplied": True,
+                "reason": "already_applied",
+            })
+        raise HTTPException(
+            status_code=400,
+            detail="Unable to complete TIMP application at the moment. Please try again.",
+        )
     doc["_id"] = result.inserted_id
     return _app_to_response(doc)
 
