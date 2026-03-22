@@ -29,6 +29,8 @@ const SAFE_SHELL_ROUTES = new Set([
   "/register",
 ]);
 
+const HAS_CACHE_API = typeof caches !== "undefined";
+
 function isSameOrigin(url) {
   return url.origin === self.location.origin;
 }
@@ -50,6 +52,10 @@ function isStaticAsset(url) {
 }
 
 async function networkFirst(request, cacheName) {
+  if (!HAS_CACHE_API) {
+    return fetch(request);
+  }
+
   const cache = await caches.open(cacheName);
   try {
     const response = await fetch(request);
@@ -64,21 +70,30 @@ async function networkFirst(request, cacheName) {
   }
 }
 
+async function matchCache(request) {
+  if (!HAS_CACHE_API) return undefined;
+  return caches.match(request);
+}
+
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL_ASSETS)).catch(() => undefined),
-  );
+  if (HAS_CACHE_API) {
+    event.waitUntil(
+      caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL_ASSETS)).catch(() => undefined),
+    );
+  }
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
-    const names = await caches.keys();
-    await Promise.all(
-      names
-        .filter((name) => !VALID_CACHES.includes(name))
-        .map((name) => caches.delete(name)),
-    );
+    if (HAS_CACHE_API) {
+      const names = await caches.keys();
+      await Promise.all(
+        names
+          .filter((name) => !VALID_CACHES.includes(name))
+          .map((name) => caches.delete(name)),
+      );
+    }
     await self.clients.claim();
   })());
 });
@@ -106,7 +121,7 @@ self.addEventListener("fetch", (event) => {
     if (isSensitiveAppRoute(url)) {
       event.respondWith(
         fetch(request, { cache: "no-store" }).catch(async () => {
-          const offline = await caches.match("/offline.html");
+          const offline = await matchCache("/offline.html");
           return offline || Response.error();
         }),
       );
@@ -116,9 +131,9 @@ self.addEventListener("fetch", (event) => {
     if (SAFE_SHELL_ROUTES.has(url.pathname)) {
       event.respondWith(
         networkFirst(request, RUNTIME_CACHE).catch(async () => {
-          const fallback = await caches.match(request);
+          const fallback = await matchCache(request);
           if (fallback) return fallback;
-          const offline = await caches.match("/offline.html");
+          const offline = await matchCache("/offline.html");
           return offline || Response.error();
         }),
       );
@@ -127,7 +142,7 @@ self.addEventListener("fetch", (event) => {
 
     event.respondWith(
       fetch(request, { cache: "no-store" }).catch(async () => {
-        const offline = await caches.match("/offline.html");
+        const offline = await matchCache("/offline.html");
         return offline || Response.error();
       }),
     );
@@ -136,7 +151,7 @@ self.addEventListener("fetch", (event) => {
 
   if (isStaticAsset(url)) {
     event.respondWith(
-      networkFirst(request, RUNTIME_CACHE).catch(() => caches.match(request)),
+      networkFirst(request, RUNTIME_CACHE).catch(() => matchCache(request)),
     );
   }
 });
@@ -210,9 +225,4 @@ self.addEventListener("notificationclick", (event) => {
       return self.clients.openWindow(url);
     }),
   );
-});
-
-// Activate immediately
-self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
 });

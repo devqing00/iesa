@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
+import { supportsServiceWorkerRegistration, supportsWebPush } from "@/lib/serviceWorkerSupport";
 
 /**
  * Hook to manage Web Push notification subscription.
@@ -43,11 +44,7 @@ export function usePushNotifications() {
   useEffect(() => {
     let cleanupPermissionListener: (() => void) | undefined;
 
-    const canPush =
-      typeof window !== "undefined" &&
-      "serviceWorker" in navigator &&
-      "PushManager" in window &&
-      "Notification" in window;
+    const canPush = supportsWebPush();
 
     setSupported(canPush);
     if (!canPush) return;
@@ -192,6 +189,9 @@ export function usePushNotifications() {
       // 3. Ensure SW is registered (re-register if the ref is still null due to async timing)
       let reg = registrationRef.current;
       if (!reg) {
+        if (!supportsServiceWorkerRegistration()) {
+          throw new Error("Service worker registration is not supported in this browser context");
+        }
         reg = await navigator.serviceWorker.register("/push-sw.js");
         registrationRef.current = reg;
         logPushDebug("service worker registered during subscribe", { scope: reg.scope });
@@ -274,6 +274,9 @@ export function usePushNotifications() {
               }
 
               await reg.unregister().catch(() => undefined);
+              if (!supportsServiceWorkerRegistration()) {
+                throw new Error("Service worker registration is not supported in this browser context");
+              }
               reg = await navigator.serviceWorker.register("/push-sw.js");
               registrationRef.current = reg;
               const readyAfterReset = await navigator.serviceWorker.ready;

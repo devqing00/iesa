@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { supportsServiceWorkerRegistration } from "@/lib/serviceWorkerSupport";
 
 const SW_URL = "/push-sw.js";
 
@@ -10,7 +11,7 @@ export default function ServiceWorkerManager() {
   const refreshingRef = useRef(false);
 
   useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
+    if (!supportsServiceWorkerRegistration()) return;
 
     let registration: ServiceWorkerRegistration | null = null;
 
