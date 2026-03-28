@@ -3,7 +3,9 @@ export function supportsServiceWorkerRegistration(): boolean {
   if (!("serviceWorker" in navigator)) return false;
 
   try {
-    if (typeof ServiceWorkerGlobalScope === "undefined") return false;
+    // Avoid referencing a potentially undeclared global identifier directly.
+    const swGlobalScope = (globalThis as { ServiceWorkerGlobalScope?: unknown }).ServiceWorkerGlobalScope;
+    if (typeof swGlobalScope === "undefined") return false;
     return true;
   } catch {
     return false;

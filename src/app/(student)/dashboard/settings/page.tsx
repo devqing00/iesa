@@ -197,7 +197,9 @@ export default function SettingsPage() {
 
   const hasSecondary = !!userProfile?.secondaryEmail;
   const secondaryVerified = !!userProfile?.secondaryEmailVerified;
-  const hasPasswordProvider = !!firebaseUser?.providerData?.some((provider) => provider.providerId === "password");
+  const hasPasswordProvider = !!firebaseUser?.providerData?.some(
+    (provider: { providerId?: string }) => provider.providerId === "password"
+  );
 
   /* ─── Render ───────────────────────────────────────────── */
 
