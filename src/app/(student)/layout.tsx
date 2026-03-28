@@ -60,7 +60,7 @@ function DashboardLayoutInner({
   // Redirect external students from restricted routes
   useEffect(() => {
     if (loading || !user || !userProfile) return;
-    if (isExternalStudent(userProfile.department) && !isRouteAllowedForExternal(pathname)) {
+    if (isExternalStudent(userProfile.department, userProfile.isExternalStudent) && !isRouteAllowedForExternal(pathname)) {
       router.replace("/dashboard");
     }
   }, [loading, user, userProfile, pathname, router]);

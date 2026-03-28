@@ -16,6 +16,7 @@ Every endpoint auto-scopes data to the rep's assigned level.
 import csv
 import io
 import asyncio
+import os
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -1030,6 +1031,7 @@ async def remind_unpaid_payment_students(
                 continue
 
             subject = f"IESA Payment Reminder — {payment.get('title', 'Payment')}"
+            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
             html = f"""
             <html>
               <body style=\"margin:0;padding:24px;background:#FAFAFE;font-family:Inter,Arial,sans-serif;color:#0F0F2D;\">
@@ -1041,7 +1043,7 @@ async def remind_unpaid_payment_students(
                     <p style=\"margin:0 0 10px;font-size:14px;line-height:1.7;color:#334155;\">Hi {display_name},</p>
                     <p style=\"margin:0 0 10px;font-size:14px;line-height:1.7;color:#334155;\">{message}</p>
                     <p style=\"margin:0 0 14px;font-size:13px;line-height:1.7;color:#64748B;\">Open your dashboard to complete payment and avoid deadline issues.</p>
-                    <a href=\"https://iesa-ui.vercel.app/dashboard/payments\" style=\"display:inline-block;background:#0F0F2D;color:#FFFFFF;font-size:13px;font-weight:800;text-decoration:none;padding:10px 14px;border:3px solid #0F0F2D;border-radius:10px;\">Open Payments</a>
+                    <a href=\"{frontend_url}/dashboard/payments\" style=\"display:inline-block;background:#0F0F2D;color:#FFFFFF;font-size:13px;font-weight:800;text-decoration:none;padding:10px 14px;border:3px solid #0F0F2D;border-radius:10px;\">Open Payments</a>
                   </div>
                 </div>
               </body>

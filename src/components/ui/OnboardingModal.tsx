@@ -252,10 +252,10 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
   // Level calculation using active session
   const calculateLevel = useCallback(
     (admSession: string): string => {
-      if (currentSecondYear === null) return "";
+      const fallbackSecondYear = currentSecondYear ?? (new Date().getFullYear() + 1);
       const admSY = parseInt(admSession.split("/")[1]);
       if (isNaN(admSY)) return "";
-      return `${Math.max(100, Math.min(500, (currentSecondYear - admSY) * 100 + 100))}L`;
+      return `${Math.max(100, Math.min(500, (fallbackSecondYear - admSY) * 100 + 100))}L`;
     },
     [currentSecondYear]
   );

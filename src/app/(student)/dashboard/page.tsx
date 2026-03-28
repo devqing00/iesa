@@ -95,7 +95,7 @@ export default function StudentDashboardPage() {
   const isClassRepOrAssistant = permissionsLoaded && hasPermission("class_rep:view_cohort");
 
   const { data, isLoading: loading, mutate: mutateStudentDashboard } = useStudentDashboard(enabled);
-  const external = isExternalStudent(userProfile?.department);
+  const external = isExternalStudent(userProfile?.department, userProfile?.isExternalStudent);
 
   // ── All hooks must be called unconditionally before any early return
   //    (React Rules of Hooks). Derived values use optional chaining so

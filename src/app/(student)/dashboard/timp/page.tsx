@@ -266,7 +266,13 @@ export default function TimpPage() {
   const isApproved = info?.application?.status === "approved";
   const formOpen = info?.formOpen ?? true;
   const userLevel = info?.userLevel ?? null;
-  const is100L = userLevel !== null && userLevel < 200;
+  const numericUserLevel =
+    typeof userLevel === "number"
+      ? userLevel
+      : typeof userLevel === "string"
+        ? parseInt(userLevel.replace(/l/gi, "").trim(), 10)
+        : NaN;
+  const is100L = Number.isFinite(numericUserLevel) && numericUserLevel < 200;
 
   // Journey progress
   const showJourney = info != null && (hasApplication || info.pairs.length > 0);

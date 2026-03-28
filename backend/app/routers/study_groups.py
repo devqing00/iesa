@@ -7,6 +7,7 @@ Supports join-request approval flow, invite links, and head controls.
 
 from datetime import datetime, timezone
 from typing import Optional, List, Literal
+import os
 import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
@@ -1094,7 +1095,8 @@ async def send_group_invites(
 
         display_name = f"{target.get('firstName', '')} {target.get('lastName', '')}".strip() or "Student"
         group_name = escape(doc.get("name", "Study Group"))
-        invite_url = f"https://iesa-ui.vercel.app{invite_link}"
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+        invite_url = f"{frontend_url}{invite_link}"
         join_instruction = "request access" if visibility == "private" else "join"
         subject = f"IESA Study Group Invite — {doc.get('name', 'Study Group')}"
         html = f"""

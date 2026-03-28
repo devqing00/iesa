@@ -455,8 +455,7 @@ export default function IESAAIPage() {
           },
           body: JSON.stringify({ conversations: convs }),
         });
-      } catch (error) {
-        console.warn("[IESA AI] Conversation sync failed", error);
+      } catch {
       }
     },
     [getAccessToken],
@@ -491,8 +490,7 @@ export default function IESAAIPage() {
             : 0;
       setUsage(data);
       setRequestCount(derivedHourlyUsed);
-    } catch (error) {
-      console.warn("[IESA AI] Failed to fetch usage", error);
+    } catch {
     }
   }, [getAccessToken]);
 
@@ -520,7 +518,6 @@ export default function IESAAIPage() {
           return;
         }
       } catch {
-        console.warn("[IESA AI] Failed to load conversations from server");
       }
 
       const saved = localStorage.getItem("iesa-ai-conversations");
@@ -528,7 +525,6 @@ export default function IESAAIPage() {
         try {
           setConversations(JSON.parse(saved));
         } catch {
-          console.warn("[IESA AI] Failed to parse local conversations cache");
         }
       }
     };
@@ -730,8 +726,7 @@ export default function IESAAIPage() {
       await navigator.clipboard.writeText(text);
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
-    } catch (error) {
-      console.warn("[IESA AI] Copy failed", error);
+    } catch {
       toast.error("Could not copy message");
     }
   };
@@ -752,8 +747,7 @@ export default function IESAAIPage() {
           rating: rating === "up" ? 1 : -1,
         }),
       });
-    } catch (error) {
-      console.warn("[IESA AI] Feedback submission failed", error);
+    } catch {
     }
   };
 

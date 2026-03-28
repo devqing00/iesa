@@ -51,7 +51,7 @@ export default function MobileNav() {
     }
   });
   const activeSession = allSessions.find(s => s.isActive) ?? currentSession;
-  const external = isExternalStudent(userProfile?.department);
+  const external = isExternalStudent(userProfile?.department, userProfile?.isExternalStudent);
   const isClassRepOrAssistant = permissionsLoaded && hasPermission("class_rep:view_cohort");
 
   useEffect(() => {

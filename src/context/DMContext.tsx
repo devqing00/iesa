@@ -153,7 +153,7 @@ export function DMProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!userProfile) return;
     // External students can't use DM (backend blocks them)
-    if (isExternalStudent(userProfile.department)) return;
+    if (isExternalStudent(userProfile.department, userProfile.isExternalStudent)) return;
     const userId = userProfile.id;
     if (!userId) return;
 

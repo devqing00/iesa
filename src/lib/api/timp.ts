@@ -13,7 +13,7 @@ export interface MentorApplication {
   id: string;
   userId: string;
   userName: string;
-  userLevel?: number | null;
+  userLevel?: string | number | null;
   motivation: string;
   skills: string;
   availability: string;
@@ -61,7 +61,7 @@ export interface MyTimpInfo {
   isMentor: boolean;
   isMentee: boolean;
   formOpen: boolean;
-  userLevel: number | null;
+  userLevel: string | number | null;
 }
 
 export interface ApplyAsMentorData {

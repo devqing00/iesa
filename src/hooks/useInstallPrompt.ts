@@ -53,6 +53,17 @@ export function useInstallPrompt() {
     if (typeof window === "undefined") return;
 
     const onBeforeInstallPrompt = (event: Event) => {
+      const dismissed = window.localStorage.getItem(INSTALL_DISMISSED_KEY) === "1";
+      const snoozed = isSnoozed();
+      const installed = isStandaloneMode();
+
+      // If the user already dismissed/snoozed/installed, don't intercept the
+      // browser flow. This avoids the "preventDefault() called without prompt()"
+      // warning and lets native behavior proceed.
+      if (dismissed || snoozed || installed) {
+        return;
+      }
+
       const installEvent = event as BeforeInstallPromptEvent;
       installEvent.preventDefault();
       setDeferredPrompt(installEvent);

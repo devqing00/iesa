@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Literal
 from datetime import datetime, timezone
 import logging
+import os
 
 from app.core.email import get_email_service, EmailTemplate
 from app.core.notification_utils import get_notification_emails, should_send_email, should_send_in_app
@@ -468,6 +469,7 @@ async def review_transfer(
             notification_emails = get_notification_emails(student)
             status_label = "approved" if data.status == "approved" else "rejected"
             note_html = f"<p><strong>Admin Note:</strong> {data.adminNote}</p>" if data.adminNote else ""
+            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
             
             if data.status == "approved":
                 subject = f"✅ Bank Transfer Approved - {transfer.get('paymentTitle', 'Payment')}"
@@ -482,7 +484,7 @@ async def review_transfer(
                         <p><strong>Status:</strong> ✅ Approved</p>
                     </div>
                     {note_html}
-                    <p>You can download your receipt from the <a href="https://iesa-ui.vercel.app/dashboard/payments">Payments page</a>.</p>
+                    <p>You can download your receipt from the <a href="{frontend_url}/dashboard/payments">Payments page</a>.</p>
                 </body></html>
                 """
             else:
@@ -498,7 +500,7 @@ async def review_transfer(
                         <p><strong>Status:</strong> ❌ Rejected</p>
                     </div>
                     {note_html}
-                    <p>Please review the admin's note and resubmit if needed from the <a href="https://iesa-ui.vercel.app/dashboard/payments">Payments page</a>.</p>
+                    <p>Please review the admin's note and resubmit if needed from the <a href="{frontend_url}/dashboard/payments">Payments page</a>.</p>
                 </body></html>
                 """
             

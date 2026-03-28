@@ -31,21 +31,67 @@ router = APIRouter(prefix="/api/v1/timp", tags=["TIMP Mentoring"])
 # ── Helper ────────────────────────────────────────────────────────
 
 
+def _normalize_level(level: object) -> Optional[str]:
+    """Normalize mixed legacy level formats to the response string shape."""
+    if level is None:
+        return None
+    if isinstance(level, int):
+        return f"{level}L"
+    if isinstance(level, str):
+        cleaned = level.strip()
+        if not cleaned:
+            return None
+        # Support legacy numeric strings like "400".
+        if cleaned.isdigit():
+            return f"{cleaned}L"
+        return cleaned
+    return str(level)
+
+
+def _normalize_max_mentees(value: object, *, default: int = 2) -> int:
+    """Normalize maxMentees values coming from mixed legacy docs."""
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, int):
+        return value if value >= 1 else default
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if cleaned.isdigit():
+            parsed = int(cleaned)
+            return parsed if parsed >= 1 else default
+    return default
+
+
+def _normalize_app_status(value: object) -> str:
+    """Normalize legacy status values to supported enum strings."""
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {
+            MentorApplicationStatus.pending.value,
+            MentorApplicationStatus.approved.value,
+            MentorApplicationStatus.rejected.value,
+        }:
+            return lowered
+    return MentorApplicationStatus.pending.value
+
+
 def _app_to_response(doc: dict) -> MentorApplicationResponse:
+    # Backward compatibility: older docs used studentId without userId.
+    canonical_user_id = doc.get("userId") or doc.get("studentId") or ""
     return MentorApplicationResponse(
         id=str(doc["_id"]),
-        userId=doc["userId"],
-        userName=doc["userName"],
-        userLevel=doc.get("userLevel"),
-        motivation=doc["motivation"],
-        skills=doc["skills"],
-        availability=doc["availability"],
-        maxMentees=doc["maxMentees"],
-        status=doc["status"],
+        userId=canonical_user_id,
+        userName=doc.get("userName", "Unknown applicant"),
+        userLevel=_normalize_level(doc.get("userLevel")),
+        motivation=doc.get("motivation", ""),
+        skills=doc.get("skills", ""),
+        availability=doc.get("availability", ""),
+        maxMentees=_normalize_max_mentees(doc.get("maxMentees"), default=2),
+        status=_normalize_app_status(doc.get("status")),
         feedback=doc.get("feedback"),
-        sessionId=doc["sessionId"],
+        sessionId=doc.get("sessionId", ""),
         reviewedBy=doc.get("reviewedBy"),
-        createdAt=doc["createdAt"],
+        createdAt=doc.get("createdAt") or datetime.now(timezone.utc),
         updatedAt=doc.get("updatedAt"),
         alreadyApplied=doc.get("alreadyApplied"),
         reason=doc.get("reason"),
@@ -268,12 +314,7 @@ async def apply_as_mentor(
         })
 
     raw_level = user.get("level") or user.get("currentLevel")
-    stored_level = None
-    if raw_level:
-        try:
-            stored_level = int(str(raw_level).replace("L", "").replace("l", "").strip())
-        except (ValueError, TypeError):
-            pass
+    stored_level = _normalize_level(raw_level)
 
     doc = {
         "userId": uid,
@@ -399,7 +440,7 @@ async def review_mentor_application(
     )
 
     # Notify the applicant about the review result
-    applicant_id = result.get("userId")
+    applicant_id = result.get("userId") or result.get("studentId")
     if applicant_id:
         try:
             from app.routers.notifications import create_notification
@@ -425,8 +466,9 @@ async def get_my_application(
 ):
     """Get the current user's mentor application for this session."""
     db = get_database()
+    uid = str(user["_id"])
     doc = await db.timpApplications.find_one({
-        "userId": str(user["_id"]),
+        "$or": [{"userId": uid}, {"studentId": uid}],
         "sessionId": str(session["_id"]),
     })
     if not doc:
@@ -471,14 +513,18 @@ async def get_enriched_mentors(
     lead_user_ids = [r.get("userId") for r in lead_roles if r.get("userId")]
 
     # Batch-fetch user docs and pair counts
-    user_ids = [a["userId"] for a in apps]
-    all_user_ids = sorted(set([*user_ids, *lead_user_ids]))
+    app_user_ids = [
+        a.get("userId") or a.get("studentId")
+        for a in apps
+        if a.get("userId") or a.get("studentId")
+    ]
+    all_user_ids = sorted(set([*app_user_ids, *lead_user_ids]))
     user_oids = [ObjectId(uid) for uid in all_user_ids if ObjectId.is_valid(uid)]
     users_cursor = db.users.find({"_id": {"$in": user_oids}})
     users_map = {str(u["_id"]): u async for u in users_cursor}
 
     # Add implicit mentor entries for leads not already in approved applications
-    existing_user_ids = set(user_ids)
+    existing_user_ids = set(app_user_ids)
     for lead_uid in lead_user_ids:
         if lead_uid in existing_user_ids:
             continue
@@ -497,29 +543,33 @@ async def get_enriched_mentors(
 
     # Count active pairs per mentor
     pipeline = [
-        {"$match": {"mentorId": {"$in": user_ids}, "sessionId": sid, "status": "active"}},
+        {"$match": {"mentorId": {"$in": all_user_ids}, "sessionId": sid, "status": "active"}},
         {"$group": {"_id": "$mentorId", "count": {"$sum": 1}}},
     ]
     pair_counts = {doc["_id"]: doc["count"] async for doc in db.timpPairs.aggregate(pipeline)}
 
     result = []
     for a in apps:
-        u = users_map.get(a["userId"], {})
+        canonical_user_id = a.get("userId") or a.get("studentId") or ""
+        if not canonical_user_id:
+            continue
+        max_mentees = _normalize_max_mentees(a.get("maxMentees"), default=2)
+        u = users_map.get(canonical_user_id, {})
         result.append({
             "applicationId": str(a["_id"]),
-            "userId": a["userId"],
-            "userName": a["userName"],
+            "userId": canonical_user_id,
+            "userName": a.get("userName", "Unknown applicant"),
             "email": u.get("email", ""),
             "matricNumber": u.get("matricNumber", ""),
-            "level": u.get("currentLevel") or a.get("userLevel"),
+            "level": _normalize_level(u.get("currentLevel") or a.get("userLevel")),
             "phone": u.get("phone"),
             "gender": u.get("gender") or u.get("sex"),
-            "skills": a["skills"],
-            "availability": a["availability"],
-            "motivation": a["motivation"],
-            "maxMentees": a["maxMentees"],
-            "activePairs": pair_counts.get(a["userId"], 0),
-            "isFull": pair_counts.get(a["userId"], 0) >= a["maxMentees"],
+            "skills": a.get("skills", ""),
+            "availability": a.get("availability", ""),
+            "motivation": a.get("motivation", ""),
+            "maxMentees": max_mentees,
+            "activePairs": pair_counts.get(canonical_user_id, 0),
+            "isFull": pair_counts.get(canonical_user_id, 0) >= max_mentees,
             "profilePictureUrl": u.get("profilePictureUrl"),
         })
 
@@ -602,7 +652,10 @@ async def get_timp_user_details(
     sid = str(session["_id"])
 
     # Get TIMP application if exists
-    app_doc = await db.timpApplications.find_one({"userId": user_id, "sessionId": sid})
+    app_doc = await db.timpApplications.find_one({
+        "$or": [{"userId": user_id}, {"studentId": user_id}],
+        "sessionId": sid,
+    })
 
     # Get active pairs
     pairs_cursor = db.timpPairs.find({
@@ -646,7 +699,7 @@ async def create_pair(
 
     # Verify mentor is approved
     mentor_app = await db.timpApplications.find_one({
-        "userId": data.mentorId,
+        "$or": [{"userId": data.mentorId}, {"studentId": data.mentorId}],
         "sessionId": sid,
         "status": "approved",
     })
@@ -939,7 +992,7 @@ async def get_my_timp_info(
     sid = str(session["_id"])
 
     application = await db.timpApplications.find_one({
-        "userId": uid,
+        "$or": [{"userId": uid}, {"studentId": uid}],
         "sessionId": sid,
     })
 

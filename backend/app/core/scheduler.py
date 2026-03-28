@@ -14,6 +14,7 @@ All jobs are fire-and-forget — failures are logged but never crash the server.
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timezone, timedelta
 from bson import ObjectId
 
@@ -282,12 +283,13 @@ async def birthday_wishes() -> None:
                 if should_send_email(user) and should_notify_category(user, "academic"):
                     email_addresses = list(dict.fromkeys(get_notification_emails(user)))
                     for email in email_addresses:
+                        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
                         await send_birthday_email(
                             to=email,
                             name=full_name,
                             role_appreciation=role_appreciation,
                             due_reminder=due_reminder,
-                            dashboard_url="https://iesa-ui.vercel.app/dashboard",
+                            dashboard_url=f"{frontend_url}/dashboard",
                         )
             except Exception as e:
                 logger.warning(

@@ -19,6 +19,15 @@ from app.db import get_database
 logger = logging.getLogger("iesa_backend")
 
 
+def _frontend_url(path: str = "") -> str:
+    """Build frontend URLs from env, with localhost fallback for local dev."""
+    base = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+    if not path:
+        return base
+    normalized = path if path.startswith("/") else f"/{path}"
+    return f"{base}{normalized}"
+
+
 class EmailProvider(Enum):
     """Supported email providers"""
     SENDGRID = "sendgrid"
@@ -846,7 +855,7 @@ class EmailService:
             content = str(context.get("content", ""))
             content_preview = content[:450] + ("…" if len(content) > 450 else "")
             content_preview = _esc(content_preview).replace("\n", "<br>")
-            dashboard_url = _esc(context.get("dashboard_url", "https://iesa-ui.vercel.app/dashboard/announcements"))
+            dashboard_url = _esc(context.get("dashboard_url", _frontend_url("/dashboard/announcements")))
 
             subject = f"[{badge}] {context.get('title', 'New Announcement')} — IESA"
             body = f"""
@@ -1000,10 +1009,11 @@ async def send_announcement_email(
     content: str,
     priority: str,
     target_label: str,
-    dashboard_url: str = "https://iesa-ui.vercel.app/dashboard/announcements",
+    dashboard_url: str | None = None,
 ):
     """Send an announcement notification email to a student."""
     service = get_email_service()
+    resolved_dashboard_url = dashboard_url or _frontend_url("/dashboard/announcements")
     return await service.send_template_email(
         to=to,
         template=EmailTemplate.ANNOUNCEMENT,
@@ -1013,7 +1023,7 @@ async def send_announcement_email(
             "content": content,
             "priority": priority,
             "target_label": target_label,
-            "dashboard_url": dashboard_url,
+            "dashboard_url": resolved_dashboard_url,
         }
     )
 
@@ -1023,10 +1033,11 @@ async def send_birthday_email(
     name: str,
     role_appreciation: str | None = None,
     due_reminder: str | None = None,
-    dashboard_url: str = "https://iesa-ui.vercel.app/dashboard",
+    dashboard_url: str | None = None,
 ):
     """Send a specialized birthday celebrant email."""
     service = get_email_service()
+    resolved_dashboard_url = dashboard_url or _frontend_url("/dashboard")
 
     subject = "Happy Birthday from IESA"
     html = f"""
@@ -1044,7 +1055,7 @@ async def send_birthday_email(
                 <p style="margin:0 0 18px;font-size:14px;line-height:1.7;color:#334155;">The entire Industrial Engineering Students&apos; Association community celebrates you and wishes you a wonderful year ahead.</p>
                 {f'<div style="margin:0 0 18px;padding:12px 14px;background:#F2F0FF;border:2px solid #0F0F2D;border-radius:12px;color:#0F0F2D;font-size:13px;line-height:1.6;"><strong>We appreciate your service:</strong> {escape(role_appreciation)}</div>' if role_appreciation else ''}
                 {f'<div style="margin:0 0 18px;padding:12px 14px;background:#FFF7D6;border:2px solid #0F0F2D;border-radius:12px;color:#0F0F2D;font-size:13px;line-height:1.6;"><strong>Playful reminder:</strong> {escape(due_reminder)}</div>' if due_reminder else ''}
-                <a href="{escape(dashboard_url)}" style="display:inline-block;background:#C8F31D;color:#0F0F2D;font-size:13px;font-weight:900;text-decoration:none;padding:12px 18px;border:3px solid #0F0F2D;border-radius:12px;box-shadow:3px 3px 0 #0F0F2D;">
+                <a href="{escape(resolved_dashboard_url)}" style="display:inline-block;background:#C8F31D;color:#0F0F2D;font-size:13px;font-weight:900;text-decoration:none;padding:12px 18px;border:3px solid #0F0F2D;border-radius:12px;box-shadow:3px 3px 0 #0F0F2D;">
                     Open IESA Dashboard
                 </a>
             </div>

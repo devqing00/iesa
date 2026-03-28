@@ -252,7 +252,7 @@ export default function Sidebar() {
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
-  const external = isExternalStudent(userProfile?.department);
+  const external = isExternalStudent(userProfile?.department, userProfile?.isExternalStudent);
   const isClassRepOrAssistant = permissionsLoaded && hasPermission("class_rep:view_cohort");
 
   const visibleGroups = useMemo(

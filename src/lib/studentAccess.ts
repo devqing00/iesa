@@ -11,9 +11,16 @@
 export const IPE_DEPARTMENT = "Industrial Engineering";
 
 /** Check if a student is from an external department. */
-export function isExternalStudent(department?: string | null): boolean {
-  if (!department) return false;
-  return department !== IPE_DEPARTMENT;
+export function isExternalStudent(
+  department?: string | null,
+  externalFlag?: boolean | null,
+): boolean {
+  if (externalFlag === true) return true;
+
+  const normalized = (department || "").trim().toLowerCase();
+  if (!normalized) return false;
+
+  return normalized !== IPE_DEPARTMENT.toLowerCase();
 }
 
 /**

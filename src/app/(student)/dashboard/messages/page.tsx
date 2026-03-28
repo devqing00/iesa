@@ -471,8 +471,7 @@ export default function MessagesPage() {
       setConversations(data);
       // Keep context badge in sync with actual unread totals from the API
       syncTotalUnread(data.reduce((s, c) => s + c.unreadCount, 0));
-    } catch (error) {
-      console.warn("[Messages] Failed to fetch conversations", error);
+    } catch {
       toast.error("Could not load conversations");
     } finally {
       setLoadingConvs(false);
@@ -484,8 +483,7 @@ export default function MessagesPage() {
     try {
       const res = await apiFetch("/api/v1/messages/mute-status");
       if (res.ok) setMuteInfo(await res.json());
-    } catch (error) {
-      console.warn("[Messages] Failed to fetch mute status", error);
+    } catch {
     }
   }, [apiFetch]);
 
@@ -531,8 +529,7 @@ export default function MessagesPage() {
       ]);
       if (msgRes.ok) setMsgRequests(await msgRes.json());
       if (connRes.ok) setConnRequests(await connRes.json());
-    } catch (error) {
-      console.warn("[Messages] Failed to fetch requests", error);
+    } catch {
     } finally {
       setLoadingRequests(false);
     }
@@ -544,8 +541,7 @@ export default function MessagesPage() {
     try {
       const res = await apiFetch("/api/v1/messages/connections");
       if (res.ok) setConnections(await res.json());
-    } catch (error) {
-      console.warn("[Messages] Failed to fetch connections", error);
+    } catch {
     } finally {
       setLoadingConnections(false);
     }
