@@ -1829,11 +1829,18 @@ async def update_registration(
             from app.routers.notifications import create_notification
             status_labels = {"approved": "approved", "rejected": "rejected", "completed": "completed"}
             status_label = status_labels.get(new_status, "updated")
+            notification_message = f"Your IEPOD registration has been {status_label}."
+            if new_status == "approved":
+                notification_message = (
+                    "Your IEPOD registration has been approved. "
+                    "Join the participants WhatsApp group: "
+                    "https://chat.whatsapp.com/Cbx4hDBzlCKKg9FDW8bmiz"
+                )
             await create_notification(
                 user_id=student_uid,
                 type="iepod",
                 title=f"IEPOD Registration {status_label.title()}",
-                message=f"Your IEPOD registration has been {status_label}.",
+                message=notification_message,
                 link="/dashboard/iepod",
                 category="iepod",
             )

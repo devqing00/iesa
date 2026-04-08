@@ -490,6 +490,23 @@ export default function IepodStudentPage() {
         {/* ── Registered — approved (main dashboard) ──────────── */}
         {isRegistered && reg?.status === "approved" && (
           <div className="space-y-8">
+            <div className="bg-teal-light border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h4 className="font-display font-black text-sm text-navy">Participants WhatsApp Group</h4>
+                <p className="text-navy-muted text-xs mt-1">
+                  Your IEPOD registration is approved. Join the official participants group for updates and coordination.
+                </p>
+              </div>
+              <a
+                href="https://chat.whatsapp.com/Cbx4hDBzlCKKg9FDW8bmiz"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center bg-lime border-[3px] border-navy rounded-xl px-4 py-2 font-display font-black text-xs text-navy press-2 press-navy whitespace-nowrap"
+              >
+                Join WhatsApp Group
+              </a>
+            </div>
+
             {reg.isExternalStudent && (
               <div className="bg-sunny-light border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000] flex items-start gap-4">
                 <svg className="w-6 h-6 text-sunny shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
