@@ -450,6 +450,7 @@ POSITION_LABELS = {
     "iepod_conference_lead": "IEPOD Conference Lead",
     "iepod_program_coordinator": "IEPOD Program Coordinator",
     "iepod_communications_officer": "IEPOD Communications Officer",
+    "iepod_communications_officer_1": "IEPOD Communications Officer 1",
 }
 
 PUBLIC_FOUNDER_PROFILE = {

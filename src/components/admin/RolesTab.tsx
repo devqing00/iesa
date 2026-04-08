@@ -98,6 +98,7 @@ const POSITIONS = [
   { group: "IEPOD Roles",              value: "iepod_conference_lead",             label: "IEPOD Conference Lead" },
   { group: "IEPOD Roles",              value: "iepod_program_coordinator",         label: "IEPOD Program Coordinator" },
   { group: "IEPOD Roles",              value: "iepod_communications_officer",      label: "IEPOD Communications Officer" },
+  { group: "IEPOD Roles",              value: "iepod_communications_officer_1",    label: "IEPOD Communications Officer 1" },
   // ── TIMP Leadership ───────────────────────────────────────────────
   { group: "TIMP Roles",               value: "timp_lead",                         label: "TIMP Lead" },
   // ── Press Roles ───────────────────────────────────────────────────

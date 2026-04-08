@@ -478,6 +478,10 @@ DEFAULT_PERMISSIONS = {
         "iepod:view",
         "announcement:create", "announcement:view",
     ],
+    "iepod_communications_officer_1": [
+        "iepod:view",
+        "announcement:create", "announcement:view",
+    ],
 
     # ── TIMP Specialized Roles ───────────────────────────────────────
     "timp_mentor": [
