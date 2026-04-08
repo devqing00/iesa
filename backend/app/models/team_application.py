@@ -12,7 +12,7 @@ MongoDB notes (backward compatibility):
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, Any
+from typing import Optional, Any, Literal
 from datetime import datetime
 from enum import Enum
 
@@ -209,6 +209,10 @@ class TeamApplicationCreate(BaseModel):
 class TeamApplicationReview(BaseModel):
     status: ApplicationStatus = Field(..., description="accepted or rejected")
     feedback: Optional[str] = Field(None, max_length=500)
+    rejectionTag: Optional[Literal["warning", "take_note", "other"]] = Field(
+        None,
+        description="Optional rejection tag shown to applicants",
+    )
 
 
 class TeamSettingsUpdate(BaseModel):
@@ -230,6 +234,7 @@ class TeamApplicationResponse(BaseModel):
     customAnswers: Optional[dict[str, Any]] = None
     status: str
     feedback: Optional[str] = None
+    rejectionTag: Optional[Literal["warning", "take_note", "other"]] = None
     reviewedBy: Optional[str] = None
     reviewerName: Optional[str] = None
     sessionId: str

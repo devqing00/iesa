@@ -54,6 +54,7 @@ export interface IepodRegistration {
   userId: string;
   userName: string;
   userEmail: string;
+  phone?: string | null;
   sessionId: string;
   interests: string[];
   whyJoin: string;
@@ -71,8 +72,10 @@ export interface IepodRegistration {
   completedPhases: IepodPhase[];
   nicheAuditId?: string | null;
   teamId?: string | null;
+  resubmissionCount?: number;
+  resubmittedAt?: string | null;
   alreadyRegistered?: boolean;
-  reason?: "already_registered" | string;
+  reason?: "already_registered" | "resubmitted" | string;
   createdAt: string;
   updatedAt: string;
 }
@@ -117,6 +120,11 @@ export interface TeamMember {
   userName: string;
   role: string;
   joinedAt: string;
+  email?: string | null;
+  matricNumber?: string | null;
+  level?: string | null;
+  department?: string | null;
+  phone?: string | null;
 }
 
 export interface IepodTeam {
@@ -182,6 +190,7 @@ export interface QuizQuestion {
   correctIndex: number;
   explanation?: string | null;
   points: number;
+  timeLimitSeconds: number;
 }
 
 export interface QuizQuestionPublic {
@@ -189,6 +198,7 @@ export interface QuizQuestionPublic {
   question: string;
   options: string[];
   points: number;
+  timeLimitSeconds: number;
 }
 
 export interface IepodQuiz {
@@ -199,12 +209,18 @@ export interface IepodQuiz {
   quizType: QuizType;
   questions?: QuizQuestion[];
   timeLimitMinutes?: number | null;
+  intermissionSeconds?: number;
+  revealResultsSeconds?: number;
+  autoAdvance?: boolean;
   isLive: boolean;
   phase?: IepodPhase | null;
   sessionId?: string;
   createdBy?: string;
   participantCount?: number;
   questionCount?: number;
+  activeLiveSessionId?: string;
+  activeLiveJoinCode?: string;
+  activeLiveStatus?: "waiting" | "live" | "ended";
   createdAt: string;
   updatedAt?: string;
 }
@@ -215,6 +231,9 @@ export interface CreateQuizData {
   quizType: QuizType;
   questions: QuizQuestion[];
   timeLimitMinutes?: number;
+  intermissionSeconds?: number;
+  revealResultsSeconds?: number;
+  autoAdvance?: boolean;
   isLive?: boolean;
   phase?: IepodPhase;
 }
@@ -222,6 +241,8 @@ export interface CreateQuizData {
 export interface QuizAnswer {
   questionIndex: number;
   selectedOption: number;
+  responseMs?: number;
+  confidence?: "low" | "medium" | "high";
 }
 
 export interface QuizResult {
@@ -236,12 +257,168 @@ export interface QuizResult {
   submittedAt: string;
 }
 
+export interface LiveQuizQuestion {
+  index: number;
+  question: string;
+  options: string[];
+  points: number;
+  timeLimitSeconds?: number;
+  correctIndex?: number;
+  correctOption?: string;
+  optionDistribution?: Array<{
+    optionIndex: number;
+    option: string;
+    count: number;
+    percent: number;
+  }>;
+}
+
+export interface LiveQuizState {
+  joinCode: string;
+  status: "waiting" | "live" | "ended";
+  quizId: string;
+  quizTitle: string;
+  currentQuestionIndex: number;
+  totalQuestions: number;
+  questionWindowSeconds: number;
+  intermissionSeconds?: number;
+  revealResultsSeconds?: number;
+  autoAdvance?: boolean;
+  phase?: "waiting" | "question_intro" | "question_answering" | "answer_reveal" | "leaderboard_reveal" | "ended";
+  isPaused?: boolean;
+  pausedAt?: string | null;
+  pausedRemainingSeconds?: number;
+  phaseStartedAt?: string | null;
+  phaseDurationSeconds?: number;
+  phaseEndsAt?: string | null;
+  remainingSeconds: number;
+  questionPhase?: "waiting" | "question" | "reveal" | "leaderboard" | "ended";
+  phaseRemainingSeconds?: number;
+  canRevealResults?: boolean;
+  shouldAutoAdvance?: boolean;
+  question: LiveQuizQuestion | null;
+  participantsCount: number;
+  readyParticipantsCount?: number;
+  answersCount?: number;
+  currentQuestionAnswersCount?: number;
+  questionCompletionPercent?: number;
+  recentAnswerVelocityPer10s?: number;
+  recentAnswerTrendPer10s?: number[];
+  finalPodiumRevealed?: boolean;
+  stateVersion?: number;
+}
+
+type LiveRequestOptions = {
+  showErrorToast?: boolean;
+  timeout?: number;
+  headers?: Record<string, string>;
+  actionId?: string;
+  expectedStateVersion?: number;
+};
+
+function withLiveActionHeaders(options?: LiveRequestOptions): LiveRequestOptions {
+  if (!options) return {};
+  const headers: Record<string, string> = {};
+  if (options.actionId) headers["X-Action-Id"] = options.actionId;
+  if (typeof options.expectedStateVersion === "number") {
+    headers["X-Live-State-Version"] = String(options.expectedStateVersion);
+  }
+  const { actionId: _a, expectedStateVersion: _b, ...rest } = options;
+  return Object.keys(headers).length > 0 ? ({ ...rest, headers } as LiveRequestOptions) : rest;
+}
+
+export interface LiveLeaderboardItem {
+  rank: number;
+  userId: string;
+  userName: string;
+  totalScore: number;
+  answersCount: number;
+}
+
+export interface LiveLeaderboardResponse {
+  joinCode: string;
+  status: "waiting" | "live" | "ended";
+  items: LiveLeaderboardItem[];
+}
+
+export interface LiveQuizWsPacket {
+  type: "live_state" | "pong";
+  data?: LiveQuizState & { leaderboard?: LiveLeaderboardItem[] };
+}
+
+export interface StartLiveQuizResponse {
+  liveSessionId: string;
+  quizId: string;
+  quizTitle: string;
+  joinCode: string;
+  status: "waiting" | "live";
+  resultingPhase?: "waiting" | "question_intro" | "question_answering" | "answer_reveal" | "leaderboard_reveal" | "ended";
+  stateVersion?: number;
+  questionWindowSeconds: number;
+  actionId?: string;
+  ackAt?: string;
+}
+
+export interface HostActionReceipt {
+  actionId?: string;
+  ackAt?: string;
+}
+
+export interface LiveReplayStep {
+  questionIndex: number;
+  question: string;
+  correctIndex?: number;
+  correctOption?: string | null;
+  confusionIndex: number;
+  dominantWrongShare: number;
+  distribution: Array<{ optionIndex: number; option: string; count: number; percent: number }>;
+  topGainers: Array<{ userId: string; userName: string; points: number }>;
+  leaderboardTop: Array<{ rank: number; userId: string; userName: string; totalScore: number }>;
+}
+
+export interface LiveReplayResponse {
+  joinCode: string;
+  quizId: string;
+  quizTitle: string;
+  status: "waiting" | "live" | "ended";
+  timeline: LiveReplayStep[];
+  questionTelemetry: Array<{ questionIndex: number; confusionIndex: number; dominantWrongShare: number }>;
+}
+
+export interface LiveParticipant {
+  userId: string;
+  userName: string;
+  totalScore: number;
+  answersCount: number;
+  readyForStart: boolean;
+  readyAt?: string | null;
+  joinedAt?: string | null;
+}
+
+export interface LiveParticipantsResponse {
+  joinCode: string;
+  status: "waiting" | "live" | "ended";
+  participantsCount: number;
+  readyParticipantsCount: number;
+  participants: LiveParticipant[];
+}
+
 // Points & Leaderboard
 export interface PointEntry {
   _id: string;
   userId: string;
   userName: string;
   action: string;
+  points: number;
+  description: string;
+  awardedAt: string;
+}
+
+export interface QuizPointEntry {
+  _id: string;
+  userId: string;
+  userName: string;
+  source: string;
   points: number;
   description: string;
   awardedAt: string;
@@ -256,6 +433,41 @@ export interface LeaderboardEntry {
   societyName?: string | null;
 }
 
+export interface QuizSystemLeaderboardEntry {
+  userId: string;
+  userName: string;
+  totalPoints: number;
+  rank: number;
+}
+
+export interface PaginatedLeaderboardResponse<T> {
+  items: T[];
+  total: number;
+}
+
+export interface IepodMemberLookupEntry {
+  userId: string;
+  userName: string;
+  email?: string | null;
+  matricNumber?: string | null;
+  level?: string | null;
+  department?: string | null;
+  status?: RegistrationStatus;
+  points: number;
+}
+
+export interface BonusHistoryItem {
+  id: string;
+  userId: string;
+  userName: string;
+  action: string;
+  points: number;
+  description: string;
+  awardedAt: string;
+  referenceId?: string | null;
+  isReversible: boolean;
+}
+
 // My Profile
 export interface MyIepodProfile {
   registered: boolean;
@@ -264,6 +476,7 @@ export interface MyIepodProfile {
   nicheAudit?: NicheAudit | null;
   team?: IepodTeam | null;
   pointsHistory?: PointEntry[];
+  quizPointsHistory?: QuizPointEntry[];
   quizResults?: QuizResult[];
 }
 
@@ -323,10 +536,10 @@ export const SUBMISSION_STATUS_STYLES: Record<SubmissionStatus, { bg: string; te
 };
 
 export const QUIZ_TYPE_LABELS: Record<QuizType, string> = {
-  unfractured_focus: "Unfractured Focus",
-  process_breakdown: "Process Breakdown",
-  general: "General",
-  live: "Live Quiz",
+  unfractured_focus: "Focus Sprint",
+  process_breakdown: "Process Drill",
+  general: "Quick Check",
+  live: "Live Arena",
 };
 
 // ── API Functions ────────────────────────────────────────────────────
@@ -343,6 +556,10 @@ export async function getMyIepodProfile(): Promise<MyIepodProfile> {
 
 export async function registerForIepod(data: RegisterData): Promise<IepodRegistration> {
   return api.post<IepodRegistration>(`${BASE}/register`, data);
+}
+
+export async function resubmitIepodRegistration(data: RegisterData): Promise<IepodRegistration> {
+  return api.post<IepodRegistration>(`${BASE}/register/resubmit`, data);
 }
 
 // ── Societies ───────────────────────────────────────────────────────
@@ -426,11 +643,14 @@ export async function submitIteration(subId: string): Promise<{ message: string 
 
 // ── Quizzes ─────────────────────────────────────────────────────────
 
-export async function listQuizzes(filters?: {
-  live_only?: boolean; quiz_type?: string;
-}): Promise<IepodQuiz[]> {
+export async function listQuizzes(
+  filters?: {
+    live_only?: boolean; quiz_type?: string;
+  },
+  options?: LiveRequestOptions,
+): Promise<IepodQuiz[]> {
   const qs = buildQueryString(filters || {});
-  return api.get<IepodQuiz[]>(`${BASE}/quizzes${qs}`);
+  return api.get<IepodQuiz[]>(`${BASE}/quizzes${qs}`, options);
 }
 
 export async function getQuiz(id: string): Promise<
@@ -457,10 +677,127 @@ export async function deleteQuiz(id: string): Promise<void> {
   return api.delete(`${BASE}/quizzes/${id}`);
 }
 
+export async function startLiveQuizSession(quizId: string, questionWindowSeconds = 20, options?: LiveRequestOptions): Promise<StartLiveQuizResponse> {
+  return api.post<StartLiveQuizResponse>(`${BASE}/quizzes/${quizId}/live/start?question_window_seconds=${questionWindowSeconds}`, {}, options);
+}
+
+export async function joinLiveQuiz(joinCode: string): Promise<{
+  joined: boolean;
+  joinCode: string;
+  status: "waiting" | "live" | "ended";
+  quizId: string;
+  quizTitle: string;
+  currentQuestionIndex: number;
+  questionWindowSeconds: number;
+  participantReady?: boolean;
+}> {
+  return api.post(`${BASE}/quizzes/live/${encodeURIComponent(joinCode)}/join`, {});
+}
+
+export async function setLiveQuizReadyState(joinCode: string, ready: boolean): Promise<{
+  joinCode: string;
+  ready: boolean;
+  readyParticipantsCount: number;
+}> {
+  return api.post(`${BASE}/quizzes/live/${encodeURIComponent(joinCode)}/ready`, { ready });
+}
+
+export async function getLiveQuizParticipants(joinCode: string, options?: LiveRequestOptions): Promise<LiveParticipantsResponse> {
+  return api.get(`${BASE}/quizzes/live/${encodeURIComponent(joinCode)}/participants`, options);
+}
+
+export async function getLiveQuizState(joinCode: string, options?: LiveRequestOptions): Promise<LiveQuizState> {
+  return api.get(`${BASE}/quizzes/live/${encodeURIComponent(joinCode)}/state`, options);
+}
+
+export async function advanceLiveQuizQuestion(joinCode: string, options?: LiveRequestOptions): Promise<{
+  ended: boolean;
+  message?: string;
+  resultingPhase?: "waiting" | "question_intro" | "question_answering" | "answer_reveal" | "leaderboard_reveal" | "ended";
+  stateVersion?: number;
+  question?: LiveQuizQuestion;
+  questionWindowSeconds?: number;
+  totalQuestions?: number;
+  actionId?: string;
+  ackAt?: string;
+}> {
+  return api.post(`${BASE}/quizzes/live/${encodeURIComponent(joinCode)}/next`, {}, withLiveActionHeaders(options));
+}
+
+export async function submitLiveQuizAnswer(joinCode: string, data: { questionIndex: number; selectedOption: number; confidence?: "low" | "medium" | "high" }): Promise<{
+  accepted: boolean;
+  isCorrect: boolean;
+  pointsAwarded: number;
+  elapsedMs: number;
+  confidence?: "low" | "medium" | "high";
+}> {
+  return api.post(`${BASE}/quizzes/live/${encodeURIComponent(joinCode)}/answer`, data);
+}
+
+export async function getLiveQuizLeaderboard(joinCode: string, limit = 20, options?: LiveRequestOptions): Promise<LiveLeaderboardResponse> {
+  return api.get(`${BASE}/quizzes/live/${encodeURIComponent(joinCode)}/leaderboard?limit=${limit}`, options);
+}
+
+export async function endLiveQuizSession(joinCode: string, options?: LiveRequestOptions): Promise<{ ended: boolean; joinCode: string; resultingPhase?: "waiting" | "question_intro" | "question_answering" | "answer_reveal" | "leaderboard_reveal" | "ended"; stateVersion?: number; actionId?: string; ackAt?: string }> {
+  return api.post(`${BASE}/quizzes/live/${encodeURIComponent(joinCode)}/end`, {}, withLiveActionHeaders(options));
+}
+
+export async function revealLiveQuizResults(joinCode: string, options?: LiveRequestOptions): Promise<{ revealed: boolean; questionIndex: number; revealResultsSeconds: number; resultingPhase?: "waiting" | "question_intro" | "question_answering" | "answer_reveal" | "leaderboard_reveal" | "ended"; stateVersion?: number; actionId?: string; ackAt?: string }> {
+  return api.post(`${BASE}/quizzes/live/${encodeURIComponent(joinCode)}/reveal`, {}, withLiveActionHeaders(options));
+}
+
+export async function revealLiveQuizFinalTop3(joinCode: string, options?: LiveRequestOptions): Promise<{ revealed: boolean; finalPodiumRevealed: boolean; resultingPhase?: "waiting" | "question_intro" | "question_answering" | "answer_reveal" | "leaderboard_reveal" | "ended"; stateVersion?: number; actionId?: string; ackAt?: string; updatedAt?: string | null }> {
+  return api.post(`${BASE}/quizzes/live/${encodeURIComponent(joinCode)}/reveal-final`, {}, withLiveActionHeaders(options));
+}
+
+export async function forceResyncLiveQuiz(joinCode: string, options?: LiveRequestOptions): Promise<{ resynced: boolean; joinCode: string; resultingPhase?: "waiting" | "question_intro" | "question_answering" | "answer_reveal" | "leaderboard_reveal" | "ended"; stateVersion?: number; actionId?: string; ackAt?: string }> {
+  return api.post(`${BASE}/quizzes/live/${encodeURIComponent(joinCode)}/resync`, {}, withLiveActionHeaders(options));
+}
+
+export async function pauseLiveQuizSession(joinCode: string, options?: LiveRequestOptions): Promise<{ paused: boolean; resultingPhase?: "waiting" | "question_intro" | "question_answering" | "answer_reveal" | "leaderboard_reveal" | "ended"; stateVersion?: number; actionId?: string; ackAt?: string }> {
+  return api.post(`${BASE}/quizzes/live/${encodeURIComponent(joinCode)}/pause`, {}, withLiveActionHeaders(options));
+}
+
+export async function resumeLiveQuizSession(joinCode: string, options?: LiveRequestOptions): Promise<{ paused: boolean; resultingPhase?: "waiting" | "question_intro" | "question_answering" | "answer_reveal" | "leaderboard_reveal" | "ended"; stateVersion?: number; actionId?: string; ackAt?: string }> {
+  return api.post(`${BASE}/quizzes/live/${encodeURIComponent(joinCode)}/resume`, {}, withLiveActionHeaders(options));
+}
+
+export async function getLiveQuizReplay(joinCode: string, options?: LiveRequestOptions): Promise<LiveReplayResponse> {
+  return api.get(`${BASE}/quizzes/live/${encodeURIComponent(joinCode)}/replay`, options);
+}
+
 // ── Leaderboard ─────────────────────────────────────────────────────
 
 export async function getLeaderboard(limit = 50): Promise<LeaderboardEntry[]> {
   return api.get<LeaderboardEntry[]>(`${BASE}/leaderboard?limit=${limit}`);
+}
+
+export async function getLeaderboardAdmin(limit = 20, skip = 0): Promise<PaginatedLeaderboardResponse<LeaderboardEntry>> {
+  return api.get<PaginatedLeaderboardResponse<LeaderboardEntry>>(`${BASE}/leaderboard/admin?limit=${limit}&skip=${skip}`);
+}
+
+export async function getQuizSystemLeaderboard(limit = 50, options?: LiveRequestOptions): Promise<QuizSystemLeaderboardEntry[]> {
+  return api.get<QuizSystemLeaderboardEntry[]>(`${BASE}/leaderboard/quiz?limit=${limit}`, options);
+}
+
+export async function getQuizSystemLeaderboardAdmin(limit = 20, skip = 0): Promise<PaginatedLeaderboardResponse<QuizSystemLeaderboardEntry>> {
+  return api.get<PaginatedLeaderboardResponse<QuizSystemLeaderboardEntry>>(`${BASE}/quizzes/leaderboard/admin?limit=${limit}&skip=${skip}`);
+}
+
+export async function searchIepodMembers(query: string, limit = 8): Promise<{ items: IepodMemberLookupEntry[] }> {
+  return api.get<{ items: IepodMemberLookupEntry[] }>(`${BASE}/members/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+}
+
+export async function listBonusPointHistory(limit = 20, skip = 0): Promise<PaginatedLeaderboardResponse<BonusHistoryItem>> {
+  return api.get<PaginatedLeaderboardResponse<BonusHistoryItem>>(`${BASE}/points/bonus-history?limit=${limit}&skip=${skip}`);
+}
+
+export async function reverseBonusPoints(pointId: string, reason: string): Promise<{ message: string }> {
+  return api.post<{ message: string }>(`${BASE}/points/${encodeURIComponent(pointId)}/reverse`, { reason });
+}
+
+export async function resetIepodUserData(userId: string, payload: { reason: string; blockRejoin: boolean }): Promise<{ message: string; userId: string; userName?: string | null; blockRejoin: boolean; deletedTeams: number; updatedTeams: number }> {
+  return api.post(`${BASE}/admin/users/${encodeURIComponent(userId)}/reset`, payload);
 }
 
 // ── Admin ───────────────────────────────────────────────────────────
@@ -510,8 +847,8 @@ export async function assignMentor(teamId: string, mentorUserId: string): Promis
 
 export async function awardBonusPoints(data: {
   userId: string; points: number; description: string;
-}): Promise<{ message: string }> {
-  return api.post<{ message: string }>(`${BASE}/points/award`, data);
+}): Promise<{ message: string; pointEntryId?: string | null }> {
+  return api.post<{ message: string; pointEntryId?: string | null }>(`${BASE}/points/award`, data);
 }
 
 export async function getIepodStats(): Promise<IepodStats> {

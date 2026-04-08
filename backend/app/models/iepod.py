@@ -283,6 +283,7 @@ class QuizQuestion(BaseModel):
     correctIndex: int = Field(..., ge=0)
     explanation: Optional[str] = Field(None, max_length=500)
     points: int = Field(default=10, ge=1, le=100)
+    timeLimitSeconds: int = Field(default=20, ge=5, le=120)
 
 
 class QuizBase(BaseModel):
@@ -291,6 +292,9 @@ class QuizBase(BaseModel):
     quizType: QuizType = Field(default="general")
     questions: List[QuizQuestion] = Field(..., min_length=1, max_length=50)
     timeLimitMinutes: Optional[int] = Field(None, ge=1, le=120)
+    intermissionSeconds: int = Field(default=8, ge=3, le=30)
+    revealResultsSeconds: int = Field(default=6, ge=3, le=20)
+    autoAdvance: bool = Field(default=True)
     isLive: bool = Field(default=False, description="Whether this quiz is currently live / active")
     phase: Optional[IepodPhase] = Field(None, description="Which phase this quiz belongs to")
 
@@ -304,6 +308,9 @@ class QuizUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=1000)
     isLive: Optional[bool] = None
     timeLimitMinutes: Optional[int] = Field(None, ge=1, le=120)
+    intermissionSeconds: Optional[int] = Field(None, ge=3, le=30)
+    revealResultsSeconds: Optional[int] = Field(None, ge=3, le=20)
+    autoAdvance: Optional[bool] = None
 
 
 class Quiz(QuizBase):
@@ -338,6 +345,7 @@ class QuizQuestionPublic(BaseModel):
     question: str
     options: List[str]
     points: int
+    timeLimitSeconds: int
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -347,6 +355,8 @@ class QuizQuestionPublic(BaseModel):
 class QuizAnswer(BaseModel):
     questionIndex: int
     selectedOption: int
+    responseMs: Optional[int] = Field(default=None, ge=0)
+    confidence: Optional[Literal["low", "medium", "high"]] = "medium"
 
 
 class QuizResponseCreate(BaseModel):
@@ -395,6 +405,31 @@ class PointAward(BaseModel):
     userId: str
     points: int = Field(..., ge=1, le=500)
     description: str = Field(..., min_length=1, max_length=200)
+
+
+class PointReversal(BaseModel):
+    """Admin reverses a previously awarded bonus entry."""
+    reason: str = Field(..., min_length=3, max_length=200)
+
+
+class IepodMemberLookupEntry(BaseModel):
+    userId: str
+    userName: str
+    email: Optional[str] = None
+    matricNumber: Optional[str] = None
+    level: Optional[str] = None
+    department: Optional[str] = None
+    status: Optional[RegistrationStatus] = None
+    points: int = 0
+
+
+class IepodMemberLookupResponse(BaseModel):
+    items: List[IepodMemberLookupEntry]
+
+
+class IepodResetUserDataRequest(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=240)
+    blockRejoin: bool = False
 
 
 class LeaderboardEntry(BaseModel):

@@ -11,6 +11,7 @@ import {
   updateNicheAudit,
   listSocieties,
   getMyIepodProfile,
+  PHASE_LABELS,
 } from "@/lib/api";
 import type { NicheAudit, Society } from "@/lib/api";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
@@ -52,7 +53,8 @@ export default function NicheAuditPage() {
   const [inspirations, setInspirations] = useState("");
 
   const [editMode, setEditMode] = useState(false);
-  const [isExternal, setIsExternal] = useState(false);
+  const [phaseLocked, setPhaseLocked] = useState(false);
+  const [currentPhase, setCurrentPhase] = useState<string>("stimulate");
 
   const fetchData = useCallback(async () => {
     try {
@@ -66,8 +68,11 @@ export default function NicheAuditPage() {
         populateForm(auditData.value);
       }
       if (societyData.status === "fulfilled") setSocieties(societyData.value);
-      if (profileData.status === "fulfilled" && profileData.value.registration?.isExternalStudent) {
-        setIsExternal(true);
+      if (profileData.status === "fulfilled") {
+        const registration = profileData.value.registration;
+        const phase = registration?.phase || "stimulate";
+        setCurrentPhase(phase);
+        setPhaseLocked(!(phase === "carve" || phase === "pitch"));
       }
     } catch {
       toast.error("Failed to load data");
@@ -155,8 +160,7 @@ export default function NicheAuditPage() {
     );
   }
 
-  /* ── External student restriction ────────────────── */
-  if (isExternal) {
+  if (phaseLocked) {
     return (
       <div className="min-h-screen">
         <DashboardHeader title="Niche Audit" />
@@ -168,10 +172,9 @@ export default function NicheAuditPage() {
             <svg className="w-12 h-12 text-sunny mx-auto" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
             </svg>
-            <h2 className="font-display font-black text-2xl text-navy">IPE Students Only</h2>
+            <h2 className="font-display font-black text-2xl text-navy">Niche Audit Is Phase-Locked</h2>
             <p className="text-navy-muted font-medium max-w-md mx-auto">
-              The Niche Audit is an exclusive reflective tool for Industrial &amp; Production Engineering students.
-              As a cross-department participant, you can still attend all sessions, join teams, and earn IEPOD points.
+              Niche Audit opens in Phase 2 (Carve Your Niche). Your current phase is <strong>{PHASE_LABELS[(currentPhase as "stimulate" | "carve" | "pitch") || "stimulate"]}</strong>.
             </p>
             <Link
               href="/dashboard/iepod"
@@ -444,8 +447,10 @@ export default function NicheAuditPage() {
           {step === 5 && (
             <div className="space-y-4">
               <div>
-                <label className="text-label text-navy text-xs mb-2 block">Related Society (optional)</label>
+                <label htmlFor="related-society" className="text-label text-navy text-xs mb-2 block">Related Society (optional)</label>
                 <select
+                  id="related-society"
+                  aria-label="Related Society"
                   value={relatedSociety}
                   onChange={(e) => setRelatedSociety(e.target.value)}
                   className="w-full border-[3px] border-navy rounded-xl px-4 py-3 font-medium text-navy bg-snow focus:outline-none focus:ring-2 focus:ring-lime"

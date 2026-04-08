@@ -184,6 +184,73 @@ async def create_indexes():
             print("✅ Resources indexes created")
         except Exception as e:
             print(f"⚠️  Resources collection not indexed: {e}")
+
+        # ========================
+        # IEPOD COLLECTIONS
+        # ========================
+        iepod_registrations = db["iepod_registrations"]
+        iepod_points = db["iepod_points"]
+        iepod_quiz_points = db["iepod_quiz_points"]
+
+        await iepod_registrations.create_index(
+            [("userId", ASCENDING), ("sessionId", ASCENDING)],
+            unique=True,
+            name="idx_iepod_registration_user_session_unique",
+        )
+        await iepod_registrations.create_index(
+            [("sessionId", ASCENDING), ("userId", ASCENDING)],
+            name="idx_iepod_registration_session_user",
+        )
+        await iepod_registrations.create_index(
+            [("sessionId", ASCENDING), ("status", ASCENDING), ("createdAt", DESCENDING)],
+            name="idx_iepod_registration_session_status_created",
+        )
+
+        await iepod_points.create_index(
+            [("sessionId", ASCENDING), ("userId", ASCENDING)],
+            name="idx_iepod_points_session_user",
+        )
+        await iepod_points.create_index(
+            [("sessionId", ASCENDING), ("awardedAt", DESCENDING)],
+            name="idx_iepod_points_session_awarded",
+        )
+        await iepod_quiz_points.create_index(
+            [("sessionId", ASCENDING), ("userId", ASCENDING)],
+            name="idx_iepod_quiz_points_session_user",
+        )
+        await iepod_quiz_points.create_index(
+            [("sessionId", ASCENDING), ("awardedAt", DESCENDING)],
+            name="idx_iepod_quiz_points_session_awarded",
+        )
+
+        iepod_live_quiz_sessions = db["iepod_live_quiz_sessions"]
+        iepod_live_quiz_participants = db["iepod_live_quiz_participants"]
+        iepod_live_quiz_answers = db["iepod_live_quiz_answers"]
+
+        await iepod_live_quiz_sessions.create_index(
+            [("sessionId", ASCENDING), ("joinCode", ASCENDING)],
+            name="idx_iepod_live_session_session_join_code",
+        )
+        await iepod_live_quiz_sessions.create_index(
+            [("quizId", ASCENDING), ("status", ASCENDING)],
+            name="idx_iepod_live_session_quiz_status",
+        )
+        await iepod_live_quiz_participants.create_index(
+            [("liveSessionId", ASCENDING), ("userId", ASCENDING)],
+            unique=True,
+            name="idx_iepod_live_participant_unique",
+        )
+        await iepod_live_quiz_answers.create_index(
+            [("liveSessionId", ASCENDING), ("questionIndex", ASCENDING)],
+            name="idx_iepod_live_answers_session_question",
+        )
+        await iepod_live_quiz_answers.create_index(
+            [("liveSessionId", ASCENDING), ("userId", ASCENDING), ("questionIndex", ASCENDING)],
+            unique=True,
+            name="idx_iepod_live_answers_unique",
+        )
+
+        print("✅ IEPOD indexes created")
         
         print("\n🎉 All indexes created successfully!")
         
@@ -191,7 +258,7 @@ async def create_indexes():
         print("\n📊 Index Statistics:")
         collections = [
             "users", "sessions", "enrollments", "payments", "transactions",
-            "roles", "events", "announcements"
+            "roles", "events", "announcements", "iepod_registrations", "iepod_points", "iepod_live_quiz_sessions"
         ]
         
         for collection_name in collections:

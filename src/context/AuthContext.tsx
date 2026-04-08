@@ -10,6 +10,7 @@ import {
   onAuthStateChanged,
   sendPasswordResetEmail,
   sendEmailVerification,
+  fetchSignInMethodsForEmail,
   type User as FirebaseUser,
 } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
@@ -203,6 +204,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return sanitizeReturnToPath(redirectTo) || getDefaultPostAuthPath(profile);
   }, [getDefaultPostAuthPath]);
 
+  const getEmailSignInMethods = useCallback(async (email?: string | null): Promise<string[]> => {
+    const normalizedEmail = (email || "").trim().toLowerCase();
+    if (!normalizedEmail) return [];
+    try {
+      return await fetchSignInMethodsForEmail(auth, normalizedEmail);
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const getProviderMismatchMessage = useCallback(
+    (methods: string[], attemptedProvider: "password" | "google"): string | null => {
+      const hasPassword = methods.includes("password");
+      const hasGoogle = methods.includes("google.com");
+
+      if (attemptedProvider === "password" && hasGoogle && !hasPassword) {
+        return "This email is linked to Google sign-in. Please continue with Google instead.";
+      }
+
+      if (attemptedProvider === "google" && hasPassword && !hasGoogle) {
+        return "This email is linked to email and password. Please sign in with your password instead.";
+      }
+
+      return null;
+    },
+    []
+  );
+
   /**
    * Send profile data to backend after Firebase account creation.
    * Idempotent — safe to call multiple times.
@@ -291,6 +320,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       credential = await signInWithEmailAndPassword(auth, email, password);
     } catch (err) {
+      const code = (err as { code?: string })?.code ?? "";
+      if (
+        code === "auth/invalid-credential" ||
+        code === "auth/wrong-password" ||
+        code === "auth/user-not-found"
+      ) {
+        const methods = await getEmailSignInMethods(email);
+        const providerMismatchMessage = getProviderMismatchMessage(methods, "password");
+        if (providerMismatchMessage) {
+          throw new Error(providerMismatchMessage);
+        }
+      }
+
       const msg = mapFirebaseError(err);
       throw new Error(msg || "Failed to sign in. Please try again.");
     }
@@ -313,13 +355,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(normalized);
 
     router.push(resolvePostAuthPath(normalized, redirectTo));
-  }, [router, resolvePostAuthPath]);
+  }, [router, resolvePostAuthPath, getEmailSignInMethods, getProviderMismatchMessage]);
 
   const signInWithGoogle = useCallback(async (redirectTo?: string): Promise<boolean> => {
     let credential;
     try {
       credential = await signInWithPopup(auth, googleProvider);
     } catch (err) {
+      const code = (err as { code?: string })?.code ?? "";
+      if (code === "auth/account-exists-with-different-credential") {
+        const conflictEmail = (err as { customData?: { email?: string } })?.customData?.email;
+        const methods = await getEmailSignInMethods(conflictEmail);
+        const providerMismatchMessage = getProviderMismatchMessage(methods, "google");
+        if (providerMismatchMessage) {
+          throw new Error(providerMismatchMessage);
+        }
+
+        if (conflictEmail) {
+          throw new Error(`An account for ${conflictEmail} already exists with a different sign-in method.`);
+        }
+      }
+
       const msg = mapFirebaseError(err);
       if (!msg) return false; // popup closed — silently ignore
       throw new Error(msg);
@@ -338,7 +394,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       router.push(resolvePostAuthPath(profile, redirectTo));
     }
     return true;
-  }, [router, registerProfile, fetchUserProfile, resolvePostAuthPath]);
+  }, [
+    router,
+    registerProfile,
+    fetchUserProfile,
+    resolvePostAuthPath,
+    getEmailSignInMethods,
+    getProviderMismatchMessage,
+  ]);
 
   const signUpWithEmail = useCallback(
     async (
@@ -361,6 +424,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         credential = await createUserWithEmailAndPassword(auth, email, password);
       } catch (err) {
+        const code = (err as { code?: string })?.code ?? "";
+        if (code === "auth/email-already-in-use") {
+          const methods = await getEmailSignInMethods(email);
+          const providerMismatchMessage = getProviderMismatchMessage(methods, "password");
+          if (providerMismatchMessage) {
+            throw new Error(providerMismatchMessage);
+          }
+        }
+
         const msg = mapFirebaseError(err);
         throw new Error(msg || "Failed to create account. Please try again.");
       }
@@ -381,7 +453,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         router.push(resolvePostAuthPath(profile, redirectTo));
       }
     },
-    [router, registerProfile, fetchUserProfile, resolvePostAuthPath]
+    [
+      router,
+      registerProfile,
+      fetchUserProfile,
+      resolvePostAuthPath,
+      getEmailSignInMethods,
+      getProviderMismatchMessage,
+    ]
   );
 
   const handleSignOut = useCallback(async () => {

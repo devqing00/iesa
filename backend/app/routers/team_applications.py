@@ -235,6 +235,7 @@ async def create_application(
         "customAnswers": body.customAnswers,
         "status": "pending",
         "feedback": None,
+        "rejectionTag": None,
         "reviewedBy": None,
         "reviewerName": None,
         "sessionId": session_id,
@@ -507,6 +508,8 @@ async def review_application(
 
     if body.status.value not in ("accepted", "rejected"):
         raise HTTPException(400, "Status must be 'accepted' or 'rejected'")
+    if body.status.value == "rejected" and not (body.feedback or "").strip():
+        raise HTTPException(400, "Please include feedback when rejecting an application")
 
     try:
         oid = ObjectId(application_id)
@@ -542,6 +545,7 @@ async def review_application(
         "$set": {
             "status": body.status.value,
             "feedback": body.feedback,
+            "rejectionTag": body.rejectionTag if body.status.value == "rejected" else None,
             "reviewedBy": user_id,
             "reviewerName": reviewer_name,
             "reviewedAt": now,
@@ -581,12 +585,15 @@ async def review_application(
     unit_label = TEAM_LABELS.get(app_doc["unit"], app_doc["unit"])
     status_text = "accepted into" if body.status.value == "accepted" else "not accepted into"
     feedback_text = f" — {body.feedback}" if body.feedback else ""
+    tag_text = ""
+    if body.status.value == "rejected" and body.rejectionTag in {"warning", "take_note"}:
+        tag_text = f" [{body.rejectionTag.replace('_', ' ').title()}]"
 
     fire_and_forget(create_notification(
         user_id=app_doc["userId"],
         type="team_application",
         title=f"Application {'Accepted' if body.status.value == 'accepted' else 'Rejected'}",
-        message=f"You have been {status_text} {unit_label}{feedback_text}",
+        message=f"You have been {status_text} {unit_label}{tag_text}{feedback_text}",
         link="/dashboard",
         related_id=application_id,
     ))
@@ -599,7 +606,12 @@ async def review_application(
         resource_type="team_application",
         resource_id=application_id,
         session_id=app_doc.get("sessionId"),
-        details={"unit": app_doc["unit"], "status": body.status.value, "feedback": body.feedback},
+        details={
+            "unit": app_doc["unit"],
+            "status": body.status.value,
+            "feedback": body.feedback,
+            "rejectionTag": body.rejectionTag if body.status.value == "rejected" else None,
+        },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )

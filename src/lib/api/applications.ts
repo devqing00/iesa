@@ -42,6 +42,7 @@ export interface TeamApplication {
   customAnswers: Record<string, unknown> | null;
   status: ApplicationStatus;
   feedback: string | null;
+  rejectionTag: "warning" | "take_note" | "other" | null;
   reviewedBy: string | null;
   reviewerName: string | null;
   sessionId: string;
@@ -60,6 +61,7 @@ export interface CreateApplicationData {
 export interface ReviewApplicationData {
   status: 'accepted' | 'rejected';
   feedback?: string;
+  rejectionTag?: "warning" | "take_note" | "other";
 }
 
 // ── Color map ──────────────────────────────────────────────────

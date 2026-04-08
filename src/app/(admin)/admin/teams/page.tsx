@@ -201,6 +201,7 @@ function TeamsPage() {
   const [reviewApp, setReviewApp] = useState<Application | null>(null);
   const [reviewStatus, setReviewStatus] = useState<"accepted" | "rejected">("accepted");
   const [reviewFeedback, setReviewFeedback] = useState("");
+  const [reviewRejectionTag, setReviewRejectionTag] = useState<"warning" | "take_note" | "other">("other");
   const [reviewing, setReviewing] = useState(false);
 
   // Revoke confirm
@@ -366,6 +367,10 @@ function TeamsPage() {
 
   const handleReview = async () => {
     if (!reviewApp) return;
+    if (reviewStatus === "rejected" && !reviewFeedback.trim()) {
+      toast.error("Please provide feedback before rejecting this application");
+      return;
+    }
     setReviewing(true);
     try {
       const token = await getAccessToken();
@@ -373,12 +378,17 @@ function TeamsPage() {
       const res = await fetch(getApiUrl(`/api/v1/team-applications/${reviewApp.id}/review`), {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ status: reviewStatus, feedback: reviewFeedback || null }),
+        body: JSON.stringify({
+          status: reviewStatus,
+          feedback: reviewFeedback || null,
+          ...(reviewStatus === "rejected" ? { rejectionTag: reviewRejectionTag } : {}),
+        }),
       });
       if (!res.ok) await throwApiError(res, "review application");
       toast.success(`Application ${reviewStatus}`);
       setReviewApp(null);
       setReviewFeedback("");
+      setReviewRejectionTag("other");
       fetchApplications();
       fetchOverview();
     } catch (err) {
@@ -1327,8 +1337,23 @@ function TeamsPage() {
                   className={`flex-1 px-4 py-2.5 rounded-xl font-bold text-sm border-[3px] transition-all ${reviewStatus === "rejected" ? "bg-coral text-snow border-navy" : "bg-snow text-navy border-navy/20 hover:border-navy/40"}`}>Reject</button>
               </div>
             </div>
+            {reviewStatus === "rejected" && (
+              <div>
+                <label className="block text-sm font-bold text-navy mb-1">Rejection Tag</label>
+                <select
+                  value={reviewRejectionTag}
+                  onChange={(e) => setReviewRejectionTag(e.target.value as "warning" | "take_note" | "other")}
+                  title="Rejection tag"
+                  className="w-full px-4 py-2.5 rounded-xl border-[3px] border-navy/20 bg-snow text-navy text-sm focus:border-navy outline-none"
+                >
+                  <option value="warning">Warning</option>
+                  <option value="take_note">Take Note</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            )}
             <div>
-              <label className="block text-sm font-bold text-navy mb-1">Feedback <span className="text-slate font-normal">(optional)</span></label>
+              <label className="block text-sm font-bold text-navy mb-1">Feedback {reviewStatus === "rejected" ? <span className="text-coral">*</span> : <span className="text-slate font-normal">(optional)</span>}</label>
               <textarea value={reviewFeedback} onChange={(e) => setReviewFeedback(e.target.value)} maxLength={500} rows={3}
                 placeholder="Add feedback for the applicant..."
                 className="w-full px-4 py-2.5 rounded-xl border-[3px] border-navy/20 bg-snow text-navy text-sm focus:border-navy outline-none resize-none" />

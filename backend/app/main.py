@@ -453,6 +453,7 @@ app.include_router(messages.router)            # Student Direct Messages
 app.include_router(messages._admin_router)     # Admin Message Reports & Mutes
 app.include_router(messages._ws_router)        # Messages WebSocket (no HTTTPBearer dep)
 app.include_router(study_groups._ws_router)    # Study Groups WebSocket (no HTTPBearer dep)
+app.include_router(iepod._ws_router)           # IEPOD Live Quiz WebSocket (no HTTPBearer dep)
 app.include_router(class_rep.router)             # Class Rep Portal
 app.include_router(team_head.router)               # Team Head Portal
 app.include_router(push_notifications.router)        # Web Push Notifications

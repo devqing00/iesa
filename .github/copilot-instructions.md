@@ -193,6 +193,57 @@ Bold, vibrant, multi-color design inspired by modern card-based editorial layout
 - Extra sparkles near major headlines for emphasis
 - Page must have `overflow-x: hidden` on body to prevent decorator overflow
 
+## Student Live Quiz UI Art Direction (Mandatory)
+
+When working on `src/app/(student)/dashboard/iepod/quizzes/page.tsx` live gameplay interfaces, prioritize a **game-show card experience** over generic dashboard blocks.
+
+### Visual Direction
+
+- **Mobile-first arena composition**: center the experience in a phone-like frame (`max-w-xl`, thick border, hard shadow), with optional side stat cards on large screens.
+- **Layered card language**: use stacked/offset cards, playful rotations (`rotate-[-1deg]`, `rotate-[1deg]`), and asymmetric grouping.
+- **High-contrast rhythm**: alternate `snow`, `lime-light`, `lavender-light`, `sunny-light`, `teal-light` sections for scannability.
+- **Do not use flat, monotonous sections**: avoid repetitive same-color blocks with identical spacing.
+
+### Live Phase UX Rules
+
+- **Waiting**: emphasize readiness and connected players with a calm, friendly tone.
+- **Question**: make options feel tactile and distinct (A/B/C/D chips + bold card choices).
+- **Reveal**: present answer review as an editorial breakdown card with clear correctness cue.
+- **Leaderboard**: center rank movement and score momentum with strong hierarchy and row personality.
+- **Ended**: show a celebratory wrap-up state, not a plain status line.
+
+### Styling Constraints For Live Quiz
+
+- Keep design system tokens only (`lime`, `navy`, `snow`, etc.); no raw Tailwind gray/blue palettes.
+- Continue press feedback classes for interactive controls (`press-*`).
+- Keep hard-shadow look and thick borders from the platform style.
+- Preserve accessibility: readable contrast, keyboard focus, and concise labels.
+- Preserve deterministic phase rendering logic; styling must not alter live quiz sequencing behavior.
+
+### Anti-Patterns To Avoid
+
+- Reusing generic admin-card layouts in student live game screens.
+- Overloading one giant card without hierarchy.
+- Tiny, low-contrast timers/status text.
+- Color noise without role meaning.
+- Visual polish that delays or hides phase-critical feedback.
+
+### UX Tone And Layout Direction (Required)
+
+- If an interface feels "a bit too colorful with no direction", move to restrained tones, stronger spacing rhythm, and a clear focal hierarchy.
+- Not everything has to be carded; choose layout primitives intentionally instead of forcing card wrappers everywhere.
+- Prefer friendly, less technical copy. Use a human, game-like tone where appropriate.
+- Reduce opacity aggression and visual noise: softer backgrounds, cleaner alignment, calmer side information placement.
+
+### Execution Quality Gate (Required)
+
+- Never ship half-fixes for quiz/live interfaces. If a requirement includes motion, sequencing, or control logic, complete behavior and visuals together.
+- Do not stop at recoloring existing cards when asked for a game-show style redesign; restructure layout hierarchy and phase choreography.
+- Before finishing, verify no stale state, dead controls, or contradictory phase labels remain in student/admin quiz screens.
+- Do not take "shortcut" passes when asked for a revamp. If user requests parity with a reference interaction, implement the missing interaction (state flow, timing, controls, transitions) instead of surface-only styling.
+- For multi-part quiz/live requests, close each requested behavior with explicit implementation and verification before moving on; unfinished items are not acceptable as final output.
+- Mandatory completion counter for multi-part revamps: track and report `Completed/Requested` items in each substantial update; do not claim completion when any requested behavior is still partial.
+
 ---
 
 ## Card System

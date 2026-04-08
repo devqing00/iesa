@@ -70,6 +70,7 @@ interface TeamApplicationItem {
   subTeam?: string | null;
   status: "pending" | "accepted" | "rejected" | "revoked";
   feedback?: string | null;
+  rejectionTag?: "warning" | "take_note" | "other" | null;
   createdAt: string;
 }
 
@@ -205,6 +206,14 @@ function timeAgo(d: string | Date | null | undefined): string {
   return `${days}d ago`;
 }
 
+function csvEscape(value: string | number | null | undefined): string {
+  const raw = String(value ?? "");
+  if (/[",\n]/.test(raw)) {
+    return `"${raw.replace(/"/g, '""')}"`;
+  }
+  return raw;
+}
+
 const PRIORITY_STYLES: Record<string, string> = {
   low: "bg-cloud text-slate",
   normal: "bg-lime-light text-navy",
@@ -242,7 +251,12 @@ export function TeamHeadPortal() {
   const [appLoading, setAppLoading] = useState(false);
   const [appStatusFilter, setAppStatusFilter] = useState<string>("pending");
   const [memberSearch, setMemberSearch] = useState("");
+  const [memberView, setMemberView] = useState<"cards" | "table">("cards");
+  const [memberExportOpen, setMemberExportOpen] = useState(false);
   const [taskFilter, setTaskFilter] = useState<string>("");
+  const [reviewTarget, setReviewTarget] = useState<TeamApplicationItem | null>(null);
+  const [rejectFeedback, setRejectFeedback] = useState("");
+  const [rejectTag, setRejectTag] = useState<"warning" | "take_note" | "other">("warning");
 
   /* ── analytics ────────────────────────────────────────────── */
   const [analytics, setAnalytics] = useState<UnitAnalytics | null>(null);
@@ -504,7 +518,11 @@ export function TeamHeadPortal() {
     }
   }
 
-  async function reviewApplication(applicationId: string, status: "accepted" | "rejected") {
+  async function reviewApplication(
+    applicationId: string,
+    status: "accepted" | "rejected",
+    options?: { feedback?: string; rejectionTag?: "warning" | "take_note" | "other" },
+  ) {
     if (!activeUnit) return;
     try {
       const token = await getAccessToken();
@@ -516,17 +534,90 @@ export function TeamHeadPortal() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ status }),
+          body: JSON.stringify({ status, ...(options || {}) }),
         },
       );
       if (!res.ok) {
-        throw new Error("Review failed");
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.detail || "Review failed");
       }
       toast.success(`Application ${status === "accepted" ? "accepted" : "rejected"}`);
       await loadApplications(activeUnit.unitSlug);
-    } catch {
-      toast.error("Could not review application");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not review application");
     }
+  }
+
+  function exportMembersCsv(rows: Member[]) {
+    if (!activeUnit) return;
+    const headers = ["Name", "Email", "Matric Number", "Level", "Sub-team", "Phone", "Joined At"];
+    const lines = rows.map((m) => [
+      `${m.firstName} ${m.lastName}`,
+      m.email,
+      m.matricNumber || "",
+      m.level || "",
+      m.subTeam || "",
+      m.phone || "",
+      m.joinedAt ? formatDate(m.joinedAt) : "",
+    ]);
+    const csv = [headers, ...lines].map((line) => line.map(csvEscape).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${activeUnit.unitSlug}-members.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportMembersPdf(rows: Member[]) {
+    if (!activeUnit) return;
+    const popup = window.open("", "_blank", "width=1000,height=700");
+    if (!popup) {
+      toast.error("Please allow pop-ups to export PDF");
+      return;
+    }
+    const htmlRows = rows
+      .map((m) => `
+        <tr>
+          <td>${m.firstName} ${m.lastName}</td>
+          <td>${m.email}</td>
+          <td>${m.matricNumber || "-"}</td>
+          <td>${m.level || "-"}</td>
+          <td>${m.subTeam || "-"}</td>
+          <td>${m.phone || "-"}</td>
+          <td>${m.joinedAt ? formatDate(m.joinedAt) : "-"}</td>
+        </tr>
+      `)
+      .join("");
+    popup.document.write(`
+      <html>
+        <head>
+          <title>${activeUnit.unitLabel} Members</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            h1 { margin-bottom: 8px; }
+            p { margin-top: 0; color: #555; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            th, td { border: 1px solid #111; padding: 6px; text-align: left; }
+            th { background: #f2f2f2; }
+          </style>
+        </head>
+        <body>
+          <h1>${activeUnit.unitLabel} Members</h1>
+          <p>Exported ${new Date().toLocaleString("en-NG")}</p>
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Email</th><th>Matric</th><th>Level</th><th>Sub-team</th><th>Phone</th><th>Joined</th></tr>
+            </thead>
+            <tbody>${htmlRows}</tbody>
+          </table>
+        </body>
+      </html>
+    `);
+    popup.document.close();
+    popup.focus();
+    popup.print();
   }
 
   /* ── permission gates ────────────────────────────────────── */
@@ -731,6 +822,50 @@ export function TeamHeadPortal() {
               onChange={(e) => setMemberSearch(e.target.value)}
               className="flex-1 bg-snow border-[3px] border-navy rounded-2xl px-4 py-2.5 text-sm text-navy placeholder:text-slate/60 shadow-[3px_3px_0_0_#000]"
             />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setMemberView("cards")}
+                className={`px-3 py-2 rounded-xl text-xs font-bold border-2 ${memberView === "cards" ? "bg-lime text-navy border-navy" : "bg-snow text-slate border-cloud"}`}
+              >
+                Cards
+              </button>
+              <button
+                onClick={() => setMemberView("table")}
+                className={`px-3 py-2 rounded-xl text-xs font-bold border-2 ${memberView === "table" ? "bg-lime text-navy border-navy" : "bg-snow text-slate border-cloud"}`}
+              >
+                Table
+              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setMemberExportOpen((p) => !p)}
+                  className="bg-navy text-snow border-[3px] border-lime px-3 py-2 rounded-xl text-xs font-bold press-2 press-lime"
+                >
+                  Export
+                </button>
+                {memberExportOpen && (
+                  <div className="absolute right-0 mt-2 w-36 bg-snow border-[3px] border-navy rounded-xl shadow-[4px_4px_0_0_#000] z-20 p-1">
+                    <button
+                      onClick={() => {
+                        exportMembersCsv(filteredMembers);
+                        setMemberExportOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs font-bold text-navy hover:bg-cloud rounded-lg"
+                    >
+                      Export CSV
+                    </button>
+                    <button
+                      onClick={() => {
+                        exportMembersPdf(filteredMembers);
+                        setMemberExportOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs font-bold text-navy hover:bg-cloud rounded-lg"
+                    >
+                      Export PDF
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
             <span className="text-sm font-bold text-slate self-center">{filteredMembers.length} member(s)</span>
           </div>
 
@@ -738,7 +873,7 @@ export function TeamHeadPortal() {
             <div className="bg-ghost border-4 border-navy rounded-3xl p-10 text-center shadow-[8px_8px_0_0_#000]">
               <p className="text-slate">{members.length === 0 ? "No members yet." : "No members match your search."}</p>
             </div>
-          ) : (
+          ) : memberView === "cards" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredMembers.map((m) => (
                 <div
@@ -798,6 +933,33 @@ export function TeamHeadPortal() {
                   </div>
                 </div>
               ))}
+            </div>
+          ) : (
+            <div className="bg-snow border-[3px] border-navy rounded-2xl shadow-[5px_5px_0_0_#000] overflow-x-auto">
+              <table className="min-w-full text-xs">
+                <thead className="bg-ghost border-b-[3px] border-navy">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-black text-navy">Name</th>
+                    <th className="px-3 py-2 text-left font-black text-navy">Email</th>
+                    <th className="px-3 py-2 text-left font-black text-navy">Matric</th>
+                    <th className="px-3 py-2 text-left font-black text-navy">Level</th>
+                    <th className="px-3 py-2 text-left font-black text-navy">Sub-team</th>
+                    <th className="px-3 py-2 text-left font-black text-navy">Phone</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredMembers.map((m) => (
+                    <tr key={m.id} className="border-b border-cloud last:border-b-0">
+                      <td className="px-3 py-2 text-navy font-bold">{m.firstName} {m.lastName}</td>
+                      <td className="px-3 py-2 text-slate">{m.email}</td>
+                      <td className="px-3 py-2 text-slate">{m.matricNumber || "-"}</td>
+                      <td className="px-3 py-2 text-slate">{m.level || "-"}</td>
+                      <td className="px-3 py-2 text-slate">{m.subTeam || "-"}</td>
+                      <td className="px-3 py-2 text-slate">{m.phone || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -874,6 +1036,9 @@ export function TeamHeadPortal() {
                       {app.feedback && app.status !== "pending" && (
                         <p className="text-xs text-navy-muted mt-2"><span className="font-bold">Review note:</span> {app.feedback}</p>
                       )}
+                      {app.rejectionTag && app.status === "rejected" && (
+                        <p className="text-xs text-coral mt-1"><span className="font-bold">Tag:</span> {app.rejectionTag.replace("_", " ")}</p>
+                      )}
                       <p className="text-xs text-slate mt-2">Applied {timeAgo(app.createdAt)}</p>
                     </div>
 
@@ -886,7 +1051,11 @@ export function TeamHeadPortal() {
                           Accept
                         </button>
                         <button
-                          onClick={() => reviewApplication(app.id, "rejected")}
+                          onClick={() => {
+                            setReviewTarget(app);
+                            setRejectFeedback("");
+                            setRejectTag("warning");
+                          }}
                           className="bg-coral-light border-2 border-navy press-2 press-black px-3 py-1.5 rounded-xl text-xs font-bold text-navy"
                         >
                           Reject
@@ -898,6 +1067,63 @@ export function TeamHeadPortal() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {reviewTarget && (
+        <div className="fixed inset-0 z-80 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-navy/55" onClick={() => setReviewTarget(null)} />
+          <div className="relative w-full max-w-lg bg-snow border-4 border-navy rounded-3xl p-6 shadow-[10px_10px_0_0_#000] space-y-4">
+            <h3 className="font-display font-black text-lg text-navy">Reject Application</h3>
+            <p className="text-xs text-slate">Provide feedback for {reviewTarget.userName}. This will be visible on the student applications page.</p>
+            <div>
+              <label className="text-xs font-bold text-navy block mb-1">Tag</label>
+              <select
+                value={rejectTag}
+                onChange={(e) => setRejectTag(e.target.value as "warning" | "take_note" | "other")}
+                title="Rejection tag"
+                className="w-full bg-snow border-[3px] border-navy rounded-xl px-3 py-2 text-sm text-navy"
+              >
+                <option value="warning">Warning</option>
+                <option value="take_note">Take Note</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-navy block mb-1">Feedback</label>
+              <textarea
+                value={rejectFeedback}
+                onChange={(e) => setRejectFeedback(e.target.value)}
+                rows={4}
+                className="w-full bg-snow border-[3px] border-navy rounded-xl px-3 py-2 text-sm text-navy resize-none"
+                placeholder="Tell the student what to improve before re-applying."
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setReviewTarget(null)}
+                className="px-4 py-2 border-[3px] border-navy rounded-xl text-xs font-bold text-navy"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!rejectFeedback.trim()) {
+                    toast.error("Please provide feedback before rejecting");
+                    return;
+                  }
+                  await reviewApplication(reviewTarget.id, "rejected", {
+                    feedback: rejectFeedback.trim(),
+                    rejectionTag: rejectTag,
+                  });
+                  setReviewTarget(null);
+                }}
+                className="px-4 py-2 border-[3px] border-navy rounded-xl text-xs font-bold bg-coral-light text-navy press-2 press-black"
+              >
+                Reject Application
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -15,6 +15,7 @@ import {
   listTeamSubmissions,
   submitIteration,
   getMyIepodProfile,
+  PHASE_LABELS,
   TEAM_STATUS_STYLES,
   SUBMISSION_STATUS_STYLES,
 } from "@/lib/api";
@@ -58,28 +59,34 @@ export default function TeamPage() {
   const [submittingSub, setSubmittingSub] = useState(false);
 
   const [joiningTeamId, setJoiningTeamId] = useState<string | null>(null);
+  const teamUnlocked = profile?.registration?.phase === "pitch";
 
   const fetchData = useCallback(async () => {
     try {
-      const [profileRes, teamsRes] = await Promise.allSettled([
-        getMyIepodProfile(),
-        listTeams({ status: statusFilter || undefined, search: debouncedSearch || undefined }),
-      ]);
+      const profileData = await getMyIepodProfile();
+      setProfile(profileData);
 
-      if (profileRes.status === "fulfilled") {
-        setProfile(profileRes.value);
-        if (profileRes.value.team) {
-          setMyTeam(profileRes.value.team);
-          setTab("my-team");
-          // Fetch submissions for the team
-          try {
-            const subs = await listTeamSubmissions(profileRes.value.team._id);
-            setSubmissions(subs);
-          } catch { /* no submissions yet */ }
-        }
+      const unlocked = profileData?.registration?.phase === "pitch";
+      if (!unlocked) {
+        setTeams([]);
+        setMyTeam(null);
+        setSubmissions([]);
+        setTab("browse");
+        return;
       }
-      if (teamsRes.status === "fulfilled") {
-        setTeams(teamsRes.value.teams);
+
+      const teamsRes = await listTeams({ status: statusFilter || undefined, search: debouncedSearch || undefined });
+      setTeams(teamsRes.teams);
+
+      if (profileData.team) {
+        setMyTeam(profileData.team);
+        setTab("my-team");
+        try {
+          const subs = await listTeamSubmissions(profileData.team._id);
+          setSubmissions(subs);
+        } catch {
+          setSubmissions([]);
+        }
       }
     } catch {
       toast.error("Failed to load team data");
@@ -197,7 +204,6 @@ export default function TeamPage() {
 
   const hasTeam = !!myTeam;
   const isLeader = myTeam?.leaderId === user?.id;
-  const isExternal = profile?.registration?.isExternalStudent || false;
 
   if (loading) {
     return (
@@ -231,16 +237,28 @@ export default function TeamPage() {
         </div>
 
         {/* Tab nav */}
+        {!teamUnlocked && (
+          <div className="bg-sunny-light border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000]">
+            <h3 className="font-display font-black text-base text-navy">Hackathon Teams Locked</h3>
+            <p className="text-sm text-navy-muted mt-1">
+              Team formation and submissions open in Phase 3 (Pitch Your Process). Current phase: {PHASE_LABELS[(profile?.registration?.phase || "stimulate") as "stimulate" | "carve" | "pitch"]}.
+            </p>
+            <Link href="/dashboard/iepod" className="inline-block mt-3 bg-lime border-[2px] border-navy text-navy font-bold text-xs px-4 py-2 rounded-xl press-2 press-navy">
+              Back to IEPOD Hub
+            </Link>
+          </div>
+        )}
+
         <div className="flex gap-2 overflow-x-auto pb-2">
           {(["browse", "my-team", "submissions"] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              disabled={!hasTeam && t !== "browse"}
+              disabled={!teamUnlocked || (!hasTeam && t !== "browse")}
               className={`px-4 py-2 rounded-xl border-[3px] font-display font-black text-xs whitespace-nowrap transition-all ${
                 tab === t
                   ? "bg-navy border-lime text-lime"
-                  : !hasTeam && t !== "browse"
+                  : !teamUnlocked || (!hasTeam && t !== "browse")
                   ? "bg-cloud border-cloud text-slate cursor-not-allowed"
                   : "bg-snow border-navy text-navy hover:bg-ghost"
               }`}
@@ -262,6 +280,8 @@ export default function TeamPage() {
                 className="flex-1 border-[3px] border-navy rounded-xl px-4 py-2 text-sm font-medium text-navy bg-snow focus:outline-none focus:ring-2 focus:ring-lime"
               />
               <select
+                id="team-status-filter"
+                aria-label="Filter teams by status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="border-[3px] border-navy rounded-xl px-4 py-2 text-sm font-medium text-navy bg-snow focus:outline-none focus:ring-2 focus:ring-lime"
@@ -271,7 +291,7 @@ export default function TeamPage() {
                   <option key={s} value={s}>{TEAM_STATUS_STYLES[s].label}</option>
                 ))}
               </select>
-              {!hasTeam && !isExternal && (
+              {!hasTeam && (
                 <button
                   onClick={() => setShowCreateForm(!showCreateForm)}
                   className="bg-lime border-[3px] border-navy press-4 press-navy px-5 py-2 rounded-xl font-display font-black text-sm text-navy transition-all whitespace-nowrap"
@@ -307,8 +327,9 @@ export default function TeamPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-label text-navy text-xs mb-1 block">Max Members (2-8)</label>
+                  <label htmlFor="team-max-members" className="text-label text-navy text-xs mb-1 block">Max Members (2-8)</label>
                   <input
+                    id="team-max-members"
                     type="number"
                     min={2}
                     max={8}
@@ -441,14 +462,12 @@ export default function TeamPage() {
           <div className="space-y-5">
             <div className="flex items-center justify-between">
               <h3 className="font-display font-black text-lg text-navy">Submissions</h3>
-              {!isExternal && (
-                <button
-                  onClick={() => setShowSubForm(!showSubForm)}
-                  className="bg-lime border-[3px] border-navy press-4 press-navy px-5 py-2 rounded-xl font-display font-black text-sm text-navy transition-all"
-                >
-                  {showSubForm ? "Cancel" : "New Submission"}
-                </button>
-              )}
+              <button
+                onClick={() => setShowSubForm(!showSubForm)}
+                className="bg-lime border-[3px] border-navy press-4 press-navy px-5 py-2 rounded-xl font-display font-black text-sm text-navy transition-all"
+              >
+                {showSubForm ? "Cancel" : "New Submission"}
+              </button>
             </div>
 
             {/* New submission form */}

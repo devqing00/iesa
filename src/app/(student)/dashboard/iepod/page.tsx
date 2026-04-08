@@ -7,12 +7,15 @@ import { useRouter } from "next/navigation";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import Link from "next/link";
 import { toast } from "sonner";
+import { Modal } from "@/components/ui/Modal";
 import {
   getMyIepodProfile,
   registerForIepod,
+  resubmitIepodRegistration,
   listSocieties,
   commitToSociety,
   getLeaderboard,
+  getQuizSystemLeaderboard,
   PHASE_LABELS,
   PHASE_STYLES,
 } from "@/lib/api";
@@ -20,6 +23,7 @@ import type {
   MyIepodProfile,
   Society,
   LeaderboardEntry,
+  QuizSystemLeaderboardEntry,
   IepodPhase,
 } from "@/lib/api";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
@@ -63,11 +67,16 @@ function PhaseTimeline({ current, completed }: { current: IepodPhase; completed:
   );
 }
 
+function hasSocietyName(entry: LeaderboardEntry | QuizSystemLeaderboardEntry): entry is LeaderboardEntry {
+  return "societyName" in entry;
+}
+
 /* ─── Registration form ────────────────────────────────────────── */
 
 function RegistrationForm({
   societies,
   onSubmit,
+  submitLabel,
 }: {
   societies: Society[];
   onSubmit: (data: {
@@ -76,6 +85,7 @@ function RegistrationForm({
     priorExperience?: string;
     preferredSocietyId?: string;
   }) => Promise<void>;
+  submitLabel?: string;
 }) {
   const [interests, setInterests] = useState<string[]>([]);
   const [whyJoin, setWhyJoin] = useState("");
@@ -208,7 +218,7 @@ function RegistrationForm({
         disabled={submitting}
         className="w-full bg-lime border-[4px] border-navy press-5 press-navy px-8 py-4 rounded-2xl font-display font-black text-lg text-navy transition-all disabled:opacity-50"
       >
-        {submitting ? "Submitting..." : "Apply for IEPOD"}
+        {submitting ? "Submitting..." : submitLabel || "Apply for IEPOD"}
       </button>
     </form>
   );
@@ -224,21 +234,27 @@ export default function IepodStudentPage() {
   const [profile, setProfile] = useState<MyIepodProfile | null>(null);
   const [societies, setSocieties] = useState<Society[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [quizLeaderboard, setQuizLeaderboard] = useState<QuizSystemLeaderboardEntry[]>([]);
+  const [leaderboardView, setLeaderboardView] = useState<"general" | "quiz">("general");
+  const [showPointsModal, setShowPointsModal] = useState(false);
+  const [pointsHistoryView, setPointsHistoryView] = useState<"all" | "general" | "quiz">("all");
   const [loading, setLoading] = useState(true);
   const [committingSociety, setCommittingSociety] = useState<string | null>(null);
   const [showAlreadySubmittedBadge, setShowAlreadySubmittedBadge] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
-      const [profileData, societyData, lbData] = await Promise.allSettled([
+      const [profileData, societyData, lbData, quizLbData] = await Promise.allSettled([
         getMyIepodProfile(),
         listSocieties(),
-        getLeaderboard(20),
+        getLeaderboard(50),
+        getQuizSystemLeaderboard(50),
       ]);
 
       if (profileData.status === "fulfilled") setProfile(profileData.value);
       if (societyData.status === "fulfilled") setSocieties(societyData.value);
       if (lbData.status === "fulfilled") setLeaderboard(lbData.value);
+      if (quizLbData.status === "fulfilled") setQuizLeaderboard(quizLbData.value);
     } catch {
       toast.error("Failed to load IEPOD data");
     } finally {
@@ -279,6 +295,23 @@ export default function IepodStudentPage() {
     }
   };
 
+  const handleResubmit = async (data: {
+    interests: string[];
+    whyJoin: string;
+    priorExperience?: string;
+    preferredSocietyId?: string;
+  }) => {
+    try {
+      await resubmitIepodRegistration(data);
+      toast.success("Application resubmitted! Your application is now pending review.");
+      setShowAlreadySubmittedBadge(false);
+      await fetchData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Resubmission failed";
+      toast.error(msg);
+    }
+  };
+
   const handleCommitSociety = async (societyId: string) => {
     setCommittingSociety(societyId);
     try {
@@ -314,6 +347,39 @@ export default function IepodStudentPage() {
 
   const reg = profile?.registration;
   const isRegistered = profile?.registered;
+  const currentPhase = reg?.phase;
+  const canAccessNicheAudit = currentPhase === "carve" || currentPhase === "pitch";
+  const canAccessTeamEcosystem = currentPhase === "pitch";
+  const preferredSociety = !profile?.society && reg?.preferredSocietyId
+    ? societies.find((s) => s._id === reg.preferredSocietyId)
+    : null;
+  const activeLeaderboard = leaderboardView === "general" ? leaderboard : quizLeaderboard;
+  const myLeaderboardEntry = activeLeaderboard.find((entry) => entry.userId === user?.id);
+  const showMyPosition = Boolean(myLeaderboardEntry && myLeaderboardEntry.rank > 5);
+  const generalPointsHistory = profile?.pointsHistory ?? [];
+  const quizPointsHistory = profile?.quizPointsHistory ?? [];
+  const allPointsHistory = [
+    ...generalPointsHistory.map((entry) => ({
+      id: entry._id,
+      board: "general" as const,
+      label: entry.action,
+      description: entry.description,
+      points: entry.points,
+      awardedAt: entry.awardedAt,
+    })),
+    ...quizPointsHistory.map((entry) => ({
+      id: entry._id,
+      board: "quiz" as const,
+      label: entry.source,
+      description: entry.description,
+      points: entry.points,
+      awardedAt: entry.awardedAt,
+    })),
+  ].sort((a, b) => new Date(b.awardedAt).getTime() - new Date(a.awardedAt).getTime());
+  const filteredPointsHistory =
+    pointsHistoryView === "all"
+      ? allPointsHistory
+      : allPointsHistory.filter((entry) => entry.board === pointsHistoryView);
 
   return (
     <div className="min-h-screen">
@@ -398,10 +464,10 @@ export default function IepodStudentPage() {
         {/* ── Registered — rejected ───────────────────────────── */}
         {isRegistered && reg?.status === "rejected" && (
           <div className="max-w-2xl mx-auto">
-            <div className="bg-coral-light border-[4px] border-navy rounded-3xl p-8 shadow-[8px_8px_0_0_#000] text-center space-y-4">
+            <div className="bg-coral-light border-[4px] border-navy rounded-3xl p-8 shadow-[8px_8px_0_0_#000] space-y-5">
               <h2 className="font-display font-black text-2xl text-navy">Application Not Approved</h2>
-              <p className="text-slate font-medium">
-                Unfortunately your application was not approved this session.
+              <p className="text-slate font-medium text-sm">
+                Your last submission was not approved. Review the feedback below, update your details, and re-submit for another review.
               </p>
               {reg.adminNote && (
                 <div className="bg-snow/50 rounded-xl p-4 text-left">
@@ -409,6 +475,14 @@ export default function IepodStudentPage() {
                   <p className="text-navy-muted text-sm">{reg.adminNote}</p>
                 </div>
               )}
+              <div className="bg-snow border-[3px] border-navy rounded-2xl p-5">
+                <h3 className="font-display font-black text-lg text-navy mb-4">Re-submit Application</h3>
+                <RegistrationForm
+                  societies={societies}
+                  onSubmit={handleResubmit}
+                  submitLabel="Re-submit IEPOD Application"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -416,17 +490,15 @@ export default function IepodStudentPage() {
         {/* ── Registered — approved (main dashboard) ──────────── */}
         {isRegistered && reg?.status === "approved" && (
           <div className="space-y-8">
-            {/* External student banner */}
             {reg.isExternalStudent && (
               <div className="bg-sunny-light border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000] flex items-start gap-4">
                 <svg className="w-6 h-6 text-sunny shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
                 </svg>
                 <div>
-                  <h4 className="font-display font-black text-sm text-navy">External Participant</h4>
+                  <h4 className="font-display font-black text-sm text-navy">Cross-Department Participant</h4>
                   <p className="text-navy-muted text-xs mt-1">
-                    Welcome from <strong>{reg.department}</strong>! As a cross-department participant, you can attend sessions, join teams, and earn points.
-                    Niche Audit, team creation, and submissions are exclusive to IPE students.
+                    Welcome from <strong>{reg.department}</strong>. You have full access to IEPOD activities, including Niche Audit, team collaboration, and submissions.
                   </p>
                 </div>
               </div>
@@ -448,13 +520,27 @@ export default function IepodStudentPage() {
               {/* Society commitment card */}
               <div className={`${profile?.society ? "bg-teal" : "bg-lavender"} border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform`}>
                 <h4 className="font-display font-black text-sm text-navy mb-3">
-                  {profile?.society ? "Your Society" : "Choose Your Society"}
+                  {profile?.society ? "Your Society" : preferredSociety ? "Preferred Society" : "Choose Your Society"}
                 </h4>
-                {profile?.society ? (
+                {profile?.society || preferredSociety ? (
                   <div>
-                    <p className="font-display font-black text-xl text-navy">{profile.society.shortName}</p>
-                    <p className="text-navy-muted text-sm font-medium mt-1">{profile.society.name}</p>
-                    <p className="text-slate text-xs font-medium mt-1">{profile.society.focusArea}</p>
+                    <p className="font-display font-black text-xl text-navy">{(profile?.society || preferredSociety)?.shortName}</p>
+                    <p className="text-navy-muted text-sm font-medium mt-1">{(profile?.society || preferredSociety)?.name}</p>
+                    <p className="text-navy-muted text-xs font-medium mt-1">{(profile?.society || preferredSociety)?.focusArea}</p>
+                    {!profile?.society && preferredSociety && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-[11px] text-navy-muted font-medium">
+                          This was your application preference. Confirming now finalizes your commitment.
+                        </p>
+                        <button
+                          onClick={() => handleCommitSociety(preferredSociety._id)}
+                          disabled={committingSociety !== null}
+                          className="bg-snow border-[2px] border-navy rounded-xl px-3 py-1.5 text-xs font-bold text-navy press-2 press-navy disabled:opacity-60"
+                        >
+                          {committingSociety === preferredSociety._id ? "Confirming..." : "Confirm Society"}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -480,13 +566,13 @@ export default function IepodStudentPage() {
               {/* Niche Audit card */}
               <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000]">
                 <h4 className="font-display font-black text-sm text-navy mb-3">Niche Audit</h4>
-                {reg.isExternalStudent ? (
+                {!canAccessNicheAudit ? (
                   <div>
-                    <div className="bg-cloud rounded-xl px-3 py-1 inline-block mb-2">
-                      <span className="text-slate font-bold text-xs">IPE Only</span>
+                    <div className="bg-sunny-light rounded-xl px-3 py-1 inline-block mb-2 border border-navy/20">
+                      <span className="text-navy font-bold text-xs">Locked Until Carve Phase</span>
                     </div>
                     <p className="text-slate text-xs">
-                      The Niche Audit is exclusive to Industrial &amp; Production Engineering students.
+                      Niche Audit unlocks in Phase 2 (Carve Your Niche). Current phase: {PHASE_LABELS[currentPhase || "stimulate"]}.
                     </p>
                   </div>
                 ) : profile?.nicheAudit ? (
@@ -521,8 +607,17 @@ export default function IepodStudentPage() {
 
               {/* Hackathon team card */}
               <div className="bg-coral border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
-                <h4 className="font-display font-black text-sm text-navy mb-3">Hackathon Team</h4>
-                {profile?.team ? (
+                <h4 className="font-display font-black text-sm text-snow mb-3">Hackathon Team</h4>
+                {!canAccessTeamEcosystem ? (
+                  <div>
+                    <div className="bg-sunny-light rounded-xl px-3 py-1 inline-block mb-2 border border-navy/20">
+                      <span className="text-navy font-bold text-xs">Opens in Pitch Phase</span>
+                    </div>
+                    <p className="text-snow text-sm">
+                      Team formation unlocks in Phase 3 (Pitch Your Process). Current phase: {PHASE_LABELS[currentPhase || "stimulate"]}.
+                    </p>
+                  </div>
+                ) : profile?.team ? (
                   <div>
                     <p className="font-display font-black text-lg text-navy">{profile.team.name}</p>
                     <p className="text-slate text-xs font-medium mt-1">
@@ -540,16 +635,12 @@ export default function IepodStudentPage() {
                   </div>
                 ) : (
                   <div>
-                    <p className="text-slate text-sm mb-3">
-                      {reg.isExternalStudent
-                        ? "Browse and join an existing team for the hackathon."
-                        : "Form or join a team for the hackathon finale."}
-                    </p>
+                    <p className="text-snow text-sm mb-3">Form or join a team for the hackathon finale.</p>
                     <Link
                       href="/dashboard/iepod/team"
-                      className="bg-navy border-[2px] border-lime text-coral font-bold text-xs px-4 py-2 rounded-xl press-2 press-lime inline-block"
+                      className="bg-navy border-[2px] border-lime text-lime font-bold text-xs px-4 py-2 rounded-xl press-2 press-lime inline-block"
                     >
-                      {reg.isExternalStudent ? "Join a Team" : "Find a Team"}
+                      Find a Team
                     </Link>
                   </div>
                 )}
@@ -559,52 +650,91 @@ export default function IepodStudentPage() {
             {/* Second row: quizzes + leaderboard */}
             <div className="grid md:grid-cols-2 gap-5">
               {/* Quizzes & Challenges */}
-              <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-display font-black text-base text-navy">Quizzes & Challenges</h4>
-                  <Link
-                    href="/dashboard/iepod/quizzes"
-                    className="text-lavender font-bold text-xs hover:underline"
-                  >
-                    View all &rarr;
-                  </Link>
-                </div>
-                {profile?.quizResults && profile.quizResults.length > 0 ? (
-                  <div className="space-y-3">
-                    {profile.quizResults.slice(0, 3).map((qr) => (
-                      <div key={qr._id} className="flex items-center justify-between bg-ghost rounded-xl px-4 py-3">
-                        <div>
-                          <p className="font-bold text-sm text-navy">Quiz Result</p>
-                          <p className="text-slate text-xs">{new Date(qr.submittedAt).toLocaleDateString()}</p>
-                        </div>
-                        <div className="text-right">
-                          <span className="font-display font-black text-lg text-navy">
-                            {qr.score}/{qr.maxScore}
-                          </span>
-                          <p className="text-xs text-slate">{qr.percentage}%</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-slate text-sm mb-3">No quizzes taken yet</p>
+              <div className="bg-[linear-gradient(145deg,#2C1A7A_0%,#4A28A8_55%,#6A35CC_100%)] border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] relative overflow-hidden">
+                {/* <div className="absolute inset-x-3 -bottom-3 h-full rounded-3xl bg-lavender-light/35 border border-snow/20" /> */}
+                <div className="relative z-10 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-display font-black text-base text-snow">Quizzes & Challenges</h4>
                     <Link
                       href="/dashboard/iepod/quizzes"
-                      className="bg-lime border-[2px] border-navy text-navy font-bold text-xs px-4 py-2 rounded-xl press-2 press-navy inline-block"
+                      className="text-snow/80 font-bold text-xs hover:underline"
                     >
-                      Take a Quiz
+                      View all &rarr;
                     </Link>
                   </div>
-                )}
+
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div className="bg-snow border border-navy/20 rounded-2xl p-4 space-y-2">
+                      <p className="text-label-sm text-navy">Live Arena</p>
+                      <p className="text-xs text-navy-muted">Join host-led quiz rounds with real-time standings and timed reveals.</p>
+                      <Link
+                        href="/dashboard/iepod/quizzes"
+                        className="inline-flex items-center justify-center w-full bg-coral border-[2px] border-navy rounded-xl px-3 py-2 font-display font-black text-xs text-snow press-2 press-black"
+                      >
+                        Join Live Arena
+                      </Link>
+                    </div>
+                    <div className="bg-snow border border-navy/20 rounded-2xl p-4 space-y-2">
+                      <p className="text-label-sm text-navy">Practice Decks</p>
+                      <p className="text-xs text-navy-muted">Play regular quiz sets, track your pace, and improve your score history.</p>
+                      <Link
+                        href="/dashboard/iepod/quizzes"
+                        className="inline-flex items-center justify-center w-full bg-lime border-[2px] border-navy rounded-xl px-3 py-2 font-display font-black text-xs text-navy press-2 press-navy"
+                      >
+                        Open Practice
+                      </Link>
+                    </div>
+                  </div>
+
+                  {profile?.quizResults && profile.quizResults.length > 0 ? (
+                    <div className="space-y-2">
+                      {profile.quizResults.slice(0, 2).map((qr) => (
+                        <div key={qr._id} className="flex items-center justify-between bg-snow rounded-xl px-4 py-3 border border-navy/20">
+                          <div>
+                            <p className="font-bold text-sm text-navy">Recent Result</p>
+                            <p className="text-slate text-xs">{new Date(qr.submittedAt).toLocaleDateString()}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-display font-black text-lg text-navy">{qr.score}/{qr.maxScore}</span>
+                            <p className="text-xs text-slate">{qr.percentage}%</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-snow/90 border border-snow/40 rounded-xl p-3 text-center">
+                      <p className="text-navy text-xs font-bold">No practice quiz result yet. Live arena rounds are tracked separately on the quiz leaderboard.</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Leaderboard */}
               <div className="bg-navy border-[4px] border-lime rounded-3xl p-6 shadow-[6px_6px_0_0_#C8F31D]">
-                <h4 className="font-display font-black text-base text-lime mb-4">Leaderboard</h4>
-                {leaderboard.length > 0 ? (
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <h4 className="font-display font-black text-base text-lime">Leaderboard</h4>
+                  <div className="inline-flex rounded-xl border border-lime/30 p-1 bg-navy-light">
+                    <button
+                      onClick={() => setLeaderboardView("general")}
+                      className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition-colors ${
+                        leaderboardView === "general" ? "bg-lime text-navy" : "text-lime/70"
+                      }`}
+                    >
+                      General
+                    </button>
+                    <button
+                      onClick={() => setLeaderboardView("quiz")}
+                      className={`px-2.5 py-1 text-[10px] font-bold rounded-lg transition-colors ${
+                        leaderboardView === "quiz" ? "bg-lime text-navy" : "text-lime/70"
+                      }`}
+                    >
+                      Quiz
+                    </button>
+                  </div>
+                </div>
+                {activeLeaderboard.length > 0 ? (
                   <div className="space-y-2">
-                    {leaderboard.slice(0, 5).map((entry) => {
+                    {activeLeaderboard.slice(0, 5).map((entry) => {
                       const isMe = entry.userId === user?.id;
                       return (
                         <div
@@ -622,7 +752,7 @@ export default function IepodStudentPage() {
                             <p className={`font-bold text-sm truncate ${isMe ? "text-lime" : "text-lime/80"}`}>
                               {entry.userName} {isMe && "(You)"}
                             </p>
-                            {entry.societyName && (
+                            {hasSocietyName(entry) && entry.societyName && (
                               <p className="text-lime/40 text-[10px]">{entry.societyName}</p>
                             )}
                           </div>
@@ -632,6 +762,20 @@ export default function IepodStudentPage() {
                         </div>
                       );
                     })}
+                    {showMyPosition && myLeaderboardEntry && (
+                      <div className="mt-3 rounded-xl border border-lime/30 bg-lime/10 px-3 py-2">
+                        <p className="text-[11px] font-bold text-lime">
+                          Your position: #{myLeaderboardEntry.rank} with {myLeaderboardEntry.totalPoints} points
+                        </p>
+                      </div>
+                    )}
+                    {!myLeaderboardEntry && (
+                      <div className="mt-3 rounded-xl border border-lime/20 bg-navy-light px-3 py-2">
+                        <p className="text-[11px] font-bold text-lime/80">
+                          You are not ranked on this board yet. Complete activities to enter the standings.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className="text-lime/50 text-sm text-center py-6">No leaderboard data yet</p>
@@ -640,26 +784,92 @@ export default function IepodStudentPage() {
             </div>
 
             {/* Points history */}
-            {profile?.pointsHistory && profile.pointsHistory.length > 0 && (
+            {allPointsHistory.length > 0 && (
               <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
-                <h4 className="font-display font-black text-base text-navy mb-4">Recent Points</h4>
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <h4 className="font-display font-black text-base text-navy">Recent Points</h4>
+                  <button
+                    onClick={() => setShowPointsModal(true)}
+                    className="bg-lime border-2 border-navy rounded-xl px-3 py-1.5 text-xs font-bold text-navy press-2 press-navy"
+                  >
+                    View Full History
+                  </button>
+                </div>
                 <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {profile.pointsHistory.slice(0, 6).map((p) => (
-                    <div key={p._id} className="flex items-center justify-between bg-ghost rounded-xl px-4 py-3">
+                  {allPointsHistory.slice(0, 6).map((p) => (
+                    <div key={p.id} className="flex items-center justify-between bg-ghost rounded-xl px-4 py-3">
                       <div className="min-w-0">
                         <p className="font-bold text-xs text-navy truncate">{p.description}</p>
+                        <p className="text-[10px] font-bold text-navy-muted uppercase tracking-wide">
+                          {p.board === "general" ? "General" : "Quiz"} • {p.label.replace(/_/g, " ")}
+                        </p>
                         <p className="text-slate text-[10px]">
                           {new Date(p.awardedAt).toLocaleDateString()}
                         </p>
                       </div>
                       <span className="bg-lime border-[2px] border-navy text-navy font-display font-black text-xs px-2 py-1 rounded-lg shrink-0 ml-2">
-                        +{p.points}
+                        {p.points > 0 ? "+" : ""}{p.points}
                       </span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
+
+            <Modal
+              isOpen={showPointsModal}
+              onClose={() => setShowPointsModal(false)}
+              title="IEPOD Points History"
+              size="lg"
+            >
+              <div className="space-y-4">
+                <div className="inline-flex rounded-xl border border-navy/30 p-1 bg-ghost">
+                  <button
+                    onClick={() => setPointsHistoryView("all")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg ${pointsHistoryView === "all" ? "bg-lime text-navy" : "text-navy-muted"}`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => setPointsHistoryView("general")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg ${pointsHistoryView === "general" ? "bg-lime text-navy" : "text-navy-muted"}`}
+                  >
+                    General
+                  </button>
+                  <button
+                    onClick={() => setPointsHistoryView("quiz")}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg ${pointsHistoryView === "quiz" ? "bg-lime text-navy" : "text-navy-muted"}`}
+                  >
+                    Quiz
+                  </button>
+                </div>
+
+                <div className="rounded-2xl border-2 border-cloud max-h-[60vh] overflow-y-auto divide-y divide-cloud">
+                  {filteredPointsHistory.length > 0 ? (
+                    filteredPointsHistory.map((entry) => (
+                      <div key={entry.id} className="flex items-center justify-between px-4 py-3">
+                        <div className="min-w-0 pr-3">
+                          <p className="font-bold text-sm text-navy truncate">{entry.description}</p>
+                          <p className="text-xs text-navy-muted mt-0.5 uppercase tracking-wide">
+                            {entry.board === "general" ? "General" : "Quiz"} • {entry.label.replace(/_/g, " ")}
+                          </p>
+                          <p className="text-[11px] text-slate mt-0.5">
+                            {new Date(entry.awardedAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <span className="bg-lime border-2 border-navy text-navy font-display font-black text-xs px-2.5 py-1 rounded-lg shrink-0">
+                          {entry.points > 0 ? "+" : ""}{entry.points}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-4 py-8 text-center text-sm text-slate">
+                      No points history found for this view yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Modal>
           </div>
         )}
       </div>

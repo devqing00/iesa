@@ -558,7 +558,8 @@ function RegisterContent() {
                       </a>
                     )}
                     {/* Account exists via Google — offer Google sign-in */}
-                    {error.includes("different credential") && (
+                    {(error.toLowerCase().includes("linked to google") ||
+                      error.toLowerCase().includes("continue with google")) && (
                       <button
                         type="button"
                         onClick={handleGoogleSignUp}

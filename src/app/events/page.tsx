@@ -46,14 +46,20 @@ function getPublicApiBaseUrl(): string {
 
 async function fetchPublicEvents(): Promise<PublicEventsResponse> {
   const apiUrl = getPublicApiBaseUrl();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
   try {
     const res = await fetch(`${apiUrl}/api/v1/events/public`, {
+      signal: controller.signal,
       next: { revalidate: 300 }, // revalidate every 5 minutes
     });
     if (!res.ok) return { upcoming: [], past: [], sessionName: null };
     return res.json();
   } catch {
     return { upcoming: [], past: [], sessionName: null };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

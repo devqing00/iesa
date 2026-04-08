@@ -764,6 +764,39 @@ select.input-field {
   50% { transform: translateY(-8px); }
 }
 
+@keyframes rankRowEnter {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes cardPopIn {
+  0% { opacity: 0; transform: translateY(8px) scale(0.985); }
+  70% { opacity: 1; transform: translateY(-1px) scale(1.006); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes elasticRise {
+  0% { opacity: 0; transform: translateY(16px) scale(0.82); }
+  60% { opacity: 1; transform: translateY(-2px) scale(1.06); }
+  80% { transform: translateY(1px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes flipReveal {
+  0% { opacity: 0; transform: perspective(900px) rotateY(78deg) translateY(20px) scale(0.92); }
+  65% { opacity: 1; transform: perspective(900px) rotateY(-8deg) translateY(-2px) scale(1.02); }
+  85% { transform: perspective(900px) rotateY(4deg) translateY(0) scale(0.99); }
+  100% { opacity: 1; transform: perspective(900px) rotateY(0deg) translateY(0) scale(1); }
+}
+
+@keyframes waitroomBounce {
+  0% { transform: translate(0, 0) scale(0.8); opacity: 0; }
+  20% { transform: translate(-10px, -7px) scale(1.04); opacity: 1; }
+  45% { transform: translate(14px, -12px) scale(0.98); }
+  68% { transform: translate(-8px, 8px) scale(1.02); }
+  100% { transform: translate(0, 0) scale(1); opacity: 0.96; }
+}
+
 .animate-shimmer {
   background: linear-gradient(
     90deg,
@@ -781,9 +814,14 @@ select.input-field {
 .animate-slide-left { animation: slideInLeft 0.5s ease forwards; }
 .animate-slide-right { animation: slideInRight 0.5s ease forwards; }
 .animate-pulse-soft { animation: pulse-soft 2s ease infinite; }
+.animate-rank-enter { animation: rankRowEnter 0.42s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-card-pop { animation: cardPopIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .animate-float-slow { animation: float-slow 6.5s ease-in-out infinite; }
 .animate-float-medium { animation: float-medium 5.5s ease-in-out infinite; }
 .animate-float-fast { animation: float-fast 4.5s ease-in-out infinite; }
+.animate-elastic-rise { animation: elasticRise 0.75s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-flip-reveal { animation: flipReveal 0.95s cubic-bezier(0.22, 1, 0.36, 1) both; transform-origin: center bottom; backface-visibility: hidden; }
+.animate-waitroom-bounce { animation: waitroomBounce 3.4s cubic-bezier(0.25, 0.9, 0.25, 1) both; }
 
 .timer-progress-circle {
   transition: stroke-dashoffset 0.5s ease;

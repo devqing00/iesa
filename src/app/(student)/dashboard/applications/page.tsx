@@ -241,7 +241,7 @@ export default function ApplicationsPage() {
                         : isMemberViaRole || existingApp?.status === "accepted"
                         ? "bg-teal text-snow"
                         : `${STATUS_STYLES[existingApp?.status || "pending"].bg} ${STATUS_STYLES[existingApp?.status || "pending"].text}`
-                    } text-label px-3 py-1 rounded-full border-[2px] border-navy`}
+                    } text-label px-3 py-1 rounded-full border-2 border-navy`}
                   >
                     {isHeadViaRole ? "Head" : isMemberViaRole || existingApp?.status === "accepted" ? "Member" : STATUS_STYLES[existingApp?.status || "pending"].label}
                   </span>
@@ -338,14 +338,30 @@ export default function ApplicationsPage() {
 
                   <div className="flex flex-col items-end gap-2 shrink-0">
                     <span
-                      className={`${statusStyle.bg} ${statusStyle.text} text-label px-3 py-1 rounded-full border-[2px] border-navy`}
+                      className={`${statusStyle.bg} ${statusStyle.text} text-label px-3 py-1 rounded-full border-2 border-navy`}
                     >
                       {statusStyle.label}
                     </span>
                     {app.feedback && (
-                      <p className="text-xs text-slate italic max-w-[200px] text-right">
-                        &ldquo;{app.feedback}&rdquo;
-                      </p>
+                      <div className="max-w-64 text-right">
+                        {app.rejectionTag && app.status === "rejected" && (
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-coral mb-0.5">
+                            {app.rejectionTag.replace("_", " ")}
+                          </p>
+                        )}
+                        <p className="text-xs text-slate italic">&ldquo;{app.feedback}&rdquo;</p>
+                      </div>
+                    )}
+                    {(app.status === "rejected" || app.status === "revoked") && (
+                      <button
+                        onClick={() => {
+                          const team = teams.find((t) => t.slug === app.team);
+                          if (team) openApplyModal(team);
+                        }}
+                        className="text-[10px] font-bold bg-lime border-2 border-navy px-2.5 py-1 rounded-lg text-navy press-1 press-navy"
+                      >
+                        Re-apply
+                      </button>
                     )}
                   </div>
                 </div>
@@ -357,13 +373,13 @@ export default function ApplicationsPage() {
 
       {/* ─── Application Modal ──────────────── */}
       {selectedTeam && (
-        <div className="fixed inset-0 bg-navy/60 z-[70] flex items-center justify-center p-4" onClick={() => setSelectedTeam(null)}>
+        <div className="fixed inset-0 bg-navy/60 z-70 flex items-center justify-center p-4" onClick={() => setSelectedTeam(null)}>
           <div
             className="bg-snow border-[3px] border-navy rounded-3xl shadow-[10px_10px_0_0_#000] w-full max-w-lg max-h-[calc(100vh-2rem)] sm:max-h-[85vh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className={`${getTeamColors(selectedTeam.colorKey).bg} border-b-[4px] border-navy rounded-t-[20px] p-6`}>
+            <div className={`${getTeamColors(selectedTeam.colorKey).bg} border-b-4 border-navy rounded-t-[20px] p-6`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`${getTeamColors(selectedTeam.colorKey).badge} border-[3px] border-navy rounded-2xl p-3`}>

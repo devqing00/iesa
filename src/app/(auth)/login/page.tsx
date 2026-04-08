@@ -248,7 +248,8 @@ function StudentLoginContent() {
                           </button>
                         )}
                         {/* Account exists with different provider — offer Google */}
-                        {error.includes("different credential") && (
+                        {(error.toLowerCase().includes("linked to google") ||
+                          error.toLowerCase().includes("continue with google")) && (
                           <button
                             type="button"
                             onClick={handleGoogleLogin}
