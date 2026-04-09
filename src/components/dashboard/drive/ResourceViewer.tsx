@@ -891,6 +891,64 @@ function PageNoteFab({
   );
 }
 
+// ── Video Player ─────────────────────────────────────────────
+
+interface VideoPlayerProps {
+  fileId: string;
+  meta: FileMetaResponse;
+  token: string | null;
+  onProgressUpdate: (currentTime: number, duration: number) => void;
+}
+
+function VideoPlayer({ fileId, meta, token, onProgressUpdate }: VideoPlayerProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const streamUrl = getDriveStreamUrl(fileId);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (meta.progress?.currentTime) {
+      video.currentTime = meta.progress.currentTime;
+    }
+
+    progressTimerRef.current = setInterval(() => {
+      if (video && !video.paused && video.duration > 0) {
+        onProgressUpdate(video.currentTime, video.duration);
+      }
+    }, 10000);
+
+    return () => {
+      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+    };
+  }, [meta.progress?.currentTime, onProgressUpdate]);
+
+  const handlePause = useCallback(() => {
+    const video = videoRef.current;
+    if (video && video.duration > 0) {
+      onProgressUpdate(video.currentTime, video.duration);
+    }
+  }, [onProgressUpdate]);
+
+  return (
+    <div className="flex items-center justify-center h-full bg-navy">
+      <video
+        ref={videoRef}
+        src={`${streamUrl}${token ? `?token=${encodeURIComponent(token)}` : ""}`}
+        controls
+        className="max-w-full max-h-full"
+        onPause={handlePause}
+        onEnded={handlePause}
+        preload="metadata"
+        crossOrigin="use-credentials"
+      >
+        Your browser doesn&apos;t support video playback.
+      </video>
+    </div>
+  );
+}
+
 // ── Image Viewer ──────────────────────────────────────────
 
 function ImageViewer({ fileId, meta, token }: { fileId: string; meta: FileMetaResponse; token: string | null }) {
