@@ -31,6 +31,7 @@ from typing import Optional, List
 from functools import lru_cache
 
 from google.oauth2 import service_account
+from google.auth.transport.requests import AuthorizedSession
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 
@@ -98,6 +99,15 @@ def get_drive_service():
     service = build("drive", "v3", credentials=creds, cache_discovery=False)
     logger.info("Google Drive API service initialised")
     return service
+
+
+@lru_cache(maxsize=1)
+def get_drive_authorized_session():
+    """Build and cache an authorized HTTP session for direct streaming endpoints."""
+    creds = _get_credentials()
+    session = AuthorizedSession(creds)
+    logger.info("Google Drive authorized HTTP session initialised")
+    return session
 
 
 # ── File type helpers ────────────────────────────────────────
@@ -244,6 +254,39 @@ def export_google_file_pdf_bytes(file_id: str) -> io.BytesIO:
         _, done = downloader.next_chunk()
     buf.seek(0)
     return buf
+
+
+def open_drive_file_stream(file_id: str, range_header: Optional[str] = None, timeout: int = 60):
+    """
+    Open a direct streaming HTTP response for a Drive file download.
+    Caller is responsible for closing the returned response object.
+    """
+    session = get_drive_authorized_session()
+    url = f"https://www.googleapis.com/drive/v3/files/{file_id}"
+    params = {
+        "alt": "media",
+        "supportsAllDrives": "true",
+    }
+    headers = {}
+    if range_header:
+        headers["Range"] = range_header
+
+    response = session.get(url, params=params, headers=headers, stream=True, timeout=timeout)
+    return response
+
+
+def open_drive_pdf_export_stream(file_id: str, timeout: int = 60):
+    """
+    Open a direct streaming HTTP response for Google Docs/Sheets/Slides PDF export.
+    Caller is responsible for closing the returned response object.
+    """
+    session = get_drive_authorized_session()
+    url = f"https://www.googleapis.com/drive/v3/files/{file_id}/export"
+    params = {
+        "mimeType": "application/pdf",
+    }
+    response = session.get(url, params=params, stream=True, timeout=timeout)
+    return response
 
 
 def search_files(query_text: str, folder_id: Optional[str] = None, page_size: int = 30):

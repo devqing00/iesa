@@ -53,6 +53,7 @@ export interface FileMetaResponse {
   webViewLink: string | null;
   progress: FileProgress | null;
   bookmarks: FileBookmark[];
+  pageNotes: FilePageNote[];
 }
 
 export interface FileProgress {
@@ -78,6 +79,16 @@ export interface FileBookmark {
   timestamp?: number;
   label: string;
   createdAt: string;
+}
+
+export interface FilePageNote {
+  _id: string;
+  fileId: string;
+  fileName: string;
+  page: number;
+  note: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface SearchResponse {
@@ -152,11 +163,49 @@ export interface ProgressUpdatePayload {
   scrollPercent?: number;
 }
 
+export interface ViewerTelemetryPayload {
+  fileId: string;
+  fileName: string;
+  fileMimeType?: string;
+  eventType: "loaded" | "error" | "session_end";
+  totalPages?: number;
+  currentPage?: number;
+  renderedPagesCount?: number;
+  peakRenderedPages?: number;
+  zoom?: number;
+  devicePixelRatio?: number;
+  lowMemoryMode?: boolean;
+  cacheStatus?: "checking" | "cached" | "downloading" | "ready";
+  loadDurationMs?: number;
+  errorMessage?: string;
+}
+
+export interface PageNotePayload {
+  fileId: string;
+  fileName: string;
+  page: number;
+  note: string;
+}
+
 /**
  * Save reading/viewing progress for a file
  */
 export async function saveDriveProgress(data: ProgressUpdatePayload): Promise<void> {
   await api.post('/api/v1/drive/progress', data, { showErrorToast: false });
+}
+
+/**
+ * Save resource viewer telemetry for performance diagnostics.
+ */
+export async function saveDriveViewerTelemetry(data: ViewerTelemetryPayload): Promise<void> {
+  await api.post('/api/v1/drive/viewer-telemetry', data, { showErrorToast: false });
+}
+
+/**
+ * Create/update (or clear when empty) a note for a page in a resource.
+ */
+export async function upsertDrivePageNote(data: PageNotePayload): Promise<{ ok: boolean; deleted?: boolean; note?: FilePageNote }> {
+  return api.post('/api/v1/drive/page-note', data, { showErrorToast: false });
 }
 
 /**

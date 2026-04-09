@@ -15,6 +15,7 @@ Endpoints:
     GET  /api/v1/drive/recent          — Recently viewed resources
     POST /api/v1/drive/bookmark        — Bookmark a page in a file
     DELETE /api/v1/drive/bookmark      — Remove a bookmark
+    POST /api/v1/drive/page-note       — Upsert or clear a note for a page
 """
 
 import asyncio
@@ -24,10 +25,11 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Query, Security, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Security, status, Request
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
+from starlette.concurrency import iterate_in_threadpool
 
 from app.db import get_database
 from app.core.security import (
@@ -41,8 +43,8 @@ from app.core.drive import (
     DRIVE_ROOT_FOLDER_ID,
     list_folder,
     get_file_metadata,
-    download_file_bytes,
-    export_google_file_pdf_bytes,
+    open_drive_file_stream,
+    open_drive_pdf_export_stream,
     search_files,
     get_folder_breadcrumbs,
     classify_mime,
@@ -90,6 +92,30 @@ class BookmarkCreate(BaseModel):
 class BookmarkDelete(BaseModel):
     fileId: str
     bookmarkId: str
+
+
+class ViewerTelemetry(BaseModel):
+    fileId: str
+    fileName: str
+    fileMimeType: str = ""
+    eventType: str = Field(pattern="^(loaded|error|session_end)$")
+    totalPages: Optional[int] = None
+    currentPage: Optional[int] = None
+    renderedPagesCount: Optional[int] = None
+    peakRenderedPages: Optional[int] = None
+    zoom: Optional[float] = None
+    devicePixelRatio: Optional[float] = None
+    lowMemoryMode: Optional[bool] = None
+    cacheStatus: Optional[str] = Field(default=None, pattern="^(checking|cached|downloading|ready)$")
+    loadDurationMs: Optional[int] = None
+    errorMessage: Optional[str] = Field(default=None, max_length=300)
+
+
+class PageNoteUpsert(BaseModel):
+    fileId: str
+    fileName: str
+    page: int = Field(ge=1)
+    note: str = Field(default="", max_length=4000)
 
 
 # ── Helpers ──────────────────────────────────────────────────
@@ -310,9 +336,15 @@ async def file_metadata(
     bookmarks = await db["drive_bookmarks"].find(
         {"userId": user_id, "fileId": file_id}
     ).sort("createdAt", 1).to_list(length=50)
+    page_notes = await db["drive_page_notes"].find(
+        {"userId": user_id, "fileId": file_id}
+    ).sort("page", 1).to_list(length=500)
     for b in bookmarks:
         b["_id"] = str(b["_id"])
         b.pop("userId", None)
+    for note in page_notes:
+        note["_id"] = str(note["_id"])
+        note.pop("userId", None)
 
     return {
         "id": meta["id"],
@@ -329,12 +361,14 @@ async def file_metadata(
         "webViewLink": meta.get("webViewLink"),
         "progress": progress,
         "bookmarks": bookmarks,
+        "pageNotes": page_notes,
     }
 
 
 @router.get("/file/{file_id}/stream")
 async def stream_file(
     file_id: str,
+    request: Request,
     download: bool = Query(False, description="Force download as attachment"),
     user: dict = Depends(_stream_auth_user),
 ):
@@ -360,35 +394,58 @@ async def stream_file(
             return RedirectResponse(url=embed)
         raise HTTPException(status_code=400, detail="This file type cannot be streamed directly. Use the embed URL.")
 
-    # Download file bytes
+    range_header = request.headers.get("range")
     try:
-        buf = await loop.run_in_executor(None, lambda: download_file_bytes(file_id))
+        drive_response = await loop.run_in_executor(
+            None,
+            lambda: open_drive_file_stream(file_id, range_header),
+        )
     except Exception as e:
-        raise HTTPException(status_code=502, detail=safe_detail("Failed to download file", e))
+        raise HTTPException(status_code=502, detail=safe_detail("Failed to stream file", e))
 
-    if buf.getbuffer().nbytes == 0:
+    if drive_response.status_code >= 400:
+        detail = "Failed to stream file from Drive"
         try:
-            buf = await loop.run_in_executor(None, lambda: download_file_bytes(file_id))
+            body_text = drive_response.text
+            if body_text:
+                detail = f"{detail}: {body_text[:200]}"
         except Exception:
             pass
+        drive_response.close()
+        raise HTTPException(status_code=502, detail=detail)
 
-    if buf.getbuffer().nbytes == 0:
-        raise HTTPException(status_code=502, detail="Drive returned an empty file stream. Please retry.")
-
-    file_size = buf.getbuffer().nbytes
     file_name = meta.get("name", "download")
 
     disposition = "attachment" if download else "inline"
 
     headers = {
         "Content-Disposition": f'{disposition}; filename="{file_name}"',
-        "Content-Length": str(file_size),
-        "Accept-Ranges": "bytes",
         "Cache-Control": "private, max-age=3600",
     }
 
+    passthrough_headers = [
+        "content-length",
+        "content-range",
+        "accept-ranges",
+        "etag",
+        "last-modified",
+    ]
+    for key in passthrough_headers:
+        value = drive_response.headers.get(key)
+        if value:
+            headers[key.title()] = value
+
+    def stream_chunks():
+        try:
+            for chunk in drive_response.iter_content(chunk_size=64 * 1024):
+                if chunk:
+                    yield chunk
+        finally:
+            drive_response.close()
+
     return StreamingResponse(
-        buf,
+        iterate_in_threadpool(stream_chunks()),
+        status_code=drive_response.status_code,
         media_type=mime,
         headers=headers,
     )
@@ -421,18 +478,23 @@ async def export_file_as_pdf(
         )
 
     try:
-        buf = await loop.run_in_executor(None, lambda: export_google_file_pdf_bytes(file_id))
+        drive_response = await loop.run_in_executor(
+            None,
+            lambda: open_drive_pdf_export_stream(file_id),
+        )
     except Exception as e:
         raise HTTPException(status_code=502, detail=safe_detail("Failed to convert file to PDF", e))
 
-    if buf.getbuffer().nbytes == 0:
+    if drive_response.status_code >= 400:
+        detail = "Drive PDF export failed"
         try:
-            buf = await loop.run_in_executor(None, lambda: export_google_file_pdf_bytes(file_id))
+            body_text = drive_response.text
+            if body_text:
+                detail = f"{detail}: {body_text[:200]}"
         except Exception:
             pass
-
-    if buf.getbuffer().nbytes == 0:
-        raise HTTPException(status_code=502, detail="Drive returned an empty PDF export. Please retry.")
+        drive_response.close()
+        raise HTTPException(status_code=502, detail=detail)
 
     base_name = meta.get("name", "resource")
     if "." in base_name:
@@ -442,12 +504,24 @@ async def export_file_as_pdf(
 
     headers = {
         "Content-Disposition": f'{disposition}; filename="{file_name}"',
-        "Content-Length": str(buf.getbuffer().nbytes),
         "Cache-Control": "private, max-age=3600",
     }
 
+    content_length = drive_response.headers.get("content-length")
+    if content_length:
+        headers["Content-Length"] = content_length
+
+    def stream_chunks():
+        try:
+            for chunk in drive_response.iter_content(chunk_size=64 * 1024):
+                if chunk:
+                    yield chunk
+        finally:
+            drive_response.close()
+
     return StreamingResponse(
-        buf,
+        iterate_in_threadpool(stream_chunks()),
+        status_code=drive_response.status_code,
         media_type="application/pdf",
         headers=headers,
     )
@@ -605,6 +679,90 @@ async def upsert_progress(
     )
 
     return {"ok": True}
+
+
+@router.post("/viewer-telemetry")
+async def upsert_viewer_telemetry(
+    body: ViewerTelemetry,
+    user: dict = Depends(require_ipe_student),
+):
+    """Store viewer telemetry snapshots for PDF stability diagnostics."""
+    db = get_database()
+    user_id = user.get("_id") if isinstance(user.get("_id"), str) else str(user.get("_id", ""))
+    now = datetime.now(timezone.utc)
+
+    doc = {
+        "userId": user_id,
+        "fileId": body.fileId,
+        "fileName": body.fileName,
+        "fileMimeType": body.fileMimeType,
+        "eventType": body.eventType,
+        "totalPages": body.totalPages,
+        "currentPage": body.currentPage,
+        "renderedPagesCount": body.renderedPagesCount,
+        "peakRenderedPages": body.peakRenderedPages,
+        "zoom": body.zoom,
+        "devicePixelRatio": body.devicePixelRatio,
+        "lowMemoryMode": body.lowMemoryMode,
+        "cacheStatus": body.cacheStatus,
+        "loadDurationMs": body.loadDurationMs,
+        "errorMessage": body.errorMessage,
+        "userAgent": user.get("userAgent") if isinstance(user, dict) else None,
+        "createdAt": now,
+    }
+
+    await db["drive_viewer_telemetry"].insert_one(doc)
+    return {"ok": True}
+
+
+@router.post("/page-note")
+async def upsert_page_note(
+    body: PageNoteUpsert,
+    user: dict = Depends(require_ipe_student),
+):
+    """Create/update a note for a specific page, or clear it when note is empty."""
+    db = get_database()
+    user_id = user.get("_id") if isinstance(user.get("_id"), str) else str(user.get("_id", ""))
+    now = datetime.now(timezone.utc)
+    clean_note = body.note.strip()
+
+    query = {
+        "userId": user_id,
+        "fileId": body.fileId,
+        "page": body.page,
+    }
+
+    if not clean_note:
+        await db["drive_page_notes"].delete_one(query)
+        return {"ok": True, "deleted": True}
+
+    await db["drive_page_notes"].update_one(
+        query,
+        {
+            "$set": {
+                "fileName": body.fileName,
+                "note": clean_note,
+                "updatedAt": now,
+            },
+            "$setOnInsert": {
+                "userId": user_id,
+                "createdAt": now,
+            },
+        },
+        upsert=True,
+    )
+
+    return {
+        "ok": True,
+        "deleted": False,
+        "note": {
+            "fileId": body.fileId,
+            "fileName": body.fileName,
+            "page": body.page,
+            "note": clean_note,
+            "updatedAt": now,
+        },
+    }
 
 
 @router.get("/recent")

@@ -1,20 +1,20 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { toast } from "sonner";
 import {
   type FileMetaResponse,
-  type FileBookmark,
+  type FilePageNote,
+  type ViewerTelemetryPayload,
   getDriveStreamUrl,
   getDrivePdfExportUrl,
   saveDriveProgress,
-  createDriveBookmark,
-  deleteDriveBookmark,
+  saveDriveViewerTelemetry,
+  upsertDrivePageNote,
   formatFileSize,
-  formatSeconds,
   getFileTypeColor,
   getFileTypeLabel,
 } from "@/lib/api/drive";
@@ -33,21 +33,6 @@ function BackIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
     <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-    </svg>
-  );
-}
-
-function BookmarkIcon({ filled = false, className = "w-5 h-5" }: { filled?: boolean; className?: string }) {
-  if (filled) {
-    return (
-      <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path fillRule="evenodd" d="M6.32 2.577a49.255 49.255 0 0 1 11.36 0c1.497.174 2.57 1.46 2.57 2.93V21a.75.75 0 0 1-1.085.67L12 18.089l-7.165 3.583A.75.75 0 0 1 3.75 21V5.507c0-1.47 1.073-2.756 2.57-2.93Z" clipRule="evenodd" />
-      </svg>
-    );
-  }
-  return (
-    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
     </svg>
   );
 }
@@ -108,6 +93,14 @@ function TrashIcon({ className = "w-4 h-4" }: { className?: string }) {
   );
 }
 
+function NoteIcon({ className = "w-5 h-5" }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487a2.1 2.1 0 0 1 2.97 2.97L9.525 17.763a4.5 4.5 0 0 1-1.9 1.12l-2.63.73a.75.75 0 0 1-.924-.924l.73-2.63a4.5 4.5 0 0 1 1.12-1.9L16.862 4.487Zm-1.258 1.258 2.97 2.97" />
+    </svg>
+  );
+}
+
 function ProgressLoader({
   title,
   subtitle,
@@ -145,18 +138,24 @@ interface PDFViewerProps {
   meta: FileMetaResponse;
   token: string | null;
   onProgressUpdate: (page: number, total: number) => void;
+  onTelemetry: (event: Omit<ViewerTelemetryPayload, "fileId" | "fileName" | "fileMimeType">) => void;
 }
 
 type CacheStatus = "checking" | "cached" | "downloading" | "ready";
 
-function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
+function PDFViewer({ fileId, meta, token, onProgressUpdate, onTelemetry }: PDFViewerProps) {
   const { getAccessToken } = useAuth();
+  const WINDOW_RADIUS = 2;
+  const KEEP_RADIUS = 6;
   const initialPage = meta.progress?.currentPage || 1;
   const [currentPage, setCurrentPage] = useState(meta.progress?.currentPage || 1);
   const [totalPages, setTotalPages] = useState(meta.progress?.totalPages || 0);
   const [zoom, setZoom] = useState(1);
   const [fitMode, setFitMode] = useState<"width" | "actual">("width");
   const [pageWidth, setPageWidth] = useState(0);
+  const [renderedPages, setRenderedPages] = useState<Set<number>>(new Set([Math.max(1, initialPage)]));
+  const [isLowMemoryDevice, setIsLowMemoryDevice] = useState(false);
+  const [effectiveDpr, setEffectiveDpr] = useState(1.5);
   const [pdfLoading, setPdfLoading] = useState(true);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -169,9 +168,89 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
   const initialPageRef = useRef(initialPage);
   const scrolledToInitialRef = useRef(initialPage <= 1); // no scroll needed if already at p1
   const currentPageRef = useRef(currentPage);
+  const zoomRef = useRef(zoom);
   const urlToRevokeRef = useRef<string | null>(null);
   const hasRetriedAfterEmptyRef = useRef(false);
+  const loadStartedAtRef = useRef<number>(typeof performance !== "undefined" ? performance.now() : Date.now());
+  const peakRenderedPagesRef = useRef(1);
+  const didLoadRef = useRef(false);
+  const pinchStateRef = useRef<{
+    startDistance: number;
+    startZoom: number;
+  } | null>(null);
+  const panStateRef = useRef<{
+    startX: number;
+    startY: number;
+    startScrollLeft: number;
+    startScrollTop: number;
+  } | null>(null);
   useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+
+  useEffect(() => {
+    loadStartedAtRef.current = typeof performance !== "undefined" ? performance.now() : Date.now();
+    peakRenderedPagesRef.current = 1;
+    didLoadRef.current = false;
+  }, [fileId]);
+
+  useEffect(() => {
+    if (renderedPages.size > peakRenderedPagesRef.current) {
+      peakRenderedPagesRef.current = renderedPages.size;
+    }
+  }, [renderedPages]);
+
+  const maxZoom = isLowMemoryDevice ? 2 : 3;
+  const minZoom = isLowMemoryDevice ? 0.5 : 0.25;
+  const showDetailedLayers = !isLowMemoryDevice && totalPages <= 120 && zoom <= 1.5;
+
+  const pdfOptions = useMemo(
+    () => ({
+      disableAutoFetch: isLowMemoryDevice,
+      disableStream: false,
+      useSystemFonts: true,
+    }),
+    [isLowMemoryDevice]
+  );
+
+  const updateRenderedWindow = useCallback((centerPage: number) => {
+    if (totalPages <= 0) return;
+
+    setRenderedPages((prev) => {
+      const next = new Set<number>();
+      const start = Math.max(1, centerPage - WINDOW_RADIUS);
+      const end = Math.min(totalPages, centerPage + WINDOW_RADIUS);
+
+      for (let page = start; page <= end; page += 1) {
+        next.add(page);
+      }
+
+      for (const page of prev) {
+        if (Math.abs(page - centerPage) <= KEEP_RADIUS) {
+          next.add(page);
+        }
+      }
+
+      return next;
+    });
+  }, [totalPages, WINDOW_RADIUS, KEEP_RADIUS]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const updateDeviceMode = () => {
+      const mobileViewport = window.matchMedia("(max-width: 900px)").matches;
+      const reportedMemory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+      const lowMemory = typeof reportedMemory === "number" && reportedMemory <= 4;
+      const dpr = window.devicePixelRatio || 1;
+
+      setIsLowMemoryDevice(mobileViewport || lowMemory);
+      setEffectiveDpr(mobileViewport || lowMemory ? Math.min(dpr, 1.25) : Math.min(dpr, 2));
+    };
+
+    updateDeviceMode();
+    window.addEventListener("resize", updateDeviceMode);
+    return () => window.removeEventListener("resize", updateDeviceMode);
+  }, []);
 
   const streamUrl = getDriveStreamUrl(fileId);
   const streamSrc = `${streamUrl}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
@@ -278,7 +357,30 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
     setPdfLoading(false);
     setPdfError(null);
     const startPage = initialPageRef.current;
+    const firstWindowStart = Math.max(1, startPage - WINDOW_RADIUS);
+    const firstWindowEnd = Math.min(numPages, startPage + WINDOW_RADIUS);
+    setRenderedPages(() => {
+      const next = new Set<number>();
+      for (let page = firstWindowStart; page <= firstWindowEnd; page += 1) {
+        next.add(page);
+      }
+      return next;
+    });
     onProgressUpdate(startPage, numPages);
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    didLoadRef.current = true;
+    onTelemetry({
+      eventType: "loaded",
+      totalPages: numPages,
+      currentPage: startPage,
+      renderedPagesCount: firstWindowEnd - firstWindowStart + 1,
+      peakRenderedPages: Math.max(peakRenderedPagesRef.current, firstWindowEnd - firstWindowStart + 1),
+      zoom,
+      devicePixelRatio: effectiveDpr,
+      lowMemoryMode: isLowMemoryDevice,
+      cacheStatus,
+      loadDurationMs: Math.max(0, Math.round(now - loadStartedAtRef.current)),
+    });
     // Scroll to the saved page after the page divs are in the DOM
     if (startPage > 1) {
       setTimeout(() => {
@@ -291,7 +393,7 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
     } else {
       scrolledToInitialRef.current = true;
     }
-  }, [onProgressUpdate]);
+  }, [onProgressUpdate, WINDOW_RADIUS, onTelemetry, zoom, effectiveDpr, isLowMemoryDevice, cacheStatus]);
 
   const handleDocumentLoadError = useCallback((err: unknown) => {
     const message = err instanceof Error ? err.message : String(err || "");
@@ -316,19 +418,52 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
 
     setPdfLoading(false);
     setPdfError("Failed to load PDF. The file may be too large or inaccessible.");
-  }, [fetchPdfBlobFallback, fileId]);
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    onTelemetry({
+      eventType: "error",
+      currentPage: currentPageRef.current,
+      renderedPagesCount: renderedPages.size,
+      peakRenderedPages: peakRenderedPagesRef.current,
+      zoom,
+      devicePixelRatio: effectiveDpr,
+      lowMemoryMode: isLowMemoryDevice,
+      cacheStatus,
+      loadDurationMs: Math.max(0, Math.round(now - loadStartedAtRef.current)),
+      errorMessage: message.slice(0, 240),
+    });
+  }, [fetchPdfBlobFallback, fileId, onTelemetry, renderedPages.size, zoom, effectiveDpr, isLowMemoryDevice, cacheStatus]);
+
+  useEffect(() => {
+    return () => {
+      if (!didLoadRef.current && !pdfError) return;
+      const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+      onTelemetry({
+        eventType: "session_end",
+        totalPages,
+        currentPage: currentPageRef.current,
+        renderedPagesCount: renderedPages.size,
+        peakRenderedPages: peakRenderedPagesRef.current,
+        zoom,
+        devicePixelRatio: effectiveDpr,
+        lowMemoryMode: isLowMemoryDevice,
+        cacheStatus,
+        loadDurationMs: Math.max(0, Math.round(now - loadStartedAtRef.current)),
+      });
+    };
+  }, [onTelemetry, totalPages, renderedPages.size, zoom, effectiveDpr, isLowMemoryDevice, cacheStatus, pdfError]);
 
   // Navigate to a specific page by scrolling to it
   const goToPage = useCallback((page: number) => {
     const p = Math.max(1, Math.min(page, totalPages || 1));
     setCurrentPage(p);
     currentPageRef.current = p;
+    updateRenderedWindow(p);
     if (totalPages > 0) onProgressUpdate(p, totalPages);
     const el = pageRefs.current.get(p);
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-  }, [totalPages, onProgressUpdate]);
+  }, [totalPages, onProgressUpdate, updateRenderedWindow]);
 
   const resolveCurrentPageFromScroll = useCallback(() => {
     if (totalPages === 0 || !containerRef.current || !scrolledToInitialRef.current) return;
@@ -390,6 +525,10 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
   }, [zoom, totalPages, resolveCurrentPageFromScroll]);
 
   useEffect(() => {
+    updateRenderedWindow(currentPage);
+  }, [currentPage, totalPages, updateRenderedWindow]);
+
+  useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
@@ -416,6 +555,103 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
       pageRefs.current.set(pageNum, el);
     } else {
       pageRefs.current.delete(pageNum);
+    }
+  }, []);
+
+  const getTouchDistance = useCallback((touches: React.TouchList) => {
+    if (touches.length < 2) return 0;
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }, []);
+
+  const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    if (event.touches.length === 2) {
+      const distance = getTouchDistance(event.touches);
+      if (!distance) return;
+      pinchStateRef.current = {
+        startDistance: distance,
+        startZoom: zoomRef.current,
+      };
+      panStateRef.current = null;
+      return;
+    }
+
+    if (event.touches.length === 1 && zoomRef.current > 1) {
+      const touch = event.touches[0];
+      panStateRef.current = {
+        startX: touch.clientX,
+        startY: touch.clientY,
+        startScrollLeft: container.scrollLeft,
+        startScrollTop: container.scrollTop,
+      };
+    }
+  }, [getTouchDistance]);
+
+  const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    if (event.touches.length === 2 && pinchStateRef.current) {
+      event.preventDefault();
+
+      const currentDistance = getTouchDistance(event.touches);
+      if (!currentDistance) return;
+
+      const midX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+      const midY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+
+      const nextZoom = Math.max(minZoom, Math.min(maxZoom, pinchStateRef.current.startZoom * (currentDistance / pinchStateRef.current.startDistance)));
+      const previousZoom = zoomRef.current;
+      if (Math.abs(nextZoom - previousZoom) < 0.01) return;
+
+      const rect = container.getBoundingClientRect();
+      const originX = midX - rect.left;
+      const originY = midY - rect.top;
+      const focalX = container.scrollLeft + originX;
+      const focalY = container.scrollTop + originY;
+      const ratio = nextZoom / previousZoom;
+
+      setZoom(nextZoom);
+      zoomRef.current = nextZoom;
+
+      container.scrollLeft = focalX * ratio - originX;
+      container.scrollTop = focalY * ratio - originY;
+      return;
+    }
+
+    if (event.touches.length === 1 && panStateRef.current && zoomRef.current > 1) {
+      event.preventDefault();
+      const touch = event.touches[0];
+      const dx = touch.clientX - panStateRef.current.startX;
+      const dy = touch.clientY - panStateRef.current.startY;
+
+      container.scrollLeft = panStateRef.current.startScrollLeft - dx;
+      container.scrollTop = panStateRef.current.startScrollTop - dy;
+    }
+  }, [getTouchDistance, maxZoom, minZoom]);
+
+  const handleTouchEnd = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length < 2) {
+      pinchStateRef.current = null;
+    }
+
+    if (event.touches.length === 0) {
+      panStateRef.current = null;
+      return;
+    }
+
+    if (event.touches.length === 1 && zoomRef.current > 1 && containerRef.current) {
+      const touch = event.touches[0];
+      panStateRef.current = {
+        startX: touch.clientX,
+        startY: touch.clientY,
+        startScrollLeft: containerRef.current.scrollLeft,
+        startScrollTop: containerRef.current.scrollTop,
+      };
     }
   }, []);
 
@@ -479,7 +715,7 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
             {fitMode === "width" ? "Fit" : "Cover"}
           </button>
           <button
-            onClick={() => setZoom(Math.max(0.25, zoom - 0.25))}
+            onClick={() => setZoom(Math.max(minZoom, zoom - 0.25))}
             title="Zoom out"
             className="w-7 h-7 rounded-lg bg-ghost flex items-center justify-center hover:bg-cloud"
           >
@@ -487,7 +723,7 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
           </button>
           <span className="text-xs text-slate w-10 text-center">{Math.round(zoom * 100)}%</span>
           <button
-            onClick={() => setZoom(Math.min(3, zoom + 0.25))}
+            onClick={() => setZoom(Math.min(maxZoom, zoom + 0.25))}
             title="Zoom in"
             className="w-7 h-7 rounded-lg bg-ghost flex items-center justify-center hover:bg-cloud"
           >
@@ -497,7 +733,14 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
       </div>
 
       {/* PDF content area */}
-      <div ref={containerRef} className="flex-1 overflow-auto bg-navy-light touch-pan-x touch-pan-y">
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-auto bg-navy-light touch-pan-x touch-pan-y"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+      >
         {(cacheStatus === "checking" || cacheStatus === "downloading" || pdfLoading) && (
           <div className="flex items-center justify-center h-full">
             <ProgressLoader
@@ -533,6 +776,7 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
         {pdfUrl && (
           <Document
             file={pdfUrl}
+            options={pdfOptions}
             onLoadSuccess={handleDocumentLoadSuccess}
             onLoadError={handleDocumentLoadError}
             loading={null}
@@ -543,20 +787,27 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
                   key={pageNum}
                   ref={(el) => setPageRef(pageNum, el)}
                   data-page-number={pageNum}
-                  className="shadow-lg"
+                  className="w-full flex justify-center min-h-[420px]"
                 >
-                  <Page
-                    pageNumber={pageNum}
-                    width={fitMode === "width" ? (pageWidth || undefined) : undefined}
-                    scale={zoom}
-                    renderTextLayer
-                    renderAnnotationLayer
-                    loading={
-                      <div className="flex items-center justify-center h-32">
-                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-lime border-t-transparent" />
-                      </div>
-                    }
-                  />
+                  {renderedPages.has(pageNum) ? (
+                    <div className="shadow-lg">
+                      <Page
+                        pageNumber={pageNum}
+                        width={fitMode === "width" ? (pageWidth || undefined) : undefined}
+                        scale={zoom}
+                        devicePixelRatio={effectiveDpr}
+                        renderTextLayer={showDetailedLayers && pageNum === currentPage}
+                        renderAnnotationLayer={showDetailedLayers && pageNum === currentPage}
+                        loading={
+                          <div className="flex items-center justify-center h-32">
+                            <div className="animate-spin rounded-full h-6 w-6 border-2 border-lime border-t-transparent" />
+                          </div>
+                        }
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-full" />
+                  )}
                 </div>
               ))}
             </div>
@@ -567,68 +818,80 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate }: PDFViewerProps) {
   );
 }
 
-// ── Video Player ─────────────────────────────────────────────
+// ── Page Note (Floating) ───────────────────────────────────
 
-interface VideoPlayerProps {
-  fileId: string;
-  meta: FileMetaResponse;
-  token: string | null;
-  onProgressUpdate: (currentTime: number, duration: number) => void;
+interface PageNoteFabProps {
+  open: boolean;
+  page: number;
+  noteDraft: string;
+  hasSavedNote: boolean;
+  saving: boolean;
+  onToggle: () => void;
+  onChange: (value: string) => void;
+  onSave: () => void;
+  onClear: () => void;
 }
 
-function VideoPlayer({ fileId, meta, token, onProgressUpdate }: VideoPlayerProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const streamUrl = getDriveStreamUrl(fileId);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    // Resume from progress
-    if (meta.progress?.currentTime) {
-      video.currentTime = meta.progress.currentTime;
-    }
-
-    // Track progress every 10 seconds
-    progressTimerRef.current = setInterval(() => {
-      if (video && !video.paused && video.duration > 0) {
-        onProgressUpdate(video.currentTime, video.duration);
-      }
-    }, 10000);
-
-    return () => {
-      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
-    };
-  }, [meta.progress?.currentTime, onProgressUpdate]);
-
-  // Save progress on pause
-  const handlePause = useCallback(() => {
-    const video = videoRef.current;
-    if (video && video.duration > 0) {
-      onProgressUpdate(video.currentTime, video.duration);
-    }
-  }, [onProgressUpdate]);
-
+function PageNoteFab({
+  open,
+  page,
+  noteDraft,
+  hasSavedNote,
+  saving,
+  onToggle,
+  onChange,
+  onSave,
+  onClear,
+}: PageNoteFabProps) {
   return (
-    <div className="flex items-center justify-center h-full bg-navy">
-      <video
-        ref={videoRef}
-        src={`${streamUrl}${token ? `?token=${encodeURIComponent(token)}` : ""}`}
-        controls
-        className="max-w-full max-h-full"
-        onPause={handlePause}
-        onEnded={handlePause}
-        preload="metadata"
-        crossOrigin="use-credentials"
+    <div className="absolute bottom-4 right-4 z-30 flex flex-col items-end gap-2">
+      {open && (
+        <div className="w-[min(90vw,320px)] rounded-2xl border-[3px] border-navy bg-snow p-3 shadow-[5px_5px_0_0_#000] space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-navy uppercase tracking-wide">Page {page} note</p>
+            {hasSavedNote && <span className="text-[10px] font-bold text-teal uppercase tracking-wide">Saved</span>}
+          </div>
+          <textarea
+            value={noteDraft}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Write your note for this page..."
+            className="w-full min-h-28 resize-y rounded-xl border-2 border-cloud bg-ghost px-3 py-2 text-sm text-navy"
+          />
+          <div className="flex items-center justify-between gap-2">
+            <button
+              onClick={onClear}
+              type="button"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border-2 border-navy bg-coral-light text-navy font-bold text-xs press-2 press-navy"
+            >
+              <TrashIcon className="w-3.5 h-3.5" />
+              Clear
+            </button>
+            <button
+              onClick={onSave}
+              type="button"
+              disabled={saving}
+              className="px-3 py-1.5 rounded-lg border-2 border-navy bg-lime text-navy font-bold text-xs press-2 press-navy disabled:opacity-60"
+            >
+              {saving ? "Saving..." : "Save note"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-12 h-12 rounded-full border-[3px] border-navy bg-lime text-navy flex items-center justify-center press-3 press-navy"
+        title={open ? "Close notes" : "Take note"}
+        aria-label={open ? "Close notes" : "Take note"}
       >
-        Your browser doesn&apos;t support video playback.
-      </video>
+        <NoteIcon className="w-5 h-5" />
+      </button>
     </div>
   );
 }
 
-// ── Image Viewer ─────────────────────────────────────────────
+// ── Image Viewer ──────────────────────────────────────────
 
 function ImageViewer({ fileId, meta, token }: { fileId: string; meta: FileMetaResponse; token: string | null }) {
   const { getAccessToken } = useAuth();
@@ -1006,90 +1269,6 @@ function EmbedViewer({ meta }: { meta: FileMetaResponse }) {
   );
 }
 
-// ── Bookmark Panel ──────────────────────────────────────────
-
-interface BookmarkPanelProps {
-  bookmarks: FileBookmark[];
-  fileId: string;
-  fileName: string;
-  onJumpTo: (bookmark: FileBookmark) => void;
-  onDelete: (bookmarkId: string) => void;
-  onAdd: (page?: number, timestamp?: number, label?: string) => void;
-  currentPage?: number;
-  currentTime?: number;
-}
-
-function BookmarkPanel({ bookmarks, onJumpTo, onDelete, onAdd, currentPage, currentTime }: Omit<BookmarkPanelProps, 'fileId' | 'fileName'>) {
-  const [showAdd, setShowAdd] = useState(false);
-  const [label, setLabel] = useState("");
-
-  const handleAdd = () => {
-    onAdd(currentPage, currentTime, label || undefined);
-    setLabel("");
-    setShowAdd(false);
-  };
-
-  return (
-    <div className="bg-snow border-t-2 border-navy p-3">
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="font-display font-black text-navy text-sm flex items-center gap-1.5">
-          <BookmarkIcon filled className="w-4 h-4 text-coral" />
-          Bookmarks ({bookmarks.length})
-        </h4>
-        <button
-          onClick={() => setShowAdd(!showAdd)}
-          className="text-xs bg-lime border-2 border-navy rounded-lg px-2 py-1 press-1 press-navy font-bold text-navy"
-          title="Add bookmark"
-        >
-          + Add
-        </button>
-      </div>
-
-      {/* Add form */}
-      {showAdd && (
-        <div className="flex gap-2 mb-2">
-          <input
-            type="text"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder={currentPage ? `Page ${currentPage}` : currentTime ? `${formatSeconds(currentTime)}` : "Label..."}
-            className="flex-1 bg-ghost border border-cloud rounded-lg px-2 py-1 text-sm text-navy focus:outline-none focus:ring-1 focus:ring-lime"
-            onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-          />
-          <button onClick={handleAdd} className="text-xs bg-teal text-snow rounded-lg px-3 py-1 font-bold press-1 press-navy">
-            Save
-          </button>
-        </div>
-      )}
-
-      {/* Bookmark list */}
-      {bookmarks.length === 0 ? (
-        <p className="text-xs text-slate">No bookmarks yet. Add one to mark your place!</p>
-      ) : (
-        <div className="space-y-1 max-h-32 overflow-y-auto">
-          {bookmarks.map((bm) => (
-            <div key={bm._id} className="flex items-center justify-between group">
-              <button
-                onClick={() => onJumpTo(bm)}
-                className="text-xs text-navy hover:text-lime-dark transition-colors text-left flex-1 truncate"
-              >
-                {bm.label}
-              </button>
-              <button
-                onClick={() => onDelete(bm._id)}
-                title="Delete bookmark"
-                className="opacity-0 group-hover:opacity-100 text-coral hover:text-coral transition-opacity ml-2"
-              >
-                <TrashIcon className="w-3 h-3" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Main ResourceViewer ──────────────────────────────────────
 
 export interface ResourceViewerProps {
@@ -1115,17 +1294,28 @@ export default function ResourceViewer({
 }: ResourceViewerProps) {
   const { getAccessToken } = useAuth();
   const [resolvedToken, setResolvedToken] = useState<string | null>(token || null);
-  const [bookmarks, setBookmarks] = useState<FileBookmark[]>(meta?.bookmarks || []);
+  const [pageNotes, setPageNotes] = useState<Record<number, FilePageNote>>(() => {
+    const entries = meta?.pageNotes || [];
+    const map: Record<number, FilePageNote> = {};
+    for (const note of entries) {
+      map[note.page] = note;
+    }
+    return map;
+  });
   const [currentPage, setCurrentPage] = useState(meta?.progress?.currentPage || 1);
   const [currentTime, setCurrentTime] = useState(meta?.progress?.currentTime || 0);
   const [showActionMenu, setShowActionMenu] = useState(false);
-  const [bookmarkPanelOpen, setBookmarkPanelOpen] = useState(false);
+  const [notePanelOpen, setNotePanelOpen] = useState(false);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isConvertingPdf, setIsConvertingPdf] = useState(false);
   const [downloadCooldown, setDownloadCooldown] = useState(false);
   const [viewerProgress, setViewerProgress] = useState(12);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const downloadCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const telemetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingTelemetryRef = useRef<ViewerTelemetryPayload | null>(null);
 
   // No need to sync from meta — parent uses key={meta.id} to remount when file changes
 
@@ -1193,12 +1383,61 @@ export default function ResourceViewer({
       if (downloadCooldownTimerRef.current) {
         clearTimeout(downloadCooldownTimerRef.current);
       }
+      if (telemetryTimerRef.current) {
+        clearTimeout(telemetryTimerRef.current);
+      }
     };
   }, []);
 
+  const flushViewerTelemetry = useCallback(async () => {
+    if (!pendingTelemetryRef.current) return;
+    const payload = pendingTelemetryRef.current;
+    pendingTelemetryRef.current = null;
+    try {
+      await saveDriveViewerTelemetry(payload);
+    } catch {
+      // Best-effort telemetry; ignore network failures.
+    }
+  }, []);
+
+  const handleViewerTelemetry = useCallback((event: Omit<ViewerTelemetryPayload, "fileId" | "fileName" | "fileMimeType">) => {
+    if (!meta) return;
+    pendingTelemetryRef.current = {
+      fileId: meta.id,
+      fileName: meta.name,
+      fileMimeType: meta.mimeType,
+      ...event,
+    };
+
+    if (telemetryTimerRef.current) {
+      clearTimeout(telemetryTimerRef.current);
+    }
+
+    const immediate = event.eventType === "loaded" || event.eventType === "error" || event.eventType === "session_end";
+    if (immediate) {
+      void flushViewerTelemetry();
+      return;
+    }
+
+    telemetryTimerRef.current = setTimeout(() => {
+      telemetryTimerRef.current = null;
+      void flushViewerTelemetry();
+    }, 1200);
+  }, [meta, flushViewerTelemetry]);
+
   useEffect(() => {
-    setBookmarkPanelOpen(false);
-  }, [meta?.id]);
+    const entries = meta?.pageNotes || [];
+    const map: Record<number, FilePageNote> = {};
+    for (const note of entries) {
+      map[note.page] = note;
+    }
+    setPageNotes(map);
+    setNotePanelOpen(false);
+  }, [meta?.id, meta?.pageNotes]);
+
+  useEffect(() => {
+    setNoteDraft(pageNotes[currentPage]?.note || "");
+  }, [currentPage, pageNotes]);
 
   useEffect(() => {
     if (!meta) return;
@@ -1246,50 +1485,71 @@ export default function ResourceViewer({
     saveProgress({ currentTime: time, totalDuration: duration });
   }, [saveProgress]);
 
-  const handleAddBookmark = useCallback(async (page?: number, timestamp?: number, label?: string) => {
-    if (!meta) return;
+  const handleSavePageNote = useCallback(async () => {
+    if (!meta || meta.fileType !== "pdf") return;
+    setSavingNote(true);
+    const clean = noteDraft.trim();
     try {
-      const result = await createDriveBookmark({
+      const res = await upsertDrivePageNote({
         fileId: meta.id,
         fileName: meta.name,
-        page,
-        timestamp,
-        label,
+        page: currentPage,
+        note: clean,
       });
-      setBookmarks((prev) => [
-        ...prev,
-        {
-          _id: result.bookmarkId,
+
+      if (res.deleted || !clean) {
+        setPageNotes((prev) => {
+          const next = { ...prev };
+          delete next[currentPage];
+          return next;
+        });
+        toast.success("Note cleared");
+      } else {
+        const upserted: FilePageNote = res.note || {
+          _id: `${meta.id}-${currentPage}`,
           fileId: meta.id,
           fileName: meta.name,
-          page,
-          timestamp,
-          label: label || (page ? `Page ${page}` : timestamp ? `${formatSeconds(timestamp)}` : "Bookmark"),
+          page: currentPage,
+          note: clean,
           createdAt: new Date().toISOString(),
-        },
-      ]);
+          updatedAt: new Date().toISOString(),
+        };
+        setPageNotes((prev) => ({
+          ...prev,
+          [currentPage]: upserted,
+        }));
+        toast.success("Note saved");
+      }
     } catch {
-      toast.error("Could not add bookmark right now.");
+      toast.error("Could not save this note right now.");
+    } finally {
+      setSavingNote(false);
     }
-  }, [meta]);
+  }, [meta, noteDraft, currentPage]);
 
-  const handleDeleteBookmark = useCallback(async (bookmarkId: string) => {
-    if (!meta) return;
+  const handleClearPageNote = useCallback(async () => {
+    if (!meta || meta.fileType !== "pdf") return;
+    setNoteDraft("");
+    setSavingNote(true);
     try {
-      await deleteDriveBookmark(meta.id, bookmarkId);
-      setBookmarks((prev) => prev.filter((b) => b._id !== bookmarkId));
+      await upsertDrivePageNote({
+        fileId: meta.id,
+        fileName: meta.name,
+        page: currentPage,
+        note: "",
+      });
+      setPageNotes((prev) => {
+        const next = { ...prev };
+        delete next[currentPage];
+        return next;
+      });
+      toast.success("Note cleared");
     } catch {
-      toast.error("Could not remove bookmark right now.");
+      toast.error("Could not clear this note right now.");
+    } finally {
+      setSavingNote(false);
     }
-  }, [meta]);
-
-  const handleJumpTo = useCallback((bm: FileBookmark) => {
-    if (bm.page) {
-      setCurrentPage(bm.page);
-      // Can't directly control Google's PDF viewer; update page counter
-    }
-    // For videos, we'd need a ref to the player
-  }, []);
+  }, [meta, currentPage]);
 
   if (loading && !meta) {
     return (
@@ -1316,7 +1576,6 @@ export default function ResourceViewer({
   const isImage = meta.fileType === "image";
   const isEmbed = !!resolveEmbedSrc(meta);
   const canPreview = isPDF || isVideo || isImage || isEmbed;
-  const showBookmarkPanel = isPDF || isEmbed;
   const canDirectDownload = !meta.mimeType.startsWith("application/vnd.google-apps.");
   const canConvertToPdf = meta.fileType === "google_doc" || meta.fileType === "google_sheet" || meta.fileType === "google_slide";
 
@@ -1597,6 +1856,7 @@ export default function ResourceViewer({
             meta={meta}
             token={resolvedToken}
             onProgressUpdate={handlePdfProgress}
+            onTelemetry={handleViewerTelemetry}
           />
         )}
         {isVideo && (
@@ -1635,41 +1895,21 @@ export default function ResourceViewer({
             </div>
           </div>
         )}
+
+        {isPDF && (
+          <PageNoteFab
+            open={notePanelOpen}
+            page={currentPage}
+            noteDraft={noteDraft}
+            hasSavedNote={Boolean(pageNotes[currentPage]?.note?.trim())}
+            saving={savingNote}
+            onToggle={() => setNotePanelOpen((prev) => !prev)}
+            onChange={setNoteDraft}
+            onSave={handleSavePageNote}
+            onClear={handleClearPageNote}
+          />
+        )}
       </div>
-
-      {/* Bookmark toggle + panel */}
-      {showBookmarkPanel && (
-        <div className="shrink-0">
-          <div className="bg-snow border-t-2 border-navy px-3 py-1.5 flex justify-center">
-            <button
-              onClick={() => setBookmarkPanelOpen((prev) => !prev)}
-              className="w-9 h-7 rounded-lg bg-lime border-[2px] border-navy press-2 press-navy flex items-center justify-center"
-              aria-label={bookmarkPanelOpen ? "Hide bookmarks" : "Show bookmarks"}
-              title={bookmarkPanelOpen ? "Hide bookmarks" : "Show bookmarks"}
-            >
-              <svg
-                aria-hidden="true"
-                className={`w-4 h-4 text-navy transition-transform ${bookmarkPanelOpen ? "rotate-180" : "rotate-0"}`}
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path fillRule="evenodd" d="M12 7.5a.75.75 0 0 1 .6.3l4.5 6a.75.75 0 1 1-1.2.9L12 9.6l-3.9 5.1a.75.75 0 0 1-1.2-.9l4.5-6a.75.75 0 0 1 .6-.3Z" clipRule="evenodd" />
-              </svg>
-            </button>
-          </div>
-
-          {bookmarkPanelOpen && (
-            <BookmarkPanel
-              bookmarks={bookmarks}
-              onJumpTo={handleJumpTo}
-              onDelete={handleDeleteBookmark}
-              onAdd={handleAddBookmark}
-              currentPage={isPDF ? currentPage : undefined}
-              currentTime={isVideo ? currentTime : undefined}
-            />
-          )}
-        </div>
-      )}
     </div>
   );
 }
