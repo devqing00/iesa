@@ -385,6 +385,72 @@ export interface LiveReplayResponse {
   questionTelemetry: Array<{ questionIndex: number; confusionIndex: number; dominantWrongShare: number }>;
 }
 
+export interface HiddenTreasureStudentState {
+  active: boolean;
+  eligible?: boolean;
+  windowOpen?: boolean;
+  roundFull?: boolean;
+  treasureId?: string;
+  title?: string;
+  clue?: string;
+  points?: number;
+  locationKey?: string;
+  locationLabel?: string;
+  roundKey?: string;
+  finderMode?: "unlimited" | "first_bonus" | "top_n";
+  firstFinderBonusPoints?: number;
+  topNFinders?: number;
+  remainingClaims?: number | null;
+  claimed?: boolean;
+  claimedAt?: string | null;
+}
+
+export interface HiddenTreasureAdminState {
+  configured: boolean;
+  isEnabled: boolean;
+  title?: string;
+  clue?: string;
+  points?: number;
+  locationKey?: string;
+  locationLabel?: string;
+  locationPool?: string[];
+  placementDifficulty?: "easy" | "balanced" | "hard";
+  autoRotateDaily?: boolean;
+  dailyWindowEnabled?: boolean;
+  dailyStartHourUtc?: number;
+  dailyEndHourUtc?: number;
+  campaignStartAt?: string | null;
+  campaignEndAt?: string | null;
+  finderMode?: "unlimited" | "first_bonus" | "top_n";
+  firstFinderBonusPoints?: number;
+  topNFinders?: number;
+  antiAbuseEnabled?: boolean;
+  claimCooldownSeconds?: number;
+  maxAttemptsPerMinutePerIp?: number;
+  maxAttemptsPerMinutePerUser?: number;
+  roundKey?: string;
+  windowOpen?: boolean;
+  claimsCount?: number;
+  presetLocations: Record<string, string>;
+}
+
+export interface HiddenTreasureWinnerEntry {
+  userId: string;
+  userName: string;
+  rank: number;
+  claimedAt?: string | null;
+}
+
+export interface HiddenTreasureRoundWinners {
+  roundKey: string;
+  claimsCount: number;
+  winners: HiddenTreasureWinnerEntry[];
+}
+
+export interface HiddenTreasureWinnersFeed {
+  rounds: HiddenTreasureRoundWinners[];
+}
+
 export interface LiveParticipant {
   userId: string;
   userName: string;
@@ -454,10 +520,12 @@ export interface IepodMemberLookupEntry {
   department?: string | null;
   status?: RegistrationStatus;
   points: number;
+  quizPoints: number;
 }
 
 export interface BonusHistoryItem {
   id: string;
+  board?: "general" | "quiz";
   userId: string;
   userName: string;
   action: string;
@@ -478,6 +546,28 @@ export interface MyIepodProfile {
   pointsHistory?: PointEntry[];
   quizPointsHistory?: QuizPointEntry[];
   quizResults?: QuizResult[];
+}
+
+export interface HiddenTreasureSetupData {
+  isEnabled: boolean;
+  title: string;
+  clue?: string;
+  points: number;
+  locationPool?: string[];
+  autoRotateDaily?: boolean;
+  placementDifficulty?: "easy" | "balanced" | "hard";
+  dailyWindowEnabled?: boolean;
+  dailyStartHourUtc?: number;
+  dailyEndHourUtc?: number;
+  campaignStartAt?: string | null;
+  campaignEndAt?: string | null;
+  finderMode?: "unlimited" | "first_bonus" | "top_n";
+  firstFinderBonusPoints?: number;
+  topNFinders?: number;
+  antiAbuseEnabled?: boolean;
+  claimCooldownSeconds?: number;
+  maxAttemptsPerMinutePerIp?: number;
+  maxAttemptsPerMinutePerUser?: number;
 }
 
 // Stats
@@ -746,6 +836,10 @@ export async function revealLiveQuizResults(joinCode: string, options?: LiveRequ
   return api.post(`${BASE}/quizzes/live/${encodeURIComponent(joinCode)}/reveal`, {}, withLiveActionHeaders(options));
 }
 
+export async function skipLiveQuizQuestion(joinCode: string, options?: LiveRequestOptions): Promise<{ skipped: boolean; alreadyRevealing?: boolean; questionIndex: number; revealResultsSeconds: number; resultingPhase?: "waiting" | "question_intro" | "question_answering" | "answer_reveal" | "leaderboard_reveal" | "ended"; stateVersion?: number; actionId?: string; ackAt?: string }> {
+  return api.post(`${BASE}/quizzes/live/${encodeURIComponent(joinCode)}/skip-question`, {}, withLiveActionHeaders(options));
+}
+
 export async function revealLiveQuizFinalTop3(joinCode: string, options?: LiveRequestOptions): Promise<{ revealed: boolean; finalPodiumRevealed: boolean; resultingPhase?: "waiting" | "question_intro" | "question_answering" | "answer_reveal" | "leaderboard_reveal" | "ended"; stateVersion?: number; actionId?: string; ackAt?: string; updatedAt?: string | null }> {
   return api.post(`${BASE}/quizzes/live/${encodeURIComponent(joinCode)}/reveal-final`, {}, withLiveActionHeaders(options));
 }
@@ -796,8 +890,43 @@ export async function reverseBonusPoints(pointId: string, reason: string): Promi
   return api.post<{ message: string }>(`${BASE}/points/${encodeURIComponent(pointId)}/reverse`, { reason });
 }
 
+export async function reverseBonusPointsByBoard(
+  pointId: string,
+  reason: string,
+  board: "general" | "quiz" = "general",
+): Promise<{ message: string; board?: "general" | "quiz" }> {
+  return api.post<{ message: string; board?: "general" | "quiz" }>(
+    `${BASE}/points/${encodeURIComponent(pointId)}/reverse?board=${encodeURIComponent(board)}`,
+    { reason },
+  );
+}
+
 export async function resetIepodUserData(userId: string, payload: { reason: string; blockRejoin: boolean }): Promise<{ message: string; userId: string; userName?: string | null; blockRejoin: boolean; deletedTeams: number; updatedTeams: number }> {
   return api.post(`${BASE}/admin/users/${encodeURIComponent(userId)}/reset`, payload);
+}
+
+export async function getHiddenTreasureForStudent(): Promise<HiddenTreasureStudentState> {
+  return api.get(`${BASE}/treasure/current`);
+}
+
+export async function claimHiddenTreasure(locationKey: string): Promise<{ claimed: boolean; alreadyClaimed?: boolean; points: number; message: string; rank?: number; isFirstFinder?: boolean }> {
+  return api.post(`${BASE}/treasure/claim`, { locationKey });
+}
+
+export async function getHiddenTreasureAdmin(): Promise<HiddenTreasureAdminState> {
+  return api.get(`${BASE}/treasure/admin/current`);
+}
+
+export async function setupHiddenTreasure(data: HiddenTreasureSetupData): Promise<HiddenTreasureAdminState & { message: string }> {
+  return api.post(`${BASE}/treasure/admin/setup`, data);
+}
+
+export async function rotateHiddenTreasureNow(): Promise<{ rotated: boolean; roundKey: string; locationKey: string; locationLabel: string; message: string }> {
+  return api.post(`${BASE}/treasure/admin/rotate-now`, {});
+}
+
+export async function getHiddenTreasureWinnersFeed(rounds = 5): Promise<HiddenTreasureWinnersFeed> {
+  return api.get(`${BASE}/treasure/admin/winners?rounds=${Math.max(1, Math.min(20, Number(rounds || 5)))}`);
 }
 
 // ── Admin ───────────────────────────────────────────────────────────
@@ -846,9 +975,13 @@ export async function assignMentor(teamId: string, mentorUserId: string): Promis
 }
 
 export async function awardBonusPoints(data: {
-  userId: string; points: number; description: string;
-}): Promise<{ message: string; pointEntryId?: string | null }> {
-  return api.post<{ message: string; pointEntryId?: string | null }>(`${BASE}/points/award`, data);
+  userId: string;
+  points: number;
+  operation?: "add" | "deduct";
+  targetBoard?: "general" | "quiz";
+  description: string;
+}): Promise<{ message: string; pointEntryId?: string | null; targetBoard?: "general" | "quiz" }> {
+  return api.post<{ message: string; pointEntryId?: string | null; targetBoard?: "general" | "quiz" }>(`${BASE}/points/award`, data);
 }
 
 export async function getIepodStats(): Promise<IepodStats> {

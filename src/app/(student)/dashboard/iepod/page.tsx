@@ -16,6 +16,8 @@ import {
   commitToSociety,
   getLeaderboard,
   getQuizSystemLeaderboard,
+  getHiddenTreasureForStudent,
+  claimHiddenTreasure,
   PHASE_LABELS,
   PHASE_STYLES,
 } from "@/lib/api";
@@ -25,6 +27,7 @@ import type {
   LeaderboardEntry,
   QuizSystemLeaderboardEntry,
   IepodPhase,
+  HiddenTreasureStudentState,
 } from "@/lib/api";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
@@ -69,6 +72,35 @@ function PhaseTimeline({ current, completed }: { current: IepodPhase; completed:
 
 function hasSocietyName(entry: LeaderboardEntry | QuizSystemLeaderboardEntry): entry is LeaderboardEntry {
   return "societyName" in entry;
+}
+
+function HiddenTreasureSpot({
+  isVisible,
+  isClaimed,
+  isClaiming,
+  onClaim,
+}: {
+  isVisible: boolean;
+  isClaimed: boolean;
+  isClaiming: boolean;
+  onClaim: () => void;
+}) {
+  if (!isVisible || isClaimed) return null;
+  return (
+    <button
+      onClick={onClaim}
+      disabled={isClaiming}
+      title="Hidden treasure"
+      className="group absolute z-20 w-8 h-8 rounded-full border-[2px] border-navy bg-sunny text-navy press-2 press-black flex items-center justify-center"
+    >
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
+      </svg>
+      <span className="absolute top-9 left-1/2 -translate-x-1/2 whitespace-nowrap bg-navy text-snow text-[10px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
+        {isClaiming ? "Claiming..." : "Claim"}
+      </span>
+    </button>
+  );
 }
 
 /* ─── Registration form ────────────────────────────────────────── */
@@ -238,23 +270,27 @@ export default function IepodStudentPage() {
   const [leaderboardView, setLeaderboardView] = useState<"general" | "quiz">("general");
   const [showPointsModal, setShowPointsModal] = useState(false);
   const [pointsHistoryView, setPointsHistoryView] = useState<"all" | "general" | "quiz">("all");
+  const [treasureState, setTreasureState] = useState<HiddenTreasureStudentState | null>(null);
+  const [claimingTreasure, setClaimingTreasure] = useState(false);
   const [loading, setLoading] = useState(true);
   const [committingSociety, setCommittingSociety] = useState<string | null>(null);
   const [showAlreadySubmittedBadge, setShowAlreadySubmittedBadge] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
-      const [profileData, societyData, lbData, quizLbData] = await Promise.allSettled([
+      const [profileData, societyData, lbData, quizLbData, treasureData] = await Promise.allSettled([
         getMyIepodProfile(),
         listSocieties(),
         getLeaderboard(50),
         getQuizSystemLeaderboard(50),
+        getHiddenTreasureForStudent(),
       ]);
 
       if (profileData.status === "fulfilled") setProfile(profileData.value);
       if (societyData.status === "fulfilled") setSocieties(societyData.value);
       if (lbData.status === "fulfilled") setLeaderboard(lbData.value);
       if (quizLbData.status === "fulfilled") setQuizLeaderboard(quizLbData.value);
+      if (treasureData.status === "fulfilled") setTreasureState(treasureData.value);
     } catch {
       toast.error("Failed to load IEPOD data");
     } finally {
@@ -326,6 +362,23 @@ export default function IepodStudentPage() {
     }
   };
 
+  const handleClaimTreasure = async () => {
+    if (!treasureState?.active || !treasureState.locationKey || claimingTreasure) return;
+    setClaimingTreasure(true);
+    try {
+      const res = await claimHiddenTreasure(treasureState.locationKey);
+      const rankHint = typeof res.rank === "number" ? ` (Rank #${res.rank})` : "";
+      toast.success(`${res.message}${rankHint}`);
+      setTreasureState((prev) => prev ? { ...prev, claimed: true, claimedAt: new Date().toISOString() } : prev);
+      await fetchData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Could not claim treasure";
+      toast.error(msg);
+    } finally {
+      setClaimingTreasure(false);
+    }
+  };
+
   if (permissionsLoading || loading) {
     return (
       <div className="min-h-screen">
@@ -380,6 +433,8 @@ export default function IepodStudentPage() {
     pointsHistoryView === "all"
       ? allPointsHistory
       : allPointsHistory.filter((entry) => entry.board === pointsHistoryView);
+  const activeTreasureLocation = treasureState?.active ? (treasureState.locationKey || "") : "";
+  const treasureClaimed = Boolean(treasureState?.claimed);
 
   return (
     <div className="min-h-screen">
@@ -507,6 +562,44 @@ export default function IepodStudentPage() {
               </a>
             </div>
 
+            {treasureState?.active && (
+              <div className="bg-sunny-light border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000]">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="font-display font-black text-sm text-navy">{treasureState.title || "Hidden Treasure"}</h4>
+                    <p className="text-navy-muted text-xs mt-1">{treasureState.clue || "A hidden spark is waiting somewhere in this page."}</p>
+                    <p className="text-[11px] font-bold text-navy mt-2">Reward: +{treasureState.points || 0} points</p>
+                    {treasureState.finderMode === "first_bonus" && (treasureState.firstFinderBonusPoints || 0) > 0 && (
+                      <p className="text-[11px] font-bold text-navy mt-1">First finder bonus: +{treasureState.firstFinderBonusPoints}</p>
+                    )}
+                    {treasureState.finderMode === "top_n" && (
+                      <p className="text-[11px] font-bold text-navy mt-1">
+                        Top {treasureState.topNFinders || 0} mode
+                        {typeof treasureState.remainingClaims === "number" ? ` • Remaining slots: ${treasureState.remainingClaims}` : ""}
+                      </p>
+                    )}
+                  </div>
+                  <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider ${treasureClaimed ? "bg-teal text-snow" : "bg-coral text-snow"}`}>
+                    {treasureClaimed ? "Claimed" : "Hunt Active"}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {Boolean(treasureState && !treasureState.active && treasureState.eligible && treasureState.windowOpen === false) && (
+              <div className="bg-cloud border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000]">
+                <h4 className="font-display font-black text-sm text-navy">{treasureState?.title || "Hidden Treasure"}</h4>
+                <p className="text-navy-muted text-xs mt-1">Treasure hunt window is currently closed. Check back during the active schedule.</p>
+              </div>
+            )}
+
+            {Boolean(treasureState && !treasureState.active && treasureState.eligible && treasureState.roundFull) && (
+              <div className="bg-cloud border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000]">
+                <h4 className="font-display font-black text-sm text-navy">{treasureState?.title || "Hidden Treasure"}</h4>
+                <p className="text-navy-muted text-xs mt-1">This round is complete. All winner slots for this treasure have been claimed.</p>
+              </div>
+            )}
+
             {reg.isExternalStudent && (
               <div className="bg-sunny-light border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000] flex items-start gap-4">
                 <svg className="w-6 h-6 text-sunny shrink-0 mt-0.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -522,7 +615,15 @@ export default function IepodStudentPage() {
             )}
 
             {/* Phase timeline */}
-            <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] overflow-x-auto">
+            <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] overflow-x-auto relative">
+              <div className="absolute top-2 right-2">
+                <HiddenTreasureSpot
+                  isVisible={activeTreasureLocation === "phase_timeline"}
+                  isClaimed={treasureClaimed}
+                  isClaiming={claimingTreasure}
+                  onClaim={handleClaimTreasure}
+                />
+              </div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-display font-black text-lg text-navy">Your Journey</h3>
                 <span className="bg-lime border-[2px] border-navy text-navy font-display font-black text-xs px-3 py-1 rounded-lg">
@@ -535,7 +636,15 @@ export default function IepodStudentPage() {
             {/* Bento grid */}
             <div className="grid md:grid-cols-3 gap-5">
               {/* Society commitment card */}
-              <div className={`${profile?.society ? "bg-teal" : "bg-lavender"} border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform`}>
+              <div className={`${profile?.society ? "bg-teal" : "bg-lavender"} border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform relative`}>
+                <div className="absolute top-2 right-2">
+                  <HiddenTreasureSpot
+                    isVisible={activeTreasureLocation === "society_card"}
+                    isClaimed={treasureClaimed}
+                    isClaiming={claimingTreasure}
+                    onClaim={handleClaimTreasure}
+                  />
+                </div>
                 <h4 className="font-display font-black text-sm text-navy mb-3">
                   {profile?.society ? "Your Society" : preferredSociety ? "Preferred Society" : "Choose Your Society"}
                 </h4>
@@ -581,7 +690,15 @@ export default function IepodStudentPage() {
               </div>
 
               {/* Niche Audit card */}
-              <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000]">
+              <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] relative">
+                <div className="absolute top-2 right-2">
+                  <HiddenTreasureSpot
+                    isVisible={activeTreasureLocation === "niche_audit_card"}
+                    isClaimed={treasureClaimed}
+                    isClaiming={claimingTreasure}
+                    onClaim={handleClaimTreasure}
+                  />
+                </div>
                 <h4 className="font-display font-black text-sm text-navy mb-3">Niche Audit</h4>
                 {!canAccessNicheAudit ? (
                   <div>
@@ -623,7 +740,15 @@ export default function IepodStudentPage() {
               </div>
 
               {/* Hackathon team card */}
-              <div className="bg-coral border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+              <div className="bg-coral border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform relative">
+                <div className="absolute top-2 right-2">
+                  <HiddenTreasureSpot
+                    isVisible={activeTreasureLocation === "team_card"}
+                    isClaimed={treasureClaimed}
+                    isClaiming={claimingTreasure}
+                    onClaim={handleClaimTreasure}
+                  />
+                </div>
                 <h4 className="font-display font-black text-sm text-snow mb-3">Hackathon Team</h4>
                 {!canAccessTeamEcosystem ? (
                   <div>
@@ -668,6 +793,14 @@ export default function IepodStudentPage() {
             <div className="grid md:grid-cols-2 gap-5">
               {/* Quizzes & Challenges */}
               <div className="bg-[linear-gradient(145deg,#2C1A7A_0%,#4A28A8_55%,#6A35CC_100%)] border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] relative overflow-hidden">
+                <div className="absolute top-2 right-2">
+                  <HiddenTreasureSpot
+                    isVisible={activeTreasureLocation === "quizzes_card"}
+                    isClaimed={treasureClaimed}
+                    isClaiming={claimingTreasure}
+                    onClaim={handleClaimTreasure}
+                  />
+                </div>
                 {/* <div className="absolute inset-x-3 -bottom-3 h-full rounded-3xl bg-lavender-light/35 border border-snow/20" /> */}
                 <div className="relative z-10 space-y-4">
                   <div className="flex items-center justify-between">
@@ -727,7 +860,15 @@ export default function IepodStudentPage() {
               </div>
 
               {/* Leaderboard */}
-              <div className="bg-navy border-[4px] border-lime rounded-3xl p-6 shadow-[6px_6px_0_0_#C8F31D]">
+              <div className="bg-navy border-[4px] border-lime rounded-3xl p-6 shadow-[6px_6px_0_0_#C8F31D] relative">
+                <div className="absolute top-2 right-2">
+                  <HiddenTreasureSpot
+                    isVisible={activeTreasureLocation === "leaderboard_card"}
+                    isClaimed={treasureClaimed}
+                    isClaiming={claimingTreasure}
+                    onClaim={handleClaimTreasure}
+                  />
+                </div>
                 <div className="flex items-center justify-between gap-3 mb-4">
                   <h4 className="font-display font-black text-base text-lime">Leaderboard</h4>
                   <div className="inline-flex rounded-xl border border-lime/30 p-1 bg-navy-light">
@@ -802,7 +943,15 @@ export default function IepodStudentPage() {
 
             {/* Points history */}
             {allPointsHistory.length > 0 && (
-              <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
+              <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] relative">
+                <div className="absolute top-2 right-2">
+                  <HiddenTreasureSpot
+                    isVisible={activeTreasureLocation === "points_history_card"}
+                    isClaimed={treasureClaimed}
+                    isClaiming={claimingTreasure}
+                    onClaim={handleClaimTreasure}
+                  />
+                </div>
                 <div className="flex items-center justify-between gap-3 mb-4">
                   <h4 className="font-display font-black text-base text-navy">Recent Points</h4>
                   <button

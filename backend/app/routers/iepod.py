@@ -25,6 +25,7 @@ from uuid import uuid4
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status, WebSocket, WebSocketDisconnect
+from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 from pydantic import BaseModel, Field
 
@@ -55,6 +56,7 @@ from ..models.iepod import (
     # Points
     PointEntry, PointAward, PointReversal, LeaderboardEntry,
     IepodMemberLookupResponse, IepodResetUserDataRequest,
+    IepodTreasureSetupRequest, IepodTreasureClaimRequest,
 )
 
 router = APIRouter(prefix="/api/v1/iepod", tags=["IEPOD Hub"])
@@ -120,6 +122,129 @@ LIVE_ACTION_ID_TTL_SECONDS = 45
 LIVE_TRANSITION_LOCK_TTL_SECONDS = 5
 
 _PHASE_ORDER = ["stimulate", "carve", "pitch"]
+
+TREASURE_PRESET_LOCATIONS = {
+    "phase_timeline": "Journey timeline card",
+    "society_card": "Society commitment card",
+    "niche_audit_card": "Niche Audit card",
+    "team_card": "Hackathon Team card",
+    "quizzes_card": "Quizzes & Challenges card",
+    "leaderboard_card": "Leaderboard card",
+    "points_history_card": "Recent Points section",
+}
+
+TREASURE_LOCATION_DIFFICULTY = {
+    "phase_timeline": "easy",
+    "society_card": "easy",
+    "quizzes_card": "easy",
+    "points_history_card": "medium",
+    "niche_audit_card": "medium",
+    "team_card": "hard",
+    "leaderboard_card": "hard",
+}
+
+TREASURE_DIFFICULTY_WEIGHTS = {
+    "easy": {"easy": 8, "medium": 3, "hard": 1},
+    "balanced": {"easy": 3, "medium": 4, "hard": 3},
+    "hard": {"easy": 1, "medium": 3, "hard": 8},
+}
+
+
+def _pick_treasure_location(location_pool: Optional[list[str]]) -> str:
+    candidates = [loc for loc in (location_pool or []) if loc in TREASURE_PRESET_LOCATIONS]
+    if not candidates:
+        candidates = list(TREASURE_PRESET_LOCATIONS.keys())
+    return random.choice(candidates)
+
+
+def _weighted_pick_treasure_location(location_pool: Optional[list[str]], placement_difficulty: str) -> str:
+    candidates = [loc for loc in (location_pool or []) if loc in TREASURE_PRESET_LOCATIONS]
+    if not candidates:
+        candidates = list(TREASURE_PRESET_LOCATIONS.keys())
+    profile = TREASURE_DIFFICULTY_WEIGHTS.get(placement_difficulty, TREASURE_DIFFICULTY_WEIGHTS["balanced"])
+    weights = []
+    for loc in candidates:
+        tier = TREASURE_LOCATION_DIFFICULTY.get(loc, "medium")
+        weights.append(profile.get(tier, 1))
+    return random.choices(candidates, weights=weights, k=1)[0]
+
+
+def _is_treasure_window_open(doc: dict, now: datetime) -> bool:
+    campaign_start = doc.get("campaignStartAt")
+    campaign_end = doc.get("campaignEndAt")
+    if isinstance(campaign_start, datetime) and now < campaign_start:
+        return False
+    if isinstance(campaign_end, datetime) and now > campaign_end:
+        return False
+
+    if bool(doc.get("dailyWindowEnabled", False)):
+        start_hour = int(doc.get("dailyStartHourUtc", 8))
+        end_hour = int(doc.get("dailyEndHourUtc", 22))
+        current_hour = now.hour
+        if start_hour != end_hour:
+            if start_hour < end_hour:
+                if not (start_hour <= current_hour < end_hour):
+                    return False
+            else:
+                if not (current_hour >= start_hour or current_hour < end_hour):
+                    return False
+
+    return True
+
+
+async def _ensure_treasure_round(db, doc: dict, now: datetime) -> dict:
+    round_key = now.strftime("%Y-%m-%d") if bool(doc.get("autoRotateDaily", True)) else str(doc.get("roundKey") or "persistent")
+    needs_rotation = str(doc.get("roundKey") or "") != round_key
+    missing_location = not str(doc.get("locationKey") or "")
+    if not needs_rotation and not missing_location:
+        return doc
+
+    placement_difficulty = str(doc.get("placementDifficulty") or "balanced")
+    location_pool = doc.get("locationPool") or list(TREASURE_PRESET_LOCATIONS.keys())
+    selected_location = _weighted_pick_treasure_location(location_pool, placement_difficulty)
+
+    await db.iepod_hidden_treasures.update_one(
+        {"_id": doc.get("_id")},
+        {
+            "$set": {
+                "roundKey": round_key,
+                "locationKey": selected_location,
+                "locationLabel": TREASURE_PRESET_LOCATIONS[selected_location],
+                "roundClaimCount": 0,
+                "rotatedAt": now,
+                "updatedAt": now,
+            }
+        },
+    )
+    refreshed = await db.iepod_hidden_treasures.find_one({"_id": doc.get("_id")})
+    return refreshed or doc
+
+
+async def _log_treasure_attempt(
+    db,
+    *,
+    session_id: str,
+    treasure_id: str,
+    round_key: str,
+    user_id: str,
+    user_name: str,
+    ip_address: str,
+    success: bool,
+    reason: str,
+):
+    await db.iepod_hidden_treasure_attempts.insert_one(
+        {
+            "sessionId": session_id,
+            "treasureId": treasure_id,
+            "roundKey": round_key,
+            "userId": user_id,
+            "userName": user_name,
+            "ipAddress": ip_address,
+            "success": bool(success),
+            "reason": reason,
+            "createdAt": datetime.now(timezone.utc),
+        }
+    )
 
 
 def _phase_index(phase: str | None) -> int:
@@ -1169,6 +1294,17 @@ async def _record_quiz_points(
             )
         except Exception:
             pass
+
+
+async def _get_quiz_points_total(db, user_id: str, session_id: str) -> int:
+    aggregate = [
+        {"$match": {"sessionId": session_id, "userId": str(user_id)}},
+        {"$group": {"_id": "$userId", "total": {"$sum": "$points"}}},
+    ]
+    rows = await db.iepod_quiz_points.aggregate(aggregate).to_list(length=1)
+    if not rows:
+        return 0
+    return int(rows[0].get("total") or 0)
 
 
 async def _get_registration(
@@ -3427,6 +3563,95 @@ async def reveal_live_quiz_results(
     }
 
 
+@router.post("/quizzes/live/{join_code}/skip-question")
+async def skip_live_quiz_question_early(
+    join_code: str,
+    request: Request,
+    user: dict = Depends(require_permission("iepod:manage")),
+    session: dict = Depends(get_current_session),
+):
+    """Host ends the active question early and enters answer reveal phase."""
+    db = get_database()
+    session_id = str(session["_id"])
+    live_doc = await _resolve_live_session(db, join_code, session_id)
+    expected_state_version = _parse_expected_state_version(request)
+    await _enforce_live_state_freshness(db, live_doc, expected_state_version)
+    action_id = _parse_action_id(request, "live-skip-question")
+    await _register_host_action_id(db, live_doc, "skip-question", action_id)
+    ack_at = datetime.now(timezone.utc).isoformat()
+
+    if live_doc.get("status") != "live":
+        raise HTTPException(400, "Live session is not active")
+    if bool(live_doc.get("isPaused", False)):
+        raise HTTPException(400, "Session is paused. Resume before skipping")
+
+    current_idx = int(live_doc.get("currentQuestionIndex", -1))
+    if current_idx < 0:
+        raise HTTPException(400, "No active question to skip")
+
+    phase = str(live_doc.get("phase") or "")
+    if phase == LIVE_PHASE_ANSWER_REVEAL:
+        return {
+            "skipped": True,
+            "alreadyRevealing": True,
+            "questionIndex": current_idx,
+            "revealResultsSeconds": int(live_doc.get("revealResultsSeconds", 6)),
+            "resultingPhase": LIVE_PHASE_ANSWER_REVEAL,
+            "stateVersion": _state_version_from_doc(live_doc),
+            "actionId": action_id,
+            "ackAt": ack_at,
+        }
+    if phase != LIVE_PHASE_QUESTION_ANSWERING:
+        if phase == LIVE_PHASE_QUESTION_INTRO:
+            raise HTTPException(400, "Question intro is active. Wait for question to open before skipping")
+        raise HTTPException(400, "Skip is available only during question answering phase")
+
+    now = datetime.now(timezone.utc)
+    reveal_seconds = int(live_doc.get("revealResultsSeconds", 6) or 6)
+    reveal_ends_at = now + timedelta(seconds=reveal_seconds)
+
+    await db.iepod_live_quiz_sessions.update_one(
+        {"_id": live_doc.get("_id")},
+        {
+            "$set": {
+                "phase": LIVE_PHASE_ANSWER_REVEAL,
+                "phaseStartedAt": now,
+                "phaseDurationSeconds": reveal_seconds,
+                "phaseEndsAt": reveal_ends_at,
+                "revealQuestionIndex": current_idx,
+                "revealStartedAt": now,
+                "revealEndsAt": reveal_ends_at,
+                "updatedAt": now,
+            }
+        },
+    )
+
+    await AuditLogger.log(
+        action="iepod.live_quiz_question_skipped",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="iepod_live_quiz",
+        resource_id=str(live_doc.get("_id")),
+        details={"quizId": live_doc.get("quizId"), "questionIndex": current_idx, "joinCode": live_doc.get("joinCode")},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    updated_live = await db.iepod_live_quiz_sessions.find_one({"_id": live_doc.get("_id")})
+    if updated_live:
+        await _broadcast_live_state(db, updated_live)
+
+    return {
+        "skipped": True,
+        "questionIndex": current_idx,
+        "revealResultsSeconds": reveal_seconds,
+        "resultingPhase": LIVE_PHASE_ANSWER_REVEAL,
+        "stateVersion": _state_version_from_doc(updated_live or {}, now),
+        "actionId": action_id,
+        "ackAt": ack_at,
+    }
+
+
 @router.post("/quizzes/live/{join_code}/reveal-final")
 async def reveal_live_quiz_final_podium(
     join_code: str,
@@ -4082,6 +4307,20 @@ async def _build_member_lookup_items(db, session_id: str, query: str, limit: int
                 merged[reg_user_id] = reg
 
     items = []
+    quiz_points_by_user: dict[str, int] = {}
+    merged_user_ids = list(merged.keys())
+    if merged_user_ids:
+        quiz_rows = await db.iepod_quiz_points.aggregate(
+            [
+                {"$match": {"sessionId": session_id, "userId": {"$in": merged_user_ids}}},
+                {"$group": {"_id": "$userId", "total": {"$sum": "$points"}}},
+            ]
+        ).to_list(length=max(len(merged_user_ids), 1))
+        for row in quiz_rows:
+            uid = str(row.get("_id") or "").strip()
+            if uid:
+                quiz_points_by_user[uid] = int(row.get("total") or 0)
+
     for user_id, reg in merged.items():
         u = user_id_map.get(user_id)
         full_name = str(reg.get("userName") or "").strip()
@@ -4098,6 +4337,7 @@ async def _build_member_lookup_items(db, session_id: str, query: str, limit: int
                 "department": reg.get("department") or (u.get("department") if u else None),
                 "status": reg.get("status"),
                 "points": int(reg.get("points") or 0),
+                "quizPoints": int(quiz_points_by_user.get(user_id, 0)),
             }
         )
 
@@ -4152,6 +4392,23 @@ async def update_quiz(
     updates = {k: v for k, v in data.model_dump(exclude_unset=True).items()}
     if not updates:
         raise HTTPException(400, "No fields to update")
+
+    title = updates.get("title")
+    if isinstance(title, str) and not validate_no_scripts(title):
+        raise HTTPException(400, "Invalid characters detected")
+
+    if "questions" in updates:
+        questions = updates.get("questions") or []
+        for idx, q in enumerate(questions):
+            options = [str(opt).strip() for opt in q.get("options", [])]
+            if any(not opt for opt in options):
+                raise HTTPException(400, f"Question {idx + 1} has empty options")
+            if len(set(options)) < 2:
+                raise HTTPException(400, f"Question {idx + 1} options must not all be the same")
+            correct_index = int(q.get("correctIndex", -1))
+            if correct_index < 0 or correct_index >= len(options):
+                raise HTTPException(400, f"Question {idx + 1} correct answer index is out of range")
+
     # Manual flow is retired; keep quizzes in auto mode.
     updates["autoAdvance"] = True
     updates["updatedAt"] = datetime.now(timezone.utc)
@@ -4275,37 +4532,69 @@ async def list_bonus_points_history(
     user: dict = Depends(require_permission("iepod:manage")),
     session: dict = Depends(get_current_session),
 ):
-    """Admin: list bonus awards and reversals for audit/recovery workflows."""
+    """Admin: list manual point adjustments across general and quiz ledgers."""
     db = get_database()
     session_id = str(session["_id"])
 
-    query = {
+    general_query = {
         "sessionId": session_id,
-        "action": {"$in": ["bonus", "bonus_reversal"]},
+        "action": {"$in": ["bonus", "bonus_deduction", "bonus_reversal"]},
     }
-    total = await db.iepod_points.count_documents(query)
-    docs = await db.iepod_points.find(query).sort("awardedAt", -1).skip(skip).limit(limit).to_list(length=limit)
+    quiz_query = {
+        "sessionId": session_id,
+        "source": {"$in": ["admin_bonus", "admin_deduction", "admin_reversal"]},
+    }
 
-    visible_bonus_ids = [str(doc.get("_id")) for doc in docs if doc.get("action") == "bonus" and doc.get("_id")]
-    reversal_docs = []
-    if visible_bonus_ids:
-        reversal_docs = await db.iepod_points.find(
+    total_general = await db.iepod_points.count_documents(general_query)
+    total_quiz = await db.iepod_quiz_points.count_documents(quiz_query)
+    total = int(total_general + total_quiz)
+
+    fetch_limit = max(limit + skip, limit)
+    general_docs = await db.iepod_points.find(general_query).sort("awardedAt", -1).limit(fetch_limit).to_list(length=fetch_limit)
+    quiz_docs = await db.iepod_quiz_points.find(quiz_query).sort("awardedAt", -1).limit(fetch_limit).to_list(length=fetch_limit)
+
+    general_adjustment_ids = [
+        str(doc.get("_id"))
+        for doc in general_docs
+        if doc.get("action") in {"bonus", "bonus_deduction"} and doc.get("_id")
+    ]
+    general_reversal_refs: set[str] = set()
+    if general_adjustment_ids:
+        general_reversals = await db.iepod_points.find(
             {
                 "sessionId": session_id,
                 "action": "bonus_reversal",
-                "referenceId": {"$in": visible_bonus_ids},
+                "referenceId": {"$in": general_adjustment_ids},
             },
             {"referenceId": 1},
-        ).to_list(length=len(visible_bonus_ids))
-    reversal_refs = {str(doc.get("referenceId")) for doc in reversal_docs if doc.get("referenceId")}
+        ).to_list(length=len(general_adjustment_ids))
+        general_reversal_refs = {str(doc.get("referenceId")) for doc in general_reversals if doc.get("referenceId")}
+
+    quiz_adjustment_ids = [
+        str(doc.get("_id"))
+        for doc in quiz_docs
+        if doc.get("source") in {"admin_bonus", "admin_deduction"} and doc.get("_id")
+    ]
+    quiz_reversal_refs: set[str] = set()
+    if quiz_adjustment_ids:
+        quiz_reversals = await db.iepod_quiz_points.find(
+            {
+                "sessionId": session_id,
+                "source": "admin_reversal",
+                "referenceId": {"$in": quiz_adjustment_ids},
+            },
+            {"referenceId": 1},
+        ).to_list(length=len(quiz_adjustment_ids))
+        quiz_reversal_refs = {str(doc.get("referenceId")) for doc in quiz_reversals if doc.get("referenceId")}
 
     items = []
-    for doc in docs:
+    for doc in general_docs:
         point_id = str(doc.get("_id"))
         action = str(doc.get("action") or "")
         items.append(
             {
                 "id": point_id,
+                "board": "general",
                 "userId": str(doc.get("userId") or ""),
                 "userName": doc.get("userName") or "Student",
                 "action": action,
@@ -4313,14 +4602,37 @@ async def list_bonus_points_history(
                 "description": doc.get("description") or "",
                 "awardedAt": doc.get("awardedAt"),
                 "referenceId": doc.get("referenceId"),
-                "isReversible": action == "bonus" and int(doc.get("points") or 0) > 0 and point_id not in reversal_refs,
+                "isReversible": action in {"bonus", "bonus_deduction"} and int(doc.get("points") or 0) != 0 and point_id not in general_reversal_refs,
             }
         )
 
-    return {"items": items, "total": total}
+    for doc in quiz_docs:
+        point_id = str(doc.get("_id"))
+        source = str(doc.get("source") or "")
+        items.append(
+            {
+                "id": point_id,
+                "board": "quiz",
+                "userId": str(doc.get("userId") or ""),
+                "userName": doc.get("userName") or "Student",
+                "action": source,
+                "points": int(doc.get("points") or 0),
+                "description": doc.get("description") or "",
+                "awardedAt": doc.get("awardedAt"),
+                "referenceId": doc.get("referenceId"),
+                "isReversible": source in {"admin_bonus", "admin_deduction"} and int(doc.get("points") or 0) != 0 and point_id not in quiz_reversal_refs,
+            }
+        )
+
+    items.sort(
+        key=lambda row: row.get("awardedAt") if isinstance(row.get("awardedAt"), datetime) else datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    )
+
+    return {"items": items[skip: skip + limit], "total": total}
 
 
-# Admin: award bonus points
+# Admin: add or deduct bonus points
 @router.post("/points/award")
 async def award_bonus_points(
     data: PointAward,
@@ -4328,7 +4640,7 @@ async def award_bonus_points(
     user: dict = Depends(require_permission("iepod:manage")),
     session: dict = Depends(get_current_session),
 ):
-    """Admin: Award bonus points to a student."""
+    """Admin: adjust bonus points for a student (add or deduct)."""
     db = get_database()
     session_id = str(session["_id"])
 
@@ -4338,35 +4650,96 @@ async def award_bonus_points(
         raise HTTPException(404, "Student not found")
 
     student_name = f"{student.get('firstName', '')} {student.get('lastName', '')}".strip()
-    await _award_points(
-        db, data.userId, student_name, session_id,
-        "bonus", data.points, data.description,
-    )
+    operation = str(data.operation or "add")
+    target_board = str(data.targetBoard or "general")
+    absolute_points = int(data.points)
+    signed_points = absolute_points if operation == "add" else -absolute_points
+    action = "bonus" if operation == "add" else "bonus_deduction"
 
-    created = await db.iepod_points.find_one(
-        {
-            "userId": data.userId,
-            "sessionId": session_id,
-            "action": "bonus",
-            "points": data.points,
-            "description": data.description,
-        },
-        sort=[("awardedAt", -1)],
-    )
+    if operation == "deduct" and target_board == "general":
+        reg = await db.iepod_registrations.find_one(
+            {"userId": data.userId, "sessionId": session_id},
+            {"points": 1},
+        )
+        current_points = int((reg or {}).get("points") or 0)
+        if absolute_points > current_points:
+            raise HTTPException(
+                400,
+                f"Cannot deduct {absolute_points} points. Current balance is {current_points}.",
+            )
+
+    created = None
+    if target_board == "quiz":
+        if operation == "deduct":
+            current_quiz_points = await _get_quiz_points_total(db, data.userId, session_id)
+            if absolute_points > current_quiz_points:
+                raise HTTPException(
+                    400,
+                    f"Cannot deduct {absolute_points} quiz points. Current quiz balance is {current_quiz_points}.",
+                )
+
+        source = "admin_bonus" if operation == "add" else "admin_deduction"
+        await _record_quiz_points(
+            db,
+            data.userId,
+            student_name,
+            session_id,
+            signed_points,
+            source,
+            data.description,
+            ref_id=None,
+        )
+        created = await db.iepod_quiz_points.find_one(
+            {
+                "userId": data.userId,
+                "sessionId": session_id,
+                "source": source,
+                "points": signed_points,
+                "description": data.description,
+            },
+            sort=[("awardedAt", -1)],
+        )
+    else:
+        await _award_points(
+            db, data.userId, student_name, session_id,
+            action, signed_points, data.description,
+        )
+
+        created = await db.iepod_points.find_one(
+            {
+                "userId": data.userId,
+                "sessionId": session_id,
+                "action": action,
+                "points": signed_points,
+                "description": data.description,
+            },
+            sort=[("awardedAt", -1)],
+        )
 
     await AuditLogger.log(
-        action="iepod.bonus_points_awarded",
+        action="iepod.bonus_points_adjusted" if target_board == "general" else "iepod.quiz_points_adjusted",
         actor_id=str(user["_id"]),
         actor_email=user.get("email", "unknown"),
         resource_type="iepod_points",
         resource_id=data.userId,
-        details={"student": student_name, "points": data.points, "description": data.description},
+        details={
+            "student": student_name,
+            "targetBoard": target_board,
+            "operation": operation,
+            "points": signed_points,
+            "description": data.description,
+        },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
 
     return {
-        "message": f"Awarded {data.points} points to {student_name}",
+        "message": (
+            f"Awarded {absolute_points} points to {student_name}"
+            if operation == "add"
+            else f"Deducted {absolute_points} points from {student_name}"
+        ),
+        "targetBoard": target_board,
         "pointEntryId": str(created.get("_id")) if created else None,
     }
 
@@ -4376,46 +4749,66 @@ async def reverse_bonus_points(
     point_id: str,
     data: PointReversal,
     request: Request,
+    board: str = Query(default="general", pattern="^(general|quiz)$"),
     user: dict = Depends(require_permission("iepod:manage")),
     session: dict = Depends(get_current_session),
 ):
-    """Admin: reverse a previously awarded bonus entry with an audit trail."""
+    """Admin: reverse a previously awarded manual points adjustment with an audit trail."""
     db = get_database()
     session_id = str(session["_id"])
 
-    original = await db.iepod_points.find_one({"_id": _oid(point_id), "sessionId": session_id})
+    source_collection = db.iepod_quiz_points if board == "quiz" else db.iepod_points
+    original = await source_collection.find_one({"_id": _oid(point_id), "sessionId": session_id})
     if not original:
         raise HTTPException(404, "Point entry not found")
-    if original.get("action") != "bonus" or int(original.get("points") or 0) <= 0:
-        raise HTTPException(400, "Only positive bonus awards can be reversed")
+    original_action = str((original.get("source") if board == "quiz" else original.get("action")) or "")
+    original_points = int(original.get("points") or 0)
+    valid_adjustment_actions = {"admin_bonus", "admin_deduction"} if board == "quiz" else {"bonus", "bonus_deduction"}
+    if original_action not in valid_adjustment_actions or original_points == 0:
+        raise HTTPException(400, "Only bonus adjustments can be reversed")
 
-    existing_reverse = await db.iepod_points.find_one(
-        {
-            "sessionId": session_id,
-            "action": "bonus_reversal",
-            "referenceId": str(original.get("_id")),
-        }
-    )
+    reverse_query = {
+        "sessionId": session_id,
+        "referenceId": str(original.get("_id")),
+    }
+    if board == "quiz":
+        reverse_query["source"] = "admin_reversal"
+    else:
+        reverse_query["action"] = "bonus_reversal"
+
+    existing_reverse = await source_collection.find_one(reverse_query)
     if existing_reverse:
         raise HTTPException(409, "This bonus award has already been reversed")
 
     user_id = str(original.get("userId") or "")
     user_name = str(original.get("userName") or "Student")
-    amount = int(original.get("points") or 0)
+    amount = original_points
     reason = data.reason.strip()
 
-    await _award_points(
-        db,
-        user_id,
-        user_name,
-        session_id,
-        "bonus_reversal",
-        -abs(amount),
-        f"Reversal of bonus #{point_id}: {reason}",
-        ref_id=str(original.get("_id")),
-    )
+    if board == "quiz":
+        await _record_quiz_points(
+            db,
+            user_id,
+            user_name,
+            session_id,
+            -amount,
+            "admin_reversal",
+            f"Reversal of {original_action} #{point_id}: {reason}",
+            ref_id=str(original.get("_id")),
+        )
+    else:
+        await _award_points(
+            db,
+            user_id,
+            user_name,
+            session_id,
+            "bonus_reversal",
+            -amount,
+            f"Reversal of {original_action} #{point_id}: {reason}",
+            ref_id=str(original.get("_id")),
+        )
 
-    await db.iepod_points.update_one(
+    await source_collection.update_one(
         {"_id": original.get("_id")},
         {
             "$set": {
@@ -4428,17 +4821,661 @@ async def reverse_bonus_points(
     )
 
     await AuditLogger.log(
-        action="iepod.bonus_points_reversed",
+        action="iepod.bonus_points_reversed" if board == "general" else "iepod.quiz_points_reversed",
         actor_id=str(user["_id"]),
         actor_email=user.get("email", "unknown"),
         resource_type="iepod_points",
         resource_id=point_id,
-        details={"student": user_name, "points": amount, "reason": reason},
+        details={"student": user_name, "points": amount, "reason": reason, "originalAction": original_action, "board": board},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
 
-    return {"message": f"Reversed {amount} bonus points for {user_name}"}
+    return {"message": f"Reversed {original_action} ({amount} pts) for {user_name}", "board": board}
+
+
+@router.post("/treasure/admin/setup")
+async def setup_hidden_treasure(
+    data: IepodTreasureSetupRequest,
+    request: Request,
+    user: dict = Depends(require_permission("iepod:manage")),
+    session: dict = Depends(get_current_session),
+):
+    """Admin: configure hidden treasure for current session with random placement."""
+    db = get_database()
+    session_id = str(session["_id"])
+    now = datetime.now(timezone.utc)
+
+    title = data.title.strip()
+    clue = (data.clue or "").strip() or "There is a hidden spark in the IEPOD ecosystem today."
+    location_pool = [loc for loc in (data.locationPool or []) if loc in TREASURE_PRESET_LOCATIONS]
+    if not location_pool:
+        location_pool = list(TREASURE_PRESET_LOCATIONS.keys())
+
+    placement_difficulty = str(data.placementDifficulty or "balanced")
+    selected_location = _weighted_pick_treasure_location(location_pool, placement_difficulty)
+
+    campaign_start = data.campaignStartAt
+    campaign_end = data.campaignEndAt
+    if campaign_start and campaign_start.tzinfo is None:
+        campaign_start = campaign_start.replace(tzinfo=timezone.utc)
+    if campaign_end and campaign_end.tzinfo is None:
+        campaign_end = campaign_end.replace(tzinfo=timezone.utc)
+    if campaign_start and campaign_end and campaign_end <= campaign_start:
+        raise HTTPException(400, "campaignEndAt must be after campaignStartAt")
+
+    finder_mode = str(data.finderMode or "unlimited")
+    if finder_mode == "first_bonus" and int(data.firstFinderBonusPoints) <= 0:
+        raise HTTPException(400, "firstFinderBonusPoints must be above 0 for first_bonus mode")
+    if finder_mode == "top_n" and int(data.topNFinders) <= 0:
+        raise HTTPException(400, "topNFinders must be above 0 for top_n mode")
+
+    anti_abuse_enabled = bool(data.antiAbuseEnabled)
+    claim_cooldown_seconds = int(data.claimCooldownSeconds)
+    max_attempts_per_minute_per_ip = int(data.maxAttemptsPerMinutePerIp)
+    max_attempts_per_minute_per_user = int(data.maxAttemptsPerMinutePerUser)
+
+    round_key = now.strftime("%Y-%m-%d") if bool(data.autoRotateDaily) else "persistent"
+
+    await db.iepod_hidden_treasures.update_one(
+        {"sessionId": session_id},
+        {
+            "$set": {
+                "sessionId": session_id,
+                "isEnabled": bool(data.isEnabled),
+                "title": title,
+                "clue": clue,
+                "points": int(data.points),
+                "locationPool": location_pool,
+                "placementDifficulty": placement_difficulty,
+                "locationKey": selected_location,
+                "locationLabel": TREASURE_PRESET_LOCATIONS[selected_location],
+                "autoRotateDaily": bool(data.autoRotateDaily),
+                "dailyWindowEnabled": bool(data.dailyWindowEnabled),
+                "dailyStartHourUtc": int(data.dailyStartHourUtc),
+                "dailyEndHourUtc": int(data.dailyEndHourUtc),
+                "campaignStartAt": campaign_start,
+                "campaignEndAt": campaign_end,
+                "finderMode": finder_mode,
+                "firstFinderBonusPoints": int(data.firstFinderBonusPoints),
+                "topNFinders": int(data.topNFinders),
+                "antiAbuseEnabled": anti_abuse_enabled,
+                "claimCooldownSeconds": claim_cooldown_seconds,
+                "maxAttemptsPerMinutePerIp": max_attempts_per_minute_per_ip,
+                "maxAttemptsPerMinutePerUser": max_attempts_per_minute_per_user,
+                "roundKey": round_key,
+                "roundClaimCount": 0,
+                "configuredByUserId": str(user.get("_id")),
+                "configuredByEmail": user.get("email"),
+                "updatedAt": now,
+            },
+            "$setOnInsert": {
+                "createdAt": now,
+            },
+        },
+        upsert=True,
+    )
+
+    await AuditLogger.log(
+        action="iepod.hidden_treasure_configured",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="iepod_hidden_treasure",
+        resource_id=session_id,
+        details={
+            "isEnabled": bool(data.isEnabled),
+            "points": int(data.points),
+            "locationKey": selected_location,
+            "poolSize": len(location_pool),
+            "autoRotateDaily": bool(data.autoRotateDaily),
+            "placementDifficulty": placement_difficulty,
+            "finderMode": finder_mode,
+        },
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    return {
+        "message": "Hidden treasure updated",
+        "isEnabled": bool(data.isEnabled),
+        "title": title,
+        "clue": clue,
+        "points": int(data.points),
+        "locationKey": selected_location,
+        "locationLabel": TREASURE_PRESET_LOCATIONS[selected_location],
+        "autoRotateDaily": bool(data.autoRotateDaily),
+        "placementDifficulty": placement_difficulty,
+        "dailyWindowEnabled": bool(data.dailyWindowEnabled),
+        "dailyStartHourUtc": int(data.dailyStartHourUtc),
+        "dailyEndHourUtc": int(data.dailyEndHourUtc),
+        "campaignStartAt": campaign_start.isoformat() if campaign_start else None,
+        "campaignEndAt": campaign_end.isoformat() if campaign_end else None,
+        "finderMode": finder_mode,
+        "firstFinderBonusPoints": int(data.firstFinderBonusPoints),
+        "topNFinders": int(data.topNFinders),
+        "antiAbuseEnabled": anti_abuse_enabled,
+        "claimCooldownSeconds": claim_cooldown_seconds,
+        "maxAttemptsPerMinutePerIp": max_attempts_per_minute_per_ip,
+        "maxAttemptsPerMinutePerUser": max_attempts_per_minute_per_user,
+        "presetLocations": TREASURE_PRESET_LOCATIONS,
+    }
+
+
+@router.get("/treasure/admin/current")
+async def get_hidden_treasure_admin_view(
+    user: dict = Depends(require_permission("iepod:manage")),
+    session: dict = Depends(get_current_session),
+):
+    """Admin: inspect current hidden treasure setup."""
+    db = get_database()
+    session_id = str(session["_id"])
+
+    doc = await db.iepod_hidden_treasures.find_one({"sessionId": session_id})
+    if not doc:
+        return {
+            "configured": False,
+            "isEnabled": False,
+            "presetLocations": TREASURE_PRESET_LOCATIONS,
+        }
+
+    now = datetime.now(timezone.utc)
+    doc = await _ensure_treasure_round(db, doc, now)
+
+    claim_count = await db.iepod_hidden_treasure_claims.count_documents(
+        {
+            "sessionId": session_id,
+            "treasureId": str(doc.get("_id")),
+            "roundKey": str(doc.get("roundKey") or "persistent"),
+        }
+    )
+
+    return {
+        "configured": True,
+        "isEnabled": bool(doc.get("isEnabled", False)),
+        "title": doc.get("title") or "Hidden Treasure",
+        "clue": doc.get("clue") or "",
+        "points": int(doc.get("points") or 0),
+        "locationKey": doc.get("locationKey") or "",
+        "locationLabel": doc.get("locationLabel") or "",
+        "locationPool": doc.get("locationPool") or [],
+        "placementDifficulty": doc.get("placementDifficulty") or "balanced",
+        "autoRotateDaily": bool(doc.get("autoRotateDaily", True)),
+        "dailyWindowEnabled": bool(doc.get("dailyWindowEnabled", False)),
+        "dailyStartHourUtc": int(doc.get("dailyStartHourUtc", 8)),
+        "dailyEndHourUtc": int(doc.get("dailyEndHourUtc", 22)),
+        "campaignStartAt": doc.get("campaignStartAt").isoformat() if isinstance(doc.get("campaignStartAt"), datetime) else None,
+        "campaignEndAt": doc.get("campaignEndAt").isoformat() if isinstance(doc.get("campaignEndAt"), datetime) else None,
+        "finderMode": doc.get("finderMode") or "unlimited",
+        "firstFinderBonusPoints": int(doc.get("firstFinderBonusPoints") or 0),
+        "topNFinders": int(doc.get("topNFinders") or 3),
+        "antiAbuseEnabled": bool(doc.get("antiAbuseEnabled", True)),
+        "claimCooldownSeconds": int(doc.get("claimCooldownSeconds") or 8),
+        "maxAttemptsPerMinutePerIp": int(doc.get("maxAttemptsPerMinutePerIp") or 30),
+        "maxAttemptsPerMinutePerUser": int(doc.get("maxAttemptsPerMinutePerUser") or 12),
+        "roundKey": str(doc.get("roundKey") or "persistent"),
+        "claimsCount": int(claim_count),
+        "presetLocations": TREASURE_PRESET_LOCATIONS,
+        "windowOpen": _is_treasure_window_open(doc, now),
+    }
+
+
+@router.post("/treasure/admin/rotate-now")
+async def rotate_hidden_treasure_now(
+    request: Request,
+    user: dict = Depends(require_permission("iepod:manage")),
+    session: dict = Depends(get_current_session),
+):
+    """Admin: force immediate treasure round rotation with a new location."""
+    db = get_database()
+    session_id = str(session["_id"])
+    now = datetime.now(timezone.utc)
+
+    doc = await db.iepod_hidden_treasures.find_one({"sessionId": session_id})
+    if not doc:
+        raise HTTPException(404, "No treasure configuration found for this session")
+
+    location_pool = [loc for loc in (doc.get("locationPool") or []) if loc in TREASURE_PRESET_LOCATIONS]
+    if not location_pool:
+        location_pool = list(TREASURE_PRESET_LOCATIONS.keys())
+
+    current_location = str(doc.get("locationKey") or "")
+    candidate_pool = [loc for loc in location_pool if loc != current_location]
+    if candidate_pool:
+        location_pool = candidate_pool
+
+    placement_difficulty = str(doc.get("placementDifficulty") or "balanced")
+    selected_location = _weighted_pick_treasure_location(location_pool, placement_difficulty)
+    round_key = f"manual-{now.strftime('%Y%m%dT%H%M%S%fZ')}"
+
+    await db.iepod_hidden_treasures.update_one(
+        {"_id": doc.get("_id")},
+        {
+            "$set": {
+                "locationKey": selected_location,
+                "locationLabel": TREASURE_PRESET_LOCATIONS[selected_location],
+                "roundKey": round_key,
+                "roundClaimCount": 0,
+                "updatedAt": now,
+                "lastManualRotateAt": now,
+                "lastManualRotateByUserId": str(user.get("_id")),
+                "lastManualRotateByEmail": user.get("email"),
+            }
+        },
+    )
+
+    await AuditLogger.log(
+        action="iepod.hidden_treasure_rotated_manual",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="iepod_hidden_treasure",
+        resource_id=str(doc.get("_id")),
+        details={"roundKey": round_key, "locationKey": selected_location, "locationLabel": TREASURE_PRESET_LOCATIONS[selected_location]},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    return {
+        "rotated": True,
+        "roundKey": round_key,
+        "locationKey": selected_location,
+        "locationLabel": TREASURE_PRESET_LOCATIONS[selected_location],
+        "message": "Treasure round rotated",
+    }
+
+
+@router.get("/treasure/admin/winners")
+async def get_hidden_treasure_winners_feed(
+    rounds: int = Query(default=5, ge=1, le=20),
+    user: dict = Depends(require_permission("iepod:manage")),
+    session: dict = Depends(get_current_session),
+):
+    """Admin: live winners feed grouped by round key."""
+    db = get_database()
+    session_id = str(session["_id"])
+
+    doc = await db.iepod_hidden_treasures.find_one({"sessionId": session_id})
+    if not doc:
+        return {"rounds": []}
+
+    treasure_id = str(doc.get("_id"))
+    round_keys = await db.iepod_hidden_treasure_claims.distinct(
+        "roundKey",
+        {"sessionId": session_id, "treasureId": treasure_id},
+    )
+    sorted_keys = sorted([str(key) for key in round_keys if key], reverse=True)[:rounds]
+
+    feed = []
+    for round_key in sorted_keys:
+        docs = await db.iepod_hidden_treasure_claims.find(
+            {
+                "sessionId": session_id,
+                "treasureId": treasure_id,
+                "roundKey": round_key,
+            },
+            {"userId": 1, "userName": 1, "claimedAt": 1, "rank": 1},
+        ).sort("rank", 1).to_list(length=100)
+
+        winners = []
+        for row in docs:
+            winners.append(
+                {
+                    "userId": str(row.get("userId") or ""),
+                    "userName": row.get("userName") or "Student",
+                    "rank": int(row.get("rank") or 0),
+                    "claimedAt": row.get("claimedAt").isoformat() if isinstance(row.get("claimedAt"), datetime) else None,
+                }
+            )
+
+        feed.append(
+            {
+                "roundKey": round_key,
+                "claimsCount": len(winners),
+                "winners": winners,
+            }
+        )
+
+    return {"rounds": feed}
+
+
+@router.get("/treasure/current")
+async def get_hidden_treasure_for_student(
+    user: dict = Depends(get_current_user),
+    session: dict = Depends(get_current_session),
+):
+    """Approved participants can see today's treasure clue and status."""
+    db = get_database()
+    session_id = str(session["_id"])
+    user_id = str(user.get("_id"))
+
+    reg = await _get_registration(db, user_id, session_id)
+    if not reg or reg.get("status") != "approved":
+        return {"active": False, "eligible": False}
+
+    now = datetime.now(timezone.utc)
+    doc = await db.iepod_hidden_treasures.find_one({"sessionId": session_id, "isEnabled": True})
+    if not doc:
+        return {"active": False, "eligible": True}
+
+    doc = await _ensure_treasure_round(db, doc, now)
+    window_open = _is_treasure_window_open(doc, now)
+    round_key = str(doc.get("roundKey") or "persistent")
+
+    if not window_open:
+        return {
+            "active": False,
+            "eligible": True,
+            "windowOpen": False,
+            "title": doc.get("title") or "Hidden Treasure",
+            "clue": doc.get("clue") or "",
+            "points": int(doc.get("points") or 0),
+            "finderMode": doc.get("finderMode") or "unlimited",
+        }
+
+    treasure_id = str(doc.get("_id"))
+    claimed = await db.iepod_hidden_treasure_claims.find_one(
+        {
+            "sessionId": session_id,
+            "treasureId": treasure_id,
+            "userId": user_id,
+            "roundKey": round_key,
+        },
+        {"claimedAt": 1},
+    )
+
+    round_claim_count = int(doc.get("roundClaimCount") or 0)
+    finder_mode = str(doc.get("finderMode") or "unlimited")
+    top_n = int(doc.get("topNFinders") or 3)
+    remaining_claims = max(0, top_n - round_claim_count) if finder_mode == "top_n" else None
+    if finder_mode == "top_n" and not claimed and isinstance(remaining_claims, int) and remaining_claims <= 0:
+        return {
+            "active": False,
+            "eligible": True,
+            "windowOpen": True,
+            "roundFull": True,
+            "title": doc.get("title") or "Hidden Treasure",
+            "clue": doc.get("clue") or "",
+            "points": int(doc.get("points") or 0),
+            "finderMode": finder_mode,
+            "topNFinders": top_n,
+            "remainingClaims": 0,
+        }
+
+    return {
+        "active": True,
+        "eligible": True,
+        "windowOpen": True,
+        "treasureId": treasure_id,
+        "title": doc.get("title") or "Hidden Treasure",
+        "clue": doc.get("clue") or "",
+        "points": int(doc.get("points") or 0),
+        "locationKey": doc.get("locationKey") or "",
+        "locationLabel": doc.get("locationLabel") or "",
+        "roundKey": round_key,
+        "finderMode": finder_mode,
+        "firstFinderBonusPoints": int(doc.get("firstFinderBonusPoints") or 0),
+        "topNFinders": top_n,
+        "remainingClaims": remaining_claims,
+        "claimed": bool(claimed),
+        "claimedAt": claimed.get("claimedAt").isoformat() if claimed and isinstance(claimed.get("claimedAt"), datetime) else None,
+    }
+
+
+@router.post("/treasure/claim")
+async def claim_hidden_treasure(
+    data: IepodTreasureClaimRequest,
+    request: Request,
+    user: dict = Depends(get_current_user),
+    session: dict = Depends(get_current_session),
+):
+    """Approved participant claims hidden treasure when discovered at active location."""
+    db = get_database()
+    session_id = str(session["_id"])
+    user_id = str(user.get("_id"))
+    user_name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip() or user.get("email", "Student")
+
+    reg = await _get_registration(db, user_id, session_id)
+    if not reg or reg.get("status") != "approved":
+        raise HTTPException(403, "Only approved IEPOD participants can claim hidden treasure")
+
+    now = datetime.now(timezone.utc)
+    treasure = await db.iepod_hidden_treasures.find_one({"sessionId": session_id, "isEnabled": True})
+    if not treasure:
+        raise HTTPException(404, "No active hidden treasure right now")
+
+    treasure = await _ensure_treasure_round(db, treasure, now)
+    if not _is_treasure_window_open(treasure, now):
+        raise HTTPException(400, "Treasure hunt is currently outside the active window")
+
+    treasure_id = str(treasure.get("_id"))
+    round_key = str(treasure.get("roundKey") or "persistent")
+    ip_address = request.client.host if request.client and request.client.host else "unknown"
+
+    anti_abuse_enabled = bool(treasure.get("antiAbuseEnabled", True))
+    claim_cooldown_seconds = int(treasure.get("claimCooldownSeconds") or 8)
+    max_attempts_per_minute_per_ip = int(treasure.get("maxAttemptsPerMinutePerIp") or 30)
+    max_attempts_per_minute_per_user = int(treasure.get("maxAttemptsPerMinutePerUser") or 12)
+
+    if anti_abuse_enabled:
+        window_start = now - timedelta(minutes=1)
+
+        user_attempts = await db.iepod_hidden_treasure_attempts.count_documents(
+            {
+                "sessionId": session_id,
+                "treasureId": treasure_id,
+                "roundKey": round_key,
+                "userId": user_id,
+                "createdAt": {"$gte": window_start},
+            }
+        )
+        if user_attempts >= max_attempts_per_minute_per_user:
+            await _log_treasure_attempt(
+                db,
+                session_id=session_id,
+                treasure_id=treasure_id,
+                round_key=round_key,
+                user_id=user_id,
+                user_name=user_name,
+                ip_address=ip_address,
+                success=False,
+                reason="rate_limited_user",
+            )
+            raise HTTPException(429, "Too many treasure attempts. Please wait a moment.")
+
+        ip_attempts = await db.iepod_hidden_treasure_attempts.count_documents(
+            {
+                "sessionId": session_id,
+                "treasureId": treasure_id,
+                "roundKey": round_key,
+                "ipAddress": ip_address,
+                "createdAt": {"$gte": window_start},
+            }
+        )
+        if ip_attempts >= max_attempts_per_minute_per_ip:
+            await _log_treasure_attempt(
+                db,
+                session_id=session_id,
+                treasure_id=treasure_id,
+                round_key=round_key,
+                user_id=user_id,
+                user_name=user_name,
+                ip_address=ip_address,
+                success=False,
+                reason="rate_limited_ip",
+            )
+            raise HTTPException(429, "Treasure attempts are temporarily throttled from your network.")
+
+        last_attempt = await db.iepod_hidden_treasure_attempts.find_one(
+            {
+                "sessionId": session_id,
+                "treasureId": treasure_id,
+                "roundKey": round_key,
+                "userId": user_id,
+            },
+            {"createdAt": 1},
+            sort=[("createdAt", -1)],
+        )
+        if claim_cooldown_seconds > 0 and last_attempt and isinstance(last_attempt.get("createdAt"), datetime):
+            seconds_since_last_attempt = (now - last_attempt.get("createdAt")).total_seconds()
+            if seconds_since_last_attempt < claim_cooldown_seconds:
+                await _log_treasure_attempt(
+                    db,
+                    session_id=session_id,
+                    treasure_id=treasure_id,
+                    round_key=round_key,
+                    user_id=user_id,
+                    user_name=user_name,
+                    ip_address=ip_address,
+                    success=False,
+                    reason="cooldown",
+                )
+                retry_seconds = max(1, int(claim_cooldown_seconds - seconds_since_last_attempt))
+                raise HTTPException(429, f"Please wait {retry_seconds}s before another treasure attempt")
+
+    requested_location = data.locationKey.strip()
+    active_location = str(treasure.get("locationKey") or "")
+    if requested_location != active_location:
+        if anti_abuse_enabled:
+            await _log_treasure_attempt(
+                db,
+                session_id=session_id,
+                treasure_id=treasure_id,
+                round_key=round_key,
+                user_id=user_id,
+                user_name=user_name,
+                ip_address=ip_address,
+                success=False,
+                reason="wrong_location",
+            )
+        raise HTTPException(400, "This is not the active treasure location")
+
+    existing = await db.iepod_hidden_treasure_claims.find_one(
+        {"sessionId": session_id, "treasureId": treasure_id, "userId": user_id, "roundKey": round_key},
+        {"_id": 1},
+    )
+    if existing:
+        if anti_abuse_enabled:
+            await _log_treasure_attempt(
+                db,
+                session_id=session_id,
+                treasure_id=treasure_id,
+                round_key=round_key,
+                user_id=user_id,
+                user_name=user_name,
+                ip_address=ip_address,
+                success=False,
+                reason="already_claimed",
+            )
+        return {
+            "claimed": True,
+            "alreadyClaimed": True,
+            "points": int(treasure.get("points") or 0),
+            "message": "Treasure already claimed",
+        }
+
+    finder_mode = str(treasure.get("finderMode") or "unlimited")
+    top_n = int(treasure.get("topNFinders") or 3)
+    reserve_query: dict = {"_id": treasure.get("_id"), "roundKey": round_key}
+    if finder_mode == "top_n":
+        reserve_query["roundClaimCount"] = {"$lt": top_n}
+
+    reserved = await db.iepod_hidden_treasures.find_one_and_update(
+        reserve_query,
+        {"$inc": {"roundClaimCount": 1}, "$set": {"updatedAt": now}},
+        return_document=ReturnDocument.AFTER,
+    )
+    if not reserved:
+        raise HTTPException(409, "This treasure round has reached its claim limit")
+
+    rank = int(reserved.get("roundClaimCount") or 1)
+    claim_id = f"{treasure_id}:{round_key}:{user_id}"
+    try:
+        await db.iepod_hidden_treasure_claims.insert_one(
+            {
+                "_id": claim_id,
+                "sessionId": session_id,
+                "treasureId": treasure_id,
+                "roundKey": round_key,
+                "rank": rank,
+                "userId": user_id,
+                "userName": user_name,
+                "locationKey": active_location,
+                "claimedAt": now,
+            }
+        )
+    except DuplicateKeyError:
+        await db.iepod_hidden_treasures.update_one(
+            {"_id": treasure.get("_id"), "roundKey": round_key, "roundClaimCount": {"$gt": 0}},
+            {"$inc": {"roundClaimCount": -1}, "$set": {"updatedAt": datetime.now(timezone.utc)}},
+        )
+        if anti_abuse_enabled:
+            await _log_treasure_attempt(
+                db,
+                session_id=session_id,
+                treasure_id=treasure_id,
+                round_key=round_key,
+                user_id=user_id,
+                user_name=user_name,
+                ip_address=ip_address,
+                success=False,
+                reason="duplicate_race",
+            )
+        return {
+            "claimed": True,
+            "alreadyClaimed": True,
+            "points": int(treasure.get("points") or 0),
+            "message": "Treasure already claimed",
+        }
+
+    points_awarded = int(treasure.get("points") or 0)
+    first_bonus = int(treasure.get("firstFinderBonusPoints") or 0)
+    is_first = rank == 1
+    if finder_mode == "first_bonus" and is_first:
+        points_awarded += first_bonus
+
+    title = str(treasure.get("title") or "Hidden Treasure")
+    await _award_points(
+        db,
+        user_id,
+        user_name,
+        session_id,
+        "bonus",
+        points_awarded,
+        f"{title} discovered at {TREASURE_PRESET_LOCATIONS.get(active_location, active_location)}",
+        ref_id=treasure_id,
+    )
+
+    await AuditLogger.log(
+        action="iepod.hidden_treasure_claimed",
+        actor_id=str(user["_id"]),
+        actor_email=user.get("email", "unknown"),
+        resource_type="iepod_hidden_treasure",
+        resource_id=treasure_id,
+        details={"points": points_awarded, "locationKey": active_location, "roundKey": round_key, "rank": rank, "finderMode": finder_mode},
+        ip_address=ip_address,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    if anti_abuse_enabled:
+        await _log_treasure_attempt(
+            db,
+            session_id=session_id,
+            treasure_id=treasure_id,
+            round_key=round_key,
+            user_id=user_id,
+            user_name=user_name,
+            ip_address=ip_address,
+            success=True,
+            reason="claimed",
+        )
+
+    return {
+        "claimed": True,
+        "alreadyClaimed": False,
+        "rank": rank,
+        "isFirstFinder": is_first,
+        "points": points_awarded,
+        "message": f"You found {title}! +{points_awarded} points",
+    }
 
 
 @router.post("/admin/users/{user_id}/reset")

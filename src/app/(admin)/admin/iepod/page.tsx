@@ -20,6 +20,7 @@ import {
   createQuiz,
   startLiveQuizSession,
   advanceLiveQuizQuestion,
+  skipLiveQuizQuestion,
   getLiveQuizParticipants,
   pauseLiveQuizSession,
   resumeLiveQuizSession,
@@ -39,8 +40,12 @@ import {
   getQuizSystemLeaderboardAdmin,
   searchIepodMembers,
   listBonusPointHistory,
-  reverseBonusPoints,
+  reverseBonusPointsByBoard,
   resetIepodUserData,
+  getHiddenTreasureAdmin,
+  getHiddenTreasureWinnersFeed,
+  rotateHiddenTreasureNow,
+  setupHiddenTreasure,
   listNicheAudits,
   REG_STATUS_STYLES,
   TEAM_STATUS_STYLES,
@@ -72,6 +77,8 @@ import type {
   LiveQuizWsPacket,
   IepodMemberLookupEntry,
   BonusHistoryItem,
+  HiddenTreasureAdminState,
+  HiddenTreasureWinnersFeed,
 } from "@/lib/api";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { getErrorMessage } from "@/lib/adminApiError";
@@ -92,6 +99,7 @@ const TAB_KEY_SET = new Set<Tab>(TABS.map((t) => t.key));
 const REG_SUB_TABS = ["pending", "approved", "rejected"] as const;
 const PAGE_SIZE = 20;
 const POINTS_PAGE_SIZE = 20;
+const HIGH_VALUE_DEDUCTION_CONFIRM_POINTS = 50;
 
 function parseAdminIepodTab(value: string | null): Tab {
   return value && TAB_KEY_SET.has(value as Tab) ? (value as Tab) : "overview";
@@ -185,6 +193,7 @@ export function AdminIepodPage() {
   const [quizzes, setQuizzes] = useState<IepodQuiz[]>([]);
   const [quizLoading, setQuizLoading] = useState(false);
   const [showQuizModal, setShowQuizModal] = useState(false);
+  const [editingQuiz, setEditingQuiz] = useState<IepodQuiz | null>(null);
   const [quizForm, setQuizForm] = useState<CreateQuizData>({
     title: "",
     quizType: "general" as IepodQuizType,
@@ -198,7 +207,7 @@ export function AdminIepodPage() {
   const [quizDefaultQuestionTimer, setQuizDefaultQuestionTimer] = useState(20);
   const [quizSubmitting, setQuizSubmitting] = useState(false);
   const [liveJoinByQuizId, setLiveJoinByQuizId] = useState<Record<string, string>>({});
-  const [liveActionByQuizId, setLiveActionByQuizId] = useState<Record<string, "start" | "startQuestion" | "pause" | "resume" | "reveal" | "end" | "resync" | null>>({});
+  const [liveActionByQuizId, setLiveActionByQuizId] = useState<Record<string, "start" | "startQuestion" | "skip" | "pause" | "resume" | "reveal" | "end" | "resync" | null>>({});
   const [endedLiveByQuizId, setEndedLiveByQuizId] = useState<Record<string, boolean>>({});
   const [liveStateByCode, setLiveStateByCode] = useState<Record<string, LiveQuizState & { leaderboard?: LiveLeaderboardItem[]; finalPodiumRevealed?: boolean }>>({});
   const [liveParticipantsByCode, setLiveParticipantsByCode] = useState<Record<string, LiveParticipant[]>>({});
@@ -208,6 +217,12 @@ export function AdminIepodPage() {
   const liveReconnectRef = useRef<Record<string, ReturnType<typeof setTimeout> | null>>({});
   const liveHeartbeatRef = useRef<Record<string, ReturnType<typeof setInterval> | null>>({});
   const liveStateVersionByCodeRef = useRef<Record<string, number>>({});
+  const [treasureAdminState, setTreasureAdminState] = useState<HiddenTreasureAdminState | null>(null);
+  const [treasureWinnersFeed, setTreasureWinnersFeed] = useState<HiddenTreasureWinnersFeed>({ rounds: [] });
+  const [treasureWinnersLoading, setTreasureWinnersLoading] = useState(false);
+  const [treasureRotating, setTreasureRotating] = useState(false);
+  const [treasureLoading, setTreasureLoading] = useState(false);
+  const [treasureSaving, setTreasureSaving] = useState(false);
 
   /* ── Teams ── */
   const [teams, setTeams] = useState<IepodTeam[]>([]);
@@ -244,9 +259,19 @@ export function AdminIepodPage() {
   const [bonusUserSearch, setBonusUserSearch] = useState("");
   const [bonusMemberOptions, setBonusMemberOptions] = useState<IepodMemberLookupEntry[]>([]);
   const [bonusMemberSearchLoading, setBonusMemberSearchLoading] = useState(false);
+  const [bonusOperation, setBonusOperation] = useState<"add" | "deduct">("add");
+  const [bonusTargetBoard, setBonusTargetBoard] = useState<"general" | "quiz">("general");
   const [bonusPoints, setBonusPoints] = useState("");
   const [bonusDesc, setBonusDesc] = useState("");
   const [bonusSubmitting, setBonusSubmitting] = useState(false);
+  const [pendingDeductionConfirm, setPendingDeductionConfirm] = useState<{
+    userId: string;
+    userLabel: string;
+    targetBoard: "general" | "quiz";
+    points: number;
+    description: string;
+    currentBalance: number | null;
+  } | null>(null);
   const [showResetUserModal, setShowResetUserModal] = useState(false);
   const [resetTargetMember, setResetTargetMember] = useState<IepodMemberLookupEntry | null>(null);
   const [resetReason, setResetReason] = useState("");
@@ -299,9 +324,17 @@ export function AdminIepodPage() {
 
   const fetchQuizzes = useCallback(async () => {
     setQuizLoading(true);
+    setTreasureLoading(true);
+    setTreasureWinnersLoading(true);
     try {
-      const data = await listQuizzes();
+      const [data, treasure, winnersFeed] = await Promise.all([
+        listQuizzes(),
+        getHiddenTreasureAdmin(),
+        getHiddenTreasureWinnersFeed(5),
+      ]);
       setQuizzes(data);
+      setTreasureAdminState(treasure);
+      setTreasureWinnersFeed(winnersFeed);
       const restored: Record<string, string> = {};
       data.forEach((quiz) => {
         const qId = quiz._id || quiz.id;
@@ -312,7 +345,25 @@ export function AdminIepodPage() {
       if (Object.keys(restored).length > 0) {
         setLiveJoinByQuizId((prev) => ({ ...restored, ...prev }));
       }
-    } catch (err) { toast.error(getErrorMessage(err, "Failed to load quizzes")); } finally { setQuizLoading(false); }
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to load quizzes"));
+    } finally {
+      setQuizLoading(false);
+      setTreasureLoading(false);
+      setTreasureWinnersLoading(false);
+    }
+  }, []);
+
+  const refreshTreasureWinners = useCallback(async () => {
+    setTreasureWinnersLoading(true);
+    try {
+      const feed = await getHiddenTreasureWinnersFeed(5);
+      setTreasureWinnersFeed(feed);
+    } catch {
+      // Keep panel stable if feed refresh fails temporarily.
+    } finally {
+      setTreasureWinnersLoading(false);
+    }
   }, []);
 
   const fetchTeams = useCallback(async () => {
@@ -603,6 +654,32 @@ export function AdminIepodPage() {
 
   useEffect(() => {
     if (tab !== "quizzes") return;
+    let cancelled = false;
+
+    const refresh = async () => {
+      try {
+        const feed = await getHiddenTreasureWinnersFeed(5);
+        if (!cancelled) {
+          setTreasureWinnersFeed(feed);
+        }
+      } catch {
+        // Ignore feed poll jitter; next interval will recover.
+      }
+    };
+
+    void refresh();
+    const timer = setInterval(() => {
+      void refresh();
+    }, 12000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [tab]);
+
+  useEffect(() => {
+    if (tab !== "quizzes") return;
     const codes = Array.from(new Set(Object.values(liveJoinByQuizId).filter(Boolean)));
     if (codes.length === 0) return;
 
@@ -747,13 +824,44 @@ export function AdminIepodPage() {
         // Keep quiz scoring deterministic across quiz types.
         points: 10,
       }));
-      await createQuiz({ ...quizForm, questions: normalizedQuestions, autoAdvance: true }); toast.success("Quiz created");
+      const payload = { ...quizForm, questions: normalizedQuestions, autoAdvance: true };
+      const editingQuizId = editingQuiz?._id || editingQuiz?.id;
+      if (editingQuizId) {
+        await updateQuiz(editingQuizId, payload);
+        toast.success("Quiz updated");
+      } else {
+        await createQuiz(payload);
+        toast.success("Quiz created");
+      }
       await fetchQuizzes(); closeQuizModal();
-    } catch (err) { toast.error(getErrorMessage(err, "Failed to create quiz")); } finally { setQuizSubmitting(false); }
+    } catch (err) { toast.error(getErrorMessage(err, "Failed to save quiz")); } finally { setQuizSubmitting(false); }
+  }
+
+  function openQuizModalForEdit(quiz: IepodQuiz) {
+    setEditingQuiz(quiz);
+    setQuizForm({
+      title: quiz.title,
+      description: quiz.description || "",
+      quizType: (quiz.quizType || "general") as IepodQuizType,
+      questions: quiz.questions || [],
+      isLive: Boolean(quiz.isLive),
+      intermissionSeconds: quiz.intermissionSeconds ?? 8,
+      revealResultsSeconds: quiz.revealResultsSeconds ?? 6,
+      autoAdvance: true,
+      phase: quiz.phase || undefined,
+      timeLimitMinutes: quiz.timeLimitMinutes ?? undefined,
+    });
+    setQuizQuestions((quiz.questions || []).map((q) => ({
+      ...q,
+      timeLimitSeconds: Number(q.timeLimitSeconds || 20),
+    })));
+    setQuizDefaultQuestionTimer(Number(quiz.questions?.[0]?.timeLimitSeconds || 20));
+    setShowQuizModal(true);
   }
 
   function closeQuizModal() {
     setShowQuizModal(false);
+    setEditingQuiz(null);
     setQuizForm({
       title: "",
       quizType: "general",
@@ -765,6 +873,58 @@ export function AdminIepodPage() {
     });
     setQuizQuestions([]);
     setQuizDefaultQuestionTimer(20);
+  }
+
+  async function handleSaveTreasure(config: {
+    isEnabled: boolean;
+    title: string;
+    clue: string;
+    points: number;
+    locationPool: string[];
+    autoRotateDaily: boolean;
+    placementDifficulty: "easy" | "balanced" | "hard";
+    dailyWindowEnabled: boolean;
+    dailyStartHourUtc: number;
+    dailyEndHourUtc: number;
+    campaignStartAt?: string | null;
+    campaignEndAt?: string | null;
+    finderMode: "unlimited" | "first_bonus" | "top_n";
+    firstFinderBonusPoints: number;
+    topNFinders: number;
+    antiAbuseEnabled: boolean;
+    claimCooldownSeconds: number;
+    maxAttemptsPerMinutePerIp: number;
+    maxAttemptsPerMinutePerUser: number;
+  }) {
+    setTreasureSaving(true);
+    try {
+      const updated = await setupHiddenTreasure(config);
+      setTreasureAdminState(updated);
+      await refreshTreasureWinners();
+      toast.success(updated.isEnabled ? "Hidden treasure configured" : "Hidden treasure disabled");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to save hidden treasure"));
+    } finally {
+      setTreasureSaving(false);
+    }
+  }
+
+  async function handleRotateTreasureNow() {
+    setTreasureRotating(true);
+    try {
+      const result = await rotateHiddenTreasureNow();
+      const [freshTreasure, winnersFeed] = await Promise.all([
+        getHiddenTreasureAdmin(),
+        getHiddenTreasureWinnersFeed(5),
+      ]);
+      setTreasureAdminState(freshTreasure);
+      setTreasureWinnersFeed(winnersFeed);
+      toast.success(`Treasure rotated: ${result.locationLabel}`);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to rotate treasure round"));
+    } finally {
+      setTreasureRotating(false);
+    }
   }
 
   async function handleToggleQuizLive(quiz: IepodQuiz) {
@@ -916,6 +1076,36 @@ export function AdminIepodPage() {
         }
       }
       toast.error(errMsg);
+    } finally {
+      setLiveActionByQuizId((prev) => ({ ...prev, [qId]: null }));
+    }
+  }
+
+  async function handleSkipQuestionEarly(quiz: IepodQuiz) {
+    const qId = quiz._id || quiz.id;
+    if (!qId) return;
+    if (liveActionByQuizId[qId]) return;
+    const joinCode = liveJoinByQuizId[qId];
+    if (!joinCode) {
+      toast.error("No active live code found for this quiz");
+      return;
+    }
+
+    setLiveActionByQuizId((prev) => ({ ...prev, [qId]: "skip" }));
+    try {
+      const expectedStateVersion = liveStateByCode[joinCode]?.stateVersion;
+      const skipped = await skipLiveQuizQuestion(joinCode, {
+        showErrorToast: false,
+        timeout: 20000,
+        actionId: crypto.randomUUID(),
+        expectedStateVersion,
+      });
+      const recovered = await getLiveQuizState(joinCode, { showErrorToast: false, timeout: 10000 });
+      applyLiveStateForCode(joinCode, recovered);
+      rememberHostReceipt(qId, "skip-question", { actionId: skipped.actionId, ackAt: skipped.ackAt });
+      toast.success("Question ended early. Reveal phase started.");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to end question early"));
     } finally {
       setLiveActionByQuizId((prev) => ({ ...prev, [qId]: null }));
     }
@@ -1104,29 +1294,94 @@ export function AdminIepodPage() {
   async function handleAwardBonus(e: React.FormEvent) {
     e.preventDefault();
     if (!bonusUserId || !bonusPoints || !bonusDesc) { toast.error("All fields required"); return; }
+    const numericPoints = Number(bonusPoints);
+    if (!Number.isFinite(numericPoints) || numericPoints <= 0) {
+      toast.error("Points must be a number greater than 0");
+      return;
+    }
+    const selectedMember = resetTargetMember && resetTargetMember.userId === bonusUserId ? resetTargetMember : null;
+    const selectedBoardBalance = bonusTargetBoard === "quiz"
+      ? Number(selectedMember?.quizPoints || 0)
+      : Number(selectedMember?.points || 0);
+    if (bonusOperation === "deduct" && selectedMember && numericPoints > selectedBoardBalance) {
+      toast.error(`Cannot deduct more than current ${bonusTargetBoard} balance (${selectedBoardBalance})`);
+      return;
+    }
+
+    if (bonusOperation === "deduct" && numericPoints >= HIGH_VALUE_DEDUCTION_CONFIRM_POINTS) {
+      setPendingDeductionConfirm({
+        userId: bonusUserId,
+        userLabel: selectedMember?.userName || bonusUserSearch || "Selected member",
+        targetBoard: bonusTargetBoard,
+        points: numericPoints,
+        description: bonusDesc,
+        currentBalance: selectedMember ? selectedBoardBalance : null,
+      });
+      return;
+    }
+
+    await submitBonusAdjustment({
+      userId: bonusUserId,
+      points: numericPoints,
+      operation: bonusOperation,
+      targetBoard: bonusTargetBoard,
+      description: bonusDesc,
+    });
+  }
+
+  async function submitBonusAdjustment(payload: { userId: string; points: number; operation: "add" | "deduct"; targetBoard: "general" | "quiz"; description: string }) {
     setBonusSubmitting(true);
     try {
-      await awardBonusPoints({ userId: bonusUserId, points: Number(bonusPoints), description: bonusDesc });
-      toast.success("Points awarded");
+      await awardBonusPoints(payload);
+      toast.success(payload.operation === "add" ? `${payload.targetBoard} points awarded` : `${payload.targetBoard} points deducted`);
       setBonusUserId("");
       setBonusUserSearch("");
       setBonusMemberOptions([]);
+      setBonusOperation("add");
+      setBonusTargetBoard("general");
       setBonusPoints("");
       setBonusDesc("");
+      setResetTargetMember(null);
+      setPendingDeductionConfirm(null);
       fetchPointsPanel();
-    } catch (err) { toast.error(getErrorMessage(err, "Failed to award bonus points")); } finally { setBonusSubmitting(false); }
+    } catch (err) {
+      toast.error(
+        getErrorMessage(
+          err,
+          payload.operation === "add"
+            ? `Failed to award ${payload.targetBoard} points`
+            : `Failed to deduct ${payload.targetBoard} points`,
+        ),
+      );
+    } finally { setBonusSubmitting(false); }
   }
 
-  async function handleReverseBonus(pointId: string) {
-    const reason = window.prompt("Reason for reversing this bonus award:");
+  async function handleConfirmHighValueDeduction() {
+    if (!pendingDeductionConfirm || bonusSubmitting) return;
+    if (pendingDeductionConfirm.userId !== bonusUserId) {
+      toast.error("Selected member changed. Please retry deduction.");
+      setPendingDeductionConfirm(null);
+      return;
+    }
+    await submitBonusAdjustment({
+      userId: pendingDeductionConfirm.userId,
+      points: pendingDeductionConfirm.points,
+      operation: "deduct",
+      targetBoard: pendingDeductionConfirm.targetBoard,
+      description: pendingDeductionConfirm.description,
+    });
+  }
+
+  async function handleReverseBonus(pointId: string, board: "general" | "quiz") {
+    const reason = window.prompt("Reason for reversing this points adjustment:");
     if (!reason || reason.trim().length < 3) return;
     setReversingPointId(pointId);
     try {
-      await reverseBonusPoints(pointId, reason.trim());
-      toast.success("Bonus points reversed");
+      await reverseBonusPointsByBoard(pointId, reason.trim(), board);
+      toast.success(`${board} points adjustment reversed`);
       fetchPointsPanel();
     } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to reverse bonus points"));
+      toast.error(getErrorMessage(err, `Failed to reverse ${board} points adjustment`));
     } finally {
       setReversingPointId(null);
     }
@@ -1246,11 +1501,27 @@ export function AdminIepodPage() {
       {tab === "quizzes" && (
         <QuizzesTab
           quizzes={quizzes} loading={quizLoading}
-          onAdd={() => setShowQuizModal(true)}
+          onAdd={() => {
+            setEditingQuiz(null);
+            setQuizForm({
+              title: "",
+              quizType: "general" as IepodQuizType,
+              questions: [],
+              isLive: false,
+              intermissionSeconds: 8,
+              revealResultsSeconds: 6,
+              autoAdvance: true,
+            });
+            setQuizQuestions([]);
+            setQuizDefaultQuestionTimer(20);
+            setShowQuizModal(true);
+          }}
+          onEdit={openQuizModalForEdit}
           onToggleLive={handleToggleQuizLive}
           onDelete={(q) => setDeleteTarget({ type: "quiz", id: q._id || q.id || "", name: q.title })}
           onStartLive={handleStartLive}
           onStartQuestionOne={handleStartQuestionOne}
+          onSkipQuestion={handleSkipQuestionEarly}
           onTogglePauseLive={handleTogglePauseLive}
           onForceResyncLive={handleForceResyncLive}
           onFetchReplay={handleFetchReplay}
@@ -1263,6 +1534,14 @@ export function AdminIepodPage() {
           liveParticipantsByCode={liveParticipantsByCode}
           liveWsStatusByCode={liveWsStatusByCode}
           hostReceiptByQuizId={hostReceiptByQuizId}
+          treasureAdminState={treasureAdminState}
+          treasureWinnersFeed={treasureWinnersFeed}
+          treasureLoading={treasureLoading}
+          treasureWinnersLoading={treasureWinnersLoading}
+          treasureSaving={treasureSaving}
+          treasureRotating={treasureRotating}
+          onSaveTreasure={handleSaveTreasure}
+          onRotateTreasureNow={handleRotateTreasureNow}
         />
       )}
 
@@ -1313,6 +1592,9 @@ export function AdminIepodPage() {
           bonusUserSearch={bonusUserSearch} setBonusUserSearch={setBonusUserSearch}
           bonusMemberOptions={bonusMemberOptions}
           bonusMemberSearchLoading={bonusMemberSearchLoading}
+          bonusOperation={bonusOperation} setBonusOperation={setBonusOperation}
+          bonusTargetBoard={bonusTargetBoard} setBonusTargetBoard={setBonusTargetBoard}
+          selectedBonusMember={resetTargetMember}
           bonusPoints={bonusPoints} setBonusPoints={setBonusPoints}
           bonusDesc={bonusDesc} setBonusDesc={setBonusDesc}
           bonusSubmitting={bonusSubmitting}
@@ -1356,11 +1638,11 @@ export function AdminIepodPage() {
       </Modal>
 
       {/* Quiz Modal */}
-      <Modal isOpen={showQuizModal} onClose={closeQuizModal} title="New Quiz" size="xl"
+      <Modal isOpen={showQuizModal} onClose={closeQuizModal} title={editingQuiz ? "Edit Quiz" : "New Quiz"} size="xl"
         footer={<>
           <button onClick={closeQuizModal} className="px-5 py-2.5 rounded-2xl border-[3px] border-navy text-navy text-sm font-bold hover:bg-cloud transition-colors">Cancel</button>
           <button onClick={(e) => handleSaveQuiz(e as unknown as React.FormEvent)} disabled={quizSubmitting} className="px-5 py-2.5 rounded-2xl border-[3px] border-navy bg-lime text-navy text-sm font-bold press-3 press-navy transition-all disabled:opacity-50">
-            {quizSubmitting ? "Saving…" : "Create Quiz"}
+            {quizSubmitting ? "Saving…" : editingQuiz ? "Update Quiz" : "Create Quiz"}
           </button>
         </>}>
         <form onSubmit={handleSaveQuiz} className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
@@ -1531,6 +1813,24 @@ export function AdminIepodPage() {
           </label>
         </div>
       </Modal>
+
+      <ConfirmModal
+        isOpen={!!pendingDeductionConfirm}
+        title="Confirm High-Value Deduction"
+        message={
+          pendingDeductionConfirm
+            ? `You are about to deduct ${pendingDeductionConfirm.points} points from ${pendingDeductionConfirm.userLabel} on the ${pendingDeductionConfirm.targetBoard} board.${pendingDeductionConfirm.currentBalance !== null ? ` Current balance: ${pendingDeductionConfirm.currentBalance}.` : ""} This action will be logged and can be reversed from the audit trail.`
+            : ""
+        }
+        confirmLabel={bonusSubmitting ? "Deducting..." : "Confirm Deduction"}
+        onClose={() => {
+          if (bonusSubmitting) return;
+          setPendingDeductionConfirm(null);
+        }}
+        onConfirm={handleConfirmHighValueDeduction}
+        variant="danger"
+        isLoading={bonusSubmitting}
+      />
 
       {/* Submission Review Modal */}
       <Modal isOpen={!!reviewingSub} onClose={() => setReviewingSub(null)} title={`Review — ${reviewingSub?.title ?? ""}`} size="lg"
@@ -2106,13 +2406,15 @@ function SocietiesTab({ societies, loading, onAdd, onEdit, onDelete }: {
    QUIZZES TAB
    ═══════════════════════════════════════════════════ */
 
-function QuizzesTab({ quizzes, loading, onAdd, onToggleLive, onDelete, onStartLive, onStartQuestionOne, onTogglePauseLive, onForceResyncLive, onFetchReplay, onRevealLive, onEndLive, liveJoinByQuizId, endedLiveByQuizId, liveActionByQuizId, liveStateByCode, liveParticipantsByCode, liveWsStatusByCode, hostReceiptByQuizId }: {
+function QuizzesTab({ quizzes, loading, onAdd, onEdit, onToggleLive, onDelete, onStartLive, onStartQuestionOne, onSkipQuestion, onTogglePauseLive, onForceResyncLive, onFetchReplay, onRevealLive, onEndLive, liveJoinByQuizId, endedLiveByQuizId, liveActionByQuizId, liveStateByCode, liveParticipantsByCode, liveWsStatusByCode, hostReceiptByQuizId, treasureAdminState, treasureWinnersFeed, treasureLoading, treasureWinnersLoading, treasureSaving, treasureRotating, onSaveTreasure, onRotateTreasureNow }: {
   quizzes: IepodQuiz[]; loading: boolean;
   onAdd: () => void;
+  onEdit: (q: IepodQuiz) => void;
   onToggleLive: (q: IepodQuiz) => void;
   onDelete: (q: IepodQuiz) => void;
   onStartLive: (q: IepodQuiz) => void;
   onStartQuestionOne: (q: IepodQuiz) => void;
+  onSkipQuestion: (q: IepodQuiz) => void;
   onTogglePauseLive: (q: IepodQuiz) => void;
   onForceResyncLive: (q: IepodQuiz) => void;
   onFetchReplay: (q: IepodQuiz) => Promise<LiveReplayResponse>;
@@ -2120,11 +2422,39 @@ function QuizzesTab({ quizzes, loading, onAdd, onToggleLive, onDelete, onStartLi
   onEndLive: (q: IepodQuiz) => void;
   liveJoinByQuizId: Record<string, string>;
   endedLiveByQuizId: Record<string, boolean>;
-  liveActionByQuizId: Record<string, "start" | "startQuestion" | "pause" | "resume" | "reveal" | "end" | "resync" | null>;
+  liveActionByQuizId: Record<string, "start" | "startQuestion" | "skip" | "pause" | "resume" | "reveal" | "end" | "resync" | null>;
   liveStateByCode: Record<string, LiveQuizState & { leaderboard?: LiveLeaderboardItem[]; finalPodiumRevealed?: boolean }>;
   liveParticipantsByCode: Record<string, LiveParticipant[]>;
   liveWsStatusByCode: Record<string, "connecting" | "open" | "closed">;
   hostReceiptByQuizId: Record<string, { action: string; actionId?: string; ackAt?: string }>;
+  treasureAdminState: HiddenTreasureAdminState | null;
+  treasureWinnersFeed: HiddenTreasureWinnersFeed;
+  treasureLoading: boolean;
+  treasureWinnersLoading: boolean;
+  treasureSaving: boolean;
+  treasureRotating: boolean;
+  onSaveTreasure: (config: {
+    isEnabled: boolean;
+    title: string;
+    clue: string;
+    points: number;
+    locationPool: string[];
+    autoRotateDaily: boolean;
+    placementDifficulty: "easy" | "balanced" | "hard";
+    dailyWindowEnabled: boolean;
+    dailyStartHourUtc: number;
+    dailyEndHourUtc: number;
+    campaignStartAt?: string | null;
+    campaignEndAt?: string | null;
+    finderMode: "unlimited" | "first_bonus" | "top_n";
+    firstFinderBonusPoints: number;
+    topNFinders: number;
+    antiAbuseEnabled: boolean;
+    claimCooldownSeconds: number;
+    maxAttemptsPerMinutePerIp: number;
+    maxAttemptsPerMinutePerUser: number;
+  }) => Promise<void>;
+  onRotateTreasureNow: () => Promise<void>;
 }) {
   const activeQuizIds = useMemo(
     () => quizzes
@@ -2140,6 +2470,76 @@ function QuizzesTab({ quizzes, loading, onAdd, onToggleLive, onDelete, onStartLi
   const [replayData, setReplayData] = useState<LiveReplayResponse | null>(null);
   const [replayOpen, setReplayOpen] = useState(false);
   const [replayStepIdx, setReplayStepIdx] = useState(0);
+  const [treasureEnabled, setTreasureEnabled] = useState(false);
+  const [treasureTitle, setTreasureTitle] = useState("Hidden Treasure");
+  const [treasureClue, setTreasureClue] = useState("There is a hidden spark in the IEPOD ecosystem today.");
+  const [treasurePoints, setTreasurePoints] = useState(30);
+  const [treasurePool, setTreasurePool] = useState<string[]>([]);
+  const [treasureAutoRotateDaily, setTreasureAutoRotateDaily] = useState(true);
+  const [treasurePlacementDifficulty, setTreasurePlacementDifficulty] = useState<"easy" | "balanced" | "hard">("balanced");
+  const [treasureDailyWindowEnabled, setTreasureDailyWindowEnabled] = useState(false);
+  const [treasureDailyStartHourUtc, setTreasureDailyStartHourUtc] = useState(8);
+  const [treasureDailyEndHourUtc, setTreasureDailyEndHourUtc] = useState(22);
+  const [treasureCampaignStartAt, setTreasureCampaignStartAt] = useState("");
+  const [treasureCampaignEndAt, setTreasureCampaignEndAt] = useState("");
+  const [treasureFinderMode, setTreasureFinderMode] = useState<"unlimited" | "first_bonus" | "top_n">("unlimited");
+  const [treasureFirstFinderBonusPoints, setTreasureFirstFinderBonusPoints] = useState(0);
+  const [treasureTopNFinders, setTreasureTopNFinders] = useState(3);
+  const [treasureAntiAbuseEnabled, setTreasureAntiAbuseEnabled] = useState(true);
+  const [treasureClaimCooldownSeconds, setTreasureClaimCooldownSeconds] = useState(8);
+  const [treasureMaxAttemptsPerMinutePerIp, setTreasureMaxAttemptsPerMinutePerIp] = useState(30);
+  const [treasureMaxAttemptsPerMinutePerUser, setTreasureMaxAttemptsPerMinutePerUser] = useState(12);
+
+  useEffect(() => {
+    if (!treasureAdminState) return;
+    setTreasureEnabled(Boolean(treasureAdminState.isEnabled));
+    setTreasureTitle(treasureAdminState.title || "Hidden Treasure");
+    setTreasureClue(treasureAdminState.clue || "There is a hidden spark in the IEPOD ecosystem today.");
+    setTreasurePoints(Number(treasureAdminState.points || 30));
+    setTreasurePool(treasureAdminState.locationPool || Object.keys(treasureAdminState.presetLocations || {}));
+    setTreasureAutoRotateDaily(Boolean(treasureAdminState.autoRotateDaily ?? true));
+    setTreasurePlacementDifficulty((treasureAdminState.placementDifficulty || "balanced") as "easy" | "balanced" | "hard");
+    setTreasureDailyWindowEnabled(Boolean(treasureAdminState.dailyWindowEnabled ?? false));
+    setTreasureDailyStartHourUtc(Number(treasureAdminState.dailyStartHourUtc ?? 8));
+    setTreasureDailyEndHourUtc(Number(treasureAdminState.dailyEndHourUtc ?? 22));
+    setTreasureCampaignStartAt(treasureAdminState.campaignStartAt ? treasureAdminState.campaignStartAt.slice(0, 16) : "");
+    setTreasureCampaignEndAt(treasureAdminState.campaignEndAt ? treasureAdminState.campaignEndAt.slice(0, 16) : "");
+    setTreasureFinderMode((treasureAdminState.finderMode || "unlimited") as "unlimited" | "first_bonus" | "top_n");
+    setTreasureFirstFinderBonusPoints(Number(treasureAdminState.firstFinderBonusPoints || 0));
+    setTreasureTopNFinders(Number(treasureAdminState.topNFinders || 3));
+    setTreasureAntiAbuseEnabled(Boolean(treasureAdminState.antiAbuseEnabled ?? true));
+    setTreasureClaimCooldownSeconds(Number(treasureAdminState.claimCooldownSeconds ?? 8));
+    setTreasureMaxAttemptsPerMinutePerIp(Number(treasureAdminState.maxAttemptsPerMinutePerIp ?? 30));
+    setTreasureMaxAttemptsPerMinutePerUser(Number(treasureAdminState.maxAttemptsPerMinutePerUser ?? 12));
+  }, [treasureAdminState]);
+
+  const saveTreasureConfig = async () => {
+    if (!treasureTitle.trim()) {
+      toast.error("Treasure title is required");
+      return;
+    }
+    await onSaveTreasure({
+      isEnabled: treasureEnabled,
+      title: treasureTitle.trim(),
+      clue: treasureClue.trim(),
+      points: Math.max(5, Math.min(250, Number(treasurePoints || 30))),
+      locationPool: treasurePool,
+      autoRotateDaily: treasureAutoRotateDaily,
+      placementDifficulty: treasurePlacementDifficulty,
+      dailyWindowEnabled: treasureDailyWindowEnabled,
+      dailyStartHourUtc: Math.max(0, Math.min(23, Number(treasureDailyStartHourUtc || 0))),
+      dailyEndHourUtc: Math.max(0, Math.min(23, Number(treasureDailyEndHourUtc || 0))),
+      campaignStartAt: treasureCampaignStartAt ? new Date(treasureCampaignStartAt).toISOString() : null,
+      campaignEndAt: treasureCampaignEndAt ? new Date(treasureCampaignEndAt).toISOString() : null,
+      finderMode: treasureFinderMode,
+      firstFinderBonusPoints: Math.max(0, Math.min(250, Number(treasureFirstFinderBonusPoints || 0))),
+      topNFinders: Math.max(1, Math.min(100, Number(treasureTopNFinders || 1))),
+      antiAbuseEnabled: treasureAntiAbuseEnabled,
+      claimCooldownSeconds: Math.max(0, Math.min(300, Number(treasureClaimCooldownSeconds || 0))),
+      maxAttemptsPerMinutePerIp: Math.max(5, Math.min(300, Number(treasureMaxAttemptsPerMinutePerIp || 5))),
+      maxAttemptsPerMinutePerUser: Math.max(3, Math.min(120, Number(treasureMaxAttemptsPerMinutePerUser || 3))),
+    });
+  };
 
   useEffect(() => {
     if (activeQuizIds.length === 0) {
@@ -2256,6 +2656,347 @@ function QuizzesTab({ quizzes, loading, onAdd, onToggleLive, onDelete, onStartLi
         <PermissionGate permission="iepod:manage">
           <button onClick={onAdd} className="bg-lime border-[3px] border-navy press-3 press-navy px-5 py-2 rounded-xl font-display font-black text-sm text-navy transition-all">Create Quiz</button>
         </PermissionGate>
+      </div>
+      <div className="bg-snow border-[4px] border-navy rounded-3xl p-4 shadow-[6px_6px_0_0_#000] space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-label-sm text-navy">Hidden Treasure Hunt</p>
+            <p className="text-xs text-navy-muted">Configure a hidden click target. The system randomizes placement from your selected spots.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => void onRotateTreasureNow()}
+              disabled={treasureRotating || !treasureAdminState?.configured}
+              className="bg-teal border-[2px] border-navy rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-snow press-2 press-black disabled:opacity-50"
+            >
+              {treasureRotating ? "Rotating..." : "Rotate Now"}
+            </button>
+            <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded ${treasureAdminState?.isEnabled ? "bg-teal-light text-teal" : "bg-cloud text-slate"}`}>
+              {treasureAdminState?.isEnabled ? "Active" : "Inactive"}
+            </span>
+          </div>
+        </div>
+        {treasureLoading ? (
+          <p className="text-xs text-slate">Loading treasure settings...</p>
+        ) : (
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-xs font-bold text-navy">
+              <input
+                type="checkbox"
+                checked={treasureEnabled}
+                onChange={(e) => setTreasureEnabled(e.target.checked)}
+              />
+              Enable hidden treasure for approved students
+            </label>
+            <div className="grid md:grid-cols-3 gap-3">
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate">Title</label>
+                <input
+                  value={treasureTitle}
+                  onChange={(e) => setTreasureTitle(e.target.value)}
+                  title="Treasure title"
+                  placeholder="Treasure title"
+                  className="mt-1 w-full border-2 border-cloud rounded-lg px-3 py-2 text-xs text-navy"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate">Reward Points</label>
+                <input
+                  type="number"
+                  min={5}
+                  max={250}
+                  value={treasurePoints}
+                  onChange={(e) => setTreasurePoints(Number(e.target.value))}
+                  title="Treasure reward points"
+                  placeholder="Reward points"
+                  className="mt-1 w-full border-2 border-cloud rounded-lg px-3 py-2 text-xs text-navy"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate">Claims</label>
+                <div className="mt-1 w-full border-2 border-cloud rounded-lg px-3 py-2 text-xs font-bold text-navy bg-ghost">
+                  {treasureAdminState?.claimsCount ?? 0}
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase text-slate">Clue</label>
+              <textarea
+                value={treasureClue}
+                onChange={(e) => setTreasureClue(e.target.value)}
+                rows={2}
+                title="Treasure clue"
+                placeholder="Add a clue students can use while searching"
+                className="mt-1 w-full border-2 border-cloud rounded-lg px-3 py-2 text-xs text-navy resize-none"
+              />
+            </div>
+            <div className="grid md:grid-cols-3 gap-3">
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate">Placement Difficulty</label>
+                <select
+                  value={treasurePlacementDifficulty}
+                  onChange={(e) => setTreasurePlacementDifficulty(e.target.value as "easy" | "balanced" | "hard")}
+                  title="Treasure placement difficulty"
+                  className="mt-1 w-full border-2 border-cloud rounded-lg px-3 py-2 text-xs text-navy bg-snow"
+                >
+                  <option value="easy">Easy (more visible)</option>
+                  <option value="balanced">Balanced</option>
+                  <option value="hard">Hard (more hidden)</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate">Finder Mode</label>
+                <select
+                  value={treasureFinderMode}
+                  onChange={(e) => setTreasureFinderMode(e.target.value as "unlimited" | "first_bonus" | "top_n")}
+                  title="Treasure finder mode"
+                  className="mt-1 w-full border-2 border-cloud rounded-lg px-3 py-2 text-xs text-navy bg-snow"
+                >
+                  <option value="unlimited">Unlimited claimers</option>
+                  <option value="first_bonus">First finder bonus</option>
+                  <option value="top_n">Top N finders only</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate">Round Key</label>
+                <div className="mt-1 w-full border-2 border-cloud rounded-lg px-3 py-2 text-xs font-bold text-navy bg-ghost">
+                  {treasureAdminState?.roundKey || "-"}
+                </div>
+              </div>
+            </div>
+            <div className="grid md:grid-cols-2 gap-3">
+              <label className="flex items-center gap-2 text-xs font-bold text-navy bg-ghost border border-cloud rounded-lg px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={treasureAutoRotateDaily}
+                  onChange={(e) => setTreasureAutoRotateDaily(e.target.checked)}
+                />
+                Daily auto-rotate location
+              </label>
+              <label className="flex items-center gap-2 text-xs font-bold text-navy bg-ghost border border-cloud rounded-lg px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={treasureDailyWindowEnabled}
+                  onChange={(e) => setTreasureDailyWindowEnabled(e.target.checked)}
+                />
+                Daily schedule window (UTC)
+              </label>
+            </div>
+            {treasureDailyWindowEnabled && (
+              <div className="grid md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate">Window Start Hour (UTC)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={23}
+                    value={treasureDailyStartHourUtc}
+                    onChange={(e) => setTreasureDailyStartHourUtc(Number(e.target.value))}
+                    title="Daily window start hour UTC"
+                    placeholder="Start hour"
+                    className="mt-1 w-full border-2 border-cloud rounded-lg px-3 py-2 text-xs text-navy"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate">Window End Hour (UTC)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={23}
+                    value={treasureDailyEndHourUtc}
+                    onChange={(e) => setTreasureDailyEndHourUtc(Number(e.target.value))}
+                    title="Daily window end hour UTC"
+                    placeholder="End hour"
+                    className="mt-1 w-full border-2 border-cloud rounded-lg px-3 py-2 text-xs text-navy"
+                  />
+                </div>
+              </div>
+            )}
+            <div className="grid md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate">Campaign Start (optional, UTC)</label>
+                <input
+                  type="datetime-local"
+                  value={treasureCampaignStartAt}
+                  onChange={(e) => setTreasureCampaignStartAt(e.target.value)}
+                  title="Campaign start datetime"
+                  placeholder="Campaign start"
+                  className="mt-1 w-full border-2 border-cloud rounded-lg px-3 py-2 text-xs text-navy"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate">Campaign End (optional, UTC)</label>
+                <input
+                  type="datetime-local"
+                  value={treasureCampaignEndAt}
+                  onChange={(e) => setTreasureCampaignEndAt(e.target.value)}
+                  title="Campaign end datetime"
+                  placeholder="Campaign end"
+                  className="mt-1 w-full border-2 border-cloud rounded-lg px-3 py-2 text-xs text-navy"
+                />
+              </div>
+            </div>
+            <div className="grid md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate">First Finder Bonus</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={250}
+                  value={treasureFirstFinderBonusPoints}
+                  onChange={(e) => setTreasureFirstFinderBonusPoints(Number(e.target.value))}
+                  title="First finder bonus points"
+                  placeholder="First finder bonus"
+                  disabled={treasureFinderMode !== "first_bonus"}
+                  className="mt-1 w-full border-2 border-cloud rounded-lg px-3 py-2 text-xs text-navy disabled:opacity-50"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate">Top N Finders</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={treasureTopNFinders}
+                  onChange={(e) => setTreasureTopNFinders(Number(e.target.value))}
+                  title="Top N finder slots"
+                  placeholder="Top N slots"
+                  disabled={treasureFinderMode !== "top_n"}
+                  className="mt-1 w-full border-2 border-cloud rounded-lg px-3 py-2 text-xs text-navy disabled:opacity-50"
+                />
+              </div>
+            </div>
+            <div className="bg-ghost border border-cloud rounded-xl p-3 space-y-2">
+              <p className="text-[10px] font-bold uppercase text-slate">Anti-Abuse Guard</p>
+              <label className="flex items-center gap-2 text-xs font-bold text-navy">
+                <input
+                  type="checkbox"
+                  checked={treasureAntiAbuseEnabled}
+                  onChange={(e) => setTreasureAntiAbuseEnabled(e.target.checked)}
+                />
+                Enable cooldown and spam throttling
+              </label>
+              <div className="grid md:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate">Cooldown (seconds)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={300}
+                    value={treasureClaimCooldownSeconds}
+                    onChange={(e) => setTreasureClaimCooldownSeconds(Number(e.target.value))}
+                    title="Claim cooldown seconds"
+                    placeholder="Cooldown"
+                    disabled={!treasureAntiAbuseEnabled}
+                    className="mt-1 w-full border-2 border-cloud rounded-lg px-3 py-2 text-xs text-navy disabled:opacity-50"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate">Max Attempts/Min (IP)</label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={300}
+                    value={treasureMaxAttemptsPerMinutePerIp}
+                    onChange={(e) => setTreasureMaxAttemptsPerMinutePerIp(Number(e.target.value))}
+                    title="Max attempts per minute per IP"
+                    placeholder="IP rate limit"
+                    disabled={!treasureAntiAbuseEnabled}
+                    className="mt-1 w-full border-2 border-cloud rounded-lg px-3 py-2 text-xs text-navy disabled:opacity-50"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate">Max Attempts/Min (User)</label>
+                  <input
+                    type="number"
+                    min={3}
+                    max={120}
+                    value={treasureMaxAttemptsPerMinutePerUser}
+                    onChange={(e) => setTreasureMaxAttemptsPerMinutePerUser(Number(e.target.value))}
+                    title="Max attempts per minute per user"
+                    placeholder="User rate limit"
+                    disabled={!treasureAntiAbuseEnabled}
+                    className="mt-1 w-full border-2 border-cloud rounded-lg px-3 py-2 text-xs text-navy disabled:opacity-50"
+                  />
+                </div>
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase text-slate mb-2">Preset Location Pool</p>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {Object.entries(treasureAdminState?.presetLocations || {}).map(([key, label]) => {
+                  const checked = treasurePool.includes(key);
+                  return (
+                    <label key={key} className="flex items-center gap-2 bg-ghost border border-cloud rounded-lg px-2 py-1.5 text-[11px] text-navy">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          setTreasurePool((prev) => {
+                            if (e.target.checked) return prev.includes(key) ? prev : [...prev, key];
+                            return prev.filter((item) => item !== key);
+                          });
+                        }}
+                      />
+                      {label}
+                    </label>
+                  );
+                })}
+              </div>
+              {treasureAdminState?.locationLabel && (
+                <p className="text-[11px] font-bold text-navy-muted mt-2">Current location: {treasureAdminState.locationLabel}</p>
+              )}
+              {typeof treasureAdminState?.windowOpen === "boolean" && (
+                <p className="text-[11px] font-bold text-navy-muted mt-1">Window: {treasureAdminState.windowOpen ? "Open" : "Closed"}</p>
+              )}
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={saveTreasureConfig}
+                disabled={treasureSaving}
+                className="bg-lime border-[3px] border-navy rounded-xl px-4 py-2 text-xs font-black text-navy press-2 press-navy disabled:opacity-50"
+              >
+                {treasureSaving ? "Saving..." : "Save Treasure Setup"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="bg-snow border-[4px] border-navy rounded-3xl p-4 shadow-[6px_6px_0_0_#000] space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-label-sm text-navy">Winner Feed</p>
+            <p className="text-xs text-navy-muted">Live top claimers grouped by treasure round.</p>
+          </div>
+        </div>
+        {treasureWinnersLoading ? (
+          <p className="text-xs text-slate">Refreshing winner feed...</p>
+        ) : (treasureWinnersFeed.rounds || []).length === 0 ? (
+          <p className="text-xs text-slate">No claims yet. Winners will appear as students discover the treasure.</p>
+        ) : (
+          <div className="space-y-2">
+            {(treasureWinnersFeed.rounds || []).map((round) => (
+              <div key={round.roundKey} className="bg-ghost border border-cloud rounded-xl p-3">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <p className="text-[11px] font-black text-navy">Round {round.roundKey}</p>
+                  <span className="text-[10px] font-bold text-navy-muted">{round.claimsCount} claim{round.claimsCount === 1 ? "" : "s"}</span>
+                </div>
+                {round.winners.length === 0 ? (
+                  <p className="text-[11px] text-slate">No winners recorded yet.</p>
+                ) : (
+                  <div className="space-y-1">
+                    {round.winners.slice(0, 8).map((winner) => (
+                      <div key={`${round.roundKey}-${winner.userId}-${winner.rank}`} className="flex items-center justify-between bg-snow border border-cloud rounded-lg px-2 py-1.5">
+                        <p className="text-[11px] text-navy font-bold">#{winner.rank} {winner.userName}</p>
+                        <p className="text-[10px] text-slate">{winner.claimedAt ? new Date(winner.claimedAt).toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" }) : "-"}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       <div className="bg-snow border-[4px] border-navy rounded-3xl p-4 shadow-[6px_6px_0_0_#000] space-y-3">
         <div className="flex items-center justify-between gap-3">
@@ -2438,6 +3179,16 @@ function QuizzesTab({ quizzes, loading, onAdd, onToggleLive, onDelete, onStartLi
                 className="bg-lime border-[3px] border-navy rounded-xl px-3 py-2 text-xs font-black text-navy press-2 press-navy disabled:opacity-50"
               >
                 {focusedLiveAction === "startQuestion" ? "Starting..." : "Start Question 1"}
+              </button>
+              <button
+                disabled={focusedLiveBusy || focusedSessionEnded || disableNonResumeControls || focusedState?.phase !== "question_answering"}
+                onClick={() => {
+                  if (!focusedQuiz) return;
+                  onSkipQuestion(focusedQuiz);
+                }}
+                className="bg-coral border-[3px] border-navy rounded-xl px-3 py-2 text-xs font-black text-snow press-2 press-black disabled:opacity-50"
+              >
+                {focusedLiveAction === "skip" ? "Ending..." : "End Question Now"}
               </button>
               <button
                 disabled={focusedLiveBusy || disableNonResumeControls}
@@ -2627,6 +3378,7 @@ function QuizzesTab({ quizzes, loading, onAdd, onToggleLive, onDelete, onStartLi
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <PermissionGate permission="iepod:manage">
+                    <button onClick={() => onEdit(q)} className="bg-ghost border-2 border-navy/20 rounded-xl px-3 py-1.5 text-navy font-black text-xs press-2 press-black">Edit</button>
                     <button onClick={() => onToggleLive(q)} className="bg-lavender-light border-2 border-navy/20 rounded-xl px-3 py-1.5 text-navy font-black text-xs press-2 press-black">{q.isLive ? "Unpublish" : "Publish"}</button>
                     {!liveCode ? (
                       <button disabled={liveBusy} onClick={() => onStartLive(q)} className="bg-teal-light border-2 border-navy/20 rounded-xl px-3 py-1.5 text-navy font-black text-xs press-2 press-black disabled:opacity-60">
@@ -2641,6 +3393,15 @@ function QuizzesTab({ quizzes, loading, onAdd, onToggleLive, onDelete, onStartLi
                             className="bg-lavender-light border-2 border-navy/20 rounded-xl px-3 py-1.5 text-navy font-black text-xs press-2 press-black disabled:opacity-60"
                           >
                             {liveAction === "pause" ? "Pausing..." : liveAction === "resume" ? "Resuming..." : liveSnapshot?.isPaused ? "Resume Timer" : "Pause Timer"}
+                          </button>
+                        )}
+                        {liveSnapshot?.status !== "ended" && (
+                          <button
+                            disabled={liveBusy || liveSnapshot?.phase !== "question_answering"}
+                            onClick={() => onSkipQuestion(q)}
+                            className="bg-coral-light border-2 border-coral/40 rounded-xl px-3 py-1.5 text-coral font-black text-xs press-2 press-black disabled:opacity-60"
+                          >
+                            {liveAction === "skip" ? "Ending..." : "End Question Now"}
                           </button>
                         )}
                         {liveSnapshot?.status === "ended" && (
@@ -3176,6 +3937,11 @@ function PointsTab({
   setBonusUserSearch,
   bonusMemberOptions,
   bonusMemberSearchLoading,
+  bonusOperation,
+  setBonusOperation,
+  bonusTargetBoard,
+  setBonusTargetBoard,
+  selectedBonusMember,
   bonusPoints,
   setBonusPoints,
   bonusDesc,
@@ -3195,13 +3961,18 @@ function PointsTab({
   quizLeaderboard: QuizSystemLeaderboardEntry[];
   bonusHistory: BonusHistoryItem[];
   reversingPointId: string | null;
-  onReverseBonus: (pointId: string) => void;
+  onReverseBonus: (pointId: string, board: "general" | "quiz") => void;
   bonusUserId: string;
   setBonusUserId: (s: string) => void;
   bonusUserSearch: string;
   setBonusUserSearch: (s: string) => void;
   bonusMemberOptions: IepodMemberLookupEntry[];
   bonusMemberSearchLoading: boolean;
+  bonusOperation: "add" | "deduct";
+  setBonusOperation: (op: "add" | "deduct") => void;
+  bonusTargetBoard: "general" | "quiz";
+  setBonusTargetBoard: (board: "general" | "quiz") => void;
+  selectedBonusMember: IepodMemberLookupEntry | null;
   bonusPoints: string;
   setBonusPoints: (s: string) => void;
   bonusDesc: string;
@@ -3212,14 +3983,48 @@ function PointsTab({
   onSelectBonusMember: (m: IepodMemberLookupEntry | null) => void;
 }) {
   const totalPages = Math.max(1, Math.ceil(pointsTotal / POINTS_PAGE_SIZE));
+  const selectedMemberGeneralPoints = Number(selectedBonusMember?.points || 0);
+  const selectedMemberQuizPoints = Number(selectedBonusMember?.quizPoints || 0);
+  const selectedMemberPoints = bonusTargetBoard === "quiz" ? selectedMemberQuizPoints : selectedMemberGeneralPoints;
 
   return (
     <div className="space-y-6">
       {/* Award bonus */}
       <PermissionGate permission="iepod:manage">
         <div className="bg-lime-light border-4 border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000]">
-          <h3 className="font-display font-black text-base text-navy mb-4">Award Bonus Points</h3>
+          <h3 className="font-display font-black text-base text-navy mb-4">Adjust Bonus Points</h3>
           <form onSubmit={onAwardBonus} className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setBonusOperation("add")}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-black border-2 ${bonusOperation === "add" ? "bg-teal text-snow border-navy" : "bg-snow text-navy border-navy"}`}
+              >
+                Add Points
+              </button>
+              <button
+                type="button"
+                onClick={() => setBonusOperation("deduct")}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-black border-2 ${bonusOperation === "deduct" ? "bg-coral text-snow border-navy" : "bg-snow text-navy border-navy"}`}
+              >
+                Deduct Points
+              </button>
+              <div className="h-7 w-px bg-navy/25 mx-1" />
+              <button
+                type="button"
+                onClick={() => setBonusTargetBoard("general")}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-black border-2 ${bonusTargetBoard === "general" ? "bg-lime text-navy border-navy" : "bg-snow text-navy border-navy"}`}
+              >
+                General Board
+              </button>
+              <button
+                type="button"
+                onClick={() => setBonusTargetBoard("quiz")}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-black border-2 ${bonusTargetBoard === "quiz" ? "bg-lavender text-navy border-navy" : "bg-snow text-navy border-navy"}`}
+              >
+                Quiz Board
+              </button>
+            </div>
             <div className="relative">
               <input
                 value={bonusUserSearch}
@@ -3247,7 +4052,7 @@ function PointsTab({
                     >
                       <p className="text-xs font-bold text-navy">{m.userName}</p>
                       <p className="text-[10px] text-slate">
-                        {m.matricNumber || m.email || m.userId} · {m.status || "unknown"} · {m.points} pts
+                        {m.matricNumber || m.email || m.userId} · {m.status || "unknown"} · G:{m.points} · Q:{m.quizPoints}
                       </p>
                     </button>
                   ))}
@@ -3256,21 +4061,32 @@ function PointsTab({
               {!bonusUserId && bonusUserSearch.trim().length >= 2 && bonusMemberOptions.length === 0 && !bonusMemberSearchLoading && (
                 <p className="text-[10px] text-slate mt-1">No matching registered member found.</p>
               )}
+              {bonusUserId && selectedBonusMember && (
+                <p className="text-[10px] text-navy-muted mt-1">
+                  Current balances: General {selectedMemberGeneralPoints} pts · Quiz {selectedMemberQuizPoints} pts
+                </p>
+              )}
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
             <input type="number" value={bonusPoints} onChange={(e) => setBonusPoints(e.target.value)} placeholder="Points" min={1}
               className="w-24 border-[3px] border-navy rounded-xl px-4 py-2 text-sm text-navy bg-snow focus:outline-none" />
-            <input value={bonusDesc} onChange={(e) => setBonusDesc(e.target.value)} placeholder="Reason"
+            <input value={bonusDesc} onChange={(e) => setBonusDesc(e.target.value)} placeholder={bonusOperation === "add" ? "Reason for award" : "Reason for deduction"}
               className="flex-1 border-[3px] border-navy rounded-xl px-4 py-2 text-sm text-navy bg-snow focus:outline-none" />
             <button type="submit" disabled={bonusSubmitting}
-              className="bg-lime border-[3px] border-navy press-3 press-navy px-5 py-2 rounded-xl font-display font-black text-sm text-navy transition-all disabled:opacity-50 whitespace-nowrap">
-              {bonusSubmitting ? "…" : "Award"}
+              className={`border-[3px] border-navy press-3 press-navy px-5 py-2 rounded-xl font-display font-black text-sm transition-all disabled:opacity-50 whitespace-nowrap ${bonusOperation === "add" ? "bg-lime text-navy" : "bg-coral text-snow"}`}>
+              {bonusSubmitting ? "…" : bonusOperation === "add" ? "Award" : "Deduct"}
             </button>
             <button type="button" onClick={onOpenResetMemberModal}
               className="bg-coral-light border-[3px] border-navy press-3 press-navy px-5 py-2 rounded-xl font-display font-black text-sm text-navy transition-all whitespace-nowrap">
               Reset Member Data
             </button>
             </div>
+            {bonusOperation === "deduct" && bonusUserId && selectedBonusMember && (
+              <p className="text-[10px] font-bold text-coral">Maximum deduction on {bonusTargetBoard} board is {selectedMemberPoints} points.</p>
+            )}
+            {bonusOperation === "deduct" && (
+              <p className="text-[10px] font-bold text-navy-muted">Deductions of {HIGH_VALUE_DEDUCTION_CONFIRM_POINTS}+ points require confirmation.</p>
+            )}
           </form>
         </div>
       </PermissionGate>
@@ -3296,7 +4112,7 @@ function PointsTab({
               onClick={() => setPointsView("bonus-history")}
               className={`px-3 py-1.5 rounded-lg text-[10px] font-black border-2 transition-all ${pointsView === "bonus-history" ? "bg-lime text-navy border-lime" : "bg-navy-light text-lime/70 border-navy-light"}`}
             >
-              Bonus Audit Trail
+              Adjustment Audit Trail
             </button>
           </div>
         </div>
@@ -3347,13 +4163,13 @@ function PointsTab({
                       </div>
                       <div className="text-right shrink-0">
                         <p className={`font-display font-black text-base ${item.points >= 0 ? "text-lime" : "text-coral"}`}>{item.points > 0 ? `+${item.points}` : item.points}</p>
-                        <p className="text-[10px] text-lime/50">{item.action}</p>
+                        <p className="text-[10px] text-lime/50">{(item.board || "general").toUpperCase()} · {item.action}</p>
                       </div>
                     </div>
                     {item.isReversible && (
                       <div className="mt-2 flex justify-end">
                         <button
-                          onClick={() => onReverseBonus(item.id)}
+                          onClick={() => onReverseBonus(item.id, item.board === "quiz" ? "quiz" : "general")}
                           disabled={reversingPointId === item.id}
                           className="bg-coral-light border-2 border-navy text-navy px-3 py-1 rounded-lg text-[10px] font-bold press-2 press-navy disabled:opacity-60"
                         >

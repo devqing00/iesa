@@ -47,6 +47,8 @@ PointAction = Literal[
     "process_checkin",
     "mentor_feedback",
     "bonus",
+    "bonus_deduction",
+    "bonus_reversal",
 ]
 
 
@@ -306,7 +308,10 @@ class QuizCreate(QuizBase):
 class QuizUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=200)
     description: Optional[str] = Field(None, max_length=1000)
+    quizType: Optional[QuizType] = None
+    questions: Optional[List[QuizQuestion]] = Field(None, min_length=1, max_length=50)
     isLive: Optional[bool] = None
+    phase: Optional[IepodPhase] = None
     timeLimitMinutes: Optional[int] = Field(None, ge=1, le=120)
     intermissionSeconds: Optional[int] = Field(None, ge=3, le=30)
     revealResultsSeconds: Optional[int] = Field(None, ge=3, le=20)
@@ -401,9 +406,11 @@ class PointEntry(BaseModel):
 
 
 class PointAward(BaseModel):
-    """Admin awards bonus points"""
+    """Admin adjusts bonus points via add/deduct operation."""
     userId: str
     points: int = Field(..., ge=1, le=500)
+    operation: Literal["add", "deduct"] = "add"
+    targetBoard: Literal["general", "quiz"] = "general"
     description: str = Field(..., min_length=1, max_length=200)
 
 
@@ -421,6 +428,7 @@ class IepodMemberLookupEntry(BaseModel):
     department: Optional[str] = None
     status: Optional[RegistrationStatus] = None
     points: int = 0
+    quizPoints: int = 0
 
 
 class IepodMemberLookupResponse(BaseModel):
@@ -430,6 +438,32 @@ class IepodMemberLookupResponse(BaseModel):
 class IepodResetUserDataRequest(BaseModel):
     reason: str = Field(..., min_length=3, max_length=240)
     blockRejoin: bool = False
+
+
+class IepodTreasureSetupRequest(BaseModel):
+    isEnabled: bool = True
+    title: str = Field(default="Hidden Treasure", min_length=2, max_length=80)
+    clue: Optional[str] = Field(default=None, max_length=200)
+    points: int = Field(default=30, ge=5, le=250)
+    locationPool: Optional[List[str]] = Field(default=None, min_length=1, max_length=20)
+    autoRotateDaily: bool = True
+    placementDifficulty: Literal["easy", "balanced", "hard"] = "balanced"
+    dailyWindowEnabled: bool = False
+    dailyStartHourUtc: int = Field(default=8, ge=0, le=23)
+    dailyEndHourUtc: int = Field(default=22, ge=0, le=23)
+    campaignStartAt: Optional[datetime] = None
+    campaignEndAt: Optional[datetime] = None
+    finderMode: Literal["unlimited", "first_bonus", "top_n"] = "unlimited"
+    firstFinderBonusPoints: int = Field(default=0, ge=0, le=250)
+    topNFinders: int = Field(default=3, ge=1, le=100)
+    antiAbuseEnabled: bool = True
+    claimCooldownSeconds: int = Field(default=8, ge=0, le=300)
+    maxAttemptsPerMinutePerIp: int = Field(default=30, ge=5, le=300)
+    maxAttemptsPerMinutePerUser: int = Field(default=12, ge=3, le=120)
+
+
+class IepodTreasureClaimRequest(BaseModel):
+    locationKey: str = Field(..., min_length=2, max_length=80)
 
 
 class LeaderboardEntry(BaseModel):
