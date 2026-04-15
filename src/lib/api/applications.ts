@@ -34,6 +34,7 @@ export interface TeamApplication {
   userName: string;
   userEmail: string;
   userLevel: string | null;
+  userGender?: "male" | "female" | null;
   team: string;
   teamLabel: string;
   motivation: string;

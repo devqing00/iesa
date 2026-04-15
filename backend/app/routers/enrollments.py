@@ -170,7 +170,7 @@ async def list_enrollments(
                             }
                         }
                     },
-                    {"$project": {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1}},
+                    {"$project": {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1, "gender": 1, "sex": 1}},
                 ],
                 "as": "student_docs",
             }
@@ -236,6 +236,7 @@ async def list_enrollments(
             "lastName": student.get("lastName", ""),
             "email": student.get("email", ""),
             "matricNumber": student.get("matricNumber", ""),
+            "gender": student.get("gender") or student.get("sex"),
         } if student else None
 
         session_info = {

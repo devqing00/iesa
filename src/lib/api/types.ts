@@ -44,6 +44,7 @@ export interface User {
   profilePictureUrl?: string;
   admissionYear?: number;
   currentLevel?: string;
+  gender?: "male" | "female";
   skills?: string[];
   createdAt: string;
   updatedAt: string;
@@ -69,6 +70,7 @@ export interface UserUpdate {
   phone?: string;
   bio?: string;
   skills?: string[];
+  gender?: "male" | "female";
 }
 
 // ============================================

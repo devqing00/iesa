@@ -187,6 +187,11 @@ export default function ApplicationsTab() {
                     <div className="flex-1">
                       <h3 className="font-display font-bold text-navy text-lg">{app.userName}</h3>
                       <p className="text-sm text-slate">{app.userEmail}</p>
+                      {app.userGender && (
+                        <span className="inline-block mt-1 mr-2 text-label bg-teal-light text-navy px-2 py-0.5 rounded-full uppercase">
+                          {app.userGender}
+                        </span>
+                      )}
                       {app.userLevel && (
                         <span className="inline-block mt-1 text-label bg-cloud text-navy px-2 py-0.5 rounded-full">
                           {app.userLevel}

@@ -226,6 +226,7 @@ class TeamApplicationResponse(BaseModel):
     userName: str
     userEmail: str
     userLevel: Optional[str] = None
+    userGender: Optional[Literal["male", "female"]] = None
     team: str
     teamLabel: str
     motivation: str

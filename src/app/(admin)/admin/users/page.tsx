@@ -24,6 +24,7 @@ interface User {
   admissionYear?: number;
   matricNumber?: string;
   phone?: string;
+  gender?: "male" | "female";
   dateOfBirth?: string;
   emailVerified?: boolean;
   hasCompletedOnboarding?: boolean;
@@ -39,6 +40,7 @@ interface BirthdayUser {
   firstName: string;
   lastName: string;
   email: string;
+  gender?: "male" | "female";
   matricNumber?: string;
   currentLevel?: string;
   department?: string;
@@ -814,7 +816,10 @@ function AdminUsersPage() {
                               {user.firstName} {user.lastName}
                             </div>
                             {(user.currentLevel || user.level) && (
-                              <div className="text-xs text-slate mt-0.5">{String(user.currentLevel || user.level).replace(/L$/i, "").replace(/^null$/i, "?")} Level</div>
+                              <div className="text-xs text-slate mt-0.5">
+                                {String(user.currentLevel || user.level).replace(/L$/i, "").replace(/^null$/i, "?")} Level
+                                {user.gender ? ` • ${user.gender === "male" ? "Male" : "Female"}` : ""}
+                              </div>
                             )}
                             <div className="text-xs text-slate mt-0.5 md:hidden truncate max-w-[150px]">
                               {user.email}
@@ -1082,7 +1087,11 @@ function AdminUsersPage() {
                                 </div>
                                 <div className="min-w-0">
                                   <p className="text-sm font-bold text-navy truncate">{item.firstName} {item.lastName}</p>
-                                  <p className="text-xs text-slate truncate">{item.currentLevel || "Student"}{item.matricNumber ? ` • ${item.matricNumber}` : ""}</p>
+                                  <p className="text-xs text-slate truncate">
+                                    {item.currentLevel || "Student"}
+                                    {item.gender ? ` • ${item.gender === "male" ? "Male" : "Female"}` : ""}
+                                    {item.matricNumber ? ` • ${item.matricNumber}` : ""}
+                                  </p>
                                   {item.activeRoles && item.activeRoles.length > 0 && (
                                     <div className="flex flex-wrap gap-1 mt-1.5">
                                       {item.activeRoles.slice(0, 3).map((roleLabel) => (
@@ -1285,6 +1294,7 @@ function AdminUsersPage() {
               })()}</p></div>
               <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Current Level</p><p className="font-bold text-navy">{selectedUser.currentLevel || "—"}</p></div>
               <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Admission Year</p><p className="font-bold text-navy">{selectedUser.admissionYear || "—"}</p></div>
+              <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Gender</p><p className="font-bold text-navy">{selectedUser.gender ? (selectedUser.gender === "male" ? "Male" : "Female") : "—"}</p></div>
               <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Date of Birth</p><p className="font-bold text-navy">{selectedUser.dateOfBirth ? new Date(selectedUser.dateOfBirth).toLocaleDateString() : "—"}</p></div>
               <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Status</p><p className="font-bold text-navy">{selectedUser.isActive !== false ? "Active" : "Inactive"}</p></div>
               <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Email Verified</p><p className="font-bold text-navy">{selectedUser.emailVerified ? "Yes" : "No"}</p></div>

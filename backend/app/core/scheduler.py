@@ -641,6 +641,58 @@ async def timetable_class_reminders() -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# JOB 6 — Gmail onboarding reminders (every 3 days)
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def gmail_onboarding_reminders() -> None:
+    """
+    Send reminder emails to Gmail users who have not completed onboarding.
+    Runs every 3 days at 09:00 UTC.
+    """
+    try:
+        from app.db import get_database
+        from app.core.email import send_onboarding_reminder_email
+
+        db = get_database()
+        users = await db["users"].find(
+            {
+                "isActive": {"$ne": False},
+                "hasCompletedOnboarding": {"$ne": True},
+                "email": {"$regex": "@gmail\\.com$", "$options": "i"},
+            },
+            {"_id": 1, "email": 1, "firstName": 1, "lastName": 1},
+        ).to_list(length=2000)
+
+        if not users:
+            logger.info("[Scheduler] gmail_onboarding_reminders: no pending gmail users")
+            return
+
+        sent = 0
+        for user in users:
+            to_email = str(user.get("email") or "").strip()
+            if not to_email:
+                continue
+            name = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip() or "Student"
+            try:
+                ok = await send_onboarding_reminder_email(to=to_email, name=name)
+                if ok:
+                    sent += 1
+            except Exception as e:
+                logger.warning(
+                    "[Scheduler] gmail_onboarding_reminders: failed for userId=%s — %s",
+                    str(user.get("_id")),
+                    e,
+                )
+
+        logger.info(
+            "[Scheduler] gmail_onboarding_reminders: sent %d reminder email(s)",
+            sent,
+        )
+    except Exception as exc:
+        logger.error("[Scheduler] gmail_onboarding_reminders job crashed: %s", exc, exc_info=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Scheduler lifecycle
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -713,12 +765,22 @@ def start_scheduler() -> None:
         max_instances=1,
     )
 
+    # Job 6: Gmail onboarding reminders — every 3 days
+    _scheduler.add_job(
+        gmail_onboarding_reminders,
+        IntervalTrigger(days=3, timezone="UTC"),
+        id="gmail_onboarding_reminders",
+        name="Gmail Onboarding Reminders",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
     _scheduler.start()
     logger.info(
-        "[Scheduler] Started — 5 jobs registered: "
+        "[Scheduler] Started — 6 jobs registered: "
         "birthday_wishes@08:00, event_reminders@08:00, "
         "payment_deadline_reminders@08:05, planner_deadline_alerts@07:00, "
-        "timetable_class_reminders@every-1m (all UTC)"
+        "timetable_class_reminders@every-1m, gmail_onboarding_reminders@day*/3-09:00 (all UTC)"
     )
 
 

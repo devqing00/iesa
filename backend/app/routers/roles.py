@@ -263,8 +263,8 @@ async def create_role(
 
 # ─── Batch helpers to avoid N+1 queries ────────────────────────────
 
-_USER_FIELDS_FULL = {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1, "profilePhotoURL": 1}
-_USER_FIELDS_PUBLIC = {"firstName": 1, "lastName": 1, "email": 1}
+_USER_FIELDS_FULL = {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1, "profilePhotoURL": 1, "gender": 1, "sex": 1}
+_USER_FIELDS_PUBLIC = {"firstName": 1, "lastName": 1, "email": 1, "gender": 1, "sex": 1}
 
 
 async def _batch_users(db, user_ids: list, projection: dict | None = None) -> dict:
@@ -296,13 +296,19 @@ def _user_info(user_map: dict, user_id: str, public: bool = False) -> dict | Non
     if not u:
         return None
     if public:
-        return {"firstName": u.get("firstName", ""), "lastName": u.get("lastName", ""), "email": u.get("email", "")}
+        return {
+            "firstName": u.get("firstName", ""),
+            "lastName": u.get("lastName", ""),
+            "email": u.get("email", ""),
+            "gender": u.get("gender") or u.get("sex"),
+        }
     return {
         "id": str(u["_id"]),
         "firstName": u.get("firstName", ""),
         "lastName": u.get("lastName", ""),
         "email": u.get("email", ""),
         "matricNumber": u.get("matricNumber", ""),
+        "gender": u.get("gender") or u.get("sex"),
         "profilePhotoURL": u.get("profilePhotoURL", ""),
     }
 
@@ -519,7 +525,8 @@ async def get_role(
         "firstName": user.get("firstName", ""),
         "lastName": user.get("lastName", ""),
         "email": user.get("email", ""),
-        "matricNumber": user.get("matricNumber", "")
+        "matricNumber": user.get("matricNumber", ""),
+        "gender": user.get("gender") or user.get("sex"),
     } if user else None
     
     role["session"] = {

@@ -21,6 +21,14 @@ const OnboardingModal = dynamic(
   () => import("@/components/ui/OnboardingModal").then((m) => m.OnboardingModal),
   { ssr: false }
 );
+const ExistingUserWelcomeModal = dynamic(
+  () => import("@/components/ui/ExistingUserWelcomeModal").then((m) => m.ExistingUserWelcomeModal),
+  { ssr: false }
+);
+const GenderCompletionModal = dynamic(
+  () => import("@/components/ui/GenderCompletionModal").then((m) => m.GenderCompletionModal),
+  { ssr: false }
+);
 const BirthdayConfetti = dynamic(
   () => import("@/components/ui/BirthdayConfetti").then((m) => m.BirthdayConfetti),
   { ssr: false }
@@ -148,9 +156,9 @@ export default function StudentDashboardPage() {
   //    other users / dev testing on the same browser never prevent the
   //    modal from appearing for a freshly-registered account.
   const uidKey = user?.id ?? "anon";
-  const modalSeenKey = `iesa_onboarding_seen_${uidKey}`;
   const bannerDismissedKey = `iesa_onboarding_dismissed_${uidKey}`;
   const externalWelcomeKey = `iesa_external_welcome_dismissed_${uidKey}`;
+  const existingWelcomeSeenKey = `iesa_existing_welcome_seen_${uidKey}`;
 
   // Banner dismissed: start as false, read from localStorage after we have uid
   const [onboardingDismissed, setOnboardingDismissed] = useState<boolean>(false);
@@ -158,10 +166,7 @@ export default function StudentDashboardPage() {
   // External welcome banner: separate from onboarding, only for external students
   const [externalWelcomeDismissed, setExternalWelcomeDismissed] = useState<boolean>(true);
 
-  // Modal: start as false, then enable once we confirm it hasn't been seen
-  // for THIS user. Starting as false avoids a brief flash if the user already
-  // dismissed it in a previous session.
-  const [showOnboardingModal, setShowOnboardingModal] = useState<boolean>(false);
+  const [showExistingUserWelcomeModal, setShowExistingUserWelcomeModal] = useState<boolean>(false);
 
   // Sync both flags from user-keyed localStorage once uid is known.
   useEffect(() => {
@@ -170,8 +175,8 @@ export default function StudentDashboardPage() {
       if (localStorage.getItem(bannerDismissedKey) === "1") {
         setOnboardingDismissed(true);
       }
-      if (localStorage.getItem(modalSeenKey) !== "1") {
-        setShowOnboardingModal(true);
+      if (localStorage.getItem(existingWelcomeSeenKey) !== "1") {
+        setShowExistingUserWelcomeModal(true);
       }
       // External welcome: show until explicitly dismissed
       if (localStorage.getItem(externalWelcomeKey) !== "1") {
@@ -407,16 +412,23 @@ export default function StudentDashboardPage() {
     if (!userProfile.level && !userProfile.currentLevel) profileMissing.push("level");
     if (!userProfile.matricNumber) profileMissing.push("matric number");
     if (!userProfile.phone) profileMissing.push("phone number");
+    if (!userProfile.gender) profileMissing.push("gender");
     if (!userProfile.emailVerified) profileMissing.push("email verification");
   }
 
   // Profile is structurally incomplete (missing required data, not just onboarding flag)
-  const profileIncomplete = !!(userProfile && (
-    !userProfile.matricNumber ||
-    !userProfile.phone ||
-    (!userProfile.level && !userProfile.currentLevel) ||
-    !userProfile.admissionYear
-  ));
+  const profileMissingFields: string[] = [];
+  if (userProfile) {
+    if (!userProfile.matricNumber) profileMissingFields.push("matricNumber");
+    if (!userProfile.phone) profileMissingFields.push("phone");
+    if (!userProfile.gender) profileMissingFields.push("gender");
+    if (!userProfile.level && !userProfile.currentLevel) profileMissingFields.push("level");
+    if (!userProfile.admissionYear) profileMissingFields.push("admissionYear");
+  }
+
+  const profileIncomplete = !!userProfile && profileMissingFields.length > 0;
+  const genderOnlyIncomplete =
+    !!userProfile && profileMissingFields.length === 1 && profileMissingFields[0] === "gender";
 
   // Hide banner if backend says onboarding is complete OR if user has dismissed it
   const showOnboarding =
@@ -425,11 +437,15 @@ export default function StudentDashboardPage() {
     profileMissing.length > 0;
 
   // Show modal:
-  //  - MANDATORY (no escape) when profile is actually incomplete (e.g. Google sign-up)
-  //  - OPTIONAL (skippable) for users who have data but haven't finished the tour
-  const shouldShowModal = profileIncomplete
-    ? !!userProfile
-    : !userProfile?.hasCompletedOnboarding && showOnboardingModal && !!userProfile;
+  //  - Onboarding modal is only for users with genuinely incomplete profiles.
+  //  - Existing users with complete profiles get a separate lightweight welcome modal.
+  const shouldShowGenderOnlyModal = !!userProfile && genderOnlyIncomplete;
+  const shouldShowOnboardingModal = !!userProfile && profileIncomplete && !genderOnlyIncomplete;
+  const shouldShowExistingUserWelcomeModal =
+    !!userProfile &&
+    !profileIncomplete &&
+    !userProfile.hasCompletedOnboarding &&
+    showExistingUserWelcomeModal;
 
   const dismissOnboarding = () => {
     setOnboardingDismissed(true);
@@ -627,18 +643,86 @@ export default function StudentDashboardPage() {
     return posts;
   })();
 
-  const handleOnboardingSkip = () => {
-    setShowOnboardingModal(false);
-    try { localStorage.setItem(modalSeenKey, "1"); } catch { /* ignore */ }
-  };
-
   const handleOnboardingComplete = async () => {
-    setShowOnboardingModal(false);
-    try { localStorage.setItem(modalSeenKey, "1"); } catch { /* ignore */ }
-
     // The OnboardingModal already called the complete-registration API.
     // Just refresh the profile so the UI reflects hasCompletedOnboarding = true.
     await refreshProfile();
+  };
+
+  const handleGenderCompletion = async (gender: "male" | "female") => {
+    if (!userProfile) return;
+
+    const token = await getAccessToken();
+    if (!token) return;
+
+    const payload = {
+      firstName: userProfile.firstName,
+      lastName: userProfile.lastName,
+      matricNumber: userProfile.matricNumber,
+      phone: userProfile.phone,
+      level: userProfile.currentLevel || userProfile.level,
+      admissionYear: userProfile.admissionYear,
+      gender,
+      department: userProfile.department || "Industrial Engineering",
+      dateOfBirth: userProfile.dateOfBirth
+        ? String(userProfile.dateOfBirth).split("T")[0]
+        : undefined,
+    };
+
+    const res = await fetch(getApiUrl("/api/v1/students/complete-registration"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok && res.status !== 409) {
+      throw new Error("Failed to save gender");
+    }
+
+    await refreshProfile();
+  };
+
+  const handleExistingUserWelcomeContinue = async () => {
+    setShowExistingUserWelcomeModal(false);
+    try { localStorage.setItem(existingWelcomeSeenKey, "1"); } catch { /* ignore */ }
+
+    if (!userProfile) return;
+
+    // Mark onboarding complete for legacy users who already have complete profiles.
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+
+      const payload = {
+        firstName: userProfile.firstName,
+        lastName: userProfile.lastName,
+        matricNumber: userProfile.matricNumber,
+        phone: userProfile.phone,
+        level: userProfile.currentLevel || userProfile.level,
+        admissionYear: userProfile.admissionYear,
+        gender: userProfile.gender,
+        department: userProfile.department || "Industrial Engineering",
+        dateOfBirth: userProfile.dateOfBirth
+          ? String(userProfile.dateOfBirth).split("T")[0]
+          : undefined,
+      };
+
+      await fetch(getApiUrl("/api/v1/students/complete-registration"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      await refreshProfile();
+    } catch {
+      // Non-blocking: local dismissal still prevents repeat modal on this device.
+    }
   };
 
   if (loading && !data) return <StudentDashboardSkeleton />;
@@ -655,11 +739,20 @@ export default function StudentDashboardPage() {
         <div className="flex justify-end mb-3"><HelpButton onClick={openHelp} /></div>
 
         {/* ═══ ONBOARDING MODAL ═══ */}
-        {shouldShowModal && (
+        {shouldShowGenderOnlyModal && (
+          <GenderCompletionModal onSubmit={handleGenderCompletion} />
+        )}
+
+        {shouldShowOnboardingModal && (
           <OnboardingModal
             onComplete={handleOnboardingComplete}
-            onSkip={profileIncomplete ? undefined : handleOnboardingSkip}
-            mandatory={profileIncomplete}
+            mandatory
+          />
+        )}
+
+        {shouldShowExistingUserWelcomeModal && (
+          <ExistingUserWelcomeModal
+            onContinue={handleExistingUserWelcomeContinue}
           />
         )}
 

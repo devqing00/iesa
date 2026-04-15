@@ -19,6 +19,7 @@ interface Student {
   lastName: string;
   email: string;
   matricNumber: string;
+  gender?: "male" | "female";
 }
 
 interface UserDTO {
@@ -27,6 +28,7 @@ interface UserDTO {
   lastName: string;
   email: string;
   matricNumber?: string;
+  gender?: "male" | "female";
   role?: string;
 }
 
@@ -121,6 +123,7 @@ function EnrollmentsPage() {
           lastName: u.lastName,
           email: u.email,
           matricNumber: u.matricNumber || "",
+          gender: u.gender,
         }));
       setStudents(studentUsers);
       setSessions(sessionsData);
@@ -469,7 +472,10 @@ function EnrollmentsPage() {
                               <div className="text-sm font-bold text-navy">
                                 {enrollment.student?.firstName} {enrollment.student?.lastName}
                               </div>
-                              <div className="text-xs text-slate mt-0.5">{enrollment.student?.email}</div>
+                              <div className="text-xs text-slate mt-0.5">
+                                {enrollment.student?.email}
+                                {enrollment.student?.gender ? ` • ${enrollment.student.gender === "male" ? "Male" : "Female"}` : ""}
+                              </div>
                             </div>
                           </div>
                         </td>

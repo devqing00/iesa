@@ -27,6 +27,7 @@ interface UserProfile {
   institutionalEmail?: string;
   skills?: string[];
   dateOfBirth?: string;
+  gender?: "male" | "female";
   hasCompletedOnboarding?: boolean;
   emailVerified?: boolean;
   createdAt: string;
@@ -183,6 +184,11 @@ export default function ProfilePage() {
       setIsEditing(true);
       return;
     }
+    if (!profileData.gender) {
+      toast.error("Gender missing — complete onboarding to select your gender.");
+      setShowOnboardingFlow(true);
+      return;
+    }
     try {
       const token = await getAccessToken();
       const res = await fetch(getApiUrl("/api/v1/students/complete-registration"), {
@@ -195,6 +201,7 @@ export default function ProfilePage() {
           phone: profileData.phone,
           level: profileData.currentLevel || "100L",
           admissionYear: profileData.admissionYear,
+          gender: profileData.gender,
           dateOfBirth: profileData.dateOfBirth ? String(profileData.dateOfBirth).split("T")[0] : undefined,
         }),
       });
@@ -578,6 +585,10 @@ export default function ProfilePage() {
                     {profileData.department || "N/A"}
                   </span>
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-navy/15 font-display font-bold text-[10px] text-snow uppercase tracking-[0.08em]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-coral" />
+                    {profileData.gender ? profileData.gender : "Gender N/A"}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-navy/15 font-display font-bold text-[10px] text-snow uppercase tracking-[0.08em]">
                     <span className="w-1.5 h-1.5 rounded-full bg-lime" />
                     Admission {profileData.admissionYear || "N/A"}
                   </span>
@@ -880,6 +891,14 @@ export default function ProfilePage() {
                   <input id="p-dob" type="date" value={isEditing ? formData.dateOfBirth : profileData.dateOfBirth || ""} onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} disabled={!isEditing} className={isEditing ? inputEditing : inputDisabled} />
                 </div>
 
+                {/* Gender */}
+                <div className="space-y-1.5">
+                  <label htmlFor="p-gender" className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-coral" />Gender
+                  </label>
+                  <input id="p-gender" type="text" value={profileData.gender ? (profileData.gender === "male" ? "Male" : "Female") : "Not Set"} disabled className={inputDisabled} />
+                </div>
+
                 {/* Department */}
                 <div className="space-y-1.5">
                   <label htmlFor="p-dept" className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
@@ -1040,10 +1059,10 @@ export default function ProfilePage() {
               {/* onboarding CTA — only shown when pending */}
               {!profileData.hasCompletedOnboarding && (
                 <div className="space-y-2">
-                  {(!profileData.matricNumber || !profileData.phone || !profileData.admissionYear) ? (
+                  {(!profileData.matricNumber || !profileData.phone || !profileData.admissionYear || !profileData.gender) ? (
                     <div className="p-3 bg-coral-light border-[2px] border-coral/30 rounded-xl">
                       <p className="text-[11px] font-display font-bold text-navy">Complete your profile first</p>
-                      <p className="text-[10px] text-navy/60 mt-0.5 leading-relaxed">Add your matric number, phone number, and admission year, then return here to finish onboarding.</p>
+                      <p className="text-[10px] text-navy/60 mt-0.5 leading-relaxed">Add your matric number, phone number, gender, and admission year, then return here to finish onboarding.</p>
                       <button
                         onClick={() => { setIsEditing(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
                         className="mt-2 text-[11px] font-display font-bold text-coral hover:underline"

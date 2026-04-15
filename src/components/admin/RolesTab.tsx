@@ -15,6 +15,7 @@ interface User {
   firstName: string;
   lastName: string;
   email: string;
+  gender?: "male" | "female" | null;
   matricNumber?: string;
   profilePhotoURL?: string;
   role: string;
@@ -492,7 +493,10 @@ export default function RolesTab() {
                 </div>
                 <div>
                   <p className="font-display font-bold text-navy">{role.user?.firstName} {role.user?.lastName}</p>
-                  <p className="text-xs text-slate">{role.user?.email}</p>
+                  <p className="text-xs text-slate">
+                    {role.user?.email}
+                    {role.user?.gender ? ` · ${role.user.gender.toUpperCase()}` : ""}
+                  </p>
                 </div>
               </div>
               {role.user?.matricNumber && (
@@ -778,7 +782,7 @@ export default function RolesTab() {
                   <div className="flex items-center justify-between px-4 py-3 bg-lime-light border-[3px] border-navy rounded-2xl">
                     <div>
                       <p className="font-bold text-sm text-navy">{selectedUser.firstName} {selectedUser.lastName}</p>
-                      <p className="text-[11px] text-slate">{selectedUser.matricNumber || selectedUser.email}</p>
+                      <p className="text-[11px] text-slate">{selectedUser.matricNumber || selectedUser.email}{selectedUser.gender ? ` · ${selectedUser.gender.toUpperCase()}` : ""}</p>
                     </div>
                     <button
                       type="button"
@@ -833,7 +837,7 @@ export default function RolesTab() {
                                 </div>
                                 <div className="min-w-0">
                                   <p className="font-bold text-sm text-navy truncate">{u.firstName} {u.lastName}</p>
-                                  <p className="text-[11px] text-slate truncate">{u.matricNumber || u.email}</p>
+                                  <p className="text-[11px] text-slate truncate">{u.matricNumber || u.email}{u.gender ? ` · ${u.gender.toUpperCase()}` : ""}</p>
                                 </div>
                               </button>
                             ))}

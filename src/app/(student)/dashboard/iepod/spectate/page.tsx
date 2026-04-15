@@ -31,6 +31,7 @@ export default function SpectateLiveQuizPage() {
 
   const derivePhase = useCallback((liveState: LiveQuizState | null): string => {
     if (!liveState) return "waiting";
+    if (liveState.status === "ended" && liveState.finalPodiumRevealed) return "final-reveal";
     if (liveState.phase === "question_intro" || liveState.phase === "question_answering") return "question";
     if (liveState.phase === "answer_reveal") return "reveal";
     if (liveState.phase === "leaderboard_reveal") return "leaderboard";
@@ -224,8 +225,18 @@ export default function SpectateLiveQuizPage() {
   };
 
   const phase = useMemo(() => derivePhase(state), [state, derivePhase]);
-  const phaseTitle = phase === "question" ? "Answer Window" : phase === "reveal" ? "Answer Breakdown" : phase === "leaderboard" ? "Leaderboard Moment" : phase;
+  const phaseTitle =
+    phase === "question"
+      ? "Answer Window"
+      : phase === "reveal"
+        ? "Answer Breakdown"
+        : phase === "leaderboard"
+          ? "Leaderboard Reveal"
+          : phase === "final-reveal"
+            ? "Final Reveal"
+            : phase;
   const topRows = useMemo(() => leaderboard.slice(0, 10), [leaderboard]);
+  const podiumRows = useMemo(() => leaderboard.slice(0, 3), [leaderboard]);
 
   return (
     <main id="main-content" className="min-h-screen bg-[linear-gradient(160deg,#2D1374_0%,#4C24A7_52%,#6F3BD0_100%)]">
@@ -317,7 +328,52 @@ export default function SpectateLiveQuizPage() {
                 </div>
               )}
 
-              {state.status === "ended" && phase !== "reveal" && (
+              {phase === "leaderboard" && (
+                <div className="space-y-4">
+                  <h3 className="font-display font-black text-display-lg text-navy leading-none">Leaderboard Reveal</h3>
+                  <p className="text-sm font-bold text-slate">Scores are settling. Current front-runners are shown below.</p>
+                  <div className="grid sm:grid-cols-3 gap-3">
+                    {podiumRows.map((row) => (
+                      <div key={`leaderboard-reveal-${row.userId}`} className="bg-lavender-light border-[3px] border-navy rounded-2xl p-4">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-navy-muted">Rank {row.rank}</p>
+                        <p className="font-display font-black text-lg text-navy mt-1 truncate">{row.userName}</p>
+                        <p className="font-display font-black text-2xl text-navy mt-2">{row.totalScore}</p>
+                      </div>
+                    ))}
+                    {podiumRows.length === 0 && (
+                      <div className="sm:col-span-3 bg-ghost border-2 border-cloud rounded-2xl p-4 text-center">
+                        <p className="text-sm text-slate">Leaderboard is syncing...</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {phase === "final-reveal" && (
+                <div className="space-y-4">
+                  <h3 className="font-display font-black text-display-lg text-navy leading-none">Final Podium Reveal</h3>
+                  <p className="text-sm font-bold text-slate">The live session has ended and final podium is now revealed.</p>
+                  <div className="grid sm:grid-cols-3 gap-3">
+                    {podiumRows.map((row) => (
+                      <div
+                        key={`final-reveal-${row.userId}`}
+                        className={`border-[3px] rounded-2xl p-4 ${row.rank === 1 ? "bg-sunny-light border-navy" : row.rank === 2 ? "bg-cloud border-navy" : "bg-coral-light border-navy"}`}
+                      >
+                        <p className="text-[10px] font-black uppercase tracking-wider text-navy-muted">#{row.rank}</p>
+                        <p className="font-display font-black text-lg text-navy mt-1 truncate">{row.userName}</p>
+                        <p className="font-display font-black text-2xl text-navy mt-2">{row.totalScore}</p>
+                      </div>
+                    ))}
+                    {podiumRows.length === 0 && (
+                      <div className="sm:col-span-3 bg-ghost border-2 border-cloud rounded-2xl p-4 text-center">
+                        <p className="text-sm text-slate">Final podium data not available yet.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {state.status === "ended" && phase !== "reveal" && phase !== "final-reveal" && (
                 <div className="bg-sunny-light border-2 border-navy rounded-2xl p-5 text-center">
                   <p className="font-display font-black text-3xl text-navy">Round Complete</p>
                   <p className="text-sm font-bold text-navy-muted mt-1">Thanks for watching. Final podium highlights may appear shortly.</p>

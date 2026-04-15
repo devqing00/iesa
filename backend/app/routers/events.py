@@ -1177,6 +1177,7 @@ async def list_event_registrations(
             "email":         student.get("email", ""),
             "matricNumber":  student.get("matricNumber", ""),
             "level":         student.get("level", ""),
+            "gender":        student.get("gender") or student.get("sex"),
             "profilePhotoURL": student.get("profilePhotoURL", ""),
             "hasAttended":   uid in attended_ids,
         })
@@ -1224,6 +1225,7 @@ async def export_event_registrations_pdf(
             student.get("matricNumber", ""),
             student.get("email", ""),
             student.get("level", ""),
+            student.get("gender") or student.get("sex") or "",
             "Yes" if uid in attended_ids else "No",
         ])
 
@@ -1233,7 +1235,7 @@ async def export_event_registrations_pdf(
     pdf_buffer = generate_tabular_pdf(
         title=f"Event Registrants · {event_title}",
         subtitle=f"Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} · Rows: {len(rows)}",
-        headers=["Name", "Matric No", "Email", "Level", "Attended"],
+        headers=["Name", "Matric No", "Email", "Level", "Gender", "Attended"],
         rows=rows,
     )
 

@@ -204,6 +204,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
   const [matricNumber, setMatricNumber] = useState("");
   const [phone, setPhone] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [gender, setGender] = useState<"male" | "female" | "">("");
   const [admittedSession, setAdmittedSession] = useState("");
   const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [isExternal, setIsExternal] = useState(false);
@@ -272,6 +273,9 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
     if (userProfile.matricNumber) setMatricNumber(userProfile.matricNumber);
     if (userProfile.phone) setPhone(userProfile.phone);
     if (userProfile.dateOfBirth) setDateOfBirth(typeof userProfile.dateOfBirth === "string" ? userProfile.dateOfBirth.split("T")[0] : "");
+    if (userProfile.gender === "male" || userProfile.gender === "female") {
+      setGender(userProfile.gender);
+    }
     if (userProfile.admissionYear) {
       const ay = userProfile.admissionYear;
       setAdmittedSession(`${ay - 1}/${ay}`);
@@ -309,6 +313,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
     if (!admittedSession) { setFormError("Please select the session you were admitted"); return false; }
     if (!calculatedLevel) { setFormError("Could not calculate your level \u2014 no active session found"); return false; }
     if (!levelConfirmed) { setFormError("Please confirm your calculated level"); return false; }
+    if (!gender) { setFormError("Please select your gender"); return false; }
     if (!isExternal && !dateOfBirth) { setFormError("Date of birth is required for IPE students"); return false; }
     if (isExternal && !department.trim()) { setFormError("Please enter your department"); return false; }
     return true;
@@ -332,6 +337,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
           phone: userProfile.phone,
           level: userProfile.currentLevel,
           admissionYear: userProfile.admissionYear,
+          gender,
           department: userProfile.department || "Industrial Engineering",
           dateOfBirth: userProfile.dateOfBirth ? String(userProfile.dateOfBirth).split("T")[0] : undefined,
         }),
@@ -370,6 +376,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
           phone: phone.replace(/[\s-]/g, "").trim(),
           level: calculatedLevel,
           admissionYear: derivedAdmissionYear,
+          gender,
           department: isExternal && department.trim() ? department.trim() : "Industrial Engineering",
           dateOfBirth: dateOfBirth || undefined,
         }),
@@ -483,6 +490,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
                 { label: "Matric Number", value: userProfile?.matricNumber },
                 { label: "Phone", value: userProfile?.phone },
                 { label: "Level", value: userProfile?.currentLevel },
+                { label: "Gender", value: gender ? (gender === "male" ? "Male" : "Female") : "Not set" },
                 { label: "Birthday", value: userProfile?.dateOfBirth ? new Date(userProfile.dateOfBirth + "T00:00:00").toLocaleDateString("en-NG", { day: "numeric", month: "long" }) : "Not set" },
                 { label: "Department", value: userProfile?.department || "Industrial Engineering" },
               ].map(({ label, value }) => (
@@ -559,6 +567,21 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
                     ? "Optional for visiting students. Add it if you want birthday reminders."
                     : "Required for IPE students so we can celebrate your birthday on the platform."}
                 </p>
+              </div>
+
+              {/* Gender */}
+              <div className="space-y-1.5">
+                <label className="font-display font-bold text-[10px] uppercase tracking-[0.1em] text-navy/40">Gender</label>
+                <select
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value as "male" | "female" | "")}
+                  className={`${inputClass} appearance-none cursor-pointer`}
+                  aria-label="Gender"
+                >
+                  <option value="">Select gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
               </div>
 
               {/* External toggle */}

@@ -18,6 +18,7 @@ interface Student {
   firstName: string;
   lastName: string;
   email: string;
+  gender?: "male" | "female";
   institutionalEmail?: string;
   secondaryEmail?: string;
   matricNumber?: string;
@@ -1426,6 +1427,7 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
               <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3"><p className="text-xs text-slate">Institutional Email</p><p className="font-bold text-navy break-all">{selectedStudent.institutionalEmail || "—"}</p></div>
               <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3"><p className="text-xs text-slate">Matric Number</p><p className="font-bold text-navy">{selectedStudent.matricNumber || "—"}</p></div>
               <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3"><p className="text-xs text-slate">Phone</p><p className="font-bold text-navy">{selectedStudent.phone || "—"}</p></div>
+              <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3"><p className="text-xs text-slate">Gender</p><p className="font-bold text-navy">{selectedStudent.gender ? (selectedStudent.gender === "male" ? "Male" : "Female") : "—"}</p></div>
               <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3"><p className="text-xs text-slate">Level</p><p className="font-bold text-navy">{selectedStudent.currentLevel || selectedStudent.level || "—"}</p></div>
               <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3"><p className="text-xs text-slate">Department</p><p className="font-bold text-navy">{selectedStudent.department || "—"}</p></div>
               <div className="bg-ghost border-[2px] border-navy/20 rounded-xl p-3"><p className="text-xs text-slate">Admission Year</p><p className="font-bold text-navy">{selectedStudent.admissionYear || "—"}</p></div>

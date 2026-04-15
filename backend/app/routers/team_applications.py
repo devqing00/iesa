@@ -228,6 +228,7 @@ async def create_application(
         "userName": student_name,
         "userEmail": user.get("email", ""),
         "userLevel": user.get("currentLevel") or user.get("level"),
+        "userGender": user.get("gender") or user.get("sex"),
         "unit": team_slug,
         "motivation": body.motivation,
         "skills": body.skills,
@@ -305,7 +306,7 @@ async def teams_overview(
             if head_role:
                 head_user = await db["users"].find_one(
                     {"_id": ObjectId(head_role["userId"])},
-                    {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1, "profilePhotoURL": 1},
+                    {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1, "profilePhotoURL": 1, "gender": 1, "sex": 1},
                 )
                 if head_user:
                     head = {
@@ -314,6 +315,7 @@ async def teams_overview(
                         "lastName": head_user.get("lastName", ""),
                         "email": head_user.get("email", ""),
                         "matricNumber": head_user.get("matricNumber", ""),
+                        "gender": head_user.get("gender") or head_user.get("sex"),
                         "profilePhotoURL": head_user.get("profilePhotoURL", ""),
                     }
 
@@ -331,7 +333,7 @@ async def teams_overview(
                 member_user_ids = [ObjectId(r["userId"]) for r in member_roles]
                 member_users = await db["users"].find(
                     {"_id": {"$in": member_user_ids}},
-                    {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1, "currentLevel": 1, "profilePhotoURL": 1},
+                    {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1, "currentLevel": 1, "profilePhotoURL": 1, "gender": 1, "sex": 1},
                 ).to_list(length=500)
                 user_map = {str(u["_id"]): u for u in member_users}
 
@@ -346,6 +348,7 @@ async def teams_overview(
                             "email": u.get("email", ""),
                             "matricNumber": u.get("matricNumber", ""),
                             "level": u.get("currentLevel", ""),
+                            "gender": u.get("gender") or u.get("sex"),
                             "profilePhotoURL": u.get("profilePhotoURL", ""),
                             "joinedAt": r.get("createdAt"),
                         })

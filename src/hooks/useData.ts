@@ -73,6 +73,7 @@ export interface AdminStatsResponse {
     id: string;
     firstName: string;
     lastName: string;
+    gender?: "male" | "female";
     currentLevel?: string;
     department?: string;
     profilePictureUrl?: string;

@@ -14,6 +14,7 @@ interface BirthdayUser {
   firstName: string;
   lastName: string;
   email: string;
+  gender?: "male" | "female";
   matricNumber?: string;
   currentLevel?: string;
   department?: string;
@@ -248,7 +249,11 @@ function AdminUsersBirthdaysPage() {
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-bold text-navy truncate">{item.firstName} {item.lastName}</p>
-                            <p className="text-xs text-slate truncate">{item.currentLevel || "Student"}{item.matricNumber ? ` • ${item.matricNumber}` : ""}</p>
+                            <p className="text-xs text-slate truncate">
+                              {item.currentLevel || "Student"}
+                              {item.gender ? ` • ${item.gender === "male" ? "Male" : "Female"}` : ""}
+                              {item.matricNumber ? ` • ${item.matricNumber}` : ""}
+                            </p>
                                   {item.activeRoles && item.activeRoles.length > 0 && (
                                     <div className="flex flex-wrap gap-1 mt-1.5">
                                       {item.activeRoles.slice(0, 3).map((roleLabel) => (

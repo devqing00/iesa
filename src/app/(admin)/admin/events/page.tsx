@@ -48,6 +48,7 @@ interface RegistrantInfo {
   email: string;
   matricNumber: string;
   level: string;
+  gender?: "male" | "female";
   profilePhotoURL?: string;
   profilePictureUrl?: string;
   hasAttended: boolean;
@@ -453,9 +454,16 @@ function AdminEventsPage() {
 
     let blob: Blob;
     if (format === "csv") {
-      const header = "Name,Matric No,Email,Level,Attended";
+      const header = "Name,Matric No,Email,Level,Gender,Attended";
       const rows = registrants.map((r) =>
-        [`${r.firstName} ${r.lastName}`, r.matricNumber, r.email, r.level, r.hasAttended ? "Yes" : "No"]
+        [
+          `${r.firstName} ${r.lastName}`,
+          r.matricNumber,
+          r.email,
+          r.level,
+          r.gender || "",
+          r.hasAttended ? "Yes" : "No",
+        ]
           .map((v) => `"${String(v).replace(/"/g, '""')}"`)
           .join(",")
       );
@@ -912,7 +920,11 @@ function AdminEventsPage() {
                         )}
                         <div className="min-w-0">
                           <p className="font-display font-bold text-sm text-navy truncate">{r.firstName} {r.lastName}</p>
-                          <p className="text-[11px] text-slate truncate">{r.matricNumber || r.email} {r.level && `· ${r.level}`}</p>
+                          <p className="text-[11px] text-slate truncate">
+                            {r.matricNumber || r.email}
+                            {r.level && ` · ${r.level}`}
+                            {r.gender && ` · ${r.gender === "male" ? "Male" : "Female"}`}
+                          </p>
                         </div>
                       </div>
 

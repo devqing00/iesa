@@ -48,6 +48,7 @@ export interface UserProfile {
   notificationCategories?: Record<string, boolean>;
   dateOfBirth?: string;
   isExternalStudent?: boolean;
+  gender?: "male" | "female";
 }
 
 interface AuthContextType {
@@ -70,6 +71,7 @@ interface AuthContextType {
       role?: string;
       department?: string;
       dateOfBirth?: string;
+      gender?: "male" | "female";
     },
     redirectTo?: string
   ) => Promise<void>;
@@ -249,6 +251,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         role?: string;
         department?: string;
         dateOfBirth?: string;
+        gender?: "male" | "female";
       }
     ) => {
       const token = await fbUser.getIdToken();
@@ -265,6 +268,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (extra?.role)         body.role = extra.role;
       if (extra?.department)   body.department = extra.department;
       if (extra?.dateOfBirth)  body.dateOfBirth = extra.dateOfBirth;
+      if (extra?.gender)       body.gender = extra.gender;
 
       const res = await fetch(getApiUrl("/api/v1/auth/register-profile"), {
         method: "POST",

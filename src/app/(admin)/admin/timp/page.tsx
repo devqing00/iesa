@@ -135,20 +135,10 @@ function parseLevelNumber(level?: string | number | null): number {
   return Number.isFinite(num) ? num : 0;
 }
 
-function inferGender(value?: string | null, name?: string): InferredGender {
+function inferGender(value?: string | null): InferredGender {
   const raw = (value || "").toLowerCase().trim();
   if (["f", "female", "woman", "girl"].includes(raw)) return "female";
   if (["m", "male", "man", "boy"].includes(raw)) return "male";
-
-  const first = (name || "").split(" ")[0]?.toLowerCase() || "";
-  const likelyFemaleNames = new Set([
-    "mary", "grace", "esther", "faith", "deborah", "blessing", "chioma", "ada", "favour", "joy", "ruth", "mercy", "precious", "victoria", "sarah",
-  ]);
-  const likelyMaleNames = new Set([
-    "john", "michael", "david", "joshua", "samuel", "daniel", "emmanuel", "chinedu", "tobi", "oluwaseun", "elijah", "isaac", "paul", "moses", "victor",
-  ]);
-  if (likelyFemaleNames.has(first)) return "female";
-  if (likelyMaleNames.has(first)) return "male";
   return "unknown";
 }
 
@@ -166,8 +156,8 @@ function buildSmartDraft(
   const mentorById = new Map(availableMentors.map((mentor) => [mentor.userId, mentor]));
 
   const sortedMentees = [...availableMentees].sort((left, right) => {
-    const leftGender = inferGender(left.gender, `${left.firstName} ${left.lastName}`);
-    const rightGender = inferGender(right.gender, `${right.firstName} ${right.lastName}`);
+    const leftGender = inferGender(left.gender);
+    const rightGender = inferGender(right.gender);
     if (leftGender === rightGender) {
       return `${left.firstName} ${left.lastName}`.localeCompare(`${right.firstName} ${right.lastName}`);
     }
@@ -180,21 +170,20 @@ function buildSmartDraft(
 
   for (const mentee of sortedMentees) {
     const menteeName = `${mentee.firstName} ${mentee.lastName}`;
-    const menteeGender = inferGender(mentee.gender, menteeName);
+    const menteeGender = inferGender(mentee.gender);
     const menteeLevel = parseLevelNumber(mentee.level);
 
-    const mentorsWithCapacity = availableMentors.filter((mentor) => (remainingSlots.get(mentor.userId) || 0) > 0);
-    if (mentorsWithCapacity.length === 0) break;
-
-    const femaleMentorsWithCapacity = mentorsWithCapacity.filter(
-      (mentor) => inferGender(mentor.gender, mentor.userName) === "female",
-    );
+    let mentorsWithCapacity = availableMentors.filter((mentor) => (remainingSlots.get(mentor.userId) || 0) > 0);
+    if (menteeGender === "female") {
+      mentorsWithCapacity = mentorsWithCapacity.filter((mentor) => inferGender(mentor.gender) !== "male");
+    }
+    if (mentorsWithCapacity.length === 0) continue;
 
     let bestMentor: EnrichedMentor | null = null;
     let bestScore = Number.POSITIVE_INFINITY;
 
     for (const mentor of mentorsWithCapacity) {
-      const mentorGender = inferGender(mentor.gender, mentor.userName);
+      const mentorGender = inferGender(mentor.gender);
       const mentorLevel = parseLevelNumber(mentor.level);
       const remaining = remainingSlots.get(mentor.userId) || 0;
 
@@ -204,11 +193,7 @@ function buildSmartDraft(
       score += mentor.activePairs * 2;
       score += (mentor.maxMentees - remaining) * 0.5;
 
-      if (
-        menteeGender === "female" &&
-        mentorGender === "male" &&
-        femaleMentorsWithCapacity.length > 0
-      ) {
+      if (menteeGender === "female" && mentorGender === "male") {
         score += 1000;
       }
 
@@ -220,18 +205,14 @@ function buildSmartDraft(
 
     if (!bestMentor) continue;
 
-    const mentorGender = inferGender(bestMentor.gender, bestMentor.userName);
+    const mentorGender = inferGender(bestMentor.gender);
     const matchedOnGender = menteeGender === "female" && mentorGender === "female";
-    const fallbackGender = menteeGender === "female" && mentorGender === "male";
-
     drafts.push({
       menteeId: mentee.userId,
       mentorId: bestMentor.userId,
       reason: matchedOnGender
         ? "Matched by level proximity and female-mentor preference"
-        : fallbackGender
-          ? "Matched by capacity and level after female-mentor slots filled"
-          : "Matched by level proximity and balanced mentor workload",
+        : "Matched by level proximity and balanced mentor workload",
     });
 
     remainingSlots.set(bestMentor.userId, Math.max(0, (remainingSlots.get(bestMentor.userId) || 0) - 1));
@@ -490,8 +471,19 @@ export function AdminTimpPage() {
     setApplyingAuto(true);
     let successCount = 0;
     let failureCount = 0;
+    let filteredCount = 0;
     try {
       for (const row of autoDraft) {
+        const mentor = mentors.find((m) => m.userId === row.mentorId);
+        const mentee = mentees.find((m) => m.userId === row.menteeId);
+        const mentorGender = inferGender(mentor?.gender);
+        const menteeGender = inferGender(mentee?.gender);
+
+        if (menteeGender === "female" && mentorGender === "male") {
+          filteredCount += 1;
+          continue;
+        }
+
         try {
           await createPair({ mentorId: row.mentorId, menteeId: row.menteeId });
           successCount += 1;
@@ -507,6 +499,10 @@ export function AdminTimpPage() {
         toast.success(`Applied ${successCount} assignments${failureCount ? ` (${failureCount} skipped)` : ""}`);
       } else {
         toast.error("No assignments were applied");
+      }
+
+      if (filteredCount > 0) {
+        toast.info(`${filteredCount} auto-assignment${filteredCount === 1 ? " was" : "s were"} skipped by the female-mentee rule`);
       }
 
       setAutoDraft([]);
@@ -931,6 +927,11 @@ export function AdminTimpPage() {
                       {detailUser.level}
                     </span>
                   )}
+                  {detailUser.gender && (
+                    <span className="px-2 py-0.5 rounded-md bg-coral-light border border-cloud text-[10px] font-bold text-navy capitalize">
+                      {detailUser.gender}
+                    </span>
+                  )}
                   <span className="text-xs text-slate">{detailUser.matricNumber}</span>
                 </div>
               </div>
@@ -938,6 +939,12 @@ export function AdminTimpPage() {
 
             {/* Info grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {detailUser.gender && (
+                <div className="bg-ghost rounded-xl p-3 border-2 border-cloud">
+                  <p className="text-[10px] font-bold text-slate uppercase mb-0.5">Gender</p>
+                  <p className="text-sm text-navy capitalize">{detailUser.gender}</p>
+                </div>
+              )}
               {detailUser.phone && (
                 <div className="bg-ghost rounded-xl p-3 border-2 border-cloud">
                   <p className="text-[10px] font-bold text-slate uppercase mb-0.5">Phone</p>
@@ -1340,7 +1347,15 @@ function AssignmentTab({
                         className="w-full px-3 py-2 bg-snow border-[2px] border-navy rounded-lg text-sm text-navy"
                       >
                         {mentors
-                          .filter((item) => !item.isFull || item.userId === row.mentorId)
+                          .filter((item) => {
+                            if (item.isFull && item.userId !== row.mentorId) return false;
+                            const menteeGender = inferGender(mentee.gender);
+                            const mentorGender = inferGender(item.gender);
+                            if (menteeGender === "female" && mentorGender === "male") {
+                              return item.userId === row.mentorId;
+                            }
+                            return true;
+                          })
                           .map((item) => (
                             <option key={item.userId} value={item.userId}>
                               {item.userName} ({item.activePairs}/{item.maxMentees})
@@ -1412,6 +1427,9 @@ function AssignmentTab({
                         <div className="flex items-center gap-2 mt-1">
                           {m.level && (
                             <span className="text-[10px] font-bold text-navy-muted">{m.level}</span>
+                          )}
+                          {m.gender && (
+                            <span className="text-[10px] font-bold text-coral capitalize">{m.gender}</span>
                           )}
                           <span className="text-[10px] text-slate">{m.matricNumber}</span>
                         </div>
@@ -1509,6 +1527,9 @@ function AssignmentTab({
                         <p className="text-xs text-slate truncate">{m.email}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[10px] font-bold text-navy-muted">{m.level}</span>
+                          {m.gender && (
+                            <span className="text-[10px] font-bold text-coral capitalize">{m.gender}</span>
+                          )}
                           <span className="text-[10px] text-slate">{m.matricNumber}</span>
                         </div>
                       </div>

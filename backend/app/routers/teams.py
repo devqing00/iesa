@@ -108,7 +108,7 @@ async def _builtin_team_head(team_slug: str, session_id: str, db) -> dict | None
         return None
     head_user = await db["users"].find_one(
         {"_id": ObjectId(head_role["userId"])},
-        {"firstName": 1, "lastName": 1, "email": 1, "profilePhotoURL": 1},
+        {"firstName": 1, "lastName": 1, "email": 1, "profilePhotoURL": 1, "gender": 1, "sex": 1},
     )
     if not head_user:
         return None
@@ -117,6 +117,7 @@ async def _builtin_team_head(team_slug: str, session_id: str, db) -> dict | None
         "firstName": head_user.get("firstName", ""),
         "lastName": head_user.get("lastName", ""),
         "email": head_user.get("email", ""),
+        "gender": head_user.get("gender") or head_user.get("sex"),
         "profilePhotoURL": head_user.get("profilePhotoURL"),
     }
 
@@ -143,7 +144,7 @@ async def search_users_for_head(
             ]
         },
         {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1,
-         "currentLevel": 1, "profilePhotoURL": 1, "role": 1},
+            "currentLevel": 1, "profilePhotoURL": 1, "role": 1, "gender": 1, "sex": 1},
     ).limit(15).to_list(length=15)
 
     return [
@@ -154,6 +155,7 @@ async def search_users_for_head(
             "email": u.get("email", ""),
             "matricNumber": u.get("matricNumber", ""),
             "level": u.get("currentLevel", ""),
+            "gender": u.get("gender") or u.get("sex"),
             "profilePhotoURL": u.get("profilePhotoURL"),
             "role": u.get("role", "student"),
         }
@@ -257,7 +259,7 @@ async def list_teams(
         if doc.get("headUserId"):
             head_user = await db["users"].find_one(
                 {"_id": ObjectId(doc["headUserId"])},
-                {"firstName": 1, "lastName": 1, "email": 1, "profilePhotoURL": 1},
+                {"firstName": 1, "lastName": 1, "email": 1, "profilePhotoURL": 1, "gender": 1, "sex": 1},
             )
             if head_user:
                 head = {
@@ -265,6 +267,7 @@ async def list_teams(
                     "firstName": head_user.get("firstName", ""),
                     "lastName": head_user.get("lastName", ""),
                     "email": head_user.get("email", ""),
+                    "gender": head_user.get("gender") or head_user.get("sex"),
                     "profilePhotoURL": head_user.get("profilePhotoURL"),
                 }
         result.append({

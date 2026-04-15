@@ -27,6 +27,7 @@ interface Member {
   firstName: string;
   lastName: string;
   email: string;
+  gender?: "male" | "female" | null;
   matricNumber?: string;
   level?: string;
   subTeam?: string | null;
@@ -63,6 +64,7 @@ interface TeamApplicationItem {
   userName: string;
   userEmail: string;
   userLevel?: string | null;
+  userGender?: "male" | "female" | null;
   team: string;
   teamLabel: string;
   motivation: string;
@@ -550,10 +552,11 @@ export function TeamHeadPortal() {
 
   function exportMembersCsv(rows: Member[]) {
     if (!activeUnit) return;
-    const headers = ["Name", "Email", "Matric Number", "Level", "Sub-team", "Phone", "Joined At"];
+    const headers = ["Name", "Email", "Gender", "Matric Number", "Level", "Sub-team", "Phone", "Joined At"];
     const lines = rows.map((m) => [
       `${m.firstName} ${m.lastName}`,
       m.email,
+      m.gender || "",
       m.matricNumber || "",
       m.level || "",
       m.subTeam || "",
@@ -582,6 +585,7 @@ export function TeamHeadPortal() {
         <tr>
           <td>${m.firstName} ${m.lastName}</td>
           <td>${m.email}</td>
+          <td>${m.gender || "-"}</td>
           <td>${m.matricNumber || "-"}</td>
           <td>${m.level || "-"}</td>
           <td>${m.subTeam || "-"}</td>
@@ -608,7 +612,7 @@ export function TeamHeadPortal() {
           <p>Exported ${new Date().toLocaleString("en-NG")}</p>
           <table>
             <thead>
-              <tr><th>Name</th><th>Email</th><th>Matric</th><th>Level</th><th>Sub-team</th><th>Phone</th><th>Joined</th></tr>
+              <tr><th>Name</th><th>Email</th><th>Gender</th><th>Matric</th><th>Level</th><th>Sub-team</th><th>Phone</th><th>Joined</th></tr>
             </thead>
             <tbody>${htmlRows}</tbody>
           </table>
@@ -903,6 +907,11 @@ export function TeamHeadPortal() {
                       <p className="text-xs text-slate">{m.matricNumber}</p>
                     )}
                     <div className="flex gap-2 mt-1.5 flex-wrap">
+                      {m.gender && (
+                        <span className="text-label-sm bg-teal-light text-navy px-2 py-0.5 rounded-lg font-bold uppercase">
+                          {m.gender}
+                        </span>
+                      )}
                       {m.level && (
                         <span className="text-label-sm bg-lavender-light text-navy px-2 py-0.5 rounded-lg font-bold">
                           {m.level}
@@ -941,6 +950,7 @@ export function TeamHeadPortal() {
                   <tr>
                     <th className="px-3 py-2 text-left font-black text-navy">Name</th>
                     <th className="px-3 py-2 text-left font-black text-navy">Email</th>
+                    <th className="px-3 py-2 text-left font-black text-navy">Gender</th>
                     <th className="px-3 py-2 text-left font-black text-navy">Matric</th>
                     <th className="px-3 py-2 text-left font-black text-navy">Level</th>
                     <th className="px-3 py-2 text-left font-black text-navy">Sub-team</th>
@@ -952,6 +962,7 @@ export function TeamHeadPortal() {
                     <tr key={m.id} className="border-b border-cloud last:border-b-0">
                       <td className="px-3 py-2 text-navy font-bold">{m.firstName} {m.lastName}</td>
                       <td className="px-3 py-2 text-slate">{m.email}</td>
+                      <td className="px-3 py-2 text-slate">{m.gender || "-"}</td>
                       <td className="px-3 py-2 text-slate">{m.matricNumber || "-"}</td>
                       <td className="px-3 py-2 text-slate">{m.level || "-"}</td>
                       <td className="px-3 py-2 text-slate">{m.subTeam || "-"}</td>
@@ -1024,6 +1035,9 @@ export function TeamHeadPortal() {
                         </span>
                       </div>
                       <p className="text-xs text-slate mt-1">{app.userEmail}</p>
+                      {app.userGender && (
+                        <p className="text-xs text-slate mt-1 uppercase">Gender: {app.userGender}</p>
+                      )}
                       {app.subTeam && (
                         <p className="text-xs text-navy mt-2">
                           <span className="font-bold">Sub-team:</span> {app.subTeam}

@@ -277,7 +277,9 @@ function AdminDashboardPage() {
                           {person.firstName} {person.lastName}
                         </p>
                         <p className="text-xs text-slate truncate">
-                          {person.currentLevel || "Student"} • {formatBirthdayDate(person.birthdayMonth, person.birthdayDay)}
+                          {person.currentLevel || "Student"}
+                          {person.gender ? ` • ${person.gender === "male" ? "Male" : "Female"}` : ""}
+                          {` • ${formatBirthdayDate(person.birthdayMonth, person.birthdayDay)}`}
                         </p>
                       </div>
                       <span className="text-label-sm bg-lime-light text-navy px-2 py-1 rounded-lg border border-navy/20 whitespace-nowrap">

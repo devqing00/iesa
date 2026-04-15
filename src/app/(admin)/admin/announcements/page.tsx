@@ -29,6 +29,7 @@ interface RecipientOption {
   firstName: string;
   lastName: string;
   email: string;
+  gender?: "male" | "female";
   matricNumber?: string;
   role?: string;
   currentLevel?: string;
@@ -780,7 +781,11 @@ function AdminAnnouncementsPage() {
                           className={`w-full text-left px-3 py-2 rounded-xl border-[2px] text-xs transition-colors ${selected ? "bg-cloud border-navy/20 text-slate" : "bg-ghost border-navy/15 hover:border-navy text-navy"}`}
                         >
                           <p className="font-bold">{option.firstName} {option.lastName}</p>
-                          <p className="text-slate">{option.email}{option.matricNumber ? ` · ${option.matricNumber}` : ""}</p>
+                          <p className="text-slate">
+                            {option.email}
+                            {option.matricNumber ? ` · ${option.matricNumber}` : ""}
+                            {option.gender ? ` · ${option.gender === "male" ? "Male" : "Female"}` : ""}
+                          </p>
                         </button>
                       );
                     })}

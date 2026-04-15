@@ -602,6 +602,8 @@ async def search_announcement_recipients(
             "matricNumber": 1,
             "role": 1,
             "currentLevel": 1,
+            "gender": 1,
+            "sex": 1,
         },
     ).sort("firstName", 1).limit(limit).to_list(length=limit)
 
@@ -615,6 +617,7 @@ async def search_announcement_recipients(
                 "matricNumber": doc.get("matricNumber"),
                 "role": doc.get("role", "student"),
                 "currentLevel": doc.get("currentLevel"),
+                "gender": doc.get("gender") or doc.get("sex"),
             }
             for doc in docs
         ]

@@ -332,6 +332,7 @@ async def list_users(
             {"email": {"$regex": escaped, "$options": "i"}},
             {"currentLevel": {"$regex": escaped, "$options": "i"}},
             {"matricNumber": {"$regex": escaped, "$options": "i"}},
+            {"gender": {"$regex": escaped, "$options": "i"}},
         ]
     
     direction = -1 if str(sort_order).lower() == "desc" else 1
@@ -401,6 +402,7 @@ async def export_users_pdf(
             {"email": {"$regex": escaped, "$options": "i"}},
             {"currentLevel": {"$regex": escaped, "$options": "i"}},
             {"matricNumber": {"$regex": escaped, "$options": "i"}},
+            {"gender": {"$regex": escaped, "$options": "i"}},
         ]
 
     direction = -1 if str(sort_order).lower() == "desc" else 1
@@ -423,6 +425,7 @@ async def export_users_pdf(
             u.get("email", ""),
             "IPE" if u.get("department") == "Industrial Engineering" else (u.get("department") or "External"),
             u.get("currentLevel", ""),
+            u.get("gender") or u.get("sex") or "",
             u.get("role", "student"),
             "Active" if u.get("isActive", True) else "Inactive",
         ])
@@ -430,7 +433,7 @@ async def export_users_pdf(
     pdf_buffer = generate_tabular_pdf(
         title="IESA Users Export",
         subtitle=f"Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} · Rows: {len(rows)}",
-        headers=["Name", "Email", "Department", "Level", "Role", "Status"],
+        headers=["Name", "Email", "Department", "Level", "Gender", "Role", "Status"],
         rows=rows,
     )
 
@@ -613,6 +616,8 @@ async def list_upcoming_birthdays(
             "matricNumber": 1,
             "currentLevel": 1,
             "department": 1,
+            "gender": 1,
+            "sex": 1,
             "profilePictureUrl": 1,
             "dateOfBirth": 1,
         },
@@ -676,6 +681,7 @@ async def list_upcoming_birthdays(
                 "matricNumber": user.get("matricNumber"),
                 "currentLevel": user.get("currentLevel"),
                 "department": user.get("department"),
+                "gender": user.get("gender") or user.get("sex"),
                 "profilePictureUrl": user.get("profilePictureUrl"),
                 "activeRoles": role_labels_by_user.get(str(user["_id"]), []),
                 "daysUntil": days_until,
@@ -746,6 +752,8 @@ async def preview_today_birthday_messages(
             "lastName": 1,
             "email": 1,
             "currentLevel": 1,
+            "gender": 1,
+            "sex": 1,
             "dateOfBirth": 1,
         },
     ).to_list(length=3000)
@@ -765,6 +773,7 @@ async def preview_today_birthday_messages(
                 "lastName": user.get("lastName", ""),
                 "email": user.get("email", ""),
                 "currentLevel": user.get("currentLevel"),
+                "gender": user.get("gender") or user.get("sex"),
             })
 
     active_session_docs = await db["sessions"].find(
@@ -819,6 +828,7 @@ async def preview_today_birthday_messages(
             "name": full_name,
             "email": celebrant.get("email", ""),
             "currentLevel": celebrant.get("currentLevel"),
+            "gender": celebrant.get("gender"),
             "activeRoles": role_labels,
             "roleAppreciation": role_appreciation,
             "inAppPreview": {

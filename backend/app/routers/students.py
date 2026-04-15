@@ -14,7 +14,7 @@ Security features:
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel, EmailStr, validator
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Literal
 from bson import ObjectId
 import re
 import os
@@ -49,6 +49,7 @@ class CompleteRegistrationRequest(BaseModel):
     institutionalEmail: Optional[str] = None  # If different from account email
     department: Optional[str] = None  # Defaults to "Industrial Engineering" if not set
     dateOfBirth: Optional[str] = None  # Date of birth in YYYY-MM-DD format
+    gender: Optional[Literal["male", "female"]] = None
     
     @validator("firstName", "lastName")
     def validate_name(cls, v):
@@ -154,9 +155,40 @@ async def complete_student_registration(
     
     # Check if user has already completed registration
     if user.get("hasCompletedOnboarding"):
+        # Allow one-time gender completion for legacy users who finished onboarding
+        # before gender was introduced.
+        existing_gender = str(user.get("gender") or "").strip().lower()
+        if existing_gender in {"male", "female"}:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Registration already completed. Contact admin if you need to update your details."
+            )
+        if data.gender not in {"male", "female"}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Gender is required and must be either 'male' or 'female'."
+            )
+
+        await users.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"gender": data.gender, "updatedAt": datetime.now(timezone.utc)}}
+        )
+        updated_user = await users.find_one({"_id": ObjectId(user_id)}, {"passwordHash": 0})
+        if not updated_user:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to retrieve updated user profile"
+            )
+        updated_user["_id"] = str(updated_user["_id"])
+        return {
+            "message": "Gender updated successfully",
+            "user": updated_user,
+        }
+
+    if data.gender not in {"male", "female"}:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Registration already completed. Contact admin if you need to update your details."
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Gender is required and must be either 'male' or 'female'."
         )
     
     # Check for duplicate matric number (excluding current user)
@@ -205,6 +237,7 @@ async def complete_student_registration(
         "currentLevel": data.level,
         "admissionYear": data.admissionYear,
         "department": resolved_dept,
+        "gender": data.gender,
         "isExternalStudent": resolved_dept != "Industrial Engineering",
         "hasCompletedOnboarding": True,
         "registrationCompletedAt": datetime.now(timezone.utc),

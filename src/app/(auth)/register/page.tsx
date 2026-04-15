@@ -26,6 +26,7 @@ function RegisterContent() {
   const [matricNumber, setMatricNumber] = useState("");
   const [phone, setPhone] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [gender, setGender] = useState<"male" | "female" | "">("");
   const [admittedSession, setAdmittedSession] = useState("");
   const [levelConfirmed, setLevelConfirmed] = useState(false);
   const [isExternalStudent, setIsExternalStudent] = useState(false);
@@ -131,6 +132,7 @@ function RegisterContent() {
     if (!/^\d{6}$/.test(matricNumber)) { setError("Matric number must be exactly 6 digits"); return false; }
     if (!phone.trim()) { setError("Phone number is required"); return false; }
     if (!/^(\+234|0)[789]\d{9}$/.test(phone)) { setError("Invalid Nigerian phone number"); return false; }
+    if (!gender) { setError("Please select your gender"); return false; }
     if (!admittedSession) { setError("Session admitted is required"); return false; }
     if (!/^\d{4}\/\d{4}$/.test(admittedSession)) { setError("Session must be in format YYYY/YYYY (e.g. 2022/2023)"); return false; }
     if (!levelConfirmed) { setError("Please confirm your calculated level"); return false; }
@@ -153,6 +155,7 @@ function RegisterContent() {
         admissionYear: derivedAdmissionYear,
         department: isExternalStudent && department.trim() ? department.trim() : "Industrial Engineering",
         dateOfBirth: dateOfBirth || undefined,
+        gender: gender || undefined,
       }, returnTo || undefined);
       setRegistrationSuccess(true);
       toast.success("Account created!", { description: "Verification email sent. Check your inbox." });
@@ -412,6 +415,21 @@ function RegisterContent() {
               <div className="space-y-2">
                 <label htmlFor="register-phone" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Phone Number</label>
                 <input id="register-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+234 812 345 6789" required className={inputClass} />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="register-gender" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Gender</label>
+                <select
+                  id="register-gender"
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value as "male" | "female" | "")}
+                  required
+                  className={`${inputClass} appearance-none cursor-pointer`}
+                >
+                  <option value="">Select gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
               </div>
 
               <div className="space-y-2">

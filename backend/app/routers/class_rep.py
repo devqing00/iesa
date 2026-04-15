@@ -407,6 +407,7 @@ async def list_cohort(
             "email": u.get("email", ""),
             "matricNumber": u.get("matricNumber"),
             "phone": u.get("phone"),
+            "gender": u.get("gender") or u.get("sex"),
             "profilePictureUrl": u.get("profilePictureUrl"),
             "level": level,
         })
@@ -458,6 +459,7 @@ async def get_cohort_student(
         "firstName": user_doc.get("firstName", ""),
         "lastName": user_doc.get("lastName", ""),
         "email": user_doc.get("email", ""),
+        "gender": user_doc.get("gender") or user_doc.get("sex"),
         "institutionalEmail": user_doc.get("institutionalEmail"),
         "secondaryEmail": user_doc.get("secondaryEmail"),
         "matricNumber": user_doc.get("matricNumber"),
@@ -505,18 +507,19 @@ async def export_cohort_csv(
 
     users = await db["users"].find(
         {"_id": {"$in": oid_list}},
-        {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1, "phone": 1},
+        {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1, "phone": 1, "gender": 1, "sex": 1},
     ).sort("lastName", 1).to_list(None)
 
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(["Name", "Email", "Matric Number", "Phone"])
+    writer.writerow(["Name", "Email", "Matric Number", "Phone", "Gender"])
     for u in users:
         writer.writerow([
             f"{u.get('firstName', '')} {u.get('lastName', '')}",
             u.get("email", ""),
             u.get("matricNumber", ""),
             u.get("phone", ""),
+            u.get("gender") or u.get("sex") or "",
         ])
 
     buf.seek(0)
@@ -555,7 +558,7 @@ async def export_cohort_pdf(
 
     users = await db["users"].find(
         {"_id": {"$in": oid_list}},
-        {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1, "phone": 1},
+        {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1, "phone": 1, "gender": 1, "sex": 1},
     ).sort("lastName", 1).to_list(None)
 
     rows = [
@@ -564,6 +567,7 @@ async def export_cohort_pdf(
             u.get("email", ""),
             u.get("matricNumber", ""),
             u.get("phone", ""),
+            u.get("gender") or u.get("sex") or "",
         ]
         for u in users
     ]
@@ -571,7 +575,7 @@ async def export_cohort_pdf(
     pdf_buffer = generate_tabular_pdf(
         title=f"{level} Cohort Directory",
         subtitle=f"Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}",
-        headers=["Name", "Email", "Matric Number", "Phone"],
+        headers=["Name", "Email", "Matric Number", "Phone", "Gender"],
         rows=rows,
     )
 

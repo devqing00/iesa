@@ -190,7 +190,7 @@ async def _get_team_members_full(team_slug: str, session_id: str, db) -> list[di
     users = await db["users"].find(
         {"_id": {"$in": user_ids}},
         {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1,
-         "currentLevel": 1, "profilePhotoURL": 1, "phone": 1},
+            "currentLevel": 1, "profilePhotoURL": 1, "phone": 1, "gender": 1, "sex": 1},
     ).to_list(length=500)
     user_map = {str(u["_id"]): u for u in users}
 
@@ -221,6 +221,7 @@ async def _get_team_members_full(team_slug: str, session_id: str, db) -> list[di
                 "email": u.get("email", ""),
                 "matricNumber": u.get("matricNumber", ""),
                 "level": u.get("currentLevel", ""),
+                "gender": u.get("gender") or u.get("sex"),
                 "subTeam": subteam_map.get(r["userId"]),
                 "phone": u.get("phone", ""),
                 "profilePhotoURL": u.get("profilePhotoURL"),
@@ -1025,7 +1026,7 @@ async def my_memberships(
                 if head_role:
                     head_user = await db["users"].find_one(
                         {"_id": ObjectId(head_role["userId"])},
-                        {"firstName": 1, "lastName": 1, "email": 1, "profilePhotoURL": 1},
+                        {"firstName": 1, "lastName": 1, "email": 1, "profilePhotoURL": 1, "gender": 1, "sex": 1},
                     )
                     if head_user:
                         head = {
@@ -1033,6 +1034,7 @@ async def my_memberships(
                             "firstName": head_user.get("firstName", ""),
                             "lastName": head_user.get("lastName", ""),
                             "email": head_user.get("email", ""),
+                            "gender": head_user.get("gender") or head_user.get("sex"),
                             "profilePhotoURL": head_user.get("profilePhotoURL"),
                         }
 

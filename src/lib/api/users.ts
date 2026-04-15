@@ -114,6 +114,7 @@ interface CompleteRegistrationData {
   phone?: string;
   level: string;
   admissionYear: number;
+  gender: "male" | "female";
   dateOfBirth?: string;
 }
 

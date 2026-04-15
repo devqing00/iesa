@@ -19,6 +19,7 @@ interface UnitMember {
   firstName: string;
   lastName: string;
   email: string;
+  gender?: "male" | "female" | null;
   matricNumber?: string;
   level?: string;
   profilePhotoURL?: string;
@@ -32,6 +33,7 @@ interface UnitHead {
   firstName: string;
   lastName: string;
   email: string;
+  gender?: "male" | "female" | null;
   matricNumber?: string;
   profilePhotoURL?: string;
   profilePictureUrl?: string;
@@ -65,6 +67,7 @@ interface Application {
   userName: string;
   userEmail: string;
   userLevel?: string;
+  userGender?: "male" | "female" | null;
   team: string;
   teamLabel: string;
   motivation: string;
@@ -81,6 +84,7 @@ interface UserSearchResult {
   firstName: string;
   lastName: string;
   email: string;
+  gender?: "male" | "female" | null;
   profilePhotoURL?: string;
   profilePictureUrl?: string;
   matricNumber?: string;
@@ -791,7 +795,10 @@ function TeamsPage() {
                           )}
                           <div className="min-w-0">
                             <p className="text-sm font-bold text-navy truncate">{unit.head.firstName} {unit.head.lastName}</p>
-                            <p className="text-[10px] text-slate truncate">{unit.head.email}</p>
+                            <p className="text-[10px] text-slate truncate">
+                              {unit.head.email}
+                              {unit.head.gender ? ` · ${unit.head.gender.toUpperCase()}` : ""}
+                            </p>
                           </div>
                         </div>
                       ) : (
@@ -831,6 +838,7 @@ function TeamsPage() {
                               <p className="text-xs font-bold text-navy truncate">
                                 {m.firstName} {m.lastName}
                                 {m.level && <span className="font-normal text-slate ml-1">({m.level})</span>}
+                                {m.gender && <span className="font-normal text-slate ml-1">({m.gender})</span>}
                               </p>
                             </div>
                             <PermissionGate permission="team:manage">
@@ -907,7 +915,11 @@ function TeamsPage() {
                           <p className="font-bold text-navy">{app.userName}</p>
                           <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${statusColors[app.status] || ""}`}>{app.status}</span>
                         </div>
-                        <p className="text-xs text-slate">{app.userEmail}{app.userLevel ? ` · ${app.userLevel}` : ""}</p>
+                        <p className="text-xs text-slate">
+                          {app.userEmail}
+                          {app.userLevel ? ` · ${app.userLevel}` : ""}
+                          {app.userGender ? ` · ${app.userGender.toUpperCase()}` : ""}
+                        </p>
                         <div className="flex items-center gap-2 mt-1.5">
                           <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold text-navy ${colors.bg}`}>{app.teamLabel}</span>
                           <span className="text-[11px] text-slate">{formatDate(app.createdAt)}</span>
@@ -1293,7 +1305,7 @@ function TeamsPage() {
                   )}
                   <div className="min-w-0">
                     <p className="font-bold text-sm text-navy truncate">{u.firstName} {u.lastName}</p>
-                    <p className="text-xs text-slate truncate">{u.email}{u.matricNumber && ` · ${u.matricNumber}`}{u.level && ` · ${u.level}`}</p>
+                    <p className="text-xs text-slate truncate">{u.email}{u.matricNumber && ` · ${u.matricNumber}`}{u.level && ` · ${u.level}`}{u.gender && ` · ${u.gender.toUpperCase()}`}</p>
                   </div>
                   <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 ${u.role === "admin" ? "bg-lime/30 text-navy" : u.role === "exco" ? "bg-lavender/30 text-navy" : "bg-ghost text-slate"}`}>
                     {u.role}
@@ -1315,7 +1327,11 @@ function TeamsPage() {
           <div className="space-y-4 p-1">
             <div>
               <p className="font-bold text-navy">{reviewApp.userName}</p>
-              <p className="text-xs text-slate">{reviewApp.userEmail}{reviewApp.userLevel ? ` · ${reviewApp.userLevel}` : ""}</p>
+              <p className="text-xs text-slate">
+                {reviewApp.userEmail}
+                {reviewApp.userLevel ? ` · ${reviewApp.userLevel}` : ""}
+                {reviewApp.userGender ? ` · ${reviewApp.userGender.toUpperCase()}` : ""}
+              </p>
               <p className="text-xs font-bold text-navy/60 mt-1">{reviewApp.teamLabel}</p>
             </div>
             <div>

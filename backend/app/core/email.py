@@ -1107,6 +1107,48 @@ async def send_password_reset_email(to: str, name: str, reset_url: str):
     )
 
 
+async def send_onboarding_reminder_email(
+    to: str,
+    name: str,
+    dashboard_url: str | None = None,
+):
+    """Send reminder email to users who have not completed onboarding."""
+    service = get_email_service()
+    resolved_dashboard_url = dashboard_url or _frontend_url("/dashboard")
+
+    subject = "Complete your IESA onboarding"
+    html = f"""
+    <html>
+    <body style="margin:0;padding:24px;background:#FAFAFE;font-family:Inter,Arial,sans-serif;color:#0F0F2D;">
+        <div style="max-width:620px;margin:0 auto;background:#FFFFFF;border:3px solid #0F0F2D;border-radius:20px;overflow:hidden;box-shadow:6px 6px 0 #000;">
+            <div style="background:#0F0F2D;padding:16px 24px;border-bottom:4px solid #C8F31D;">
+                <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:800;color:#C8F31D;">IESA · University of Ibadan</div>
+                <div style="margin-top:8px;display:inline-block;padding:6px 10px;border:2px solid #0F0F2D;border-radius:999px;background:#E0C340;color:#0F0F2D;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">Onboarding Reminder</div>
+            </div>
+            <div style="padding:28px 24px 24px;">
+                <p style="margin:0 0 12px;font-size:14px;line-height:1.7;color:#334155;">Hi {escape(name)},</p>
+                <p style="margin:0 0 14px;font-size:14px;line-height:1.7;color:#334155;">You started your IESA account setup but haven&apos;t completed onboarding yet.</p>
+                <div style="margin:0 0 18px;padding:12px 14px;background:#F8FAFF;border:2px solid #0F0F2D;border-radius:12px;color:#0F0F2D;font-size:13px;line-height:1.6;">
+                    Complete your onboarding to unlock full access across the platform.
+                </div>
+                <a href="{escape(resolved_dashboard_url)}" style="display:inline-block;background:#C8F31D;color:#0F0F2D;font-size:13px;font-weight:900;text-decoration:none;padding:12px 18px;border:3px solid #0F0F2D;border-radius:12px;box-shadow:3px 3px 0 #0F0F2D;">
+                    Continue Onboarding
+                </a>
+            </div>
+            <div style="background:#F5F6FB;border-top:2px solid #E2E8F0;padding:14px 24px;">
+                <p style="margin:0;font-size:11px;line-height:1.6;color:#64748B;">
+                    Industrial Engineering Students&apos; Association<br>
+                    University of Ibadan
+                </p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    return await service.send_email(to=to, subject=subject, html_content=html)
+
+
 async def check_email_health() -> dict:
     """
     Diagnose the email service:

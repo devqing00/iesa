@@ -112,6 +112,7 @@ async def register_profile(request: Request, data: RegisterProfileRequest):
         "currentLevel": data.level,
         "admissionYear": data.admissionYear,
         "department": data.department or "Industrial Engineering",
+        "gender": data.gender,
         "isExternalStudent": (data.department or "Industrial Engineering") != "Industrial Engineering",
         "dateOfBirth": parsed_dob,
         "role": "student",

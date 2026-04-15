@@ -45,6 +45,7 @@ class UserBase(BaseModel):
     currentLevel: Optional[Literal["100L", "200L", "300L", "400L", "500L"]] = Field(None, description="Current academic level")
     skills: Optional[list[str]] = Field(default_factory=list, max_length=20, description="Student skills/interests")
     dateOfBirth: Optional[date] = Field(None, description="Student date of birth (YYYY-MM-DD)")
+    gender: Optional[Literal["male", "female"]] = Field(None, description="Student gender")
 
     # Dual Email System
     emailType: Optional[Literal["institutional", "personal"]] = Field(None, description="Type of primary email (auto-detected)")
@@ -76,6 +77,7 @@ class UserUpdate(BaseModel):
     # profilePictureUrl intentionally excluded - use /me/profile-picture endpoint
     skills: Optional[list[str]] = Field(None, max_length=20)
     dateOfBirth: Optional[date] = Field(None, description="Student date of birth (YYYY-MM-DD)")
+    gender: Optional[Literal["male", "female"]] = None
     # Notification preference only — secondary email itself is managed via dedicated endpoints
     notificationEmailPreference: Optional[Literal["primary", "secondary", "both"]] = None
     notificationChannelPreference: Optional[Literal["email", "in_app", "both"]] = None

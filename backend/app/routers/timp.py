@@ -669,6 +669,7 @@ async def get_timp_user_details(
         "firstName": target.get("firstName", ""),
         "lastName": target.get("lastName", ""),
         "email": target.get("email", ""),
+        "gender": target.get("gender") or target.get("sex"),
         "matricNumber": target.get("matricNumber", ""),
         "level": target.get("currentLevel"),
         "phone": target.get("phone"),

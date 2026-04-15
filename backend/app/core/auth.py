@@ -16,7 +16,7 @@ import base64
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, Literal
 
 from jose import jwt, JWTError, ExpiredSignatureError   # noqa: F401 — re-exported
 from pydantic import BaseModel, EmailStr, Field
@@ -155,6 +155,10 @@ class RegisterProfileRequest(BaseModel):
     level: Optional[str] = Field(None, pattern=r"^\d{3}L$")
     admissionYear: Optional[int] = Field(None, ge=2000, le=2040)
     department: Optional[str] = Field(None, max_length=200)
+    gender: Optional[Literal["male", "female"]] = Field(
+        None,
+        description="Student gender (male or female)",
+    )
     # Optional at register-profile (Google OAuth users supply it later via onboarding modal)
     dateOfBirth: Optional[str] = Field(None, description="Date of birth in YYYY-MM-DD format")
 

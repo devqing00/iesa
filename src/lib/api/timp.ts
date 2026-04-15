@@ -235,6 +235,7 @@ export interface TimpUserDetails {
   firstName: string;
   lastName: string;
   email: string;
+  gender?: string | null;
   matricNumber: string;
   level: string | null;
   phone: string | null;
