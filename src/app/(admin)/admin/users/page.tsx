@@ -168,6 +168,17 @@ function AdminUsersPage() {
   const [editLevel, setEditLevel] = useState("");
   const [editAdmissionYear, setEditAdmissionYear] = useState("");
   const [editIsActive, setEditIsActive] = useState(true);
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editMatricNumber, setEditMatricNumber] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editDepartment, setEditDepartment] = useState("");
+  const [editGender, setEditGender] = useState<"" | "male" | "female">("");
+  const [editDateOfBirth, setEditDateOfBirth] = useState("");
+  const [editEmailVerified, setEditEmailVerified] = useState(false);
+  const [editHasCompletedOnboarding, setEditHasCompletedOnboarding] = useState(false);
+  const [activeSessionSecondYear, setActiveSessionSecondYear] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [viewLoading, setViewLoading] = useState(false);
@@ -276,6 +287,60 @@ function AdminUsersPage() {
   useEffect(() => {
     fetchRoleAssignments();
   }, [fetchRoleAssignments]);
+
+  useEffect(() => {
+    const fetchActiveSessionSecondYear = async () => {
+      try {
+        const token = await getAccessToken();
+        const response = await fetch(getApiUrl("/api/v1/sessions/"), {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!response.ok) return;
+        const sessions: Array<{ name?: string; isActive?: boolean }> = await response.json();
+        const active = sessions.find((s) => s.isActive && typeof s.name === "string");
+        if (!active?.name) return;
+        const secondYear = Number(active.name.split("/")[1]);
+        if (!Number.isNaN(secondYear)) {
+          setActiveSessionSecondYear(secondYear);
+        }
+      } catch {
+        // leave null and fall back to manual independent edits
+      }
+    };
+
+    void fetchActiveSessionSecondYear();
+  }, [getAccessToken]);
+
+  const deriveAdmissionYearFromLevel = (level: string): string => {
+    if (!activeSessionSecondYear) return "";
+    const levelNum = Number(level.replace(/L$/i, ""));
+    if (![100, 200, 300, 400, 500].includes(levelNum)) return "";
+    const admissionYear = activeSessionSecondYear - (levelNum / 100 - 1);
+    if (admissionYear < 2000 || admissionYear > 2030) return "";
+    return String(admissionYear);
+  };
+
+  const deriveLevelFromAdmissionYear = (admissionYearText: string): string => {
+    if (!activeSessionSecondYear) return "";
+    const admissionYear = Number(admissionYearText);
+    if (Number.isNaN(admissionYear)) return "";
+    const clamped = Math.max(100, Math.min(500, (activeSessionSecondYear - admissionYear) * 100 + 100));
+    if (![100, 200, 300, 400, 500].includes(clamped)) return "";
+    return `${clamped}L`;
+  };
+
+  const handleEditLevelChange = (value: string) => {
+    setEditLevel(value);
+    const nextAdmission = deriveAdmissionYearFromLevel(value);
+    if (nextAdmission) setEditAdmissionYear(nextAdmission);
+  };
+
+  const handleEditAdmissionYearChange = (value: string) => {
+    setEditAdmissionYear(value);
+    if (!value.trim()) return;
+    const nextLevel = deriveLevelFromAdmissionYear(value);
+    if (nextLevel) setEditLevel(nextLevel);
+  };
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -404,6 +469,16 @@ function AdminUsersPage() {
     setEditLevel(user.currentLevel || "");
     setEditAdmissionYear(user.admissionYear ? String(user.admissionYear) : "");
     setEditIsActive(user.isActive !== false);
+    setEditFirstName(user.firstName || "");
+    setEditLastName(user.lastName || "");
+    setEditEmail(user.email || "");
+    setEditMatricNumber(user.matricNumber || "");
+    setEditPhone(user.phone || "");
+    setEditDepartment(user.department || "Industrial Engineering");
+    setEditGender(user.gender || "");
+    setEditDateOfBirth(user.dateOfBirth ? String(user.dateOfBirth).split("T")[0] : "");
+    setEditEmailVerified(!!user.emailVerified);
+    setEditHasCompletedOnboarding(!!user.hasCompletedOnboarding);
   };
 
   const closeEdit = () => {
@@ -419,6 +494,40 @@ function AdminUsersPage() {
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
     try {
+      // 0. Update editable profile details if changed
+      const originalDob = editUser.dateOfBirth ? String(editUser.dateOfBirth).split("T")[0] : "";
+      const profileChanged =
+        editFirstName !== (editUser.firstName || "") ||
+        editLastName !== (editUser.lastName || "") ||
+        editEmail !== (editUser.email || "") ||
+        editMatricNumber !== (editUser.matricNumber || "") ||
+        editPhone !== (editUser.phone || "") ||
+        editDepartment !== (editUser.department || "Industrial Engineering") ||
+        editGender !== (editUser.gender || "") ||
+        editDateOfBirth !== originalDob ||
+        editEmailVerified !== !!editUser.emailVerified ||
+        editHasCompletedOnboarding !== !!editUser.hasCompletedOnboarding;
+
+      if (profileChanged) {
+        const profilePayload = {
+          firstName: editFirstName.trim(),
+          lastName: editLastName.trim(),
+          email: editEmail.trim().toLowerCase(),
+          matricNumber: editMatricNumber.trim() || null,
+          phone: editPhone.trim() || null,
+          department: editDepartment.trim() || "Industrial Engineering",
+          gender: editGender || null,
+          dateOfBirth: editDateOfBirth || null,
+          emailVerified: editEmailVerified,
+          hasCompletedOnboarding: editHasCompletedOnboarding,
+        };
+        const res = await fetch(
+          getApiUrl(`/api/v1/users/${editUser._id}/profile-info`),
+          { method: "PATCH", headers, body: JSON.stringify(profilePayload) }
+        );
+        if (!res.ok) await throwApiError(res, "update user profile details");
+      }
+
       // 1. Update academic info if changed
       const academicChanged =
         editLevel !== (editUser.currentLevel || "") ||
@@ -1164,6 +1273,153 @@ function AdminUsersPage() {
         }
       >
         <div className="space-y-6">
+          <PermissionGate permission="user:edit">
+            <div>
+              <h3 className="font-display text-sm text-navy mb-3">Profile Information</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="edit-first-name" className="block text-xs font-bold text-slate mb-1.5">First Name</label>
+                  <input
+                    id="edit-first-name"
+                    type="text"
+                    value={editFirstName}
+                    onChange={(e) => setEditFirstName(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="edit-last-name" className="block text-xs font-bold text-slate mb-1.5">Last Name</label>
+                  <input
+                    id="edit-last-name"
+                    type="text"
+                    value={editLastName}
+                    onChange={(e) => setEditLastName(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label htmlFor="edit-email" className="block text-xs font-bold text-slate mb-1.5">Email</label>
+                  <input
+                    id="edit-email"
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="edit-matric" className="block text-xs font-bold text-slate mb-1.5">Matric Number</label>
+                  <input
+                    id="edit-matric"
+                    type="text"
+                    value={editMatricNumber}
+                    onChange={(e) => setEditMatricNumber(e.target.value)}
+                    placeholder="e.g. 236123"
+                    className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm placeholder:text-slate"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="edit-phone" className="block text-xs font-bold text-slate mb-1.5">Phone</label>
+                  <input
+                    id="edit-phone"
+                    type="text"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    placeholder="e.g. 09123456789"
+                    className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm placeholder:text-slate"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="edit-department" className="block text-xs font-bold text-slate mb-1.5">Department</label>
+                  <input
+                    id="edit-department"
+                    type="text"
+                    value={editDepartment}
+                    onChange={(e) => setEditDepartment(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="edit-gender" className="block text-xs font-bold text-slate mb-1.5">Gender</label>
+                  <select
+                    id="edit-gender"
+                    value={editGender}
+                    onChange={(e) => setEditGender(e.target.value as "" | "male" | "female")}
+                    className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm"
+                  >
+                    <option value="">Not set</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label htmlFor="edit-dob" className="block text-xs font-bold text-slate mb-1.5">Date of Birth</label>
+                  <input
+                    id="edit-dob"
+                    type="date"
+                    value={editDateOfBirth}
+                    onChange={(e) => setEditDateOfBirth(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+          </PermissionGate>
+
+          <PermissionGate permission="user:edit">
+            <div>
+              <h3 className="font-display text-sm text-navy mb-3">Support Flags</h3>
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setEditEmailVerified((prev) => !prev)}
+                  className={`flex items-center gap-3 w-full p-4 rounded-2xl border-[2px] transition-colors ${
+                    editEmailVerified
+                      ? "bg-teal-light border-teal"
+                      : "bg-cloud border-navy/20"
+                  }`}
+                >
+                  <div className={`w-10 h-6 rounded-full relative transition-colors ${
+                    editEmailVerified ? "bg-teal" : "bg-slate/30"
+                  }`}>
+                    <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-snow shadow transition-transform ${
+                      editEmailVerified ? "left-[18px]" : "left-0.5"
+                    }`} />
+                  </div>
+                  <span className="text-sm font-bold text-navy">Email Verified</span>
+                  <span className="text-xs text-slate ml-auto">
+                    {editEmailVerified ? "Marked verified" : "Marked unverified"}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEditHasCompletedOnboarding((prev) => !prev)}
+                  className={`flex items-center gap-3 w-full p-4 rounded-2xl border-[2px] transition-colors ${
+                    editHasCompletedOnboarding
+                      ? "bg-teal-light border-teal"
+                      : "bg-cloud border-navy/20"
+                  }`}
+                >
+                  <div className={`w-10 h-6 rounded-full relative transition-colors ${
+                    editHasCompletedOnboarding ? "bg-teal" : "bg-slate/30"
+                  }`}>
+                    <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-snow shadow transition-transform ${
+                      editHasCompletedOnboarding ? "left-[18px]" : "left-0.5"
+                    }`} />
+                  </div>
+                  <span className="text-sm font-bold text-navy">Onboarding Completed</span>
+                  <span className="text-xs text-slate ml-auto">
+                    {editHasCompletedOnboarding ? "Marked complete" : "Marked incomplete"}
+                  </span>
+                </button>
+              </div>
+              <p className="text-xs text-slate mt-2">
+                Guardrails apply on save: onboarding cannot be marked complete when required profile fields are missing.
+              </p>
+            </div>
+          </PermissionGate>
+
           <PermissionGate permission="user:edit_role">
             <div>
               <h3 className="font-display text-sm text-navy mb-3">Role</h3>
@@ -1193,7 +1449,7 @@ function AdminUsersPage() {
                   <select
                     id="edit-level"
                     value={editLevel}
-                    onChange={(e) => setEditLevel(e.target.value)}
+                    onChange={(e) => handleEditLevelChange(e.target.value)}
                     className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm"
                   >
                     <option value="">Not set</option>
@@ -1213,7 +1469,7 @@ function AdminUsersPage() {
                     max={2030}
                     placeholder="e.g. 2023"
                     value={editAdmissionYear}
-                    onChange={(e) => setEditAdmissionYear(e.target.value)}
+                    onChange={(e) => handleEditAdmissionYearChange(e.target.value)}
                     className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm placeholder:text-slate"
                   />
                 </div>

@@ -159,6 +159,7 @@ export default function StudentDashboardPage() {
   const bannerDismissedKey = `iesa_onboarding_dismissed_${uidKey}`;
   const externalWelcomeKey = `iesa_external_welcome_dismissed_${uidKey}`;
   const existingWelcomeSeenKey = `iesa_existing_welcome_seen_${uidKey}`;
+  const genderOnlyDismissedKey = `iesa_gender_only_dismissed_${uidKey}`;
 
   // Banner dismissed: start as false, read from localStorage after we have uid
   const [onboardingDismissed, setOnboardingDismissed] = useState<boolean>(false);
@@ -167,6 +168,7 @@ export default function StudentDashboardPage() {
   const [externalWelcomeDismissed, setExternalWelcomeDismissed] = useState<boolean>(true);
 
   const [showExistingUserWelcomeModal, setShowExistingUserWelcomeModal] = useState<boolean>(false);
+  const [genderOnlyDismissed, setGenderOnlyDismissed] = useState<boolean>(false);
 
   // Sync both flags from user-keyed localStorage once uid is known.
   useEffect(() => {
@@ -177,6 +179,11 @@ export default function StudentDashboardPage() {
       }
       if (localStorage.getItem(existingWelcomeSeenKey) !== "1") {
         setShowExistingUserWelcomeModal(true);
+      }
+      if (localStorage.getItem(genderOnlyDismissedKey) === "1") {
+        setGenderOnlyDismissed(true);
+      } else {
+        setGenderOnlyDismissed(false);
       }
       // External welcome: show until explicitly dismissed
       if (localStorage.getItem(externalWelcomeKey) !== "1") {
@@ -439,8 +446,11 @@ export default function StudentDashboardPage() {
   // Show modal:
   //  - Onboarding modal is only for users with genuinely incomplete profiles.
   //  - Existing users with complete profiles get a separate lightweight welcome modal.
-  const shouldShowGenderOnlyModal = !!userProfile && genderOnlyIncomplete;
-  const shouldShowOnboardingModal = !!userProfile && profileIncomplete && !genderOnlyIncomplete;
+  const shouldShowGenderOnlyModal = !!userProfile && genderOnlyIncomplete && !genderOnlyDismissed;
+  const shouldShowOnboardingModal =
+    !!userProfile &&
+    profileIncomplete &&
+    !genderOnlyIncomplete;
   const shouldShowExistingUserWelcomeModal =
     !!userProfile &&
     !profileIncomplete &&
@@ -455,6 +465,11 @@ export default function StudentDashboardPage() {
   const dismissExternalWelcome = () => {
     setExternalWelcomeDismissed(true);
     try { localStorage.setItem(externalWelcomeKey, "1"); } catch { /* ignore */ }
+  };
+
+  const dismissGenderOnlyModal = () => {
+    setGenderOnlyDismissed(true);
+    try { localStorage.setItem(genderOnlyDismissedKey, "1"); } catch { /* ignore */ }
   };
 
   const getNoticeHref = (notice: BellNotice) => {
@@ -682,6 +697,9 @@ export default function StudentDashboardPage() {
       throw new Error("Failed to save gender");
     }
 
+    setGenderOnlyDismissed(false);
+    try { localStorage.removeItem(genderOnlyDismissedKey); } catch { /* ignore */ }
+
     await refreshProfile();
   };
 
@@ -740,7 +758,7 @@ export default function StudentDashboardPage() {
 
         {/* ═══ ONBOARDING MODAL ═══ */}
         {shouldShowGenderOnlyModal && (
-          <GenderCompletionModal onSubmit={handleGenderCompletion} />
+          <GenderCompletionModal onSubmit={handleGenderCompletion} onClose={dismissGenderOnlyModal} />
         )}
 
         {shouldShowOnboardingModal && (

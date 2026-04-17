@@ -153,10 +153,16 @@ async def complete_student_registration(
     # Accept both institutional and personal emails
     institutional_email = data.institutionalEmail if data.institutionalEmail else email
     
-    # Check if user has already completed registration
-    if user.get("hasCompletedOnboarding"):
-        # Allow one-time gender completion for legacy users who finished onboarding
-        # before gender was introduced.
+    # Allow one-time gender completion for legacy users who may have complete
+    # core profile data but either missing onboarding flag or missing gender.
+    has_core_profile_data = bool(
+        user.get("matricNumber")
+        and user.get("phone")
+        and (user.get("currentLevel") or user.get("level"))
+        and user.get("admissionYear")
+    )
+
+    if user.get("hasCompletedOnboarding") or has_core_profile_data:
         existing_gender = str(user.get("gender") or "").strip().lower()
         if existing_gender in {"male", "female"}:
             raise HTTPException(
@@ -169,9 +175,18 @@ async def complete_student_registration(
                 detail="Gender is required and must be either 'male' or 'female'."
             )
 
+        gender_only_update = {
+            "gender": data.gender,
+            "updatedAt": datetime.now(timezone.utc),
+        }
+        # Normalize historical records where onboarding was completed but flag was not set.
+        if not user.get("hasCompletedOnboarding") and has_core_profile_data:
+            gender_only_update["hasCompletedOnboarding"] = True
+            gender_only_update["registrationCompletedAt"] = datetime.now(timezone.utc)
+
         await users.update_one(
             {"_id": ObjectId(user_id)},
-            {"$set": {"gender": data.gender, "updatedAt": datetime.now(timezone.utc)}}
+            {"$set": gender_only_update}
         )
         updated_user = await users.find_one({"_id": ObjectId(user_id)}, {"passwordHash": 0})
         if not updated_user:
@@ -206,12 +221,6 @@ async def complete_student_registration(
     # Update user profile
     resolved_dept = data.department or "Industrial Engineering"
     parsed_dob = None
-    # Date of birth is required for IPE students, optional for external students.
-    if resolved_dept == "Industrial Engineering" and not data.dateOfBirth:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Date of birth is required for Industrial Engineering students."
-        )
 
     # Parse dateOfBirth string to datetime (MongoDB/BSON requires datetime, not date)
     if data.dateOfBirth:

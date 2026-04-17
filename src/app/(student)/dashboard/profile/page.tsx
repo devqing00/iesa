@@ -68,13 +68,24 @@ export default function ProfilePage() {
   /* ─── enrollments state ─── */
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    firstName: string;
+    lastName: string;
+    matricNumber: string;
+    phone: string;
+    bio: string;
+    personalEmail: string;
+    dateOfBirth: string;
+    gender: "" | "male" | "female";
+  }>({
     firstName: "",
     lastName: "",
+    matricNumber: "",
     phone: "",
     bio: "",
     personalEmail: "",
     dateOfBirth: "",
+    gender: "",
   });
 
   /* ─── fetch profile ─── */
@@ -93,10 +104,12 @@ export default function ProfilePage() {
         setFormData({
           firstName: data.firstName || "",
           lastName: data.lastName || "",
+          matricNumber: data.matricNumber || "",
           phone: data.phone || "",
           bio: data.bio || "",
           personalEmail: data.personalEmail || "",
-          dateOfBirth: data.dateOfBirth || "",
+          dateOfBirth: data.dateOfBirth ? String(data.dateOfBirth).split("T")[0] : "",
+          gender: data.gender === "male" || data.gender === "female" ? data.gender : "",
         });
       } catch {
         setError("Failed to load profile data");
@@ -129,10 +142,20 @@ export default function ProfilePage() {
     setSuccessMessage("");
     try {
       const token = await getAccessToken();
+      const payload = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        matricNumber: formData.matricNumber || undefined,
+        phone: formData.phone,
+        bio: formData.bio,
+        dateOfBirth: formData.dateOfBirth || undefined,
+        gender: formData.gender || undefined,
+      };
+
       const response = await fetch(getApiUrl("/api/v1/users/me"), {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -156,10 +179,12 @@ export default function ProfilePage() {
       setFormData({
         firstName: profileData.firstName || "",
         lastName: profileData.lastName || "",
+        matricNumber: profileData.matricNumber || "",
         phone: profileData.phone || "",
         bio: profileData.bio || "",
         personalEmail: profileData.personalEmail || "",
-        dateOfBirth: profileData.dateOfBirth || "",
+        dateOfBirth: profileData.dateOfBirth ? String(profileData.dateOfBirth).split("T")[0] : "",
+        gender: profileData.gender === "male" || profileData.gender === "female" ? profileData.gender : "",
       });
     }
     setIsEditing(false);
@@ -512,7 +537,7 @@ export default function ProfilePage() {
               </svg>
             </div>
             <span className="font-display font-bold text-sm text-navy">{error}</span>
-            <button onClick={() => setError("")} className="ml-auto">
+            <button onClick={() => setError("")} aria-label="Dismiss error message" className="ml-auto">
               <svg aria-hidden="true" className="w-4 h-4 text-navy/40 hover:text-navy" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
               </svg>
@@ -864,7 +889,15 @@ export default function ProfilePage() {
                   <label htmlFor="p-mat" className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-teal" />Matric Number
                   </label>
-                  <input id="p-mat" type="text" value={profileData.matricNumber || "Not Set"} disabled className={inputDisabled} />
+                  <input
+                    id="p-mat"
+                    type="text"
+                    value={isEditing ? formData.matricNumber : profileData.matricNumber || "Not Set"}
+                    onChange={(e) => setFormData({ ...formData, matricNumber: e.target.value })}
+                    disabled={!isEditing}
+                    placeholder={isEditing ? "e.g. 236123" : undefined}
+                    className={isEditing ? inputEditing : inputDisabled}
+                  />
                 </div>
 
                 {/* Level */}
@@ -896,7 +929,26 @@ export default function ProfilePage() {
                   <label htmlFor="p-gender" className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-coral" />Gender
                   </label>
-                  <input id="p-gender" type="text" value={profileData.gender ? (profileData.gender === "male" ? "Male" : "Female") : "Not Set"} disabled className={inputDisabled} />
+                  {isEditing ? (
+                    <select
+                      id="p-gender"
+                      value={formData.gender}
+                      onChange={(e) => setFormData({ ...formData, gender: e.target.value as "" | "male" | "female" })}
+                      className={inputEditing}
+                    >
+                      <option value="">Select gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
+                  ) : (
+                    <input
+                      id="p-gender"
+                      type="text"
+                      value={profileData.gender ? (profileData.gender === "male" ? "Male" : "Female") : "Not Set"}
+                      disabled
+                      className={inputDisabled}
+                    />
+                  )}
                 </div>
 
                 {/* Department */}

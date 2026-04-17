@@ -5,9 +5,10 @@ import { createPortal } from "react-dom";
 
 interface GenderCompletionModalProps {
   onSubmit: (gender: "male" | "female") => Promise<void>;
+  onClose?: () => void;
 }
 
-export function GenderCompletionModal({ onSubmit }: GenderCompletionModalProps) {
+export function GenderCompletionModal({ onSubmit, onClose }: GenderCompletionModalProps) {
   const [mounted, setMounted] = useState(false);
   const [gender, setGender] = useState<"male" | "female" | "">("");
   const [saving, setSaving] = useState(false);
@@ -16,6 +17,20 @@ export function GenderCompletionModal({ onSubmit }: GenderCompletionModalProps) 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!mounted || !onClose) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !saving) {
+        event.preventDefault();
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mounted, onClose, saving]);
 
   const handleSave = async () => {
     if (!gender) {
@@ -37,7 +52,14 @@ export function GenderCompletionModal({ onSubmit }: GenderCompletionModalProps) 
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6" role="presentation">
-      <div className="absolute inset-0 bg-navy/70 backdrop-blur-sm" />
+      <button
+        type="button"
+        aria-label="Close gender modal"
+        className="absolute inset-0 bg-navy/70 backdrop-blur-sm"
+        onClick={() => {
+          if (!saving) onClose?.();
+        }}
+      />
 
       <div
         role="dialog"
@@ -46,6 +68,17 @@ export function GenderCompletionModal({ onSubmit }: GenderCompletionModalProps) 
         className="relative w-full max-w-md bg-snow border-[4px] border-navy rounded-3xl shadow-[8px_8px_0_0_#000] overflow-hidden"
       >
         <div className="bg-lime border-b-[4px] border-navy px-6 py-5">
+          <button
+            type="button"
+            aria-label="Close gender modal"
+            onClick={() => {
+              if (!saving) onClose?.();
+            }}
+            className="absolute top-4 right-4 w-9 h-9 rounded-xl bg-snow border-[2px] border-navy text-navy font-display font-black text-lg leading-none press-2 press-navy disabled:opacity-60 disabled:cursor-not-allowed"
+            disabled={saving}
+          >
+            ×
+          </button>
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/60">One Last Step</p>
           <h2 className="font-display font-black text-2xl text-navy leading-tight mt-1">
             Complete your profile

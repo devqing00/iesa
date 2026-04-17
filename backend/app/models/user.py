@@ -71,7 +71,7 @@ class UserUpdate(BaseModel):
     """
     firstName: Optional[str] = Field(None, min_length=1, max_length=100)
     lastName: Optional[str] = Field(None, min_length=1, max_length=100)
-    matricNumber: Optional[str] = Field(None, pattern=r"^\d{2}/\d{2}[A-Z]{2}\d{3}$")
+    matricNumber: Optional[str] = Field(None, pattern=r"^(\d{6}|\d{2}/\d{2}[A-Z]{2}\d{3})$")
     phone: Optional[str] = Field(None, pattern=r"^\+?[0-9]{10,15}$")
     bio: Optional[str] = Field(None, max_length=500)
     # profilePictureUrl intentionally excluded - use /me/profile-picture endpoint

@@ -9,7 +9,7 @@ import re
 
 from fastapi import APIRouter, HTTPException, Depends, status, Request, File, UploadFile, Query
 from fastapi.responses import StreamingResponse
-from typing import List, Optional
+from typing import List, Optional, Literal
 from datetime import date, datetime, timedelta, timezone
 from bson import ObjectId
 from slowapi import Limiter
@@ -21,6 +21,7 @@ from app.core.security import verify_token, get_current_user
 from app.core.permissions import require_permission
 from app.core.audit import audit_user_role_change, AuditLogger
 from app.core.error_handling import safe_detail
+from pydantic import BaseModel as PydanticBaseModel, EmailStr, Field
 
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 limiter = Limiter(key_func=get_remote_address)
@@ -185,6 +186,12 @@ async def update_my_profile(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No fields to update"
         )
+
+    # MongoDB/BSON cannot encode Python date objects directly.
+    # Normalize dateOfBirth to a UTC datetime at midnight.
+    if isinstance(update_data.get("dateOfBirth"), date):
+        dob = update_data["dateOfBirth"]
+        update_data["dateOfBirth"] = datetime(dob.year, dob.month, dob.day, tzinfo=timezone.utc)
     
     update_data["updatedAt"] = datetime.now(timezone.utc)
     
@@ -1152,11 +1159,155 @@ async def toggle_user_status(
     return User(**updated_user)
 
 
+class AdminUserProfileUpdateRequest(PydanticBaseModel):
+    firstName: Optional[str] = Field(None, min_length=1, max_length=100)
+    lastName: Optional[str] = Field(None, min_length=1, max_length=100)
+    email: Optional[EmailStr] = None
+    matricNumber: Optional[str] = Field(None, pattern=r"^(\d{6}|\d{2}/\d{2}[A-Z]{2}\d{3})$")
+    phone: Optional[str] = Field(None, pattern=r"^(\+234|0)[789]\d{9}$")
+    department: Optional[str] = Field(None, min_length=2, max_length=120)
+    gender: Optional[Literal["male", "female"]] = None
+    dateOfBirth: Optional[date] = None
+    emailVerified: Optional[bool] = None
+    hasCompletedOnboarding: Optional[bool] = None
+
+
+@router.patch("/{user_id}/profile-info", response_model=User)
+async def update_user_profile_info(
+    user_id: str,
+    data: AdminUserProfileUpdateRequest,
+    request: Request,
+    admin_user: dict = Depends(require_permission("user:edit")),
+):
+    """Update editable user profile details from admin users page."""
+    db = get_database()
+    users = db["users"]
+
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user ID format"
+        )
+
+    target_user = await users.find_one({"_id": ObjectId(user_id)})
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User {user_id} not found"
+        )
+
+    update_data = data.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No fields to update"
+        )
+
+    # Guardrail: prevent admins from changing their own support flags here.
+    if str(target_user.get("_id")) == str(admin_user.get("_id")):
+        if "emailVerified" in update_data or "hasCompletedOnboarding" in update_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot modify your own verification/onboarding flags from this endpoint"
+            )
+
+    if "email" in update_data and update_data["email"]:
+        normalized_email = str(update_data["email"]).strip().lower()
+        duplicate_email = await users.find_one(
+            {"email": normalized_email, "_id": {"$ne": ObjectId(user_id)}},
+            {"_id": 1}
+        )
+        if duplicate_email:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Email already in use"
+            )
+        update_data["email"] = normalized_email
+
+    if "matricNumber" in update_data and update_data["matricNumber"]:
+        normalized_matric = str(update_data["matricNumber"]).strip()
+        duplicate_matric = await users.find_one(
+            {"matricNumber": normalized_matric, "_id": {"$ne": ObjectId(user_id)}},
+            {"_id": 1}
+        )
+        if duplicate_matric:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Matric number already in use"
+            )
+        update_data["matricNumber"] = normalized_matric
+
+    if "department" in update_data and update_data["department"]:
+        resolved_dept = str(update_data["department"]).strip()
+        update_data["department"] = resolved_dept
+        update_data["isExternalStudent"] = resolved_dept != "Industrial Engineering"
+
+    if isinstance(update_data.get("dateOfBirth"), date):
+        dob = update_data["dateOfBirth"]
+        update_data["dateOfBirth"] = datetime(dob.year, dob.month, dob.day, tzinfo=timezone.utc)
+
+    # Guardrail: only allow setting onboarding to complete when required fields exist.
+    if update_data.get("hasCompletedOnboarding") is True:
+        effective_department = update_data.get("department") or target_user.get("department") or "Industrial Engineering"
+        effective_matric = update_data.get("matricNumber") if "matricNumber" in update_data else target_user.get("matricNumber")
+        effective_phone = update_data.get("phone") if "phone" in update_data else target_user.get("phone")
+        effective_level = target_user.get("currentLevel") or target_user.get("level")
+        effective_admission_year = target_user.get("admissionYear")
+        effective_gender = update_data.get("gender") if "gender" in update_data else (target_user.get("gender") or target_user.get("sex"))
+
+        missing: list[str] = []
+        if not effective_matric:
+            missing.append("matricNumber")
+        if not effective_phone:
+            missing.append("phone")
+        if not effective_level:
+            missing.append("currentLevel")
+        if not effective_admission_year:
+            missing.append("admissionYear")
+        if not effective_gender:
+            missing.append("gender")
+        if missing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot mark onboarding complete. Missing required fields: {', '.join(missing)}"
+            )
+
+    update_data["updatedAt"] = datetime.now(timezone.utc)
+
+    await users.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": update_data}
+    )
+
+    await AuditLogger.log(
+        action="user.profile_updated_by_admin",
+        actor_id=admin_user["_id"],
+        actor_email=admin_user.get("email", "unknown"),
+        resource_type="user",
+        resource_id=user_id,
+        details={
+            "target_email": target_user.get("email"),
+            "updated_fields": sorted([k for k in update_data.keys() if k != "updatedAt"]),
+        },
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+
+    updated_user = await users.find_one({"_id": ObjectId(user_id)})
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve updated user"
+        )
+    updated_user["_id"] = str(updated_user["_id"])
+
+    return User(**updated_user)
+
+
 # ──────────────────────────────────────────────
 # NOTIFICATION CHANNEL PREFERENCE
 # ──────────────────────────────────────────────
 
-from pydantic import BaseModel as PydanticBaseModel
 from typing import Literal as LiteralType
 
 class NotificationChannelRequest(PydanticBaseModel):

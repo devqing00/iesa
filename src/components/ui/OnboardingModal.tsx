@@ -290,13 +290,15 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
   // Reset level confirmation when session changes
   useEffect(() => { setLevelConfirmed(false); }, [admittedSession]);
 
-  // Block Escape key when mandatory
+  // Allow closing with Escape when onSkip is provided.
   useEffect(() => {
-    if (!mandatory) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") e.preventDefault(); };
+    if (!onSkip) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onSkip();
+    };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [mandatory]);
+  }, [onSkip]);
 
   // Validate step 1 form
   const validateForm = (): boolean => {
@@ -314,7 +316,6 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
     if (!calculatedLevel) { setFormError("Could not calculate your level \u2014 no active session found"); return false; }
     if (!levelConfirmed) { setFormError("Please confirm your calculated level"); return false; }
     if (!gender) { setFormError("Please select your gender"); return false; }
-    if (!isExternal && !dateOfBirth) { setFormError("Date of birth is required for IPE students"); return false; }
     if (isExternal && !department.trim()) { setFormError("Please enter your department"); return false; }
     return true;
   };
@@ -407,10 +408,10 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
       className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6"
       role="presentation"
     >
-      {/* Backdrop — not clickable when mandatory */}
+      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-navy/70 backdrop-blur-sm animate-fade-in"
-        onClick={!mandatory && onSkip ? onSkip : undefined}
+        onClick={onSkip}
       />
 
       <div
@@ -551,21 +552,18 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
               {/* Date of Birth */}
               <div className="space-y-1.5">
                 <label className="font-display font-bold text-[10px] uppercase tracking-[0.1em] text-navy/40">
-                  Date of Birth {isExternal ? "(Optional)" : ""}
+                  Date of Birth (Optional)
                 </label>
                 <input
                   type="date"
                   value={dateOfBirth}
                   onChange={(e) => setDateOfBirth(e.target.value)}
                   max={new Date().toISOString().split("T")[0]}
-                  required={!isExternal}
                   aria-label="Date of birth"
                   className={inputClass}
                 />
                 <p className="text-[10px] text-slate">
-                  {isExternal
-                    ? "Optional for visiting students. Add it if you want birthday reminders."
-                    : "Required for IPE students so we can celebrate your birthday on the platform."}
+                  Optional for all students. Add it if you want birthday reminders.
                 </p>
               </div>
 
@@ -734,7 +732,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
         <div className="px-6 py-5 border-t-[3px] border-navy/10 flex items-center gap-3">
           {step === 0 && (
             <>
-              {!mandatory && onSkip && (
+              {onSkip && (
                 <button
                   onClick={onSkip}
                   className="text-sm font-display font-bold text-navy/40 hover:text-navy/60 transition-colors"
