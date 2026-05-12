@@ -77,6 +77,8 @@ class PairResponse(BaseModel):
     feedbackCount: int = 0
     createdAt: datetime
     updatedAt: Optional[datetime] = None
+    lastActivityAt: Optional[datetime] = None
+    feedbackStreak: int = 0
 
 
 # ── Weekly Feedback ───────────────────────────────────────────────

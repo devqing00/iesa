@@ -69,6 +69,11 @@ export interface AdminStatsResponse {
     growthEntries: number;
     registrations7d: { date: string; count: number }[];
   };
+  chatPresence?: {
+    activeNow: number;
+    seen24h: number;
+    windowMinutes?: number;
+  };
   upcomingBirthdays?: {
     id: string;
     firstName: string;

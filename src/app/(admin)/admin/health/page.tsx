@@ -98,11 +98,50 @@ interface VapidStatusData {
   claims: { sub?: string } | null;
 }
 
+interface ReceiptUploadIssue {
+  _id: string;
+  transferId?: string | null;
+  userId?: string | null;
+  userName?: string | null;
+  userEmail?: string | null;
+  paymentTitle?: string | null;
+  eventTitle?: string | null;
+  transferStatus?: string | null;
+  fileName?: string | null;
+  contentType?: string | null;
+  fileSize?: number | null;
+  stage?: string | null;
+  statusCode?: number | null;
+  detail?: string | null;
+  createdAt: string;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}
+
 const statusColors: Record<string, { bg: string; text: string; dot: string }> = {
   healthy: { bg: "bg-teal-light", text: "text-teal", dot: "bg-teal" },
   degraded: { bg: "bg-sunny-light", text: "text-sunny", dot: "bg-sunny" },
   unhealthy: { bg: "bg-coral-light", text: "text-coral", dot: "bg-coral" },
 };
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("en-NG", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatFileSize(size?: number | null) {
+  if (size === null || size === undefined) return "—";
+  if (size < 1024) return `${size} B`;
+  const kb = size / 1024;
+  if (kb < 1024) return `${kb.toFixed(1)} KB`;
+  const mb = kb / 1024;
+  return `${mb.toFixed(1)} MB`;
+}
 
 function AdminHealthPage() {
   const { getAccessToken } = useAuth();
@@ -119,6 +158,9 @@ function AdminHealthPage() {
   const [pushTestLoading, setPushTestLoading] = useState(false);
   const [pushTestResult, setPushTestResult] = useState("");
   const [pushTestError, setPushTestError] = useState("");
+  const [receiptIssues, setReceiptIssues] = useState<ReceiptUploadIssue[]>([]);
+  const [receiptIssuesLoading, setReceiptIssuesLoading] = useState(false);
+  const [receiptIssuesError, setReceiptIssuesError] = useState("");
   const [emailLimitSettings, setEmailLimitSettings] = useState<EmailLimitSettingsResponse | null>(null);
   const [emailSettingsLoading, setEmailSettingsLoading] = useState(false);
   const [emailSettingsSaving, setEmailSettingsSaving] = useState(false);
@@ -170,6 +212,24 @@ function AdminHealthPage() {
       setPushStatusError(getErrorMessage(err, "Failed to load push diagnostics"));
     } finally {
       setPushStatusLoading(false);
+    }
+  }, [getAccessToken]);
+
+  const fetchReceiptIssues = useCallback(async () => {
+    setReceiptIssuesLoading(true);
+    setReceiptIssuesError("");
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl("/api/v1/bank-transfers/receipt-issues?limit=100"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) await throwApiError(res, "load receipt upload issues");
+      const json: ReceiptUploadIssue[] = await res.json();
+      setReceiptIssues(json);
+    } catch (err) {
+      setReceiptIssuesError(getErrorMessage(err, "Failed to load receipt issues"));
+    } finally {
+      setReceiptIssuesLoading(false);
     }
   }, [getAccessToken]);
 
@@ -328,6 +388,10 @@ function AdminHealthPage() {
   useEffect(() => {
     fetchEmailLimitSettings();
   }, [fetchEmailLimitSettings]);
+
+  useEffect(() => {
+    fetchReceiptIssues();
+  }, [fetchReceiptIssues]);
 
   const overall = data?.overall || "unhealthy";
   const colors = statusColors[overall] || statusColors.unhealthy;
@@ -666,6 +730,96 @@ function AdminHealthPage() {
                 </div>
               </div>
             )}
+
+            <div className="bg-snow border-4 border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] mt-8">
+              <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+                <div>
+                  <h2 className="font-display font-black text-xl text-navy">Receipt Upload Issues</h2>
+                  <p className="text-sm text-slate">Latest failures from bank transfer receipt uploads.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchReceiptIssues}
+                  disabled={receiptIssuesLoading}
+                  className="bg-lime border-[3px] border-navy rounded-xl px-4 py-2 font-display font-bold text-sm text-navy press-3 press-navy disabled:opacity-50"
+                >
+                  {receiptIssuesLoading ? "Refreshing..." : "Refresh"}
+                </button>
+              </div>
+
+              {receiptIssuesError ? (
+                <div className="bg-coral-light border-2 border-coral rounded-2xl p-3 text-sm text-coral font-medium mb-4">
+                  {receiptIssuesError}
+                </div>
+              ) : receiptIssuesLoading ? (
+                <p className="text-sm text-slate">Loading receipt issues...</p>
+              ) : receiptIssues.length === 0 ? (
+                <p className="text-sm text-slate">No receipt upload issues logged.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[900px] text-sm">
+                    <thead>
+                      <tr className="text-[11px] uppercase tracking-[0.08em] text-slate">
+                        <th className="text-left py-2 pr-3">Time</th>
+                        <th className="text-left py-2 pr-3">Student</th>
+                        <th className="text-left py-2 pr-3">Transfer</th>
+                        <th className="text-left py-2 pr-3">File</th>
+                        <th className="text-left py-2">Issue</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {receiptIssues.map((issue) => {
+                        const title = issue.paymentTitle || issue.eventTitle || "Bank transfer";
+                        const studentLabel = issue.userName || issue.userEmail || issue.userId || "Unknown";
+                        return (
+                          <tr key={issue._id} className="border-t border-cloud/70">
+                            <td className="py-3 pr-3 align-top">
+                              <p className="font-medium text-navy">{formatDateTime(issue.createdAt)}</p>
+                            </td>
+                            <td className="py-3 pr-3 align-top">
+                              <p className="font-medium text-navy">{studentLabel}</p>
+                              {issue.userEmail && (
+                                <p className="text-[11px] text-slate break-all">{issue.userEmail}</p>
+                              )}
+                            </td>
+                            <td className="py-3 pr-3 align-top">
+                              <p className="font-medium text-navy">{title}</p>
+                              <p className="text-[11px] text-slate font-mono break-all">{issue.transferId || "—"}</p>
+                            </td>
+                            <td className="py-3 pr-3 align-top">
+                              <p className="font-medium text-navy">{issue.fileName || "—"}</p>
+                              <p className="text-[11px] text-slate">
+                                {(issue.contentType || "Unknown type")} • {formatFileSize(issue.fileSize)}
+                              </p>
+                            </td>
+                            <td className="py-3 align-top">
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
+                                {issue.statusCode !== null && issue.statusCode !== undefined && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-coral-light text-coral text-[10px] font-bold">
+                                    {issue.statusCode}
+                                  </span>
+                                )}
+                                {issue.stage && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-ghost border-2 border-cloud text-[10px] font-bold text-navy">
+                                    {issue.stage}
+                                  </span>
+                                )}
+                                {issue.transferStatus && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-sunny-light text-[10px] font-bold text-navy">
+                                    {issue.transferStatus}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-slate">{issue.detail || "Unknown error"}</p>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
 
             <div className="bg-snow border-4 border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] mt-8">
               <div className="flex items-center justify-between gap-3 flex-wrap mb-4">

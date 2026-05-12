@@ -99,5 +99,6 @@ class User(UserBase):
 class UserInDB(User):
     """Internal user model with additional metadata"""
     lastLogin: Optional[datetime] = None
+    lastSeenAt: Optional[datetime] = None
     isActive: bool = True
     firebaseUid: Optional[str] = None

@@ -109,7 +109,10 @@ async def get_admin_stats(
     import asyncio
     from datetime import datetime, timedelta, timezone
 
-    seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    now = datetime.now(timezone.utc)
+    seven_days_ago = now - timedelta(days=7)
+    active_window = now - timedelta(minutes=3)
+    seen_24h_window = now - timedelta(hours=24)
 
     (
         total_students,
@@ -132,6 +135,8 @@ async def get_admin_stats(
         total_growth_entries,
         registrations_7d,
         upcoming_birthdays,
+        chat_active_now,
+        chat_seen_24h,
     ) = await asyncio.gather(
         # Counts
         db["users"].count_documents({}),
@@ -197,6 +202,15 @@ async def get_admin_stats(
         ]).to_list(length=10),
         # Upcoming birthdays in next 14 days
         _fetch_upcoming_birthdays(db, days_ahead=14, limit=8),
+        # Chat presence (based on lastSeenAt)
+        db["users"].count_documents({
+            "role": "student",
+            "lastSeenAt": {"$gte": active_window},
+        }),
+        db["users"].count_documents({
+            "role": "student",
+            "lastSeenAt": {"$gte": seen_24h_window},
+        }),
     )
 
     enrollments_by_level = enrollments_by_level or []
@@ -278,6 +292,11 @@ async def get_admin_stats(
                 {"date": doc["_id"], "count": doc["count"]}
                 for doc in registrations_7d
             ],
+        },
+        "chatPresence": {
+            "activeNow": chat_active_now,
+            "seen24h": chat_seen_24h,
+            "windowMinutes": 3,
         },
         "upcomingBirthdays": upcoming_birthdays,
     }

@@ -228,6 +228,7 @@ function EventsPage() {
   const [eventDetails, setEventDetails] = useState<Event | null>(null);
   const [unregisterConfirmEventId, setUnregisterConfirmEventId] = useState<string | null>(null);
   const [receiptImage, setReceiptImage] = useState<File | null>(null);
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
   // Platform settings
   const [onlinePaymentEnabled, setOnlinePaymentEnabled] = useState(true);
   // Reference duplicate check
@@ -251,6 +252,16 @@ function EventsPage() {
     window.addEventListener("pageshow", handlePageShow);
     return () => window.removeEventListener("pageshow", handlePageShow);
   }, []);
+
+  useEffect(() => {
+    if (!receiptImage) {
+      setReceiptPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(receiptImage);
+    setReceiptPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [receiptImage]);
 
   // Download receipt PDF
   const downloadReceipt = async (reference: string) => {
@@ -1824,17 +1835,28 @@ function EventsPage() {
               <div>
                 <label className="text-label text-navy/60 mb-2 block">Receipt Screenshot <span className="text-coral">(required)</span></label>
                 {receiptImage ? (
-                  <div className="flex items-center gap-3 bg-teal-light border-[3px] border-teal/30 rounded-xl px-4 py-3">
-                    <svg aria-hidden="true" className="w-5 h-5 text-teal shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
-                    <span className="font-display font-medium text-sm text-navy truncate flex-1">{receiptImage.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => setReceiptImage(null)}
-                      aria-label="Remove receipt image"
-                      className="w-6 h-6 rounded-lg bg-coral/20 hover:bg-coral/40 flex items-center justify-center transition-colors shrink-0"
-                    >
-                      <svg aria-hidden="true" className="w-3.5 h-3.5 text-coral" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 bg-teal-light border-[3px] border-teal/30 rounded-xl px-4 py-3">
+                      <svg aria-hidden="true" className="w-5 h-5 text-teal shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+                      <span className="font-display font-medium text-sm text-navy truncate flex-1">{receiptImage.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setReceiptImage(null)}
+                        aria-label="Remove receipt image"
+                        className="w-6 h-6 rounded-lg bg-coral/20 hover:bg-coral/40 flex items-center justify-center transition-colors shrink-0"
+                      >
+                        <svg aria-hidden="true" className="w-3.5 h-3.5 text-coral" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </div>
+                    {receiptPreviewUrl && (
+                      <div className="bg-ghost border-[2px] border-cloud rounded-xl p-2">
+                        <img
+                          src={receiptPreviewUrl}
+                          alt="Receipt preview"
+                          className="w-full max-h-48 object-contain rounded-lg bg-snow"
+                        />
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <label className="flex items-center gap-3 bg-ghost border-[3px] border-dashed border-navy/20 rounded-xl px-4 py-4 cursor-pointer hover:border-navy/40 hover:bg-cloud transition-colors">
@@ -1947,6 +1969,18 @@ function EventsPage() {
                   <span className="font-display font-medium text-sm text-navy text-right">{value}</span>
                 </div>
               ))}
+              {receiptPreviewUrl && (
+                <div className="pt-3">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-navy-muted mb-2">Receipt Preview</p>
+                  <div className="bg-ghost border-[2px] border-cloud rounded-2xl p-2">
+                    <img
+                      src={receiptPreviewUrl}
+                      alt="Receipt preview"
+                      className="w-full max-h-56 object-contain rounded-xl bg-snow"
+                    />
+                  </div>
+                </div>
+              )}
               <p className="font-display font-normal text-xs text-navy/50 pt-2">
                 Once submitted, an admin will review and approve or reject your transfer proof.
               </p>

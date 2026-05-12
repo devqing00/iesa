@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import Link from "next/link";
+import Image from "next/image";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { toast } from "sonner";
 import {
@@ -23,6 +24,7 @@ import type {
   TimpMessage,
 } from "@/lib/api";
 import { buildMessagesHref } from "@/lib/messaging";
+import { resolveProfileImageUrl } from "@/lib/profileImage";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Helpers ────────────────────────────── */
@@ -47,6 +49,50 @@ function Stars({ rating }: { rating: number }) {
       ))}
     </div>
   );
+}
+
+function formatLevel(level?: string | number | null): string | null {
+  if (level === null || level === undefined) return null;
+  if (typeof level === "number") return `${level}L`;
+  const trimmed = level.trim();
+  if (!trimmed) return null;
+  if (/^\d+$/.test(trimmed)) return `${trimmed}L`;
+  return trimmed.toUpperCase();
+}
+
+function normalizeWhatsAppNumber(phone?: string | null): string | null {
+  if (!phone) return null;
+  const digits = String(phone).replace(/\D/g, "");
+  if (!digits) return null;
+  if (digits.startsWith("0") && digits.length === 11) {
+    return `234${digits.slice(1)}`;
+  }
+  return digits;
+}
+
+function buildWhatsAppHref(phone?: string | null): string | null {
+  const digits = normalizeWhatsAppNumber(phone);
+  return digits ? `https://wa.me/${digits}` : null;
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+function truncateText(value: string, maxLength: number): { text: string; truncated: boolean } {
+  const trimmed = value.trim();
+  if (trimmed.length <= maxLength) {
+    return { text: trimmed, truncated: false };
+  }
+  const shortened = trimmed.slice(0, Math.max(0, maxLength - 3)).trimEnd();
+  return { text: `${shortened}...`, truncated: true };
 }
 
 /* ── Journey Progress helpers ── */
@@ -315,7 +361,11 @@ export default function TimpPage() {
         {showJourney && (
           <div className="bg-snow border-4 border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000]">
             <h2 className="font-display font-black text-lg text-navy mb-5">Your TIMP Journey</h2>
-            <div className="flex items-center" role="list" aria-label="TIMP progress steps">
+            <div
+              className="flex items-center gap-2 overflow-x-auto -mx-2 px-2 pb-2 sm:overflow-visible sm:mx-0 sm:px-0 sm:pb-0"
+              role="list"
+              aria-label="TIMP progress steps"
+            >
               {journeySteps.map((step, i) => {
                 const done = i <= currentStep;
                 const isCurrent = i === currentStep;
@@ -497,9 +547,32 @@ export default function TimpPage() {
             </h2>
 
             {info.pairs.map((pair) => {
-              const otherName = info.isMentor ? pair.menteeName : pair.mentorName;
-              const otherUserId = info.isMentor ? pair.menteeId : pair.mentorId;
-              const otherRole = info.isMentor ? "Mentee" : "Mentor";
+              const isMentorForPair = pair.mentorId === user?.id;
+              const otherName = isMentorForPair ? pair.menteeName : pair.mentorName;
+              const otherUserId = isMentorForPair ? pair.menteeId : pair.mentorId;
+              const otherRole = isMentorForPair ? "Mentee" : "Mentor";
+              const partner = isMentorForPair ? pair.mentee : pair.mentor;
+              const partnerName = partner?.name || otherName;
+              const partnerLevel = formatLevel(partner?.level);
+              const partnerEmail = partner?.email || null;
+              const partnerPhone = partner?.phone || null;
+              const partnerBio = partner?.bio || null;
+              const partnerSkills = Array.isArray(partner?.skills)
+                ? (partner?.skills ?? []).filter((skill) => typeof skill === "string" && skill.trim().length > 0)
+                : partner?.skills
+                  ? [String(partner.skills)].filter((skill) => skill.trim().length > 0)
+                  : [];
+              const maxBioLength = 140;
+              const maxSkills = 6;
+              const maxSkillLength = 24;
+              const bioDisplay = partnerBio ? truncateText(partnerBio, maxBioLength) : null;
+              const skillsToShow = partnerSkills.slice(0, maxSkills).map((skill) => {
+                return { skill, ...truncateText(skill, maxSkillLength) };
+              });
+              const extraSkillsCount = Math.max(0, partnerSkills.length - skillsToShow.length);
+              const whatsappHref = buildWhatsAppHref(partnerPhone);
+              const partnerAvatarUrl = resolveProfileImageUrl(partner);
+              const partnerInitials = getInitials(partnerName || otherName);
               const statusStyle = PAIR_STATUS_STYLES[pair.status];
 
               return (
@@ -515,7 +588,7 @@ export default function TimpPage() {
                         </span>
                         <span className="text-xs text-slate">{otherRole}</span>
                       </div>
-                      <h3 className="font-display font-black text-lg text-navy">{otherName}</h3>
+                      <h3 className="font-display font-black text-lg text-navy">{partnerName}</h3>
                       <p className="text-xs text-slate">
                         Paired since {formatDate(pair.createdAt)} · {pair.feedbackCount} feedback entries
                       </p>
@@ -525,7 +598,7 @@ export default function TimpPage() {
                         <Link
                           href={buildMessagesHref({
                             userId: otherUserId,
-                            userName: otherName,
+                            userName: partnerName,
                             context: "timp_pair",
                             contextId: pair.id,
                             contextLabel: `TIMP ${otherRole}`,
@@ -565,6 +638,104 @@ export default function TimpPage() {
                           {viewFeedback === pair.id ? "Hide" : "View"} History
                         </button>
                       </div>
+                  </div>
+
+                  <div className="bg-ghost border-2 border-cloud rounded-2xl p-4 mb-4">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-lavender-light border-[3px] border-navy flex items-center justify-center overflow-hidden">
+                          {partnerAvatarUrl ? (
+                            <Image
+                              src={partnerAvatarUrl}
+                              alt={partnerName}
+                              width={48}
+                              height={48}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-navy font-black text-xs">{partnerInitials}</span>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">
+                            {otherRole} Details
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-display font-black text-base text-navy">{partnerName}</span>
+                            {partnerLevel && (
+                              <span className="px-2 py-0.5 rounded-md bg-lime-light text-navy text-[10px] font-bold">
+                                {partnerLevel}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-slate mt-2 space-y-1">
+                            <div>
+                              <span className="font-bold text-navy">Email:</span> {partnerEmail || "Not available"}
+                            </div>
+                            <div>
+                              <span className="font-bold text-navy">Phone:</span> {partnerPhone || "Not available"}
+                            </div>
+                            <div>
+                              <span className="font-bold text-navy">Bio:</span>{" "}
+                              {bioDisplay ? (
+                                <span title={bioDisplay.truncated ? partnerBio ?? undefined : undefined}>
+                                  {bioDisplay.text}
+                                </span>
+                              ) : (
+                                "Not available"
+                              )}
+                            </div>
+                          </div>
+                          {partnerSkills.length > 0 ? (
+                            <div className="mt-3">
+                              <div className="text-xs text-slate">
+                                <span className="font-bold text-navy">Skills:</span>
+                              </div>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {skillsToShow.map((item, idx) => (
+                                  <span
+                                    key={`${item.skill}-${idx}`}
+                                    className="px-2 py-0.5 rounded-md bg-sunny-light text-navy text-[10px] font-bold"
+                                    title={item.truncated ? item.skill : undefined}
+                                  >
+                                    {item.text}
+                                  </span>
+                                ))}
+                                {extraSkillsCount > 0 && (
+                                  <span className="px-2 py-0.5 rounded-md bg-ghost text-navy text-[10px] font-bold border-2 border-cloud">
+                                    +{extraSkillsCount} more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-slate mt-1">
+                              <span className="font-bold text-navy">Skills:</span> Not available
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {whatsappHref && (
+                          <a
+                            href={whatsappHref}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="bg-lime border-[3px] border-navy press-3 press-navy px-4 py-2 rounded-xl font-display font-bold text-xs text-navy transition-all"
+                          >
+                            WhatsApp
+                          </a>
+                        )}
+                        {partnerEmail && (
+                          <a
+                            href={`mailto:${partnerEmail}`}
+                            className="bg-snow border-[3px] border-navy press-3 press-navy px-4 py-2 rounded-xl font-display font-bold text-xs text-navy transition-all"
+                          >
+                            Email
+                          </a>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Pair milestones */}

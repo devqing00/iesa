@@ -109,6 +109,29 @@ def _conversation_key(uid_a: str, uid_b: str) -> str:
     return "|".join(sorted([uid_a, uid_b]))
 
 
+_LAST_SEEN_UPDATE: dict[str, datetime] = {}
+
+
+async def _touch_last_seen(
+    db: AsyncIOMotorDatabase,
+    user_id: str,
+    *,
+    force: bool = False,
+    min_interval_seconds: int = 120,
+) -> None:
+    if not ObjectId.is_valid(user_id):
+        return
+
+    now = datetime.now(timezone.utc)
+    last = _LAST_SEEN_UPDATE.get(user_id)
+    if force or not last or (now - last).total_seconds() >= min_interval_seconds:
+        _LAST_SEEN_UPDATE[user_id] = now
+        await db["users"].update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"lastSeenAt": now}},
+        )
+
+
 def _dm_notification_link(
     other_user_id: str,
     context_id: str | None = None,
@@ -1304,12 +1327,13 @@ async def list_conversations(
         if oids:
             async for u in db["users"].find(
                 {"_id": {"$in": oids}},
-                {"firstName": 1, "lastName": 1, "email": 1},
+                {"firstName": 1, "lastName": 1, "email": 1, "lastSeenAt": 1},
             ):
                 uid = str(u["_id"])
                 user_map[uid] = {
                     "name": f"{u.get('firstName', '')} {u.get('lastName', '')}".strip(),
                     "email": u.get("email", ""),
+                    "lastSeenAt": u.get("lastSeenAt"),
                 }
 
     # Also check blocks
@@ -1334,6 +1358,7 @@ async def list_conversations(
     conversations = []
     for doc, other_id in raw_convs:
         info = user_map.get(other_id, {"name": "Unknown", "email": ""})
+        last_seen = info.get("lastSeenAt")
         last_msg = doc["lastMessage"][:100] if doc.get("lastMessage") else ""
         # Fallback: attachment-only message → show label
         if not last_msg and doc.get("lastAttachments"):
@@ -1347,6 +1372,7 @@ async def list_conversations(
             "otherUserName": info["name"],
             "otherUserEmail": info["email"],
             "isOnline": dm_manager.is_online(other_id),
+            "lastSeenAt": last_seen.isoformat() if hasattr(last_seen, "isoformat") else None,
             "lastMessage": last_msg,
             "lastSenderId": doc["lastSenderId"],
             "lastAt": doc["lastAt"].isoformat() if doc["lastAt"] else None,
@@ -1405,7 +1431,7 @@ async def get_conversation(
 
     other_user = await db["users"].find_one(
         {"_id": ObjectId(other_user_id)},
-        {"firstName": 1, "lastName": 1, "email": 1},
+        {"firstName": 1, "lastName": 1, "email": 1, "lastSeenAt": 1},
     )
 
     # Include connection + block status
@@ -1424,6 +1450,7 @@ async def get_conversation(
             "id": other_user_id,
             "name": f"{other_user.get('firstName', '')} {other_user.get('lastName', '')}".strip() if other_user else "Unknown",
             "email": other_user.get("email", "") if other_user else "",
+            "lastSeenAt": other_user.get("lastSeenAt").isoformat() if other_user and other_user.get("lastSeenAt") else None,
         },
         "isConnected": connected,
         "isBlocked": block is not None,
@@ -2103,12 +2130,14 @@ async def dm_websocket(ws: WebSocket, token: str = Query("")):
             return
 
     await dm_manager.connect(user_id, ws)
+    await _touch_last_seen(db, user_id, force=True)
     try:
         while True:
             data = await ws.receive_json()
             msg_type = data.get("type", "")
             if msg_type == "ping":
                 await ws.send_json({"type": "pong"})
+                await _touch_last_seen(db, user_id)
             elif msg_type == "typing":
                 # Relay typing indicator to the other user
                 recipient_id = data.get("recipientId", "")
@@ -2122,4 +2151,5 @@ async def dm_websocket(ws: WebSocket, token: str = Query("")):
     except Exception:
         pass
     finally:
+        await _touch_last_seen(db, user_id, force=True)
         dm_manager.disconnect(user_id, ws)

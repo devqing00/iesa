@@ -110,6 +110,8 @@ def _pair_to_response(doc: dict) -> PairResponse:
         feedbackCount=doc.get("feedbackCount", 0),
         createdAt=doc["createdAt"],
         updatedAt=doc.get("updatedAt"),
+        lastActivityAt=doc.get("lastActivityAt"),
+        feedbackStreak=doc.get("feedbackStreak", 0),
     )
 
 
@@ -127,6 +129,28 @@ def _fb_to_response(doc: dict) -> FeedbackResponse:
         weekNumber=doc["weekNumber"],
         createdAt=doc["createdAt"],
     )
+
+
+def _compute_feedback_streak(weeks: Optional[list]) -> int:
+    if not weeks:
+        return 0
+    week_set: set[int] = set()
+    for w in weeks:
+        try:
+            w_int = int(w)
+        except (TypeError, ValueError):
+            continue
+        if w_int > 0:
+            week_set.add(w_int)
+    if not week_set:
+        return 0
+    max_week = max(week_set)
+    streak = 1
+    cursor = max_week - 1
+    while cursor in week_set:
+        streak += 1
+        cursor -= 1
+    return streak
 
 
 async def _is_timp_lead(db, user_id: str, session_id: str) -> bool:
@@ -814,6 +838,43 @@ async def list_pairs(
     total = await db.timpPairs.count_documents(query)
     cursor = db.timpPairs.find(query).sort("createdAt", -1).skip(skip).limit(limit)
     docs = await cursor.to_list(length=limit)
+    pair_ids = [str(d["_id"]) for d in docs]
+    feedback_meta: dict[str, dict] = {}
+    message_meta: dict[str, datetime] = {}
+
+    if pair_ids:
+        feedback_cursor = db.timpFeedback.aggregate([
+            {"$match": {"pairId": {"$in": pair_ids}}},
+            {
+                "$group": {
+                    "_id": "$pairId",
+                    "lastFeedbackAt": {"$max": "$createdAt"},
+                    "weeks": {"$addToSet": "$weekNumber"},
+                }
+            },
+        ])
+        async for fb in feedback_cursor:
+            feedback_meta[fb["_id"]] = fb
+
+        message_cursor = db.timpMessages.aggregate([
+            {"$match": {"pairId": {"$in": pair_ids}}},
+            {"$group": {"_id": "$pairId", "lastMessageAt": {"$max": "$createdAt"}}},
+        ])
+        async for msg in message_cursor:
+            message_meta[msg["_id"]] = msg.get("lastMessageAt")
+
+    for doc in docs:
+        pid = str(doc["_id"])
+        fb = feedback_meta.get(pid, {})
+        last_feedback_at = fb.get("lastFeedbackAt")
+        last_message_at = message_meta.get(pid)
+        last_activity_at = last_feedback_at
+        if last_message_at and (not last_activity_at or last_message_at > last_activity_at):
+            last_activity_at = last_message_at
+
+        doc["lastActivityAt"] = last_activity_at
+        doc["feedbackStreak"] = _compute_feedback_streak(fb.get("weeks"))
+
     return {"items": [_pair_to_response(d) for d in docs], "total": total}
 
 
@@ -1003,6 +1064,58 @@ async def get_my_timp_info(
     }).sort("createdAt", -1)
     pairs = await pairs_cursor.to_list(length=20)
 
+    user_ids = {
+        pid
+        for pair in pairs
+        for pid in [pair.get("mentorId"), pair.get("menteeId")]
+        if pid and ObjectId.is_valid(pid)
+    }
+    user_map: dict[str, dict] = {}
+    if user_ids:
+        user_docs = await db.users.find(
+            {"_id": {"$in": [ObjectId(pid) for pid in user_ids]}},
+            {
+                "firstName": 1,
+                "lastName": 1,
+                "email": 1,
+                "phone": 1,
+                "currentLevel": 1,
+                "level": 1,
+                "profilePictureUrl": 1,
+                "bio": 1,
+                "skills": 1,
+            },
+        ).to_list(length=len(user_ids))
+        user_map = {str(u["_id"]): u for u in user_docs}
+
+    def _pair_person(user_doc: Optional[dict], fallback_name: str, user_id: str) -> dict:
+        name = fallback_name
+        if user_doc:
+            first = user_doc.get("firstName", "") or ""
+            last = user_doc.get("lastName", "") or ""
+            full = f"{first} {last}".strip()
+            if full:
+                name = full
+        return {
+            "id": user_id,
+            "name": name,
+            "email": user_doc.get("email") if user_doc else None,
+            "phone": user_doc.get("phone") if user_doc else None,
+            "level": (user_doc.get("currentLevel") or user_doc.get("level")) if user_doc else None,
+            "profilePictureUrl": user_doc.get("profilePictureUrl") if user_doc else None,
+            "bio": user_doc.get("bio") if user_doc else None,
+            "skills": user_doc.get("skills") if user_doc else None,
+        }
+
+    pairs_payload = []
+    for pair in pairs:
+        pair_data = _pair_to_response(pair).model_dump()
+        mentor_id = pair.get("mentorId", "")
+        mentee_id = pair.get("menteeId", "")
+        pair_data["mentor"] = _pair_person(user_map.get(mentor_id), pair.get("mentorName", ""), mentor_id)
+        pair_data["mentee"] = _pair_person(user_map.get(mentee_id), pair.get("menteeName", ""), mentee_id)
+        pairs_payload.append(pair_data)
+
     # Get form open status
     settings = await db.timpSettings.find_one({"sessionId": sid})
     form_open = settings.get("formOpen", True) if settings else True
@@ -1021,7 +1134,7 @@ async def get_my_timp_info(
 
     return {
         "application": _app_to_response(application) if application else None,
-        "pairs": [_pair_to_response(p) for p in pairs],
+        "pairs": pairs_payload,
         "isMentor": (application is not None and application["status"] == "approved") or is_timp_lead,
         "isMentee": any(p["menteeId"] == uid for p in pairs),
         "formOpen": form_open,

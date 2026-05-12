@@ -39,6 +39,21 @@ export interface MentorshipPair {
   feedbackCount: number;
   createdAt: string;
   updatedAt?: string | null;
+  lastActivityAt?: string | null;
+  feedbackStreak?: number;
+  mentor?: TimpPairPerson;
+  mentee?: TimpPairPerson;
+}
+
+export interface TimpPairPerson {
+  id: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  level?: string | number | null;
+  profilePictureUrl?: string | null;
+  bio?: string | null;
+  skills?: string[] | null;
 }
 
 export interface TimpFeedback {

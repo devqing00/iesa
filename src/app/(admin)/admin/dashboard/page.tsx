@@ -55,6 +55,7 @@ function AdminDashboardPage() {
   const recentActivity = data?.recentActivity ?? [];
   const upcomingBirthdays = data?.upcomingBirthdays ?? [];
   const engagement = data?.engagement;
+  const chatPresence = data?.chatPresence;
 
   const greeting = getTimeGreeting;
 
@@ -157,13 +158,13 @@ function AdminDashboardPage() {
       </div>
 
       {/* ── Engagement Row ──────────────────────── */}
-      {engagement && (
+      {(engagement || chatPresence) && (
         <div className="space-y-4">
           <h2 className="font-display font-black text-xl text-navy">
             Platform <span className="brush-highlight">Engagement</span>
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {[
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+            {engagement && [
               { label: "Study Groups", value: engagement.studyGroups, color: "bg-teal-light", accent: "text-teal" },
               { label: "Resources", value: engagement.resources, color: "bg-lavender-light", accent: "text-lavender" },
               { label: "Press Articles", value: engagement.pressArticles, color: "bg-coral-light", accent: "text-coral" },
@@ -175,6 +176,22 @@ function AdminDashboardPage() {
                 <p className={`font-display font-black text-2xl ${m.accent}`}>{m.value}</p>
               </div>
             ))}
+            {chatPresence && (
+              <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000] col-span-2">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Chat Presence</p>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <p className="font-display font-black text-2xl text-navy">{chatPresence.activeNow}</p>
+                    <p className="text-[10px] text-slate">Active now (last {chatPresence.windowMinutes ?? 3}m)</p>
+                  </div>
+                  <div className="h-10 w-px bg-cloud" />
+                  <div className="flex-1">
+                    <p className="font-display font-black text-2xl text-teal">{chatPresence.seen24h}</p>
+                    <p className="text-[10px] text-slate">Seen in last 24h</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

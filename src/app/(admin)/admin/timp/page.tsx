@@ -51,6 +51,20 @@ function formatDate(d: string) {
   });
 }
 
+function formatRelativeTime(d: string) {
+  const ts = new Date(d).getTime();
+  if (!Number.isFinite(ts)) return "unknown";
+  const diff = Date.now() - ts;
+  if (diff < 60 * 1000) return "just now";
+  const minutes = Math.floor(diff / (60 * 1000));
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return formatDate(d);
+}
+
 function Stars({ rating }: { rating: number }) {
   return (
     <div className="flex gap-0.5">
@@ -1620,15 +1634,33 @@ function PairsTab({
         <div className="space-y-4">
           {pairs.map((pair) => {
             const style = PAIR_STATUS_STYLES[pair.status];
+            const lastActivityLabel = pair.lastActivityAt
+              ? `Last activity ${formatRelativeTime(pair.lastActivityAt)}`
+              : "No activity yet";
+            const streak = pair.feedbackStreak ?? 0;
+            const streakLabel = streak > 0
+              ? `Feedback streak: ${streak} ${streak === 1 ? "week" : "weeks"}`
+              : "No feedback streak";
             return (
               <div key={pair.id} className="bg-snow border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-bold ${style.bg} ${style.text}`}>
                         {style.label}
                       </span>
                       <span className="text-xs text-slate">{pair.feedbackCount} feedback</span>
+                      <span
+                        title={pair.lastActivityAt ? formatDate(pair.lastActivityAt) : undefined}
+                        className="text-[11px] font-bold text-navy bg-ghost border-2 border-cloud rounded-lg px-2.5 py-0.5"
+                      >
+                        {lastActivityLabel}
+                      </span>
+                      <span
+                        className={`text-[11px] font-bold rounded-lg px-2.5 py-0.5 border-2 ${streak > 0 ? "bg-lime-light text-navy border-navy/10" : "bg-cloud text-slate border-cloud"}`}
+                      >
+                        {streakLabel}
+                      </span>
                     </div>
                     <div className="flex items-center gap-3">
                       <div>

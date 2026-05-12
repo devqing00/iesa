@@ -281,47 +281,96 @@ async def submit_transfer_proof(
 async def upload_receipt_image(
     transfer_id: str,
     file: UploadFile = File(...),
+    request: Request,
     current_user: dict = Depends(get_current_user),
 ):
     """Upload a receipt image for a bank transfer submission."""
-    if not ObjectId.is_valid(transfer_id):
-        raise HTTPException(status_code=400, detail="Invalid transfer ID format")
-    
     db = get_database()
     user_id = current_user.get("uid") or current_user.get("_id")
-    
-    transfer = await db.bankTransfers.find_one({"_id": ObjectId(transfer_id)})
-    if not transfer:
-        raise HTTPException(status_code=404, detail="Transfer not found")
-    
-    if transfer["studentId"] != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    
-    # Validate file type
-    allowed_types = ["image/jpeg", "image/png", "image/webp", "image/jpg"]
-    if file.content_type not in allowed_types:
-        raise HTTPException(status_code=400, detail="Only JPEG, PNG, and WebP images are allowed")
-    
-    # Validate file size (max 5MB)
-    file_data = await file.read()
-    if len(file_data) > 5 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large. Maximum size is 5MB.")
-    
-    # Upload to Cloudinary (async — does not block the event loop)
-    from app.utils.cloudinary_config import upload_transfer_receipt
-    ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "jpg"
-    image_url = await upload_transfer_receipt(file_data, transfer_id, ext)
-    
-    if not image_url:
+
+    file_size = None
+    transfer = None
+    stage = "validate_transfer"
+    user_email = current_user.get("email", "")
+    user_name = f"{current_user.get('firstName', '')} {current_user.get('lastName', '')}".strip() or user_email or "Unknown"
+    file_name = file.filename
+    content_type = file.content_type
+
+    async def _log_receipt_upload_issue(status_code: int, detail: str) -> None:
+        doc = {
+            "transferId": transfer_id,
+            "userId": str(user_id) if user_id else None,
+            "userName": user_name,
+            "userEmail": user_email,
+            "fileName": file_name,
+            "contentType": content_type,
+            "fileSize": file_size,
+            "stage": stage,
+            "statusCode": status_code,
+            "detail": detail,
+            "createdAt": datetime.now(timezone.utc),
+            "ipAddress": request.client.host if request.client else None,
+            "userAgent": request.headers.get("user-agent"),
+        }
+        if transfer:
+            doc.update({
+                "paymentId": transfer.get("paymentId"),
+                "paymentTitle": transfer.get("paymentTitle"),
+                "eventId": transfer.get("eventId"),
+                "eventTitle": transfer.get("eventTitle"),
+                "transferStatus": transfer.get("status"),
+            })
+        try:
+            await db.receiptUploadIssues.insert_one(doc)
+        except Exception:
+            pass
+
+    try:
+        if not ObjectId.is_valid(transfer_id):
+            raise HTTPException(status_code=400, detail="Invalid transfer ID format")
+
+        transfer = await db.bankTransfers.find_one({"_id": ObjectId(transfer_id)})
+        if not transfer:
+            raise HTTPException(status_code=404, detail="Transfer not found")
+
+        if transfer["studentId"] != user_id:
+            stage = "authorize"
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+        stage = "validate_type"
+        allowed_types = ["image/jpeg", "image/png", "image/webp", "image/jpg"]
+        if file.content_type not in allowed_types:
+            raise HTTPException(status_code=400, detail="Only JPEG, PNG, and WebP images are allowed")
+
+        stage = "read_file"
+        file_data = await file.read()
+        file_size = len(file_data)
+
+        stage = "validate_size"
+        if file_size > 5 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="File too large. Maximum size is 5MB.")
+
+        stage = "upload"
+        from app.utils.cloudinary_config import upload_transfer_receipt
+        ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "jpg"
+        image_url = await upload_transfer_receipt(file_data, transfer_id, ext)
+
+        if not image_url:
+            raise HTTPException(status_code=500, detail="Failed to upload image")
+
+        stage = "update_transfer"
+        await db.bankTransfers.update_one(
+            {"_id": ObjectId(transfer_id)},
+            {"$set": {"receiptImageUrl": image_url, "updatedAt": datetime.now(timezone.utc)}}
+        )
+
+        return {"receiptImageUrl": image_url, "message": "Receipt image uploaded successfully"}
+    except HTTPException as exc:
+        await _log_receipt_upload_issue(exc.status_code, str(exc.detail))
+        raise
+    except Exception as exc:
+        await _log_receipt_upload_issue(500, str(exc))
         raise HTTPException(status_code=500, detail="Failed to upload image")
-    
-    # Update transfer with image URL
-    await db.bankTransfers.update_one(
-        {"_id": ObjectId(transfer_id)},
-        {"$set": {"receiptImageUrl": image_url, "updatedAt": datetime.now(timezone.utc)}}
-    )
-    
-    return {"receiptImageUrl": image_url, "message": "Receipt image uploaded successfully"}
 
 
 @router.get("/my")
@@ -337,6 +386,21 @@ async def get_my_transfers(
         t["_id"] = str(t["_id"])
         transfers.append(t)
     return transfers
+
+
+@router.get("/receipt-issues", dependencies=[Depends(require_permission("system:health"))])
+async def list_receipt_upload_issues(
+    limit: int = Query(100, ge=1, le=200),
+    skip: int = Query(0, ge=0),
+):
+    """List recent receipt upload issues (super admin only)."""
+    db = get_database()
+    cursor = db.receiptUploadIssues.find({}).sort("createdAt", -1).skip(skip).limit(limit)
+    issues = []
+    async for doc in cursor:
+        doc["_id"] = str(doc["_id"])
+        issues.append(doc)
+    return issues
 
 
 # ─── Transfer Review (Admin) ────────────────────────────────────

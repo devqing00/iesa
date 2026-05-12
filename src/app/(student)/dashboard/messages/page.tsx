@@ -18,6 +18,7 @@ interface Conversation {
   otherUserName: string;
   otherUserEmail: string;
   isOnline?: boolean;
+  lastSeenAt?: string | null;
   lastMessage: string;
   lastSenderId: string;
   lastAt: string;
@@ -117,6 +118,11 @@ function timeAgo(dateStr: string): string {
     month: "short",
     day: "numeric",
   });
+}
+
+function formatLastSeenLabel(lastSeenAt?: string | null): string | null {
+  if (!lastSeenAt) return null;
+  return `Last seen ${timeAgo(lastSeenAt)}`;
 }
 
 function formatTime(dateStr: string): string {
@@ -324,6 +330,7 @@ export default function MessagesPage() {
     id: string;
     name: string;
     email: string;
+    lastSeenAt?: string | null;
   } | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -1120,7 +1127,7 @@ export default function MessagesPage() {
       mutedUntil: null,
     };
     setSelectedConv(conv);
-    setOtherUser({ id: user.id, name: user.name, email: user.email });
+    setOtherUser({ id: user.id, name: user.name, email: user.email, lastSeenAt: null });
     setSearchQuery("");
     setSearchResults([]);
     setShowThread(true);
@@ -1293,6 +1300,7 @@ export default function MessagesPage() {
               otherUserName: msg.senderName || "Unknown",
               otherUserEmail: "",
               isOnline: false,
+              lastSeenAt: null,
               lastMessage: msg.content ? msg.content.slice(0, 100) : getAttachmentPreviewLabel(msg.attachments),
               lastSenderId: msg.senderId,
               lastAt: msg.createdAt,
@@ -1449,6 +1457,10 @@ export default function MessagesPage() {
   const selectedUserOnline = selectedConv
     ? conversations.find((c) => c.otherUserId === selectedConv.otherUserId)?.isOnline
     : false;
+  const selectedUserLastSeen = selectedConv
+    ? conversations.find((c) => c.otherUserId === selectedConv.otherUserId)?.lastSeenAt || otherUser?.lastSeenAt
+    : null;
+  const selectedUserLastSeenLabel = formatLastSeenLabel(selectedUserLastSeen);
 
   const totalUnread = conversations.reduce((s, c) => s + c.unreadCount, 0);
   const totalRequests = msgRequests.length + connRequests.length;
@@ -1892,6 +1904,8 @@ export default function MessagesPage() {
                           : "This user has blocked you"
                         : selectedUserOnline
                           ? "Online now"
+                          : selectedUserLastSeenLabel
+                            ? selectedUserLastSeenLabel
                         : isConnected
                           ? "Connected"
                           : "Not connected — messages go as requests"}
