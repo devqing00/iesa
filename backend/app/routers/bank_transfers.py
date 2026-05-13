@@ -215,7 +215,8 @@ async def submit_transfer_proof(
     if provided_reference:
         # Check for duplicate transaction reference globally
         duplicate_ref = await db.bankTransfers.find_one({
-            "transactionReference": provided_reference
+            "transactionReference": provided_reference,
+            "status": {"$in": ["pending", "approved"]},
         })
         if duplicate_ref:
             raise HTTPException(

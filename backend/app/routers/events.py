@@ -914,7 +914,8 @@ async def submit_event_bank_transfer(
     if provided_reference:
         # Check for duplicate transaction reference globally
         duplicate_ref = await db.bankTransfers.find_one({
-            "transactionReference": provided_reference
+            "transactionReference": provided_reference,
+            "status": {"$in": ["pending", "approved"]},
         })
         if duplicate_ref:
             raise HTTPException(
