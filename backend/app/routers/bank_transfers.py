@@ -280,8 +280,8 @@ async def submit_transfer_proof(
 @router.post("/{transfer_id}/upload-receipt")
 async def upload_receipt_image(
     transfer_id: str,
-    file: UploadFile = File(...),
     request: Request,
+    file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user),
 ):
     """Upload a receipt image for a bank transfer submission."""
