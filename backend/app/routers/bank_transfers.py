@@ -165,7 +165,10 @@ async def check_transaction_reference(
         return {"exists": False}
 
     db = get_database()
-    in_transfers = await db.bankTransfers.find_one({"transactionReference": reference})
+    in_transfers = await db.bankTransfers.find_one({
+        "transactionReference": reference,
+        "status": {"$in": ["pending", "approved"]},
+    })
     in_transactions = await db.transactions.find_one({"reference": reference})
     return {"exists": bool(in_transfers or in_transactions)}
 
