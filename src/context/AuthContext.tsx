@@ -293,7 +293,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Wire token getter for API service layer
     setTokenGetter(async () => getAccessToken());
 
+    // Safety timeout: if Firebase never calls onAuthStateChanged (e.g. old Safari
+    // where Firebase v11 silently fails due to missing structuredClone), force
+    // loading=false after 8s so the UI is never permanently blocked.
+    const safetyTimer = setTimeout(() => {
+      setLoading((prev) => {
+        if (prev) {
+          console.warn("[AuthContext] Firebase auth timed out — forcing loading=false");
+        }
+        return false;
+      });
+    }, 8000);
+
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      clearTimeout(safetyTimer); // Firebase responded — cancel the safety timer
       fbUserRef.current = fbUser;
       setFirebaseUser(fbUser);
 
@@ -313,7 +326,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(safetyTimer);
+      unsubscribe();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

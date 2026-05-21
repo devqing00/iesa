@@ -41,6 +41,16 @@ export default function RootLayout({
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
+        {/* Polyfill structuredClone for Safari < 15.4 (iPhone 7 Plus, older iPads).
+            Firebase v11 uses structuredClone internally — missing it causes silent
+            SDK failure and an infinite loading spinner on old iOS devices. */}
+        <Script id="structuredclone-polyfill" strategy="beforeInteractive">{`
+          if (typeof structuredClone === 'undefined') {
+            self.structuredClone = function(obj) {
+              try { return JSON.parse(JSON.stringify(obj)); } catch(e) { return obj; }
+            };
+          }
+        `}</Script>
         {/* Unregister lingering legacy PWA workers, but keep push-sw.js */}
         <Script id="unregister-sw" strategy="afterInteractive">{`
           if ('serviceWorker' in navigator) {

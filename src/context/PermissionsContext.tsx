@@ -136,6 +136,17 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     fetchPermissions();
   }, [fetchPermissions]);
 
+  // Safety timeout: if permissions never load (e.g. old Safari where Firebase
+  // or fetch silently hangs), unblock withAuth after 10 seconds.
+  useEffect(() => {
+    if (loaded) return; // already done, no timer needed
+    const safetyTimer = setTimeout(() => {
+      setLoading(false);
+      setLoaded(true);
+    }, 10000);
+    return () => clearTimeout(safetyTimer);
+  }, [loaded]);
+
   useEffect(() => {
     if (!user || !userProfile || loaded || loading) return;
 
