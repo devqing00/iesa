@@ -52,27 +52,31 @@ export function usePushNotifications() {
     setPermission(Notification.permission);
 
     if ("permissions" in navigator && typeof navigator.permissions.query === "function") {
-      navigator.permissions
-        .query({ name: "notifications" as PermissionName })
-        .then((status) => {
-          setPermission(status.state as NotificationPermission);
-          const handleChange = () => setPermission(status.state as NotificationPermission);
+      try {
+        navigator.permissions
+          .query({ name: "notifications" as PermissionName })
+          .then((status) => {
+            setPermission(status.state as NotificationPermission);
+            const handleChange = () => setPermission(status.state as NotificationPermission);
 
-          if (typeof status.addEventListener === "function") {
-            status.addEventListener("change", handleChange);
-            cleanupPermissionListener = () => {
-              status.removeEventListener("change", handleChange);
-            };
-          } else {
-            status.onchange = handleChange;
-            cleanupPermissionListener = () => {
-              status.onchange = null;
-            };
-          }
-        })
-        .catch(() => {
-          /* Permissions API unavailable for notifications in this browser */
-        });
+            if (typeof status.addEventListener === "function") {
+              status.addEventListener("change", handleChange);
+              cleanupPermissionListener = () => {
+                status.removeEventListener("change", handleChange);
+              };
+            } else {
+              status.onchange = handleChange;
+              cleanupPermissionListener = () => {
+                status.onchange = null;
+              };
+            }
+          })
+          .catch(() => {
+            /* Permissions API unavailable for notifications in this browser */
+          });
+      } catch {
+        /* Synchronous crash caught (common in older Safari/iOS versions) */
+      }
     }
 
     // Register push service worker (separate from any app SW)

@@ -46,9 +46,54 @@ export default function RootLayout({
             SDK failure and an infinite loading spinner on old iOS devices. */}
         <Script id="structuredclone-polyfill" strategy="beforeInteractive">{`
           if (typeof structuredClone === 'undefined') {
-            self.structuredClone = function(obj) {
-              try { return JSON.parse(JSON.stringify(obj)); } catch(e) { return obj; }
-            };
+            (function() {
+              var clone = function(x, seen) {
+                if (x === null || typeof x !== 'object') return x;
+                if (x instanceof Date) return new Date(x.getTime());
+                if (x instanceof RegExp) return new RegExp(x.source, x.flags);
+                if (x instanceof Map) {
+                  var m = new Map();
+                  x.forEach(function(v, k) { m.set(clone(k, seen), clone(v, seen)); });
+                  return m;
+                }
+                if (x instanceof Set) {
+                  var s = new Set();
+                  x.forEach(function(v) { s.add(clone(v, seen)); });
+                  return s;
+                }
+                if (typeof ArrayBuffer !== 'undefined' && x instanceof ArrayBuffer) {
+                  return x.slice(0);
+                }
+                if (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView(x)) {
+                  var ctor = x.constructor;
+                  return new ctor(x.buffer.slice(0), x.byteOffset, x.length);
+                }
+                if (seen.has(x)) return seen.get(x);
+                if (Array.isArray(x)) {
+                  var a = [];
+                  seen.set(x, a);
+                  x.forEach(function(v, i) { a[i] = clone(v, seen); });
+                  return a;
+                }
+                var proto = Object.getPrototypeOf ? Object.getPrototypeOf(x) : x.__proto__;
+                var o = Object.create ? Object.create(proto) : {};
+                seen.set(x, o);
+                for (var k in x) {
+                  if (Object.prototype.hasOwnProperty.call(x, k)) {
+                    o[k] = clone(x[k], seen);
+                  }
+                }
+                return o;
+              };
+              
+              var robustStructuredClone = function(val) {
+                return clone(val, new Map());
+              };
+
+              self.structuredClone = robustStructuredClone;
+              if (typeof window !== 'undefined') window.structuredClone = robustStructuredClone;
+              if (typeof globalThis !== 'undefined') globalThis.structuredClone = robustStructuredClone;
+            })();
           }
         `}</Script>
         {/* Unregister lingering legacy PWA workers, but keep push-sw.js */}
