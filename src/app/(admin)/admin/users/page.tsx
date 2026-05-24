@@ -185,6 +185,9 @@ function AdminUsersPage() {
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const [confirmBatchOnboarding, setConfirmBatchOnboarding] = useState(false);
+  const [batchOnboardingLoading, setBatchOnboardingLoading] = useState(false);
+
   // ── Tab ──────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"users" | "birthdays">("users");
   const [usersFiltersOpen, setUsersFiltersOpen] = useState(false);
@@ -624,6 +627,31 @@ function AdminUsersPage() {
     }
   };
 
+  const handleBatchOnboarding = async () => {
+    setBatchOnboardingLoading(true);
+    try {
+      const token = await getAccessToken();
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(getApiUrl("/api/v1/users/batch-onboarding-emails"), {
+        method: "POST",
+        headers,
+      });
+      if (!response.ok) {
+        await throwApiError(response, "send batch emails");
+        return;
+      }
+      const data = await response.json();
+      toast.success(data.message || "Batch emails sent successfully");
+      setConfirmBatchOnboarding(false);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to send batch emails"));
+    } finally {
+      setBatchOnboardingLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-8">
       <ToolHelpModal toolId="admin-users" isOpen={showHelp} onClose={closeHelp} />
@@ -741,6 +769,16 @@ function AdminUsersPage() {
           >
             Filters
           </button>
+
+          <PermissionGate permission="user:manage">
+            <button
+              onClick={() => setConfirmBatchOnboarding(true)}
+              className="px-5 py-3 bg-teal border-[3px] border-navy rounded-2xl text-snow text-sm font-bold flex items-center gap-2 press-3 press-navy transition-all"
+              title="Send onboarding reminders to incomplete profiles"
+            >
+              Remind Onboarding
+            </button>
+          </PermissionGate>
 
           <PermissionGate permission="user:export">
           <div className="flex items-center gap-2">
@@ -1569,6 +1607,16 @@ function AdminUsersPage() {
         confirmLabel="Delete"
         variant="danger"
         isLoading={deleting}
+      />
+      <ConfirmModal
+        isOpen={confirmBatchOnboarding}
+        onClose={() => !batchOnboardingLoading && setConfirmBatchOnboarding(false)}
+        onConfirm={handleBatchOnboarding}
+        title="Send Onboarding Reminders"
+        message="Are you sure you want to send batch email reminders to all active users who have not completed their onboarding profile? This action will use your daily email quota."
+        confirmLabel="Send Emails"
+        variant="primary"
+        isLoading={batchOnboardingLoading}
       />
     </div>
   );

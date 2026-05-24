@@ -237,7 +237,7 @@ async def resend_verification(request: Request, user: dict = Depends(get_current
     name = f"{user_doc.get('firstName', '')} {user_doc.get('lastName', '')}".strip() or "Student"
 
     try:
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
         token, _ = create_verification_token(user_id, secondary, "secondary_email_verification")
         url = f"{frontend_url}/verify-secondary-email?token={token}"
         email_sent = await send_verification_email(to=secondary, name=name, verification_url=url)

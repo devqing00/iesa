@@ -73,7 +73,8 @@ class ReceiptGenerator:
         amount: float,
         paid_at: datetime,
         channel: str = "Paystack",
-        payment_type: str = "Departmental Dues"
+        payment_type: str = "Departmental Dues",
+        student_matric: Optional[str] = None
     ) -> BytesIO:
         """Generate a professional PDF receipt."""
         from reportlab.lib.units import inch, mm
@@ -188,6 +189,8 @@ class ReceiptGenerator:
             ("Email", student_email),
             ("Level", student_level),
         ]
+        if student_matric:
+            details.append(("Matric No", student_matric))
         for label, value in details:
             pdf.setFont("Helvetica", 9)
             pdf.setFillColor(colors.HexColor("#888888"))
@@ -250,7 +253,7 @@ class ReceiptGenerator:
         # Amount
         pdf.setFont("Helvetica-Bold", 26)
         pdf.setFillColor(colors.HexColor(self.NAVY))
-        amount_text = f"₦{amount:,.2f}"
+        amount_text = f"NGN {amount:,.2f}"
         pdf.drawRightString(right - 0.2 * inch, amount_box_y + amount_box_h - 0.48 * inch, amount_text)
 
         # ── Status Badge ──
@@ -329,7 +332,8 @@ def generate_payment_receipt(
     amount: float,
     paid_at: datetime,
     channel: str = "Paystack",
-    payment_type: str = "Departmental Dues"
+    payment_type: str = "Departmental Dues",
+    student_matric: Optional[str] = None
 ) -> BytesIO:
     """
     Generate a payment receipt PDF
@@ -350,5 +354,6 @@ def generate_payment_receipt(
         amount=amount,
         paid_at=paid_at,
         channel=channel,
-        payment_type=payment_type
+        payment_type=payment_type,
+        student_matric=student_matric
     )

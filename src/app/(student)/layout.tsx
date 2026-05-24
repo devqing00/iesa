@@ -12,7 +12,7 @@ import { FloatingToolProvider } from "@/context/FloatingToolContext";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, Suspense } from "react";
 import { useSSE } from "@/hooks/useSSE";
-import { isExternalStudent, isRouteAllowedForExternal } from "@/lib/studentAccess";
+import { isExternalStudent, isRouteAllowedForExternal, isAlumni } from "@/lib/studentAccess";
 import { buildAuthRedirect, pathWithQuery } from "@/lib/authRedirect";
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
@@ -60,6 +60,13 @@ function DashboardLayoutInner({
   // Redirect external students from restricted routes
   useEffect(() => {
     if (loading || !user || !userProfile) return;
+    
+    // Redirect Alumni to their ecosystem
+    if (isAlumni(userProfile.currentLevel)) {
+      router.replace("/alumni/dashboard");
+      return;
+    }
+
     if (isExternalStudent(userProfile.department, userProfile.isExternalStudent) && !isRouteAllowedForExternal(pathname)) {
       router.replace("/dashboard");
     }

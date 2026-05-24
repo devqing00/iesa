@@ -42,10 +42,12 @@ class UserBase(BaseModel):
     
     # Phase 1 Enhancements
     admissionYear: Optional[int] = Field(None, ge=2000, le=2030, description="Year student was admitted")
-    currentLevel: Optional[Literal["100L", "200L", "300L", "400L", "500L"]] = Field(None, description="Current academic level")
+    currentLevel: Optional[Literal["100L", "200L", "300L", "400L", "500L", "600L", "700L", "Alumni"]] = Field(None, description="Current academic level")
     skills: Optional[list[str]] = Field(default_factory=list, max_length=20, description="Student skills/interests")
     dateOfBirth: Optional[date] = Field(None, description="Student date of birth (YYYY-MM-DD)")
     gender: Optional[Literal["male", "female"]] = Field(None, description="Student gender")
+    openToMentorship: Optional[bool] = Field(False, description="Whether the alumni is open to mentoring students")
+    mentorshipBio: Optional[str] = Field(None, max_length=1000, description="Short bio about mentorship areas")
 
     # Dual Email System
     emailType: Optional[Literal["institutional", "personal"]] = Field(None, description="Type of primary email (auto-detected)")
@@ -78,6 +80,8 @@ class UserUpdate(BaseModel):
     skills: Optional[list[str]] = Field(None, max_length=20)
     dateOfBirth: Optional[date] = Field(None, description="Student date of birth (YYYY-MM-DD)")
     gender: Optional[Literal["male", "female"]] = None
+    openToMentorship: Optional[bool] = None
+    mentorshipBio: Optional[str] = Field(None, max_length=1000)
     # Notification preference only — secondary email itself is managed via dedicated endpoints
     notificationEmailPreference: Optional[Literal["primary", "secondary", "both"]] = None
     notificationChannelPreference: Optional[Literal["email", "in_app", "both"]] = None

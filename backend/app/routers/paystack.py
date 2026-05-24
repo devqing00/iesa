@@ -543,6 +543,8 @@ async def paystack_webhook(
                 payment = None
                 if payment_id and ObjectId.is_valid(payment_id):
                     payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+                student = await db.users.find_one({"_id": student_id}) if ObjectId.is_valid(student_id) else await db.users.find_one({"uid": student_id})
+                student_matric = student.get("matricNumber") if student else None
                 await send_payment_receipt(
                     to=transaction.get("studentEmail", "student@example.com"),
                     student_name=transaction.get("studentName", "Student"),
@@ -552,7 +554,8 @@ async def paystack_webhook(
                     date=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
                     student_email=transaction.get("studentEmail", "student@example.com"),
                     student_level=transaction.get("studentLevel", "N/A"),
-                    transaction_id=str(transaction.get("_id", reference))
+                    transaction_id=str(transaction.get("_id", reference)),
+                    student_matric=student_matric
                 )
             except Exception:
                 # Log error but don't fail the payment
@@ -1003,7 +1006,8 @@ async def resend_receipt_email(
             date=paid_at.strftime("%Y-%m-%d %H:%M:%S") if hasattr(paid_at, 'strftime') else str(paid_at),
             student_email=student_email,
             student_level=student_level,
-            transaction_id=str(transaction.get("_id", reference))
+            transaction_id=str(transaction.get("_id", reference)),
+            student_matric=current_user.get("matricNumber")
         )
         return {"message": "Receipt email sent successfully"}
     except Exception as e:
@@ -1098,7 +1102,8 @@ async def download_receipt(
             amount=transaction["amount"],
             paid_at=paid_at,
             channel=transaction.get("channel", payment_method),
-            payment_type=payment_category
+            payment_type=payment_category,
+            student_matric=current_user.get("matricNumber")
         )
         
         # Return PDF as downloadable file

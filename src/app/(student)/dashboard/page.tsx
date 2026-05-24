@@ -64,31 +64,7 @@ interface TeamHeadOverview {
   inProgressAssignedTasks?: number;
 }
 
-interface RewardsSnapshot {
-  visitStreak: number;
-  streakUpdatedToday: boolean;
-  weeklyUsefulActions: number;
-  privacyOptIn: boolean;
-  priorityPins: string[];
-  perkUtilities: string[];
-  recognitionLevel: string;
-  weeklyResetCelebration: boolean;
-  isAtRisk: boolean;
-}
 
-interface LeaderboardItem {
-  rank: number;
-  name: string;
-  weeklyUsefulActions: number;
-  isMe: boolean;
-}
-
-interface ChainAction {
-  title: string;
-  detail: string;
-  href: string;
-  cta: string;
-}
 
 /* ─── Page Component ────────────────────────────────────────────── */
 
@@ -116,19 +92,7 @@ export default function StudentDashboardPage() {
   const [openCohortPolls, setOpenCohortPolls] = useState<number | null>(null);
   const [teamOverview, setTeamOverview] = useState<TeamMemberOverview | null>(null);
   const [teamHeadOverview, setTeamHeadOverview] = useState<TeamHeadOverview | null>(null);
-  const [visitStreak, setVisitStreak] = useState<number>(1);
-  const [streakUpdatedToday, setStreakUpdatedToday] = useState<boolean>(false);
-  const [weeklyUsefulActions, setWeeklyUsefulActions] = useState<number>(0);
-  const [unlockedPerk, setUnlockedPerk] = useState<string>("None yet");
-  const [perkUtilities, setPerkUtilities] = useState<string[]>([]);
-  const [recognitionLevel, setRecognitionLevel] = useState<string>("Starter");
-  const [privacyOptIn, setPrivacyOptIn] = useState<boolean>(false);
-  const [cohortLeaders, setCohortLeaders] = useState<LeaderboardItem[]>([]);
-  const [teamLeaders, setTeamLeaders] = useState<LeaderboardItem[]>([]);
-  const [priorityPins, setPriorityPins] = useState<string[]>([]);
-  const [nextChain, setNextChain] = useState<ChainAction | null>(null);
-  const [weeklyResetCelebration, setWeeklyResetCelebration] = useState<boolean>(false);
-  const [streakAtRisk, setStreakAtRisk] = useState<boolean>(false);
+
 
   const events: UpcomingEvent[] = useMemo(
     () => data?.events ?? [],
@@ -203,37 +167,6 @@ export default function StudentDashboardPage() {
   }, [mutateStudentDashboard]);
 
   useEffect(() => {
-    const fetchRewardsSnapshot = async () => {
-      if (!user) return;
-      try {
-        const token = await getAccessToken();
-        const response = await fetch(getApiUrl("/api/v1/growth/rewards"), {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) return;
-        const snapshot: RewardsSnapshot = await response.json();
-        setVisitStreak(snapshot.visitStreak || 1);
-        setStreakUpdatedToday(!!snapshot.streakUpdatedToday);
-        setWeeklyUsefulActions(snapshot.weeklyUsefulActions || 0);
-        setPrivacyOptIn(!!snapshot.privacyOptIn);
-        setPriorityPins(Array.isArray(snapshot.priorityPins) ? snapshot.priorityPins : []);
-        const utilities = Array.isArray(snapshot.perkUtilities) ? snapshot.perkUtilities : [];
-        setPerkUtilities(utilities);
-        setRecognitionLevel(snapshot.recognitionLevel || "Starter");
-        setWeeklyResetCelebration(!!snapshot.weeklyResetCelebration);
-        setStreakAtRisk(!!snapshot.isAtRisk);
-        if (utilities.includes("priority_pin_slots")) setUnlockedPerk("Priority resource spotlight unlocked");
-        else if (utilities.includes("fast_shortcuts")) setUnlockedPerk("Fast-lane action badge unlocked");
-        else setUnlockedPerk("None yet");
-      } catch {
-        // silent fallback
-      }
-    };
-
-    void fetchRewardsSnapshot();
-  }, [getAccessToken, user]);
-
-  useEffect(() => {
     const fetchBellNotices = async () => {
       if (!user) return;
       try {
@@ -297,36 +230,7 @@ export default function StudentDashboardPage() {
     void fetchTeamOverview();
   }, [external, getAccessToken, user]);
 
-  useEffect(() => {
-    const fetchRecognitionFeed = async () => {
-      if (!user || external) return;
-      try {
-        const token = await getAccessToken();
-        const [cohortRes, teamRes] = await Promise.all([
-          fetch(getApiUrl("/api/v1/growth/rewards/leaderboard?scope=cohort&limit=5"), {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(getApiUrl("/api/v1/growth/rewards/leaderboard?scope=team&limit=5"), {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ]);
 
-        if (cohortRes.ok) {
-          const payload = await cohortRes.json();
-          setCohortLeaders(Array.isArray(payload.items) ? payload.items : []);
-        }
-
-        if (teamRes.ok) {
-          const payload = await teamRes.json();
-          setTeamLeaders(Array.isArray(payload.items) ? payload.items : []);
-        }
-      } catch {
-        // silent fallback
-      }
-    };
-
-    void fetchRecognitionFeed();
-  }, [external, getAccessToken, user]);
 
   useEffect(() => {
     const fetchTeamHeadOverview = async () => {
@@ -526,82 +430,7 @@ export default function StudentDashboardPage() {
     return { label: "Open", href: getNoticeHref(notice) };
   };
 
-  const trackUsefulAction = async (actionType: string) => {
-    if (!user) return;
-    try {
-      const token = await getAccessToken();
-      const response = await fetch(getApiUrl("/api/v1/growth/rewards/action"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ actionType }),
-      });
-      if (!response.ok) return;
-      const payload = await response.json();
-      const actions = Number(payload.weeklyUsefulActions || 0);
-      const utilities = Array.isArray(payload.perkUtilities) ? payload.perkUtilities : [];
 
-      setWeeklyUsefulActions(actions);
-      setVisitStreak(Number(payload.visitStreak || visitStreak));
-      setStreakUpdatedToday(!!payload.streakUpdatedToday);
-      setPerkUtilities(utilities);
-      setRecognitionLevel(payload.recognitionLevel || recognitionLevel);
-      setStreakAtRisk(false);
-      setNextChain(payload.nextChain || null);
-
-      if (utilities.includes("priority_pin_slots")) setUnlockedPerk("Priority resource spotlight unlocked");
-      else if (utilities.includes("fast_shortcuts")) setUnlockedPerk("Fast-lane action badge unlocked");
-      else setUnlockedPerk("None yet");
-    } catch {
-      // non-blocking
-    }
-  };
-
-  const toggleRecognitionOptIn = async () => {
-    if (!user) return;
-    const next = !privacyOptIn;
-    setPrivacyOptIn(next);
-    try {
-      const token = await getAccessToken();
-      const response = await fetch(getApiUrl("/api/v1/growth/rewards/privacy"), {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ optIn: next }),
-      });
-      if (!response.ok) setPrivacyOptIn(!next);
-    } catch {
-      setPrivacyOptIn(!next);
-    }
-  };
-
-  const togglePriorityPin = async (href: string) => {
-    if (!user || !perkUtilities.includes("priority_pin_slots")) return;
-    const isPinned = priorityPins.includes(href);
-    const nextPins = isPinned
-      ? priorityPins.filter((p) => p !== href)
-      : [...priorityPins, href].slice(0, 2);
-
-    setPriorityPins(nextPins);
-    try {
-      const token = await getAccessToken();
-      const response = await fetch(getApiUrl("/api/v1/growth/rewards/pins"), {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ pins: nextPins }),
-      });
-      if (!response.ok) setPriorityPins(priorityPins);
-    } catch {
-      setPriorityPins(priorityPins);
-    }
-  };
 
   const nextActions = (() => {
     const actions: Array<{ title: string; detail: string; href: string; cta: string; tone: string }> = [];
@@ -637,25 +466,7 @@ export default function StudentDashboardPage() {
       });
     }
 
-    actions.push({
-      title: visitStreak >= 3 ? "Keep your consistency streak alive" : "Start your consistency streak",
-      detail: `${visitStreak}-day dashboard streak${streakUpdatedToday ? " • updated today" : ""}`,
-      href: "/dashboard/growth",
-      cta: "Open growth tools",
-      tone: "bg-sunny-light",
-    });
-
     return actions.slice(0, 3);
-  })();
-
-  const recognitionPosts = (() => {
-    const posts: string[] = [];
-    if (streakUpdatedToday) posts.push(`Nice one — your streak just moved to ${visitStreak} day${visitStreak === 1 ? "" : "s"}.`);
-    else posts.push(`Current streak: ${visitStreak} day${visitStreak === 1 ? "" : "s"}. Keep it steady.`);
-    posts.push(`Useful actions this week: ${weeklyUsefulActions}.`);
-    if (unlockedPerk !== "None yet") posts.push(`Perk unlocked: ${unlockedPerk}.`);
-    else posts.push("Next perk unlock at 6 useful actions this week.");
-    return posts;
   })();
 
   const handleOnboardingComplete = async () => {
@@ -916,9 +727,7 @@ export default function StudentDashboardPage() {
                   Semester {currentSession.currentSemester}
                 </span>
               )}
-              <span className="text-[10px] font-bold text-navy bg-sunny rounded-md px-3 py-1 uppercase tracking-wider">
-                {visitStreak}-day streak
-              </span>
+
               {external ? (
                 <span className="text-[10px] font-bold text-navy bg-lavender rounded-md px-3 py-1 uppercase tracking-wider">
                   {userProfile?.department ?? "External"}
@@ -976,18 +785,6 @@ export default function StudentDashboardPage() {
           )}
         </div>
 
-        {!external && weeklyResetCelebration && (
-          <div className="mb-5 bg-teal-light border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
-            <p className="text-sm font-bold text-navy">New week unlocked — your useful actions counter has reset. Let’s build momentum again.</p>
-          </div>
-        )}
-
-        {!external && streakAtRisk && (
-          <div className="mb-5 bg-coral-light border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
-            <p className="text-sm font-bold text-navy">Your streak is at risk. Complete one useful action now to keep momentum alive.</p>
-          </div>
-        )}
-
         {!external && nextActions.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
             {nextActions.map((action) => (
@@ -996,116 +793,12 @@ export default function StudentDashboardPage() {
                 <p className="text-[11px] text-slate mt-1 line-clamp-2 min-h-[2.5rem]">{action.detail}</p>
                 <Link
                   href={action.href}
-                  onClick={() => { void trackUsefulAction(`next_action:${action.cta.toLowerCase().replace(/\s+/g, "_")}`); }}
                   className="inline-flex mt-3 items-center gap-1.5 bg-navy border-2 border-lime px-3 py-1.5 rounded-lg text-[11px] font-bold text-lime press-2 press-lime"
                 >
                   {action.cta}
                 </Link>
-                {perkUtilities.includes("priority_pin_slots") && (
-                  <button
-                    onClick={() => { void togglePriorityPin(action.href); }}
-                    className="inline-flex mt-2 items-center gap-1 text-[10px] font-bold text-navy"
-                  >
-                    {priorityPins.includes(action.href) ? "★ Pinned" : "☆ Pin action"}
-                  </button>
-                )}
               </div>
             ))}
-          </div>
-        )}
-
-        {!external && nextChain && (
-          <div className="mb-5 bg-lavender-light border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
-            <p className="text-sm font-bold text-navy">{nextChain.title}</p>
-            <p className="text-xs text-slate mt-1">{nextChain.detail}</p>
-            <Link
-              href={nextChain.href}
-              onClick={() => { void trackUsefulAction(`chain_action:${nextChain.cta.toLowerCase().replace(/\s+/g, "_")}`); }}
-              className="inline-flex mt-3 items-center gap-1.5 bg-snow border-2 border-navy px-3 py-1.5 rounded-lg text-[11px] font-bold text-navy press-2 press-black"
-            >
-              {nextChain.cta}
-            </Link>
-          </div>
-        )}
-
-        {!external && perkUtilities.includes("fast_shortcuts") && (
-          <div className="mb-5 bg-sunny-light border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate">Perk Utility Unlocked</p>
-            <h3 className="font-display font-black text-lg text-navy">Fast Shortcuts</h3>
-            <div className="flex flex-wrap gap-2 mt-3">
-              <Link href="/dashboard/payments" className="bg-snow border-2 border-navy rounded-lg px-3 py-1.5 text-xs font-bold text-navy press-1 press-black">Pay dues</Link>
-              <Link href="/dashboard/timetable" className="bg-snow border-2 border-navy rounded-lg px-3 py-1.5 text-xs font-bold text-navy press-1 press-black">Open timetable</Link>
-              <Link href="/dashboard/announcements" className="bg-snow border-2 border-navy rounded-lg px-3 py-1.5 text-xs font-bold text-navy press-1 press-black">See notices</Link>
-            </div>
-          </div>
-        )}
-
-        {!external && (
-          <div className="bg-snow border-[3px] border-navy rounded-3xl p-5 mb-5 shadow-[4px_4px_0_0_#000]">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <h3 className="font-display font-black text-navy text-lg">Recognition Board</h3>
-              <span className="text-[10px] font-bold uppercase tracking-wider bg-lime-light text-navy rounded-md px-2.5 py-1 border border-navy/20">
-                {recognitionLevel}
-              </span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="bg-lavender-light border-2 border-navy rounded-2xl p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate">Streak</p>
-                <p className="font-display font-black text-2xl text-navy mt-1">{visitStreak}d</p>
-              </div>
-              <div className="bg-teal-light border-2 border-navy rounded-2xl p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate">Useful Actions</p>
-                <p className="font-display font-black text-2xl text-navy mt-1">{weeklyUsefulActions}</p>
-              </div>
-              <div className="bg-sunny-light border-2 border-navy rounded-2xl p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate">Perk</p>
-                <p className="text-xs font-bold text-navy mt-2 leading-tight">{unlockedPerk}</p>
-              </div>
-            </div>
-            <div className="mt-3 space-y-1.5">
-              {recognitionPosts.map((post) => (
-                <div key={post} className="bg-ghost border-2 border-cloud rounded-xl px-3 py-2">
-                  <p className="text-xs text-navy">{post}</p>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 bg-ghost border-2 border-cloud rounded-2xl p-3">
-              <div className="flex items-center justify-between gap-3 mb-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate">Recognition Feed (Opt-in)</p>
-                <button
-                  onClick={() => { void toggleRecognitionOptIn(); }}
-                  className={`px-2.5 py-1 rounded-md text-[10px] font-bold border ${privacyOptIn ? "bg-lime-light border-navy text-navy" : "bg-snow border-cloud text-slate"}`}
-                >
-                  {privacyOptIn ? "Visible" : "Hidden"}
-                </button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate mb-1">Cohort Top Consistency</p>
-                  <div className="space-y-1">
-                    {cohortLeaders.length === 0 ? (
-                      <p className="text-[11px] text-slate">No opt-in entries yet.</p>
-                    ) : cohortLeaders.map((entry) => (
-                      <p key={`cohort-${entry.rank}-${entry.name}`} className="text-[11px] text-navy">
-                        #{entry.rank} {entry.name}{entry.isMe ? " (You)" : ""} — {entry.weeklyUsefulActions}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate mb-1">Team Top Consistency</p>
-                  <div className="space-y-1">
-                    {teamLeaders.length === 0 ? (
-                      <p className="text-[11px] text-slate">No opt-in entries yet.</p>
-                    ) : teamLeaders.map((entry) => (
-                      <p key={`team-${entry.rank}-${entry.name}`} className="text-[11px] text-navy">
-                        #{entry.rank} {entry.name}{entry.isMe ? " (You)" : ""} — {entry.weeklyUsefulActions}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 

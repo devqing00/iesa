@@ -1550,3 +1550,48 @@ async def delete_account(
     )
 
     return {"message": "Account deleted successfully"}
+
+
+@router.post("/batch-onboarding-emails")
+async def batch_send_onboarding_emails(
+    user: dict = Depends(require_permission("user:manage")),
+):
+    """
+    Send onboarding reminder emails to all users who have not completed their onboarding.
+    Only users with 'user:manage' permission (e.g., super_admin) can trigger this.
+    """
+    db = get_database()
+    users = db["users"]
+    
+    # Find all users who are active but haven't completed onboarding
+    query = {
+        "isActive": {"$ne": False},
+        "hasCompletedOnboarding": {"$ne": True}
+    }
+    
+    incomplete_users = await users.find(query).to_list(length=1000)
+    if not incomplete_users:
+        return {"message": "No users found pending onboarding completion.", "count": 0}
+        
+    from app.core.email import EmailService, EmailTemplate
+    email_service = EmailService()
+    
+    count = 0
+    for u in incomplete_users:
+        email = u.get("email")
+        if not email:
+            continue
+            
+        try:
+            await email_service.send_template_email(
+                to_email=email,
+                template=EmailTemplate.ONBOARDING_REMINDER,
+                context={
+                    "name": u.get("firstName", "Student")
+                }
+            )
+            count += 1
+        except Exception as e:
+            print(f"Failed to send onboarding email to {email}: {e}")
+            
+    return {"message": f"Sent onboarding reminder emails to {count} users.", "count": count}

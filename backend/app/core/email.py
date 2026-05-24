@@ -46,6 +46,7 @@ class EmailTemplate(Enum):
     WELCOME = "welcome"
     PASSWORD_RESET = "password_reset"
     EMAIL_VERIFICATION = "email_verification"
+    ONBOARDING_REMINDER = "onboarding_reminder"
 
 
 class EmailService:
@@ -813,6 +814,23 @@ class EmailService:
                 badge_bg="#E0C340",
             )
 
+        elif template == EmailTemplate.ONBOARDING_REMINDER:
+            dashboard_url = _esc(context.get("dashboard_url", _frontend_url("/dashboard")))
+            subject = "Action Required: Complete your IESA profile"
+            body = f"""
+            <p style="margin:0 0 14px;font-size:14px;line-height:1.7;color:#334155;">Hi {_esc(context.get('name', 'Student'))},</p>
+            <p style="margin:0 0 14px;font-size:14px;line-height:1.7;color:#334155;">You are yet to complete your onboarding profile on the IESA portal. Please complete your profile to access all features and stay updated.</p>
+            <a href="{dashboard_url}" style="display:inline-block;background:#C8F31D;color:#0F0F2D;font-size:13px;font-weight:900;text-decoration:none;padding:12px 18px;border:3px solid #0F0F2D;border-radius:12px;box-shadow:3px 3px 0 #0F0F2D;margin:0 0 14px;">Complete Onboarding</a>
+            """
+            html = _shell(
+                preheader="Please complete your IESA profile.",
+                eyebrow="Onboarding",
+                title="Action Required",
+                body_html=body,
+                badge="Reminder",
+                badge_bg="#E0C340",
+            )
+
         elif template == EmailTemplate.PASSWORD_RESET:
             reset_url = _esc(context.get("reset_url", "#"))
             subject = "Reset your IESA password"
@@ -911,7 +929,8 @@ async def send_payment_receipt(
     date: str,
     student_email: str = None,
     student_level: str = "N/A",
-    transaction_id: str = None
+    transaction_id: str = None,
+    student_matric: str = None
 ):
     """Send a payment receipt email with PDF attachment"""
     from datetime import datetime
@@ -933,7 +952,8 @@ async def send_payment_receipt(
             amount=amount,
             paid_at=datetime.now(),
             channel="Paystack",
-            payment_type=payment_title
+            payment_type=payment_title,
+            student_matric=student_matric
         )
     except Exception as e:
         logger.error(f"Failed to generate PDF receipt: {e}")

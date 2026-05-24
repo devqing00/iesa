@@ -571,7 +571,7 @@ async def add_secondary_email(
     
     # Send verification email
     try:
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
         verification_token, _ = create_verification_token(
             user_id, new_email, token_type="secondary_email_verification"
         )
@@ -622,7 +622,7 @@ async def resend_secondary_email_verification(
         return {"message": "Secondary email is already verified."}
     
     try:
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
         verification_token, _ = create_verification_token(
             user_id, secondary_email, token_type="secondary_email_verification"
         )

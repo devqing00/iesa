@@ -23,6 +23,21 @@ export function isExternalStudent(
   return normalized !== IPE_DEPARTMENT.toLowerCase();
 }
 
+/** Check if a student is an Alumni (beyond 500L or explicitly 'Alumni') */
+export function isAlumni(level?: string | null): boolean {
+  if (!level) return false;
+  const normalized = level.trim().toUpperCase();
+  if (normalized === "ALUMNI" || normalized === "GRADUATED") return true;
+  
+  // Parse numeric level (e.g. "600L" -> 600)
+  const match = normalized.match(/\d+/);
+  if (match) {
+    const num = parseInt(match[0], 10);
+    return num > 500;
+  }
+  return false;
+}
+
 /**
  * Route prefixes that external students are allowed to access.
  * Exact match on `/dashboard` (overview), prefix match on everything else.

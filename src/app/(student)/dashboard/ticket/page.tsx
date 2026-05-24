@@ -6,6 +6,7 @@ import { getReceiptData, ReceiptData, getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { IesaLogo } from "@/components/ui/IesaLogo";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import { QRCodeSVG } from "qrcode.react";
 
 /* ─── Helpers ──────────────────────────────────────────────────── */
 
@@ -262,9 +263,14 @@ function TicketContent() {
                   <p className="text-xs font-bold text-navy/50">{attendeeMatric}</p>
                 )}
               </div>
-              <div>
-                <p className="text-label text-navy/40 mb-1">Ticket ID</p>
-                <p className="font-display font-black text-navy text-base font-mono tracking-wider">{ticketId}</p>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-label text-navy/40 mb-1">Ticket ID</p>
+                  <p className="font-display font-black text-navy text-base font-mono tracking-wider break-all">{ticketId}</p>
+                </div>
+                <div className="bg-snow p-1.5 rounded-lg border-2 border-navy shrink-0">
+                  <QRCodeSVG value={ticketId} size={56} level="M" />
+                </div>
               </div>
             </div>
           </div>
@@ -310,7 +316,7 @@ function TicketContent() {
 
       {/* Print note */}
       <p className="text-center text-[11px] text-slate mt-4 print:hidden">
-        Present this ticket (printed or on your phone) at the event entrance.
+        Present this ticket (printed or on your phone) at the event entrance for QR Code scanning.
       </p>
     </div>
   );

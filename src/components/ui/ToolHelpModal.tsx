@@ -222,7 +222,33 @@ interface ToolHelpModalProps {
 
 export function ToolHelpModal({ toolId, isOpen, onClose }: ToolHelpModalProps) {
   const content = TOOL_HELP[toolId];
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentStepIndex(0);
+    }
+  }, [isOpen]);
+
   if (!content || !isOpen) return null;
+
+  const hasTips = content.tips && content.tips.length > 0;
+  const totalSteps = content.steps.length + (hasTips ? 1 : 0);
+  const isTipsStep = currentStepIndex === content.steps.length;
+
+  const handleNext = () => {
+    if (currentStepIndex < totalSteps - 1) {
+      setCurrentStepIndex((prev) => prev + 1);
+    } else {
+      onClose();
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentStepIndex > 0) {
+      setCurrentStepIndex((prev) => prev - 1);
+    }
+  };
 
   const modalContent = (
     <div
@@ -234,7 +260,7 @@ export function ToolHelpModal({ toolId, isOpen, onClose }: ToolHelpModalProps) {
       <div
         role="dialog"
         aria-modal="true"
-        className="relative w-full max-w-lg bg-snow border-[3px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] max-h-[80vh] md:max-h-[85vh] overflow-hidden flex flex-col animate-scale-in"
+        className="relative w-full max-w-md bg-snow border-[3px] border-navy rounded-3xl shadow-[3px_3px_0_0_#000] overflow-hidden flex flex-col animate-scale-in"
       >
         {/* Header */}
         <div className={`${content.accentColor} p-6 pb-5 border-b-[3px] border-navy`}>
@@ -258,42 +284,40 @@ export function ToolHelpModal({ toolId, isOpen, onClose }: ToolHelpModalProps) {
           </div>
         </div>
 
-        {/* Steps */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-3">
-          {content.steps.map((step, i) => (
-            <div key={i} className="flex items-start gap-3 p-3 bg-ghost border-[2px] border-navy/10 rounded-2xl">
-              <div className="w-8 h-8 rounded-xl bg-snow border-[2px] border-navy/15 flex items-center justify-center shrink-0">
-                <svg className="w-4 h-4 text-navy/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  {STEP_ICONS[step.icon] ?? <circle cx="12" cy="12" r="4" />}
+        {/* Carousel Content */}
+        <div className="p-6 h-[220px] flex flex-col justify-center bg-snow">
+          {!isTipsStep ? (
+            <div className="flex flex-col items-center text-center animate-fade-in" key={`step-${currentStepIndex}`}>
+              <div className="w-16 h-16 rounded-2xl bg-ghost border-[3px] border-navy/10 flex items-center justify-center mb-5">
+                <svg className="w-8 h-8 text-navy/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  {STEP_ICONS[content.steps[currentStepIndex].icon] ?? <circle cx="12" cy="12" r="4" />}
                 </svg>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/30">Step {i + 1}</span>
-                </div>
-                <h4 className="font-display font-bold text-sm text-navy">{step.title}</h4>
-                <p className="text-xs text-navy/50 mt-0.5">{step.desc}</p>
+              <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-navy/30 mb-2">
+                Step {currentStepIndex + 1} of {content.steps.length}
               </div>
+              <h4 className="font-display font-black text-lg text-navy mb-2">
+                {content.steps[currentStepIndex].title}
+              </h4>
+              <p className="text-sm text-navy/60 leading-relaxed max-w-sm">
+                {content.steps[currentStepIndex].desc}
+              </p>
             </div>
-          ))}
-
-          {/* Tips */}
-          {content.tips && content.tips.length > 0 && (
-            <div className="mt-4 pt-4 border-t-[2px] border-navy/10">
-              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/40 mb-3 flex items-center gap-1.5">
-                <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+          ) : (
+            <div className="flex flex-col h-full animate-fade-in" key="tips">
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/40 mb-4 flex items-center gap-1.5 justify-center">
+                <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 .75a8.25 8.25 0 00-4.135 15.39c.686.398 1.115 1.008 1.134 1.623a.75.75 0 00.577.706c.352.083.71.148 1.074.195.323.041.6-.218.6-.544v-4.661a6.714 6.714 0 01-.937-.171.75.75 0 11.374-1.453 5.261 5.261 0 002.626 0 .75.75 0 11.374 1.452 6.712 6.712 0 01-.937.172v4.66c0 .327.277.586.6.545.364-.047.722-.112 1.074-.195a.75.75 0 00.577-.706c.02-.615.448-1.225 1.134-1.623A8.25 8.25 0 0012 .75z" />
-                  <path fillRule="evenodd" d="M9.013 19.9a.75.75 0 01.877-.597 11.319 11.319 0 004.22 0 .75.75 0 11.28 1.473 12.819 12.819 0 01-4.78 0 .75.75 0 01-.597-.876zM9.754 22.344a.75.75 0 01.824-.668 13.682 13.682 0 002.844 0 .75.75 0 11.156 1.492 15.156 15.156 0 01-3.156 0 .75.75 0 01-.668-.824z" clipRule="evenodd" />
                 </svg>
-                Tips
+                Pro Tips
               </div>
-              <div className="space-y-2">
-                {content.tips.map((tip, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs text-navy/60">
-                    <svg aria-hidden="true" className="w-3 h-3 text-teal mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+              <div className="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-hide">
+                {content.tips?.map((tip, i) => (
+                  <div key={i} className="flex items-start gap-3 text-sm text-navy/70 bg-ghost p-3 rounded-xl border-[2px] border-navy/5">
+                    <svg aria-hidden="true" className="w-4 h-4 text-teal mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
                       <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
                     </svg>
-                    <span>{tip}</span>
+                    <span className="leading-tight">{tip}</span>
                   </div>
                 ))}
               </div>
@@ -301,14 +325,35 @@ export function ToolHelpModal({ toolId, isOpen, onClose }: ToolHelpModalProps) {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-5 border-t-[3px] border-navy/10">
-          <button
-            onClick={onClose}
-            className="w-full py-3 rounded-2xl bg-lime text-navy border-[3px] border-navy press-3 press-navy font-display font-bold text-sm transition-all"
-          >
-            Got it!
-          </button>
+        {/* Footer & Controls */}
+        <div className="p-5 border-t-[3px] border-navy/10 flex items-center justify-between gap-4 bg-snow">
+          <div className="flex gap-1.5 ml-2">
+            {Array.from({ length: totalSteps }).map((_, idx) => (
+              <div
+                key={idx}
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                  idx === currentStepIndex ? "bg-navy w-4" : "bg-navy/20"
+                }`}
+              />
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {currentStepIndex > 0 && (
+              <button
+                onClick={handlePrev}
+                className="px-4 py-2.5 rounded-xl text-navy/60 font-bold text-sm hover:bg-ghost transition-all"
+              >
+                Back
+              </button>
+            )}
+            <button
+              onClick={handleNext}
+              className="px-6 py-2.5 rounded-xl bg-lime text-navy border-[2px] border-navy shadow-[2px_2px_0_0_#0A192F] font-bold text-sm hover:translate-y-[1px] hover:shadow-[1px_1px_0_0_#0A192F] transition-all"
+            >
+              {currentStepIndex === totalSteps - 1 ? "Got it!" : "Next"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -340,7 +385,13 @@ export function useToolHelp(toolId: string) {
         }
       }
       // First visit OR cooldown elapsed — show after a short delay
-      const timeout = setTimeout(() => setShowHelp(true), 600);
+      const timeout = setTimeout(() => {
+        setShowHelp(true);
+        // Mark as seen immediately so it doesn't pop up again if they navigate away
+        try {
+          localStorage.setItem(storageKey, String(Date.now()));
+        } catch {}
+      }, 600);
       return () => clearTimeout(timeout);
     } catch {
       // localStorage not available
@@ -351,11 +402,6 @@ export function useToolHelp(toolId: string) {
 
   const closeHelp = () => {
     setShowHelp(false);
-    try {
-      localStorage.setItem(storageKey, String(Date.now()));
-    } catch {
-      // localStorage not available
-    }
   };
 
   return { showHelp, openHelp, closeHelp };
