@@ -109,6 +109,11 @@ async def initialize_payment(
         from app.db import get_database
         db = get_database()
 
+        # Check if online payments are enabled globally
+        settings = await db.platformSettings.find_one({"_id": "global"}) or {}
+        if not settings.get("onlinePaymentEnabled", True):
+            raise HTTPException(status_code=403, detail="Online payments are currently disabled")
+
         # External students cannot make payments
         if (
             current_user.get("role") == "student"
@@ -672,6 +677,133 @@ async def get_transactions(
             status_code=500,
             detail=safe_detail("Failed to fetch transactions", e)
         )
+
+async def _execute_local_reversal(db, transaction: dict, new_status: str):
+    """
+    Helper function to reverse a successful paystack transaction locally.
+    Removes student from paidBy/registrations and updates statuses.
+    """
+    if transaction.get("status") != "success":
+        raise HTTPException(status_code=400, detail="Only successful transactions can be reversed")
+        
+    student_id = transaction.get("studentId")
+    payment_id = transaction.get("paymentId")
+    event_id = transaction.get("eventId")
+    reference = transaction.get("reference")
+    
+    # 1. Update general transactions collection
+    await db.transactions.update_one(
+        {"reference": reference},
+        {"$set": {"status": new_status, "updatedAt": datetime.now(timezone.utc)}}
+    )
+    
+    # 2. Update paystackTransactions collection
+    await db.paystackTransactions.update_one(
+        {"_id": transaction["_id"]},
+        {"$set": {"status": new_status, "updatedAt": datetime.now(timezone.utc)}}
+    )
+    
+    # 3. Pull from payments or events
+    if payment_id and ObjectId.is_valid(payment_id):
+        await db.payments.update_one(
+            {"_id": ObjectId(payment_id)},
+            {"$pull": {"paidBy": student_id}}
+        )
+    elif event_id and ObjectId.is_valid(event_id):
+        await db.events.update_one(
+            {"_id": ObjectId(event_id)},
+            {"$pull": {"registrations": student_id}}
+        )
+    return True
+
+@router.post("/transactions/{transaction_id}/reverse")
+async def reverse_paystack_transaction_local(
+    transaction_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Reverse a successful paystack transaction LOCALLY without triggering an actual Paystack refund.
+    Admin only.
+    """
+    from app.db import get_database
+    from app.core.permissions import get_user_permissions
+    db = get_database()
+    
+    sessions = db["sessions"]
+    active_session = await sessions.find_one({"isActive": True})
+    if not active_session:
+        raise HTTPException(status_code=404, detail="No active session")
+        
+    user_id = current_user.get("_id") or current_user.get("id")
+    user_permissions = await get_user_permissions(user_id, str(active_session["_id"]))
+    if "payment:edit" not in user_permissions and "payment:create" not in user_permissions:
+        raise HTTPException(status_code=403, detail="Permission denied")
+        
+    if not ObjectId.is_valid(transaction_id):
+        raise HTTPException(status_code=400, detail="Invalid transaction ID")
+        
+    transaction = await db.paystackTransactions.find_one({"_id": ObjectId(transaction_id)})
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+        
+    await _execute_local_reversal(db, transaction, new_status="reversed")
+    return {"message": "Transaction reversed locally"}
+
+@router.post("/transactions/{transaction_id}/refund")
+async def refund_paystack_transaction(
+    transaction_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Refund a successful transaction via Paystack API AND reverse it locally.
+    Admin only.
+    """
+    from app.db import get_database
+    from app.core.permissions import get_user_permissions
+    db = get_database()
+    
+    sessions = db["sessions"]
+    active_session = await sessions.find_one({"isActive": True})
+    if not active_session:
+        raise HTTPException(status_code=404, detail="No active session")
+        
+    user_id = current_user.get("_id") or current_user.get("id")
+    user_permissions = await get_user_permissions(user_id, str(active_session["_id"]))
+    if "payment:edit" not in user_permissions and "payment:create" not in user_permissions:
+        raise HTTPException(status_code=403, detail="Permission denied")
+        
+    if not ObjectId.is_valid(transaction_id):
+        raise HTTPException(status_code=400, detail="Invalid transaction ID")
+        
+    transaction = await db.paystackTransactions.find_one({"_id": ObjectId(transaction_id)})
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+        
+    if not PAYSTACK_SECRET_KEY:
+        raise HTTPException(status_code=500, detail="Paystack secret key not configured")
+        
+    reference = transaction.get("reference")
+    
+    # Execute Paystack API refund
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{PAYSTACK_BASE_URL}/refund",
+                headers={
+                    "Authorization": f"Bearer {PAYSTACK_SECRET_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={"transaction": reference}
+            )
+            data = response.json()
+            if not data.get("status"):
+                raise HTTPException(status_code=400, detail=data.get("message", "Paystack refund failed"))
+    except httpx.HTTPError as e:
+        raise HTTPException(status_code=502, detail="Failed to communicate with Paystack")
+        
+    # If successful, perform local reversal
+    await _execute_local_reversal(db, transaction, new_status="refunded")
+    return {"message": "Transaction refunded via Paystack"}
 
 
 @router.get("/transactions/export/pdf")

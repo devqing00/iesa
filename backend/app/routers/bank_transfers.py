@@ -457,8 +457,15 @@ async def review_transfer(
     if not transfer:
         raise HTTPException(status_code=404, detail="Transfer not found")
     
-    if transfer["status"] != "pending":
-        raise HTTPException(status_code=400, detail=f"Transfer already {transfer['status']}")
+    if transfer["status"] == data.status:
+        raise HTTPException(status_code=400, detail=f"Transfer is already {data.status}")
+    
+    # Check if a receipt exists for approvals of dues/events
+    if data.status == "approved" and (transfer.get("paymentId") or transfer.get("eventId")) and not transfer.get("receiptImageUrl"):
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot approve this transfer without a receipt screenshot."
+        )
     
     # Update transfer status
     update = {
@@ -473,22 +480,31 @@ async def review_transfer(
         {"$set": update},
     )
     
-    # If approved, mark the payment as paid
-    if data.status == "approved":
-        student_id = transfer["studentId"]
-        session_id = transfer.get("sessionId")  # Get session ID from transfer
-
-        # For dues and event-linked transfers, a receipt image is mandatory
-        if (transfer.get("paymentId") or transfer.get("eventId")) and not transfer.get("receiptImageUrl"):
-            raise HTTPException(
-                status_code=400,
-                detail="Cannot approve this transfer without a receipt screenshot."
-            )
-        
-        # Handle event bank transfers (have eventId instead of paymentId)
-        event_id = transfer.get("eventId")
+    student_id = transfer["studentId"]
+    session_id = transfer.get("sessionId")
+    event_id = transfer.get("eventId")
+    payment_id = transfer.get("paymentId")
+    
+    # If it was previously approved and is now being rejected/pending
+    if transfer["status"] == "approved" and data.status != "approved":
+        # Remove from paidBy / registrations
         if event_id:
-            # Auto-register student for the event
+            await db.events.update_one(
+                {"_id": ObjectId(event_id)},
+                {"$pull": {"registrations": student_id}}
+            )
+        elif payment_id:
+            await db.payments.update_one(
+                {"_id": ObjectId(payment_id)},
+                {"$pull": {"paidBy": student_id}}
+            )
+        # Delete transaction record
+        await db.transactions.delete_one({"bankTransferId": transfer_id})
+    
+    # If it is now being approved
+    elif data.status == "approved":
+        # Add to paidBy / registrations
+        if event_id:
             await db.events.update_one(
                 {"_id": ObjectId(event_id)},
                 {
@@ -496,10 +512,7 @@ async def review_transfer(
                     "$set": {"updatedAt": datetime.now(timezone.utc)},
                 },
             )
-        else:
-            # Regular payment transfer
-            payment_id = transfer["paymentId"]
-            # Add student to paidBy
+        elif payment_id:
             await db.payments.update_one(
                 {"_id": ObjectId(payment_id)},
                 {
@@ -508,9 +521,9 @@ async def review_transfer(
                 },
             )
         
-        # Create a transaction record for receipts and consistency
+        # Create a transaction record
         await db.transactions.insert_one({
-            "paymentId": transfer.get("paymentId"),
+            "paymentId": payment_id,
             "eventId": event_id,
             "sessionId": session_id,
             "studentId": student_id,

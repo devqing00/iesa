@@ -491,7 +491,7 @@ async def download_paid_students_pdf(
     )
 
 
-@router.post("/{payment_id}/pay", response_model=Transaction)
+@router.post("/{payment_id}/pay", response_model=Transaction, dependencies=[Depends(require_permission("payment:edit"))])
 async def record_payment(
     payment_id: str,
     transaction_data: TransactionCreate,
@@ -499,21 +499,11 @@ async def record_payment(
 ):
     """
     Record a payment transaction.
-    Students can record their own payments, admins/excos can record for others.
+    Only admins with payment:edit permission can record manual payments.
     """
     db = get_database()
     payments = db["payments"]
     transactions = db["transactions"]
-
-    # External students cannot make payments
-    if (
-        user.get("role") == "student"
-        and user.get("department", "Industrial Engineering") != "Industrial Engineering"
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Payment is only available to IPE students"
-        )
     
     if not ObjectId.is_valid(payment_id):
         raise HTTPException(
@@ -527,13 +517,6 @@ async def record_payment(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Payment {payment_id} not found"
-        )
-    
-    # Verify student can only pay for themselves (unless admin/exco)
-    if user.get("role") == "student" and transaction_data.studentId != user["_id"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Students can only record their own payments"
         )
     
     # Check if already paid

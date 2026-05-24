@@ -49,6 +49,8 @@ export interface UserProfile {
   dateOfBirth?: string;
   isExternalStudent?: boolean;
   gender?: "male" | "female";
+  openToMentorship?: boolean;
+  mentorshipBio?: string;
 }
 
 interface AuthContextType {

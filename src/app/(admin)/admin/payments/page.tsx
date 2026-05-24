@@ -155,6 +155,8 @@ function AdminPaymentsPage() {
 
   // ── Detail / Sort State ──
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [reversingTransaction, setReversingTransaction] = useState(false);
+  const [refundingTransaction, setRefundingTransaction] = useState(false);
   const [selectedTransfer, setSelectedTransfer] = useState<BankTransfer | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
@@ -656,6 +658,56 @@ function AdminPaymentsPage() {
       toast.error(getErrorMessage(err, "Failed to export transactions PDF"));
     } finally {
       setExportingTransactionsPdf(false);
+    }
+  };
+
+  const handleReverseTransaction = async () => {
+    if (!selectedTransaction) return;
+    if (!confirm("Are you sure you want to REVERSE this transaction locally? This does NOT refund the student on Paystack. It only marks it failed on the dashboard.")) return;
+    
+    setReversingTransaction(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      const res = await fetch(getApiUrl(`/api/v1/paystack/transactions/${selectedTransaction._id}/reverse`), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) await throwApiError(res, "reverse transaction");
+      
+      toast.success("Transaction reversed locally!");
+      setSelectedTransaction(null);
+      fetchTransactions();
+      if (activeTab === "payments") fetchPayments();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to reverse transaction"));
+    } finally {
+      setReversingTransaction(false);
+    }
+  };
+
+  const handleRefundTransaction = async () => {
+    if (!selectedTransaction) return;
+    if (!confirm("Are you sure you want to process a FULL REFUND via Paystack? This action cannot be undone.")) return;
+    
+    setRefundingTransaction(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      const res = await fetch(getApiUrl(`/api/v1/paystack/transactions/${selectedTransaction._id}/refund`), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) await throwApiError(res, "refund transaction");
+      
+      toast.success("Transaction refunded via Paystack successfully!");
+      setSelectedTransaction(null);
+      fetchTransactions();
+      if (activeTab === "payments") fetchPayments();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to refund transaction"));
+    } finally {
+      setRefundingTransaction(false);
     }
   };
 
@@ -1432,27 +1484,42 @@ function AdminPaymentsPage() {
                           </td>
                           <td className="p-4 text-navy/60 text-sm">{new Date(transfer.createdAt).toLocaleDateString()}</td>
                           <td className="p-4">
-                            {transfer.status === "pending" ? (
-                              <PermissionGate permission="bank_transfer:review">
+                            <PermissionGate permission="bank_transfer:review">
+                              <div className="flex flex-col gap-2">
                                 <div className="flex gap-1.5">
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); openReviewModal(transfer, "approved"); }}
-                                    className="px-3 py-1.5 bg-teal-light border-[2px] border-teal rounded-xl text-[10px] font-bold uppercase tracking-wider text-teal hover:bg-teal hover:text-snow transition-colors"
-                                  >
-                                    Approve
-                                  </button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); openReviewModal(transfer, "rejected"); }}
-                                    className="px-3 py-1.5 bg-coral-light border-[2px] border-coral rounded-xl text-[10px] font-bold uppercase tracking-wider text-coral hover:bg-coral hover:text-snow transition-colors"
-                                  >
-                                    Reject
-                                  </button>
+                                  {transfer.status === "pending" && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); openReviewModal(transfer, "approved"); }}
+                                      className="px-3 py-1.5 bg-teal-light border-[2px] border-teal rounded-xl text-[10px] font-bold uppercase tracking-wider text-teal hover:bg-teal hover:text-snow transition-colors"
+                                    >
+                                      Approve
+                                    </button>
+                                  )}
+                                  {transfer.status === "approved" ? (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); openReviewModal(transfer, "rejected"); }}
+                                      className="px-3 py-1.5 bg-lavender-light border-[2px] border-lavender rounded-xl text-[10px] font-bold uppercase tracking-wider text-lavender hover:bg-lavender hover:text-snow transition-colors"
+                                    >
+                                      Reverse
+                                    </button>
+                                  ) : transfer.status === "pending" && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); openReviewModal(transfer, "rejected"); }}
+                                      className="px-3 py-1.5 bg-coral-light border-[2px] border-coral rounded-xl text-[10px] font-bold uppercase tracking-wider text-coral hover:bg-coral hover:text-snow transition-colors"
+                                    >
+                                      Reject
+                                    </button>
+                                  )}
                                 </div>
-                              </PermissionGate>
-                            ) : (
-                              <span className="text-xs text-navy/40">
-                                {transfer.adminNote || "—"}
-                              </span>
+                                {transfer.status !== "pending" && transfer.adminNote && (
+                                  <span className="text-xs text-navy/40 mt-1 block">
+                                    Note: {transfer.adminNote}
+                                  </span>
+                                )}
+                              </div>
+                            </PermissionGate>
+                            {!transfer.adminNote && transfer.status !== "pending" && (
+                              <span className="text-xs text-navy/40">—</span>
                             )}
                           </td>
                         </tr>
@@ -1805,7 +1872,7 @@ function AdminPaymentsPage() {
               <textarea
                 value={reviewNote}
                 onChange={(e) => setReviewNote(e.target.value)}
-                placeholder={reviewAction === "approved" ? "Payment confirmed..." : "Reason for rejection..."}
+                placeholder={reviewAction === "approved" ? "Payment confirmed..." : reviewingTransfer.status === "approved" ? "Reason for reversal..." : "Reason for rejection..."}
                 rows={3}
                 className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy placeholder:text-slate/50 focus:outline-none focus:ring-4 focus:ring-lime/30 transition-all resize-none"
               />
@@ -1827,10 +1894,12 @@ function AdminPaymentsPage() {
                 className={`flex-1 px-6 py-3 border-[3px] border-navy rounded-2xl font-display font-black press-3 press-navy transition-all disabled:opacity-50 ${
                   reviewAction === "approved"
                     ? "bg-teal text-snow"
+                    : reviewingTransfer.status === "approved"
+                    ? "bg-lavender text-snow"
                     : "bg-coral text-snow"
                 }`}
               >
-                {reviewSubmitting ? "Processing..." : reviewAction === "approved" ? "Confirm Approval" : "Confirm Rejection"}
+                {reviewSubmitting ? "Processing..." : reviewAction === "approved" ? "Confirm Approval" : reviewingTransfer.status === "approved" ? "Confirm Reversal" : "Confirm Rejection"}
               </button>
             </div>
           </div>
@@ -2013,22 +2082,32 @@ function AdminPaymentsPage() {
             </div>
 
             <div className="flex gap-3 mt-6">
-              {selectedTransfer.status === "pending" && (
-                <PermissionGate permission="bank_transfer:review">
-                  <button
-                    onClick={() => { setSelectedTransfer(null); openReviewModal(selectedTransfer, "approved"); }}
-                    className="flex-1 px-6 py-3 bg-teal border-[3px] border-navy rounded-2xl font-display font-black text-snow press-3 press-navy transition-all"
-                  >
-                    Approve
-                  </button>
+              <PermissionGate permission="bank_transfer:review">
+                {selectedTransfer.status === "pending" && (
+                  <>
+                    <button
+                      onClick={() => { setSelectedTransfer(null); openReviewModal(selectedTransfer, "approved"); }}
+                      className="flex-1 px-6 py-3 bg-teal border-[3px] border-navy rounded-2xl font-display font-black text-snow press-3 press-navy transition-all"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => { setSelectedTransfer(null); openReviewModal(selectedTransfer, "rejected"); }}
+                      className="flex-1 px-6 py-3 bg-coral border-[3px] border-navy rounded-2xl font-display font-black text-snow press-3 press-navy transition-all"
+                    >
+                      Reject
+                    </button>
+                  </>
+                )}
+                {selectedTransfer.status === "approved" && (
                   <button
                     onClick={() => { setSelectedTransfer(null); openReviewModal(selectedTransfer, "rejected"); }}
-                    className="flex-1 px-6 py-3 bg-coral border-[3px] border-navy rounded-2xl font-display font-black text-snow press-3 press-navy transition-all"
+                    className="flex-1 px-6 py-3 bg-lavender border-[3px] border-navy rounded-2xl font-display font-black text-snow press-3 press-navy transition-all"
                   >
-                    Reject
+                    Reverse Transfer
                   </button>
-                </PermissionGate>
-              )}
+                )}
+              </PermissionGate>
               <button
                 onClick={() => setSelectedTransfer(null)}
                 className={`${selectedTransfer.status === "pending" ? "" : "w-full "}px-6 py-3 bg-transparent border-[3px] border-navy rounded-2xl font-display font-black text-navy hover:bg-navy hover:text-lime hover:border-lime transition-all`}
@@ -2468,6 +2547,76 @@ function AdminPaymentsPage() {
               )}
             </>
           )}
+        </div>
+      )}
+      {/* ── Transaction Action Modal ── */}
+      {selectedTransaction && (
+        <div className="fixed inset-0 bg-navy/60 backdrop-blur-sm flex items-center justify-center p-4 z-[70]" onClick={() => setSelectedTransaction(null)}>
+          <div className="bg-snow border-[3px] border-navy rounded-3xl p-8 shadow-[10px_10px_0_0_#000] max-w-lg w-full max-h-[calc(100vh-2rem)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-display font-black text-2xl text-navy">Transaction Details</h3>
+              <button
+                onClick={() => setSelectedTransaction(null)}
+                className="w-8 h-8 rounded-xl bg-cloud hover:bg-navy/10 flex items-center justify-center transition-colors"
+              >
+                <svg aria-hidden="true" className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Reference</p>
+                <p className="font-mono text-sm text-navy">{selectedTransaction.reference}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Amount</p>
+                  <p className="font-display font-black text-xl text-navy">₦{selectedTransaction.amount.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Status</p>
+                  <span className={`inline-block px-3 py-1 mt-1 rounded-full text-xs font-bold ${transactionStatusBadge(selectedTransaction.status)}`}>
+                    {selectedTransaction.status}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">User</p>
+                <p className="text-sm font-bold text-navy">{selectedTransaction.user ? `${selectedTransaction.user.firstName} ${selectedTransaction.user.lastName}` : "N/A"}</p>
+                {selectedTransaction.user?.email && <p className="text-xs text-slate">{selectedTransaction.user.email}</p>}
+              </div>
+            </div>
+
+            {selectedTransaction.status === "success" && (
+              <PermissionGate permission="payment:edit">
+                <div className="border-t-[3px] border-navy/10 pt-6 space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-[0.12em] text-coral mb-3">Reversals & Refunds</h4>
+                  
+                  <button
+                    onClick={handleReverseTransaction}
+                    disabled={reversingTransaction || refundingTransaction}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-snow border-[3px] border-navy rounded-2xl font-bold text-navy hover:bg-navy hover:text-snow transition-all disabled:opacity-50"
+                  >
+                    {reversingTransaction ? "Reversing..." : "Reverse Locally (No Refund)"}
+                  </button>
+                  
+                  <button
+                    onClick={handleRefundTransaction}
+                    disabled={reversingTransaction || refundingTransaction}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-coral border-[3px] border-navy rounded-2xl font-bold text-snow hover:opacity-90 transition-all disabled:opacity-50"
+                  >
+                    {refundingTransaction ? "Refunding..." : "Process Full Paystack Refund"}
+                  </button>
+                  <p className="text-[10px] text-navy/50 text-center px-4 leading-relaxed mt-2">
+                    <strong className="font-bold text-navy">Reverse Locally:</strong> Only marks failed on the platform.<br/>
+                    <strong className="font-bold text-coral">Full Refund:</strong> Attempts Paystack Refund API and then marks failed locally.
+                  </p>
+                </div>
+              </PermissionGate>
+            )}
+          </div>
         </div>
       )}
     </div>

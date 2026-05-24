@@ -253,9 +253,9 @@ function PaymentsContent() {
     try {
       const token = await getAccessToken();
       const res = await fetch(getApiUrl(`/api/v1/paystack/receipt/pdf?reference=${encodeURIComponent(reference)}`), { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) { 
+      if (!res.ok) {
         const error = await res.json().catch(() => ({ detail: "Download failed" }));
-        throw new Error(error.detail || "Failed to download receipt"); 
+        throw new Error(error.detail || "Failed to download receipt");
       }
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -416,11 +416,11 @@ function PaymentsContent() {
       <div className="px-4 md:px-8 py-6 pb-24 md:pb-8 max-w-6xl mx-auto relative">
         <div className="flex justify-end mb-3"><HelpButton onClick={openHelp} /></div>
         {/* Diamond Sparkle Decorators */}
-        <svg className="fixed top-20 left-[6%] w-5 h-5 text-sunny/18 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed top-44 right-[8%] w-7 h-7 text-teal/12 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed top-[52%] left-[4%] w-4 h-4 text-coral/15 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed bottom-36 right-[12%] w-6 h-6 text-lavender/15 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-        <svg className="fixed top-[32%] right-[20%] w-4 h-4 text-navy/10 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
+        <svg className="fixed top-20 left-[6%] w-5 h-5 text-sunny/18 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" /></svg>
+        <svg className="fixed top-44 right-[8%] w-7 h-7 text-teal/12 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" /></svg>
+        <svg className="fixed top-[52%] left-[4%] w-4 h-4 text-coral/15 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" /></svg>
+        <svg className="fixed bottom-36 right-[12%] w-6 h-6 text-lavender/15 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" /></svg>
+        <svg className="fixed top-[32%] right-[20%] w-4 h-4 text-navy/10 pointer-events-none z-0" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" /></svg>
 
         {verifying ? (
           /* ── Verifying Payment ── */
@@ -464,10 +464,6 @@ function PaymentsContent() {
             <div className="bg-lavender border-[3px] border-navy rounded-[2rem] p-6 md:p-8 shadow-[4px_4px_0_0_#000] rotate-[-0.4deg] hover:rotate-0 transition-transform relative overflow-hidden">
               <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/70 flex items-center gap-2 mb-3">
-                    <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
-                    Finance Portal
-                  </span>
                   <h1 className="font-display font-black text-3xl md:text-4xl text-navy mb-2">
                     <span className="brush-highlight brush-coral">Payments</span> & Dues
                   </h1>
@@ -529,119 +525,119 @@ function PaymentsContent() {
 
             {/* ═══ PENDING DUES ═══ */}
             {activeTab === "pending" && (
-            <div className="space-y-4 mt-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <h2 className="font-display font-black text-2xl text-navy flex items-center gap-2 mb-4">
-                <svg aria-hidden="true" className="w-6 h-6 text-coral" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" /></svg>
-                Pending Dues ({pendingPayments.length})
-              </h2>
-              {pendingPayments.length === 0 ? (
-                <div className="bg-navy border-[3px] border-lime rounded-[2rem] shadow-[3px_3px_0_0_#C8F31D] p-12 text-center">
-                  <div className="w-14 h-14 bg-teal/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <svg aria-hidden="true" className="w-7 h-7 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>
-                  </div>
-                  <p className="font-display font-black text-xl text-snow mb-2">All Caught Up!</p>
-                  <p className="font-display font-normal text-sm text-snow/50">You have no pending payments. Well done!</p>
-                </div>
-              ) : (
-                pendingPayments.map((payment, i) => {
-                  const accent = ACCENT_CYCLE[i % ACCENT_CYCLE.length];
-                  return (
-                    <div
-                      key={payment.id || payment._id}
-                      className={`bg-snow border-[3px] border-navy ${accent} border-l-[6px] rounded-[1.5rem] press-4 press-black overflow-hidden transition-all`}
-                    >
-                      {/* Card Header */}
-                      <div className="px-5 py-3 border-b-[3px] border-navy/10 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/40">#{String(i + 1).padStart(2, "0")}</span>
-                          <span className="px-2.5 py-1 rounded-lg bg-sunny-light text-sunny font-display font-bold text-[10px] uppercase tracking-[0.08em] flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-sunny" />
-                            Pending
-                          </span>
-                        </div>
-                        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/40 capitalize">{payment.category}</span>
-                      </div>
-
-                      {/* Card Body */}
-                      <div className="p-5">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          <div className="space-y-2">
-                            <h3 className="font-display font-black text-lg text-navy">{payment.title}</h3>
-                            <p className="font-display font-normal text-sm text-navy/50">{payment.description}</p>
-                            <p className="font-display font-bold text-xs text-slate uppercase tracking-wider flex items-center gap-1.5">
-                              <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M6.75 2.25A.75.75 0 017.5 3v1.5h9V3A.75.75 0 0118 3v1.5h.75a3 3 0 013 3v11.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V7.5a3 3 0 013-3H6V3a.75.75 0 01.75-.75zm13.5 9a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5v7.5a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5v-7.5z" clipRule="evenodd" /></svg>
-                              Due: {new Date(payment.deadline).toLocaleDateString()}
-                            </p>
-                          </div>
-
-                          <div className="flex flex-col items-end gap-2">
-                            <p className="font-display font-black text-2xl text-navy">₦{payment.amount.toLocaleString()}</p>
-                            {(() => {
-                              const pending = getPendingTransfer(payment.id || payment._id || "");
-                              if (pending) {
-                                return (
-                                  <span className="px-4 py-2 bg-sunny-light text-navy border-[3px] border-navy/20 rounded-xl font-display font-bold text-xs uppercase tracking-wider flex items-center gap-2">
-                                    <svg aria-hidden="true" className="w-3.5 h-3.5 text-sunny" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" /></svg>
-                                    Transfer Under Review
-                                  </span>
-                                );
-                              }
-                              return (
-                                <div className="flex items-center gap-2">
-                                  {onlinePaymentEnabled ? (
-                                  <button
-                                    onClick={() => initiatePayment(payment)}
-                                    disabled={!!processingId}
-                                    className="px-5 py-2.5 bg-lime text-navy border-[3px] border-navy rounded-2xl font-display font-bold text-[11px] uppercase tracking-wider transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
-                                  >
-                                    {processingId === (payment.id || payment._id) ? (
-                                      <>
-                                        <svg aria-hidden="true" className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
-                                        Processing...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 7.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" /><path fillRule="evenodd" d="M1.5 4.875C1.5 3.839 2.34 3 3.375 3h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 17.625V4.875zM8.25 9.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM18.75 9a.75.75 0 00-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 00.75-.75V9.75a.75.75 0 00-.75-.75h-.008zM4.5 9.75A.75.75 0 015.25 9h.008a.75.75 0 01.75.75v.008a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75V9.75z" clipRule="evenodd" /></svg>
-                                        Pay Online
-                                      </>
-                                    )}
-                                  </button>
-                                  ) : (
-                                    <div title="Online payments are currently disabled by admin" className="px-5 py-2.5 bg-cloud text-navy/35 border-[3px] border-navy/15 rounded-2xl font-display font-bold text-[11px] uppercase tracking-wider cursor-not-allowed flex items-center gap-2">
-                                      <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" /></svg>
-                                      Pay Online
-                                      <span className="text-[9px] font-normal lowercase tracking-normal opacity-60">(disabled)</span>
-                                    </div>
-                                  )}
-                                  {bankAccounts.length > 0 && (
-                                    <button
-                                      onClick={() => openTransferModal(payment)}
-                                      className="px-5 py-2.5 bg-ghost text-navy border-[3px] border-navy rounded-2xl font-display font-bold text-[11px] uppercase tracking-wider transition-all hover:bg-cloud flex items-center gap-2"
-                                    >
-                                      <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M11.47 1.72a.75.75 0 011.06 0l3 3a.75.75 0 01-1.06 1.06l-1.72-1.72V7.5h-1.5V4.06L9.53 5.78a.75.75 0 01-1.06-1.06l3-3zM11.25 7.5V15a.75.75 0 001.5 0V7.5h-1.5z" /><path d="M3.375 3C2.339 3 1.5 3.84 1.5 4.875v11.25C1.5 17.16 2.34 18 3.375 18H9.75v1.5H6a.75.75 0 000 1.5h12a.75.75 0 000-1.5h-3.75V18h6.375c1.035 0 1.875-.84 1.875-1.875V4.875C22.5 3.839 21.66 3 20.625 3H3.375z" /></svg>
-                                      Bank Transfer
-                                    </button>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                      </div>
+              <div className="space-y-4 mt-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <h2 className="font-display font-black text-2xl text-navy flex items-center gap-2 mb-4">
+                  <svg aria-hidden="true" className="w-6 h-6 text-coral" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" /></svg>
+                  Pending Dues ({pendingPayments.length})
+                </h2>
+                {pendingPayments.length === 0 ? (
+                  <div className="bg-navy border-[3px] border-lime rounded-[2rem] shadow-[3px_3px_0_0_#C8F31D] p-12 text-center">
+                    <div className="w-14 h-14 bg-teal/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <svg aria-hidden="true" className="w-7 h-7 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>
                     </div>
-                  );
-                })
-              )}
-            </div>
+                    <p className="font-display font-black text-xl text-snow mb-2">All Caught Up!</p>
+                    <p className="font-display font-normal text-sm text-snow/50">You have no pending payments. Well done!</p>
+                  </div>
+                ) : (
+                  pendingPayments.map((payment, i) => {
+                    const accent = ACCENT_CYCLE[i % ACCENT_CYCLE.length];
+                    return (
+                      <div
+                        key={payment.id || payment._id}
+                        className={`bg-snow border-[3px] border-navy ${accent} border-l-[6px] rounded-[1.5rem] press-4 press-black overflow-hidden transition-all`}
+                      >
+                        {/* Card Header */}
+                        <div className="px-5 py-3 border-b-[3px] border-navy/10 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/40">#{String(i + 1).padStart(2, "0")}</span>
+                            <span className="px-2.5 py-1 rounded-lg bg-sunny-light text-sunny font-display font-bold text-[10px] uppercase tracking-[0.08em] flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-sunny" />
+                              Pending
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-navy/40 capitalize">{payment.category}</span>
+                        </div>
+
+                        {/* Card Body */}
+                        <div className="p-5">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="space-y-2">
+                              <h3 className="font-display font-black text-lg text-navy">{payment.title}</h3>
+                              <p className="font-display font-normal text-sm text-navy/50">{payment.description}</p>
+                              <p className="font-display font-bold text-xs text-slate uppercase tracking-wider flex items-center gap-1.5">
+                                <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M6.75 2.25A.75.75 0 017.5 3v1.5h9V3A.75.75 0 0118 3v1.5h.75a3 3 0 013 3v11.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V7.5a3 3 0 013-3H6V3a.75.75 0 01.75-.75zm13.5 9a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5v7.5a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5v-7.5z" clipRule="evenodd" /></svg>
+                                Due: {new Date(payment.deadline).toLocaleDateString()}
+                              </p>
+                            </div>
+
+                            <div className="flex flex-col items-end gap-2">
+                              <p className="font-display font-black text-2xl text-navy">₦{payment.amount.toLocaleString()}</p>
+                              {(() => {
+                                const pending = getPendingTransfer(payment.id || payment._id || "");
+                                if (pending) {
+                                  return (
+                                    <span className="px-4 py-2 bg-sunny-light text-navy border-[3px] border-navy/20 rounded-xl font-display font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+                                      <svg aria-hidden="true" className="w-3.5 h-3.5 text-sunny" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" /></svg>
+                                      Transfer Under Review
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <div className="flex items-center gap-2">
+                                    {onlinePaymentEnabled ? (
+                                      <button
+                                        onClick={() => initiatePayment(payment)}
+                                        disabled={!!processingId}
+                                        className="px-5 py-2.5 bg-lime text-navy border-[3px] border-navy rounded-2xl font-display font-bold text-[11px] uppercase tracking-wider transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center gap-2"
+                                      >
+                                        {processingId === (payment.id || payment._id) ? (
+                                          <>
+                                            <svg aria-hidden="true" className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
+                                            Processing...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 7.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5z" /><path fillRule="evenodd" d="M1.5 4.875C1.5 3.839 2.34 3 3.375 3h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 17.625V4.875zM8.25 9.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM18.75 9a.75.75 0 00-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 00.75-.75V9.75a.75.75 0 00-.75-.75h-.008zM4.5 9.75A.75.75 0 015.25 9h.008a.75.75 0 01.75.75v.008a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75V9.75z" clipRule="evenodd" /></svg>
+                                            Pay Online
+                                          </>
+                                        )}
+                                      </button>
+                                    ) : (
+                                      <div title="Online payments are currently disabled by admin" className="px-5 py-2.5 bg-cloud text-navy/35 border-[3px] border-navy/15 rounded-2xl font-display font-bold text-[11px] uppercase tracking-wider cursor-not-allowed flex items-center gap-2">
+                                        <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z" clipRule="evenodd" /></svg>
+                                        Pay Online
+                                        <span className="text-[9px] font-normal lowercase tracking-normal opacity-60">(disabled)</span>
+                                      </div>
+                                    )}
+                                    {bankAccounts.length > 0 && (
+                                      <button
+                                        onClick={() => openTransferModal(payment)}
+                                        className="px-5 py-2.5 bg-ghost text-navy border-[3px] border-navy rounded-2xl font-display font-bold text-[11px] uppercase tracking-wider transition-all hover:bg-cloud flex items-center gap-2"
+                                      >
+                                        <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M11.47 1.72a.75.75 0 011.06 0l3 3a.75.75 0 01-1.06 1.06l-1.72-1.72V7.5h-1.5V4.06L9.53 5.78a.75.75 0 01-1.06-1.06l3-3zM11.25 7.5V15a.75.75 0 001.5 0V7.5h-1.5z" /><path d="M3.375 3C2.339 3 1.5 3.84 1.5 4.875v11.25C1.5 17.16 2.34 18 3.375 18H9.75v1.5H6a.75.75 0 000 1.5h12a.75.75 0 000-1.5h-3.75V18h6.375c1.035 0 1.875-.84 1.875-1.875V4.875C22.5 3.839 21.66 3 20.625 3H3.375z" /></svg>
+                                        Bank Transfer
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             )}
 
             {/* ═══ PAYMENT HISTORY ═══ */}
             {activeTab === "history" && (
-            <div className="space-y-6 mt-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <h2 className="font-display font-black text-2xl text-navy flex items-center gap-2">
-                <svg aria-hidden="true" className="w-6 h-6 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M1.5 4.875C1.5 3.839 2.34 3 3.375 3h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 17.625V4.875zM8.25 9.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM18.75 9a.75.75 0 00-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 00.75-.75V9.75a.75.75 0 00-.75-.75h-.008zM4.5 9.75A.75.75 0 015.25 9h.008a.75.75 0 01.75.75v.008a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75V9.75z" clipRule="evenodd" /></svg>
-                Payment History ({transactions.length + myTransfers.length})
-              </h2>
+              <div className="space-y-6 mt-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <h2 className="font-display font-black text-2xl text-navy flex items-center gap-2">
+                  <svg aria-hidden="true" className="w-6 h-6 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M1.5 4.875C1.5 3.839 2.34 3 3.375 3h17.25c1.035 0 1.875.84 1.875 1.875v12.75c0 1.035-.84 1.875-1.875 1.875H3.375A1.875 1.875 0 011.5 17.625V4.875zM8.25 9.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM18.75 9a.75.75 0 00-.75.75v.008c0 .414.336.75.75.75h.008a.75.75 0 00.75-.75V9.75a.75.75 0 00-.75-.75h-.008zM4.5 9.75A.75.75 0 015.25 9h.008a.75.75 0 01.75.75v.008a.75.75 0 01-.75.75H5.25a.75.75 0 01-.75-.75V9.75z" clipRule="evenodd" /></svg>
+                  Payment History ({transactions.length + myTransfers.length})
+                </h2>
                 {/* Bank Transfer Submissions */}
                 {myTransfers.length > 0 && (
                   <div className="space-y-3">
@@ -735,8 +731,8 @@ function PaymentsContent() {
                       const statusCfg = txn.status === "success"
                         ? { bg: "bg-teal-light", text: "text-teal", dot: "bg-teal" }
                         : txn.status === "pending"
-                        ? { bg: "bg-sunny-light", text: "text-sunny", dot: "bg-sunny" }
-                        : { bg: "bg-coral-light", text: "text-coral", dot: "bg-coral" };
+                          ? { bg: "bg-sunny-light", text: "text-sunny", dot: "bg-sunny" }
+                          : { bg: "bg-coral-light", text: "text-coral", dot: "bg-coral" };
 
                       return (
                         <div
@@ -965,7 +961,7 @@ function PaymentsContent() {
                       {receiptImage ? (
                         <div className="space-y-3">
                           <div className="flex items-center gap-3 bg-teal-light border-[3px] border-teal/30 rounded-xl px-4 py-3">
-                            <svg aria-hidden="true" className="w-5 h-5 text-teal shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+                            <svg aria-hidden="true" className="w-5 h-5 text-teal shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z" /></svg>
                             <span className="font-display font-medium text-sm text-navy truncate flex-1">{receiptImage.name}</span>
                             <button
                               type="button"

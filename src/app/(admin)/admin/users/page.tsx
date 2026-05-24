@@ -1615,7 +1615,7 @@ function AdminUsersPage() {
         title="Send Onboarding Reminders"
         message="Are you sure you want to send batch email reminders to all active users who have not completed their onboarding profile? This action will use your daily email quota."
         confirmLabel="Send Emails"
-        variant="primary"
+        variant="default"
         isLoading={batchOnboardingLoading}
       />
     </div>

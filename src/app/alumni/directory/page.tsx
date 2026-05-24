@@ -96,11 +96,11 @@ export default function AlumniDirectoryPage() {
             {filteredAlumni.map(person => (
               <div key={person.id} className="bg-snow rounded-3xl border-[3px] border-navy p-6 shadow-[4px_4px_0_0_#000] flex flex-col hover:-translate-y-1 transition-transform">
                 <div className="flex items-start gap-4 mb-4">
-                  <div className="relative w-16 h-16 rounded-2xl overflow-hidden border-2 border-navy shrink-0 bg-ghost">
+                  <div className="relative w-16 h-16 rounded-2xl overflow-hidden border-2 border-navy/10 shrink-0">
                     {person.profilePictureUrl ? (
-                      <Image src={resolveProfileImageUrl(person.profilePictureUrl)} alt={person.firstName} fill className="object-cover" />
+                      <Image src={resolveProfileImageUrl(person) || ""} alt={person.firstName} fill className="object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-lavender-light text-lavender font-bold text-xl">
+                      <div className="w-full h-full flex items-center justify-center bg-lavender-light text-navy font-black text-xl">
                         {person.firstName.charAt(0)}{person.lastName.charAt(0)}
                       </div>
                     )}

@@ -1010,7 +1010,6 @@ export default function StudentDashboardPage() {
                             </Link>
                             <Link
                               href={getNoticeAction(notice).href}
-                              onClick={() => { void trackUsefulAction(`notice_action:${getNoticeAction(notice).label.toLowerCase().replace(/\s+/g, "_")}`); }}
                               className="inline-flex mt-2 items-center gap-1.5 bg-snow border-2 border-navy rounded-lg px-2.5 py-1 text-[10px] font-bold text-navy press-1 press-black"
                             >
                               {getNoticeAction(notice).label}

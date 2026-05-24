@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 export default function AlumniMentorshipPage() {
-  const { userProfile, getAccessToken, refreshUserProfile } = useAuth();
+  const { userProfile, getAccessToken, refreshProfile } = useAuth();
   const router = useRouter();
   
   const [loading, setLoading] = useState(false);
@@ -39,7 +39,7 @@ export default function AlumniMentorshipPage() {
         })
       });
       if (!res.ok) throw new Error("Failed to update profile");
-      await refreshUserProfile();
+      await refreshProfile();
       toast.success("Mentorship preferences updated!");
       router.push("/alumni/dashboard");
     } catch (err: unknown) {
