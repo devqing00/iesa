@@ -41,6 +41,10 @@ function RegisterContent() {
   const [sessionName, setSessionName] = useState("");
   const [apiSessionNames, setApiSessionNames] = useState<string[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(true);
+  // Similar email check
+  const [similarMatches, setSimilarMatches] = useState<{ maskedEmail: string; firstName: string; confidence: number }[]>([]);
+  const [similarDismissed, setSimilarDismissed] = useState(false);
+  const [checkingEmail, setCheckingEmail] = useState(false);
 
   // Fetch sessions to get the active session's second year for level calculation
   useEffect(() => {
@@ -111,6 +115,33 @@ function RegisterContent() {
     setLevelConfirmed(false);
   }, [admittedSession]);
 
+  // ── Similar email check helper ────────────────────────────────────
+  const checkSimilarEmail = async (emailToCheck: string, fName?: string, lName?: string) => {
+    if (!emailToCheck || !emailToCheck.includes("@")) return;
+    setCheckingEmail(true);
+    setSimilarDismissed(false);
+    try {
+      const params = new URLSearchParams({ email: emailToCheck });
+      if (fName) params.set("first_name", fName);
+      if (lName) params.set("last_name", lName);
+      const res = await fetch(getApiUrl(`/api/v1/auth/check-similar-email?${params.toString()}`));
+      if (!res.ok) return;
+      const data: { matches: { maskedEmail: string; firstName: string; confidence: number }[] } = await res.json();
+      setSimilarMatches(data.matches ?? []);
+    } catch {
+      // non-critical — silent fail
+    } finally {
+      setCheckingEmail(false);
+    }
+  };
+
+  const handleEmailBlur = () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (email && emailRegex.test(email)) {
+      void checkSimilarEmail(email, firstName.trim() || undefined, lastName.trim() || undefined);
+    }
+  };
+
   useEffect(() => {
     if (!loading && user) {
       router.push(returnTo || "/dashboard");
@@ -173,6 +204,16 @@ function RegisterContent() {
   const handleGoogleSignUp = async () => {
     setError("");
     setGoogleLoading(true);
+    // Pre-check for similar emails if user has entered one in the email field
+    // We don't block Google sign-up, but surfacing a warning helps prevent duplicates
+    if (email && email.includes("@") && similarMatches.length === 0 && !similarDismissed) {
+      await checkSimilarEmail(email, firstName.trim() || undefined, lastName.trim() || undefined);
+      // If we found matches, show the warning and don't proceed yet
+      if (similarMatches.length > 0) {
+        setGoogleLoading(false);
+        return;
+      }
+    }
     try {
       const success = await signInWithGoogle(returnTo || undefined);
       if (success) {
@@ -356,7 +397,75 @@ function RegisterContent() {
 
               <div className="space-y-2">
                 <label htmlFor="register-email" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Email</label>
-                <input id="register-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@stu.ui.edu.ng/you@gmail.com" required className={inputClass} />
+                <input
+                  id="register-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); setSimilarMatches([]); setSimilarDismissed(false); }}
+                  onBlur={handleEmailBlur}
+                  placeholder="you@stu.ui.edu.ng/you@gmail.com"
+                  required
+                  className={inputClass}
+                />
+                {/* Similar email warning card */}
+                {!similarDismissed && similarMatches.length > 0 && (
+                  <div role="alert" className="p-4 border-[3px] border-sunny bg-sunny-light rounded-2xl space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2">
+                        <svg aria-hidden="true" className="w-5 h-5 text-navy/70 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                        </svg>
+                        <div>
+                          <p className="font-display font-bold text-sm text-navy">Possible existing account detected</p>
+                          <p className="text-xs text-navy/70 mt-0.5">We found {similarMatches.length} account{similarMatches.length > 1 ? "s" : ""} similar to yours. Did you mean to sign in instead?</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSimilarDismissed(true)}
+                        aria-label="Dismiss warning"
+                        className="shrink-0 text-navy/40 hover:text-navy transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="space-y-1">
+                      {similarMatches.map((m, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs text-navy/80">
+                          <span className="w-1.5 h-1.5 rounded-full bg-navy/40 shrink-0" />
+                          <span className="font-bold">{m.maskedEmail}</span>
+                          {m.firstName && <span className="text-navy/60">({m.firstName})</span>}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      <a
+                        href="/login"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-navy text-snow border-[2px] border-navy rounded-xl font-display font-bold text-xs transition-all hover:bg-navy/90"
+                      >
+                        Go to Login
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => setSimilarDismissed(true)}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-snow text-navy border-[2px] border-navy/20 rounded-xl font-display font-bold text-xs transition-all hover:border-navy"
+                      >
+                        Continue Registering Anyway
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {checkingEmail && (
+                  <p className="text-xs text-slate flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Checking for existing accounts…
+                  </p>
+                )}
                 {email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && (
                   <div className="flex items-center gap-2">
                     {isInstitutionalEmail(email) ? (

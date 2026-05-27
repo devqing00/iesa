@@ -2,19 +2,21 @@
 Auth Router — Firebase Auth edition
 
 Endpoints:
-- POST /register-profile  — Create MongoDB profile after Firebase account creation
-- GET  /verify-secondary-email — Verify secondary email (custom dual-email system)
-- POST /resend-verification — Resend secondary email verification
+- POST /register-profile         — Create MongoDB profile after Firebase account creation
+- GET  /check-similar-email      — Pre-registration fuzzy-match check to prevent duplicate accounts
+- GET  /verify-secondary-email   — Verify secondary email (custom dual-email system)
+- POST /resend-verification      — Resend secondary email verification
 
 All primary auth (login, register, password reset, email verification) is
 handled client-side via the Firebase SDK.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status, Request
+from fastapi import APIRouter, HTTPException, Depends, status, Request, Query
 from datetime import datetime, timezone
 from bson import ObjectId
 import os
 import logging
+from typing import Optional
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from jose import JWTError, ExpiredSignatureError
@@ -34,6 +36,136 @@ from app.db import get_database
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 limiter = Limiter(key_func=get_remote_address)
 logger = logging.getLogger("iesa_backend")
+
+
+# ──────────────────────────────────────────────
+# SIMILARITY HELPERS
+# ──────────────────────────────────────────────
+
+def _normalize_email_local(email: str) -> str:
+    """Normalize email local-part: lowercase, strip dots, remove +alias."""
+    local = email.split("@")[0].lower()
+    local = local.split("+")[0]  # strip plus-alias
+    local = local.replace(".", "")  # strip dots (gmail-style)
+    return local
+
+
+def _levenshtein_ratio(a: str, b: str) -> float:
+    """Return similarity ratio between 0 and 1 using Levenshtein distance."""
+    if not a and not b:
+        return 1.0
+    if not a or not b:
+        return 0.0
+    la, lb = len(a), len(b)
+    # dp table
+    dp = list(range(lb + 1))
+    for i in range(1, la + 1):
+        prev = dp[:]
+        dp[0] = i
+        for j in range(1, lb + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            dp[j] = min(dp[j] + 1, dp[j - 1] + 1, prev[j - 1] + cost)
+    return 1.0 - dp[lb] / max(la, lb)
+
+
+def _mask_email(email: str) -> str:
+    """Mask email address for privacy: j***@gmail.com."""
+    parts = email.split("@")
+    if len(parts) != 2:
+        return "***@***"
+    local, domain = parts
+    if len(local) <= 1:
+        return f"{local}***@{domain}"
+    return f"{local[0]}{'*' * min(len(local) - 1, 3)}@{domain}"
+
+
+# ──────────────────────────────────────────────
+# SIMILAR EMAIL CHECK (pre-registration)
+# ──────────────────────────────────────────────
+
+@router.get("/check-similar-email")
+@limiter.limit("10/minute")
+async def check_similar_email(
+    request: Request,
+    email: str = Query(..., description="Email address to check for similarity"),
+    first_name: Optional[str] = Query(None, description="Optional first name for name-based matching"),
+    last_name: Optional[str] = Query(None, description="Optional last name for name-based matching"),
+):
+    """
+    Pre-registration similarity check.
+
+    Returns existing accounts whose email is suspiciously close to the
+    provided email (fuzzy match on local-part), or whose name matches.
+    Results are privacy-masked (partial email + first name only).
+
+    Used by the frontend to warn users who may be creating a duplicate account.
+    Rate limited to 10 requests/minute per IP.
+    """
+    if not email or "@" not in email:
+        return {"matches": []}
+
+    db = get_database()
+    incoming_local = _normalize_email_local(email)
+    incoming_domain = email.split("@")[1].lower() if "@" in email else ""
+    incoming_name = f"{(first_name or '').strip()} {(last_name or '').strip()}".strip().lower()
+
+    # Only scan active accounts (limit to 500 for performance)
+    cursor = db.users.find(
+        {"isActive": {"$ne": False}},
+        {"email": 1, "firstName": 1, "lastName": 1},
+    ).limit(500)
+
+    matches = []
+    async for doc in cursor:
+        stored_email = str(doc.get("email") or "")
+        if not stored_email or "@" not in stored_email:
+            continue
+
+        # Skip exact match — they'd log in normally
+        if stored_email.lower() == email.lower():
+            continue
+
+        stored_local = _normalize_email_local(stored_email)
+        stored_domain = stored_email.split("@")[1].lower()
+        stored_first = str(doc.get("firstName") or "").strip()
+        stored_name = f"{stored_first} {doc.get('lastName', '').strip()}".strip().lower()
+
+        # Strategy 1: normalised local-part similarity
+        local_ratio = _levenshtein_ratio(incoming_local, stored_local)
+
+        # Boost if domains also match
+        domain_match = (incoming_domain == stored_domain)
+        effective_ratio = local_ratio + (0.05 if domain_match else 0)
+
+        # Strategy 2: name similarity (only if a name was provided)
+        name_ratio = 0.0
+        if incoming_name and stored_name:
+            name_ratio = _levenshtein_ratio(incoming_name, stored_name)
+
+        # Include if email is very similar OR name is very similar AND email moderately similar
+        email_threshold = 0.82
+        name_threshold = 0.80
+        email_name_combo = 0.72  # lower email bar when name strongly matches
+
+        is_similar = (
+            effective_ratio >= email_threshold
+            or (name_ratio >= name_threshold and local_ratio >= email_name_combo)
+        )
+
+        if is_similar:
+            confidence = min(1.0, max(effective_ratio, name_ratio))
+            matches.append({
+                "maskedEmail": _mask_email(stored_email),
+                "firstName": stored_first,
+                "confidence": round(confidence, 2),
+            })
+
+        if len(matches) >= 3:
+            break
+
+    # Sort by confidence descending
+    matches.sort(key=lambda x: x["confidence"], reverse=True)
+    return {"matches": matches}
 
 
 # ──────────────────────────────────────────────

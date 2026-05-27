@@ -193,6 +193,8 @@ async def submit_transfer_proof(
         raise HTTPException(status_code=403, detail="Payment is only available to IPE students")
 
     # Validate payment exists
+    if not ObjectId.is_valid(data.paymentId):
+        raise HTTPException(status_code=400, detail="Invalid payment ID format")
     payment = await db.payments.find_one({"_id": ObjectId(data.paymentId)})
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
@@ -241,15 +243,20 @@ async def submit_transfer_proof(
     )
     
     # Validate bank account exists and is active
+    if not ObjectId.is_valid(data.bankAccountId):
+        raise HTTPException(status_code=400, detail="Invalid bank account ID. Please select a valid account from the list.")
     bank_account = await db.bankAccounts.find_one({"_id": ObjectId(data.bankAccountId), "isActive": True})
     if not bank_account:
         raise HTTPException(status_code=404, detail="Bank account not found or inactive")
     
     # Validate transfer amount matches payment amount
-    if abs(data.amount - payment["amount"]) > 0.01:
+    # Coerce both to float to handle int vs float vs Decimal128 storage differences
+    submitted_amount = float(data.amount)
+    required_amount = float(payment["amount"])
+    if abs(submitted_amount - required_amount) > 0.01:
         raise HTTPException(
             status_code=400,
-            detail=f"Transfer amount (₦{data.amount:,.2f}) does not match payment amount (₦{payment['amount']:,.2f})"
+            detail=f"Transfer amount (₦{submitted_amount:,.2f}) does not match payment amount (₦{required_amount:,.2f})"
         )
     
     doc = {

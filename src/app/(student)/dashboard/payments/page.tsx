@@ -330,7 +330,11 @@ function PaymentsContent() {
 
   const handleTransferSubmit = () => {
     if (!showTransferModal || transferSubmitting) return;
-    if (!transferForm.bankAccountId || !transferForm.senderName || !transferForm.senderBank || !transferForm.transferDate) {
+    if (!transferForm.bankAccountId) {
+      toast.error("Account Required", { description: "Please select a destination bank account." });
+      return;
+    }
+    if (!transferForm.senderName || !transferForm.senderBank || !transferForm.transferDate) {
       toast.error("Missing Fields", { description: "Please fill in all required fields" });
       return;
     }
@@ -351,12 +355,21 @@ function PaymentsContent() {
       toast.error("Receipt Required", { description: "Please upload your receipt screenshot before submitting." });
       return;
     }
+    if (!transferForm.bankAccountId) {
+      toast.error("Account Required", { description: "Please select a destination bank account." });
+      return;
+    }
     const payment = showTransferModal;
+    const paymentId = payment.id || payment._id || "";
+    if (!paymentId) {
+      toast.error("Error", { description: "Could not identify the payment. Please refresh and try again." });
+      return;
+    }
     setShowConfirmModal(false);
     setTransferSubmitting(true);
     try {
       const result = await submitTransferProof({
-        paymentId: payment.id || payment._id || "",
+        paymentId,
         bankAccountId: transferForm.bankAccountId,
         amount: payment.amount,
         senderName: transferForm.senderName,
@@ -394,7 +407,12 @@ function PaymentsContent() {
       setShowTransferModal(null);
       fetchMyTransfers();
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : "Failed to submit transfer proof";
+      let msg = "Failed to submit transfer proof";
+      if (error instanceof Error) {
+        msg = error.message;
+      } else if (typeof error === "object" && error !== null && "detail" in error) {
+        msg = String((error as { detail: string }).detail);
+      }
       toast.error("Submission Failed", { description: msg });
     } finally {
       setTransferSubmitting(false);

@@ -176,12 +176,22 @@ export default function StudentDashboardPage() {
         });
         if (!response.ok) return;
         const data: BellNotice[] = await response.json();
+        // Streak/gamification keywords — these notifications are legacy
+        // artefacts from a removed engagement system and must never show.
+        const STREAK_KEYWORDS = ["streak", "momentum", "useful action"];
+        const isStreakNotice = (n: BellNotice) => {
+          const text = `${n.title ?? ""} ${n.message ?? ""}`.toLowerCase();
+          return STREAK_KEYWORDS.some((kw) => text.includes(kw));
+        };
+
         const notices = (Array.isArray(data) ? data : [])
           .filter((n) =>
             ["announcement", "payment", "event", "team_task", "team_application", "planner_reminder", "system", "timetable", "timetable_reminder", "class_status", "cohort_poll"].includes(
               (n.type || "").toLowerCase(),
             ),
           )
+          // Remove any streak/momentum notifications regardless of type
+          .filter((n) => !isStreakNotice(n))
           .slice(0, 4);
         setBellNotices(notices);
       } catch {
