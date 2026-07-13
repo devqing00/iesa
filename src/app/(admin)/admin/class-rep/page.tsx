@@ -1290,7 +1290,7 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
           )}
 
           <div className="flex bg-ghost rounded-2xl p-1 w-fit border-[3px] border-navy">
-            {[1, 2].map((sem) => (
+            {([1, 2] as const).map((sem) => (
               <button
                 key={sem}
                 onClick={() => setTtViewSemester(sem)}
