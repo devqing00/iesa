@@ -11,6 +11,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
 from bson import ObjectId
 
+from ..models.session import Session
 from ..core.security import get_current_user, require_ipe_student
 from ..core.permissions import require_permission, require_any_permission
 from ..core.database import get_database
@@ -57,6 +58,7 @@ class ClassSessionCreate(BaseModel):
     courseCode: str
     courseTitle: str
     level: int
+    semester: int = Field(..., ge=1, le=2)
     day: str  # Monday, Tuesday, Wednesday, Thursday, Friday
     startTime: str  # "08:00"
     endTime: str  # "10:00"
@@ -72,6 +74,7 @@ class ClassSessionResponse(BaseModel):
     courseCode: str
     courseTitle: str
     level: int
+    semester: int
     day: str
     startTime: str
     endTime: str
@@ -140,6 +143,17 @@ async def get_current_session(db: AsyncIOMotorDatabase):
     session = await sessions.find_one({"isActive": True})
     if not session:
         raise HTTPException(status_code=404, detail="No active session found")
+    
+    # Compute currentSemester
+    now = datetime.now(timezone.utc)
+    sem2 = session.get("semester2StartDate")
+    if sem2:
+        if sem2.tzinfo is None:
+            sem2 = sem2.replace(tzinfo=timezone.utc)
+        session["currentSemester"] = 1 if now < sem2 else 2
+    else:
+        session["currentSemester"] = 1
+        
     return session
 
 
@@ -218,6 +232,7 @@ async def create_class_session(
         "courseCode": class_data.courseCode.upper(),
         "courseTitle": class_data.courseTitle,
         "level": class_data.level,
+        "semester": class_data.semester,
         "day": validate_day(class_data.day),
         "startTime": class_data.startTime,
         "endTime": class_data.endTime,
@@ -248,6 +263,7 @@ async def create_class_session(
 @router.get("/classes", response_model=List[ClassSessionResponse])
 async def list_class_sessions(
     level: Optional[int] = Query(None, description="Filter by level"),
+    semester: Optional[int] = Query(None, description="Filter by semester (1 or 2)"),
     day: Optional[str] = Query(None, description="Filter by day"),
     courseCode: Optional[str] = Query(None, description="Filter by course code"),
     user: dict = Depends(require_ipe_student),
@@ -264,6 +280,11 @@ async def list_class_sessions(
     
     if level:
         query["level"] = level
+    
+    if semester:
+        query["semester"] = semester
+    else:
+        query["semester"] = session.get("currentSemester", 1)
     
     if day:
         query["day"] = validate_day(day)
@@ -287,6 +308,7 @@ async def list_class_sessions(
 @router.get("/pdf")
 async def download_timetable_pdf(
     level: Optional[int] = Query(None, description="Filter by level"),
+    semester: Optional[int] = Query(None, description="Filter by semester (1 or 2)"),
     user: dict = Depends(require_ipe_student),
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
@@ -315,7 +337,11 @@ async def download_timetable_pdf(
     session_name = session.get("name", "Current Session")
 
     # Fetch classes
-    query = {"sessionId": str(session["_id"]), "level": student_level}
+    query = {
+        "sessionId": str(session["_id"]), 
+        "level": student_level,
+        "semester": semester or session.get("currentSemester", 1)
+    }
     cursor = db["classSessions"].find(query).sort([("day", 1), ("startTime", 1)])
     classes = []
     async for doc in cursor:
@@ -350,6 +376,7 @@ async def download_timetable_pdf(
 @router.get("/week", response_model=WeeklyScheduleResponse)
 async def get_weekly_schedule(
     level: int = Query(..., description="Student level"),
+    semester: Optional[int] = Query(None, description="Filter by semester (1 or 2)"),
     week_start: Optional[str] = Query(None, description="Week start date (YYYY-MM-DD)"),
     user: dict = Depends(require_ipe_student),
     db: AsyncIOMotorDatabase = Depends(get_database)
@@ -375,7 +402,8 @@ async def get_weekly_schedule(
     # Fetch classes for the level
     cursor = class_sessions.find({
         "sessionId": str(session["_id"]),
-        "level": level
+        "level": level,
+        "semester": semester or session.get("currentSemester", 1)
     }).sort([("day", 1), ("startTime", 1)])
     
     classes = []
@@ -411,6 +439,7 @@ async def get_weekly_schedule(
 @router.get("/today", response_model=List[dict])
 async def get_today_classes(
     level: int = Query(..., description="Student level"),
+    semester: Optional[int] = Query(None, description="Filter by semester (1 or 2)"),
     user: dict = Depends(require_ipe_student),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
@@ -429,6 +458,7 @@ async def get_today_classes(
     cursor = class_sessions.find({
         "sessionId": str(session["_id"]),
         "level": level,
+        "semester": semester or session.get("currentSemester", 1),
         "day": day_name
     }).sort("startTime", 1)
     
@@ -965,6 +995,7 @@ class ExamCreate(BaseModel):
     courseCode: str
     courseTitle: str
     level: int
+    semester: int = Field(..., ge=1, le=2)
     date: str  # "2026-03-20"
     startTime: str  # "09:00"
     endTime: str  # "12:00"
@@ -976,6 +1007,7 @@ class ExamUpdate(BaseModel):
     courseCode: Optional[str] = None
     courseTitle: Optional[str] = None
     level: Optional[int] = None
+    semester: Optional[int] = Field(None, ge=1, le=2)
     date: Optional[str] = None
     startTime: Optional[str] = None
     endTime: Optional[str] = None
@@ -1008,6 +1040,7 @@ async def create_exam(
         "courseCode": exam_data.courseCode.upper(),
         "courseTitle": exam_data.courseTitle,
         "level": exam_data.level,
+        "semester": exam_data.semester,
         "date": exam_data.date,
         "startTime": exam_data.startTime,
         "endTime": exam_data.endTime,
@@ -1049,6 +1082,7 @@ async def create_exam(
 @router.get("/exams")
 async def list_exams(
     level: Optional[int] = Query(None),
+    semester: Optional[int] = Query(None, description="Filter by semester (1 or 2)"),
     user: dict = Depends(require_ipe_student),
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
@@ -1057,6 +1091,7 @@ async def list_exams(
     query: dict = {"sessionId": str(session["_id"])}
     if level:
         query["level"] = level
+    query["semester"] = semester or session.get("currentSemester", 1)
     cursor = db["examTimetable"].find(query).sort([("date", 1), ("startTime", 1)])
     docs = await cursor.to_list(length=200)
     for doc in docs:

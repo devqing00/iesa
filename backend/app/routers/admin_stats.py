@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends
 from app.core.security import get_current_user
 from app.core.permissions import require_any_permission, require_permission
 from app.core.cache import cache_get, cache_set
+from app.core.academic_context import get_academic_context
 from app.db import get_database
 import asyncio
 from datetime import date, datetime, timedelta, timezone
@@ -145,7 +146,7 @@ async def get_admin_stats(
         db["events"].count_documents({}),
         db["announcements"].count_documents({}),
         # Active session (single document)
-        db["sessions"].find_one({"isActive": True}, {"_id": 0, "name": 1}),
+        db["sessions"].find_one({"isActive": True}),
         # Enrollments grouped by level — normalise int (400) and string (400L) to same bucket
         db["enrollments"].aggregate([
             {"$addFields": {
@@ -213,6 +214,8 @@ async def get_admin_stats(
         }),
     )
 
+    academic_context = await get_academic_context(db, active_session_doc) if active_session_doc else {}
+
     enrollments_by_level = enrollments_by_level or []
     payments_by_status = payments_by_status or []
     recent_audit_logs = recent_audit_logs or []
@@ -269,6 +272,7 @@ async def get_admin_stats(
         "totalEvents": total_events,
         "totalAnnouncements": total_announcements,
         "activeSession": active_session_doc["name"] if active_session_doc else None,
+        "academicContext": academic_context,
         "enrollmentsByLevel": ordered_levels,
         "paymentsByStatus": status_data,
         "recentActivity": logs,

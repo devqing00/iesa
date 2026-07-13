@@ -70,7 +70,7 @@ const meta = {
   progress: { currentPage: 1, totalPages: 300 },
   bookmarks: [],
   pageNotes: [],
-};
+} as any;
 
 describe("ResourceViewer large PDF stability", () => {
   beforeEach(() => {
@@ -99,7 +99,7 @@ describe("ResourceViewer large PDF stability", () => {
   it("renders a window of pages instead of mounting the whole document", async () => {
     render(
       <ResourceViewer
-        meta={meta}
+        meta={meta as any}
         loading={false}
         token="token"
         onClose={vi.fn()}

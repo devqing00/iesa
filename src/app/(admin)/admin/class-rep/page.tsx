@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { usePermissions } from "@/context/PermissionsContext";
+import { useSession } from "@/context/SessionContext";
 import { getApiUrl } from "@/lib/api";
 import { withAuth } from "@/lib/withAuth";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
@@ -114,6 +115,7 @@ interface TimetableEntry {
   venue: string;
   type: string;
   recurring?: boolean;
+  semester?: number;
 }
 
 type Tab = "overview" | "cohort" | "deadlines" | "polls" | "relay" | "announcements" | "timetable";
@@ -206,6 +208,7 @@ function timeAgo(d: string | Date | null | undefined): string {
 export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = {}) {
   const { getAccessToken } = useAuth();
   const { hasPermission } = usePermissions();
+  const { currentSession } = useSession();
   const [tab, setTab] = useState<Tab>("overview");
   const [level, setLevel] = useState("");
   const [loading, setLoading] = useState(true);
@@ -222,6 +225,7 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
   const [polls, setPolls] = useState<Poll[]>([]);
   const [relayPosts, setRelayPosts] = useState<RelayPost[]>([]);
   const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
+  const [ttViewSemester, setTtViewSemester] = useState(currentSession?.currentSemester || 1);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [studentModalOpen, setStudentModalOpen] = useState(false);
   const [studentLoading, setStudentLoading] = useState(false);
@@ -267,12 +271,20 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
   // Timetable form
   const [ttCourseCode, setTtCourseCode] = useState("");
   const [ttCourseTitle, setTtCourseTitle] = useState("");
+  const [ttSemester, setTtSemester] = useState(currentSession?.currentSemester || 1);
   const [ttDay, setTtDay] = useState("Monday");
   const [ttStartTime, setTtStartTime] = useState("08:00");
   const [ttEndTime, setTtEndTime] = useState("10:00");
   const [ttVenue, setTtVenue] = useState("");
   const [ttLecturer, setTtLecturer] = useState("");
   const [ttType, setTtType] = useState("lecture");
+
+  useEffect(() => {
+    if (currentSession?.currentSemester) {
+      setTtSemester(currentSession.currentSemester);
+      setTtViewSemester(currentSession.currentSemester);
+    }
+  }, [currentSession?.currentSemester]);
 
   /* ── API helper ──────────────────────────────────────────── */
   const apiFetch = useCallback(
@@ -372,6 +384,7 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
   function resetTimetableForm() {
     setTtCourseCode("");
     setTtCourseTitle("");
+    setTtSemester(currentSession?.currentSemester || 1);
     setTtDay("Monday");
     setTtStartTime("08:00");
     setTtEndTime("10:00");
@@ -519,6 +532,7 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
       const payload = {
         courseCode: ttCourseCode,
         courseTitle: ttCourseTitle,
+        semester: ttSemester,
         day: ttDay,
         startTime: ttStartTime,
         endTime: ttEndTime,
@@ -632,6 +646,7 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
     setEditingTimetableId(entry.id);
     setTtCourseCode(entry.courseCode);
     setTtCourseTitle(entry.courseTitle);
+    setTtSemester(entry.semester === 2 ? 2 : 1);
     setTtDay(entry.dayOfWeek);
     setTtStartTime(entry.startTime);
     setTtEndTime(entry.endTime);
@@ -1209,6 +1224,7 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
                     resetTimetableForm();
                     return;
                   }
+                  resetTimetableForm();
                   setShowTimetableForm(true);
                 }}
                 className="bg-lime border-[3px] border-navy rounded-2xl px-5 py-3 font-bold text-sm text-navy press-3 press-navy"
@@ -1220,9 +1236,13 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
 
           {showTimetableForm && canManageTimetable && (
             <div className="bg-snow border-4 border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <input value={ttCourseCode} onChange={(e) => setTtCourseCode(e.target.value)} placeholder="Course code (e.g. IPE 401)" className="border-[3px] border-navy rounded-2xl px-4 py-3 text-sm font-medium text-navy placeholder:text-slate focus:outline-none focus:border-lime" />
                 <input value={ttCourseTitle} onChange={(e) => setTtCourseTitle(e.target.value)} placeholder="Course title" className="border-[3px] border-navy rounded-2xl px-4 py-3 text-sm font-medium text-navy placeholder:text-slate focus:outline-none focus:border-lime" />
+                <select value={ttSemester} onChange={(e) => setTtSemester(Number(e.target.value) === 2 ? 2 : 1)} title="Semester" className="border-[3px] border-navy rounded-2xl px-4 py-3 text-sm font-bold text-navy focus:outline-none focus:border-lime">
+                  <option value={1}>1st Semester</option>
+                  <option value={2}>2nd Semester</option>
+                </select>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <select value={ttDay} onChange={(e) => setTtDay(e.target.value)} title="Class day" className="border-[3px] border-navy rounded-2xl px-4 py-3 text-sm font-bold text-navy focus:outline-none focus:border-lime">
@@ -1269,10 +1289,26 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
             </div>
           )}
 
+          <div className="flex bg-ghost rounded-2xl p-1 w-fit border-[3px] border-navy">
+            {[1, 2].map((sem) => (
+              <button
+                key={sem}
+                onClick={() => setTtViewSemester(sem)}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                  ttViewSemester === sem
+                    ? "bg-navy text-snow shadow-sm"
+                    : "text-slate hover:text-navy hover:bg-snow/50"
+                }`}
+              >
+                {sem === 1 ? "1st Semester" : "2nd Semester"}
+              </button>
+            ))}
+          </div>
+
           <div className="bg-snow border-4 border-navy rounded-3xl shadow-[8px_8px_0_0_#000] overflow-hidden">
-            {timetable.length === 0 ? (
+            {timetable.filter(e => (e.semester || 1) === ttViewSemester).length === 0 ? (
               <div className="p-8 text-center">
-                <p className="text-slate">No timetable entries for {level}.</p>
+                <p className="text-slate">No timetable entries for {ttViewSemester === 1 ? "1st" : "2nd"} Semester.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -1289,7 +1325,9 @@ export function ClassRepPortal({ variant = "class-rep" }: ClassRepPortalProps = 
                     </tr>
                   </thead>
                   <tbody>
-                    {timetable.map((entry) => (
+                    {timetable
+                      .filter(e => (e.semester || 1) === ttViewSemester)
+                      .map((entry) => (
                       <tr key={entry.id} className="border-b border-cloud hover:bg-ghost/50 transition-colors">
                         <td className="px-4 py-3 font-bold text-navy">{entry.dayOfWeek}</td>
                         <td className="px-4 py-3 text-slate">{entry.startTime} – {entry.endTime}</td>

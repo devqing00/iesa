@@ -16,6 +16,7 @@ from bson import ObjectId
 
 from app.core.security import get_current_user
 from app.core.cache import cache_get, cache_set
+from app.core.academic_context import get_academic_context
 from app.db import get_database
 
 router = APIRouter(prefix="/api/v1/student", tags=["Student Dashboard"])
@@ -188,12 +189,12 @@ async def _fetch_payments(db, session_id: str, user_id: str):
     return result
 
 
-async def _fetch_today_classes(db, session_id: str, user_level: int | None):
+async def _fetch_today_classes(db, session_id: str, user_level: int | None, current_semester: int):
     """Today's class sessions for the student's level."""
     day_name = date.today().strftime("%A")  # e.g. "Monday"
     today_iso = date.today().isoformat()
 
-    query: dict = {"sessionId": session_id, "day": day_name}
+    query: dict = {"sessionId": session_id, "day": day_name, "semester": current_semester}
     if user_level:
         # user_level is e.g. "300L" — extract numeric part for the DB query
         try:
@@ -341,11 +342,12 @@ async def get_student_dashboard(
     is_external = user_department != "Industrial Engineering" and not is_admin
 
     if is_external:
-        announcements, birthdays = await asyncio.gather(
+        announcements, birthdays, academic_context = await asyncio.gather(
             _fetch_announcements(
                 db, session_id, user_id, user_level, is_admin, user_department
             ),
             _fetch_todays_birthdays(db, user_id),
+            get_academic_context(db, session),
         )
         is_my_birthday = any(b["isCurrentUser"] for b in birthdays)
         result = {
@@ -356,14 +358,16 @@ async def get_student_dashboard(
             "birthdays": birthdays,
             "isMyBirthday": is_my_birthday,
             "activeSession": session_name,
+            "academicContext": academic_context,
         }
     else:
         # Fetch all in parallel for IPE students
+        academic_context = await get_academic_context(db, session)
         announcements, events, payments, today_classes, birthdays = await asyncio.gather(
             _fetch_announcements(db, session_id, user_id, user_level, is_admin, user_department),
             _fetch_upcoming_events(db, session_id, user_id),
             _fetch_payments(db, session_id, user_id),
-            _fetch_today_classes(db, session_id, user_level),
+            _fetch_today_classes(db, session_id, user_level, academic_context["currentSemester"]),
             _fetch_todays_birthdays(db, user_id),
         )
         is_my_birthday = any(b["isCurrentUser"] for b in birthdays)
@@ -375,6 +379,7 @@ async def get_student_dashboard(
             "birthdays": birthdays,
             "isMyBirthday": is_my_birthday,
             "activeSession": session_name,
+            "academicContext": academic_context,
         }
     await cache_set(cache_key, result, ttl=CACHE_TTL)
     return result

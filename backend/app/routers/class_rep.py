@@ -159,12 +159,21 @@ async def _get_level_cohort_user_ids(db, session_id: str, level: str) -> list[st
         {"sessionId": session_id, "level": level, "isActive": True},
         {"studentId": 1, "userId": 1},
     ).to_list(None)
-    cohort_ids = []
+    raw_ids = []
     for e in enrollments:
         sid = e.get("studentId") or str(e.get("userId", ""))
         if sid:
-            cohort_ids.append(str(sid))
-    return list(dict.fromkeys(cohort_ids))
+            raw_ids.append(str(sid))
+            
+    unique_ids = list(dict.fromkeys(raw_ids))
+    oid_list = [ObjectId(sid) for sid in unique_ids if ObjectId.is_valid(sid)]
+    
+    valid_users = await db["users"].find(
+        {"_id": {"$in": oid_list}, "isExternalStudent": {"$ne": True}},
+        {"_id": 1}
+    ).to_list(None)
+    
+    return [str(u["_id"]) for u in valid_users]
 
 
 def _normalize_level_label(level: str) -> str:
@@ -203,24 +212,6 @@ async def _get_member_level(current_user: dict, session_id: str) -> str:
     """Resolve level for a student-facing cohort view in the active session."""
     db = get_database()
     uid = _user_id(current_user)
-
-    blocked_role = await db["roles"].find_one(
-        {
-            "userId": uid,
-            "sessionId": session_id,
-            "isActive": True,
-            "$or": [
-                {"position": {"$regex": "^class_rep_"}},
-                {"position": {"$regex": "^asst_class_rep_"}},
-            ],
-        },
-        {"_id": 1},
-    )
-    if blocked_role:
-        raise HTTPException(
-            status_code=403,
-            detail="Class reps and assistants cannot access the cohort portal.",
-        )
 
     enrollment = await db["enrollments"].find_one(
         {
@@ -359,18 +350,7 @@ async def list_cohort(
     session_id = await _get_active_session_id()
     db = get_database()
 
-    # Get enrollment docs for this level + session
-    enrollments = await db["enrollments"].find({
-        "sessionId": session_id,
-        "level": level,
-        "isActive": True,
-    }).to_list(None)
-
-    student_ids = []
-    for e in enrollments:
-        sid = e.get("studentId") or str(e.get("userId", ""))
-        if sid:
-            student_ids.append(sid)
+    student_ids = await _get_level_cohort_user_ids(db, session_id, level)
 
     if not student_ids:
         return {"level": level, "count": 0, "students": []}
@@ -493,16 +473,7 @@ async def export_cohort_csv(
     session_id = await _get_active_session_id()
     db = get_database()
 
-    enrollments = await db["enrollments"].find({
-        "sessionId": session_id,
-        "level": level,
-        "isActive": True,
-    }).to_list(None)
-
-    student_ids = [
-        e.get("studentId") or str(e.get("userId", ""))
-        for e in enrollments
-    ]
+    student_ids = await _get_level_cohort_user_ids(db, session_id, level)
     oid_list = [ObjectId(s) for s in student_ids if ObjectId.is_valid(s)]
 
     users = await db["users"].find(
@@ -544,16 +515,7 @@ async def export_cohort_pdf(
     session_id = await _get_active_session_id()
     db = get_database()
 
-    enrollments = await db["enrollments"].find({
-        "sessionId": session_id,
-        "level": level,
-        "isActive": True,
-    }).to_list(None)
-
-    student_ids = [
-        e.get("studentId") or str(e.get("userId", ""))
-        for e in enrollments
-    ]
+    student_ids = await _get_level_cohort_user_ids(db, session_id, level)
     oid_list = [ObjectId(s) for s in student_ids if ObjectId.is_valid(s)]
 
     users = await db["users"].find(
@@ -600,16 +562,8 @@ async def cohort_stats(current_user: dict = Depends(get_current_user)):
     session_id = await _get_active_session_id()
     db = get_database()
 
-    # Enrolled students
-    enrollments = await db["enrollments"].find({
-        "sessionId": session_id,
-        "level": level,
-        "isActive": True,
-    }).to_list(None)
-    student_ids = [
-        e.get("studentId") or str(e.get("userId", ""))
-        for e in enrollments
-    ]
+    # Enrolled students (excluding external)
+    student_ids = await _get_level_cohort_user_ids(db, session_id, level)
     enrolled_count = len(student_ids)
 
     # Payment compliance — how many of these students are in every paidBy array

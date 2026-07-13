@@ -3,6 +3,7 @@
 import Sidebar from "@/components/dashboard/Sidebar";
 import MobileNav from "@/components/dashboard/MobileNav";
 import AutoPushEnrollment from "@/components/dashboard/AutoPushEnrollment";
+import { ContextPopup } from "@/components/dashboard/ContextPopup";
 import FloatingToolPopup from "@/components/ui/FloatingToolPopup";
 import FullScreenLoader from "@/components/ui/FullScreenLoader";
 import { useAuth } from "@/context/AuthContext";
@@ -31,6 +32,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         {/* Subtle dot pattern */}
         <div className="absolute inset-0 -z-10 bg-dots opacity-30 pointer-events-none" />
         <AutoPushEnrollment />
+        <ContextPopup />
         {children}
       </main>
       <MobileNav />

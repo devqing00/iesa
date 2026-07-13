@@ -9,6 +9,7 @@ import { ConfirmModal } from "@/components/ui/Modal";
 import AcademicCalendarTab from "@/components/admin/AcademicCalendarTab";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
+import { useAdminStats } from "@/hooks/useData";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -18,6 +19,7 @@ interface ClassSession {
   courseCode: string;
   courseTitle: string;
   level: number;
+  semester: number;
   day: string;
   startTime: string;
   endTime: string;
@@ -34,6 +36,7 @@ interface ExamEntry {
   courseCode: string;
   courseTitle: string;
   level: number;
+  semester: number;
   date: string;
   startTime: string;
   endTime: string;
@@ -69,15 +72,20 @@ function AdminTimetablePage() {
   const [classes, setClasses] = useState<ClassSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterLevel, setFilterLevel] = useState<number | "">("");
+  const [filterSemester, setFilterSemester] = useState<number | "">("");
   const [filterDay, setFilterDay] = useState<string>("");
   const [showModal, setShowModal] = useState(false);
   const [editingClass, setEditingClass] = useState<ClassSession | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
+  const { data: adminStats } = useAdminStats();
+  const defaultSemester = adminStats?.academicContext?.currentSemester || 1;
+
   /* ── Exam state ── */
   const [exams, setExams] = useState<ExamEntry[]>([]);
   const [examsLoading, setExamsLoading] = useState(true);
   const [examFilterLevel, setExamFilterLevel] = useState<number | "">("");
+  const [examFilterSemester, setExamFilterSemester] = useState<number | "">("");
   const [showExamModal, setShowExamModal] = useState(false);
   const [editingExam, setEditingExam] = useState<ExamEntry | null>(null);
   const [deletingExam, setDeletingExam] = useState<string | null>(null);
@@ -86,17 +94,24 @@ function AdminTimetablePage() {
     courseCode: "",
     courseTitle: "",
     level: 100,
+    semester: 1,
     date: "",
     startTime: "09:00",
     endTime: "12:00",
     venue: "",
     examType: "written" as string,
   });
+
+  useEffect(() => {
+    setExamForm((prev) => ({ ...prev, semester: defaultSemester }));
+    setFormData((prev) => ({ ...prev, semester: defaultSemester }));
+  }, [defaultSemester]);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: "" });
   const [formData, setFormData] = useState({
     courseCode: "",
     courseTitle: "",
     level: 100,
+    semester: 1,
     day: "Monday",
     startTime: "08:00",
     endTime: "10:00",
@@ -114,6 +129,7 @@ function AdminTimetablePage() {
       const token = await getAccessToken();
       const params = new URLSearchParams();
       if (filterLevel) params.set("level", String(filterLevel));
+      if (filterSemester) params.set("semester", String(filterSemester));
       if (filterDay) params.set("day", filterDay);
       const url = getApiUrl(`/api/v1/timetable/classes${params.toString() ? `?${params}` : ""}`);
       const res = await fetch(url, {
@@ -198,13 +214,14 @@ function AdminTimetablePage() {
       const token = await getAccessToken();
       const params = new URLSearchParams();
       if (examFilterLevel) params.set("level", String(examFilterLevel));
+      if (examFilterSemester) params.set("semester", String(examFilterSemester));
       const url = getApiUrl(`/api/v1/timetable/exams${params.toString() ? `?${params}` : ""}`);
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) await throwApiError(res, "load timetable");
       setExams(await res.json());
     } catch (err) { toast.error(getErrorMessage(err, "Failed to load exams")); }
     finally { setExamsLoading(false); }
-  }, [user, getAccessToken, examFilterLevel]);
+  }, [user, getAccessToken, examFilterLevel, examFilterSemester]);
 
   useEffect(() => { if (activeTab === "exams") fetchExams(); }, [fetchExams, activeTab]);
 
@@ -250,13 +267,13 @@ function AdminTimetablePage() {
 
   const openExamCreate = () => {
     setEditingExam(null);
-    setExamForm({ courseCode: "", courseTitle: "", level: 100, date: "", startTime: "09:00", endTime: "12:00", venue: "", examType: "written" });
+    setExamForm({ courseCode: "", courseTitle: "", level: 100, semester: 1, date: "", startTime: "09:00", endTime: "12:00", venue: "", examType: "written" });
     setShowExamModal(true);
   };
 
   const openExamEdit = (ex: ExamEntry) => {
     setEditingExam(ex);
-    setExamForm({ courseCode: ex.courseCode, courseTitle: ex.courseTitle, level: ex.level, date: ex.date, startTime: ex.startTime, endTime: ex.endTime, venue: ex.venue, examType: ex.examType });
+    setExamForm({ courseCode: ex.courseCode, courseTitle: ex.courseTitle, level: ex.level, semester: ex.semester, date: ex.date, startTime: ex.startTime, endTime: ex.endTime, venue: ex.venue, examType: ex.examType });
     setShowExamModal(true);
   };
 
@@ -266,6 +283,7 @@ function AdminTimetablePage() {
       courseCode: "",
       courseTitle: "",
       level: 100,
+      semester: 1,
       day: "Monday",
       startTime: "08:00",
       endTime: "10:00",
@@ -283,6 +301,7 @@ function AdminTimetablePage() {
       courseCode: cls.courseCode,
       courseTitle: cls.courseTitle,
       level: cls.level,
+      semester: cls.semester,
       day: cls.day,
       startTime: cls.startTime,
       endTime: cls.endTime,
@@ -393,7 +412,7 @@ function AdminTimetablePage() {
       {/* Stats + Filters */}
       {activeTab === "classes" ? (
         <>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-snow border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]">
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Total Classes</p>
           <p className="font-display font-black text-2xl text-navy">{totalClasses}</p>
@@ -416,6 +435,21 @@ function AdminTimetablePage() {
             {LEVELS.map((l) => (
               <option key={l} value={l}>{l} Level</option>
             ))}
+          </select>
+        </div>
+
+        {/* Filter: Semester */}
+        <div className="bg-ghost border-[3px] border-navy rounded-2xl p-4 flex flex-col justify-center">
+          <label className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Semester</label>
+          <select
+            value={filterSemester}
+            onChange={(e) => setFilterSemester(e.target.value ? Number(e.target.value) : "")}
+            title="Filter by semester"
+            className="bg-transparent text-navy font-bold text-sm appearance-none cursor-pointer outline-none"
+          >
+            <option value="">All Semesters</option>
+            <option value={1}>1st Semester</option>
+            <option value={2}>2nd Semester</option>
           </select>
         </div>
 
@@ -737,7 +771,7 @@ function AdminTimetablePage() {
       ) : activeTab === "exams" ? (
         <>
           {/* Exam Stats + Filter */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="bg-snow border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]">
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Total Exams</p>
               <p className="font-display font-black text-2xl text-navy">{exams.length}</p>
@@ -746,7 +780,7 @@ function AdminTimetablePage() {
               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Courses</p>
               <p className="font-display font-black text-2xl text-snow">{new Set(exams.map(e => e.courseCode)).size}</p>
             </div>
-            <div className="bg-ghost border-[3px] border-navy rounded-2xl p-4 flex flex-col justify-center col-span-2">
+            <div className="bg-ghost border-[3px] border-navy rounded-2xl p-4 flex flex-col justify-center">
               <label className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Filter Level</label>
               <select
                 value={examFilterLevel}
@@ -756,6 +790,19 @@ function AdminTimetablePage() {
               >
                 <option value="">All Levels</option>
                 {LEVELS.map(l => <option key={l} value={l}>{l} Level</option>)}
+              </select>
+            </div>
+            <div className="bg-ghost border-[3px] border-navy rounded-2xl p-4 flex flex-col justify-center col-span-2">
+              <label className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Filter Semester</label>
+              <select
+                value={examFilterSemester}
+                onChange={(e) => setExamFilterSemester(e.target.value ? Number(e.target.value) : "")}
+                title="Filter exams by semester"
+                className="bg-transparent text-navy font-bold text-sm appearance-none cursor-pointer outline-none"
+              >
+                <option value="">All Semesters</option>
+                <option value={1}>1st Semester</option>
+                <option value={2}>2nd Semester</option>
               </select>
             </div>
           </div>
@@ -866,9 +913,18 @@ function AdminTimetablePage() {
                       </select>
                     </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-bold text-navy">Course Title</label>
-                    <input type="text" required value={examForm.courseTitle} onChange={(e) => setExamForm({ ...examForm, courseTitle: e.target.value })} placeholder="Systems Engineering" className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm placeholder:text-slate" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-bold text-navy">Course Title</label>
+                      <input type="text" required value={examForm.courseTitle} onChange={(e) => setExamForm({ ...examForm, courseTitle: e.target.value })} placeholder="Systems Engineering" className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm placeholder:text-slate" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-bold text-navy">Semester</label>
+                      <select value={examForm.semester} onChange={(e) => setExamForm({ ...examForm, semester: Number(e.target.value) })} title="Semester" className="w-full px-4 py-3 bg-ghost border-[3px] border-navy rounded-2xl text-navy text-sm appearance-none cursor-pointer">
+                        <option value={1}>1st Semester</option>
+                        <option value={2}>2nd Semester</option>
+                      </select>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">

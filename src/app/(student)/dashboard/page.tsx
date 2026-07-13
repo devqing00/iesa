@@ -115,6 +115,7 @@ export default function StudentDashboardPage() {
   );
 
   const isMyBirthday = data?.isMyBirthday ?? false;
+  const isLecturePeriod = data?.academicContext?.isLecturePeriod ?? true;
 
   // ── Onboarding localStorage keys scoped to the logged-in user so that
   //    other users / dev testing on the same browser never prevent the
@@ -261,7 +262,7 @@ export default function StudentDashboardPage() {
     void fetchTeamHeadOverview();
   }, [external, getAccessToken, hasPermission, user]);
 
-  const greeting = () => getTimeGreeting(isMyBirthday);
+  const greeting = () => getTimeGreeting(isMyBirthday, data?.academicContext);
   const quoteOfTheDay = getQuoteOfTheDay();
 
   const getContextTagline = () => {
@@ -280,6 +281,11 @@ export default function StudentDashboardPage() {
 
     if (pendingPayments.length > 0)
       return `You have ${pendingPayments.length} pending due${pendingPayments.length > 1 ? "s" : ""} — clear ${pendingPayments.length > 1 ? "them" : "it"} today.`;
+
+    if (!isLecturePeriod) {
+      if (data?.academicContext?.isExamPeriod) return "It's exam season. Stay focused and prepare well.";
+      return "Lectures have concluded. Take some time to review or rest.";
+    }
 
     if (todayClasses.length > 0)
       return `${todayClasses.length === 1 ? "One class" : `${todayClasses.length} classes`} on today's schedule. Stay sharp.`;
@@ -455,13 +461,29 @@ export default function StudentDashboardPage() {
       });
     }
 
-    if (todayClasses.length > 0) {
+    if (isLecturePeriod && todayClasses.length > 0) {
       actions.push({
         title: "Review today’s class plan",
         detail: `${todayClasses[0].courseCode} starts at ${todayClasses[0].startTime}`,
         href: "/dashboard/timetable",
         cta: "Open timetable",
         tone: "bg-teal-light",
+      });
+    } else if (!isLecturePeriod && data?.academicContext?.isExamPeriod) {
+      actions.push({
+        title: "Prepare for exams",
+        detail: "Join a study group to collaborate with peers.",
+        href: "/dashboard/study-groups",
+        cta: "Find a group",
+        tone: "bg-teal-light",
+      });
+    } else if (!isLecturePeriod && !data?.academicContext?.isExamPeriod) {
+      actions.push({
+        title: "Advance your IEPOD",
+        detail: "Use the break to complete your IEPOD modules.",
+        href: iepodHref,
+        cta: "Go to IEPOD",
+        tone: "bg-lavender-light",
       });
     }
 
@@ -770,8 +792,8 @@ export default function StudentDashboardPage() {
             </div>
           </div>
 
-          {/* — Classes Today Counter — only for IPE students */}
-          {!external && (
+          {/* — Classes Today Counter or Alternative Widget — only for IPE students */}
+          {!external && isLecturePeriod && (
           <div className="lg:col-span-4 bg-coral border-[3px] border-navy rounded-[2rem] p-8 relative overflow-hidden flex flex-col justify-between min-h-[230px] shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
             {/* Decorative shapes */}
             <div className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full bg-navy/10 pointer-events-none" />
@@ -780,7 +802,14 @@ export default function StudentDashboardPage() {
             </svg>
 
             <div className="relative z-10">
-              <p className="text-snow/70 text-[10px] font-bold tracking-[0.15em] uppercase mb-1">Classes Today</p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-snow/70 text-[10px] font-bold tracking-[0.15em] uppercase">Classes Today</p>
+                {data?.academicContext?.currentWeek ? (
+                  <span className="text-[9px] font-bold tracking-wider text-snow bg-navy/20 px-2 py-0.5 rounded-full border border-snow/30">
+                    Week {data.academicContext.currentWeek} of 11
+                  </span>
+                ) : null}
+              </div>
               <p className="font-display font-black text-8xl md:text-[6.5rem] text-snow leading-none">
                 {loading ? "--" : String(todayClasses.length).padStart(2, "0")}
               </p>
@@ -793,7 +822,57 @@ export default function StudentDashboardPage() {
             </Link>
           </div>
           )}
+
+          {!external && !isLecturePeriod && data?.academicContext?.isExamPeriod && (
+            <div className="lg:col-span-4 bg-teal border-[3px] border-navy rounded-[2rem] p-8 relative overflow-hidden flex flex-col justify-between min-h-[230px] shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+              <div className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full bg-navy/10 pointer-events-none" />
+              <div className="relative z-10">
+                <p className="text-snow/70 text-[10px] font-bold tracking-[0.15em] uppercase mb-1">Exam Mode</p>
+                <p className="font-display font-black text-4xl md:text-5xl text-snow leading-[1.1]">
+                  Good luck with your exams!
+                </p>
+              </div>
+              <Link href="/dashboard/study-groups" className="relative z-10 inline-flex items-center gap-2 text-snow/80 text-xs font-bold hover:text-snow transition-colors group mt-4">
+                Join a study group
+                <svg aria-hidden="true" className="w-4 h-4 group-hover:translate-x-1 transition-transform" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                </svg>
+              </Link>
+            </div>
+          )}
+
+          {!external && !isLecturePeriod && !data?.academicContext?.isExamPeriod && (
+            <div className="lg:col-span-4 bg-lavender border-[3px] border-navy rounded-[2rem] p-8 relative overflow-hidden flex flex-col justify-between min-h-[230px] shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+              <div className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full bg-navy/10 pointer-events-none" />
+              <div className="relative z-10">
+                <p className="text-snow/70 text-[10px] font-bold tracking-[0.15em] uppercase mb-1">Out of Session</p>
+                <p className="font-display font-black text-4xl md:text-5xl text-snow leading-[1.1]">
+                  Lectures have concluded.
+                </p>
+              </div>
+              <Link href={iepodHref} className="relative z-10 inline-flex items-center gap-2 text-snow/80 text-xs font-bold hover:text-snow transition-colors group mt-4">
+                Review IEPOD
+                <svg aria-hidden="true" className="w-4 h-4 group-hover:translate-x-1 transition-transform" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                </svg>
+              </Link>
+            </div>
+          )}
         </div>
+
+        {/* ═══ EVENT COUNTDOWN CHIP ═══ */}
+        {typeof data?.academicContext?.daysToNextEvent === "number" && data.academicContext.daysToNextEvent <= 14 && data.academicContext.nextEventTitle && (
+          <div className="mb-5 flex justify-end">
+            <div className="inline-flex items-center gap-3 bg-sunny-light border-2 border-navy rounded-full px-5 py-2 shadow-[2px_2px_0_0_#000] rotate-[-1deg] hover:rotate-0 transition-transform">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-sunny text-navy font-black text-xs border border-navy/20">
+                {data.academicContext.daysToNextEvent}
+              </span>
+              <p className="text-[11px] font-bold text-navy uppercase tracking-widest">
+                Days until {data.academicContext.nextEventTitle}
+              </p>
+            </div>
+          </div>
+        )}
 
         {!external && nextActions.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
@@ -946,6 +1025,7 @@ export default function StudentDashboardPage() {
             )}
 
             {/* Announcements Card */}
+            {!(data?.academicContext?.isExamPeriod) && (
             <div className="flex-1 bg-sunny-light border-[3px] border-navy rounded-3xl p-6 shadow-[4px_4px_0_0_#000] rotate-[-0.3deg] hover:rotate-0 transition-transform">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
@@ -1032,6 +1112,7 @@ export default function StudentDashboardPage() {
                 </div>
               )}
             </div>
+            )}
 
             {/* CTA Cards — side by side on lg+ */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -1095,7 +1176,7 @@ export default function StudentDashboardPage() {
               </Link>
 
               {/* Cohort Portal CTA — IPE students only */}
-              {!external && permissionsLoaded && !isClassRepOrAssistant && (
+              {!external && permissionsLoaded && !isClassRepOrAssistant && !(data?.academicContext?.isExamPeriod) && (
                 <Link href="/dashboard/cohort" className="block bg-lavender-light border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group press-4 press-black">
                   <svg aria-hidden="true" className="absolute top-3 right-4 w-4 h-4 text-lavender/25 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />

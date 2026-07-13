@@ -16,8 +16,10 @@ import { enUS } from "date-fns/locale/en-US";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { addDays, isSameDay, parseISO, startOfDay, endOfDay } from "date-fns";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import AcademicCalendarTab from "@/components/admin/AcademicCalendarTab";
 import { toast } from "sonner";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { useStudentDashboard } from "@/hooks/useData";
 
 /* ─── Calendar setup ────────────────────────────────────────────── */
 
@@ -159,9 +161,12 @@ export default function TimetablePage() {
   const { userProfile, getAccessToken } = useAuth();
   const { hasPermission, loaded: permissionsLoaded } = usePermissions();
   const { showHelp, openHelp, closeHelp } = useToolHelp("timetable");
+  const { data: dashboardData } = useStudentDashboard();
   const [classes, setClasses] = useState<ClassSession[]>([]);
   const [cancellations, setCancellations] = useState<ClassCancellation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<"classes" | "exams" | "calendar">("classes");
   const [view, setView] = useState<View>(() => {
     if (typeof window === "undefined") return "week";
     const saved = window.localStorage.getItem(TIMETABLE_VIEW_PREF_KEY) as View | null;
@@ -181,10 +186,24 @@ export default function TimetablePage() {
   const [savingStatus, setSavingStatus] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
 
-  // Parse level from userProfile (stored as "200L", "300L", etc.)
   const userLevel = parseInt(String(userProfile?.level || userProfile?.currentLevel || "300")) || 300;
   const canUpdateClassStatus = permissionsLoaded && (hasPermission("timetable:cancel") || hasPermission("timetable:status"));
   const currentViewLabel = VIEW_LABELS[view] || "Schedule View";
+  const isLecturePeriod = dashboardData?.academicContext?.isLecturePeriod ?? true;
+
+  const isExamApproaching = dashboardData?.academicContext?.nextEventType === "exam_period" && 
+                            typeof dashboardData?.academicContext?.daysToNextEvent === "number" && 
+                            dashboardData?.academicContext?.daysToNextEvent <= 7;
+  const showExamsTab = dashboardData?.academicContext?.isExamPeriod || isExamApproaching;
+
+  useEffect(() => {
+    if (dashboardData?.academicContext && selectedSemester === null) {
+      setSelectedSemester(dashboardData.academicContext.currentSemester);
+      if (dashboardData.academicContext.isExamPeriod) {
+        setActiveTab("exams");
+      }
+    }
+  }, [dashboardData, selectedSemester]);
 
   /* ── Responsive ── */
   useEffect(() => {
@@ -221,7 +240,8 @@ export default function TimetablePage() {
     try {
       setLoading(true);
       const token = await getAccessToken();
-      const classesRes = await fetch(getApiUrl(`/api/v1/timetable/classes?level=${userLevel}`), { headers: { Authorization: `Bearer ${token}` } });
+      const semQuery = selectedSemester ? `&semester=${selectedSemester}` : "";
+      const classesRes = await fetch(getApiUrl(`/api/v1/timetable/classes?level=${userLevel}${semQuery}`), { headers: { Authorization: `Bearer ${token}` } });
       if (!classesRes.ok) throw new Error("Failed to fetch classes");
       setClasses(await classesRes.json());
 
@@ -233,7 +253,7 @@ export default function TimetablePage() {
 
       // Fetch exams for this level
       try {
-        const examsRes = await fetch(getApiUrl(`/api/v1/timetable/exams?level=${userLevel}`), { headers: { Authorization: `Bearer ${token}` } });
+        const examsRes = await fetch(getApiUrl(`/api/v1/timetable/exams?level=${userLevel}${semQuery}`), { headers: { Authorization: `Bearer ${token}` } });
         if (examsRes.ok) setExams(await examsRes.json());
       } catch { /* exam fetch non-critical */ }
 
@@ -254,7 +274,7 @@ export default function TimetablePage() {
     } finally {
       setLoading(false);
     }
-  }, [userLevel, date, getAccessToken]);
+  }, [userLevel, date, getAccessToken, selectedSemester]);
 
   useEffect(() => { fetchTimetable(); }, [fetchTimetable]);
 
@@ -295,7 +315,7 @@ export default function TimetablePage() {
 
   /* ── Auto-scroll ── */
   useEffect(() => {
-    if (!loading && calendarRef.current) {
+    if (!loading && isLecturePeriod && calendarRef.current) {
       setTimeout(() => {
         const container = calendarRef.current;
         if (!container) return;
@@ -631,7 +651,54 @@ export default function TimetablePage() {
       <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
         <div className="flex justify-end mb-3"><HelpButton onClick={openHelp} /></div>
 
-        {(screenSize !== "desktop" && nextClass) && (
+        {/* ═══ TABS & SEMESTER TOGGLE ═══ */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+          <div className="flex flex-wrap gap-1 bg-navy/10 p-1 rounded-xl">
+            <button
+              onClick={() => setActiveTab("classes")}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "classes" ? "bg-snow text-navy shadow-[2px_2px_0_0_#000]" : "text-slate hover:text-navy"}`}
+            >
+              Classes
+            </button>
+            {showExamsTab && (
+              <button
+                onClick={() => setActiveTab("exams")}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${activeTab === "exams" ? "bg-snow text-navy shadow-[2px_2px_0_0_#000]" : "text-slate hover:text-navy"}`}
+              >
+                Exams
+                {dashboardData?.academicContext?.isExamPeriod && (
+                  <span className="w-2 h-2 rounded-full bg-coral animate-pulse" />
+                )}
+              </button>
+            )}
+            <button
+              onClick={() => setActiveTab("calendar")}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "calendar" ? "bg-snow text-navy shadow-[2px_2px_0_0_#000]" : "text-slate hover:text-navy"}`}
+            >
+              Academic Calendar
+            </button>
+          </div>
+          
+          <select
+            value={selectedSemester || ""}
+            onChange={(e) => setSelectedSemester(parseInt(e.target.value))}
+            className="bg-snow border-2 border-navy rounded-xl px-4 py-2 text-sm font-bold text-navy shadow-[2px_2px_0_0_#000] cursor-pointer"
+          >
+            <option value="1">1st Semester</option>
+            <option value="2">2nd Semester</option>
+          </select>
+        </div>
+
+        {activeTab === "classes" && !isLecturePeriod && (
+          <div className="mb-4 bg-lavender border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000] flex items-center gap-3">
+            <svg aria-hidden="true" className="w-6 h-6 text-navy shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <p className="text-sm font-bold text-navy">Lectures have concluded for this semester. Your timetable is displayed for reference only.</p>
+          </div>
+        )}
+
+        {activeTab === "classes" && (screenSize !== "desktop" && nextClass && isLecturePeriod) && (
           <div className="sticky top-18 z-20 mb-4 lg:hidden">
             <button
               onClick={() => {
@@ -652,6 +719,8 @@ export default function TimetablePage() {
           </div>
         )}
 
+        {activeTab === "classes" ? (
+          <>
         {/* ═══════════════════════════════════════════════════════
             HERO BENTO
             ═══════════════════════════════════════════════════════ */}
@@ -721,12 +790,14 @@ export default function TimetablePage() {
             </div>
           </div>
         </div>
-
-        {/* ═══════════════════════════════════════════════════════
-            UPCOMING EXAMS
-            ═══════════════════════════════════════════════════════ */}
-        {exams.length > 0 && (
-          <div className="mb-6">
+        </>
+        ) : activeTab === "exams" ? (
+        <>
+          {/* ═══════════════════════════════════════════════════════
+              UPCOMING EXAMS
+              ═══════════════════════════════════════════════════════ */}
+          {exams.length > 0 && (
+            <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
               <h2 className="font-display font-black text-xl text-navy">Upcoming Exams</h2>
               <span className="px-2.5 py-0.5 rounded-md bg-coral-light text-coral text-xs font-bold">{exams.length}</span>
@@ -777,10 +848,18 @@ export default function TimetablePage() {
             )}
           </div>
         )}
+        </>
+        ) : (
+          <div className="mt-6">
+            <AcademicCalendarTab />
+          </div>
+        )}
 
-        {/* ═══════════════════════════════════════════════════════
-            TODAY&apos;S CLASSES
-            ═══════════════════════════════════════════════════════ */}
+        {activeTab === "classes" && (
+          <>
+            {/* ═══════════════════════════════════════════════════════
+                TODAY&apos;S CLASSES
+                ═══════════════════════════════════════════════════════ */}
         {todaysClasses.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
@@ -953,7 +1032,9 @@ export default function TimetablePage() {
               </div>
             ))}
           </div>
-        </div>
+          </div>
+        </>
+        )}
 
         {/* ═══════════════════════════════════════════════════════
             CLASS DETAIL MODAL

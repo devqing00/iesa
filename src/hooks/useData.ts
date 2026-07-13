@@ -45,6 +45,26 @@ const DEFAULT_CONFIG: SWRConfiguration = {
 // Types
 // ──────────────────────────────────────────────
 
+export interface AcademicContext {
+  sessionName: string;
+  currentSemester: number;
+  isExamPeriod: boolean;
+  isHoliday: boolean;
+  isResumptionWeek: boolean;
+  isEndOfSemester: boolean;
+  isLecturePeriod: boolean;
+  currentEventTitle?: string;
+  currentWeek: number;
+  nextEventTitle?: string;
+  nextEventType?: string;
+  daysToNextEvent?: number;
+  isFirstDayOfSemester?: boolean;
+  isFirstDayOfSession?: boolean;
+  isLastDayOfSemester?: boolean;
+  isLastDayOfSession?: boolean;
+  daysIntoSemester?: number;
+}
+
 export interface AdminStatsResponse {
   totalStudents: number;
   totalEnrollments: number;
@@ -52,6 +72,7 @@ export interface AdminStatsResponse {
   totalEvents: number;
   totalAnnouncements: number;
   activeSession: string | null;
+  academicContext?: AcademicContext;
   enrollmentsByLevel: { level: string; count: number }[];
   paymentsByStatus: { name: string; value: number }[];
   recentActivity: {
@@ -145,6 +166,7 @@ export interface StudentDashboardResponse {
   payments: PaymentItem[];
   todayClasses: ClassSession[];
   activeSession: string | null;
+  academicContext?: AcademicContext;
   birthdays?: BirthdayCelebrant[];
   isMyBirthday?: boolean;
 }

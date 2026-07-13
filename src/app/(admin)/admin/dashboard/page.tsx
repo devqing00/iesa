@@ -57,7 +57,7 @@ function AdminDashboardPage() {
   const engagement = data?.engagement;
   const chatPresence = data?.chatPresence;
 
-  const greeting = getTimeGreeting;
+  const greeting = getTimeGreeting(false, data?.academicContext);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -72,7 +72,7 @@ function AdminDashboardPage() {
             Admin Dashboard
           </p>
           <h1 className="font-display font-black text-3xl md:text-4xl text-navy">
-            {greeting()},{" "}
+            {greeting},{" "}
             <span className="brush-highlight">{user?.firstName}</span>
           </h1>
           <p className="text-navy/60 mt-1 text-sm">
