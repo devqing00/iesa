@@ -422,11 +422,11 @@
       qrEl.style.display = 'flex';
       
       const typeNumber = 0;
-      const errorCorrectionLevel = 'M';
+      const errorCorrectionLevel = 'L';
       const qr = window.qrcode(typeNumber, errorCorrectionLevel);
       qr.addData(token);
       qr.make();
-      qrEl.innerHTML = qr.createImgTag(5, 10);
+      qrEl.innerHTML = qr.createImgTag(3, 8);
       
       if (newState === 'waiting-for-answer') {
         // Automatically start scanning for the answer after showing offer
@@ -444,7 +444,7 @@
       document.getElementById('qrcode-container').style.display = 'none';
       document.getElementById('reader').style.display = 'block';
       
-      html5QrcodeScanner = new window.Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
+      html5QrcodeScanner = new window.Html5QrcodeScanner("reader", { fps: 20, qrbox: {width: 300, height: 300} }, false);
       html5QrcodeScanner.render((decodedText) => {
         onSuccess(decodedText);
       }, (error) => {});

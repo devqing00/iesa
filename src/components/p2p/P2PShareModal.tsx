@@ -32,7 +32,6 @@ export default function P2PShareModal({ isOpen, onClose, mode, resourceToShare }
   } = useWebRTCShare();
 
   const [isScanning, setIsScanning] = useState(false);
-  const [pastedToken, setPastedToken] = useState("");
 
   useEffect(() => {
     if (isOpen) {
@@ -44,7 +43,6 @@ export default function P2PShareModal({ isOpen, onClose, mode, resourceToShare }
     } else {
       cleanup();
       setIsScanning(false);
-      setPastedToken("");
     }
   }, [isOpen, mode]);
 
@@ -180,21 +178,6 @@ export default function P2PShareModal({ isOpen, onClose, mode, resourceToShare }
             Scan {mode === "sender" ? "Receiver's" : "Sender's"} QR Code
           </h3>
           <QRScanner onScanSuccess={handleScanSuccess} onClose={() => setIsScanning(false)} />
-          <div className="mt-4 border-t-2 border-cloud pt-4 text-center">
-            <p className="text-xs text-slate mb-2">Or paste code manually (for testing without camera):</p>
-            <div className="flex gap-2">
-              <input 
-                type="text" 
-                value={pastedToken} 
-                onChange={(e) => setPastedToken(e.target.value)} 
-                className="flex-1 px-3 py-2 bg-ghost border-2 border-navy rounded-xl text-xs" 
-                placeholder="Paste code here..."
-              />
-              <button onClick={() => handleScanSuccess(pastedToken)} className="px-4 py-2 bg-teal text-snow font-bold rounded-xl">
-                Submit
-              </button>
-            </div>
-          </div>
         </div>
       );
     }
@@ -209,7 +192,7 @@ export default function P2PShareModal({ isOpen, onClose, mode, resourceToShare }
               <h3 className="font-display font-black text-xl text-navy mb-2">Step 1: Share this code</h3>
               <p className="text-sm text-slate mb-6">Have the receiver scan this QR code on their device to initiate the connection.</p>
               <div className="bg-snow inline-block p-4 rounded-2xl border-[3px] border-navy shadow-[4px_4px_0_0_#000] mb-6">
-                <QRCodeSVG value={offerToken} size={200} />
+                <QRCodeSVG value={offerToken} size={320} level="L" />
               </div>
               <p className="text-sm text-navy font-bold mb-4">Once they scan it, they will show you a code.</p>
               <button onClick={() => setIsScanning(true)} className="w-full py-3 bg-lime border-[3px] border-navy text-navy font-black rounded-2xl shadow-[3px_3px_0_0_#000] hover:translate-y-[1px] hover:shadow-[2px_2px_0_0_#000] transition-all">
@@ -241,7 +224,7 @@ export default function P2PShareModal({ isOpen, onClose, mode, resourceToShare }
              <h3 className="font-display font-black text-xl text-navy mb-2">Step 2: Show this code</h3>
              <p className="text-sm text-slate mb-6">Show this QR code to the sender so they can complete the connection.</p>
              <div className="bg-snow inline-block p-4 rounded-2xl border-[3px] border-navy shadow-[4px_4px_0_0_#000] mb-6">
-               <QRCodeSVG value={answerToken} size={200} />
+               <QRCodeSVG value={answerToken} size={320} level="L" />
              </div>
              <p className="text-sm text-slate animate-pulse">Waiting for sender to connect...</p>
           </div>
