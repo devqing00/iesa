@@ -517,7 +517,17 @@ export default function ResourcesPage() {
       }
       
       let ext = "pdf";
-      if (resource.type === "slide") ext = "ppt";
+      const mime = blob.type.toLowerCase();
+      if (mime.includes("pdf")) ext = "pdf";
+      else if (mime.includes("wordprocessingml")) ext = "docx";
+      else if (mime.includes("msword")) ext = "doc";
+      else if (mime.includes("presentationml")) ext = "pptx";
+      else if (mime.includes("ms-powerpoint")) ext = "ppt";
+      else if (mime.includes("spreadsheetml")) ext = "xlsx";
+      else if (mime.includes("ms-excel")) ext = "xls";
+      else if (mime.includes("image/jpeg")) ext = "jpg";
+      else if (mime.includes("image/png")) ext = "png";
+      else if (resource.type === "slide") ext = "ppt";
       
       const file = new File([blob], `${resource.title}.${ext}`, { type: blob.type || "application/octet-stream" });
       if (navigator.canShare({ files: [file] })) {
@@ -657,8 +667,8 @@ export default function ResourcesPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-6">
         {/* Tab Switcher */}
-        <div className="flex flex-col md:flex-row items-center justify-between mb-6">
-          <div className="flex gap-1.5 bg-snow border-[3px] border-navy rounded-2xl p-1.5 shadow-[3px_3px_0_0_#000]">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex gap-1.5 bg-snow border-[2px] border-navy rounded-2xl p-1.5">
             <button
               onClick={() => setActiveTab("drive")}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-display font-bold text-sm transition-all ${
@@ -1012,11 +1022,11 @@ export default function ResourcesPage() {
                               {resource.type !== "video" && (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleP2PShareResource(resource); }}
-                                  className="flex items-center gap-1.5 px-3 py-2.5 bg-lavender-light border-[3px] border-navy rounded-xl font-bold text-[10px] text-navy uppercase tracking-wider press-2 press-navy transition-all"
-                                  title="Share via P2P offline"
+                                  className="flex items-center gap-1.5 px-4 py-2.5 bg-lavender-light border-[3px] border-navy rounded-xl font-bold text-[11px] text-navy uppercase tracking-wider press-2 press-navy transition-all"
+                                  title="Share offline natively"
                                 >
-                                  <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92 0-1.61-1.31-2.92-2.92-2.92z"/></svg>
-                                  P2P
+                                  <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92 0-1.61-1.31-2.92-2.92-2.92z"/></svg>
+                                  Share
                                 </button>
                               )}
                               <button

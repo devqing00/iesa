@@ -1765,12 +1765,10 @@ export default function ResourceViewer({
             <button
               onClick={onShareOffline}
               className="text-xs border-2 rounded-lg px-3 py-1.5 font-bold flex items-center gap-1 bg-lavender text-snow border-navy press-2 press-navy"
-              title="Share via P2P"
+              title="Share offline natively"
             >
-              <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
-              </svg>
-              P2P Share
+              <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92 0-1.61-1.31-2.92-2.92-2.92z"/></svg>
+              Share
             </button>
           )}
           {canConvertToPdf && (
@@ -1849,6 +1847,18 @@ export default function ResourceViewer({
 
           {showActionMenu && (
             <div className="absolute right-0 mt-2 w-44 rounded-2xl border-[3px] border-navy bg-snow shadow-[3px_3px_0_0_#000] p-2 z-30">
+              {onShareOffline && !isVideo && (
+                <button
+                  onClick={() => {
+                    setShowActionMenu(false);
+                    onShareOffline();
+                  }}
+                  className="w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-xl bg-lavender text-snow border-2 border-navy font-bold text-xs mb-2"
+                >
+                  <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92 0-1.61-1.31-2.92-2.92-2.92z"/></svg>
+                  Share
+                </button>
+              )}
               {canConvertToPdf && (
                 <button
                   onClick={handleConvertToPdf}
