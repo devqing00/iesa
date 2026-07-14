@@ -9,10 +9,12 @@ import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { useDrive } from "@/hooks/useDrive";
-import type { DriveItem } from "@/lib/api/drive";
+import { type DriveItem, getDriveStreamUrl } from "@/lib/api/drive";
 
 const DriveExplorer = dynamic(() => import("@/components/dashboard/drive/DriveExplorer"), { ssr: false });
 const ResourceViewer = dynamic(() => import("@/components/dashboard/drive/ResourceViewer"), { ssr: false });
+const P2PShareModal = dynamic(() => import("@/components/p2p/P2PShareModal"), { ssr: false });
+import { getAllOfflineResourceIds, getOfflineResource } from "@/lib/indexedDB";
 
 /* ─── Types ──────────────────────────────────────────────────────── */
 
@@ -272,6 +274,13 @@ export default function ResourcesPage() {
   const [mySubmissions, setMySubmissions] = useState<Resource[]>([]);
   const [showMySubmissions, setShowMySubmissions] = useState(false);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
+  
+  // P2P State
+  const [p2pModalOpen, setP2pModalOpen] = useState(false);
+  const [p2pMode, setP2pMode] = useState<"sender" | "receiver">("receiver");
+  const [p2pResource, setP2pResource] = useState<{id: string, fileBlob: Blob, fileName: string} | undefined>(undefined);
+  const [offlineResourceIds, setOfflineResourceIds] = useState<Set<string>>(new Set());
+  
   const [showBookmarked, setShowBookmarked] = useState(false);
   const [bookmarkedResources, setBookmarkedResources] = useState<Resource[]>([]);
   const [ratingLoading, setRatingLoading] = useState<string | null>(null);
@@ -383,6 +392,13 @@ export default function ResourcesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  useEffect(() => {
+    // Check IndexedDB for offline resources
+    getAllOfflineResourceIds().then(ids => {
+      setOfflineResourceIds(new Set(ids));
+    }).catch(() => {});
+  }, [resources, p2pModalOpen]); // refresh when resources load or modal closes
+
   // ── Library actions ──
 
   const fetchMySubmissions = async () => {
@@ -467,6 +483,91 @@ export default function ResourcesPage() {
         setResources((prev) => prev.map((r) => r._id === resourceId ? { ...r, viewCount: data.viewCount } : r));
       }
     } catch { /* non-critical */ }
+  };
+
+  const handleShareOffline = async (resource: Resource) => {
+    if (resource.type === "video") {
+      toast.error("Offline share not supported for videos", { description: "You cannot share YouTube videos offline via P2P." });
+      return;
+    }
+    
+    const loadingToastId = toast.loading("Preparing file for transfer...");
+    try {
+      let blob: Blob;
+      
+      if (offlineResourceIds.has(resource._id)) {
+        const offlineData = await getOfflineResource(resource._id);
+        if (offlineData) {
+          blob = offlineData.blob;
+        } else {
+          throw new Error("Corrupted local copy");
+        }
+      } else {
+        // Use backend CORS proxy if hosted on Google Drive
+        let fetchUrl = resource.url;
+        let token = null;
+        if (resource.driveFileId) {
+          fetchUrl = getDriveStreamUrl(resource.driveFileId);
+          token = await getAccessToken();
+        }
+        
+        const res = await fetch(fetchUrl, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          credentials: "include"
+        });
+        if (!res.ok) throw new Error("Failed to fetch file");
+        blob = await res.blob();
+      }
+      
+      let ext = "pdf";
+      if (resource.type === "slide") ext = "ppt";
+      
+      setP2pResource({ id: resource._id, fileBlob: blob, fileName: `${resource.title}.${ext}` });
+      setP2pMode("sender");
+      setP2pModalOpen(true);
+      toast.dismiss(loadingToastId);
+    } catch (e) {
+      toast.dismiss(loadingToastId);
+      toast.error("Fetch Failed", { description: "Could not fetch file for offline sharing (CORS or network error). Try opening it first." });
+    }
+  };
+
+  const handleDriveShareOffline = async (item: DriveItem) => {
+    if (item.fileType === "video" || item.isFolder) {
+      toast.error("Offline share not supported for this item type.");
+      return;
+    }
+    
+    const loadingToastId = toast.loading("Preparing file for transfer...");
+    try {
+      let blob: Blob;
+      if (offlineResourceIds.has(item.id)) {
+        const offlineData = await getOfflineResource(item.id);
+        if (offlineData) {
+          blob = offlineData.blob;
+        } else {
+          throw new Error("Corrupted local copy");
+        }
+      } else {
+        // Always use backend CORS proxy for Drive items
+        const fetchUrl = getDriveStreamUrl(item.id);
+        const token = await getAccessToken();
+        const res = await fetch(fetchUrl, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          credentials: "include"
+        });
+        if (!res.ok) throw new Error("Failed to fetch file");
+        blob = await res.blob();
+      }
+      setP2pResource({ id: item.id, fileBlob: blob, fileName: item.name });
+      setP2pMode("sender");
+      setP2pModalOpen(true);
+      toast.dismiss(loadingToastId);
+    } catch (e: any) {
+      console.error("[P2P] Fetch Error:", e);
+      toast.dismiss(loadingToastId);
+      toast.error("Fetch Failed", { description: "Could not fetch file from Drive. Please try again." });
+    }
   };
 
   const fetchBookmarks = useCallback(async () => {
@@ -575,7 +676,19 @@ export default function ResourcesPage() {
               Library
             </button>
           </div>
-          <HelpButton onClick={openHelp} />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => { setP2pMode("receiver"); setP2pModalOpen(true); }}
+              className="flex px-3 sm:px-4 py-2 bg-teal text-snow font-bold text-sm rounded-xl press-2 press-navy shadow-[2px_2px_0_0_#000] items-center gap-2"
+              title="Receive File Offline"
+            >
+              <svg aria-hidden="true" className="w-4 h-4 sm:w-5 sm:h-5 text-snow" viewBox="0 0 24 24" fill="currentColor">
+                <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+              </svg>
+              <span className="hidden sm:inline">Receive via P2P</span>
+            </button>
+            <HelpButton onClick={openHelp} />
+          </div>
         </div>
 
         {/* ══════════════════════ LIBRARY TAB ══════════════════════ */}
@@ -608,20 +721,21 @@ export default function ResourcesPage() {
                   </p>
                   <p className="font-display font-black text-3xl text-navy">{totalCount}</p>
                 </div>
-                <button
-                  onClick={() => setShowUploadModal(true)}
-                  className="bg-lime border-[3px] border-navy rounded-2xl p-5 press-3 press-navy transition-all flex items-center gap-3"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-navy/10 flex items-center justify-center shrink-0">
-                    <svg aria-hidden="true" className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
-                      <path fillRule="evenodd" d="M11.47 2.47a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06l-3.22-3.22V16.5a.75.75 0 0 1-1.5 0V4.81L8.03 8.03a.75.75 0 0 1-1.06-1.06l4.5-4.5ZM3 15.75a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="text-left">
-                    <p className="font-display font-black text-sm text-navy">Add Resource</p>
-                    <p className="text-[10px] text-navy/50">Share materials</p>
-                  </div>
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowUploadModal(true)}
+                    className="flex-1 bg-lime border-[3px] border-navy rounded-2xl p-4 press-3 press-navy transition-all flex flex-col items-center justify-center gap-2"
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-navy/10 flex items-center justify-center shrink-0">
+                      <svg aria-hidden="true" className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                        <path fillRule="evenodd" d="M11.47 2.47a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06l-3.22-3.22V16.5a.75.75 0 0 1-1.5 0V4.81L8.03 8.03a.75.75 0 0 1-1.06-1.06l4.5-4.5ZM3 15.75a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="text-center">
+                      <p className="font-display font-black text-xs text-navy">Add Resource</p>
+                    </div>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -840,6 +954,14 @@ export default function ResourcesPage() {
                           <div className="flex items-center gap-2">
                             <span className={`text-[10px] font-bold uppercase tracking-wider rounded-full px-2.5 py-1 ${accent.bg} ${accent.text}`}>{resource.type}</span>
                             <span className="text-[10px] font-bold text-navy/20 uppercase tracking-wider">{String(index + 1).padStart(2, "0")}</span>
+                            {offlineResourceIds.has(resource._id) && (
+                              <span className="flex items-center gap-1 bg-teal/10 text-teal px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider border border-teal/20" title="Available Offline">
+                                <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                                </svg>
+                                Offline
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2.5 text-slate">
                             <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider">
@@ -887,23 +1009,35 @@ export default function ResourcesPage() {
                             {(resource.ratingCount ?? 0) > 0 && <span className="text-[10px] text-slate ml-1">({resource.ratingCount})</span>}
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold text-slate truncate max-w-[45%]">By {resource.uploaderName}</span>
-                            <button
-                              onClick={() => handleViewResource(resource._id, resource.url)}
-                              className="flex items-center gap-2 px-4 py-2.5 bg-lime border-[3px] border-navy rounded-xl font-bold text-xs text-navy uppercase tracking-wider press-3 press-navy transition-all"
-                            >
-                              {resource.type === "video" ? (
-                                <>
-                                  <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clipRule="evenodd" /></svg>
-                                  Watch
-                                </>
-                              ) : (
-                                <>
-                                  <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625ZM7.5 15a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7.5 15Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H8.25Z" clipRule="evenodd" /></svg>
-                                  View
-                                </>
+                            <span className="text-[10px] font-bold text-slate truncate max-w-[30%]">By {resource.uploaderName}</span>
+                            <div className="flex gap-2">
+                              {resource.type !== "video" && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleShareOffline(resource); }}
+                                  className="flex items-center gap-1.5 px-3 py-2.5 bg-lavender-light border-[3px] border-navy rounded-xl font-bold text-[10px] text-navy uppercase tracking-wider press-2 press-navy transition-all"
+                                  title="Share via P2P offline"
+                                >
+                                  <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92 0-1.61-1.31-2.92-2.92-2.92z"/></svg>
+                                  P2P
+                                </button>
                               )}
-                            </button>
+                              <button
+                                onClick={() => handleViewResource(resource._id, resource.url)}
+                                className="flex items-center gap-1.5 px-3 py-2.5 bg-lime border-[3px] border-navy rounded-xl font-bold text-[10px] text-navy uppercase tracking-wider press-2 press-navy transition-all"
+                              >
+                                {resource.type === "video" ? (
+                                  <>
+                                    <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M4.5 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L7.28 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z" clipRule="evenodd" /></svg>
+                                    Watch
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625ZM7.5 15a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7.5 15Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H8.25Z" clipRule="evenodd" /></svg>
+                                    View
+                                  </>
+                                )}
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </article>
@@ -960,6 +1094,7 @@ export default function ResourcesPage() {
               onGoBack={drive.goBack}
               onRetry={drive.refreshFolder}
               notConfigured={drive.notConfigured}
+              onShareOffline={handleDriveShareOffline}
             />
           </div>
         )}
@@ -977,6 +1112,16 @@ export default function ResourcesPage() {
           hasNext={currentDriveFileIndex >= 0 && currentDriveFileIndex < driveFileSequence.length - 1}
           onPrev={openPrevDriveFile}
           onNext={openNextDriveFile}
+          onShareOffline={() => {
+            if (drive.viewingFile) {
+              handleDriveShareOffline({
+                id: drive.viewingFile.id,
+                name: drive.viewingFile.name,
+                fileType: drive.viewingFile.fileType,
+                isFolder: false,
+              } as DriveItem);
+            }
+          }}
         />
       )}
 
@@ -1060,6 +1205,14 @@ export default function ResourcesPage() {
           </div>
         </div>
       )}
+
+      {/* P2P Share Modal */}
+      <P2PShareModal
+        isOpen={p2pModalOpen}
+        onClose={() => { setP2pModalOpen(false); setP2pResource(undefined); }}
+        mode={p2pMode}
+        resourceToShare={p2pResource}
+      />
     </div>
   );
 }

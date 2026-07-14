@@ -1338,6 +1338,7 @@ export interface ResourceViewerProps {
   hasNext?: boolean;
   onPrev?: () => void;
   onNext?: () => void;
+  onShareOffline?: () => void;
 }
 
 export default function ResourceViewer({
@@ -1349,6 +1350,7 @@ export default function ResourceViewer({
   hasNext = false,
   onPrev,
   onNext,
+  onShareOffline,
 }: ResourceViewerProps) {
   const { getAccessToken } = useAuth();
   const [resolvedToken, setResolvedToken] = useState<string | null>(token || null);
@@ -1759,6 +1761,18 @@ export default function ResourceViewer({
           </button>
         </div>
         <div className="hidden lg:flex shrink-0 items-center gap-2">
+          {onShareOffline && !isVideo && (
+            <button
+              onClick={onShareOffline}
+              className="text-xs border-2 rounded-lg px-3 py-1.5 font-bold flex items-center gap-1 bg-lavender text-snow border-navy press-2 press-navy"
+              title="Share via P2P"
+            >
+              <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+              </svg>
+              P2P Share
+            </button>
+          )}
           {canConvertToPdf && (
             <button
               onClick={handleConvertToPdf}

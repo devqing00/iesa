@@ -195,17 +195,18 @@ interface FileCardProps {
   item: DriveItem;
   progress?: FileProgress | null;
   onClick: (item: DriveItem) => void;
+  onShareOffline?: (item: DriveItem) => void;
   rotation?: string;
 }
 
-function FileCard({ item, progress, onClick, rotation = "" }: FileCardProps) {
+function FileCard({ item, progress, onClick, onShareOffline, rotation = "" }: FileCardProps) {
   const colors = getFileTypeColor(item.fileType);
   const typeLabel = getFileTypeLabel(item.fileType);
 
   return (
-    <button
+    <div
       onClick={() => onClick(item)}
-      className={`group text-left w-full bg-snow border-[3px] border-navy rounded-2xl p-4 press-4 press-navy transition-all ${rotation}`}
+      className={`group text-left w-full bg-snow border-[3px] border-navy rounded-2xl p-4 press-4 press-navy transition-all cursor-pointer ${rotation}`}
     >
       <div className="flex items-start gap-3">
         {/* Icon */}
@@ -240,10 +241,24 @@ function FileCard({ item, progress, onClick, rotation = "" }: FileCardProps) {
           {progress && <div className="mt-2"><ProgressIndicator progress={progress} /></div>}
         </div>
 
-        {/* Arrow */}
-        <ChevronRightIcon className="w-4 h-4 text-slate shrink-0 mt-1 group-hover:text-navy transition-colors" />
+        {/* Actions */}
+        <div className="flex flex-col items-end justify-between ml-2">
+          <ChevronRightIcon className="w-4 h-4 text-slate shrink-0 group-hover:text-navy transition-colors mb-2" />
+          {onShareOffline && item.fileType !== 'video' && item.fileType !== 'folder' && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); onShareOffline(item); }}
+              className="px-2 py-1 bg-lavender text-snow rounded text-[10px] font-bold uppercase tracking-wider hover:bg-lavender-dark transition-colors flex items-center gap-1"
+              title="Share via P2P"
+            >
+              <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
+              </svg>
+              P2P
+            </button>
+          )}
+        </div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -467,6 +482,7 @@ export interface DriveExplorerProps {
   onGoBack: () => void;
   onRetry: () => void;
   notConfigured: boolean;
+  onShareOffline?: (item: DriveItem) => void;
 }
 
 const rotations = ["", "rotate-[0.3deg]", "", "rotate-[-0.3deg]", "rotate-[0.2deg]", ""];
@@ -489,6 +505,7 @@ export default function DriveExplorer({
   onGoBack,
   onRetry,
   notConfigured,
+  onShareOffline,
 }: DriveExplorerProps) {
   const isRoot = !folderId || breadcrumbs.length <= 1;
   const folders = items.filter((i) => i.isFolder);
@@ -562,6 +579,7 @@ export default function DriveExplorer({
                     item={item}
                     progress={progressMap[item.id]}
                     onClick={onOpenFile}
+                    onShareOffline={onShareOffline}
                     rotation={rotations[i % rotations.length]}
                   />
                 )
@@ -614,6 +632,7 @@ export default function DriveExplorer({
                     item={item}
                     progress={progressMap[item.id]}
                     onClick={onOpenFile}
+                    onShareOffline={onShareOffline}
                     rotation={rotations[i % rotations.length]}
                   />
                 ))}

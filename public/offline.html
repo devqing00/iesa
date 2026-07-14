@@ -124,6 +124,53 @@
       transform: translate(5px, 5px);
       box-shadow: 0 0 0 0 #0F0F2D;
     }
+
+    /* P2P Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(15,15,45,0.8);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-content {
+      background: #fff;
+      border: 4px solid #0F0F2D;
+      border-radius: 24px;
+      width: 100%; max-width: 400px;
+      padding: 24px;
+      text-align: center;
+      box-shadow: 8px 8px 0 0 #000;
+    }
+    #qrcode-container {
+      margin: 20px auto;
+      display: flex;
+      justify-content: center;
+    }
+    #reader {
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      margin: 20px 0;
+    }
+    .status-text {
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: #0F0F2D;
+    }
+    .progress-bar {
+      width: 100%; height: 16px;
+      background: #F5F5FA; border: 2px solid #0F0F2D;
+      border-radius: 8px; overflow: hidden;
+      margin: 10px 0;
+    }
+    .progress-fill {
+      height: 100%; background: #C8F31D; width: 0%;
+      transition: width 0.3s;
+    }
   </style>
 </head>
 <body>
@@ -154,9 +201,280 @@
     </div>
     <div class="card-body">
       <h1>You&rsquo;re Offline</h1>
-      <p>It looks like you&rsquo;ve lost your internet connection. Check your network and try again &mdash; some cached pages may still be available.</p>
-      <button onclick="window.location.reload()">Try Again</button>
+      <p style="margin-bottom: 20px;">It looks like you&rsquo;ve lost your internet connection. Check your network and try again.</p>
+
+      <div id="offline-files-section" style="display: none; margin-bottom: 24px; text-align: left;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h3 style="font-size: 0.9rem; color: #0F0F2D; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em;">Your Offline Files</h3>
+          <button onclick="prepareToReceive()" style="padding: 6px 12px; font-size: 0.8rem; background: #E8E8FF; box-shadow: 3px 3px 0 0 #0F0F2D;">Receive P2P</button>
+        </div>
+        <div id="offline-files-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; padding-right: 4px;">
+          <!-- Items will be injected here -->
+        </div>
+      </div>
+
+      <button onclick="window.location.reload()">Refresh Page</button>
     </div>
   </div>
+
+  <!-- P2P Modal -->
+  <div class="modal-overlay" id="p2p-modal">
+    <div class="modal-content">
+      <h2 style="font-weight: 900; font-size: 1.25rem; margin-bottom: 8px;" id="p2p-title">P2P Share</h2>
+      <div id="p2p-status" class="status-text">Idle</div>
+      
+      <div style="background: rgba(162,162,235,0.15); border: 2px solid #0F0F2D; border-radius: 8px; padding: 10px; text-align: left; margin-bottom: 16px;">
+        <p style="font-size: 0.75rem; color: #0F0F2D; margin-bottom: 0;"><strong>Requirement:</strong> Both devices must be connected to the SAME Wi-Fi or Mobile Hotspot (internet not required).</p>
+      </div>
+
+      <div id="qrcode-container" style="display: none;"></div>
+      <div id="reader" style="display: none;"></div>
+      
+      <div id="p2p-progress-container" style="display: none;">
+        <div class="progress-bar"><div id="p2p-progress-fill" class="progress-fill"></div></div>
+        <div id="p2p-progress-text" style="font-size: 0.8rem; font-weight: bold;">0%</div>
+      </div>
+
+      <button onclick="closeP2PModal()" style="margin-top: 16px; background: #F5F5FA;">Close</button>
+    </div>
+  </div>
+
+  <script src="/assets/js/qrcode.js"></script>
+  <script src="/assets/js/html5-qrcode.min.js"></script>
+  <script src="/assets/js/offline-p2p.js"></script>
+
+  <script>
+    function openFile(id, dbName, storeName) {
+      const request = indexedDB.open(dbName, 1);
+      request.onsuccess = (e) => {
+        const db = e.target.result;
+        const tx = db.transaction(storeName, 'readonly');
+        const store = tx.objectStore(storeName);
+        const getReq = store.get(id);
+        getReq.onsuccess = () => {
+          const res = getReq.result;
+          const blob = res?.blob;
+          const title = res?.title || res?.fileName || 'download';
+          if (blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = title;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+          }
+        };
+      };
+    }
+
+    function loadOfflineFiles() {
+      let allResources = [];
+      let pendingDbs = 2;
+
+      function renderIfDone() {
+        pendingDbs--;
+        if (pendingDbs > 0) return;
+
+        if (allResources.length > 0) {
+          document.getElementById('offline-files-section').style.display = 'block';
+          const list = document.getElementById('offline-files-list');
+          list.innerHTML = '';
+          
+          allResources.sort((a, b) => b.timestamp - a.timestamp);
+          
+          allResources.forEach(res => {
+            const size = res.blob ? (res.blob.size / 1024 / 1024).toFixed(2) + ' MB' : 'Unknown';
+            const date = new Date(res.timestamp).toLocaleDateString();
+            
+            const item = document.createElement('div');
+            item.style.padding = '12px';
+            item.style.background = '#F5F5FA';
+            item.style.border = '2px solid #0F0F2D';
+            item.style.borderRadius = '12px';
+            item.style.display = 'flex';
+            item.style.justifyContent = 'space-between';
+            item.style.alignItems = 'center';
+            item.style.cursor = 'pointer';
+            item.style.transition = 'transform 0.1s, box-shadow 0.1s';
+            
+            item.onmouseover = () => { item.style.transform = 'translate(-1px, -1px)'; item.style.boxShadow = '3px 3px 0 0 #0F0F2D'; };
+            item.onmouseout = () => { item.style.transform = 'none'; item.style.boxShadow = 'none'; };
+            item.onclick = () => openFile(res.id, res.dbSource, res.store);
+            
+            item.innerHTML = `
+              <div style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 8px;" onclick="openFile('${res.id}', '${res.dbSource}', '${res.store}')">
+                <div style="font-weight: 800; font-size: 0.9rem; color: #0F0F2D; overflow: hidden; text-overflow: ellipsis;">${res.title}</div>
+                <div style="font-size: 0.75rem; color: #6B6B8D; margin-top: 2px;">${size} &bull; ${date}</div>
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <button onclick="shareOfflineFile('${res.id}', '${res.dbSource}', '${res.store}', '${res.title}')" style="padding: 6px; box-shadow: 2px 2px 0 0 #0F0F2D; font-size: 0.7rem; background: #C8F31D;" title="Send via P2P">
+                  Share
+                </button>
+              </div>
+            `;
+            list.appendChild(item);
+          });
+        }
+      }
+
+      // Fetch from P2P/Offline Sharing DB
+      const req1 = indexedDB.open('iesa_offline_db', 1);
+      req1.onsuccess = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('offline_resources')) return renderIfDone();
+        const tx = db.transaction('offline_resources', 'readonly');
+        const getAllReq = tx.objectStore('offline_resources').getAll();
+        getAllReq.onsuccess = () => {
+          (getAllReq.result || []).forEach(res => {
+            allResources.push({
+              id: res.id,
+              title: res.title,
+              timestamp: res.timestamp || Date.now(),
+              blob: res.blob,
+              dbSource: 'iesa_offline_db',
+              store: 'offline_resources'
+            });
+          });
+          renderIfDone();
+        };
+      };
+      req1.onerror = () => renderIfDone();
+
+      // Fetch from General Drive Viewing Cache
+      const req2 = indexedDB.open('iesa_drive_cache', 1);
+      req2.onsuccess = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('files')) return renderIfDone();
+        const tx = db.transaction('files', 'readonly');
+        const getAllReq = tx.objectStore('files').getAll();
+        getAllReq.onsuccess = () => {
+          (getAllReq.result || []).forEach(res => {
+            allResources.push({
+              id: res.fileId,
+              title: res.fileName,
+              timestamp: res.cachedAt || Date.now(),
+              blob: res.blob,
+              dbSource: 'iesa_drive_cache',
+              store: 'files'
+            });
+          });
+          renderIfDone();
+        };
+      };
+      req2.onerror = () => renderIfDone();
+    }
+
+    if (window.indexedDB) {
+      loadOfflineFiles();
+    }
+
+    // P2P UI Hooks for offline-p2p.js
+    let html5QrcodeScanner = null;
+
+    function showP2PModal(title) {
+      document.getElementById('p2p-title').innerText = title;
+      document.getElementById('p2p-modal').style.display = 'flex';
+    }
+
+    function closeP2PModal() {
+      document.getElementById('p2p-modal').style.display = 'none';
+      if (html5QrcodeScanner) {
+        html5QrcodeScanner.clear().catch(console.error);
+        html5QrcodeScanner = null;
+      }
+      cleanup(); // from offline-p2p.js
+    }
+
+    function updateP2PUI(state, prog = 0) {
+      const statusEl = document.getElementById('p2p-status');
+      const progContainer = document.getElementById('p2p-progress-container');
+      const progFill = document.getElementById('p2p-progress-fill');
+      const progText = document.getElementById('p2p-progress-text');
+      const qrEl = document.getElementById('qrcode-container');
+      const readerEl = document.getElementById('reader');
+
+      statusEl.innerText = state.replace(/-/g, ' ').toUpperCase();
+
+      if (state === 'transferring') {
+        qrEl.style.display = 'none';
+        readerEl.style.display = 'none';
+        if (html5QrcodeScanner) { html5QrcodeScanner.clear(); html5QrcodeScanner = null; }
+        progContainer.style.display = 'block';
+        progFill.style.width = prog + '%';
+        progText.innerText = prog + '%';
+      } else if (state === 'completed') {
+        progFill.style.width = '100%';
+        progText.innerText = '100% DONE';
+      } else if (state === 'idle' || state === 'error') {
+        progContainer.style.display = 'none';
+      }
+    }
+
+    function showP2PError(msg) {
+      document.getElementById('p2p-status').innerText = 'ERROR: ' + msg;
+      document.getElementById('p2p-status').style.color = 'red';
+    }
+
+    function showP2PToken(token, newState) {
+      updateP2PUI(newState);
+      const qrEl = document.getElementById('qrcode-container');
+      qrEl.innerHTML = '';
+      qrEl.style.display = 'flex';
+      
+      const typeNumber = 0;
+      const errorCorrectionLevel = 'M';
+      const qr = window.qrcode(typeNumber, errorCorrectionLevel);
+      qr.addData(token);
+      qr.make();
+      qrEl.innerHTML = qr.createImgTag(5, 10);
+      
+      if (newState === 'waiting-for-answer') {
+        // Automatically start scanning for the answer after showing offer
+        setTimeout(() => {
+          startScanner((scannedToken) => {
+            acceptAnswer(scannedToken);
+            if(html5QrcodeScanner) { html5QrcodeScanner.clear(); html5QrcodeScanner = null; }
+            document.getElementById('reader').style.display = 'none';
+          });
+        }, 2000);
+      }
+    }
+
+    function startScanner(onSuccess) {
+      document.getElementById('qrcode-container').style.display = 'none';
+      document.getElementById('reader').style.display = 'block';
+      
+      html5QrcodeScanner = new window.Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
+      html5QrcodeScanner.render((decodedText) => {
+        onSuccess(decodedText);
+      }, (error) => {});
+    }
+
+    // Overriding prepareToReceive from offline-p2p.js integration
+    const _prepareToReceive = window.prepareToReceive;
+    window.prepareToReceive = function() {
+      showP2PModal("Receive File");
+      _prepareToReceive();
+    }
+
+    window.shareOfflineFile = function(id, dbName, storeName, title) {
+      const request = indexedDB.open(dbName, 1);
+      request.onsuccess = (e) => {
+        const db = e.target.result;
+        const tx = db.transaction(storeName, 'readonly');
+        const store = tx.objectStore(storeName);
+        const getReq = store.get(id);
+        getReq.onsuccess = () => {
+          const res = getReq.result;
+          if (res && res.blob) {
+            showP2PModal("Sending: " + title);
+            initiateShare(id, res.blob, title);
+          } else {
+            alert("Could not load file for sharing.");
+          }
+        };
+      };
+    };
+  </script>
 </body>
 </html>

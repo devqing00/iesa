@@ -7,13 +7,16 @@
  * This file lives in /public so it's served at the root scope.
  */
 
-const SHELL_CACHE = "iesa-shell-v3";
-const RUNTIME_CACHE = "iesa-runtime-v3";
+const SHELL_CACHE = "iesa-shell-v5";
+const RUNTIME_CACHE = "iesa-runtime-v5";
 const VALID_CACHES = [SHELL_CACHE, RUNTIME_CACHE];
 const SHELL_ASSETS = [
   "/",
   "/offline.html",
   "/assets/images/iesa-logo.png",
+  "/assets/js/html5-qrcode.min.js",
+  "/assets/js/qrcode.js",
+  "/assets/js/offline-p2p.js"
 ];
 
 const SAFE_SHELL_ROUTES = new Set([
