@@ -649,7 +649,7 @@ export default function ResourcesPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-6">
         {/* Tab Switcher */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col md:flex-row items-center justify-between mb-6">
           <div className="flex gap-1.5 bg-snow border-[3px] border-navy rounded-2xl p-1.5 shadow-[3px_3px_0_0_#000]">
             <button
               onClick={() => setActiveTab("drive")}
