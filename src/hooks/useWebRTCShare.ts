@@ -193,14 +193,7 @@ export function useWebRTCShare() {
     try {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      // Fallback if ICE gathering takes too long, though local network ICE is fast
-      setTimeout(() => {
-        if (pc.iceGatheringState !== "complete" && pc.localDescription) {
-           const token = btoa(JSON.stringify(pc.localDescription));
-           setOfferToken(token);
-           setConnectionState("waiting-for-answer");
-        }
-      }, 2000);
+      // We now rely entirely on onicecandidate (!e.candidate) to set the token.
     } catch (e) {
       console.error(e);
       setConnectionState("error");
@@ -250,20 +243,11 @@ export function useWebRTCShare() {
     };
 
     try {
-      const offerStr = atob(token);
-      const offer = JSON.parse(offerStr);
+      const offer = JSON.parse(atob(token));
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      
-      // Fallback timer
-      setTimeout(() => {
-        if (pc.iceGatheringState !== "complete" && pc.localDescription) {
-           const ansToken = btoa(JSON.stringify(pc.localDescription));
-           setAnswerToken(ansToken);
-           setConnectionState("waiting-for-sender");
-        }
-      }, 2000);
+      // We now rely entirely on onicecandidate (!e.candidate) to set the token.
     } catch (e) {
       console.error(e);
       setConnectionState("error");

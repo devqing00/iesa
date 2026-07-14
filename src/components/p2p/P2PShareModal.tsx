@@ -96,6 +96,27 @@ export default function P2PShareModal({ isOpen, onClose, mode, resourceToShare }
     }
   };
 
+  const handleSenderNativeShare = async () => {
+    if (!resourceToShare) return;
+    if (navigator.share && navigator.canShare) {
+      try {
+        const file = new File([resourceToShare.fileBlob], resourceToShare.fileName, { type: resourceToShare.fileBlob.type });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: resourceToShare.fileName,
+            files: [file]
+          });
+        } else {
+          toast.error("Native share not supported for this file type.");
+        }
+      } catch (err) {
+        console.error("Share failed", err);
+      }
+    } else {
+      toast.error("Native share is not supported on your browser/device.");
+    }
+  };
+
   if (!isOpen) return null;
 
   const handleScanSuccess = (decodedText: string) => {
@@ -198,6 +219,18 @@ export default function P2PShareModal({ isOpen, onClose, mode, resourceToShare }
               <button onClick={() => setIsScanning(true)} className="w-full py-3 bg-lime border-[3px] border-navy text-navy font-black rounded-2xl shadow-[3px_3px_0_0_#000] hover:translate-y-[1px] hover:shadow-[2px_2px_0_0_#000] transition-all">
                 Step 2: Scan Their Code
               </button>
+
+              {typeof navigator !== "undefined" && typeof navigator.share === "function" && (
+                <div className="mt-6 pt-4 border-t-2 border-cloud">
+                  <p className="text-xs text-slate mb-3">P2P connection failing? Share via device:</p>
+                  <button onClick={handleSenderNativeShare} className="w-full px-4 py-2 bg-ghost border-2 border-navy text-navy font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-cloud transition-colors press-2 press-navy">
+                    <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92 0-1.61-1.31-2.92-2.92-2.92z"/>
+                    </svg>
+                    Share via Device
+                  </button>
+                </div>
+              )}
             </div>
          );
       }

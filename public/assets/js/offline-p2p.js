@@ -127,12 +127,6 @@ async function initiateShare(id, file, name) {
   try {
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    setTimeout(() => {
-      if (pc.iceGatheringState !== "complete" && pc.localDescription) {
-        const token = btoa(JSON.stringify(pc.localDescription));
-        showP2PToken(token, "waiting-for-answer");
-      }
-    }, 2000);
   } catch (e) {
     showP2PError("Failed to generate offer.");
   }
@@ -178,13 +172,6 @@ async function processOffer(token) {
     await pc.setRemoteDescription(new RTCSessionDescription(offer));
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
-    
-    setTimeout(() => {
-      if (pc.iceGatheringState !== "complete" && pc.localDescription) {
-        const ansToken = btoa(JSON.stringify(pc.localDescription));
-        showP2PToken(ansToken, "waiting-for-sender");
-      }
-    }, 2000);
   } catch (e) {
     showP2PError("Invalid Offer QR Code.");
   }
