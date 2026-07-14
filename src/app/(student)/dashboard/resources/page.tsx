@@ -13,7 +13,6 @@ import { type DriveItem, getDriveStreamUrl } from "@/lib/api/drive";
 
 const DriveExplorer = dynamic(() => import("@/components/dashboard/drive/DriveExplorer"), { ssr: false });
 const ResourceViewer = dynamic(() => import("@/components/dashboard/drive/ResourceViewer"), { ssr: false });
-const P2PShareModal = dynamic(() => import("@/components/p2p/P2PShareModal"), { ssr: false });
 import { getAllOfflineResourceIds, getOfflineResource } from "@/lib/indexedDB";
 
 /* ─── Types ──────────────────────────────────────────────────────── */
@@ -275,10 +274,6 @@ export default function ResourcesPage() {
   const [showMySubmissions, setShowMySubmissions] = useState(false);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
   
-  // P2P State
-  const [p2pModalOpen, setP2pModalOpen] = useState(false);
-  const [p2pMode, setP2pMode] = useState<"sender" | "receiver">("receiver");
-  const [p2pResource, setP2pResource] = useState<{id: string, fileBlob: Blob, fileName: string} | undefined>(undefined);
   const [offlineResourceIds, setOfflineResourceIds] = useState<Set<string>>(new Set());
   
   const [showBookmarked, setShowBookmarked] = useState(false);
@@ -397,7 +392,7 @@ export default function ResourcesPage() {
     getAllOfflineResourceIds().then(ids => {
       setOfflineResourceIds(new Set(ids));
     }).catch(() => {});
-  }, [resources, p2pModalOpen]); // refresh when resources load or modal closes
+  }, [resources]); // refresh when resources load
 
   // ── Library actions ──
 
@@ -485,16 +480,20 @@ export default function ResourcesPage() {
     } catch { /* non-critical */ }
   };
 
-  const handleShareOffline = async (resource: Resource) => {
+  const handleP2PShareResource = async (resource: Resource) => {
     if (resource.type === "video") {
-      toast.error("Offline share not supported for videos", { description: "You cannot share YouTube videos offline via P2P." });
+      toast.error("Offline share not supported for videos.");
+      return;
+    }
+
+    if (typeof navigator === "undefined" || !navigator.share || !navigator.canShare) {
+      toast.error("Native share is not supported on your browser/device.");
       return;
     }
     
     const loadingToastId = toast.loading("Preparing file for transfer...");
     try {
       let blob: Blob;
-      
       if (offlineResourceIds.has(resource._id)) {
         const offlineData = await getOfflineResource(resource._id);
         if (offlineData) {
@@ -503,14 +502,12 @@ export default function ResourcesPage() {
           throw new Error("Corrupted local copy");
         }
       } else {
-        // Use backend CORS proxy if hosted on Google Drive
         let fetchUrl = resource.url;
         let token = null;
         if (resource.driveFileId) {
           fetchUrl = getDriveStreamUrl(resource.driveFileId);
           token = await getAccessToken();
         }
-        
         const res = await fetch(fetchUrl, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
           credentials: "include"
@@ -522,10 +519,13 @@ export default function ResourcesPage() {
       let ext = "pdf";
       if (resource.type === "slide") ext = "ppt";
       
-      setP2pResource({ id: resource._id, fileBlob: blob, fileName: `${resource.title}.${ext}` });
-      setP2pMode("sender");
-      setP2pModalOpen(true);
-      toast.dismiss(loadingToastId);
+      const file = new File([blob], `${resource.title}.${ext}`, { type: blob.type || "application/octet-stream" });
+      if (navigator.canShare({ files: [file] })) {
+        toast.dismiss(loadingToastId);
+        await navigator.share({ title: resource.title, files: [file] });
+      } else {
+        throw new Error("Cannot share this file type natively.");
+      }
     } catch (e) {
       toast.dismiss(loadingToastId);
       toast.error("Fetch Failed", { description: "Could not fetch file for offline sharing (CORS or network error). Try opening it first." });
@@ -535,6 +535,11 @@ export default function ResourcesPage() {
   const handleDriveShareOffline = async (item: DriveItem) => {
     if (item.fileType === "video" || item.isFolder) {
       toast.error("Offline share not supported for this item type.");
+      return;
+    }
+
+    if (typeof navigator === "undefined" || !navigator.share || !navigator.canShare) {
+      toast.error("Native share is not supported on your browser/device.");
       return;
     }
     
@@ -549,7 +554,6 @@ export default function ResourcesPage() {
           throw new Error("Corrupted local copy");
         }
       } else {
-        // Always use backend CORS proxy for Drive items
         const fetchUrl = getDriveStreamUrl(item.id);
         const token = await getAccessToken();
         const res = await fetch(fetchUrl, {
@@ -559,14 +563,18 @@ export default function ResourcesPage() {
         if (!res.ok) throw new Error("Failed to fetch file");
         blob = await res.blob();
       }
-      setP2pResource({ id: item.id, fileBlob: blob, fileName: item.name });
-      setP2pMode("sender");
-      setP2pModalOpen(true);
-      toast.dismiss(loadingToastId);
+
+      const file = new File([blob], item.name, { type: blob.type || "application/octet-stream" });
+      if (navigator.canShare({ files: [file] })) {
+        toast.dismiss(loadingToastId);
+        await navigator.share({ title: item.name, files: [file] });
+      } else {
+        throw new Error("Cannot share this file type natively.");
+      }
     } catch (e: any) {
-      console.error("[P2P] Fetch Error:", e);
+      console.error("[NativeShare] Error:", e);
       toast.dismiss(loadingToastId);
-      toast.error("Fetch Failed", { description: "Could not fetch file from Drive. Please try again." });
+      toast.error("Share Failed", { description: "Could not share file from Drive." });
     }
   };
 
@@ -677,16 +685,6 @@ export default function ResourcesPage() {
             </button>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => { setP2pMode("receiver"); setP2pModalOpen(true); }}
-              className="flex px-3 sm:px-4 py-2 bg-teal text-snow font-bold text-sm rounded-xl press-2 press-navy shadow-[2px_2px_0_0_#000] items-center gap-2"
-              title="Receive File Offline"
-            >
-              <svg aria-hidden="true" className="w-4 h-4 sm:w-5 sm:h-5 text-snow" viewBox="0 0 24 24" fill="currentColor">
-                <path fillRule="evenodd" d="M12 2.25a.75.75 0 0 1 .75.75v11.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3a.75.75 0 0 1 .75-.75Zm-9 13.5a.75.75 0 0 1 .75.75v2.25a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5V16.5a.75.75 0 0 1 1.5 0v2.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V16.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
-              </svg>
-              <span className="whitespace-nowrap">Receive via P2P</span>
-            </button>
             <HelpButton onClick={openHelp} />
           </div>
         </div>
@@ -1013,7 +1011,7 @@ export default function ResourcesPage() {
                             <div className="flex gap-2">
                               {resource.type !== "video" && (
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); handleShareOffline(resource); }}
+                                  onClick={(e) => { e.stopPropagation(); handleP2PShareResource(resource); }}
                                   className="flex items-center gap-1.5 px-3 py-2.5 bg-lavender-light border-[3px] border-navy rounded-xl font-bold text-[10px] text-navy uppercase tracking-wider press-2 press-navy transition-all"
                                   title="Share via P2P offline"
                                 >
@@ -1205,14 +1203,6 @@ export default function ResourcesPage() {
           </div>
         </div>
       )}
-
-      {/* P2P Share Modal */}
-      <P2PShareModal
-        isOpen={p2pModalOpen}
-        onClose={() => { setP2pModalOpen(false); setP2pResource(undefined); }}
-        mode={p2pMode}
-        resourceToShare={p2pResource}
-      />
     </div>
   );
 }

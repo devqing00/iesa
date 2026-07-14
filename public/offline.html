@@ -206,10 +206,6 @@
       <div id="offline-files-section" style="display: none; margin-bottom: 24px; text-align: left;">
         <div style="margin-bottom: 16px;">
           <h3 style="font-size: 0.9rem; color: #0F0F2D; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;">Your Offline Files</h3>
-          <button onclick="prepareToReceive()" style="width: 100%; padding: 12px; font-size: 1rem; font-weight: 900; background: #C8F31D; color: #0F0F2D; border: 3px solid #0F0F2D; border-radius: 12px; box-shadow: 4px 4px 0 0 #000; margin-bottom: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Receive File via P2P
-          </button>
         </div>
         <div id="offline-files-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; padding-right: 4px;">
           <!-- Items will be injected here -->
@@ -220,36 +216,7 @@
     </div>
   </div>
 
-  <!-- P2P Modal -->
-  <div class="modal-overlay" id="p2p-modal">
-    <div class="modal-content">
-      <h2 style="font-weight: 900; font-size: 1.25rem; margin-bottom: 8px;" id="p2p-title">P2P Share</h2>
-      <div id="p2p-status" class="status-text">Idle</div>
-      
-      <div style="background: rgba(162,162,235,0.15); border: 2px solid #0F0F2D; border-radius: 8px; padding: 10px; text-align: left; margin-bottom: 16px;">
-        <p style="font-size: 0.75rem; color: #0F0F2D; margin-bottom: 0;"><strong>Requirement:</strong> Both devices must be connected to the SAME Wi-Fi or Mobile Hotspot (internet not required).</p>
-      </div>
 
-      <div id="qrcode-container" style="display: none;"></div>
-      <div id="reader" style="display: none;"></div>
-      
-      <div id="native-share-container" style="display: none; margin-top: 16px; border-top: 2px solid #E8E8FF; padding-top: 16px;">
-        <p style="font-size: 0.75rem; margin-bottom: 8px;">P2P connection failing? Share via device:</p>
-        <button onclick="handleOfflineNativeShare()" style="width: 100%; padding: 8px; background: #E8E8FF; font-weight: bold; font-size: 0.8rem; border: 2px solid #0F0F2D; border-radius: 8px; box-shadow: 2px 2px 0 0 #000;">Share via Device</button>
-      </div>
-      
-      <div id="p2p-progress-container" style="display: none;">
-        <div class="progress-bar"><div id="p2p-progress-fill" class="progress-fill"></div></div>
-        <div id="p2p-progress-text" style="font-size: 0.8rem; font-weight: bold;">0%</div>
-      </div>
-
-      <button onclick="closeP2PModal()" style="margin-top: 16px; background: #F5F5FA;">Close</button>
-    </div>
-  </div>
-
-  <script src="/assets/js/qrcode.js"></script>
-  <script src="/assets/js/html5-qrcode.min.js"></script>
-  <script src="/assets/js/offline-p2p.js"></script>
 
   <script>
     function openFile(id, dbName, storeName) {
@@ -376,115 +343,11 @@
       loadOfflineFiles();
     }
 
-    // P2P UI Hooks for offline-p2p.js
-    let html5QrcodeScanner = null;
-
-    function showP2PModal(title) {
-      document.getElementById('p2p-title').innerText = title;
-      document.getElementById('p2p-modal').style.display = 'flex';
-    }
-
-    function closeP2PModal() {
-      document.getElementById('p2p-modal').style.display = 'none';
-      document.getElementById('native-share-container').style.display = 'none';
-      if (html5QrcodeScanner) {
-        html5QrcodeScanner.clear().catch(console.error);
-        html5QrcodeScanner = null;
-      }
-      cleanup(); // from offline-p2p.js
-    }
-
-    function updateP2PUI(state, prog = 0) {
-      const statusEl = document.getElementById('p2p-status');
-      const progContainer = document.getElementById('p2p-progress-container');
-      const progFill = document.getElementById('p2p-progress-fill');
-      const progText = document.getElementById('p2p-progress-text');
-      const qrEl = document.getElementById('qrcode-container');
-      const readerEl = document.getElementById('reader');
-
-      statusEl.innerText = state.replace(/-/g, ' ').toUpperCase();
-
-      if (state === 'transferring') {
-        qrEl.style.display = 'none';
-        readerEl.style.display = 'none';
-        if (html5QrcodeScanner) { html5QrcodeScanner.clear(); html5QrcodeScanner = null; }
-        progContainer.style.display = 'block';
-        progFill.style.width = prog + '%';
-        progText.innerText = prog + '%';
-      } else if (state === 'completed') {
-        progFill.style.width = '100%';
-        progText.innerText = '100% DONE';
-      } else if (state === 'idle' || state === 'error') {
-        progContainer.style.display = 'none';
-      }
-    }
-
-    function showP2PError(msg) {
-      document.getElementById('p2p-status').innerText = 'ERROR: ' + msg;
-      document.getElementById('p2p-status').style.color = 'red';
-    }
-
-    function showP2PToken(token, newState) {
-      updateP2PUI(newState);
-      const qrEl = document.getElementById('qrcode-container');
-      qrEl.innerHTML = '';
-      qrEl.style.display = 'flex';
-      
-      const typeNumber = 0;
-      const errorCorrectionLevel = 'L';
-      const qr = window.qrcode(typeNumber, errorCorrectionLevel);
-      qr.addData(token);
-      qr.make();
-      qrEl.innerHTML = qr.createImgTag(3, 8);
-      
-      if (newState === 'waiting-for-answer') {
-        document.getElementById('native-share-container').style.display = 'block';
-        // Automatically start scanning for the answer after showing offer
-        setTimeout(() => {
-          startScanner((scannedToken) => {
-            acceptAnswer(scannedToken);
-            if(html5QrcodeScanner) { html5QrcodeScanner.clear(); html5QrcodeScanner = null; }
-            document.getElementById('reader').style.display = 'none';
-          });
-        }, 2000);
-      } else {
-        document.getElementById('native-share-container').style.display = 'none';
-      }
-    }
-
-    function handleOfflineNativeShare() {
-      if (typeof fileToTransfer !== 'undefined' && fileToTransfer && typeof fileMetadata !== 'undefined' && fileMetadata) {
-        if (navigator.share && navigator.canShare) {
-          const file = new window.File([fileToTransfer], fileMetadata.name, { type: fileMetadata.type });
-          if (navigator.canShare({ files: [file] })) {
-            navigator.share({ title: fileMetadata.name, files: [file] }).catch(console.error);
-          } else {
-            alert("Native share not supported for this file type.");
-          }
-        } else {
-          alert("Native share is not supported on your device.");
-        }
-      }
-    }
-
-    function startScanner(onSuccess) {
-      document.getElementById('qrcode-container').style.display = 'none';
-      document.getElementById('reader').style.display = 'block';
-      
-      html5QrcodeScanner = new window.Html5QrcodeScanner("reader", { fps: 20, qrbox: {width: 300, height: 300} }, false);
-      html5QrcodeScanner.render((decodedText) => {
-        onSuccess(decodedText);
-      }, (error) => {});
-    }
-
-    // Overriding prepareToReceive from offline-p2p.js integration
-    const _prepareToReceive = window.prepareToReceive;
-    window.prepareToReceive = function() {
-      showP2PModal("Receive File");
-      _prepareToReceive();
-    }
-
     window.shareOfflineFile = function(id, dbName, storeName, title) {
+      if (!navigator.share || !navigator.canShare) {
+        alert("Native share is not supported on your browser/device.");
+        return;
+      }
       const request = indexedDB.open(dbName, 1);
       request.onsuccess = (e) => {
         const db = e.target.result;
@@ -494,8 +357,12 @@
         getReq.onsuccess = () => {
           const res = getReq.result;
           if (res && res.blob) {
-            showP2PModal("Sending: " + title);
-            initiateShare(id, res.blob, title);
+            const file = new window.File([res.blob], title, { type: res.blob.type || "application/octet-stream" });
+            if (navigator.canShare({ files: [file] })) {
+              navigator.share({ title: title, files: [file] }).catch(console.error);
+            } else {
+              alert("Cannot share this file type natively.");
+            }
           } else {
             alert("Could not load file for sharing.");
           }
