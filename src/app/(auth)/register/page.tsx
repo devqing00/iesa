@@ -260,7 +260,7 @@ function RegisterContent() {
 
         <div className="relative z-10 max-w-sm p-10 space-y-8">
           {/* Label */}
-          <span className="font-display font-bold text-xs uppercase tracking-wider text-snow/50 flex items-center gap-2">
+          <span className="text-body font-bold text-xs uppercase tracking-wider text-snow/50 flex items-center gap-2">
             <svg aria-hidden="true" className="w-3 h-3 text-lime" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
             Join IESA
           </span>
@@ -271,7 +271,7 @@ function RegisterContent() {
               Create Your<br />
               <span className="text-lime">Account</span>
             </h2>
-            <p className="font-display font-normal text-snow/60 leading-relaxed text-sm">
+            <p className="text-body font-normal text-snow/60 leading-relaxed text-sm">
               Join the Industrial Engineering Students&apos; Association and unlock everything the platform has to offer.
             </p>
           </div>
@@ -281,7 +281,7 @@ function RegisterContent() {
             <p className="font-display font-black text-navy text-sm leading-snug">
               &ldquo;Everything you need for your academic journey — in one place.&rdquo;
             </p>
-            <p className="font-display font-bold text-navy/60 text-xs mt-2 uppercase tracking-wide">IESA Platform</p>
+            <p className="text-body font-bold text-navy/60 text-xs mt-2 uppercase tracking-wide">IESA Platform</p>
           </div>
 
           {/* Benefits */}
@@ -294,13 +294,13 @@ function RegisterContent() {
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-3">
                 <span className={`w-2 h-2 rounded-full ${item.color} flex-shrink-0`} />
-                <span className="font-display font-normal text-sm text-snow/75">{item.label}</span>
+                <span className="text-body font-normal text-sm text-snow/75">{item.label}</span>
               </div>
             ))}
           </div>
 
           <div className="pt-6 border-t border-snow/15">
-            <p className="font-display font-bold text-xs uppercase tracking-wider text-snow/40">University of Ibadan, Nigeria</p>
+            <p className="text-body font-bold text-xs uppercase tracking-wider text-snow/40">University of Ibadan, Nigeria</p>
           </div>
         </div>
       </div>
@@ -362,7 +362,7 @@ function RegisterContent() {
           {/* Divider */}
           <div className="flex items-center gap-4">
             <div className="flex-1 h-[3px] bg-cloud" />
-            <span className="font-display font-bold text-xs uppercase tracking-wider text-slate">or sign up with email</span>
+            <span className="text-body font-bold text-xs uppercase tracking-wider text-slate">or sign up with email</span>
             <div className="flex-1 h-[3px] bg-cloud" />
           </div>
 
@@ -396,7 +396,7 @@ function RegisterContent() {
               </h2>
 
               <div className="space-y-2">
-                <label htmlFor="register-email" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Email</label>
+                <label htmlFor="register-email" className="text-body font-bold text-xs uppercase tracking-wider text-slate">Email</label>
                 <input
                   id="register-email"
                   type="email"
@@ -416,7 +416,7 @@ function RegisterContent() {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                         </svg>
                         <div>
-                          <p className="font-display font-bold text-sm text-navy">Possible existing account detected</p>
+                          <p className="text-body font-bold text-sm text-navy">Possible existing account detected</p>
                           <p className="text-xs text-navy/70 mt-0.5">We found {similarMatches.length} account{similarMatches.length > 1 ? "s" : ""} similar to yours. Did you mean to sign in instead?</p>
                         </div>
                       </div>
@@ -441,9 +441,8 @@ function RegisterContent() {
                       ))}
                     </div>
                     <div className="flex gap-2 flex-wrap">
-                      <a
-                        href="/login"
-                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-navy text-snow border-[2px] border-navy rounded-xl font-display font-bold text-xs transition-all hover:bg-navy/90"
+                      <a href="/login"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-navy text-snow border-[2px] border-navy rounded-xl text-body font-bold text-xs transition-all hover:bg-navy/90"
                       >
                         Go to Login
                       </a>
@@ -486,12 +485,12 @@ function RegisterContent() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label htmlFor="register-password" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Password</label>
+                  <label htmlFor="register-password" className="text-body font-bold text-xs uppercase tracking-wider text-slate">Password</label>
                   <PasswordInput id="register-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required minLength={8} className={inputClass} />
                   <p className="text-xs text-slate">Min 8 chars, uppercase, lowercase & number</p>
                 </div>
                 <div className="space-y-2">
-                  <label htmlFor="register-confirm-password" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Confirm Password</label>
+                  <label htmlFor="register-confirm-password" className="text-body font-bold text-xs uppercase tracking-wider text-slate">Confirm Password</label>
                   <PasswordInput id="register-confirm-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" required minLength={8} className={inputClass} />
                 </div>
               </div>
@@ -506,28 +505,28 @@ function RegisterContent() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label htmlFor="register-first-name" className="font-display font-bold text-xs uppercase tracking-wider text-slate">First Name</label>
+                  <label htmlFor="register-first-name" className="text-body font-bold text-xs uppercase tracking-wider text-slate">First Name</label>
                   <input id="register-first-name" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="John" required className={inputClass} />
                 </div>
                 <div className="space-y-2">
-                  <label htmlFor="register-last-name" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Last Name</label>
+                  <label htmlFor="register-last-name" className="text-body font-bold text-xs uppercase tracking-wider text-slate">Last Name</label>
                   <input id="register-last-name" type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" required className={inputClass} />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="register-matric-number" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Matric Number</label>
+                <label htmlFor="register-matric-number" className="text-body font-bold text-xs uppercase tracking-wider text-slate">Matric Number</label>
                 <input id="register-matric-number" type="text" value={matricNumber} onChange={(e) => { const value = e.target.value.replace(/\D/g, "").slice(0, 6); setMatricNumber(value); }} placeholder="236123" required maxLength={6} className={inputClass} />
                 <p className="text-xs text-slate">6 digits only</p>
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="register-phone" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Phone Number</label>
+                <label htmlFor="register-phone" className="text-body font-bold text-xs uppercase tracking-wider text-slate">Phone Number</label>
                 <input id="register-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+234 812 345 6789" required className={inputClass} />
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="register-gender" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Gender</label>
+                <label htmlFor="register-gender" className="text-body font-bold text-xs uppercase tracking-wider text-slate">Gender</label>
                 <select
                   id="register-gender"
                   value={gender}
@@ -542,7 +541,7 @@ function RegisterContent() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="register-dob" className="font-display font-bold text-xs uppercase tracking-wider text-slate">
+                <label htmlFor="register-dob" className="text-body font-bold text-xs uppercase tracking-wider text-slate">
                   Date of Birth (Optional)
                 </label>
                 <input
@@ -567,7 +566,7 @@ function RegisterContent() {
               {/* External student toggle */}
               <div className="flex items-center justify-between bg-ghost border-2 border-cloud rounded-2xl px-4 py-3">
                 <div>
-                  <p className="font-display font-bold text-xs text-navy">Not from Industrial Engineering?</p>
+                  <p className="text-body font-bold text-xs text-navy">Not from Industrial Engineering?</p>
                   <p className="text-[11px] text-slate mt-0.5">Toggle if you&apos;re from a different department</p>
                 </div>
                 <button
@@ -586,7 +585,7 @@ function RegisterContent() {
 
               {isExternalStudent && (
                 <div className="space-y-2">
-                  <label htmlFor="register-department" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Your Department</label>
+                  <label htmlFor="register-department" className="text-body font-bold text-xs uppercase tracking-wider text-slate">Your Department</label>
                   <input
                     id="register-department"
                     type="text"
@@ -602,7 +601,7 @@ function RegisterContent() {
               )}
 
               <div className="space-y-2">
-                <label htmlFor="register-admitted-session" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Session Admitted</label>
+                <label htmlFor="register-admitted-session" className="text-body font-bold text-xs uppercase tracking-wider text-slate">Session Admitted</label>
                 {sessionsLoading ? (
                   <div className={`${inputClass} flex items-center gap-2 text-slate`}>
                     <div className="w-4 h-4 rounded-full border-[2px] border-navy border-t-transparent animate-spin shrink-0" />
@@ -635,7 +634,7 @@ function RegisterContent() {
                   }`}>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-display font-bold text-sm text-navy">
+                        <p className="text-body font-bold text-sm text-navy">
                           Your calculated level: <span className="font-black text-base">{calculatedLevel}</span>
                         </p>
                         <p className="text-xs text-navy/60 mt-1">
@@ -680,17 +679,16 @@ function RegisterContent() {
                     <p className="text-coral text-sm font-medium">{error}</p>
                     {/* Email already registered — offer to sign in */}
                     {(error.includes("already exists") || error.includes("already in use")) && (
-                      <a href="/login" className="text-xs font-display font-bold text-navy/60 hover:text-navy hover:underline mt-2 inline-block transition-colors">
+                      <a href="/login" className="text-xs text-body font-bold text-navy/60 hover:text-navy hover:underline mt-2 inline-block transition-colors">
                         Sign in to your account &rarr;
                       </a>
                     )}
                     {/* Account exists via Google — offer Google sign-in */}
                     {(error.toLowerCase().includes("linked to google") ||
                       error.toLowerCase().includes("continue with google")) && (
-                      <button
-                        type="button"
+                      <button type="button"
                         onClick={handleGoogleSignUp}
-                        className="text-xs font-display font-bold text-navy/60 hover:text-navy hover:underline mt-2 block transition-colors"
+                        className="text-xs text-body font-bold text-navy/60 hover:text-navy hover:underline mt-2 block transition-colors"
                       >
                         Try Google sign-up instead &rarr;
                       </button>

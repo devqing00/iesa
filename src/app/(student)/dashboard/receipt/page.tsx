@@ -280,7 +280,7 @@ function ReceiptContent() {
                   </div>
                 )}
                 <div className="pt-3 border-t-[2px] border-navy/10 flex justify-between items-center">
-                  <span className="font-display font-bold text-lg text-navy">Amount Paid</span>
+                  <span className="text-body font-bold text-lg text-navy">Amount Paid</span>
                   <span className="font-display font-black text-3xl text-navy">{formatAmount(receipt.payment.amount)}</span>
                 </div>
               </div>

@@ -321,7 +321,7 @@ export default function ApplicationsTab() {
               </div>
 
               {/* Feedback */}
-              <label className="block font-display font-bold text-sm text-navy mb-2">
+              <label className="block text-body font-bold text-sm text-navy mb-2">
                 Feedback <span className="text-slate font-normal">(optional)</span>
               </label>
               <textarea

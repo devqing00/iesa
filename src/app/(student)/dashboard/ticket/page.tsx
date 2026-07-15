@@ -181,9 +181,8 @@ function TicketContent() {
           ← Events
         </button>
         <div className="flex-1" />
-        <button
-          onClick={handlePrint}
-          className="bg-lime border-[3px] border-navy rounded-xl px-5 py-2 font-display font-bold text-sm text-navy press-2 press-navy flex items-center gap-2"
+        <button onClick={handlePrint}
+          className="bg-lime border-[3px] border-navy rounded-xl px-5 py-2 text-body font-bold text-sm text-navy press-2 press-navy flex items-center gap-2"
         >
           <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
             <path fillRule="evenodd" d="M7.875 1.5C6.839 1.5 6 2.34 6 3.375v2.99c-.426.053-.851.11-1.274.174-1.454.218-2.476 1.483-2.476 2.917v6.294a3 3 0 0 0 3 3h.27l-.092 1.086a1.875 1.875 0 0 0 1.865 2.063h9.414a1.875 1.875 0 0 0 1.865-2.063l-.092-1.086h.27a3 3 0 0 0 3-3V9.456c0-1.434-1.022-2.7-2.476-2.917A48.716 48.716 0 0 0 18 6.366V3.375c0-1.036-.84-1.875-1.875-1.875h-8.25ZM16.5 6.205v-2.83A.375.375 0 0 0 16.125 3h-8.25a.375.375 0 0 0-.375.375v2.83a49.353 49.353 0 0 1 9 0Zm-2.218 9.907a18.36 18.36 0 0 0-4.564 0l-.467.054a1.875 1.875 0 0 0-1.633 1.847l.092 4.122a.375.375 0 0 0 .373.413h9.834a.375.375 0 0 0 .373-.413l.092-4.122a1.875 1.875 0 0 0-1.633-1.847l-.467-.054Z" clipRule="evenodd" />

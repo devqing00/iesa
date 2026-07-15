@@ -11,20 +11,20 @@ export default function DashboardError({
     <div className="flex-1 flex items-center justify-center p-8">
       <div className="max-w-md w-full space-y-6 text-center">
         <div className="space-y-2">
-          <span className="font-display font-bold text-xs text-slate uppercase tracking-wider flex items-center justify-center gap-2">
+          <span className="text-body font-bold text-xs text-slate uppercase tracking-wider flex items-center justify-center gap-2">
             <svg aria-hidden="true" className="w-3 h-3 text-coral" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg> Dashboard Error
           </span>
           <h2 className="font-display font-black text-2xl text-navy">Page Error</h2>
         </div>
 
-        <p className="font-display font-normal text-sm text-navy/60">
+        <p className="text-body font-normal text-sm text-navy/60">
           This page encountered an error. Your other dashboard features should
           still work.
         </p>
 
         {process.env.NODE_ENV === "development" && (
           <div className="bg-snow border-[3px] border-navy rounded-2xl p-4 text-left shadow-[3px_3px_0_0_#000]">
-            <p className="font-display font-bold text-xs text-coral uppercase tracking-wider mb-2">Error Details</p>
+            <p className="text-body font-bold text-xs text-coral uppercase tracking-wider mb-2">Error Details</p>
             <p className="text-sm text-navy/60 font-mono break-all">
               {error.message}
             </p>

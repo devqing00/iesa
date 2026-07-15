@@ -467,7 +467,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
               </div>
 
               <div className="bg-ghost border-[2px] border-navy/10 rounded-2xl p-4 text-left space-y-2.5">
-                <p className="font-display font-bold text-sm text-navy">Here&apos;s what we&apos;ll do:</p>
+                <p className="text-body font-bold text-sm text-navy">Here&apos;s what we&apos;ll do:</p>
                 {["Set up your student profile", "Show you around the platform", "Get you ready to explore"].map((item, i) => (
                   <div key={i} className="flex items-center gap-2.5">
                     <div className="w-6 h-6 rounded-lg bg-teal/20 flex items-center justify-center shrink-0">
@@ -497,7 +497,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
               ].map(({ label, value }) => (
                 <div key={label} className="flex items-center justify-between px-4 py-3 bg-ghost border-[2px] border-cloud rounded-2xl">
                   <span className="font-display font-bold text-[10px] uppercase tracking-[0.1em] text-navy/40">{label}</span>
-                  <span className="font-display font-medium text-sm text-navy">{value || "—"}</span>
+                  <span className="text-body font-medium text-sm text-navy">{value || "—"}</span>
                 </div>
               ))}
 
@@ -585,7 +585,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
               {/* External toggle */}
               <div className="flex items-center justify-between bg-ghost border-2 border-cloud rounded-2xl px-3.5 py-2.5">
                 <div>
-                  <p className="font-display font-bold text-xs text-navy">Not from Industrial Engineering?</p>
+                  <p className="text-body font-bold text-xs text-navy">Not from Industrial Engineering?</p>
                   <p className="text-[10px] text-slate mt-0.5">Toggle if you&apos;re from a different department</p>
                 </div>
                 <button
@@ -635,7 +635,7 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
                 <div className={`p-3.5 rounded-2xl border-[3px] transition-all ${levelConfirmed ? "bg-teal-light border-teal" : "bg-sunny-light border-sunny"}`}>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-display font-bold text-sm text-navy">
+                      <p className="text-body font-bold text-sm text-navy">
                         Your level: <span className="font-black">{calculatedLevel}</span>
                       </p>
                       <p className="text-[10px] text-navy/60 mt-0.5">
@@ -733,9 +733,8 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
           {step === 0 && (
             <>
               {onSkip && (
-                <button
-                  onClick={onSkip}
-                  className="text-sm font-display font-bold text-navy/40 hover:text-navy/60 transition-colors"
+                <button onClick={onSkip}
+                  className="text-sm text-body font-bold text-navy/40 hover:text-navy/60 transition-colors"
                 >
                   Skip for now
                 </button>
@@ -759,10 +758,9 @@ export function OnboardingModal({ onComplete, onSkip, mandatory = false }: Onboa
                 Back
               </button>
               <div className="flex-1" />
-              <button
-                onClick={isConfirmMode ? handleConfirmProfile : handleSaveProfile}
+              <button onClick={isConfirmMode ? handleConfirmProfile : handleSaveProfile}
                 disabled={saving}
-                className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-xl font-display font-bold text-sm text-navy transition-all disabled:opacity-50"
+                className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-xl text-body font-bold text-sm text-navy transition-all disabled:opacity-50"
               >
                 {saving ? "Saving..." : isConfirmMode ? "Looks Good, Continue" : "Save & Continue"}
               </button>

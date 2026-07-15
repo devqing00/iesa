@@ -737,11 +737,10 @@ function AdminHealthPage() {
                   <h2 className="font-display font-black text-xl text-navy">Receipt Upload Issues</h2>
                   <p className="text-sm text-slate">Latest failures from bank transfer receipt uploads.</p>
                 </div>
-                <button
-                  type="button"
+                <button type="button"
                   onClick={fetchReceiptIssues}
                   disabled={receiptIssuesLoading}
-                  className="bg-lime border-[3px] border-navy rounded-xl px-4 py-2 font-display font-bold text-sm text-navy press-3 press-navy disabled:opacity-50"
+                  className="bg-lime border-[3px] border-navy rounded-xl px-4 py-2 text-body font-bold text-sm text-navy press-3 press-navy disabled:opacity-50"
                 >
                   {receiptIssuesLoading ? "Refreshing..." : "Refresh"}
                 </button>
@@ -824,11 +823,10 @@ function AdminHealthPage() {
             <div className="bg-snow border-4 border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] mt-8">
               <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
                 <h2 className="font-display font-black text-xl text-navy">Push Health</h2>
-                <button
-                  type="button"
+                <button type="button"
                   onClick={fetchPushStatus}
                   disabled={pushStatusLoading}
-                  className="bg-lime border-[3px] border-navy rounded-xl px-4 py-2 font-display font-bold text-sm text-navy press-3 press-navy disabled:opacity-50"
+                  className="bg-lime border-[3px] border-navy rounded-xl px-4 py-2 text-body font-bold text-sm text-navy press-3 press-navy disabled:opacity-50"
                 >
                   {pushStatusLoading ? "Checking..." : "Check VAPID"}
                 </button>
@@ -875,11 +873,10 @@ function AdminHealthPage() {
                     placeholder="student@ui.edu.ng"
                     className="flex-1 bg-snow border-[3px] border-navy rounded-xl px-4 py-2.5 text-sm text-navy placeholder:text-slate"
                   />
-                  <button
-                    type="button"
+                  <button type="button"
                     onClick={sendPushTest}
                     disabled={pushTestLoading || !pushTestEmail.trim()}
-                    className="bg-navy border-[3px] border-lime rounded-xl px-5 py-2.5 font-display font-bold text-sm text-lime press-3 press-lime disabled:opacity-50"
+                    className="bg-navy border-[3px] border-lime rounded-xl px-5 py-2.5 text-body font-bold text-sm text-lime press-3 press-lime disabled:opacity-50"
                   >
                     {pushTestLoading ? "Sending..." : "Send Test"}
                   </button>

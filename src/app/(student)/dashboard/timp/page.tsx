@@ -717,19 +717,17 @@ export default function TimpPage() {
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         {whatsappHref && (
-                          <a
-                            href={whatsappHref}
+                          <a href={whatsappHref}
                             target="_blank"
                             rel="noreferrer"
-                            className="bg-lime border-[3px] border-navy press-3 press-navy px-4 py-2 rounded-xl font-display font-bold text-xs text-navy transition-all"
+                            className="bg-lime border-[3px] border-navy press-3 press-navy px-4 py-2 rounded-xl text-body font-bold text-xs text-navy transition-all"
                           >
                             WhatsApp
                           </a>
                         )}
                         {partnerEmail && (
-                          <a
-                            href={`mailto:${partnerEmail}`}
-                            className="bg-snow border-[3px] border-navy press-3 press-navy px-4 py-2 rounded-xl font-display font-bold text-xs text-navy transition-all"
+                          <a href={`mailto:${partnerEmail}`}
+                            className="bg-snow border-[3px] border-navy press-3 press-navy px-4 py-2 rounded-xl text-body font-bold text-xs text-navy transition-all"
                           >
                             Email
                           </a>

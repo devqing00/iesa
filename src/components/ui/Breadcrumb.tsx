@@ -112,7 +112,7 @@ export function Breadcrumb({ items, auto = true, className = '' }: BreadcrumbPro
                 </svg>
               )}
               {isLast || !crumb.href ? (
-                <span className="font-display font-bold text-xs uppercase tracking-wider text-navy">
+                <span className="text-body font-bold text-xs uppercase tracking-wider text-navy">
                   {crumb.label}
                 </span>
               ) : (

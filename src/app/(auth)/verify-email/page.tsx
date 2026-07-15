@@ -56,7 +56,7 @@ export default function VerifyEmailPage() {
           <p className="text-xs text-slate">Redirecting automatically in 5 seconds...</p>
         </div>
 
-        <p className="font-display font-normal text-sm text-navy/60">
+        <p className="text-body font-normal text-sm text-navy/60">
           Need help? <Link href="/contact" className="text-navy hover:underline">Contact support</Link>
         </p>
       </main>

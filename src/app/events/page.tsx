@@ -128,7 +128,7 @@ export default async function EventsPage() {
               <span className="inline-block bg-sunny text-navy border-[2px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[3px_3px_0_0_#000]">Optimize</span>
               &amp; Lead
             </h1>
-            <p className="font-display font-medium text-base sm:text-lg text-snow/70 max-w-2xl leading-relaxed">
+            <p className="text-body font-medium text-base sm:text-lg text-snow/70 max-w-2xl leading-relaxed">
               From operations workshops and plant-focused talks to career and
               innovation events, IESA programs are built to strengthen your
               Industrial &amp; Production Engineering journey.
@@ -151,8 +151,8 @@ export default async function EventsPage() {
 
           {upcoming.length === 0 ? (
             <div className="bg-ghost border-[2px] border-cloud rounded-3xl p-8 sm:p-12 text-center">
-              <p className="font-display font-bold text-lg text-slate">No upcoming events at the moment</p>
-              <p className="font-display font-medium text-sm text-slate mt-2">Check back soon for the next IPE-focused workshops and sessions.</p>
+              <p className="text-body font-bold text-lg text-slate">No upcoming events at the moment</p>
+              <p className="text-body font-medium text-sm text-slate mt-2">Check back soon for the next IPE-focused workshops and sessions.</p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -166,7 +166,7 @@ export default async function EventsPage() {
                           <span className="font-display font-bold text-[10px] text-navy uppercase tracking-widest bg-snow border-[2px] border-navy rounded-full px-3 py-1 shadow-[2px_2px_0_0_#000]">
                             {event.category}
                           </span>
-                          <span className="font-display font-bold text-xs text-navy-muted flex items-center gap-1.5">
+                          <span className="text-body font-bold text-xs text-navy-muted flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full bg-lime border border-navy" />
                             {formatEventDate(event.date)}
                           </span>
@@ -179,10 +179,10 @@ export default async function EventsPage() {
                         <h3 className="font-display font-black text-xl sm:text-2xl text-navy">
                           {event.title}
                         </h3>
-                        <p className="font-display font-medium text-sm text-navy-muted leading-relaxed">
+                        <p className="text-body font-medium text-sm text-navy-muted leading-relaxed">
                           {event.description}
                         </p>
-                        <p className="font-display font-bold text-xs text-slate flex items-center gap-2">
+                        <p className="text-body font-bold text-xs text-slate flex items-center gap-2">
                           <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                           </svg>
@@ -224,7 +224,7 @@ export default async function EventsPage() {
               {past.map((event) => (
                 <div key={event._id} className="bg-snow border-[2px] border-navy rounded-3xl p-6 press-4 press-black transition-all">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="font-display font-bold text-xs text-slate flex items-center gap-1.5">
+                    <span className="text-body font-bold text-xs text-slate flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-navy/30" />
                       {formatPastDate(event.date)}
                     </span>
@@ -283,7 +283,7 @@ export default async function EventsPage() {
           <h2 className="font-display font-black text-4xl sm:text-6xl text-navy mb-6 leading-none">
             Never Miss<br />an Event
           </h2>
-          <p className="font-display font-medium text-base sm:text-lg text-navy-muted max-w-md mx-auto mb-8 sm:mb-10">
+          <p className="text-body font-medium text-base sm:text-lg text-navy-muted max-w-md mx-auto mb-8 sm:mb-10">
             Join IESA to get notified about upcoming events and exclusive
             member-only activities.
           </p>

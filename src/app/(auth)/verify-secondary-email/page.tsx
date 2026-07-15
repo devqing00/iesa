@@ -97,9 +97,8 @@ function VerifySecondaryEmailContent() {
                 <h1 className="font-display font-black text-2xl text-navy">Secondary Email Verified!</h1>
                 <p className="font-display font-normal text-slate">Your secondary email has been successfully verified. You can now use it for notifications.</p>
               </div>
-              <button
-                onClick={handleGoToProfile}
-                className="w-full bg-lime border-[3px] border-navy press-3 press-navy px-8 py-4 rounded-2xl font-display font-bold text-lg text-navy transition-all"
+              <button onClick={handleGoToProfile}
+                className="w-full bg-lime border-[3px] border-navy press-3 press-navy px-8 py-4 rounded-2xl text-body font-bold text-lg text-navy transition-all"
               >
                 Go to Profile
               </button>
@@ -119,9 +118,8 @@ function VerifySecondaryEmailContent() {
                 <h1 className="font-display font-black text-2xl text-navy">Already Verified</h1>
                 <p className="font-display font-normal text-slate">This secondary email has already been verified.</p>
               </div>
-              <button
-                onClick={handleGoToProfile}
-                className="w-full bg-lime border-[3px] border-navy press-3 press-navy px-8 py-4 rounded-2xl font-display font-bold text-lg text-navy transition-all"
+              <button onClick={handleGoToProfile}
+                className="w-full bg-lime border-[3px] border-navy press-3 press-navy px-8 py-4 rounded-2xl text-body font-bold text-lg text-navy transition-all"
               >
                 Go to Profile
               </button>
@@ -142,9 +140,8 @@ function VerifySecondaryEmailContent() {
                 <p className="font-display font-normal text-slate">{errorMessage || "Failed to verify email. The link may have expired."}</p>
               </div>
               <div className="space-y-3">
-                <button
-                  onClick={handleGoToProfile}
-                  className="w-full bg-lime border-[3px] border-navy press-3 press-navy px-8 py-4 rounded-2xl font-display font-bold text-lg text-navy transition-all"
+                <button onClick={handleGoToProfile}
+                  className="w-full bg-lime border-[3px] border-navy press-3 press-navy px-8 py-4 rounded-2xl text-body font-bold text-lg text-navy transition-all"
                 >
                   Go to Profile
                 </button>
@@ -159,7 +156,7 @@ function VerifySecondaryEmailContent() {
           )}
         </div>
 
-        <p className="text-center font-display font-normal text-sm text-slate">
+        <p className="text-center text-body font-normal text-sm text-slate">
           Need help? <Link href="/contact" className="text-navy hover:underline">Contact support</Link>
         </p>
       </div>

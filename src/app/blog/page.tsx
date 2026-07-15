@@ -236,7 +236,7 @@ export default function BlogPage() {
                             )}
                           </div>
                           <div>
-                            <p className="text-xs font-display font-bold text-navy">{featured.authorName}</p>
+                            <p className="text-xs text-body font-bold text-navy">{featured.authorName}</p>
                             <p className="text-[10px] text-slate">
                               {featured.publishedAt ? new Date(featured.publishedAt).toLocaleDateString("en-NG", { month: "short", day: "numeric", year: "numeric" }) : ""}
                             </p>

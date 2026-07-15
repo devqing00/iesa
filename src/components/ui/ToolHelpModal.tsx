@@ -270,7 +270,7 @@ export function ToolHelpModal({ toolId, isOpen, onClose }: ToolHelpModalProps) {
                 How to Use
               </div>
               <h2 className="font-display font-black text-xl text-navy">{content.title}</h2>
-              <p className="font-display font-normal text-sm text-navy/60 mt-1">{content.subtitle}</p>
+              <p className="text-body font-normal text-sm text-navy/60 mt-1">{content.subtitle}</p>
             </div>
             <button
               onClick={onClose}

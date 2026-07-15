@@ -19,7 +19,7 @@ export default function FullScreenLoader({
           className={`animate-spin rounded-full ${sizeClasses[size]} border-[3px] border-navy border-t-transparent mx-auto`}
         />
         {label ? (
-          <p className="font-display font-bold text-xs text-slate uppercase tracking-wider">
+          <p className="text-body font-bold text-xs text-slate uppercase tracking-wider">
             {label}
           </p>
         ) : null}

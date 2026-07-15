@@ -12,6 +12,7 @@ import { ConfirmModal } from "@/components/ui/Modal";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { resolveProfileImageUrl } from "@/lib/profileImage";
+import { EventCheckInModal } from "@/components/events/EventCheckInModal";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -169,6 +170,7 @@ function AdminEventsPage() {
   const [markingAll, setMarkingAll] = useState(false);
   const [removeRegConfirm, setRemoveRegConfirm] = useState<{ isOpen: boolean; eventId: string; userId: string }>({ isOpen: false, eventId: "", userId: "" });
   const attendanceSectionRef = useRef<HTMLDivElement | null>(null);
+  const [showCheckInModal, setShowCheckInModal] = useState(false);
 
   /* ── Fetch ──────────────────────── */
 
@@ -531,9 +533,8 @@ function AdminEventsPage() {
             <p className="text-sm text-navy/60 mt-1">Create, edit and manage all departmental events</p>
           </div>
           <PermissionGate permission="event:create">
-          <button
-            onClick={openCreate}
-            className="self-start bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
+          <button onClick={openCreate}
+            className="self-start bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-2xl text-body font-bold text-sm text-navy transition-all flex items-center gap-2"
           >
             <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
@@ -822,7 +823,19 @@ function AdminEventsPage() {
                 )}
               </div>
               {registrantsData && (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 mt-2 md:mt-0">
+                  <PermissionGate permission="event:manage">
+                  <button
+                    onClick={() => setShowCheckInModal(true)}
+                    disabled={!attendanceWindowOpen}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy border-[3px] border-navy text-snow text-xs font-bold press-3 press-black transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                    </svg>
+                    Scan QR Ticket
+                  </button>
+                  </PermissionGate>
                   <PermissionGate permission="event:manage">
                   <button
                     onClick={markAllAttended}
@@ -919,7 +932,7 @@ function AdminEventsPage() {
                           </div>
                         )}
                         <div className="min-w-0">
-                          <p className="font-display font-bold text-sm text-navy truncate">{r.firstName} {r.lastName}</p>
+                          <p className="text-body font-bold text-sm text-navy truncate">{r.firstName} {r.lastName}</p>
                           <p className="text-[11px] text-slate truncate">
                             {r.matricNumber || r.email}
                             {r.level && ` · ${r.level}`}
@@ -1185,7 +1198,18 @@ function AdminEventsPage() {
         confirmLabel="Remove"
         variant="danger"
       />
-    </>  );
+
+      <EventCheckInModal
+        isOpen={showCheckInModal}
+        onClose={() => setShowCheckInModal(false)}
+        eventId={registrantsEvent?.id}
+        eventTitle={registrantsEvent?.title}
+        onCheckInSuccess={() => {
+          if (registrantsEvent) openRegistrants(registrantsEvent);
+        }}
+      />
+    </>
+  );
 }
 
 export default withAuth(AdminEventsPage, {

@@ -235,9 +235,8 @@ function FilterPanel({
         <button onClick={clearAll} className="text-xs font-bold text-slate uppercase tracking-wider hover:text-coral transition-colors">
           Clear All
         </button>
-        <button
-          onClick={onClose}
-          className="px-5 py-2 bg-lime border-2 border-navy rounded-xl font-display font-bold text-xs text-navy press-2 press-navy transition-all"
+        <button onClick={onClose}
+          className="px-5 py-2 bg-lime border-2 border-navy rounded-xl text-body font-bold text-xs text-navy press-2 press-navy transition-all"
         >
           Done
         </button>
@@ -878,7 +877,7 @@ export default function ResourcesPage() {
                               <span className={`${accent.bg} ${accent.text} text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full`}>{sub.type}</span>
                               <span className={`${statusColor} text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-navy`}>{statusLabel}</span>
                             </div>
-                            <p className="font-display font-bold text-navy text-sm truncate">{sub.title}</p>
+                            <p className="text-body font-bold text-navy text-sm truncate">{sub.title}</p>
                             <p className="text-xs text-slate">{sub.courseCode} · Level {sub.level}</p>
                             {sub.feedback && <p className="text-xs text-coral mt-1 italic">&ldquo;{sub.feedback}&rdquo;</p>}
                           </div>
@@ -918,7 +917,7 @@ export default function ResourcesPage() {
                             <span className={`${accent.bg} ${accent.text} text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full`}>{bk.type}</span>
                             <span className="text-[10px] font-bold text-slate">{bk.courseCode}</span>
                           </div>
-                          <p className="font-display font-bold text-navy text-sm truncate">{bk.title}</p>
+                          <p className="text-body font-bold text-navy text-sm truncate">{bk.title}</p>
                           <div className="flex items-center justify-between mt-auto">
                             <button onClick={() => handleBookmark(bk._id)} className="text-[10px] font-bold text-coral uppercase tracking-wider hover:underline">Remove</button>
                             <button onClick={() => handleViewResource(bk._id, bk.url)} className="px-3 py-1.5 bg-lime border-2 border-navy rounded-lg font-bold text-[10px] text-navy uppercase tracking-wider press-2 press-navy transition-all">Open</button>

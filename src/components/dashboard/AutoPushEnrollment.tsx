@@ -80,18 +80,16 @@ export default function AutoPushEnrollment() {
           </div>
         )}
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
+          <button type="button"
             onClick={handleEnable}
             disabled={loading}
-            className="rounded-xl border-[3px] border-navy bg-lime px-4 py-2 font-display font-bold text-sm text-navy press-3 press-navy disabled:opacity-60"
+            className="rounded-xl border-[3px] border-navy bg-lime px-4 py-2 text-body font-bold text-sm text-navy press-3 press-navy disabled:opacity-60"
           >
             {loading ? "Enabling..." : "Enable Notifications"}
           </button>
-          <button
-            type="button"
+          <button type="button"
             onClick={hidePrompt}
-            className="rounded-xl border-[3px] border-navy bg-snow px-4 py-2 font-display font-bold text-sm text-navy press-3 press-black"
+            className="rounded-xl border-[3px] border-navy bg-snow px-4 py-2 text-body font-bold text-sm text-navy press-3 press-black"
           >
             Not now
           </button>

@@ -1263,7 +1263,7 @@ export default function IESAAIPage() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="font-display font-bold text-sm text-navy truncate">
+                          <p className="text-body font-bold text-sm text-navy truncate">
                             {conv.title}
                           </p>
                           <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate mt-1">
@@ -1349,7 +1349,7 @@ export default function IESAAIPage() {
                         : "bg-snow border-[3px] border-navy text-navy rounded-2xl rounded-tl-lg shadow-[3px_3px_0_0_#000]"
                     }`}
                   >
-                    <div className="font-display font-normal text-sm leading-relaxed">
+                    <div className="text-body font-normal text-sm leading-relaxed">
                       {message.sender === "ai"
                         ? formatAIResponse(message.text)
                         : message.text}
@@ -1515,7 +1515,7 @@ export default function IESAAIPage() {
                 <div className="flex-1">
                   <div className="border-[3px] border-navy bg-snow px-4 py-3 rounded-2xl rounded-tl-lg shadow-[3px_3px_0_0_#000]">
                     <div className="flex items-center gap-2">
-                      <span className="text-slate text-sm font-display font-medium">
+                      <span className="text-slate text-sm text-body font-medium">
                         {isTyping ? "Typing" : "Thinking"}...
                       </span>
                       <div className="flex items-center gap-1">
@@ -1549,7 +1549,7 @@ export default function IESAAIPage() {
                         onClick={() => handleSuggestionClick(suggestion)}
                         className={`p-4 bg-snow border-[3px] border-navy border-l-[5px] ${accents[idx % 4]} rounded-xl text-left transition-all press-3 press-black`}
                       >
-                        <p className="font-display font-medium text-sm text-navy">
+                        <p className="text-body font-medium text-sm text-navy">
                           {suggestion}
                         </p>
                       </button>

@@ -434,7 +434,7 @@ export default function EventCalendarView() {
                     <svg className="w-4 h-4 text-lavender shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                       <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
                     </svg>
-                    <p className="text-navy text-xs font-display font-bold">Academic Calendar Event</p>
+                    <p className="text-navy text-xs text-body font-bold">Academic Calendar Event</p>
                   </div>
                 </div>
               </>

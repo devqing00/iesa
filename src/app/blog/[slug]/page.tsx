@@ -178,7 +178,7 @@ export default function BlogArticlePage() {
                   )}
                 </div>
                 <div>
-                  <p className="font-display font-bold text-sm text-navy">{article.authorName}</p>
+                  <p className="text-body font-bold text-sm text-navy">{article.authorName}</p>
                   <p className="text-[10px] text-slate">IESA Press</p>
                 </div>
                 <div className="ml-auto flex items-center gap-4 text-xs text-slate">
@@ -226,7 +226,7 @@ export default function BlogArticlePage() {
                 <div className="flex flex-wrap gap-2 mt-10 pt-6 border-t-[2px] border-cloud">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate mr-2 self-center">Tags:</span>
                   {article.tags.map((tag) => (
-                    <span key={tag} className="px-3 py-1 bg-ghost border-[2px] border-cloud rounded-xl text-xs font-display font-bold text-navy-muted">
+                    <span key={tag} className="px-3 py-1 bg-ghost border-[2px] border-cloud rounded-xl text-xs text-body font-bold text-navy-muted">
                       #{tag}
                     </span>
                   ))}

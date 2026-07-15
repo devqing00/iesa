@@ -931,7 +931,7 @@ export function AdminTimpPage() {
                 size="lg"
               />
               <div>
-                <p className="font-display font-bold text-lg text-navy">
+                <p className="text-body font-bold text-lg text-navy">
                   {detailUser.firstName} {detailUser.lastName}
                 </p>
                 <p className="text-sm text-slate">{detailUser.email}</p>
@@ -1301,17 +1301,15 @@ function AssignmentTab({
           {/* Create button */}
           <PermissionGate permission="timp:manage">
             <div className="flex gap-2 shrink-0">
-              <button
-                onClick={onGenerateAutoDraft}
+              <button onClick={onGenerateAutoDraft}
                 disabled={autoAssigning || applyingAuto}
-                className="bg-snow border-[3px] border-lime px-4 py-2.5 rounded-2xl font-display font-bold text-sm text-navy press-3 press-lime transition-all disabled:opacity-40"
+                className="bg-snow border-[3px] border-lime px-4 py-2.5 rounded-2xl text-body font-bold text-sm text-navy press-3 press-lime transition-all disabled:opacity-40"
               >
                 {autoAssigning ? "Building…" : "Smart Auto-Assign"}
               </button>
-              <button
-                onClick={onCreatePair}
+              <button onClick={onCreatePair}
                 disabled={!canCreate}
-                className="bg-lime border-[3px] border-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy press-3 press-navy transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                className="bg-lime border-[3px] border-navy px-6 py-2.5 rounded-2xl text-body font-bold text-sm text-navy press-3 press-navy transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {creatingPair ? "Creating…" : "Create Pair"}
               </button>

@@ -526,7 +526,7 @@ export default function ProfilePage() {
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
               </svg>
             </div>
-            <span className="font-display font-bold text-sm text-navy">{successMessage}</span>
+            <span className="text-body font-bold text-sm text-navy">{successMessage}</span>
           </div>
         )}
         {error && (
@@ -536,7 +536,7 @@ export default function ProfilePage() {
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
               </svg>
             </div>
-            <span className="font-display font-bold text-sm text-navy">{error}</span>
+            <span className="text-body font-bold text-sm text-navy">{error}</span>
             <button onClick={() => setError("")} aria-label="Dismiss error message" className="ml-auto">
               <svg aria-hidden="true" className="w-4 h-4 text-navy/40 hover:text-navy" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
@@ -1040,7 +1040,7 @@ export default function ProfilePage() {
                   <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" />
                   </svg>
-                  <span className="font-display font-bold text-xs text-navy">Profile</span>
+                  <span className="text-body font-bold text-xs text-navy">Profile</span>
                 </div>
                 <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg font-display font-bold text-[10px] uppercase tracking-[0.08em] ${profileData.hasCompletedOnboarding ? "bg-teal/20 text-teal" : "bg-coral/20 text-coral"}`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${profileData.hasCompletedOnboarding ? "bg-teal" : "bg-coral"}`} />
@@ -1055,7 +1055,7 @@ export default function ProfilePage() {
                     <path d="M3 4a2 2 0 00-2 2v1.161l8.441 4.221a1.25 1.25 0 001.118 0L19 7.162V6a2 2 0 00-2-2H3z" />
                     <path d="M19 8.839l-7.77 3.885a2.75 2.75 0 01-2.46 0L1 8.839V14a2 2 0 002 2h14a2 2 0 002-2V8.839z" />
                   </svg>
-                  <span className="font-display font-bold text-xs text-navy">Email</span>
+                  <span className="text-body font-bold text-xs text-navy">Email</span>
                 </div>
                 <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg font-display font-bold text-[10px] uppercase tracking-[0.08em] ${profileData.emailVerified ? "bg-navy/20 text-navy" : "bg-coral/20 text-coral"}`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${profileData.emailVerified ? "bg-navy" : "bg-coral"}`} />
@@ -1100,7 +1100,7 @@ export default function ProfilePage() {
                   <svg aria-hidden="true" className="w-4 h-4 text-navy" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.403 12.652a3 3 0 000-5.304 3 3 0 00-3.75-3.751 3 3 0 00-5.305 0 3 3 0 00-3.751 3.75 3 3 0 000 5.305 3 3 0 003.75 3.751 3 3 0 005.305 0 3 3 0 003.751-3.75zm-2.546-4.46a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
                   </svg>
-                  <span className="font-display font-bold text-xs text-navy">Onboarding</span>
+                  <span className="text-body font-bold text-xs text-navy">Onboarding</span>
                 </div>
                 <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg font-display font-bold text-[10px] uppercase tracking-[0.08em] ${profileData.hasCompletedOnboarding ? "bg-teal/20 text-teal" : "bg-sunny/20 text-sunny"}`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${profileData.hasCompletedOnboarding ? "bg-teal" : "bg-sunny"}`} />
@@ -1177,7 +1177,7 @@ export default function ProfilePage() {
                       <tr key={e.id || i} className="border-b-[2px] border-navy/10 last:border-b-0 hover:bg-ghost transition-colors">
                         <td className="p-4">
                           <div>
-                            <span className="font-display font-bold text-sm text-navy">{e.session?.name || "—"}</span>
+                            <span className="text-body font-bold text-sm text-navy">{e.session?.name || "—"}</span>
                             {e.session?.isActive && (
                               <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-teal-light text-[9px] font-bold uppercase tracking-wider text-teal">Active</span>
                             )}
@@ -1232,7 +1232,7 @@ export default function ProfilePage() {
               {/* file info */}
               {selectedFile && (
                 <div className="bg-cloud border-[3px] border-navy rounded-xl p-3">
-                  <p className="font-display font-bold text-sm text-navy truncate">{selectedFile.name}</p>
+                  <p className="text-body font-bold text-sm text-navy truncate">{selectedFile.name}</p>
                   <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate mt-1">
                     {(selectedFile.size / 1024).toFixed(1)} KB · {selectedFile.type}
                   </p>
@@ -1248,10 +1248,9 @@ export default function ProfilePage() {
 
               {/* actions */}
               <div className="flex gap-3">
-                <button
-                  onClick={cancelImageUpload}
+                <button onClick={cancelImageUpload}
                   disabled={uploadingImage}
-                  className="flex-1 bg-transparent border-[3px] border-navy px-4 py-3 rounded-xl font-display font-bold text-xs text-navy uppercase tracking-[0.08em] hover:bg-navy hover:text-lime hover:border-lime transition-all"
+                  className="flex-1 bg-transparent border-[3px] border-navy px-4 py-3 rounded-xl text-body font-bold text-xs text-navy uppercase tracking-[0.08em] hover:bg-navy hover:text-lime hover:border-lime transition-all"
                 >
                   Cancel
                 </button>

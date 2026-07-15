@@ -61,10 +61,10 @@ export function CardHeader({ label, number, action, className = '' }: CardHeader
     <div className={`flex items-center justify-between mb-4 ${className}`}>
       <div className="flex items-center gap-2">
         {number && (
-          <span className="font-display font-bold text-xs uppercase tracking-wider bg-cloud px-2 py-0.5 rounded-xl">{String(number).padStart(2, '0')}</span>
+          <span className="text-body font-bold text-xs uppercase tracking-wider bg-cloud px-2 py-0.5 rounded-xl">{String(number).padStart(2, '0')}</span>
         )}
         {label && (
-          <span className="font-display font-bold text-xs uppercase tracking-wider font-semibold bg-lime-light text-teal px-2 py-0.5 rounded-xl">
+          <span className="text-body font-bold text-xs uppercase tracking-wider font-semibold bg-lime-light text-teal px-2 py-0.5 rounded-xl">
             {label}
           </span>
         )}
@@ -149,7 +149,7 @@ export function StatCard({
     <Card variant={variant} className={className} hover>
       <div className="flex items-start justify-between">
         <div>
-          <p className="font-display font-bold text-xs text-slate uppercase tracking-wider mb-3">{label}</p>
+          <p className="text-body font-bold text-xs text-slate uppercase tracking-wider mb-3">{label}</p>
           <p className="font-display font-black text-3xl text-navy">{value}</p>
           {change && (
             <span className={`inline-flex items-center gap-1 mt-2 text-xs font-medium rounded-full px-2 py-0.5 ${

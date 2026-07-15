@@ -761,11 +761,10 @@ function PDFViewer({ fileId, meta, token, onProgressUpdate, onTelemetry }: PDFVi
           <div className="flex items-center justify-center h-full">
             <div className="text-center space-y-3 max-w-sm">
               <p className="text-coral font-medium">{pdfError}</p>
-              <a
-                href={`https://drive.google.com/file/d/${fileId}/preview`}
+              <a href={`https://drive.google.com/file/d/${fileId}/preview`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-lime border-[3px] border-navy rounded-xl font-display font-bold text-sm text-navy press-3 press-navy"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-lime border-[3px] border-navy rounded-xl text-body font-bold text-sm text-navy press-3 press-navy"
               >
                 Open in Google Drive <ExternalLinkIcon className="w-4 h-4" />
               </a>
@@ -1259,11 +1258,10 @@ function ImageViewer({ fileId, meta, token }: { fileId: string; meta: FileMetaRe
       {error && (
         <div className="text-center space-y-3 max-w-sm">
           <p className="text-coral font-medium">{error}</p>
-          <a
-            href={`https://drive.google.com/file/d/${fileId}/preview`}
+          <a href={`https://drive.google.com/file/d/${fileId}/preview`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-lime border-[3px] border-navy rounded-xl font-display font-bold text-sm text-navy press-3 press-navy"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-lime border-[3px] border-navy rounded-xl text-body font-bold text-sm text-navy press-3 press-navy"
           >
             Open in Google Drive <ExternalLinkIcon className="w-4 h-4" />
           </a>

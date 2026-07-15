@@ -27,7 +27,7 @@ export default function NotFound() {
           </h1>
 
           {/* Description */}
-          <p className="font-display font-medium text-base sm:text-lg text-navy/60 max-w-sm mx-auto">
+          <p className="text-body font-medium text-base sm:text-lg text-navy/60 max-w-sm mx-auto">
             The page you&apos;re looking for doesn&apos;t exist or has been moved.
             Check the URL or navigate back.
           </p>

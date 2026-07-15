@@ -178,7 +178,7 @@ export default function FloatingToolPopup() {
       >
         <div className="flex items-center gap-2 text-lime">
           {tool.icon}
-          <span className="font-display font-bold text-sm text-snow">{tool.label}</span>
+          <span className="text-body font-bold text-sm text-snow">{tool.label}</span>
         </div>
         <div className="flex items-center gap-1">
           <button

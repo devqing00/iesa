@@ -84,7 +84,7 @@ export default function ContactPage() {
               <br />
               <span className="inline-block bg-coral text-navy border-[2px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[3px_3px_0_0_#000]">Touch</span>
             </h1>
-            <p className="font-display font-medium text-base sm:text-lg text-snow/70 max-w-2xl leading-relaxed">
+            <p className="text-body font-medium text-base sm:text-lg text-snow/70 max-w-2xl leading-relaxed">
               Have questions about Industrial &amp; Production Engineering at UI?
               Looking to collaborate on research, training, or industry partnerships?
               We&apos;d love to hear from you.
@@ -107,7 +107,7 @@ export default function ContactPage() {
               </h2>
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
-                  <label htmlFor="contact-name" className="font-display font-bold text-xs text-navy uppercase tracking-wider">Name</label>
+                  <label htmlFor="contact-name" className="text-body font-bold text-xs text-navy uppercase tracking-wider">Name</label>
                   <input
                     id="contact-name"
                     type="text"
@@ -122,7 +122,7 @@ export default function ContactPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="contact-email" className="font-display font-bold text-xs text-navy uppercase tracking-wider">Email</label>
+                  <label htmlFor="contact-email" className="text-body font-bold text-xs text-navy uppercase tracking-wider">Email</label>
                   <input
                     id="contact-email"
                     type="email"
@@ -137,7 +137,7 @@ export default function ContactPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="contact-subject" className="font-display font-bold text-xs text-navy uppercase tracking-wider">Subject</label>
+                  <label htmlFor="contact-subject" className="text-body font-bold text-xs text-navy uppercase tracking-wider">Subject</label>
                   <input
                     id="contact-subject"
                     type="text"
@@ -152,7 +152,7 @@ export default function ContactPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="contact-message" className="font-display font-bold text-xs text-navy uppercase tracking-wider">Message</label>
+                  <label htmlFor="contact-message" className="text-body font-bold text-xs text-navy uppercase tracking-wider">Message</label>
                   <textarea
                     id="contact-message"
                     value={formData.message}
@@ -186,7 +186,7 @@ export default function ContactPage() {
                   </svg>
                 </div>
                 <h3 className="font-display font-black text-lg text-navy mb-2">Our Location</h3>
-                <p className="font-display font-medium text-sm text-navy/80 leading-relaxed">
+                <p className="text-body font-medium text-sm text-navy/80 leading-relaxed">
                   Department of Industrial &amp; Production Engineering
                   <br />
                   Faculty of Technology
@@ -204,9 +204,8 @@ export default function ContactPage() {
                   </svg>
                 </div>
                 <h3 className="font-display font-black text-lg text-navy mb-2">Email Us</h3>
-                <a
-                  href="mailto:iesa@ui.edu.ng"
-                  className="font-display font-bold text-sm text-navy hover:text-navy/60 transition-colors"
+                <a href="mailto:iesa@ui.edu.ng"
+                  className="text-body font-bold text-sm text-navy hover:text-navy/60 transition-colors"
                 >
                   iesa@ui.edu.ng
                 </a>
@@ -245,7 +244,7 @@ export default function ContactPage() {
               {/* Office Hours Card */}
               <div className="bg-snow border-[2px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
                 <h3 className="font-display font-black text-lg text-navy mb-4">Office Hours</h3>
-                <div className="space-y-3 font-display font-medium text-sm">
+                <div className="space-y-3 text-body font-medium text-sm">
                   <div className="flex justify-between">
                     <span className="text-navy/60">Monday - Friday</span>
                     <span className="font-bold text-navy">9:00 AM - 5:00 PM</span>
@@ -299,7 +298,7 @@ export default function ContactPage() {
             ].map((faq, i) => (
               <div key={i} className="bg-snow border-[2px] border-navy rounded-3xl p-6 sm:p-8 shadow-[3px_3px_0_0_#000]">
                 <h3 className="font-display font-black text-base sm:text-lg text-navy mb-3">{faq.question}</h3>
-                <p className="font-display font-medium text-sm text-navy/80 leading-relaxed">
+                <p className="text-body font-medium text-sm text-navy/80 leading-relaxed">
                   {faq.answer}
                 </p>
               </div>

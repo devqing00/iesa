@@ -555,7 +555,7 @@ export default function TeamsPage() {
                 </div>
                 <h3 className="font-display font-black text-xl text-navy mb-1">{unit.name}</h3>
                 <p className="text-sm text-slate leading-relaxed">{unit.description}</p>
-                <div className="mt-4 flex items-center gap-2 text-navy font-display font-bold text-sm">
+                <div className="mt-4 flex items-center gap-2 text-navy text-body font-bold text-sm">
                   Open
                   <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />

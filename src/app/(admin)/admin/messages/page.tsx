@@ -453,9 +453,8 @@ function AdminMessagesPage() {
 
                 {/* Reply via email link */}
                 <PermissionGate permission="contact:manage">
-                  <a
-                    href={`mailto:${selected.email}?subject=Re: ${encodeURIComponent(selected.subject)}`}
-                    className="block w-full text-center px-4 py-2.5 bg-navy border-[3px] border-lime rounded-xl text-xs font-display font-bold text-snow press-3 press-lime transition-all"
+                  <a href={`mailto:${selected.email}?subject=Re: ${encodeURIComponent(selected.subject)}`}
+                    className="block w-full text-center px-4 py-2.5 bg-navy border-[3px] border-lime rounded-xl text-xs text-body font-bold text-snow press-3 press-lime transition-all"
                   >
                     Reply via Email
                   </a>

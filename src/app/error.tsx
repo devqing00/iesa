@@ -44,7 +44,7 @@ export default function GlobalError({
           <div className="px-8 py-8 text-center space-y-6">
             <div>
               <h1 className="font-display font-black text-2xl text-navy mb-2">Something went wrong</h1>
-              <p className="text-slate font-display font-normal text-sm leading-relaxed">
+              <p className="text-slate text-body font-normal text-sm leading-relaxed">
                 An unexpected error occurred. Please try again or contact support if the problem persists.
               </p>
             </div>
@@ -59,9 +59,8 @@ export default function GlobalError({
             )}
 
             <div className="flex gap-3 justify-center">
-              <button
-                onClick={reset}
-                className="bg-lime border-[4px] border-navy press-4 press-navy px-6 py-3 rounded-2xl font-display font-bold text-sm text-navy"
+              <button onClick={reset}
+                className="bg-lime border-[4px] border-navy press-4 press-navy px-6 py-3 rounded-2xl text-body font-bold text-sm text-navy"
               >
                 Try Again
               </button>

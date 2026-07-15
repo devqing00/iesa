@@ -55,7 +55,7 @@ export default function ForgotPasswordPage() {
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
-                  <label htmlFor="reset-email" className="font-display font-bold text-xs uppercase tracking-wider text-slate">
+                  <label htmlFor="reset-email" className="text-body font-bold text-xs uppercase tracking-wider text-slate">
                     Email Address
                   </label>
                   <input
@@ -121,19 +121,19 @@ export default function ForgotPasswordPage() {
 
         <div className="relative z-10 max-w-md p-12 text-center space-y-8">
           <div className="space-y-4">
-            <span className="font-display font-bold text-xs uppercase tracking-wider text-snow/50 flex items-center justify-center gap-2">
+            <span className="text-body font-bold text-xs uppercase tracking-wider text-snow/50 flex items-center justify-center gap-2">
               <span>&#10022;</span> IESA Platform
             </span>
             <h2 className="font-display font-black text-3xl md:text-4xl text-snow">
               Password Recovery
             </h2>
-            <p className="font-display font-normal text-snow/70 leading-relaxed">
+            <p className="text-body font-normal text-snow/70 leading-relaxed">
               Don&apos;t worry — it happens to the best of us. We&apos;ll help you get back into your account.
             </p>
           </div>
 
           <div className="pt-8 border-t border-snow/20">
-            <p className="font-display font-bold text-xs uppercase tracking-wider text-snow/50">
+            <p className="text-body font-bold text-xs uppercase tracking-wider text-snow/50">
               University of Ibadan, Nigeria
             </p>
           </div>

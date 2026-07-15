@@ -637,6 +637,47 @@ async def register_for_event(
     )
 
 
+class CheckInRequest(BaseModel):
+    userId: str
+
+@router.post("/{event_id}/check-in")
+async def check_in_event(
+    event_id: str,
+    check_in_data: CheckInRequest,
+    current_user: dict = Depends(get_current_user),
+    _perm: None = Depends(require_permission("event:manage")),
+):
+    """
+    Check-in a student via QR code scan.
+    """
+    db = get_database()
+    events = db["events"]
+    
+    if not ObjectId.is_valid(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID")
+        
+    event = await events.find_one({"_id": ObjectId(event_id)})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+        
+    user_id = check_in_data.userId
+    
+    if user_id not in event.get("registrations", []):
+        raise HTTPException(status_code=400, detail="Student is not registered for this event")
+        
+    if user_id in event.get("checkIns", []) or user_id in event.get("attendees", []):
+        return {"message": "Already checked in", "success": True}
+        
+    await events.update_one(
+        {"_id": ObjectId(event_id)},
+        {
+            "$push": {"checkIns": user_id, "attendees": user_id},
+            "$set": {"updatedAt": datetime.now(timezone.utc)}
+        }
+    )
+    
+    return {"message": "Check-in successful", "success": True}
+
 @router.post("/{event_id}/pay")
 async def pay_for_event(
     event_id: str,

@@ -126,7 +126,7 @@ export default function IepodLandingPage() {
                   </span>
                 </h1>
 
-                <p className="font-display text-lg sm:text-xl text-snow/70 max-w-lg leading-relaxed font-light">
+                <p className="text-body text-lg sm:text-xl text-snow/70 max-w-lg leading-relaxed font-light">
                   Your Process, Our Progress. Moving beyond &ldquo;results at any cost&rdquo;
                     toward a <strong className="font-bold text-snow">prototyping mindset</strong> —
                   methodical growth, engineering rigor, and deep inquiry across

@@ -485,7 +485,7 @@ function PaymentsContent() {
                   <h1 className="font-display font-black text-3xl md:text-4xl text-navy mb-2">
                     <span className="brush-highlight brush-coral">Payments</span> & Dues
                   </h1>
-                  <p className="font-display font-normal text-sm text-navy/70 max-w-md">
+                  <p className="text-body font-normal text-sm text-navy/70 max-w-md">
                     Manage your departmental dues, view payment history, and download receipts.
                   </p>
                   <div className="flex flex-wrap gap-2 mt-5">
@@ -554,7 +554,7 @@ function PaymentsContent() {
                       <svg aria-hidden="true" className="w-7 h-7 text-teal" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>
                     </div>
                     <p className="font-display font-black text-xl text-snow mb-2">All Caught Up!</p>
-                    <p className="font-display font-normal text-sm text-snow/50">You have no pending payments. Well done!</p>
+                    <p className="text-body font-normal text-sm text-snow/50">You have no pending payments. Well done!</p>
                   </div>
                 ) : (
                   pendingPayments.map((payment, i) => {
@@ -581,8 +581,8 @@ function PaymentsContent() {
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="space-y-2">
                               <h3 className="font-display font-black text-lg text-navy">{payment.title}</h3>
-                              <p className="font-display font-normal text-sm text-navy/50">{payment.description}</p>
-                              <p className="font-display font-bold text-xs text-slate uppercase tracking-wider flex items-center gap-1.5">
+                              <p className="text-body font-normal text-sm text-navy/50">{payment.description}</p>
+                              <p className="text-body font-bold text-xs text-slate uppercase tracking-wider flex items-center gap-1.5">
                                 <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M6.75 2.25A.75.75 0 017.5 3v1.5h9V3A.75.75 0 0118 3v1.5h.75a3 3 0 013 3v11.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V7.5a3 3 0 013-3H6V3a.75.75 0 01.75-.75zm13.5 9a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5v7.5a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5v-7.5z" clipRule="evenodd" /></svg>
                                 Due: {new Date(payment.deadline).toLocaleDateString()}
                               </p>
@@ -594,7 +594,7 @@ function PaymentsContent() {
                                 const pending = getPendingTransfer(payment.id || payment._id || "");
                                 if (pending) {
                                   return (
-                                    <span className="px-4 py-2 bg-sunny-light text-navy border-[3px] border-navy/20 rounded-xl font-display font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+                                    <span className="px-4 py-2 bg-sunny-light text-navy border-[3px] border-navy/20 rounded-xl text-body font-bold text-xs uppercase tracking-wider flex items-center gap-2">
                                       <svg aria-hidden="true" className="w-3.5 h-3.5 text-sunny" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" /></svg>
                                       Transfer Under Review
                                     </span>
@@ -828,7 +828,7 @@ function PaymentsContent() {
                       <svg aria-hidden="true" className="w-7 h-7 text-snow" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd" /></svg>
                     </div>
                     <p className="font-display font-black text-xl text-snow mb-2">No Transactions Yet</p>
-                    <p className="font-display font-normal text-sm text-snow/50">Your payment history will appear here.</p>
+                    <p className="text-body font-normal text-sm text-snow/50">Your payment history will appear here.</p>
                   </div>
                 )}
               </div>
@@ -860,7 +860,7 @@ function PaymentsContent() {
             <div className="p-6 space-y-5 flex-1 overflow-y-auto">
               {bankAccounts.length === 0 ? (
                 <div className="bg-coral-light border-[3px] border-coral rounded-2xl p-5 text-center">
-                  <p className="font-display font-bold text-sm text-coral">No bank accounts available.</p>
+                  <p className="text-body font-bold text-sm text-coral">No bank accounts available.</p>
                   <p className="text-xs text-coral/70 mt-1">Please check back later or contact the admin.</p>
                 </div>
               ) : (
@@ -886,7 +886,7 @@ function PaymentsContent() {
                       const sel = bankAccounts.find(a => a._id === transferForm.bankAccountId);
                       return sel ? (
                         <div className="bg-lime-light border-[3px] border-navy/20 rounded-xl p-4 space-y-1">
-                          <p className="font-display font-bold text-sm text-navy">{sel.accountName}</p>
+                          <p className="text-body font-bold text-sm text-navy">{sel.accountName}</p>
                           <p className="text-xs text-navy/60">{sel.bankName} &middot; {sel.accountNumber}</p>
                           {sel.notes && <p className="text-xs text-navy/40 italic">{sel.notes}</p>}
                         </div>
@@ -943,7 +943,7 @@ function PaymentsContent() {
                     {refExistsError && (
                       <div className="flex items-start gap-2 bg-coral-light border-2 border-coral rounded-xl px-3 py-2.5">
                         <svg aria-hidden="true" className="w-4 h-4 text-coral mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" /></svg>
-                        <p className="font-display font-medium text-xs text-coral">{refExistsError}</p>
+                        <p className="text-body font-medium text-xs text-coral">{refExistsError}</p>
                       </div>
                     )}
                   </div>
@@ -980,7 +980,7 @@ function PaymentsContent() {
                         <div className="space-y-3">
                           <div className="flex items-center gap-3 bg-teal-light border-[3px] border-teal/30 rounded-xl px-4 py-3">
                             <svg aria-hidden="true" className="w-5 h-5 text-teal shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z" /></svg>
-                            <span className="font-display font-medium text-sm text-navy truncate flex-1">{receiptImage.name}</span>
+                            <span className="text-body font-medium text-sm text-navy truncate flex-1">{receiptImage.name}</span>
                             <button
                               type="button"
                               onClick={() => setReceiptImage(null)}
@@ -1004,8 +1004,8 @@ function PaymentsContent() {
                         <label className="flex items-center gap-3 bg-ghost border-[3px] border-dashed border-navy/20 rounded-xl px-4 py-4 cursor-pointer hover:border-navy/40 hover:bg-cloud transition-colors">
                           <svg aria-hidden="true" className="w-6 h-6 text-navy/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                           <div>
-                            <span className="font-display font-bold text-sm text-navy/60">Upload receipt screenshot</span>
-                            <span className="block font-display text-xs text-navy/30 mt-0.5">JPEG, PNG or WebP — max 5MB</span>
+                            <span className="text-body font-bold text-sm text-navy/60">Upload receipt screenshot</span>
+                            <span className="block text-body text-xs text-navy/30 mt-0.5">JPEG, PNG or WebP — max 5MB</span>
                           </div>
                           <input
                             type="file"
@@ -1035,10 +1035,9 @@ function PaymentsContent() {
                     >
                       Cancel
                     </button>
-                    <button
-                      onClick={handleTransferSubmit}
+                    <button onClick={handleTransferSubmit}
                       disabled={transferSubmitting || !!refExistsError || !transferForm.bankAccountId || !transferForm.senderName || !transferForm.senderBank || !receiptImage}
-                      className="flex-1 bg-lime border-[3px] border-navy px-6 py-3.5 rounded-xl font-display font-bold text-sm text-navy press-3 press-navy transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 bg-lime border-[3px] border-navy px-6 py-3.5 rounded-xl text-body font-bold text-sm text-navy press-3 press-navy transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {transferSubmitting ? "Submitting..." : "Review & Submit"}
                     </button>
@@ -1061,7 +1060,7 @@ function PaymentsContent() {
                 </div>
                 <h2 className="font-display font-black text-xl text-navy">Confirm Submission</h2>
               </div>
-              <p className="font-display font-normal text-sm text-navy/50 ml-13">Please verify all details before submitting.</p>
+              <p className="text-body font-normal text-sm text-navy/50 ml-13">Please verify all details before submitting.</p>
             </div>
             <div className="p-6 space-y-3">
               {/* Summary rows */}
@@ -1077,7 +1076,7 @@ function PaymentsContent() {
               ].map(({ label, value }) => (
                 <div key={label} className="flex justify-between items-start gap-4 py-1.5 border-b border-navy/8">
                   <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-navy/40 shrink-0">{label}</span>
-                  <span className="font-display font-medium text-sm text-navy text-right">{value}</span>
+                  <span className="text-body font-medium text-sm text-navy text-right">{value}</span>
                 </div>
               ))}
               {receiptPreviewUrl && (
@@ -1092,7 +1091,7 @@ function PaymentsContent() {
                   </div>
                 </div>
               )}
-              <p className="font-display font-normal text-xs text-navy/50 pt-2">
+              <p className="text-body font-normal text-xs text-navy/50 pt-2">
                 Once submitted, an admin will review and approve or reject your transfer proof.
               </p>
               <div className="flex gap-3 pt-2">
@@ -1102,10 +1101,9 @@ function PaymentsContent() {
                 >
                   Go Back
                 </button>
-                <button
-                  onClick={doConfirmedTransferSubmit}
+                <button onClick={doConfirmedTransferSubmit}
                   disabled={transferSubmitting}
-                  className="flex-1 bg-lime border-[3px] border-navy px-5 py-3 rounded-xl font-display font-bold text-sm text-navy press-4 press-navy transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-lime border-[3px] border-navy px-5 py-3 rounded-xl text-body font-bold text-sm text-navy press-4 press-navy transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {transferSubmitting ? "Submitting..." : "Yes, Submit"}
                 </button>

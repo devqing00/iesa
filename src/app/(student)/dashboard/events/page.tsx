@@ -19,6 +19,7 @@ import { ConfirmModal, Modal } from "@/components/ui/Modal";
 import dynamic from "next/dynamic";
 import { useDrive } from "@/hooks/useDrive";
 import type { DriveItem } from "@/lib/api/drive";
+import { EventTicketModal } from "@/components/events/EventTicketModal";
 
 const EventCalendarView = dynamic(() => import("@/components/dashboard/EventCalendarView"), {
   ssr: false,
@@ -229,6 +230,7 @@ function EventsPage() {
   const [unregisterConfirmEventId, setUnregisterConfirmEventId] = useState<string | null>(null);
   const [receiptImage, setReceiptImage] = useState<File | null>(null);
   const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
+  const [ticketModalEvent, setTicketModalEvent] = useState<Event | null>(null);
   // Platform settings
   const [onlinePaymentEnabled, setOnlinePaymentEnabled] = useState(true);
   // Reference duplicate check
@@ -1293,6 +1295,15 @@ function EventsPage() {
                           </div>
                         )}
                         <button
+                          onClick={(e) => { e.stopPropagation(); setTicketModalEvent(event); }}
+                          className="w-full py-3 font-bold text-xs uppercase tracking-wider border-[3px] border-navy bg-navy text-snow hover:bg-navy/90 transition-all flex items-center justify-center gap-2 rounded-2xl mb-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                          </svg>
+                          View Ticket
+                        </button>
+                        <button
                           onClick={() => setUnregisterConfirmEventId(event.id)}
                           disabled={isProcessing}
                           className="w-full py-3 font-bold text-xs uppercase tracking-wider border-[3px] border-navy text-navy hover:bg-cloud transition-all disabled:opacity-50 flex items-center justify-center gap-2 rounded-2xl"
@@ -1826,7 +1837,7 @@ function EventsPage() {
                 {refExistsError && (
                   <div className="flex items-start gap-2 bg-coral-light border-2 border-coral rounded-xl px-3 py-2.5 mt-2">
                     <svg aria-hidden="true" className="w-4 h-4 text-coral mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" /></svg>
-                    <p className="font-display font-medium text-xs text-coral">{refExistsError}</p>
+                    <p className="text-body font-medium text-xs text-coral">{refExistsError}</p>
                   </div>
                 )}
               </div>
@@ -1838,7 +1849,7 @@ function EventsPage() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-3 bg-teal-light border-[3px] border-teal/30 rounded-xl px-4 py-3">
                       <svg aria-hidden="true" className="w-5 h-5 text-teal shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
-                      <span className="font-display font-medium text-sm text-navy truncate flex-1">{receiptImage.name}</span>
+                      <span className="text-body font-medium text-sm text-navy truncate flex-1">{receiptImage.name}</span>
                       <button
                         type="button"
                         onClick={() => setReceiptImage(null)}
@@ -1862,8 +1873,8 @@ function EventsPage() {
                   <label className="flex items-center gap-3 bg-ghost border-[3px] border-dashed border-navy/20 rounded-xl px-4 py-4 cursor-pointer hover:border-navy/40 hover:bg-cloud transition-colors">
                     <svg aria-hidden="true" className="w-6 h-6 text-navy/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                     <div>
-                      <span className="font-display font-bold text-sm text-navy/60">Upload receipt screenshot</span>
-                      <span className="block font-display text-xs text-navy/30 mt-0.5">JPEG, PNG or WebP — max 5MB</span>
+                      <span className="text-body font-bold text-sm text-navy/60">Upload receipt screenshot</span>
+                      <span className="block text-body text-xs text-navy/30 mt-0.5">JPEG, PNG or WebP — max 5MB</span>
                     </div>
                     <input
                       type="file"
@@ -1918,10 +1929,9 @@ function EventsPage() {
                 >
                   Cancel
                 </button>
-                <button
-                  onClick={handleBankTransferSubmit}
+                <button onClick={handleBankTransferSubmit}
                   disabled={transferSubmitting || bankAccounts.length === 0 || !!refExistsError || !receiptImage}
-                  className="flex-1 py-3 bg-lime border-[3px] border-navy rounded-2xl font-display font-bold text-sm text-navy press-3 press-navy disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 py-3 bg-lime border-[3px] border-navy rounded-2xl text-body font-bold text-sm text-navy press-3 press-navy disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {transferSubmitting ? (
                     <>
@@ -1951,7 +1961,7 @@ function EventsPage() {
                 </div>
                 <h2 className="font-display font-black text-xl text-navy">Confirm Submission</h2>
               </div>
-              <p className="font-display font-normal text-sm text-navy/50 ml-13">Please verify all details before submitting.</p>
+              <p className="text-body font-normal text-sm text-navy/50 ml-13">Please verify all details before submitting.</p>
             </div>
             <div className="p-6 space-y-3">
               {[
@@ -1966,7 +1976,7 @@ function EventsPage() {
               ].map(({ label, value }) => (
                 <div key={label} className="flex justify-between items-start gap-4 py-1.5 border-b border-navy/8">
                   <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-navy/40 shrink-0">{label}</span>
-                  <span className="font-display font-medium text-sm text-navy text-right">{value}</span>
+                  <span className="text-body font-medium text-sm text-navy text-right">{value}</span>
                 </div>
               ))}
               {receiptPreviewUrl && (
@@ -1981,7 +1991,7 @@ function EventsPage() {
                   </div>
                 </div>
               )}
-              <p className="font-display font-normal text-xs text-navy/50 pt-2">
+              <p className="text-body font-normal text-xs text-navy/50 pt-2">
                 Once submitted, an admin will review and approve or reject your transfer proof.
               </p>
               <div className="flex gap-3 pt-2">
@@ -1991,10 +2001,9 @@ function EventsPage() {
                 >
                   Go Back
                 </button>
-                <button
-                  onClick={doConfirmedEventTransferSubmit}
+                <button onClick={doConfirmedEventTransferSubmit}
                   disabled={transferSubmitting}
-                  className="flex-1 bg-lime border-[3px] border-navy px-5 py-3 rounded-xl font-display font-bold text-sm text-navy press-4 press-navy transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-lime border-[3px] border-navy px-5 py-3 rounded-xl text-body font-bold text-sm text-navy press-4 press-navy transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {transferSubmitting ? "Submitting..." : "Yes, Submit"}
                 </button>
@@ -2017,6 +2026,13 @@ function EventsPage() {
         message="Are you sure you want to unregister from this event?"
         confirmLabel="Unregister"
         variant="danger"
+      />
+      {/* ── Ticket Modal ── */}
+      <EventTicketModal
+        isOpen={!!ticketModalEvent}
+        onClose={() => setTicketModalEvent(null)}
+        event={ticketModalEvent}
+        userId={user?.id || ""}
       />
     </div>
   );

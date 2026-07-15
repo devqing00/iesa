@@ -49,11 +49,11 @@ function AdminLoginContent() {
 
         <div className="relative z-10 max-w-md p-12 text-center space-y-8">
           <div className="space-y-4">
-            <span className="font-display font-bold text-xs uppercase tracking-wider text-snow/50 flex items-center justify-center gap-2">
+            <span className="text-body font-bold text-xs uppercase tracking-wider text-snow/50 flex items-center justify-center gap-2">
               <span>&#10022;</span> Administrator Access
             </span>
             <h2 className="font-display font-black text-3xl md:text-4xl text-snow">Admin Portal</h2>
-            <p className="font-display font-normal text-snow/70 leading-relaxed">
+            <p className="text-body font-normal text-snow/70 leading-relaxed">
               Manage students, announcements, events, and platform settings.
             </p>
           </div>
@@ -62,14 +62,14 @@ function AdminLoginContent() {
             {["Student management", "Payment verification", "Announcements & events", "Platform analytics"].map((feature, i) => (
               <div key={i} className="flex items-center gap-3 text-snow/80">
                 <span className="text-snow/30">&#9670;</span>
-                <span className="font-display font-normal text-sm">{feature}</span>
+                <span className="text-body font-normal text-sm">{feature}</span>
               </div>
             ))}
           </div>
 
           {/* Warning */}
           <div className="p-4 border-[3px] border-navy/20 rounded-2xl space-y-2">
-            <p className="font-display font-bold text-xs uppercase tracking-wider text-snow/50 flex items-center gap-2">
+            <p className="text-body font-bold text-xs uppercase tracking-wider text-snow/50 flex items-center gap-2">
               <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
               </svg>
@@ -79,7 +79,7 @@ function AdminLoginContent() {
           </div>
 
           <div className="pt-8 border-t border-snow/20">
-            <p className="font-display font-bold text-xs uppercase tracking-wider text-snow/50">University of Ibadan, Nigeria</p>
+            <p className="text-body font-bold text-xs uppercase tracking-wider text-snow/50">University of Ibadan, Nigeria</p>
           </div>
         </div>
       </div>
@@ -117,12 +117,12 @@ function AdminLoginContent() {
           {/* Form */}
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <label className="font-display font-bold text-xs uppercase tracking-wider text-slate">Admin Email</label>
+              <label className="text-body font-bold text-xs uppercase tracking-wider text-slate">Admin Email</label>
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@iesa.ui.edu.ng" required className={inputClass} />
             </div>
 
             <div className="space-y-2">
-              <label className="font-display font-bold text-xs uppercase tracking-wider text-slate">Password</label>
+              <label className="text-body font-bold text-xs uppercase tracking-wider text-slate">Password</label>
               <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required className={inputClass} />
             </div>
 
@@ -139,7 +139,7 @@ function AdminLoginContent() {
 
           {/* Links */}
           <div className="pt-6 border-t-[3px] border-cloud space-y-4">
-            <p className="font-display font-normal text-navy/60 text-center text-sm">
+            <p className="text-body font-normal text-navy/60 text-center text-sm">
               Only users promoted to admin by an existing administrator can access this portal.
             </p>
           </div>

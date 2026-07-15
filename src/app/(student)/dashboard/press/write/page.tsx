@@ -303,8 +303,8 @@ function WriteArticleContent() {
                 <svg aria-hidden="true" className="w-8 h-8 text-navy/30 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
               )}
               <div>
-                <span className="font-display font-bold text-sm text-navy/60">{uploadingCover ? "Uploading..." : "Upload a cover image"}</span>
-                <span className="block font-display text-xs text-navy/30 mt-0.5">JPEG, PNG or WebP — max 5MB — 16:9 recommended</span>
+                <span className="text-body font-bold text-sm text-navy/60">{uploadingCover ? "Uploading..." : "Upload a cover image"}</span>
+                <span className="block text-body text-xs text-navy/30 mt-0.5">JPEG, PNG or WebP — max 5MB — 16:9 recommended</span>
               </div>
               <input
                 type="file"

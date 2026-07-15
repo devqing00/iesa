@@ -95,7 +95,7 @@ export default function HistoryPage() {
               Excellence
               <span className="inline-block bg-lavender text-navy border-[2px] border-navy px-4 sm:px-6 py-2 rotate-[2deg] shadow-[3px_3px_0_0_#000] ml-3 text-4xl sm:text-6xl align-middle">Since 2018</span>
             </h1>
-            <p className="font-display font-medium text-base sm:text-lg text-snow/70 max-w-2xl leading-relaxed">
+            <p className="text-body font-medium text-base sm:text-lg text-snow/70 max-w-2xl leading-relaxed">
               From humble beginnings to becoming one of the most vibrant student
               associations at the University of Ibadan, our journey has been
               defined by process-thinking, continuous improvement, and community.
@@ -138,7 +138,7 @@ export default function HistoryPage() {
                           <span className="font-display font-black text-sm text-navy">{item.year}</span>
                         </div>
                         <h3 className="font-display font-black text-xl text-navy mb-2">{item.title}</h3>
-                        <p className="font-display font-normal text-sm text-navy/60 leading-relaxed">
+                        <p className="text-body font-normal text-sm text-navy/60 leading-relaxed">
                           {item.description}
                         </p>
                       </div>
@@ -181,7 +181,7 @@ export default function HistoryPage() {
                 <span className="font-display font-black text-4xl sm:text-5xl text-navy block mb-2">
                   {stat.number}
                 </span>
-                <p className="font-display font-bold text-xs text-navy/60 uppercase tracking-wider">{stat.label}</p>
+                <p className="text-body font-bold text-xs text-navy/60 uppercase tracking-wider">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -202,7 +202,7 @@ export default function HistoryPage() {
             <br />
             Chapter With Us
           </h2>
-          <p className="font-display font-medium text-base sm:text-lg text-navy/80 max-w-md mx-auto mb-8 sm:mb-10">
+          <p className="text-body font-medium text-base sm:text-lg text-navy/80 max-w-md mx-auto mb-8 sm:mb-10">
             Join IESA and become part of our continuing story of excellence
             and impact.
           </p>

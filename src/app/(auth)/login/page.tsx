@@ -110,7 +110,7 @@ function StudentLoginContent() {
               {!forgotSent ? (
                 <form onSubmit={handleForgotPassword} className="space-y-6">
                   <div className="space-y-2">
-                    <label htmlFor="forgot-email" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Email</label>
+                    <label htmlFor="forgot-email" className="text-body font-bold text-xs uppercase tracking-wider text-slate">Email</label>
                     <input
                       id="forgot-email"
                       type="email"
@@ -132,7 +132,7 @@ function StudentLoginContent() {
               ) : (
                 <div className="space-y-4">
                   <div className="p-4 bg-teal-light border-[3px] border-teal rounded-2xl">
-                    <p className="font-display font-medium text-sm text-navy">
+                    <p className="text-body font-medium text-sm text-navy">
                       If an account exists with <strong>{forgotEmail}</strong>, a reset link has been sent. Check your inbox and spam folder.
                     </p>
                   </div>
@@ -180,13 +180,13 @@ function StudentLoginContent() {
               {/* Divider */}
               <div className="flex items-center gap-4">
                 <div className="flex-1 h-[3px] bg-cloud" />
-                <span className="font-display font-bold text-xs uppercase tracking-wider text-slate">or</span>
+                <span className="text-body font-bold text-xs uppercase tracking-wider text-slate">or</span>
                 <div className="flex-1 h-[3px] bg-cloud" />
               </div>
 
               <form onSubmit={handleLogin} className="space-y-6">
                 <div className="space-y-2">
-                  <label htmlFor="login-email" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Email</label>
+                  <label htmlFor="login-email" className="text-body font-bold text-xs uppercase tracking-wider text-slate">Email</label>
                   <input
                     id="login-email"
                     type="email"
@@ -200,7 +200,7 @@ function StudentLoginContent() {
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label htmlFor="login-password" className="font-display font-bold text-xs uppercase tracking-wider text-slate">Password</label>
+                    <label htmlFor="login-password" className="text-body font-bold text-xs uppercase tracking-wider text-slate">Password</label>
                     <button
                       type="button"
                       onClick={() => { setShowForgot(true); setForgotEmail(email); }}
@@ -230,9 +230,8 @@ function StudentLoginContent() {
                         <p className="text-coral text-sm font-medium">{error}</p>
                         {/* No account found — offer to register */}
                         {error.includes("No account found") && (
-                          <a
-                            href={registerHref}
-                            className="text-xs font-display font-bold text-navy/60 hover:text-navy hover:underline mt-2 inline-block transition-colors"
+                          <a href={registerHref}
+                            className="text-xs text-body font-bold text-navy/60 hover:text-navy hover:underline mt-2 inline-block transition-colors"
                           >
                             Create an account &rarr;
                           </a>
@@ -250,10 +249,9 @@ function StudentLoginContent() {
                         {/* Account exists with different provider — offer Google */}
                         {(error.toLowerCase().includes("linked to google") ||
                           error.toLowerCase().includes("continue with google")) && (
-                          <button
-                            type="button"
+                          <button type="button"
                             onClick={handleGoogleLogin}
-                            className="text-xs font-display font-bold text-navy/60 hover:text-navy hover:underline mt-2 block transition-colors"
+                            className="text-xs text-body font-bold text-navy/60 hover:text-navy hover:underline mt-2 block transition-colors"
                           >
                             Try signing in with Google instead &rarr;
                           </button>
@@ -318,7 +316,7 @@ function StudentLoginContent() {
 
         <div className="relative z-10 max-w-sm p-10 space-y-8">
           {/* Label */}
-          <span className="font-display font-bold text-xs uppercase tracking-wider text-snow/50 flex items-center gap-2">
+          <span className="text-body font-bold text-xs uppercase tracking-wider text-snow/50 flex items-center gap-2">
             <svg aria-hidden="true" className="w-3 h-3 text-lime" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z"/></svg>
             IESA Platform
           </span>
@@ -329,7 +327,7 @@ function StudentLoginContent() {
               Welcome<br />
               <span className="text-lime">Back.</span>
             </h2>
-            <p className="font-display font-normal text-snow/60 leading-relaxed text-sm">
+            <p className="text-body font-normal text-snow/60 leading-relaxed text-sm">
               Your dashboard, resources, payments, and everything IESA — all in one place.
             </p>
           </div>
@@ -339,7 +337,7 @@ function StudentLoginContent() {
             <p className="font-display font-black text-navy text-sm leading-snug">
               &ldquo;Your entire student experience, organised and accessible.&rdquo;
             </p>
-            <p className="font-display font-bold text-navy/60 text-xs mt-2 uppercase tracking-wide">IESA Student Portal</p>
+            <p className="text-body font-bold text-navy/60 text-xs mt-2 uppercase tracking-wide">IESA Student Portal</p>
           </div>
 
           {/* Features */}
@@ -352,13 +350,13 @@ function StudentLoginContent() {
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-3">
                 <span className={`w-2 h-2 rounded-full ${item.color} flex-shrink-0`} />
-                <span className="font-display font-normal text-sm text-snow/75">{item.label}</span>
+                <span className="text-body font-normal text-sm text-snow/75">{item.label}</span>
               </div>
             ))}
           </div>
 
           <div className="pt-6 border-t border-snow/15">
-            <p className="font-display font-bold text-xs uppercase tracking-wider text-snow/40">University of Ibadan, Nigeria</p>
+            <p className="text-body font-bold text-xs uppercase tracking-wider text-snow/40">University of Ibadan, Nigeria</p>
           </div>
         </div>
       </div>

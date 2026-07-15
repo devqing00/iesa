@@ -1,7 +1,10 @@
+import { Bricolage_Grotesque } from "next/font/google";
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 import Script from "next/script";
+
+const bricolage = Bricolage_Grotesque({ subsets: ["latin"], variable: '--font-display' });
 
 export const metadata: Metadata = {
   title: {
@@ -36,7 +39,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className="antialiased"
+        className={`${bricolage.variable} antialiased`}
       >
         <a href="#main-content" className="skip-link">
           Skip to main content

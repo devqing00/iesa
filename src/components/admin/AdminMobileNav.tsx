@@ -106,6 +106,31 @@ export default function AdminMobileNav() {
 
   const moreLinks: MobileNavLink[] = [
     {
+      name: "Analytics",
+      href: "/admin/analytics",
+      color: "bg-coral-light",
+      group: "operations",
+      anyPermission: ["admin:dashboard", "admin:manage"],
+      icon: (
+        <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path fillRule="evenodd" d="M2.25 13.5a8.25 8.25 0 018.25-8.25.75.75 0 01.75.75v6.75H18a.75.75 0 01.75.75 8.25 8.25 0 01-16.5 0z" clipRule="evenodd" />
+          <path fillRule="evenodd" d="M12.75 3a.75.75 0 01.75-.75 8.25 8.25 0 018.25 8.25.75.75 0 01-.75.75h-8.25a.75.75 0 01-.75-.75V3z" clipRule="evenodd" />
+        </svg>
+      ),
+    },
+    {
+      name: "Treasury",
+      href: "/admin/treasury",
+      color: "bg-lavender-light",
+      group: "operations",
+      anyPermission: ["admin:dashboard", "admin:manage"],
+      icon: (
+        <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM9.53 9.53a.75.75 0 011.06-1.06l1.22.871A3.75 3.75 0 0115.375 12a3.75 3.75 0 01-3.565 2.659l-1.22.871a.75.75 0 11-1.06-1.06l.872-1.22a2.25 2.25 0 001.348-4.25h-.008l-.872-1.22z" clipRule="evenodd" />
+        </svg>
+      ),
+    },
+    {
       name: "Sessions",
       href: "/admin/sessions",
       color: "bg-teal-light",
@@ -152,6 +177,18 @@ export default function AdminMobileNav() {
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 3.75a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5ZM6 15.75a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5ZM18 15.75a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5Z" />
           <path d="M11.25 8.25h1.5V12h-1.5V8.25ZM6 11.25h12v1.5H6v-1.5Z" />
+        </svg>
+      ),
+    },
+    {
+      name: "Campaigns",
+      href: "/admin/campaigns",
+      color: "bg-teal-light",
+      group: "content",
+      anyPermission: ["admin:dashboard", "admin:manage"],
+      icon: (
+        <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z" />
         </svg>
       ),
     },

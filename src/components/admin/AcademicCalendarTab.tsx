@@ -207,9 +207,8 @@ export default function AcademicCalendarTab() {
 
       {/* Add button */}
       <PermissionGate permission="timetable:create">
-        <button
-          onClick={openCreate}
-          className="bg-lime border-4 border-navy press-3 press-navy px-6 py-2.5 rounded-2xl font-display font-bold text-sm text-navy transition-all flex items-center gap-2"
+        <button onClick={openCreate}
+          className="bg-lime border-4 border-navy press-3 press-navy px-6 py-2.5 rounded-2xl text-body font-bold text-sm text-navy transition-all flex items-center gap-2"
         >
           <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />

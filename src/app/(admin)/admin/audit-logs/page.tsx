@@ -236,19 +236,17 @@ function AuditLogsPage() {
         </div>
         <PermissionGate permission="audit:export">
           <div className="flex items-center gap-2">
-            <button
-              onClick={exportCSV}
-              className="shrink-0 bg-lime border-[3px] border-navy press-3 press-navy px-5 py-3 rounded-2xl font-display text-navy text-sm transition-all flex items-center gap-2"
+            <button onClick={exportCSV}
+              className="shrink-0 bg-lime border-[3px] border-navy press-3 press-navy px-5 py-3 rounded-2xl text-body text-navy text-sm transition-all flex items-center gap-2"
             >
               <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
               Export CSV
             </button>
-            <button
-              onClick={exportPDF}
+            <button onClick={exportPDF}
               disabled={exportingPdf}
-              className="shrink-0 bg-teal border-[3px] border-navy press-3 press-navy px-5 py-3 rounded-2xl font-display text-navy text-sm transition-all disabled:opacity-50 flex items-center gap-2"
+              className="shrink-0 bg-teal border-[3px] border-navy press-3 press-navy px-5 py-3 rounded-2xl text-body text-navy text-sm transition-all disabled:opacity-50 flex items-center gap-2"
             >
               <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625ZM7.5 15a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7.5 15Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H8.25Z" clipRule="evenodd" />

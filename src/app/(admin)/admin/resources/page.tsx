@@ -393,10 +393,9 @@ function AdminResourcesPage() {
               >
                 Cancel
               </button>
-              <button
-                type="submit"
+              <button type="submit"
                 disabled={submitting}
-                className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-xl font-display text-navy text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="bg-lime border-[3px] border-navy press-3 press-navy px-6 py-2.5 rounded-xl text-body text-navy text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {submitting ? (
                   <><div className="w-4 h-4 border-[2px] border-navy border-t-transparent rounded-full animate-spin" /> Adding…</>
@@ -569,11 +568,10 @@ function AdminResourcesPage() {
                       {/* Actions */}
                       <td className="px-5 py-3">
                         <div className="flex gap-2">
-                          <a
-                            href={r.url}
+                          <a href={r.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="bg-ghost border-[2px] border-navy rounded-lg px-2.5 py-1 text-xs font-display text-navy hover:bg-cloud transition-colors"
+                            className="bg-ghost border-[2px] border-navy rounded-lg px-2.5 py-1 text-xs text-body text-navy hover:bg-cloud transition-colors"
                           >
                             View
                           </a>

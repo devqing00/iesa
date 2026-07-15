@@ -696,6 +696,116 @@ async def gmail_onboarding_reminders() -> None:
 # Scheduler lifecycle
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 7 — Automated Drip Campaigns
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def process_automated_campaigns() -> None:
+    """
+    Evaluates active drip campaigns and triggers notifications based on conditions.
+    Runs daily at 09:00 UTC.
+    """
+    logger.info("[Job: Automated Campaigns] Starting run...")
+    try:
+        from app.db import get_database
+        from app.core.notification import send_notification
+        
+        db = get_database()
+        now = datetime.now(timezone.utc)
+        
+        active_campaigns = await db["campaigns"].find({"isActive": True}).to_list(length=100)
+        if not active_campaigns:
+            logger.info("[Job: Automated Campaigns] No active campaigns found.")
+            return
+
+        active_session = await db["sessions"].find_one({"isActive": True})
+        session_id = str(active_session["_id"]) if active_session else None
+            
+        for campaign in active_campaigns:
+            last_run = campaign.get("lastRunAt")
+            if last_run:
+                if last_run.tzinfo is None:
+                    last_run = last_run.replace(tzinfo=timezone.utc)
+                if (now - last_run).days < campaign.get("intervalDays", 3):
+                    continue # Not time yet
+                    
+            trigger_type = campaign.get("triggerType")
+            condition_value = campaign.get("conditionValue")
+            action_type = campaign.get("actionType")
+            message_template = campaign.get("messageTemplate")
+            
+            target_user_ids = []
+            
+            if trigger_type == "unpaid_due" and session_id:
+                try:
+                    payment_id = ObjectId(condition_value)
+                    payment = await db["payments"].find_one({"_id": payment_id})
+                    if payment:
+                        paid_by = [str(x) for x in payment.get("paidBy", [])]
+                        
+                        enrollments = await db["enrollments"].find(
+                            {"sessionId": session_id, "isActive": True}
+                        ).to_list(length=5000)
+                        
+                        for enr in enrollments:
+                            sid = enr.get("studentId") or enr.get("userId")
+                            if sid and str(sid) not in paid_by:
+                                target_user_ids.append(str(sid))
+                except Exception as e:
+                    logger.error(f"[Job: Automated Campaigns] Error parsing payment ID {condition_value}: {e}")
+                    
+            elif trigger_type == "inactive_student":
+                try:
+                    days_inactive = int(condition_value)
+                    cutoff = now - timedelta(days=days_inactive)
+                    
+                    users_cursor = db["users"].find({
+                        "role": "student",
+                        "$or": [
+                            {"lastLogin": {"$lt": cutoff}},
+                            {"lastLogin": {"$exists": False}}
+                        ]
+                    })
+                    
+                    async for u in users_cursor:
+                        target_user_ids.append(str(u["_id"]))
+                except Exception as e:
+                    logger.error(f"[Job: Automated Campaigns] Error processing inactive threshold {condition_value}: {e}")
+            
+            # Send notifications
+            sent_count = 0
+            if target_user_ids:
+                for uid in target_user_ids:
+                    # Very simple template replacement
+                    msg = message_template.replace("{{name}}", "Student")
+                    
+                    if action_type == "in_app" or action_type == "push":
+                        await send_notification(
+                            db=db,
+                            user_id=uid,
+                            title=campaign.get("name", "Notification"),
+                            message=msg,
+                            type="campaign",
+                            link="/dashboard"
+                        )
+                    elif action_type == "email":
+                        # Simulate email sending for now
+                        pass
+                        
+                    sent_count += 1
+            
+            # Update last run
+            await db["campaigns"].update_one(
+                {"_id": campaign["_id"]},
+                {"$set": {"lastRunAt": now, "updatedAt": now}}
+            )
+            
+            logger.info(f"[Job: Automated Campaigns] Campaign '{campaign.get('name')}' completed. Sent {sent_count} notifications.")
+            
+    except Exception as e:
+        logger.exception(f"[Job: Automated Campaigns] Unhandled error: {e}")
+
+
 def start_scheduler() -> None:
     """
     Start the AsyncIOScheduler with all registered jobs.
@@ -771,6 +881,16 @@ def start_scheduler() -> None:
         IntervalTrigger(days=3, timezone="UTC"),
         id="gmail_onboarding_reminders",
         name="Gmail Onboarding Reminders",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
+    # Job 7: Automated Drip Campaigns — 09:00 UTC daily
+    _scheduler.add_job(
+        process_automated_campaigns,
+        CronTrigger(hour=9, minute=0, timezone="UTC"),
+        id="process_automated_campaigns",
+        name="Process Automated Campaigns",
         replace_existing=True,
         misfire_grace_time=3600,
     )

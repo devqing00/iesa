@@ -190,9 +190,8 @@ export default function ArticleDetailPage() {
           </Link>
         )}
         {canSubmit && (
-          <button
-            onClick={handleSubmit}
-            className="px-4 py-2 bg-lime border-[3px] border-navy rounded-xl font-display font-bold text-sm text-navy press-3 press-navy transition-all"
+          <button onClick={handleSubmit}
+            className="px-4 py-2 bg-lime border-[3px] border-navy rounded-xl text-body font-bold text-sm text-navy press-3 press-navy transition-all"
           >
             Submit for Review
           </button>
@@ -239,7 +238,7 @@ export default function ArticleDetailPage() {
             {article.feedback.map((fb, idx) => (
               <div key={fb.id || idx} className="bg-ghost border-[2px] border-navy/10 rounded-2xl p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-display font-bold text-navy">{fb.reviewerName}</span>
+                  <span className="text-xs text-body font-bold text-navy">{fb.reviewerName}</span>
                   <span className="text-[10px] text-slate">
                     {new Date(fb.createdAt).toLocaleDateString("en-NG", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                   </span>

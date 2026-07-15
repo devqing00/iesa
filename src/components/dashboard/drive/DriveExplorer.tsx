@@ -547,9 +547,8 @@ export default function DriveExplorer({
         <div className="bg-coral-light border-[3px] border-coral rounded-2xl p-4 mb-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <p className="text-coral font-medium text-sm">{error}</p>
-            <button
-              onClick={onRetry}
-              className="shrink-0 px-3 py-1.5 bg-snow border-2 border-navy rounded-lg font-display font-bold text-xs text-navy uppercase tracking-wider press-2 press-navy"
+            <button onClick={onRetry}
+              className="shrink-0 px-3 py-1.5 bg-snow border-2 border-navy rounded-lg text-body font-bold text-xs text-navy uppercase tracking-wider press-2 press-navy"
             >
               Retry
             </button>

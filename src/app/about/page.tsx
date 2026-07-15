@@ -52,7 +52,7 @@ export default function AboutPage() {
               <br />
               of <span className="inline-block bg-lime text-navy border-[2px] border-navy px-4 sm:px-6 py-2 rotate-[-1deg] shadow-[3px_3px_0_0_#000]">Industrial</span> Engineering
             </h1>
-            <p className="font-display text-base sm:text-lg text-snow/70 max-w-2xl leading-relaxed font-extralight">
+            <p className="text-body text-base sm:text-lg text-snow/70 max-w-2xl leading-relaxed font-extralight">
               The Industrial Engineering Student Association (IESA) at the
               University of Ibadan is more than just a student organization —
               we&apos;re a community developing engineers in operations research,
@@ -86,7 +86,7 @@ export default function AboutPage() {
               <h3 className="font-display font-black text-2xl sm:text-3xl text-snow mb-4">
                 Empowering Students
               </h3>
-              <p className="font-display font-medium text-sm sm:text-base text-snow/85 leading-relaxed">
+              <p className="text-body font-medium text-sm sm:text-base text-snow/85 leading-relaxed">
                 To build strong Industrial &amp; Production Engineering capacity
                 through rigorous academics, process-thinking culture, and
                 practical exposure that connects classroom models to real systems.
@@ -103,7 +103,7 @@ export default function AboutPage() {
               <h3 className="font-display font-black text-2xl sm:text-3xl text-navy mb-4">
                 Leading Innovation
               </h3>
-              <p className="font-display font-medium text-sm sm:text-base text-navy/80 leading-relaxed">
+              <p className="text-body font-medium text-sm sm:text-base text-navy/80 leading-relaxed">
                 To be the benchmark student association in Nigeria for producing
                 engineers who improve productivity, safety, quality, and sustainability
                 across manufacturing and service operations.
@@ -197,7 +197,7 @@ export default function AboutPage() {
                   {activity.icon}
                 </div>
                 <h3 className="font-display font-black text-xl text-navy mb-3">{activity.title}</h3>
-                <p className="font-display font-medium text-sm text-navy/80 leading-relaxed">
+                <p className="text-body font-medium text-sm text-navy/80 leading-relaxed">
                   {activity.description}
                 </p>
               </div>
@@ -216,7 +216,7 @@ export default function AboutPage() {
             <h2 className="font-display font-black text-3xl sm:text-5xl text-navy">
               Meet the Leaders
             </h2>
-            <p className="font-display font-medium text-base text-slate mt-3 max-w-md mx-auto">
+            <p className="text-body font-medium text-base text-slate mt-3 max-w-md mx-auto">
               The people steering IESA forward — from vision to execution.
             </p>
           </div>
@@ -233,7 +233,7 @@ export default function AboutPage() {
               <h3 className="font-display font-black text-3xl sm:text-5xl text-snow mb-4">
                 Curious who drives IESA?
               </h3>
-              <p className="font-display font-medium text-base sm:text-lg text-snow/60 max-w-lg mx-auto mb-8">
+              <p className="text-body font-medium text-base sm:text-lg text-snow/60 max-w-lg mx-auto mb-8">
                 Presidents, secretaries, team leads — the dedicated students steering every IESA initiative are just one click away.
               </p>
               <span className="inline-flex items-center gap-2 bg-lime border-[3px] border-navy rounded-full px-8 py-3.5 font-display font-black text-sm text-navy uppercase tracking-wide shadow-[4px_4px_0_0_#000] group-hover:shadow-[6px_6px_0_0_#000] transition-all">
@@ -257,7 +257,7 @@ export default function AboutPage() {
             Become Part
             <br />of Our Story
           </h2>
-          <p className="font-display font-medium text-base sm:text-lg text-snow/85 max-w-md mx-auto mb-8 sm:mb-10">
+          <p className="text-body font-medium text-base sm:text-lg text-snow/85 max-w-md mx-auto mb-8 sm:mb-10">
             Join IESA to sharpen your Industrial &amp; Production Engineering
             skills, collaborate on system challenges, and accelerate your career.
           </p>

@@ -409,7 +409,7 @@ export default function ApplicationsPage() {
               {/* Sub-team selection (if team requires it) */}
               {selectedTeam.subTeams && selectedTeam.subTeams.length > 0 && (
                 <div>
-                  <label className="block font-display font-bold text-sm text-navy mb-2">
+                  <label className="block text-body font-bold text-sm text-navy mb-2">
                     Select Sub-team <span className="text-coral">*</span>
                   </label>
                   <div className="grid grid-cols-1 gap-2">
@@ -433,7 +433,7 @@ export default function ApplicationsPage() {
 
               {/* Motivation */}
               <div>
-                <label className="block font-display font-bold text-sm text-navy mb-2">
+                <label className="block text-body font-bold text-sm text-navy mb-2">
                   Why do you want to join? <span className="text-coral">*</span>
                 </label>
                 <textarea
@@ -457,7 +457,7 @@ export default function ApplicationsPage() {
 
               {/* Skills */}
               <div>
-                <label className="block font-display font-bold text-sm text-navy mb-2">
+                <label className="block text-body font-bold text-sm text-navy mb-2">
                   Relevant Skills{" "}
                   {selectedTeam.requiresSkills ? (
                     <span className="text-coral">*</span>
@@ -482,7 +482,7 @@ export default function ApplicationsPage() {
                 <>
                   {selectedTeam.customQuestions.map((q) => (
                     <div key={q.key}>
-                      <label className="block font-display font-bold text-sm text-navy mb-2">
+                      <label className="block text-body font-bold text-sm text-navy mb-2">
                         {q.label} <span className="text-coral">*</span>
                       </label>
                       <textarea

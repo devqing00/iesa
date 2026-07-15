@@ -53,7 +53,7 @@ IESA is a full-stack departmental web platform for the Industrial Engineering de
 | Layer | Technology |
 |---|---|
 | **Frontend Framework** | Next.js 16 (App Router, React 19, TypeScript) |
-| **Styling** | Tailwind CSS v4 (CSS-first config, custom design system) |
+| **Styling** | Tailwind CSS v4 (CSS-first config, Bricolage Grotesque & Manrope) |
 | **State / Data** | SWR v2, React Context API |
 | **Rich Text** | Tiptap v3 (article editor) |
 | **Charts** | Recharts |

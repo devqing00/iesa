@@ -295,7 +295,7 @@ export default function SettingsPage() {
                     : "border-navy/20 bg-ghost hover:bg-cloud"
                 }`}
               >
-                <span className="block font-display font-bold text-navy text-sm">{opt.label}</span>
+                <span className="block text-body font-bold text-navy text-sm">{opt.label}</span>
                 <span className="block text-xs text-slate mt-0.5">{opt.desc}</span>
               </button>
             ))}
@@ -352,7 +352,7 @@ export default function SettingsPage() {
                     : "border-navy/20 bg-ghost hover:bg-cloud"
                 }`}
               >
-                <span className="block font-display font-bold text-navy text-sm">{opt.label}</span>
+                <span className="block text-body font-bold text-navy text-sm">{opt.label}</span>
                 <span className="block text-xs text-slate mt-0.5 truncate">{opt.desc}</span>
               </button>
             ))}
@@ -386,7 +386,7 @@ export default function SettingsPage() {
                     {cat.icon}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="block font-display font-bold text-navy text-sm">{cat.label}</span>
+                    <span className="block text-body font-bold text-navy text-sm">{cat.label}</span>
                     <span className="block text-xs text-slate mt-0.5">{cat.desc}</span>
                   </div>
                   {/* Toggle indicator */}
@@ -470,20 +470,18 @@ function PushNotificationToggle() {
             Re-enable notifications for this site in your browser settings so you don&apos;t miss critical school updates.
           </div>
         ) : subscribed ? (
-          <button
-            type="button"
+          <button type="button"
             onClick={unsubscribe}
             disabled={loading}
-            className="bg-snow border-[3px] border-navy rounded-2xl px-6 py-3 font-display font-bold text-sm text-navy press-3 press-navy disabled:opacity-50 transition-all"
+            className="bg-snow border-[3px] border-navy rounded-2xl px-6 py-3 text-body font-bold text-sm text-navy press-3 press-navy disabled:opacity-50 transition-all"
           >
             {loading ? "Disabling..." : "Disable Push Notifications"}
           </button>
         ) : (
-          <button
-            type="button"
+          <button type="button"
             onClick={subscribe}
             disabled={loading}
-            className="bg-lime border-[3px] border-navy rounded-2xl px-6 py-3 font-display font-bold text-sm text-navy press-3 press-navy disabled:opacity-50 transition-all"
+            className="bg-lime border-[3px] border-navy rounded-2xl px-6 py-3 text-body font-bold text-sm text-navy press-3 press-navy disabled:opacity-50 transition-all"
           >
             {loading ? "Enabling..." : "Enable Notifications Now"}
           </button>
@@ -574,10 +572,9 @@ function InstallAppSettingsCard() {
           Remind me tomorrow
         </button>
 
-        <button
-          type="button"
+        <button type="button"
           onClick={dismissInstallPrompt}
-          className="bg-transparent border-[2px] border-navy rounded-2xl px-5 py-2.5 font-display font-bold text-xs text-navy hover:bg-cloud transition-colors"
+          className="bg-transparent border-[2px] border-navy rounded-2xl px-5 py-2.5 text-body font-bold text-xs text-navy hover:bg-cloud transition-colors"
         >
           Don&apos;t show again
         </button>

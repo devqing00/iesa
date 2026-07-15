@@ -66,16 +66,14 @@ export default function Home() {
           {/* Content */}
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-20 sm:py-28 md:py-0">
             <div className="max-w-2xl">
-              <h1 className="font-display font-black text-[3rem] sm:text-[4.5rem] lg:text-[6rem] leading-[0.88] text-snow mb-6">
+              <h1 className="font-display font-extrabold text-[2.8rem] sm:text-[4rem] lg:text-[5.5rem] leading-[0.9] text-snow mb-6 tracking-tight">
                 Industrial &amp; <span className="text-lime">Production</span>
                 <br />
-                Engineering Students Association
+                Engineering
               </h1>
 
-              <p className="font-display text-base sm:text-lg text-snow/75 max-w-lg mb-8 leading-relaxed font-medium">
-                Join IESA — the Industrial &amp; Production Engineering student
-                community at the University of Ibadan focused on systems thinking,
-                operations excellence, and real-world impact.
+              <p className="text-body text-base sm:text-lg text-snow/75 max-w-lg mb-8 leading-relaxed font-medium">
+                The official student association at the University of Ibadan. We build systems thinkers, future operations leaders, and real-world problem solvers.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 mb-14">
@@ -139,7 +137,7 @@ export default function Home() {
                 <h3 className="font-display text-xl sm:text-2xl text-snow mb-3 font-black">
                   Our Mission
                 </h3>
-                <p className="font-display text-sm sm:text-base text-snow/85 leading-relaxed font-medium">
+                <p className="text-body text-sm sm:text-base text-snow/85 leading-relaxed font-medium">
                   Develop engineers who can model, optimize, and improve
                   complex systems across production, logistics, and services.
                 </p>
@@ -156,7 +154,7 @@ export default function Home() {
                     className="object-cover mix-blend-multiply"
                   />
                 </div>
-                <p className="font-display text-xs sm:text-sm text-center font-bold text-navy">
+                <p className="text-body text-xs sm:text-sm text-center font-bold text-navy">
                   Building Tomorrow&apos;s Engineers
                 </p>
               </div>
@@ -179,7 +177,7 @@ export default function Home() {
                 <h3 className="font-display text-xl sm:text-2xl text-navy mb-3 font-black">
                   Our Vision
                 </h3>
-                <p className="font-display text-sm sm:text-base text-navy/80 leading-relaxed font-medium">
+                <p className="text-body text-sm sm:text-base text-navy/80 leading-relaxed font-medium">
                   Africa&apos;s leading Industrial &amp; Production Engineering
                   student ecosystem for innovation and operational impact.
                 </p>
@@ -191,7 +189,7 @@ export default function Home() {
               <h3 className="font-display text-3xl sm:text-5xl lg:text-6xl text-snow mb-4 sm:mb-6 font-black">
                 Join 500+ Students
               </h3>
-              <p className="font-display text-base sm:text-lg lg:text-xl text-ghost/80 mb-6 sm:mb-8 max-w-2xl mx-auto font-medium">
+              <p className="text-body text-base sm:text-lg lg:text-xl text-ghost/80 mb-6 sm:mb-8 max-w-2xl mx-auto font-medium">
                 Access workshops, resources, and a network of future engineers.
               </p>
               <Link
@@ -273,9 +271,8 @@ export default function Home() {
                   </p>
                   <div className="flex gap-2 flex-wrap">
                     {item.tags.map((tag, j) => (
-                      <span
-                        key={j}
-                        className="font-display bg-snow border-[2px] border-navy rounded-full px-3 py-1 text-xs font-bold text-navy uppercase"
+                      <span key={j}
+                        className="text-body bg-snow border-[2px] border-navy rounded-full px-3 py-1 text-xs font-bold text-navy uppercase"
                       >
                         {tag}
                       </span>
@@ -302,7 +299,7 @@ export default function Home() {
               Systems Today
             </h2>
 
-            <p className="font-display text-base sm:text-xl text-snow/90 mb-8 sm:mb-12 max-w-2xl mx-auto font-bold">
+            <p className="text-body text-base sm:text-xl text-snow/90 mb-8 sm:mb-12 max-w-2xl mx-auto font-bold">
               Join 500+ students building the future of Industrial &amp; Production Engineering in Nigeria
             </p>
 

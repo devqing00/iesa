@@ -8,42 +8,7 @@
    Multi-color, bold, bento-driven
    ============================================ */
 
-/* ---- TBJ Endgraph Display Font (Headers/Titles) ---- */
-@font-face {
-  font-family: "TBJ Endgraph";
-  src: url("/assets/fonts/tbj-endgraph-font-family/TBJEndgraphMini-Thin-BF66b31b988c3dc.otf") format("opentype");
-  font-weight: 100;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "TBJ Endgraph";
-  src: url("/assets/fonts/tbj-endgraph-font-family/TBJEndgraphMini-Light-BF66b31b9838d67.otf") format("opentype");
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "TBJ Endgraph";
-  src: url("/assets/fonts/tbj-endgraph-font-family/TBJEndgraphMini-Regular-BF66b31b9867893.otf") format("opentype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "TBJ Endgraph";
-  src: url("/assets/fonts/tbj-endgraph-font-family/TBJEndgraphMini-Medium-BF66b31b9825275.otf") format("opentype");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "TBJ Endgraph";
-  src: url("/assets/fonts/tbj-endgraph-font-family/TBJEndgraphMini-Bold-BF66b31b98302f9.otf") format("opentype");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
+
 
 /* ============================================
    1. STATIC COLORS (@theme)
@@ -92,9 +57,7 @@
   --color-info: oklch(65% 0.15 255);
   --color-info-light: oklch(94% 0.04 255);
 
-  /* ---- Fonts ---- */
-  --font-display: "TBJ Endgraph", "Impact", "Arial Black", sans-serif;
-  --font-body: "TBJ Endgraph", "Impact", "Arial Black", sans-serif;
+
 }
 
 /* ============================================
@@ -152,7 +115,8 @@ html {
 body {
   background-color: var(--surface);
   color: var(--on-surface);
-  font-family: var(--font-body);
+  font-family: var(--font-display);
+  font-weight: 400; /* Use a normal weight by default */
   font-size: 16px;
   line-height: 1.6;
   letter-spacing: -0.01em;
@@ -262,7 +226,8 @@ input:focus, textarea:focus, select:focus {
 }
 
 .text-body {
-  font-family: var(--font-body);
+  font-family: var(--font-display);
+  font-weight: 400; /* Ensure body text weight is lesser */
   letter-spacing: -0.01em;
   line-height: 1.6;
 }
@@ -566,7 +531,7 @@ input:focus, textarea:focus, select:focus {
   color: oklch(15% 0.02 280);
   border-radius: 16px;
   font-size: 0.875rem;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -919,7 +884,7 @@ select.input-field {
    ============================================ */
 
 .timetable-calendar .rbc-calendar {
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   color: oklch(15% 0.02 280);
 }
 
@@ -963,7 +928,7 @@ select.input-field {
   color: oklch(15% 0.02 280);
   cursor: pointer;
   transition: all 0.15s ease;
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   font-weight: 600;
   border-radius: 12px;
 }
@@ -996,7 +961,7 @@ select.input-field {
 }
 
 .calendar-wrapper .rbc-calendar {
-  font-family: var(--font-body);
+  font-family: var(--font-display);
   color: oklch(15% 0.02 280);
 }
 

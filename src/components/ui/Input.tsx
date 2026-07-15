@@ -17,7 +17,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label htmlFor={inputId} className="block font-display font-bold text-xs uppercase tracking-wider text-navy/60 mb-2">
+          <label htmlFor={inputId} className="block text-body font-bold text-xs uppercase tracking-wider text-navy/60 mb-2">
             {label}
           </label>
         )}
@@ -128,7 +128,7 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
     return (
       <div className="w-full">
         {label && (
-          <label htmlFor={textareaId} className="block font-display font-bold text-xs uppercase tracking-wider text-navy/60 mb-2">
+          <label htmlFor={textareaId} className="block text-body font-bold text-xs uppercase tracking-wider text-navy/60 mb-2">
             {label}
           </label>
         )}
@@ -183,7 +183,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="w-full">
         {label && (
-          <label htmlFor={selectId} className="block font-display font-bold text-xs uppercase tracking-wider text-navy/60 mb-2">
+          <label htmlFor={selectId} className="block text-body font-bold text-xs uppercase tracking-wider text-navy/60 mb-2">
             {label}
           </label>
         )}
