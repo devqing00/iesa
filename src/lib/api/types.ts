@@ -55,6 +55,7 @@ export interface User {
   secondaryEmailVerified?: boolean;
   notificationEmailPreference?: "primary" | "secondary" | "both";
   notificationChannelPreference?: "email" | "in_app" | "both";
+  authProvider?: string;
 }
 
 export interface UserPermissions {

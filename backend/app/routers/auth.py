@@ -211,9 +211,16 @@ async def register_profile(request: Request, data: RegisterProfileRequest):
     email_existing = await users.find_one({"email": email})
     if email_existing:
         # Link the existing account to the new Firebase UID
+        auth_provider = decoded.get("firebase", {}).get("sign_in_provider")
+        email_verified = decoded.get("email_verified", False)
         await users.update_one(
             {"_id": email_existing["_id"]},
-            {"$set": {"firebaseUid": firebase_uid, "updatedAt": datetime.now(timezone.utc)}},
+            {"$set": {
+                "firebaseUid": firebase_uid,
+                "authProvider": auth_provider,
+                "emailVerified": email_verified,
+                "updatedAt": datetime.now(timezone.utc)
+            }},
         )
         email_existing["_id"] = str(email_existing["_id"])
         return {"message": "Profile linked to Firebase", "user": email_existing}
@@ -233,6 +240,8 @@ async def register_profile(request: Request, data: RegisterProfileRequest):
             parsed_dob = datetime(dob_date.year, dob_date.month, dob_date.day, tzinfo=timezone.utc)
         except (ValueError, TypeError):
             raise HTTPException(status_code=400, detail="Invalid date of birth format. Use YYYY-MM-DD.")
+
+    auth_provider = decoded.get("firebase", {}).get("sign_in_provider")
 
     user_doc = {
         "firebaseUid": firebase_uid,
@@ -258,6 +267,7 @@ async def register_profile(request: Request, data: RegisterProfileRequest):
         "notificationEmailPreference": "primary",
         "notificationChannelPreference": "both",
         "emailVerified": decoded.get("email_verified", False),
+        "authProvider": auth_provider,
         "hasCompletedOnboarding": False,
         "isActive": True,
         "createdAt": now,

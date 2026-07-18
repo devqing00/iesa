@@ -59,7 +59,7 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
     db = get_database()
     user = await db["users"].find_one(
         {"firebaseUid": firebase_uid},
-        {"_id": 1, "role": 1, "email": 1, "isActive": 1},
+        {"_id": 1, "role": 1, "email": 1, "isActive": 1, "emailVerified": 1, "authProvider": 1},
     )
 
     if not user:
@@ -73,6 +73,25 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your account has been deactivated. Please contact an administrator.",
+        )
+
+    # Sync emailVerified and authProvider from Firebase token if there's a mismatch
+    firebase_email_verified = decoded.get("email_verified", False)
+    firebase_provider = decoded.get("firebase", {}).get("sign_in_provider")
+    
+    update_fields = {}
+    if firebase_email_verified and not user.get("emailVerified"):
+        update_fields["emailVerified"] = True
+        
+    if firebase_provider and user.get("authProvider") != firebase_provider:
+        update_fields["authProvider"] = firebase_provider
+        
+    if update_fields:
+        from datetime import datetime, timezone
+        update_fields["updatedAt"] = datetime.now(timezone.utc)
+        await db["users"].update_one(
+            {"_id": user["_id"]},
+            {"$set": update_fields}
         )
 
     return {
@@ -110,7 +129,7 @@ async def verify_firebase_id_token_raw(token: str) -> dict:
     db = get_database()
     user = await db["users"].find_one(
         {"firebaseUid": firebase_uid},
-        {"_id": 1, "role": 1, "email": 1, "isActive": 1},
+        {"_id": 1, "role": 1, "email": 1, "isActive": 1, "emailVerified": 1, "authProvider": 1},
     )
     if not user:
         raise HTTPException(
@@ -122,6 +141,25 @@ async def verify_firebase_id_token_raw(token: str) -> dict:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your account has been deactivated.",
+        )
+
+    # Sync emailVerified and authProvider from Firebase token if there's a mismatch
+    firebase_email_verified = decoded.get("email_verified", False)
+    firebase_provider = decoded.get("firebase", {}).get("sign_in_provider")
+    
+    update_fields = {}
+    if firebase_email_verified and not user.get("emailVerified"):
+        update_fields["emailVerified"] = True
+        
+    if firebase_provider and user.get("authProvider") != firebase_provider:
+        update_fields["authProvider"] = firebase_provider
+        
+    if update_fields:
+        from datetime import datetime, timezone
+        update_fields["updatedAt"] = datetime.now(timezone.utc)
+        await db["users"].update_one(
+            {"_id": user["_id"]},
+            {"$set": update_fields}
         )
 
     return {

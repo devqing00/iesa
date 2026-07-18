@@ -275,6 +275,8 @@ export default function IepodStudentPage() {
   const [loading, setLoading] = useState(true);
   const [committingSociety, setCommittingSociety] = useState<string | null>(null);
   const [showAlreadySubmittedBadge, setShowAlreadySubmittedBadge] = useState(false);
+  type Tab = "overview" | "tasks" | "leaderboard";
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
 
   const fetchData = useCallback(async () => {
     try {
@@ -545,6 +547,16 @@ export default function IepodStudentPage() {
         {/* ── Registered — approved (main dashboard) ──────────── */}
         {isRegistered && reg?.status === "approved" && (
           <div className="space-y-8">
+            {/* Tab Navigation */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              <button onClick={() => setActiveTab("overview")} className={`px-5 py-2.5 rounded-full font-display font-black text-sm whitespace-nowrap transition-all border-[3px] ${activeTab === "overview" ? "bg-navy border-navy text-lime shadow-[4px_4px_0_0_#C8F31D]" : "bg-snow border-cloud text-slate hover:border-navy hover:text-navy"}`}>Overview</button>
+              <button onClick={() => setActiveTab("tasks")} className={`px-5 py-2.5 rounded-full font-display font-black text-sm whitespace-nowrap transition-all border-[3px] ${activeTab === "tasks" ? "bg-navy border-navy text-lime shadow-[4px_4px_0_0_#C8F31D]" : "bg-snow border-cloud text-slate hover:border-navy hover:text-navy"}`}>Tasks & Challenges</button>
+              <button onClick={() => setActiveTab("leaderboard")} className={`px-5 py-2.5 rounded-full font-display font-black text-sm whitespace-nowrap transition-all border-[3px] ${activeTab === "leaderboard" ? "bg-navy border-navy text-lime shadow-[4px_4px_0_0_#C8F31D]" : "bg-snow border-cloud text-slate hover:border-navy hover:text-navy"}`}>Leaderboard & Points</button>
+            </div>
+
+            {/* OVERVIEW TAB */}
+            {activeTab === "overview" && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="bg-teal-light border-[4px] border-navy rounded-3xl p-5 shadow-[6px_6px_0_0_#000] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <h4 className="font-display font-black text-sm text-navy">Participants WhatsApp Group</h4>
@@ -633,8 +645,8 @@ export default function IepodStudentPage() {
               <PhaseTimeline current={reg.phase} completed={reg.completedPhases} />
             </div>
 
-            {/* Bento grid */}
-            <div className="grid md:grid-cols-3 gap-5">
+            {/* Society grid */}
+            <div className="grid md:grid-cols-2 gap-5">
               {/* Society commitment card */}
               <div className={`${profile?.society ? "bg-teal" : "bg-lavender"} border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform relative`}>
                 <div className="absolute top-2 right-2">
@@ -688,7 +700,12 @@ export default function IepodStudentPage() {
                   </div>
                 )}
               </div>
+            </div></div>)}
 
+            {/* TASKS TAB */}
+            {activeTab === "tasks" && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="grid md:grid-cols-2 gap-5">
               {/* Niche Audit card */}
               <div className="bg-snow border-[4px] border-navy rounded-3xl p-6 shadow-[8px_8px_0_0_#000] relative">
                 <div className="absolute top-2 right-2">
@@ -787,12 +804,9 @@ export default function IepodStudentPage() {
                   </div>
                 )}
               </div>
-            </div>
 
-            {/* Second row: quizzes + leaderboard */}
-            <div className="grid md:grid-cols-2 gap-5">
               {/* Quizzes & Challenges */}
-              <div className="bg-[linear-gradient(145deg,#2C1A7A_0%,#4A28A8_55%,#6A35CC_100%)] border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] relative overflow-hidden">
+              <div className="bg-[linear-gradient(145deg,#2C1A7A_0%,#4A28A8_55%,#6A35CC_100%)] border-[4px] border-navy rounded-3xl p-6 shadow-[6px_6px_0_0_#000] relative overflow-hidden md:col-span-2">
                 <div className="absolute top-2 right-2">
                   <HiddenTreasureSpot
                     isVisible={activeTreasureLocation === "quizzes_card"}
@@ -858,7 +872,12 @@ export default function IepodStudentPage() {
                   )}
                 </div>
               </div>
+            </div></div>)}
 
+            {/* LEADERBOARD TAB */}
+            {activeTab === "leaderboard" && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="grid md:grid-cols-2 gap-5">
               {/* Leaderboard */}
               <div className="bg-navy border-[4px] border-lime rounded-3xl p-6 shadow-[6px_6px_0_0_#C8F31D] relative">
                 <div className="absolute top-2 right-2">
@@ -979,6 +998,8 @@ export default function IepodStudentPage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
               </div>
             )}
 

@@ -33,6 +33,7 @@ interface User {
   updatedAt?: string;
   department?: string;
   isActive?: boolean;
+  authProvider?: string;
 }
 
 interface BirthdayUser {
@@ -1592,6 +1593,7 @@ function AdminUsersPage() {
               <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Date of Birth</p><p className="font-bold text-navy">{selectedUser.dateOfBirth ? new Date(selectedUser.dateOfBirth).toLocaleDateString() : "—"}</p></div>
               <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Status</p><p className="font-bold text-navy">{selectedUser.isActive !== false ? "Active" : "Inactive"}</p></div>
               <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Email Verified</p><p className="font-bold text-navy">{selectedUser.emailVerified ? "Yes" : "No"}</p></div>
+              <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Registration Method</p><p className="font-bold text-navy">{selectedUser.authProvider === 'google.com' ? 'Google' : (selectedUser.authProvider === 'password' ? 'Email/Password' : (selectedUser.authProvider || '—'))}</p></div>
               <div className="bg-ghost rounded-xl p-3"><p className="text-xs text-slate">Onboarding</p><p className="font-bold text-navy">{selectedUser.hasCompletedOnboarding ? "Completed" : "Incomplete"}</p></div>
             </div>
           </div>

@@ -46,6 +46,7 @@ export interface UserProfile {
   notificationEmailPreference?: "primary" | "secondary" | "both";
   notificationChannelPreference?: "email" | "in_app" | "both";
   notificationCategories?: Record<string, boolean>;
+  authProvider?: string;
   dateOfBirth?: string;
   isExternalStudent?: boolean;
   gender?: "male" | "female";
@@ -463,7 +464,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setFirebaseUser(fbUser);
 
       // Send Firebase email verification
-      await sendEmailVerification(fbUser);
+      const actionCodeSettings = {
+        url: `${window.location.origin}/dashboard`,
+        handleCodeInApp: false,
+      };
+      await sendEmailVerification(fbUser, actionCodeSettings);
 
       // Create backend profile
       await registerProfile(fbUser, extra);
@@ -510,7 +515,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const handleSendVerificationEmail = useCallback(async () => {
     const currentUser = fbUserRef.current;
     if (currentUser) {
-      await sendEmailVerification(currentUser);
+      const actionCodeSettings = {
+        url: `${window.location.origin}/dashboard`,
+        handleCodeInApp: false,
+      };
+      await sendEmailVerification(currentUser, actionCodeSettings);
     }
   }, []);
 

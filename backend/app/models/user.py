@@ -57,6 +57,7 @@ class UserBase(BaseModel):
     notificationEmailPreference: Literal["primary", "secondary", "both"] = Field(default="primary", description="Which email receives notifications")
     notificationChannelPreference: Literal["email", "in_app", "both"] = Field(default="both", description="Channel: email only, in-app only, or both")
     notificationCategories: Optional[dict] = Field(default=None, description="Per-category notification toggles (e.g. {'announcements': True, 'payments': False})")
+    authProvider: Optional[str] = Field(None, description="Authentication provider (e.g., google.com, password)")
 
 
 class UserCreate(UserBase):
