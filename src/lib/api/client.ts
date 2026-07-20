@@ -48,12 +48,14 @@ const REQUEST_TIMEOUT = 30000;
 export class ApiRequestError extends Error {
   status: number;
   detail: string;
+  retryAfter?: number;
 
-  constructor(status: number, detail: string) {
+  constructor(status: number, detail: string, retryAfter?: number) {
     super(detail);
     this.name = 'ApiRequestError';
     this.status = status;
     this.detail = detail;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -160,16 +162,27 @@ async function buildHeaders(options: RequestOptions): Promise<Headers> {
  */
 async function handleErrorResponse(response: Response): Promise<never> {
   let detail = 'An unexpected error occurred';
+  let retryAfter: number | undefined;
+  
+  // Check Retry-After header
+  const retryHeader = response.headers.get('Retry-After');
+  if (retryHeader) {
+    const parsed = parseInt(retryHeader, 10);
+    if (!isNaN(parsed)) retryAfter = parsed;
+  }
   
   try {
     const errorBody = await response.json();
     detail = errorBody.detail || errorBody.message || detail;
+    if (errorBody.retryAfter && typeof errorBody.retryAfter === 'number') {
+      retryAfter = errorBody.retryAfter;
+    }
   } catch {
     // Response body wasn't JSON
     detail = response.statusText || detail;
   }
 
-  throw new ApiRequestError(response.status, detail);
+  throw new ApiRequestError(response.status, detail, retryAfter);
 }
 
 /**
@@ -239,6 +252,11 @@ export async function apiRequest<T>(
     if (error instanceof ApiRequestError) {
       // Handle rate limiting (429)
       if (error.status === 429) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('rate-limit-exceeded', {
+            detail: { retryAfter: error.retryAfter || 60, message: error.detail }
+          }));
+        }
         if (showErrorToast) toast.error("Too many requests — please wait a moment and try again.");
         throw error;
       }

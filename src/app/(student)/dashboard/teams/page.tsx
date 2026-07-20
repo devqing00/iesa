@@ -401,7 +401,7 @@ export default function TeamsPage() {
                                 contextId: m.unitSlug,
                                 contextLabel: m.unitLabel,
                               })}
-                              className="bg-lime border-2 border-navy rounded-lg px-2 py-0.5 text-[10px] font-black text-navy press-1 press-navy"
+                              className="bg-lavender border-2 border-navy rounded-lg px-2 py-0.5 text-[10px] font-black text-navy press-1 press-navy"
                             >
                               Message
                             </Link>

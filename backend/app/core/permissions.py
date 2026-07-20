@@ -171,6 +171,9 @@ PERMISSIONS = {
     # Platform settings permissions
     "admin:manage_settings": "Manage platform-wide settings (e.g. toggle online payments)",
 
+    # Campaign permissions
+    "campaign:manage": "Manage automated campaigns",
+
     # IEPOD Hub permissions
     "iepod:manage": "Manage IEPOD program (registrations, quizzes, teams, points)",
     "iepod:view": "View IEPOD program data",
@@ -207,13 +210,13 @@ PERMISSIONS = {
 # catalogue (admin roles page) so that roles created from the admin UI
 # automatically inherit the correct defaults.
 DEFAULT_PERMISSIONS = {
-    # ── Super Admin ──────────────────────────────────────────────────
+    # ── Super Admin ──────────────────────────────────────────────────    # 👑 Super Admin 👑
     "super_admin": [
-        # Super admins have ALL permissions — almighty access
+        # Super admins have ALL permissions – almighty access
         *PERMISSIONS.keys()
     ],
 
-    # ── Regular Admin (view-only dashboard) ──────────────────────────
+    # 🛡️ Regular Admin (view-only dashboard, strictly non-destructive) 🛡️
     "admin": [
         "admin:dashboard",
         "announcement:view",
@@ -225,6 +228,15 @@ DEFAULT_PERMISSIONS = {
         "contact:view",
         "iepod:view",
         "timp:view",
+        "role:view",
+        "user:view_all"
+    ],
+    
+    # 🕵️ Auditor (strictly audit log viewer)
+    "auditor": [
+        "admin:dashboard",
+        "audit:view",
+        "role:view"
     ],
 
     # ── Executive Officers ───────────────────────────────────────────

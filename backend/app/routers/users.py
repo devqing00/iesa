@@ -1595,3 +1595,35 @@ async def batch_send_onboarding_emails(
             print(f"Failed to send onboarding email to {email}: {e}")
             
     return {"message": f"Sent onboarding reminder emails to {count} users.", "count": count}
+
+
+@router.post("/me/presence")
+async def update_presence(user: dict = Depends(get_current_user)):
+    """Update lastSeenAt to track online status."""
+    db = get_database()
+    users = db["users"]
+    now = datetime.now(timezone.utc)
+    
+    await users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"lastSeenAt": now}}
+    )
+    
+    return {"status": "success", "lastSeenAt": now}
+
+class HideLastSeenRequest(PydanticBaseModel):
+    hideLastSeen: bool
+
+@router.patch("/me/hide-last-seen")
+async def hide_last_seen(hide_request: HideLastSeenRequest, user: dict = Depends(get_current_user)):
+    """Toggle last seen visibility."""
+    db = get_database()
+    users = db["users"]
+    
+    await users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"hideLastSeen": hide_request.hideLastSeen}}
+    )
+    
+    return {"status": "success", "hideLastSeen": hide_request.hideLastSeen}
+

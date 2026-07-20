@@ -177,7 +177,7 @@ function CampaignsPage() {
           </h1>
           <p className="text-sm text-navy/60 mt-1">Build rules to automatically nudge students.</p>
         </div>
-        <PermissionGate permission="admin:manage">
+        <PermissionGate permission="campaign:manage">
           <button
             onClick={() => setShowModal(true)}
             className="self-start px-5 py-2.5 bg-lime border-[3px] border-navy rounded-2xl text-navy text-sm font-bold press-3 press-navy flex items-center gap-2"
@@ -371,5 +371,5 @@ function CampaignsPage() {
 }
 
 export default withAuth(CampaignsPage, {
-  requiredPermission: "admin:manage",
+  requiredPermission: "campaign:manage",
 });

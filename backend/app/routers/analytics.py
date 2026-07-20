@@ -10,6 +10,8 @@ router = APIRouter(prefix="/api/v1/analytics", tags=["Analytics & Early Warning"
 
 @router.get("/at-risk-students")
 async def get_at_risk_students(
+    skip: int = 0,
+    limit: int = 20,
     current_user: dict = Depends(get_current_user),
     _perm: None = Depends(require_permission("admin:dashboard")),
 ):
@@ -60,7 +62,7 @@ async def get_at_risk_students(
 
     users_cursor = db["users"].find(
         {"_id": {"$in": object_ids}},
-        {"firstName": 1, "lastName": 1, "email": 1, "currentLevel": 1, "lastLogin": 1, "profilePictureUrl": 1, "profilePhotoURL": 1}
+        {"firstName": 1, "lastName": 1, "email": 1, "currentLevel": 1, "lastLogin": 1, "lastSeenAt": 1, "profilePictureUrl": 1, "profilePhotoURL": 1}
     )
     users = {str(u["_id"]): u async for u in users_cursor}
 
@@ -96,15 +98,15 @@ async def get_at_risk_students(
             risk_factors.append(f"{unpaid_count} unpaid mandatory due(s)")
             
         # Factor B: Inactivity
-        last_login = user.get("lastLogin")
-        if not last_login:
+        last_seen = user.get("lastSeenAt") or user.get("lastLogin")
+        if not last_seen:
             risk_score += 40
             risk_factors.append("Never logged in")
         else:
             # Ensure timezone awareness for comparison
-            if last_login.tzinfo is None:
-                last_login = last_login.replace(tzinfo=timezone.utc)
-            days_inactive = (now - last_login).days
+            if last_seen.tzinfo is None:
+                last_seen = last_seen.replace(tzinfo=timezone.utc)
+            days_inactive = (now - last_seen).days
             if days_inactive >= 14:
                 risk_score += 30
                 risk_factors.append(f"Inactive for {days_inactive} days")
@@ -133,10 +135,13 @@ async def get_at_risk_students(
                 "riskScore": risk_score,
                 "riskLevel": risk_level,
                 "riskFactors": risk_factors,
-                "lastLogin": last_login.isoformat() if last_login else None
+                "lastLogin": last_seen.isoformat() if last_seen else None
             })
             
     # Sort by risk score descending
     at_risk_list.sort(key=lambda x: x["riskScore"], reverse=True)
     
-    return {"students": at_risk_list[:100]}  # Top 100 at risk
+    total = len(at_risk_list)
+    paginated_list = at_risk_list[skip:skip+limit]
+    
+    return {"students": paginated_list, "total": total}

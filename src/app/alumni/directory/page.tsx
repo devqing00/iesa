@@ -6,6 +6,8 @@ import { useState, useEffect } from "react";
 import { getApiUrl } from "@/lib/api";
 import { toast } from "sonner";
 import Image from "next/image";
+import Link from "next/link";
+import { buildMessagesHref } from "@/lib/messaging";
 import { resolveProfileImageUrl } from "@/lib/profileImage";
 
 interface AlumniUser {
@@ -142,12 +144,19 @@ export default function AlumniDirectoryPage() {
                   </div>
                 )}
 
-                <a
-                  href={`mailto:${person.email}`}
-                  className="mt-auto block w-full py-2.5 bg-navy text-snow text-center rounded-xl font-bold text-sm press-2 border-2 border-navy hover:bg-navy/90 transition-colors"
-                >
-                  Contact
-                </a>
+                  <Link
+                    href={buildMessagesHref({
+                      userId: person.id,
+                      userName: `${person.firstName} ${person.lastName}`,
+                      userEmail: person.email,
+                      context: "alumni",
+                      contextId: person.id,
+                      contextLabel: "Alumni Directory",
+                    })}
+                    className="mt-auto block w-full py-2.5 bg-coral text-snow text-center rounded-xl font-bold text-sm press-2 border-[3px] border-navy hover:bg-coral/90 transition-colors"
+                  >
+                    Contact
+                  </Link>
               </div>
             ))}
           </div>

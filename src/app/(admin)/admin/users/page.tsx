@@ -174,6 +174,7 @@ function AdminUsersPage() {
   const [editEmail, setEditEmail] = useState("");
   const [editMatricNumber, setEditMatricNumber] = useState("");
   const [editPhone, setEditPhone] = useState("");
+  const [editStudentType, setEditStudentType] = useState<"ipe" | "external">("ipe");
   const [editDepartment, setEditDepartment] = useState("");
   const [editGender, setEditGender] = useState<"" | "male" | "female">("");
   const [editDateOfBirth, setEditDateOfBirth] = useState("");
@@ -478,6 +479,8 @@ function AdminUsersPage() {
     setEditEmail(user.email || "");
     setEditMatricNumber(user.matricNumber || "");
     setEditPhone(user.phone || "");
+    const isIPE = !user.department || user.department === "Industrial Engineering";
+    setEditStudentType(isIPE ? "ipe" : "external");
     setEditDepartment(user.department || "Industrial Engineering");
     setEditGender(user.gender || "");
     setEditDateOfBirth(user.dateOfBirth ? String(user.dateOfBirth).split("T")[0] : "");
@@ -510,7 +513,8 @@ function AdminUsersPage() {
         editGender !== (editUser.gender || "") ||
         editDateOfBirth !== originalDob ||
         editEmailVerified !== !!editUser.emailVerified ||
-        editHasCompletedOnboarding !== !!editUser.hasCompletedOnboarding;
+        editHasCompletedOnboarding !== !!editUser.hasCompletedOnboarding ||
+        (editStudentType === "external") !== !!editUser.isExternalStudent;
 
       if (profileChanged) {
         const profilePayload = {
@@ -521,6 +525,7 @@ function AdminUsersPage() {
           phone: editPhone.trim() || null,
           department: editDepartment.trim() || "Industrial Engineering",
           gender: editGender || null,
+          isExternalStudent: editStudentType === "external",
           dateOfBirth: editDateOfBirth || null,
           emailVerified: editEmailVerified,
           hasCompletedOnboarding: editHasCompletedOnboarding,
@@ -1369,15 +1374,35 @@ function AdminUsersPage() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="edit-department" className="block text-xs font-bold text-slate mb-1.5">Department</label>
-                  <input
-                    id="edit-department"
-                    type="text"
-                    value={editDepartment}
-                    onChange={(e) => setEditDepartment(e.target.value)}
+                  <label htmlFor="edit-student-type" className="block text-xs font-bold text-slate mb-1.5">Student Type</label>
+                  <select
+                    id="edit-student-type"
+                    value={editStudentType}
+                    onChange={(e) => {
+                      const type = e.target.value as "ipe" | "external";
+                      setEditStudentType(type);
+                      if (type === "ipe") setEditDepartment("Industrial Engineering");
+                      else if (editDepartment === "Industrial Engineering") setEditDepartment("");
+                    }}
                     className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm"
-                  />
+                  >
+                    <option value="ipe">Industrial Engineering (IPE)</option>
+                    <option value="external">External Student</option>
+                  </select>
                 </div>
+                {editStudentType === "external" && (
+                  <div className="col-span-2">
+                    <label htmlFor="edit-department" className="block text-xs font-bold text-slate mb-1.5">Department Name</label>
+                    <input
+                      id="edit-department"
+                      type="text"
+                      value={editDepartment}
+                      onChange={(e) => setEditDepartment(e.target.value)}
+                      placeholder="e.g. Mechanical Engineering"
+                      className="w-full px-3 py-2.5 bg-ghost border-[2px] border-navy/20 rounded-xl text-navy text-sm"
+                    />
+                  </div>
+                )}
                 <div>
                   <label htmlFor="edit-gender" className="block text-xs font-bold text-slate mb-1.5">Gender</label>
                   <select

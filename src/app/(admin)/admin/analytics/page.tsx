@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ToolHelpModal, useToolHelp, HelpButton } from "@/components/ui/ToolHelpModal";
 import { getErrorMessage } from "@/lib/adminApiError";
 import Link from "next/link";
+import Pagination from "@/components/ui/Pagination";
 
 /* ── Types ──────────────────────────────── */
 
@@ -32,6 +33,9 @@ function AnalyticsAtRiskPage() {
   const [students, setStudents] = useState<AtRiskStudent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const limit = 20;
   
   const fetchAtRiskStudents = useCallback(async () => {
     try {
@@ -39,7 +43,8 @@ function AnalyticsAtRiskPage() {
       const token = await getAccessToken();
       if (!token) return;
 
-      const res = await fetch(getApiUrl("/api/v1/analytics/at-risk-students"), {
+      const skip = (page - 1) * limit;
+      const res = await fetch(getApiUrl(`/api/v1/analytics/at-risk-students?skip=${skip}&limit=${limit}`), {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -51,6 +56,7 @@ function AnalyticsAtRiskPage() {
       if (data.error) throw new Error(data.error);
       
       setStudents(data.students || []);
+      setTotalPages(Math.ceil((data.total || 0) / limit) || 1);
     } catch (err) {
       setError(getErrorMessage(err, "Failed to fetch analytics"));
     } finally {
@@ -62,7 +68,7 @@ function AnalyticsAtRiskPage() {
     if (user && userProfile) {
       fetchAtRiskStudents();
     }
-  }, [user, userProfile, fetchAtRiskStudents]);
+  }, [user, userProfile, fetchAtRiskStudents, page]);
 
   if (authLoading || (loading && students.length === 0)) {
     return (
@@ -129,6 +135,12 @@ function AnalyticsAtRiskPage() {
       </div>
 
       {/* ── Students Table ── */}
+      <div className="flex justify-between items-center">
+        <h2 className="font-display font-black text-lg text-navy">Flagged Students</h2>
+        <span className="px-3 py-1 rounded-md bg-cloud text-navy/60 text-xs font-bold">
+          Page {page} of {totalPages}
+        </span>
+      </div>
       <div className="relative bg-snow border-[3px] border-navy rounded-3xl overflow-hidden shadow-[4px_4px_0_0_#000]">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -195,8 +207,8 @@ function AnalyticsAtRiskPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <Link 
-                        href={`/admin/messages?to=${student.id}`}
-                        className="inline-flex items-center justify-center px-4 py-2 bg-navy text-snow text-xs font-bold rounded-xl press-3 hover:bg-navy/90"
+                        href={`/dashboard/messages?dmUserId=${student.id}`}
+                        className="inline-flex items-center justify-center px-4 py-2 bg-coral text-snow text-xs font-bold rounded-xl press-3 hover:bg-coral/90"
                       >
                         Contact
                       </Link>
@@ -208,6 +220,8 @@ function AnalyticsAtRiskPage() {
           </table>
         </div>
       </div>
+      
+      <Pagination page={page} totalPages={totalPages} onPage={setPage} className="mt-5" />
     </div>
   );
 }

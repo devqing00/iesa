@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
+import { buildMessagesHref } from "@/lib/messaging";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 
 /* ─── Types ─── */
@@ -160,11 +162,21 @@ export default function CommitteesPage() {
                 </div>
 
                 {/* contact */}
-                <div className="flex flex-wrap gap-3 mt-4 pt-3 border-t-[3px] border-navy/15">
-                  <a href={`mailto:${committee.user.email}`} className="inline-flex items-center gap-1.5 text-navy/50 hover:text-navy transition-colors text-sm font-medium">
-                    <svg aria-hidden="true" className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a2 2 0 00-2 2v1.161l8.441 4.221a1.25 1.25 0 001.118 0L19 7.162V6a2 2 0 00-2-2H3z" /><path d="M19 8.839l-7.77 3.885a2.75 2.75 0 01-2.46 0L1 8.839V14a2 2 0 002 2h14a2 2 0 002-2V8.839z" /></svg>
-                    <span className="truncate">{committee.user.email}</span>
-                  </a>
+                <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t-[3px] border-navy/15">
+                  <Link
+                    href={buildMessagesHref({
+                      userId: committee.user.id,
+                      userName: `${committee.user.firstName} ${committee.user.lastName}`,
+                      userEmail: committee.user.email,
+                      context: "committee",
+                      contextId: committee.position,
+                      contextLabel: label,
+                    })}
+                    className="inline-flex items-center gap-2 bg-lavender border-[3px] border-navy press-3 press-navy px-4 py-2 rounded-xl font-display font-black text-xs text-navy uppercase tracking-[0.05em] transition-all"
+                  >
+                    <svg aria-hidden="true" className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" /><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" /></svg>
+                    Message
+                  </Link>
                 </div>
               </div>
             );

@@ -142,7 +142,7 @@ function TreasuryPage() {
           </h1>
           <p className="text-sm text-navy/60 mt-1">Track collections, log expenses, and view net balance.</p>
         </div>
-        <PermissionGate permission="payment:manage">
+        <PermissionGate permission="payment:create">
           <button
             onClick={() => setShowModal(true)}
             className="self-start px-5 py-2.5 bg-lime border-[3px] border-navy rounded-2xl text-navy text-sm font-bold press-3 press-navy flex items-center gap-2"

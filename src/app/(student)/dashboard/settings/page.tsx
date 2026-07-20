@@ -111,6 +111,10 @@ export default function SettingsPage() {
   const [categories, setCategories] = useState<Record<NotifCategory, boolean>>(defaultCats);
   const [catLoading, setCatLoading] = useState<NotifCategory | null>(null);
 
+  /* ── Privacy Preferences ──────────────────── */
+  const [hideLastSeen, setHideLastSeen] = useState<boolean>(false);
+  const [privacyLoading, setPrivacyLoading] = useState(false);
+
   // Sync prefs from user profile
   useEffect(() => {
     if (userProfile) {
@@ -119,6 +123,7 @@ export default function SettingsPage() {
       if (userProfile.notificationCategories) {
         setCategories({ ...defaultCats, ...userProfile.notificationCategories } as Record<NotifCategory, boolean>);
       }
+      setHideLastSeen(!!(userProfile as any).hideLastSeen);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userProfile]);
@@ -192,6 +197,24 @@ export default function SettingsPage() {
       toast.error(msg);
     } finally {
       setCatLoading(null);
+    }
+  };
+
+  const handlePrivacyToggle = async () => {
+    const newVal = !hideLastSeen;
+    setPrivacyLoading(true);
+    // Optimistically update
+    setHideLastSeen(newVal);
+    try {
+      await api.patch("/api/v1/users/me", { hideLastSeen: newVal });
+      refreshProfile?.();
+      toast.success(`Last seen status is now ${newVal ? "hidden" : "visible"}.`);
+    } catch (err: unknown) {
+      setHideLastSeen(!newVal);
+      const msg = err instanceof Error ? err.message : "Failed to update privacy settings";
+      toast.error(msg);
+    } finally {
+      setPrivacyLoading(false);
     }
   };
 
@@ -405,7 +428,56 @@ export default function SettingsPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════
-          SECTION 3: SESSION ARCHIVE (only if multiple sessions)
+          SECTION 3: PRIVACY PREFERENCES
+          ═══════════════════════════════════════════════════════ */}
+      <section className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[8px_8px_0_0_#000] mb-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 bg-lavender-light rounded-xl flex items-center justify-center">
+            <svg className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="font-display font-black text-xl text-navy">Privacy</h2>
+            <p className="text-sm text-slate">Control your visibility on the platform</p>
+          </div>
+        </div>
+        
+        <div>
+          <button
+            type="button"
+            onClick={handlePrivacyToggle}
+            disabled={privacyLoading}
+            className={`flex items-center gap-3 p-4 rounded-2xl border-[3px] text-left transition-all ${
+              hideLastSeen
+                ? "border-navy bg-lavender-light"
+                : "border-navy/15 bg-ghost"
+            } ${privacyLoading ? "opacity-60" : "hover:bg-cloud"} w-full`}
+          >
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+              hideLastSeen ? "bg-navy text-snow" : "bg-cloud text-slate"
+            }`}>
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="block text-body font-bold text-navy text-sm">Hide Last Seen Status</span>
+              <span className="block text-xs text-slate mt-0.5">When enabled, other users won&apos;t see when you were last active.</span>
+            </div>
+            <div className={`w-10 h-6 rounded-full shrink-0 relative transition-colors ${
+              hideLastSeen ? "bg-navy" : "bg-navy/20"
+            }`}>
+              <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-snow shadow transition-transform ${
+                hideLastSeen ? "translate-x-[18px]" : "translate-x-0.5"
+              }`} />
+            </div>
+          </button>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════
+          SECTION 4: SESSION ARCHIVE (only if multiple sessions)
           ═══════════════════════════════════════════════════════ */}
       {allSessions.length > 1 && (
         <section className="bg-snow border-[4px] border-navy rounded-3xl p-6 sm:p-8 shadow-[8px_8px_0_0_#000] mb-8">

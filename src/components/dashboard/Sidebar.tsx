@@ -396,26 +396,29 @@ export default function Sidebar() {
                               : "text-navy/50 hover:bg-ghost hover:text-navy font-medium"
                           }`}
                         >
-                          <span className={isActive ? "text-navy" : ""}>{link.icon}</span>
+                          <span className={`relative ${isActive ? "text-navy" : ""}`}>
+                            {link.icon}
+                            {!isExpanded && link.href === "/dashboard/messages" && totalUnread > 0 && (
+                              <span className="absolute -top-1.5 -right-2 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[9px] font-black text-snow bg-coral border-[2px] border-navy rounded-full shadow-[2px_2px_0_0_#000]">
+                                {totalUnread > 9 ? "9+" : totalUnread}
+                              </span>
+                            )}
+                            {!isExpanded && link.href === "/dashboard/announcements" && notifUnread > 0 && (
+                              <span className="absolute -top-1.5 -right-2 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[9px] font-black text-snow bg-coral border-[2px] border-navy rounded-full shadow-[2px_2px_0_0_#000]">
+                                {notifUnread > 9 ? "9+" : notifUnread}
+                              </span>
+                            )}
+                          </span>
                           {isExpanded && <span className="truncate">{link.name}</span>}
                           {isExpanded && link.href === "/dashboard/messages" && totalUnread > 0 && (
-                            <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-coral text-snow text-[10px] font-black flex items-center justify-center">
+                            <span className="ml-auto min-w-[20px] h-[20px] px-1.5 rounded-full bg-coral text-snow text-[10px] font-black flex items-center justify-center border-[2px] border-navy shadow-[2px_2px_0_0_#000]">
                               {totalUnread > 9 ? "9+" : totalUnread}
                             </span>
                           )}
-                          {link.href === "/dashboard/messages" && isConnected && (
-                            <span className={`${isExpanded ? "ml-1" : "absolute bottom-1.5 left-1.5"} w-2 h-2 rounded-full bg-teal border border-snow`} />
-                          )}
-                          {!isExpanded && link.href === "/dashboard/messages" && totalUnread > 0 && (
-                            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-coral border border-snow" />
-                          )}
                           {isExpanded && link.href === "/dashboard/announcements" && notifUnread > 0 && (
-                            <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-coral text-snow text-[10px] font-black flex items-center justify-center">
+                            <span className="ml-auto min-w-[20px] h-[20px] px-1.5 rounded-full bg-coral text-snow text-[10px] font-black flex items-center justify-center border-[2px] border-navy shadow-[2px_2px_0_0_#000]">
                               {notifUnread > 9 ? "9+" : notifUnread}
                             </span>
-                          )}
-                          {!isExpanded && link.href === "/dashboard/announcements" && notifUnread > 0 && (
-                            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-coral border border-snow" />
                           )}
                         </Link>
                       );

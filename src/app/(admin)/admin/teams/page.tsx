@@ -1042,7 +1042,7 @@ function TeamsPage() {
                         <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-navy/10">
 
                           {/* Noticeboard */}
-                          <div className="px-5 py-4">
+                          <div className="px-5 py-4 min-w-0">
                             <p className="text-[10px] font-bold uppercase tracking-wider text-slate mb-3">
                               Noticeboard ({content.noticeboard.length})
                             </p>
@@ -1053,13 +1053,13 @@ function TeamsPage() {
                                 {content.noticeboard.slice(0, 5).map((notice) => (
                                   <div key={notice.id} className="bg-snow/60 rounded-xl p-3 border border-navy/10">
                                     <div className="flex items-start justify-between gap-2 mb-1">
-                                      <p className="text-sm font-bold text-navy leading-snug line-clamp-1">{notice.title}</p>
+                                      <p className="flex-1 min-w-0 text-sm font-bold text-navy leading-snug line-clamp-1">{notice.title}</p>
                                       {notice.isPinned && (
                                         <span className="shrink-0 px-1.5 py-0.5 rounded bg-navy text-snow text-[9px] font-bold uppercase tracking-wider">Pinned</span>
                                       )}
                                     </div>
-                                    <p className="text-xs text-slate line-clamp-2">{notice.content}</p>
-                                    <p className="text-[10px] text-slate/70 mt-1.5">{formatDate(notice.createdAt)}{notice.authorName && ` · ${notice.authorName}`}</p>
+                                    <p className="text-xs text-slate line-clamp-2 break-words">{notice.content}</p>
+                                    <p className="text-[10px] text-slate/70 mt-1.5 truncate">{formatDate(notice.createdAt)}{notice.authorName && ` · ${notice.authorName}`}</p>
                                   </div>
                                 ))}
                                 {content.noticeboard.length > 5 && (
@@ -1070,7 +1070,7 @@ function TeamsPage() {
                           </div>
 
                           {/* Tasks */}
-                          <div className="px-5 py-4">
+                          <div className="px-5 py-4 min-w-0">
                             <div className="flex items-center justify-between mb-3">
                               <p className="text-[10px] font-bold uppercase tracking-wider text-slate">
                                 Tasks ({content.taskSummary.total})
@@ -1101,14 +1101,14 @@ function TeamsPage() {
                                 {content.tasks.slice(0, 6).map((task) => (
                                   <div key={task.id} className="bg-snow/60 rounded-xl p-3 border border-navy/10">
                                     <div className="flex items-start justify-between gap-2 mb-1">
-                                      <p className="text-sm font-bold text-navy leading-snug line-clamp-1">{task.title}</p>
+                                      <p className="flex-1 min-w-0 text-sm font-bold text-navy leading-snug line-clamp-1">{task.title}</p>
                                       <div className="shrink-0 flex items-center gap-1">
                                         <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${priorityColor[task.priority] || "bg-ghost text-slate"}`}>{task.priority}</span>
                                         <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${taskStatusColor[task.status] || ""}`}>{task.status.replace("_", " ")}</span>
                                       </div>
                                     </div>
-                                    {task.description && <p className="text-xs text-slate line-clamp-1">{task.description}</p>}
-                                    <p className="text-[10px] text-slate/70 mt-1">
+                                    {task.description && <p className="text-xs text-slate line-clamp-1 break-words">{task.description}</p>}
+                                    <p className="text-[10px] text-slate/70 mt-1 truncate">
                                       {formatDate(task.createdAt)}{task.createdByName && ` · by ${task.createdByName}`}
                                       {task.dueDate && <span className="text-coral"> · due {task.dueDate.slice(0, 10)}</span>}
                                     </p>

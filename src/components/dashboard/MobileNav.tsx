@@ -403,13 +403,12 @@ export default function MobileNav() {
                               }`}
                               onClick={() => setShowMore(false)}
                             >
-                              <span className={isActive ? "text-navy" : "text-navy/50"}>{link.icon}</span>
-                              {link.href === "/dashboard/messages" && isConnected && (
-                                <span className="absolute bottom-2 left-2 w-2 h-2 rounded-full bg-teal border border-snow" />
-                              )}
+                              <span className={`relative ${isActive ? "text-navy" : "text-navy/50"}`}>
+                                {link.icon}
+                              </span>
                               <span className="truncate">{link.name}</span>
                               {link.badge != null && link.badge > 0 && (
-                                <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-coral text-snow text-[10px] font-black flex items-center justify-center">
+                                <span className="ml-auto min-w-[20px] h-[20px] px-1.5 rounded-full bg-coral text-snow text-[10px] font-black flex items-center justify-center border-[2px] border-navy shadow-[2px_2px_0_0_#000]">
                                   {link.badge > 9 ? "9+" : link.badge}
                                 </span>
                               )}

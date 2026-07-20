@@ -603,7 +603,7 @@ export default function TimpPage() {
                             contextId: pair.id,
                             contextLabel: `TIMP ${otherRole}`,
                           })}
-                          className="bg-lime border-[3px] border-navy press-3 press-navy px-4 py-2 rounded-xl font-display font-bold text-xs text-navy transition-all"
+                          className="bg-lavender border-[3px] border-navy press-3 press-navy px-4 py-2 rounded-xl font-display font-bold text-xs text-navy transition-all"
                         >
                           Open DM
                         </Link>
@@ -626,7 +626,7 @@ export default function TimpPage() {
                               setFeedbackPair(pair);
                               setFeedbackForm({ rating: 4, notes: "", concerns: "", topicsCovered: "" });
                             }}
-                            className="bg-lime border-[3px] border-navy press-3 press-navy px-4 py-2 rounded-xl font-display font-bold text-xs text-navy transition-all"
+                            className="bg-lavender border-[3px] border-navy press-3 press-navy px-4 py-2 rounded-xl font-display font-bold text-xs text-navy transition-all"
                           >
                             Submit Feedback
                           </button>

@@ -58,6 +58,7 @@ class UserBase(BaseModel):
     notificationChannelPreference: Literal["email", "in_app", "both"] = Field(default="both", description="Channel: email only, in-app only, or both")
     notificationCategories: Optional[dict] = Field(default=None, description="Per-category notification toggles (e.g. {'announcements': True, 'payments': False})")
     authProvider: Optional[str] = Field(None, description="Authentication provider (e.g., google.com, password)")
+    hideLastSeen: Optional[bool] = Field(default=False, description="Whether to hide last seen status from others")
 
 
 class UserCreate(UserBase):
@@ -86,6 +87,7 @@ class UserUpdate(BaseModel):
     # Notification preference only — secondary email itself is managed via dedicated endpoints
     notificationEmailPreference: Optional[Literal["primary", "secondary", "both"]] = None
     notificationChannelPreference: Optional[Literal["email", "in_app", "both"]] = None
+    hideLastSeen: Optional[bool] = None
 
 
 class User(UserBase):
