@@ -34,9 +34,9 @@ router = APIRouter(prefix="/api/v1/iesa-ai", tags=["IESA AI"])
 # ─── Account-linked rate limiting (persists across devices) ────────────
 AI_HOURLY_LIMIT = int(os.getenv("AI_HOURLY_LIMIT", "20"))
 AI_DAILY_LIMIT = int(os.getenv("AI_DAILY_LIMIT", "60"))
-AI_MODEL_PRIMARY = os.getenv("AI_MODEL_PRIMARY", "llama-3.3-70b-versatile")
-AI_MODEL_FAST = os.getenv("AI_MODEL_FAST", "groq/compound-mini")
-AI_MODEL_SUMMARY = os.getenv("AI_MODEL_SUMMARY", "llama-3.3-70b-versatile")
+AI_MODEL_PRIMARY = os.getenv("AI_MODEL_PRIMARY", "openai/gpt-oss-120b")
+AI_MODEL_FAST = os.getenv("AI_MODEL_FAST", "openai/gpt-oss-120b")
+AI_MODEL_SUMMARY = os.getenv("AI_MODEL_SUMMARY", "openai/gpt-oss-120b")
 AI_MODEL_ROUTING_ENABLED = os.getenv("AI_MODEL_ROUTING_ENABLED", "true").lower() in {"1", "true", "yes", "on"}
 
 

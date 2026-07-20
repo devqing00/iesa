@@ -56,7 +56,10 @@ function CampaignsPage() {
     try {
       setLoading(true);
       const token = await getAccessToken();
-      if (!token) return;
+      if (!token) {
+        setLoading(false);
+        return;
+      }
 
       const [campRes, payRes] = await Promise.all([
         fetch(getApiUrl("/api/v1/campaigns/"), { headers: { Authorization: `Bearer ${token}` } }),
@@ -199,8 +202,36 @@ function CampaignsPage() {
       {/* ── Campaigns List ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {campaigns.length === 0 ? (
-          <div className="col-span-full py-16 text-center bg-snow border-[3px] border-navy border-dashed rounded-3xl">
-            <p className="text-sm text-navy/60 font-medium">No automated campaigns created yet.</p>
+          <div className="col-span-full py-20 px-6 text-center bg-snow border-[3px] border-navy border-dashed rounded-3xl flex flex-col items-center justify-center relative overflow-hidden">
+            {/* Background decorative elements */}
+            <div className="absolute -top-10 -right-10 w-40 h-40 bg-lime/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-coral/20 rounded-full blur-3xl pointer-events-none" />
+            
+            <div className="w-24 h-24 mb-6 bg-lavender-light border-[3px] border-navy rounded-2xl shadow-[4px_4px_0_0_#000] flex items-center justify-center transform -rotate-3 transition-transform hover:rotate-0">
+              <svg aria-hidden="true" className="w-12 h-12 text-lavender" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                <path d="M19 14l-7 7-7-7" />
+              </svg>
+            </div>
+            
+            <h3 className="font-display font-black text-2xl text-navy mb-2">
+              No Campaigns Yet
+            </h3>
+            <p className="text-sm text-slate max-w-md mx-auto mb-8 leading-relaxed">
+              Automate your workflow by creating rules to nudge students about unpaid dues or inactivity. Your campaigns will run in the background.
+            </p>
+            
+            <PermissionGate permission="campaign:manage">
+              <button
+                onClick={() => setShowModal(true)}
+                className="px-6 py-3 bg-coral border-[3px] border-navy rounded-2xl text-snow text-sm font-bold shadow-[4px_4px_0_0_#000] press-3 press-black flex items-center gap-2 hover:bg-coral-light hover:text-navy transition-colors"
+              >
+                <svg aria-hidden="true" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                </svg>
+                Create First Campaign
+              </button>
+            </PermissionGate>
           </div>
         ) : (
           campaigns.map((camp) => (

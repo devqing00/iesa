@@ -21,6 +21,8 @@ Collections used:
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 from urllib.parse import urlencode
+import os
+import io
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, UploadFile, File, Form
@@ -1574,6 +1576,7 @@ async def search_users_for_messaging(
 @router.post("/upload-attachment")
 async def upload_attachment(
     recipientId: str = Form(...),
+    transcription: str = Form(None),
     file: UploadFile = File(...),
     user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database),
@@ -1622,7 +1625,9 @@ async def upload_attachment(
         "resourceType": result.get("resourceType", "raw"),
     }
 
-    # Now create the message with this attachment
+    # We use the frontend transcription passed via Form
+    # (BabelFish native Web Speech API implementation)
+    # The transcription variable is already defined as a Form parameter
     connected = await _are_connected(db, sender_id, recipientId)
     if not connected:
         raise HTTPException(
@@ -1638,6 +1643,7 @@ async def upload_attachment(
         "senderId": sender_id,
         "recipientId": recipientId,
         "content": "",
+        "transcription": transcription,
         "isRead": False,
         "createdAt": now,
         "deliveredAt": now if dm_manager.is_online(recipientId) else None,
@@ -1655,9 +1661,10 @@ async def upload_attachment(
             "senderName": sender_name,
             "recipientId": recipientId,
             "content": "",
+            "transcription": transcription,
             "isRead": False,
             "createdAt": now.isoformat(),
-            "deliveredAt": doc["deliveredAt"].isoformat() if doc.get("deliveredAt") else None,
+            "deliveredAt": now.isoformat() if doc.get("deliveredAt") else None,
             "attachments": [attachment],
         },
     }

@@ -1595,7 +1595,21 @@ async def batch_send_onboarding_emails(
             print(f"Failed to send onboarding email to {email}: {e}")
             
     return {"message": f"Sent onboarding reminder emails to {count} users.", "count": count}
+class FcmTokenRequest(PydanticBaseModel):
+    token: str
 
+@router.post("/me/fcm-token")
+async def add_fcm_token(request: FcmTokenRequest, user: dict = Depends(get_current_user)):
+    """Register an FCM token for the current users device."""
+    db = get_database()
+    users = db["users"]
+    
+    await users.update_one(
+        {"_id": user["_id"]},
+        {"$addToSet": {"fcmTokens": request.token}}
+    )
+    
+    return {"status": "success"}
 
 @router.post("/me/presence")
 async def update_presence(user: dict = Depends(get_current_user)):

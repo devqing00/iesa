@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import PublicProfileModal from "@/components/profile/PublicProfileModal";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
@@ -63,6 +64,7 @@ interface Message {
   attachments?: Attachment[];
   reactions?: Reaction[];
   isPinned?: boolean;
+  transcription?: string | null;
 }
 
 interface SearchUser {
@@ -301,6 +303,7 @@ function AudioWaveformPlayer({ attachment }: { attachment: Attachment }) {
         onEnded={() => setPlaying(false)}
         className="hidden"
       />
+    
     </div>
   );
 }
@@ -312,6 +315,43 @@ type SidebarTab = "chats" | "requests" | "connections";
 /* ─── Component ─────────────────────────────────────────────────── */
 
 export default function MessagesPage() {
+
+  const [hideLastSeen, setHideLastSeen] = useState(false);
+  const [hideLastSeenLoading, setHideLastSeenLoading] = useState(false);
+  const [profileModalUserId, setProfileModalUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Fetch initial hideLastSeen pref
+    fetch('/api/v1/users/me')
+      .then(res => res.json())
+      .then(data => {
+        if (data.hideLastSeen !== undefined) {
+          setHideLastSeen(data.hideLastSeen);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  const toggleHideLastSeen = async () => {
+    try {
+      setHideLastSeenLoading(true);
+      const res = await fetch('/api/v1/users/me/hide-last-seen', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hideLastSeen: !hideLastSeen })
+      });
+      if (res.ok) {
+        setHideLastSeen(!hideLastSeen);
+        toast.success(`Last seen status is now ${!hideLastSeen ? 'hidden' : 'visible'}`);
+      } else {
+        toast.error("Failed to update privacy settings");
+      }
+    } catch (e) {
+      toast.error("An error occurred");
+    } finally {
+      setHideLastSeenLoading(false);
+    }
+  };
   const { getAccessToken, userProfile } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -412,11 +452,82 @@ export default function MessagesPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const voiceChunksRef = useRef<Blob[]>([]);
+  const speechRecognitionRef = useRef<any>(null);
+  const transcriptionRef = useRef<string>("");
+  const [liveTranscription, setLiveTranscription] = useState("");
   const [recordingVoice, setRecordingVoice] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  
+  const visualizerCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+
+  const [isRecordingLocked, setIsRecordingLocked] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [isCanceling, setIsCanceling] = useState(false);
+  const dragStartRef = useRef<{ x: number, y: number, time: number } | null>(null);
 
   /* ── State: Message Search ── */
+  const [inChatSearchOpen, setInChatSearchOpen] = useState(false);
+  const [inChatQuery, setInChatQuery] = useState("");
+  const [inChatMatches, setInChatMatches] = useState<string[]>([]);
+  const [inChatCurrentIndex, setInChatCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    if (!inChatQuery) {
+      setInChatMatches([]);
+      setInChatCurrentIndex(0);
+      return;
+    }
+    const matches = messages
+      .filter((m) => m.content?.toLowerCase().includes(inChatQuery.toLowerCase()))
+      .map((m) => m.id);
+    setInChatMatches(matches);
+    setInChatCurrentIndex(0);
+  }, [inChatQuery, messages]);
+
+  const scrollToMatch = (index: number) => {
+    if (inChatMatches.length === 0) return;
+    const msgId = inChatMatches[index];
+    const el = messageRefs.current[msgId];
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  };
+
+  const nextMatch = () => {
+    const nextIdx = (inChatCurrentIndex + 1) % inChatMatches.length;
+    setInChatCurrentIndex(nextIdx);
+    scrollToMatch(nextIdx);
+  };
+
+  const prevMatch = () => {
+    const prevIdx = (inChatCurrentIndex - 1 + inChatMatches.length) % inChatMatches.length;
+    setInChatCurrentIndex(prevIdx);
+    scrollToMatch(prevIdx);
+  };
+
+  const renderHighlightedContent = (text: string, query: string, msgId: string) => {
+    if (!query) return text;
+    const parts = text.split(new RegExp(`(${query})`, 'gi'));
+    const isCurrent = inChatMatches[inChatCurrentIndex] === msgId;
+    return (
+      <>
+        {parts.map((part, i) =>
+          part.toLowerCase() === query.toLowerCase() ? (
+            <mark key={i} className={`rounded-sm px-1 py-0.5 shadow-sm transition-all ${isCurrent ? "bg-sunny text-navy font-black border-2 border-navy scale-110" : "bg-sunny text-navy font-bold"}`}>
+              {part}
+            </mark>
+          ) : (
+            part
+          )
+        )}
+      </>
+    );
+  };
+
   const [msgSearchOpen, setMsgSearchOpen] = useState(false);
   const [msgSearchQuery, setMsgSearchQuery] = useState("");
   const [msgSearchResults, setMsgSearchResults] = useState<SearchResult[]>([]);
@@ -745,7 +856,7 @@ export default function MessagesPage() {
   };
 
   /* ── Upload file attachment ── */
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = async (file: File, transcriptionText?: string) => {
     if (!selectedConv || uploading) return;
     if (file.size > 10 * 1024 * 1024) {
       toast.error("File too large. Maximum size is 10MB.");
@@ -757,6 +868,9 @@ export default function MessagesPage() {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("recipientId", selectedConv.otherUserId);
+      if (transcriptionText) {
+        formData.append("transcription", transcriptionText);
+      }
       const res = await fetch(getApiUrl("/api/v1/messages/upload-attachment"), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -833,15 +947,36 @@ export default function MessagesPage() {
     }
   };
 
-  const stopVoiceRecording = useCallback(() => {
+  const stopVoiceRecording = useCallback((cancel = false) => {
+    if (cancel) setIsCanceling(true);
+    
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
       recordingTimerRef.current = null;
     }
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    if (audioContextRef.current) {
+      void audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    analyserRef.current = null;
+
+    if (speechRecognitionRef.current) {
+      try {
+        speechRecognitionRef.current.stop();
+      } catch (e) {}
+    }
+
     mediaRecorderRef.current?.stop();
     mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
     mediaStreamRef.current = null;
     setRecordingVoice(false);
+    setIsRecordingLocked(false);
+    setDragOffset({ x: 0, y: 0 });
+    dragStartRef.current = null;
   }, []);
 
   const startVoiceRecording = async () => {
@@ -853,6 +988,73 @@ export default function MessagesPage() {
       mediaRecorderRef.current = recorder;
       voiceChunksRef.current = [];
       setRecordingSeconds(0);
+      setLiveTranscription("");
+      transcriptionRef.current = "";
+      setIsRecordingLocked(false);
+      setDragOffset({ x: 0, y: 0 });
+      setIsCanceling(false);
+
+      // Setup BabelFish (Web Speech API)
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+        
+        recognition.onresult = (event: any) => {
+          let currentTranscript = "";
+          for (let i = 0; i < event.results.length; i++) {
+            currentTranscript += event.results[i][0].transcript;
+          }
+          transcriptionRef.current = currentTranscript;
+          setLiveTranscription(currentTranscript);
+        };
+        
+        recognition.start();
+        speechRecognitionRef.current = recognition;
+      }
+
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        const audioCtx = new AudioCtx();
+        audioContextRef.current = audioCtx;
+        const source = audioCtx.createMediaStreamSource(stream);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        analyserRef.current = analyser;
+
+        const drawVisualizer = () => {
+          if (!analyserRef.current || !visualizerCanvasRef.current) return;
+          const canvas = visualizerCanvasRef.current;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return;
+          const width = canvas.width;
+          const height = canvas.height;
+          const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+          analyserRef.current.getByteFrequencyData(dataArray);
+
+          ctx.clearRect(0, 0, width, height);
+          const barWidth = 4;
+          const gap = 2;
+          const bars = Math.floor(width / (barWidth + gap));
+          
+          for (let i = 0; i < bars; i++) {
+            const val = dataArray[i * 2] || 0;
+            const percent = val / 255;
+            const barHeight = Math.max(4, percent * height);
+            
+            // It will be red if canceling, teal otherwise
+            ctx.fillStyle = "#14b8a6";
+            ctx.beginPath();
+            ctx.roundRect(i * (barWidth + gap), height / 2 - barHeight / 2, barWidth, barHeight, 2);
+            ctx.fill();
+          }
+          animationFrameRef.current = requestAnimationFrame(drawVisualizer);
+        };
+        drawVisualizer();
+      }
 
       recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) voiceChunksRef.current.push(event.data);
@@ -865,7 +1067,17 @@ export default function MessagesPage() {
         const ext = mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "m4a" : "webm";
         const blob = new Blob(chunks, { type: mimeType });
         const file = new File([blob], `voice-note-${Date.now()}.${ext}`, { type: mimeType });
-        if (file.size > 0) void handleFileUpload(file);
+        const finalTranscription = transcriptionRef.current;
+        
+        // Use a functional state check since isCanceling might be stale in closure
+        setIsCanceling(currentIsCanceling => {
+           if (file.size > 0 && !currentIsCanceling) {
+             void handleFileUpload(file, finalTranscription);
+           }
+           setLiveTranscription("");
+           transcriptionRef.current = "";
+           return currentIsCanceling;
+        });
       };
 
       recorder.start();
@@ -876,6 +1088,61 @@ export default function MessagesPage() {
     } catch {
       toast.error("Microphone access is required to record voice notes.");
     }
+  };
+
+  const handleRecordPointerDown = (e: React.PointerEvent) => {
+    if (uploading || !isConnected) return;
+    if (recordingVoice) {
+      if (isRecordingLocked) {
+        stopVoiceRecording(false);
+      }
+      return;
+    }
+    dragStartRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    void startVoiceRecording();
+  };
+
+  const handleRecordPointerMove = (e: React.PointerEvent) => {
+    if (!recordingVoice || isRecordingLocked || !dragStartRef.current) return;
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = dragStartRef.current.y - e.clientY;
+    
+    if (dx < -100) {
+      stopVoiceRecording(true);
+      toast.info("Recording cancelled");
+      return;
+    }
+    if (dy > 80) {
+      setIsRecordingLocked(true);
+      setDragOffset({ x: 0, y: 0 });
+      dragStartRef.current = null;
+      toast.info("Recording locked");
+      return;
+    }
+    
+    setDragOffset({ x: Math.min(0, dx), y: Math.max(0, -dy) });
+    setIsCanceling(dx < -40);
+  };
+
+  const handleRecordPointerUp = (e: React.PointerEvent) => {
+    if (!recordingVoice || isRecordingLocked) return;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    
+    if (dragStartRef.current) {
+      const elapsed = Date.now() - dragStartRef.current.time;
+      const dx = Math.abs(e.clientX - dragStartRef.current.x);
+      const dy = Math.abs(e.clientY - dragStartRef.current.y);
+      if (elapsed < 300 && dx < 10 && dy < 10) {
+        setIsRecordingLocked(true);
+        dragStartRef.current = null;
+        setDragOffset({ x: 0, y: 0 });
+        toast.info("Recording locked");
+        return;
+      }
+    }
+    
+    stopVoiceRecording(isCanceling);
   };
 
   /* ── Delete message ── */
@@ -1545,8 +1812,8 @@ export default function MessagesPage() {
             {sidebarTab === "chats" && (
               <>
                 {/* Search bar */}
-                <div className="p-3 border-b-[2px] border-cloud">
-                  <div className="relative">
+                <div className="p-3 border-b-[2px] border-cloud flex items-center gap-2">
+                  <div className="relative flex-1">
                     <svg
                       className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate"
                       viewBox="0 0 24 24"
@@ -1565,8 +1832,19 @@ export default function MessagesPage() {
                       className="w-full pl-9 pr-3 py-2 bg-ghost border-[2px] border-cloud rounded-xl text-sm text-navy placeholder:text-slate focus:border-navy focus:outline-none transition-colors"
                     />
                   </div>
+                  <button
+                    onClick={() => setMsgSearchOpen(true)}
+                    className="p-2 bg-ghost border-[2px] border-cloud rounded-xl text-slate hover:text-navy hover:bg-cloud transition-colors shrink-0"
+                    title="Global Message Search"
+                  >
+                    <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <circle cx="11" cy="11" r="8" />
+                      <path d="M21 21l-4.35-4.35" />
+                    </svg>
+                  </button>
+                </div>
 
-                  {/* Search results */}
+                {/* Search results */}
                   {(searchResults.length > 0 || searching) && (
                     <div className="mt-2 bg-snow border-[2px] border-navy rounded-xl shadow-[4px_4px_0_0_#000] overflow-hidden max-h-56 overflow-y-auto">
                       {searching ? (
@@ -1621,7 +1899,6 @@ export default function MessagesPage() {
                       )}
                     </div>
                   )}
-                </div>
 
                 {/* Conversation list */}
                 <div className="flex-1 overflow-y-auto">
@@ -1907,17 +2184,17 @@ export default function MessagesPage() {
                           : selectedUserLastSeenLabel
                             ? selectedUserLastSeenLabel
                         : isConnected
-                          ? "Connected"
-                          : "Not connected — messages go as requests"}
+                          ? (<div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-[#10B981] border border-navy shadow-[1px_1px_0_0_#000]"></div><span className="text-[#10B981] font-bold tracking-tight">Online now</span></div>)
+                          : "Not connected"}
                     </div>
                   </div>
                   {/* Action buttons */}
                   <div className="hidden lg:flex items-center gap-1 shrink-0">
                     {/* Message search */}
                     <button
-                      onClick={() => setMsgSearchOpen(true)}
+                      onClick={() => setInChatSearchOpen(true)}
                       className="p-1.5 rounded-lg text-slate hover:text-navy hover:bg-ghost transition-colors"
-                      title="Search messages"
+                      title="Search in chat"
                     >
                       <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                         <circle cx="11" cy="11" r="8" />
@@ -2018,10 +2295,10 @@ export default function MessagesPage() {
                     {threadToolsOpen && (
                       <div className="absolute right-0 top-10 w-48 bg-snow border-[3px] border-navy rounded-xl shadow-[4px_4px_0_0_#000] z-30 py-1">
                         <button
-                          onClick={() => { setMsgSearchOpen(true); setThreadToolsOpen(false); }}
+                          onClick={() => { setInChatSearchOpen(true); setThreadToolsOpen(false); }}
                           className="w-full text-left px-3 py-2 text-sm text-navy hover:bg-ghost"
                         >
-                          Search messages
+                          Search in chat
                         </button>
                         <button
                           onClick={() => { setPinnedOpen(true); fetchPinned(); setThreadToolsOpen(false); }}
@@ -2093,6 +2370,53 @@ export default function MessagesPage() {
                   </div>
                 </div>
 
+                  {inChatSearchOpen && (
+                    <div className="flex items-center gap-2 px-4 py-2 border-b border-cloud bg-snow/90 backdrop-blur-md z-10 transition-all shrink-0">
+                      <div className="relative flex-1 flex items-center bg-white border-2 border-cloud rounded-lg focus-within:border-navy focus-within:shadow-[2px_2px_0_0_#000] transition-all overflow-hidden">
+                        <div className="pl-3 pr-2 text-slate">
+                          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                        </div>
+                        <input 
+                          type="text" 
+                          autoFocus
+                          value={inChatQuery}
+                          onChange={(e) => setInChatQuery(e.target.value)}
+                          placeholder="Search in this conversation..."
+                          className="flex-1 py-1.5 text-sm bg-transparent outline-none text-navy placeholder:text-slate"
+                        />
+                        {inChatMatches.length > 0 && (
+                          <div className="text-xs text-slate font-medium pr-2 shrink-0">
+                            {inChatCurrentIndex + 1} / {inChatMatches.length}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button 
+                          onClick={prevMatch}
+                          disabled={inChatMatches.length === 0}
+                          className="p-1.5 rounded-md text-slate hover:text-navy hover:bg-ghost disabled:opacity-50 transition-colors"
+                        >
+                          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M18 15l-6-6-6 6"/></svg>
+                        </button>
+                        <button 
+                          onClick={nextMatch}
+                          disabled={inChatMatches.length === 0}
+                          className="p-1.5 rounded-md text-slate hover:text-navy hover:bg-ghost disabled:opacity-50 transition-colors"
+                        >
+                          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M6 9l6 6 6-6"/></svg>
+                        </button>
+                        <button 
+                          onClick={() => { setInChatSearchOpen(false); setInChatQuery(""); }}
+                          className="p-1.5 rounded-md text-coral hover:bg-coral-light transition-colors ml-1"
+                        >
+                          <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M18 6L6 18M6 6l12 12"/></svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+
                 {/* Messages area */}
                 <div className="flex-1 overflow-y-auto px-4 py-4">
                   {loadingMsgs ? (
@@ -2151,8 +2475,8 @@ export default function MessagesPage() {
                           }
 
                           const bubbleShapeClass = isMine
-                            ? `${prevSameSender ? "rounded-tr-md" : "rounded-tr-2xl"} ${nextSameSender ? "rounded-br-md" : "rounded-br-2xl"} rounded-tl-2xl rounded-bl-2xl`
-                            : `${prevSameSender ? "rounded-tl-md" : "rounded-tl-2xl"} ${nextSameSender ? "rounded-bl-md" : "rounded-bl-2xl"} rounded-tr-2xl rounded-br-2xl`;
+                            ? `rounded-2xl ${!nextSameSender ? "rounded-br-sm" : ""}`
+                            : `rounded-2xl ${!nextSameSender ? "rounded-bl-sm" : ""}`;
 
                           return (
                             <div
@@ -2196,14 +2520,14 @@ export default function MessagesPage() {
                                   <button
                                     type="button"
                                     onClick={() => jumpToMessage(msg.replyTo?.id)}
-                                    className={`text-left w-full text-[10px] mb-0.5 px-3 py-1 rounded-t-xl border-l-[3px] ${
-                                      isMine ? "bg-lime-light/60 border-navy/30" : "bg-ghost border-lavender"
+                                    className={`text-left w-fit max-w-[90%] text-[10px] mb-2 px-3 py-1.5 rounded-xl ${isMine ? "rounded-br-sm" : "rounded-bl-sm"} border-[2px] border-navy shadow-[2px_2px_0_0_#000] hover:-translate-y-0.5 transition-transform ${
+                                      isMine ? "bg-lavender/90 text-snow self-end" : "bg-snow text-navy self-start"
                                     }`}
                                   >
-                                    <span className="font-bold text-navy-muted">
+                                    <span className={`font-bold ${isMine ? "text-snow" : "text-navy-muted"}`}>
                                       {msg.replyTo.senderId === currentUserId ? "You" : msg.replyTo.senderName}
                                     </span>
-                                    <p className="text-slate truncate max-w-[200px]">
+                                    <p className={`truncate max-w-[200px] ${isMine ? "text-snow/80" : "text-slate"}`}>
                                       {msg.replyTo.content || (msg.replyTo.hasAttachment ? "Attachment" : "")}
                                     </p>
                                   </button>
@@ -2211,7 +2535,9 @@ export default function MessagesPage() {
 
                                 {/* Pin indicator */}
                                 {msg.isPinned && !isDeleted && (
-                                  <div className={`flex items-center gap-1 text-[9px] text-sunny font-bold mb-0.5 ${isMine ? "justify-end" : "justify-start"}`}>
+                                  <div className={`flex w-fit items-center gap-1 text-[9px] border-[1px] shadow-[1px_1px_0_0_rgba(0,0,0,0.05)] px-2 py-0.5 rounded-full font-bold mb-1 ${
+                                    isMine ? "bg-lavender/90 text-sunny border-navy/20 self-end" : "bg-white text-sunny border-cloud self-start"
+                                  }`}>
                                     <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                                       <path d="M16 4a1 1 0 00-1.4.2L12 8l-2.6-3.8A1 1 0 008 4a1 1 0 00-1 1v6.28l-2.6 3.12a1 1 0 00.2 1.4 1 1 0 00.6.2H11v5a1 1 0 002 0v-5h5.8a1 1 0 00.6-.2 1 1 0 00.2-1.4L17 11.28V5a1 1 0 00-1-1z" />
                                     </svg>
@@ -2220,13 +2546,13 @@ export default function MessagesPage() {
                                 )}
 
                                 <div
-                                  className={`px-4 py-2.5 relative ${bubbleShapeClass} ${highlightedMessageId === msg.id ? "ring-2 ring-teal" : ""} ${
-                                    isDeleted
-                                      ? "bg-cloud/50 text-slate italic"
-                                      : isMine
-                                        ? "bg-lime text-navy"
-                                        : "bg-ghost text-navy"
-                                  }`}
+                                                                      className={`px-4 py-3 relative ${bubbleShapeClass} ${highlightedMessageId === msg.id || inChatMatches[inChatCurrentIndex] === msg.id ? "ring-2 ring-navy shadow-[4px_4px_0_0_#000]" : "shadow-[2px_2px_0_0_rgba(0,0,0,0.1)]"} ${
+                                      isDeleted
+                                        ? "bg-cloud/50 text-slate italic"
+                                        : isMine
+                                          ? "bg-lavender text-snow border-[1px] border-navy/20"
+                                          : "bg-white text-navy border-[1px] border-cloud"
+                                    } transition-all`}
                                 >
                                   {/* Desktop action bar (click-triggered, persistent) — hidden on touch */}
                                   {activeMsgId === msg.id && !isDeleted && (
@@ -2339,8 +2665,16 @@ export default function MessagesPage() {
                                                 />
                                               </button>
                                             ) : att.type?.startsWith("audio/") ? (
-                                              <AudioWaveformPlayer key={i} attachment={att} />
-                                            ) : (
+                              <div key={i} className="flex flex-col gap-2">
+                                <AudioWaveformPlayer attachment={att} />
+                                {msg.transcription && (
+                                  <div className={`p-2.5 rounded-xl border-[1px] text-[11px] leading-relaxed ${isMine ? "bg-snow/10 border-snow/20 text-snow/90" : "bg-ghost border-cloud text-navy-muted"}`}>
+                                    <span className="font-bold mr-1 opacity-75">Transcript:</span>
+                                    {msg.transcription}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
                                               <a
                                                 key={i}
                                                 href={att.url}
@@ -2365,8 +2699,8 @@ export default function MessagesPage() {
                                       )}
                                       {/* Text content */}
                                       {msg.content && (
-                                        <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
-                                          {msg.content}
+                                        <p className={`text-sm whitespace-pre-wrap break-words leading-relaxed ${isMine && !isDeleted ? "text-snow" : "text-navy"}`}>
+                                          {inChatQuery ? renderHighlightedContent(msg.content, inChatQuery, msg.id) : msg.content}
                                         </p>
                                       )}
                                     </>
@@ -2419,19 +2753,19 @@ export default function MessagesPage() {
 
                                 {/* Reactions bar */}
                                 {reactionGroups.length > 0 && (
-                                  <div className={`flex flex-wrap gap-1 mt-0.5 ${isMine ? "justify-end" : "justify-start"}`}>
+                                  <div className={`flex flex-wrap gap-1 mt-1 ${isMine ? "justify-end" : "justify-start"}`}>
                                     {reactionGroups.map((rg) => (
                                       <button
                                         key={rg.emoji}
                                         onClick={() => handleReaction(msg.id, rg.emoji)}
-                                        className={`inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-md border transition-colors ${
+                                        className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border-[2px] border-navy shadow-[2px_2px_0_0_#000] transition-transform hover:-translate-y-0.5 font-bold ${
                                           rg.myReaction
-                                            ? "bg-lime-light border-lime-dark text-navy"
-                                            : "bg-ghost border-cloud text-navy hover:border-navy"
+                                            ? "bg-sunny text-navy"
+                                            : isMine ? "bg-lavender text-snow" : "bg-snow text-navy"
                                         }`}
                                       >
                                         <span>{rg.emoji}</span>
-                                        {rg.count > 1 && <span className="text-[9px] font-bold">{rg.count}</span>}
+                                        {rg.count > 1 && <span className="font-bold">{rg.count}</span>}
                                       </button>
                                     ))}
                                   </div>
@@ -2563,16 +2897,25 @@ export default function MessagesPage() {
                       </div>
                     )}
 
-                    {recordingVoice && (
-                      <div className="mb-2 flex items-center justify-between gap-2 px-3 py-2 bg-coral-light rounded-xl border-[2px] border-coral/30">
-                        <p className="text-xs font-bold text-navy">Recording voice note… {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, "0")}</p>
-                        <button
-                          type="button"
-                          onClick={stopVoiceRecording}
-                          className="px-2.5 py-1 rounded-lg bg-coral border-[2px] border-navy text-snow text-[10px] font-bold press-1 press-black"
-                        >
-                          Stop & send
-                        </button>
+                    {recordingVoice && isRecordingLocked && (
+                      <div className="mb-2 flex items-center justify-between gap-2 px-3 py-2 bg-teal-50 rounded-xl border-[2px] border-teal-200 shadow-sm animate-slide-up">
+                        <div className="flex items-center gap-3">
+                          <span className="relative flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-teal"></span>
+                          </span>
+                          <p className="text-xs font-bold text-navy w-10">{Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, "0")}</p>
+                          <canvas ref={visualizerCanvasRef} width={80} height={24} className="opacity-80" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                           <button type="button" onClick={() => stopVoiceRecording(true)} className="p-1.5 rounded-lg hover:bg-coral-light text-slate hover:text-coral transition-colors" title="Cancel">
+                              <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" /></svg>
+                           </button>
+                           <button type="button" onClick={() => stopVoiceRecording(false)} className="px-3 py-1 rounded-lg bg-teal border-[2px] border-navy text-snow text-[10px] font-bold press-1 press-black flex items-center gap-1">
+                              <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" /></svg>
+                              Send
+                           </button>
+                        </div>
                       </div>
                     )}
 
@@ -2620,20 +2963,49 @@ export default function MessagesPage() {
                               if (f) handleFileUpload(f);
                             }}
                           />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (recordingVoice) stopVoiceRecording();
-                              else void startVoiceRecording();
-                            }}
-                            disabled={uploading}
-                            className={`shrink-0 w-10 h-10 rounded-xl border-[2px] flex items-center justify-center transition-colors disabled:opacity-50 ${recordingVoice ? "bg-coral-light border-coral text-coral" : "bg-ghost border-cloud text-slate hover:border-navy"}`}
-                            title={recordingVoice ? "Stop recording" : "Record voice note"}
-                          >
-                            <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm5-3a1 1 0 1 1 2 0 7 7 0 0 1-6 6.93V21h2a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2h2v-3.07A7 7 0 0 1 5 11a1 1 0 1 1 2 0 5 5 0 1 0 10 0Z" />
-                            </svg>
-                          </button>
+                          {recordingVoice && !isRecordingLocked && (
+                             <div className="absolute left-4 right-16 bottom-2 h-10 bg-snow rounded-xl border-[2px] border-navy shadow-[4px_4px_0_0_rgba(0,0,0,0.1)] flex items-center justify-between px-3 z-10 overflow-hidden animate-slide-up">
+                                <div className="flex items-center gap-3">
+                                  <span className="relative flex h-3 w-3">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-coral opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-coral"></span>
+                                  </span>
+                                  <p className="text-xs font-bold text-navy w-8">{Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, "0")}</p>
+                                  <canvas ref={visualizerCanvasRef} width={60} height={24} className="opacity-80" />
+                                </div>
+                                <div className="flex items-center gap-1.5 text-navy text-[10px] font-bold opacity-60">
+                                   {isCanceling ? (
+                                      <span className="text-coral">Release to cancel</span>
+                                   ) : (
+                                      <>
+                                         <svg aria-hidden="true" className="w-3 h-3 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M15 19l-7-7 7-7"/></svg>
+                                         Slide to cancel
+                                      </>
+                                   )}
+                                </div>
+                             </div>
+                           )}
+                           <button
+                              type="button"
+                              onPointerDown={handleRecordPointerDown}
+                              onPointerMove={handleRecordPointerMove}
+                              onPointerUp={handleRecordPointerUp}
+                              onPointerCancel={handleRecordPointerUp}
+                              disabled={uploading}
+                              className={`shrink-0 w-10 h-10 rounded-xl border-[2px] flex items-center justify-center transition-colors disabled:opacity-50 z-20 touch-none ${recordingVoice ? isCanceling ? "bg-coral text-snow border-navy shadow-sm" : "bg-teal text-snow border-navy shadow-sm" : "bg-ghost border-cloud text-slate hover:border-navy"}`}
+                              style={{ transform: recordingVoice && !isRecordingLocked ? `translate(${dragOffset.x}px, ${dragOffset.y}px) scale(${isCanceling ? 1.05 : 1.1})` : undefined }}
+                              title={recordingVoice ? "Recording..." : "Hold to record"}
+                            >
+                              <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm5-3a1 1 0 1 1 2 0 7 7 0 0 1-6 6.93V21h2a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2h2v-3.07A7 7 0 0 1 5 11a1 1 0 1 1 2 0 5 5 0 1 0 10 0Z" />
+                              </svg>
+                              {recordingVoice && !isRecordingLocked && dragOffset.y === 0 && (
+                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-navy text-snow text-[9px] px-2 py-1 rounded-md font-bold whitespace-nowrap shadow-sm pointer-events-none opacity-80 flex flex-col items-center animate-fade-in">
+                                   <svg aria-hidden="true" className="w-3 h-3 mb-0.5 animate-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                                   Lock
+                                </div>
+                              )}
+                            </button>
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
@@ -3000,6 +3372,15 @@ export default function MessagesPage() {
             </div>
           </div>
         </div>
+      )}
+      {/* Public Profile Modal */}
+      {profileModalUserId && (
+        <PublicProfileModal
+          userId={profileModalUserId}
+          isOpen={true}
+          onClose={() => setProfileModalUserId(null)}
+          onMessage={() => setProfileModalUserId(null)}
+        />
       )}
     </main>
   );

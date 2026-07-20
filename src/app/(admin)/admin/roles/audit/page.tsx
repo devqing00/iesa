@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { getAuditLogs, AuditLogResponse } from "@/lib/api/audit";
+
+
 import { toast } from "sonner";
 import { format } from "date-fns";
 import Link from "next/link";
@@ -56,12 +58,12 @@ export default function AuditLogsPage() {
   };
 
   if (permsLoading) {
-    return <div className="max-w-7xl mx-auto p-8 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-navy" /></div>;
+    return <div className="flex-1 w-full bg-snow overflow-y-auto px-4 md:px-8 py-8 md:py-12"><div className="p-8 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-navy" /></div></div>;
   }
 
   if (!hasPermission("audit:view")) {
     return (
-      <div className="max-w-7xl mx-auto">
+      <div className="flex-1 w-full bg-snow overflow-y-auto px-4 md:px-8 py-8 md:py-12">
         <div className="p-8 text-center max-w-md mx-auto mt-12 bg-coral/10 border-[3px] border-coral rounded-2xl">
           <Shield className="w-12 h-12 text-coral mx-auto mb-4" />
           <h2 className="font-display font-black text-2xl text-navy mb-2">Access Denied</h2>
@@ -75,19 +77,14 @@ export default function AuditLogsPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+    <div className="flex-1 w-full bg-snow overflow-y-auto px-4 md:px-8 py-8 md:py-12">
+      <div className="mb-6 flex items-center gap-4">
+        <Link href="/admin/roles" className="p-2 border-[3px] border-navy rounded-xl hover:bg-navy hover:text-snow transition-colors shadow-[2px_2px_0_0_#000]">
+          <ArrowLeft className="w-5 h-5" />
+        </Link>
         <div>
-          <div className="flex items-center gap-4 mb-2">
-            <Link href="/admin/roles" className="p-2 border-[3px] border-navy rounded-xl hover:bg-navy hover:text-snow transition-colors shadow-[2px_2px_0_0_#000]">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate">Administration</p>
-          </div>
-          <h1 className="font-display font-black text-3xl md:text-4xl text-navy">
-            <span className="brush-highlight">Audit</span> Logs
-          </h1>
-          <p className="text-sm text-slate mt-1">Track permission elevations and role assignments across the platform.</p>
+          <h1 className="font-display font-black text-3xl md:text-4xl text-navy">Audit Logs</h1>
+          <p className="text-slate mt-2">Track permission elevations and role assignments across the platform.</p>
         </div>
       </div>
 
