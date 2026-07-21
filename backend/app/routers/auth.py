@@ -207,7 +207,6 @@ async def register_profile(request: Request, data: RegisterProfileRequest):
         existing["_id"] = str(existing["_id"])
         return {"message": "Profile already exists", "user": existing}
 
-    # Also check if the email was previously used (e.g. old non-Firebase account)
     email_existing = await users.find_one({"email": email})
     if email_existing:
         # Link the existing account to the new Firebase UID
@@ -224,6 +223,14 @@ async def register_profile(request: Request, data: RegisterProfileRequest):
         )
         email_existing["_id"] = str(email_existing["_id"])
         return {"message": "Profile linked to Firebase", "user": email_existing}
+
+    # Prevent registration if email is already a verified secondary email for another account
+    secondary_existing = await users.find_one({"secondaryEmail": email, "secondaryEmailVerified": True})
+    if secondary_existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This email is registered as a secondary email for another account. Please log in using your primary email."
+        )
 
     # 3. Create new profile
     now = datetime.now(timezone.utc)

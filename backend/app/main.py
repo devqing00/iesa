@@ -12,7 +12,7 @@ from app.core.permissions import require_permission as _require_permission
 from app.core.rate_limiting import setup_rate_limiting
 from app.core.error_handling import setup_exception_handlers, setup_logging
 from app.core.scheduler import start_scheduler, stop_scheduler
-from app.routers import sessions, users, payments, events, announcements, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press, team_applications, teams, academic_calendar, timp, bank_transfers, settings, contact_messages, iepod, admin_stats, student_dashboard, sse, notifications, search, messages, class_rep, team_head, push_notifications, drive, alumni, analytics, campaigns, treasury
+from app.routers import sessions, users, payments, events, announcements, enrollments, roles, students, iesa_ai, resources, timetable, paystack, audit_logs, auth, study_groups, press, team_applications, teams, academic_calendar, timp, bank_transfers, settings, contact_messages, iepod, admin_stats, student_dashboard, sse, notifications, search, messages, class_rep, team_head, push_notifications, drive, alumni, analytics, campaigns, treasury, growth
 from app.db import connect_to_mongo, close_mongo_connection, get_database
 
 # Setup logging first
@@ -451,6 +451,7 @@ app.include_router(student_dashboard.router) # Student Dashboard Stats (aggregat
 app.include_router(sse.router)               # Real-time SSE notifications
 app.include_router(notifications.router)     # In-app Notification System
 app.include_router(search.router)              # Global Search
+app.include_router(growth.router)              # Growth Hub Tools (personal data)
 
 app.include_router(messages.router)            # Student Direct Messages
 app.include_router(messages._admin_router)     # Admin Message Reports & Mutes
