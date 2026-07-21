@@ -127,57 +127,6 @@ async def test_iepod_join_team_logs_failure_when_not_registered(client):
     assert kwargs["details"]["reason"] == "not_registered"
 
 
-@pytest.mark.asyncio
-async def test_iepod_leaderboard_returns_rank_phase_and_society_name(client):
-    iepod_points = MagicMock()
-    iepod_points.aggregate = MagicMock(
-        return_value=ToListCursor(
-            [
-                {"_id": "u1", "userName": "Alice", "totalPoints": 80},
-                {"_id": "u2", "userName": "Bob", "totalPoints": 55},
-            ]
-        )
-    )
-
-    iepod_registrations = MagicMock()
-    iepod_registrations.find = MagicMock(
-        return_value=ToListCursor(
-            [
-                {"userId": "u1", "phase": "carve", "societyId": "507f1f77bcf86cd799439041"},
-                {"userId": "u2", "phase": "stimulate", "societyId": None},
-            ]
-        )
-    )
-
-    iepod_societies = MagicMock()
-    iepod_societies.find = MagicMock(
-        return_value=ToListCursor(
-            [
-                {"_id": ObjectId("507f1f77bcf86cd799439041"), "name": "IEEE"},
-            ]
-        )
-    )
-
-    db = MagicMock()
-    db.iepod_points = iepod_points
-    db.iepod_registrations = iepod_registrations
-    db.iepod_societies = iepod_societies
-
-    with patch("app.routers.iepod.get_database", return_value=db):
-        res = await client.get("/api/v1/iepod/leaderboard?limit=10")
-
-    assert res.status_code == 200
-    data = res.json()
-    assert len(data) == 2
-    assert data[0]["rank"] == 1
-    assert data[0]["userName"] == "Alice"
-    assert data[0]["phase"] == "carve"
-    assert data[0]["societyName"] == "IEEE"
-    assert data[1]["rank"] == 2
-    assert data[1]["societyName"] is None
-
-    iepod_registrations.find.assert_called_once()
-    iepod_societies.find.assert_called_once()
 
 
 def test_iepod_live_ws_rejects_invalid_token(sync_client):

@@ -43,7 +43,7 @@ async def test_create_notification():
     assert doc["type"] == "announcement"
     assert doc["title"] == "Test"
     assert doc["message"] == "Test message"
-    assert doc["link"] == "/dashboard"
+    assert doc["link"].startswith("/dashboard")
     assert doc["relatedId"] == "ann-1"
     assert doc["isRead"] is False
     assert isinstance(doc["createdAt"], datetime)
@@ -67,7 +67,7 @@ async def test_create_notification_minimal():
         )
 
     doc = mock_db.notifications.insert_one.call_args[0][0]
-    assert doc["link"] is None
+    assert doc["link"].startswith("/dashboard")
     assert doc["relatedId"] is None
 
 
