@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import AIDraftButton from "@/components/admin/AIDraftButton";
 
 const CATEGORIES = [
   { value: "news", label: "News" },
@@ -322,7 +323,15 @@ function WriteArticleContent() {
 
         {/* Content */}
         <div>
-          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate mb-1.5">Content *</label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate">Content *</label>
+            <AIDraftButton 
+              type="press"
+              onDraftGenerated={(draftedContent) => {
+                setContent(draftedContent);
+              }}
+            />
+          </div>
           <RichTextEditor
             content={content}
             onChange={setContent}

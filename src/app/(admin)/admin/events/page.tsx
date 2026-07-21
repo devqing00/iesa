@@ -13,6 +13,7 @@ import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelp
 import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import { resolveProfileImageUrl } from "@/lib/profileImage";
 import { EventCheckInModal } from "@/components/events/EventCheckInModal";
+import AIDraftButton from "@/components/admin/AIDraftButton";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -1014,7 +1015,16 @@ function AdminEventsPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-bold text-navy">Description</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-bold text-navy">Description</label>
+                  <AIDraftButton 
+                    type="event"
+                    onDraftGenerated={(content) => {
+                      setForm((f) => ({ ...f, description: content }));
+                      setFormErrors((p) => ({ ...p, description: undefined }));
+                    }}
+                  />
+                </div>
                 <textarea
                   value={form.description}
                   onChange={(e) => { setForm((f) => ({ ...f, description: e.target.value })); setFormErrors((p) => ({ ...p, description: undefined })); }}

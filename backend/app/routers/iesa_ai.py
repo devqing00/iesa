@@ -290,6 +290,18 @@ class ChatResponse(BaseModel):
     data: Optional[dict] = None
 
 
+class DraftRequest(BaseModel):
+    topic: str
+    context: Optional[str] = None
+    type: str = "announcement"  # announcement, event, press
+    tone: str = "professional"  # professional, exciting, formal
+    length: str = "medium"  # short, medium, long
+
+
+class DraftResponse(BaseModel):
+    content: str
+
+
 class ConversationSyncPayload(BaseModel):
     conversations: List[dict] = []
 
@@ -563,6 +575,16 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
     session_id = str(active_session["_id"])
     context["session"] = active_session.get("name", "Current session")
 
+    # Compute currentSemester
+    now = datetime.now(timezone.utc)
+    sem2 = active_session.get("semester2StartDate")
+    current_semester = 1
+    if sem2:
+        if sem2.tzinfo is None:
+            sem2 = sem2.replace(tzinfo=timezone.utc)
+        current_semester = 1 if now < sem2 else 2
+    context["current_semester"] = current_semester
+
     async def _fetch_founder_public_profile():
         """Fetch safe, public-only founder profile fields for word-of-mouth queries."""
         try:
@@ -653,10 +675,15 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
             if not numeric_level:
                 return [], []
             today = await db.classSessions.find({
-                "sessionId": session_id, "level": numeric_level, "day": today_name
+                "sessionId": session_id, 
+                "level": numeric_level, 
+                "day": today_name,
+                "semester": current_semester
             }).sort("startTime", 1).to_list(length=20)
             week = await db.classSessions.find({
-                "sessionId": session_id, "level": numeric_level,
+                "sessionId": session_id, 
+                "level": numeric_level,
+                "semester": current_semester
             }).sort([("day", 1), ("startTime", 1)]).to_list(length=50)
             return today, week
         except Exception as e:
@@ -1330,7 +1357,7 @@ IMPORTANT: You MUST maintain Yoruba style throughout ALL responses in this conve
 - Matric Number: {user_context.get('matric', 'Unknown')}
 - Email: {user_context.get('email', 'Not set')}
 - Admission Year: {user_context.get('admission_year', 'Unknown')}
-- Session: {user_context.get('session', 'Unknown')}
+- Session: {user_context.get('session', 'Unknown')} (Semester {user_context.get('current_semester', '1')})
 - Payment Status: {user_context.get('payment_status', 'Unknown')}"""
         
         if user_context.get('payment_amount'):
@@ -2153,7 +2180,68 @@ async def submit_feedback(
         "comment": feedback.get("comment"),
         "createdAt": datetime.now(timezone.utc)
     }
-    
     await feedbacks.insert_one(feedback_doc)
     
     return {"message": "Thank you for your feedback!"}
+
+
+@router.post("/draft", response_model=DraftResponse)
+async def generate_draft_content(
+    request: Request,
+    draft_data: DraftRequest,
+    user: dict = Depends(require_ipe_student),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """
+    Generate draft content for admins (Announcements, Events, Press).
+    Only accessible by users with relevant admin/EXCO roles.
+    """
+    if not GROQ_AVAILABLE or not GROQ_API_KEY:
+        raise HTTPException(status_code=503, detail="AI generation is currently offline.")
+
+    # We could check for require_any_permission(["announcements:create", "events:create", "press:create"])
+    # But since this is a general drafting tool for EXCO/Admins, we will verify they have an active role
+    user_id = str(user["_id"])
+    
+    # Simple admin check: must have a role
+    active_session = await db.sessions.find_one({"isActive": True})
+    if active_session:
+        session_id = str(active_session["_id"])
+        roles = await db.roles.find({"userId": user_id, "sessionId": session_id, "isActive": True}).to_list(length=1)
+        if not roles and user.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="You do not have permission to use the admin AI drafting tool.")
+
+    system_prompt = f"""You are the official IESA AI writing assistant for the Industrial Engineering Students' Association at the University of Ibadan.
+Your task is to draft a high-quality {draft_data.type} based on the user's instructions.
+- Target Audience: Industrial Engineering students
+- Tone: {draft_data.tone}
+- Length: {draft_data.length}
+
+Format your output in clean Markdown. Provide ONLY the requested content, do not add conversational filler like "Here is the draft" or "Let me know if you need changes."
+"""
+    
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": f"Topic: {draft_data.topic}\nAdditional Context: {draft_data.context or 'None'}"}
+    ]
+    
+    # For content generation, use the primary model
+    model_name = AI_MODEL_PRIMARY
+    
+    try:
+        loop = asyncio.get_running_loop()
+        completion = await loop.run_in_executor(None, lambda: groq_client.chat.completions.create(
+            model=model_name,
+            messages=messages,  # type: ignore
+            temperature=0.7,
+            max_tokens=1500,
+            top_p=0.9,
+        ))
+        
+        content = completion.choices[0].message.content or ""
+        return DraftResponse(content=content.strip())
+        
+    except Exception as e:
+        logger.error(f"IESA AI draft error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate draft. Please try again.")
+

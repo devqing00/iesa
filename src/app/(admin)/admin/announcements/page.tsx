@@ -11,6 +11,7 @@ import { AnnouncementSchema, flattenZodErrors } from "@/lib/schemas";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
+import AIDraftButton from "@/components/admin/AIDraftButton";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -669,7 +670,16 @@ function AdminAnnouncementsPage() {
 
             {/* Content */}
             <div className="space-y-1.5">
-              <label htmlFor="ann-content" className="text-sm font-bold text-navy">Content</label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="ann-content" className="text-sm font-bold text-navy">Content</label>
+                <AIDraftButton 
+                  type="announcement"
+                  onDraftGenerated={(content) => {
+                    setForm((f) => ({ ...f, content }));
+                    setFormErrors((p) => ({ ...p, content: undefined }));
+                  }}
+                />
+              </div>
               <textarea
                 id="ann-content"
                 rows={5}
