@@ -1283,6 +1283,7 @@ async def list_conversations(
         {
             "$match": {
                 "$or": [{"senderId": user_id}, {"recipientId": user_id}],
+                "deletedFor": {"$ne": user_id},
             }
         },
         {"$sort": {"createdAt": -1}},
@@ -1404,7 +1405,7 @@ async def get_conversation(
     skip = (page - 1) * pageSize
     cursor = (
         db["direct_messages"]
-        .find({"conversationKey": conv_key})
+        .find({"conversationKey": conv_key, "deletedFor": {"$ne": user_id}})
         .sort("createdAt", -1)
         .skip(skip)
         .limit(pageSize)
@@ -1705,12 +1706,14 @@ async def upload_attachment(
 @router.delete("/message/{message_id}")
 async def delete_message(
     message_id: str,
+    scope: str = Query("everyone", pattern="^(me|everyone)$"),
     user: dict = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_database),
 ):
     """
-    Soft-delete a message within 5 minutes of sending.
-    Only the sender can delete their own messages.
+    Delete a message.
+    scope=me: deletes for current user.
+    scope=everyone: soft-deletes for everyone (sender only).
     """
     if not ObjectId.is_valid(message_id):
         raise HTTPException(status_code=400, detail="Invalid message ID")
@@ -1719,23 +1722,34 @@ async def delete_message(
     msg = await db["direct_messages"].find_one({"_id": ObjectId(message_id)})
     if not msg:
         raise HTTPException(status_code=404, detail="Message not found")
+
+    conv_key = msg["conversationKey"]
+    other_id = msg["recipientId"] if msg["senderId"] == user_id else msg["senderId"]
+
+    if scope == "me":
+        if user_id not in (msg["senderId"], msg["recipientId"]):
+            raise HTTPException(status_code=403, detail="Not your conversation")
+        
+        await db["direct_messages"].update_one(
+            {"_id": ObjectId(message_id)},
+            {"$addToSet": {"deletedFor": user_id}}
+        )
+
+        ws_payload = {
+            "type": "message_deleted_for_me",
+            "data": {
+                "messageId": message_id,
+                "conversationKey": conv_key,
+            },
+        }
+        await dm_manager.notify(user_id, ws_payload)
+        return {"deleted": True, "scope": "me"}
+
+    # scope == everyone
     if msg["senderId"] != user_id:
-        raise HTTPException(status_code=403, detail="You can only delete your own messages")
+        raise HTTPException(status_code=403, detail="You can only delete your own messages for everyone")
     if msg.get("deletedAt"):
         raise HTTPException(status_code=400, detail="Message already deleted")
-
-    # Check time window
-    created = msg["createdAt"]
-    if isinstance(created, str):
-        created = datetime.fromisoformat(created)
-    if not created.tzinfo:
-        created = created.replace(tzinfo=timezone.utc)
-    elapsed = (datetime.now(timezone.utc) - created).total_seconds()
-    if elapsed > DELETE_WINDOW_MINUTES * 60:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Messages can only be deleted within {DELETE_WINDOW_MINUTES} minutes of sending.",
-        )
 
     now = datetime.now(timezone.utc)
     await db["direct_messages"].update_one(
@@ -1744,8 +1758,6 @@ async def delete_message(
     )
 
     # Notify both users
-    conv_key = msg["conversationKey"]
-    other_id = msg["recipientId"] if msg["senderId"] == user_id else msg["senderId"]
     ws_payload = {
         "type": "message_deleted",
         "data": {
@@ -1757,7 +1769,7 @@ async def delete_message(
     await dm_manager.notify(other_id, ws_payload)
     await dm_manager.notify(user_id, ws_payload)
 
-    return {"deleted": True}
+    return {"deleted": True, "scope": "everyone"}
 
 
 # ===================================================================
@@ -1786,6 +1798,7 @@ async def search_messages(
             "$or": [{"senderId": user_id}, {"recipientId": user_id}],
             "content": {"$regex": pattern},
             "deletedAt": {"$exists": False},
+            "deletedFor": {"$ne": user_id},
         })
         .sort("createdAt", -1)
         .limit(30)

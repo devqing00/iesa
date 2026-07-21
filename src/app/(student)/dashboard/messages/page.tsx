@@ -1105,15 +1105,18 @@ export default function MessagesPage() {
 
   const handleRecordPointerMove = (e: React.PointerEvent) => {
     if (!recordingVoice || isRecordingLocked || !dragStartRef.current) return;
-    const dx = e.clientX - dragStartRef.current.x;
-    const dy = dragStartRef.current.y - e.clientY;
+    const dragX = e.clientX - dragStartRef.current.x;
+    const dragY = e.clientY - dragStartRef.current.y;
     
-    if (dx < -100) {
+    const moveX = Math.min(0, dragX); // only left
+    const moveY = Math.min(0, dragY); // only up
+    
+    if (moveX < -120) {
       stopVoiceRecording(true);
       toast.info("Recording cancelled");
       return;
     }
-    if (dy > 80) {
+    if (moveY < -80) {
       setIsRecordingLocked(true);
       setDragOffset({ x: 0, y: 0 });
       dragStartRef.current = null;
@@ -1121,8 +1124,8 @@ export default function MessagesPage() {
       return;
     }
     
-    setDragOffset({ x: Math.min(0, dx), y: Math.max(0, -dy) });
-    setIsCanceling(dx < -40);
+    setDragOffset({ x: moveX, y: moveY });
+    setIsCanceling(moveX < -40);
   };
 
   const handleRecordPointerUp = (e: React.PointerEvent) => {
@@ -1146,9 +1149,9 @@ export default function MessagesPage() {
   };
 
   /* ── Delete message ── */
-  const handleDeleteMessage = async (messageId: string) => {
+  const handleDeleteMessage = async (messageId: string, scope: 'me' | 'everyone') => {
     try {
-      const res = await apiFetch(`/api/v1/messages/message/${messageId}`, {
+      const res = await apiFetch(`/api/v1/messages/message/${messageId}?scope=${scope}`, {
         method: "DELETE",
       });
       if (!res.ok) {
@@ -1371,12 +1374,7 @@ export default function MessagesPage() {
     };
   }, []);
 
-  /* ── Can delete check (within 5 min, own message, not deleted) ── */
-  const canDelete = (msg: Message) => {
-    if (msg.senderId !== currentUserId || msg.deletedAt) return false;
-    const elapsed = (Date.now() - new Date(msg.createdAt).getTime()) / 1000;
-    return elapsed <= 5 * 60;
-  };
+
 
   /* ═══ Navigation ═══ */
 
@@ -2484,7 +2482,7 @@ export default function MessagesPage() {
                               ref={(el) => {
                                 messageRefs.current[msg.id] = el;
                               }}
-                              className={`flex mb-2 group relative ${isMine ? "justify-end" : "justify-start"}`}
+                              className={`flex mb-2 group relative select-none ${isMine ? "justify-end" : "justify-start"}`}
                               style={{
                                 transform: swipeOffsets[msg.id] ? `translateX(${swipeOffsets[msg.id]}px)` : undefined,
                                 transition: swipeOffsets[msg.id] ? "none" : "transform 0.2s ease-out",
@@ -2595,11 +2593,20 @@ export default function MessagesPage() {
                                         </svg>
                                       </button>
                                       {/* Delete */}
-                                      {canDelete(msg) && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteMessage(msg.id, 'me'); setActiveMsgId(null); }}
+                                        className="p-1 rounded-lg hover:bg-coral-light text-slate hover:text-coral transition-colors"
+                                        title="Delete for me"
+                                      >
+                                        <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                          <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                      </button>
+                                      {isMine && !isDeleted && (
                                         <button
-                                          onClick={(e) => { e.stopPropagation(); handleDeleteMessage(msg.id); setActiveMsgId(null); }}
-                                          className="p-1 rounded-lg hover:bg-coral-light text-slate hover:text-coral transition-colors"
-                                          title="Delete message"
+                                          onClick={(e) => { e.stopPropagation(); handleDeleteMessage(msg.id, 'everyone'); setActiveMsgId(null); }}
+                                          className="p-1 rounded-lg hover:bg-coral text-slate hover:text-snow transition-colors"
+                                          title="Delete for everyone"
                                         >
                                           <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                                             <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -2795,16 +2802,26 @@ export default function MessagesPage() {
                         <div className="absolute inset-0 bg-navy/10 md:bg-transparent" />
                         <div
                           data-msg-context-menu
-                          className="absolute bg-snow border-[3px] border-navy rounded-2xl shadow-[5px_5px_0_0_#000] py-2 z-50"
+                          className="absolute bg-snow border-[3px] border-navy rounded-2xl shadow-[5px_5px_0_0_#000] py-2 z-50 animate-fade-in origin-top-left"
                           style={{
                             left: menuPos.left,
                             top: menuPos.top,
                             width: menuPos.width,
+                            animation: "popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards"
                           }}
                           onClick={(e) => e.stopPropagation()}
                         >
+                          <style>{`
+                            @keyframes popIn {
+                              0% { opacity: 0; transform: scale(0.9) translateY(10px); }
+                              100% { opacity: 1; transform: scale(1) translateY(0); }
+                            }
+                            .stagger-item { opacity: 0; animation: fadeIn 0.2s ease forwards; }
+                            @keyframes fadeIn { to { opacity: 1; transform: translateX(0); } }
+                          `}</style>
+
                           {/* Quick reactions row */}
-                          <div className="flex items-center gap-1 px-3 py-2 border-b border-cloud">
+                          <div className="flex items-center gap-1 px-3 py-2 border-b border-cloud stagger-item" style={{ animationDelay: '0.05s' }}>
                             {["👍", "❤️", "😂", "😮", "🔥", "🎉"].map((emoji) => (
                               <button
                                 key={emoji}
@@ -2819,7 +2836,8 @@ export default function MessagesPage() {
                           {/* Reply */}
                           <button
                             onClick={() => { setReplyTo(ctxMsg); setContextMenu(null); }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-navy hover:bg-ghost transition-colors"
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-navy hover:bg-ghost transition-colors stagger-item"
+                            style={{ animationDelay: '0.1s' }}
                           >
                             <svg aria-hidden="true" className="w-4 h-4 text-slate" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                               <path d="M9 17l-5-5 5-5M4 12h16" />
@@ -2827,10 +2845,25 @@ export default function MessagesPage() {
                             Reply
                           </button>
 
+                          {/* Copy */}
+                          {ctxMsg.content && (
+                            <button
+                              onClick={() => { navigator.clipboard.writeText(ctxMsg.content); toast.success("Copied to clipboard"); setContextMenu(null); }}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-navy hover:bg-ghost transition-colors stagger-item"
+                              style={{ animationDelay: '0.15s' }}
+                            >
+                              <svg aria-hidden="true" className="w-4 h-4 text-slate" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                              Copy text
+                            </button>
+                          )}
+
                           {/* React (more options) */}
                           <button
                             onClick={() => { setEmojiPickerMsgId(contextMenu.msgId); setActiveMsgId(contextMenu.msgId); setContextMenu(null); }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-navy hover:bg-ghost transition-colors"
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-navy hover:bg-ghost transition-colors stagger-item"
+                            style={{ animationDelay: '0.2s' }}
                           >
                             <svg aria-hidden="true" className="w-4 h-4 text-slate" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                               <circle cx="12" cy="12" r="10" />
@@ -2842,7 +2875,8 @@ export default function MessagesPage() {
                           {/* Pin/Unpin */}
                           <button
                             onClick={() => { handlePinMessage(contextMenu.msgId, !!ctxMsg.isPinned); setContextMenu(null); }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-navy hover:bg-ghost transition-colors"
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-navy hover:bg-ghost transition-colors stagger-item"
+                            style={{ animationDelay: '0.25s' }}
                           >
                             <svg aria-hidden="true" className="w-4 h-4 text-slate" viewBox="0 0 24 24" fill="currentColor">
                               <path d="M16 4a1 1 0 00-1.4.2L12 8l-2.6-3.8A1 1 0 008 4a1 1 0 00-1 1v6.28l-2.6 3.12a1 1 0 00.2 1.4 1 1 0 00.6.2H11v5a1 1 0 002 0v-5h5.8a1 1 0 00.6-.2 1 1 0 00.2-1.4L17 11.28V5a1 1 0 00-1-1z" />
@@ -2850,20 +2884,30 @@ export default function MessagesPage() {
                             {ctxMsg.isPinned ? "Unpin" : "Pin message"}
                           </button>
 
-                          {/* Delete (own messages, within 5 min) */}
-                          {isMineCtx && canDelete(ctxMsg) && (
-                            <>
-                              <div className="h-px bg-cloud mx-2 my-1" />
-                              <button
-                                onClick={() => { handleDeleteMessage(contextMenu.msgId); setContextMenu(null); }}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-coral hover:bg-coral-light transition-colors"
-                              >
-                                <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                                  <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                                Delete message
-                              </button>
-                            </>
+                          {/* Delete Options */}
+                          <div className="h-px bg-cloud mx-2 my-1" />
+                          <button
+                            onClick={() => { handleDeleteMessage(contextMenu.msgId, 'me'); setContextMenu(null); }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-coral hover:bg-coral-light transition-colors stagger-item"
+                            style={{ animationDelay: '0.3s' }}
+                          >
+                            <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                              <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Delete for me
+                          </button>
+                          
+                          {isMineCtx && !ctxMsg.deletedAt && (
+                            <button
+                              onClick={() => { handleDeleteMessage(contextMenu.msgId, 'everyone'); setContextMenu(null); }}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-coral hover:bg-coral-light transition-colors stagger-item"
+                              style={{ animationDelay: '0.35s' }}
+                            >
+                              <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Delete for everyone
+                            </button>
                           )}
                         </div>
                       </div>
