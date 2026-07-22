@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
+import { useSearchParams } from "next/navigation";
+import FullScreenLoader from "@/components/ui/FullScreenLoader";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { toast } from "sonner";
 import Pagination from "@/components/ui/Pagination";
@@ -30,13 +32,20 @@ interface Resource {
   youtubeVideoId?: string;
   fileType?: string;
   fileSize?: number;
-  uploadedBy: string;
-  uploaderName: string;
-  tags: string[];
-  viewCount: number;
+  fileFormat?: string;
+  uploadedBy?: string;
+  uploaderName?: string;
+  tags?: string[];
+  viewCount?: number;
   averageRating?: number;
   ratingCount?: number;
-  isApproved: boolean;
+  ratings?: { userId: string; rating: number }[];
+  commentsCount?: number;
+  comments?: { _id: string; userId: string; userName: string; comment: string; createdAt: string }[];
+  authorId?: string;
+  authorName?: string;
+  isApproved?: boolean;
+  status?: string;
   feedback?: string;
   createdAt: string;
 }
@@ -466,7 +475,7 @@ export default function ResourcesPage() {
   const handleViewResource = async (resourceId: string, url: string) => {
     if (!user) return;
     window.open(url, "_blank");
-    setResources((prev) => prev.map((r) => r._id === resourceId ? { ...r, viewCount: r.viewCount + 1 } : r));
+    setResources((prev) => prev.map((r) => r._id === resourceId ? { ...r, viewCount: (r.viewCount ?? 0) + 1 } : r));
     try {
       const token = await getAccessToken();
       const res = await fetch(getApiUrl(`/api/v1/resources/${resourceId}/view`), {
@@ -997,7 +1006,7 @@ export default function ResourcesPage() {
                             {resource.semester && <span className="px-2.5 py-1 rounded-lg bg-coral-light text-[10px] font-bold text-coral uppercase tracking-wider border border-coral/30">{resource.semester === "first" ? "1st Sem" : "2nd Sem"}</span>}
                             {resource.fileSize && <span className="px-2.5 py-1 rounded-lg bg-cloud text-[10px] font-bold text-slate uppercase tracking-wider">{formatFileSize(resource.fileSize)}</span>}
                           </div>
-                          {resource.tags.length > 0 && (
+                          {resource.tags && resource.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1.5">
                               {resource.tags.slice(0, 3).map((tag, idx) => <span key={idx} className="text-[10px] font-bold text-lavender">#{tag}</span>)}
                             </div>

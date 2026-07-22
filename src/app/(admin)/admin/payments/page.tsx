@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import Image from "next/image";
 import { mutate } from "swr";
+import { useSearchParams } from "next/navigation";
+import FullScreenLoader from "@/components/ui/FullScreenLoader";
 import { getApiUrl } from "@/lib/api";
 import {
   listBankAccounts,
@@ -101,8 +103,16 @@ function transactionStatusBadge(status: string) {
 
 function AdminPaymentsPage() {
   const { getAccessToken } = useAuth();
+  const searchParams = useSearchParams();
   const { showHelp, openHelp, closeHelp } = useToolHelp("admin-payments");
   const [activeTab, setActiveTab] = useState<"payments" | "transactions" | "bank-accounts" | "transfers" | "analytics">("payments");
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam && ["payments", "transactions", "bank-accounts", "transfers", "analytics"].includes(tabParam)) {
+      setActiveTab(tabParam as any);
+    }
+  }, [searchParams]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -2623,6 +2633,14 @@ function AdminPaymentsPage() {
   );
 }
 
-export default withAuth(AdminPaymentsPage, {
+const ProtectedAdminPaymentsPage = withAuth(AdminPaymentsPage, {
   anyPermission: ["payment:view_all", "payment:create", "payment:edit", "payment:delete", "payment:approve", "bank_transfer:manage_accounts", "bank_transfer:review"],
 });
+
+export default function AdminPaymentsPageWrapper() {
+  return (
+    <Suspense fallback={<FullScreenLoader size="md" label="Loading admin payments..." />}>
+      <ProtectedAdminPaymentsPage />
+    </Suspense>
+  );
+}

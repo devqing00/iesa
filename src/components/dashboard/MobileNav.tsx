@@ -84,11 +84,11 @@ export default function MobileNav() {
       ),
     },
     {
-      name: "Events",
-      href: "/dashboard/events",
+      name: "Timetable",
+      href: "/dashboard/timetable",
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-          <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
+          <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
         </svg>
       ),
     },
@@ -115,13 +115,13 @@ export default function MobileNav() {
 
   const moreLinks: MobileNavLink[] = [
     {
-      name: "Timetable",
-      href: "/dashboard/timetable",
-      color: "bg-lavender-light",
+      name: "Events",
+      href: "/dashboard/events",
+      color: "bg-sunny-light",
       group: "academics",
       icon: (
         <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-          <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM12.75 6a.75.75 0 0 0-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 0 0 0-1.5h-3.75V6Z" clipRule="evenodd" />
+          <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 0 1 7.5 3v1.5h9V3A.75.75 0 0 1 18 3v1.5h.75a3 3 0 0 1 3 3v11.25a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3V7.5a3 3 0 0 1 3-3H6V3a.75.75 0 0 1 .75-.75Zm13.5 9a1.5 1.5 0 0 0-1.5-1.5H5.25a1.5 1.5 0 0 0-1.5 1.5v7.5a1.5 1.5 0 0 0 1.5 1.5h13.5a1.5 1.5 0 0 0 1.5-1.5v-7.5Z" clipRule="evenodd" />
         </svg>
       ),
     },
@@ -137,8 +137,8 @@ export default function MobileNav() {
       ),
     },
     {
-      name: "Hubs",
-      href: "/dashboard/hubs",
+      name: "IEPOD",
+      href: "/dashboard/iepod",
       color: "bg-coral-light",
       group: "academics",
       icon: (
@@ -395,7 +395,7 @@ export default function MobileNav() {
                             <Link
                               key={link.href}
                               href={link.href}
-                              className={`relative flex items-center gap-2.5 px-3 py-3 rounded-2xl text-sm font-bold transition-all ${
+                              className={`relative flex items-center gap-2 px-2.5 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                                 isActive
                                   ? "bg-lime text-navy border-[3px] border-navy shadow-[3px_3px_0_0_#000]"
                                   : `${link.color} text-navy/70 hover:text-navy border-[2px] border-transparent hover:border-navy/10`

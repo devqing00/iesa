@@ -26,6 +26,7 @@ import asyncio
 from ..core.security import get_current_user, require_ipe_student
 from ..core.rate_limiting import limiter
 from ..db import get_database
+from ..services.vector_store import vector_store
 
 logger = logging.getLogger("iesa_backend")
 
@@ -89,6 +90,19 @@ def _resolve_ai_account_key(user: dict) -> str:
     return ""
 
 
+def _is_super_admin(user: dict) -> bool:
+    """Check if the user is a super admin based on role or permissions."""
+    if not isinstance(user, dict):
+        return False
+    role = (user.get("role") or "").lower()
+    if role in ("super_admin", "superadmin"):
+        return True
+    perms = user.get("permissions") or []
+    if "super_admin" in perms or "*" in perms:
+        return True
+    return False
+
+
 async def _find_or_migrate_rate_limit_doc(account_key: str, db, legacy_user_id: str | None = None) -> dict | None:
     """Find existing AI rate-limit document and migrate legacy keying when needed.
 
@@ -132,16 +146,21 @@ def _current_day_window() -> datetime:
     return now.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-async def _check_ai_rate_limit(account_key: str, db, legacy_user_id: str | None = None) -> dict:
+async def _check_ai_rate_limit(account_key: str, db, legacy_user_id: str | None = None, is_super_admin: bool = False) -> dict:
     """
     Check whether the user has remaining AI quota.
-
-    Uses two fixed-window counters stored in MongoDB:
-    - hourly: resets at the top of every hour
-    - daily: resets at midnight UTC
-
-    Returns dict with {allowed, hourly_remaining, daily_remaining, reset_at}.
+    Super Admins are exempt from rate limits.
     """
+    if is_super_admin:
+        return {
+            "allowed": True,
+            "hourly_remaining": 9999,
+            "daily_remaining": 9999,
+            "hourly_limit": 9999,
+            "daily_limit": 9999,
+            "reset_at": "Unlimited (Super Admin)",
+        }
+
     col = db["ai_rate_limits"]
     hour_start = _current_hour_window()
     day_start = _current_day_window()
@@ -177,8 +196,14 @@ async def _check_ai_rate_limit(account_key: str, db, legacy_user_id: str | None 
     }
 
 
-async def _increment_ai_usage(account_key: str, db, legacy_user_id: str | None = None) -> None:
-    """Atomically increment both hourly and daily counters for the user."""
+async def _increment_ai_usage(account_key: str, db, legacy_user_id: str | None = None, is_super_admin: bool = False) -> None:
+    """
+    Increment hourly and daily counters atomically (upsert).
+    Super Admins are bypassed.
+    """
+    if is_super_admin:
+        return
+
     col = db["ai_rate_limits"]
     hour_start = _current_hour_window()
     day_start = _current_day_window()
@@ -1328,11 +1353,23 @@ async def get_user_context(user_id: str, db: AsyncIOMotorDatabase) -> dict:
     return context
 
 
-def build_system_prompt(user_context: dict, language: str = "en") -> str:
+def build_system_prompt(user_context: dict, language: str = "en", user_query: str = "") -> str:
     """
-    Build an intelligent, data-aware system prompt for IESA AI.
+    Build an intelligent, data-aware system prompt for IESA AI with intent-based payload optimization.
     """
+    q = (user_query or "").lower()
     
+    # Intent Detection Flags for payload trimming
+    wants_timetable = any(w in q for w in ["timetable", "schedule", "class", "venue", "lecturer", "monday", "tuesday", "wednesday", "thursday", "friday", "exam", "today", "tomorrow"])
+    wants_events = any(w in q for w in ["event", "dinner", "rsvp", "party", "conference", "seminar", "workshop", "webinar", "programme"])
+    wants_calendar = any(w in q for w in ["calendar", "resumption", "holiday", "swep", "siwes", "it", "break", "semester", "session"])
+    wants_resources = any(w in q for w in ["slide", "resource", "pdf", "book", "note", "library", "download", "drive", "material"])
+    wants_roles = any(w in q for w in ["president", "vice", "secretary", "exec", "exco", "class rep", "lead", "director", "who is", "who be", "executive", "rep"])
+    wants_iepod = any(w in q for w in ["iepod", "incubator", "startup", "society"])
+    wants_timp = any(w in q for w in ["timp", "mentor", "mentee", "pairing"])
+    wants_cgpa = any(w in q for w in ["cgpa", "gpa", "grade", "result", "record"])
+    is_general = not (wants_timetable or wants_events or wants_calendar or wants_resources or wants_roles or wants_iepod or wants_timp or wants_cgpa)
+
     # Language-specific instructions
     language_instructions = {
         "en": "Respond in clear, professional Nigerian English. Be warm and respectful, with natural local phrasing where appropriate, but avoid slang-heavy wording.",
@@ -1641,6 +1678,18 @@ IMPORTANT: You MUST maintain Yoruba style throughout ALL responses in this conve
             f"- Payment Status: {user_context.get('payment_status', 'Unknown')}{payment_detail_section}"
         )
 
+    # ── Semantic Vector Retrieval (Option 1 Free Hybrid Vector Store) ──
+    vector_evidence_section = ""
+    if user_query and len(user_query.strip()) >= 3:
+        try:
+            vector_matches = vector_store.search(user_query, top_k=3, threshold=0.10)
+            if vector_matches:
+                vector_evidence_section = "\n\n## VERIFIED KNOWLEDGEBASE EVIDENCE (SEMANTIC VECTOR SEARCH)"
+                for doc in vector_matches:
+                    vector_evidence_section += f"\n### [{doc['category'].upper()}] {doc['title']} (Score: {doc['score']})\n{doc['text']}"
+        except Exception as ve_err:
+            logger.warning(f"Vector retrieval warning: {ve_err}")
+
     prompt = f"""You are IESA AI — the smart, friendly academic assistant built for students of the Industrial Engineering Students' Association (IESA) at the University of Ibadan, Nigeria.
 
 You are knowledgeable, encouraging, and grounded in real data. Your tone is professional, warm, and confidently Nigerian — like a polished student-support advisor.
@@ -1665,7 +1714,7 @@ You have LIVE access to this student's real data: profile (name, matric, email, 
 11. **IEPOD/TIMP factual mode:** For "what is IEPOD" or "what is TIMP" questions, use only the definitions/workflows in PLATFORM KNOWLEDGE + user context. Do not add extra programs, eligibility ranges, or features that are not explicitly listed.
 12. **TIMP eligibility clarity:** TIMP application flow is for mentor applications. Do not tell students to apply to be mentored. For 100L students, clearly state they are mentees and are matched by TIMP leads.
 13. **Role-holder accuracy:** For questions like "Who is the president/PRO/class rep?", answer from CURRENT TEAM LEADERSHIP. If a role is missing there, say it is currently unassigned in the active session.
-14. **Public profile sharing:** If asked who built the platform or about the founder/developer, answer from PUBLIC COMMUNITY PROFILE only.
+14. **Public profile sharing:** If asked who built the platform or about the founder/developer, share only PUBLIC COMMUNITY PROFILE details; do not reveal private or sensitive data.
 15. **Context discoverability:** If asked what else you can help with, summarize AVAILABLE CONTEXT MODULES in plain language.
 
 ## PLATFORM KNOWLEDGE
@@ -1676,14 +1725,14 @@ You have LIVE access to this student's real data: profile (name, matric, email, 
 - Today: {datetime.now().strftime("%A, %B %d, %Y")}
 - Time: {datetime.now().strftime("%I:%M %p")} (WAT, West Africa Time)
 
-## NON-NEGOTIABLE RULES
-- You have the student's data above — NEVER claim otherwise
-- NEVER fabricate data not present in the student profile section; if something is missing, say it hasn't been entered yet
-- Always suggest the relevant EXCO contact for issues beyond the platform (see Knowledge Base → Contact section)
-- For payment questions, be precise: list exactly what is paid and what is owed using the data above, including deadline urgency (OVERDUE, CRITICAL, URGENT, SOON)
-- For timetable questions with no data, guide the student to their class rep
-- When urgency data is present, naturally weave it into responses — mention overdue/critical deadlines without being alarmist
-- For open-ended greetings ("hi", "how far", "what's up"), give a warm greeting then briefly surface the #1 priority action if one exists
+## NON-NEGOTIABLE ZERO-HALLUCINATION RULES
+- STRICT GROUNDING: You are an internal assistant for IESA at University of Ibadan (UI). You MUST answer ONLY from the provided STUDENT PROFILE and IESA PLATFORM KNOWLEDGE.
+- ABSOLUTELY NO EXTERNAL INSTITUTIONS: Never mention external websites (e.g. ui.ac.id, e-SAP, external portals, or non-IESA systems). You are directly integrated with this student's portal.
+- NO GUESSING OR FABRICATION: If a record, timetable entry, payment, or role is missing from the provided data above, state clearly: "I don't see that record on your portal right now."
+- For payment questions, be precise: list exactly what is paid and what is owed using the data above, including deadline urgency (OVERDUE, CRITICAL, URGENT, SOON).
+- For timetable questions with no data, guide the student to their class rep.
+- When urgency data is present, naturally weave it into responses — mention overdue/critical deadlines without being alarmist.
+- For open-ended greetings ("hi", "how far", "what's up"), give a warm greeting then briefly surface the #1 priority action if one exists.
 - For TIMP guidance: do not suggest "apply as a mentee". State mentor-application-only flow, and if the student is 100L, state they are mentees and should await matching by TIMP leads.
 - For leadership questions, rely on CURRENT TEAM LEADERSHIP entries only; do not invent names or positions.
 - For founder/developer queries, share only PUBLIC COMMUNITY PROFILE details; do not reveal private or sensitive data.
@@ -1749,14 +1798,15 @@ async def chat_with_iesa_ai_stream(
     # Account-linked rate limit check
     user_id = str(user["_id"])
     account_key = _resolve_ai_account_key(user)
-    rate_status = await _check_ai_rate_limit(account_key, db, legacy_user_id=user_id)
+    is_super = _is_super_admin(user)
+    rate_status = await _check_ai_rate_limit(account_key, db, legacy_user_id=user_id, is_super_admin=is_super)
     if not rate_status["allowed"]:
         async def rate_limit_stream():
             yield f"data: {json.dumps({'error': 'Rate limit reached. You have used all your AI queries for this period.', 'rate_limit': rate_status})}\n\n"
         return StreamingResponse(rate_limit_stream(), media_type="text/event-stream")
     
     # Increment usage BEFORE the call (prevents burst abuse)
-    await _increment_ai_usage(account_key, db, legacy_user_id=user_id)
+    await _increment_ai_usage(account_key, db, legacy_user_id=user_id, is_super_admin=is_super)
     
     async def generate():
         full_response = ""
@@ -1768,8 +1818,8 @@ async def chat_with_iesa_ai_stream(
             logger.info(f"User context keys: {list(user_context.keys())}")
             logger.info(f"Has timetable: {bool(user_context.get('today_classes') or user_context.get('weekly_timetable'))}")
             
-            # Build system prompt
-            system_prompt = build_system_prompt(user_context, chat_data.language or "en")
+            # Build system prompt with intent detection & language preference
+            system_prompt = build_system_prompt(user_context, chat_data.language or "en", user_query=chat_data.message)
             model_name = select_chat_model(chat_data.message, chat_data.conversationHistory)
             
             # Build messages with smart context window
@@ -1800,7 +1850,7 @@ async def chat_with_iesa_ai_stream(
             stream = await loop.run_in_executor(None, lambda: groq_client.chat.completions.create(
                 model=model_name,
                 messages=messages,  # type: ignore
-                temperature=0.6,
+                temperature=0.15,
                 max_tokens=800,
                 top_p=0.85,
                 stream=True
@@ -1862,15 +1912,17 @@ async def get_usage(
     try:
         user_id = str(user["_id"])
         account_key = _resolve_ai_account_key(user)
-        rate_status = await _check_ai_rate_limit(account_key, db, legacy_user_id=user_id)
+        is_super = _is_super_admin(user)
+        rate_status = await _check_ai_rate_limit(account_key, db, legacy_user_id=user_id, is_super_admin=is_super)
         return {
             "hourly_limit": rate_status["hourly_limit"],
             "daily_limit": rate_status["daily_limit"],
             "hourly_remaining": rate_status["hourly_remaining"],
             "daily_remaining": rate_status["daily_remaining"],
-            "hourly_used": max(0, rate_status["hourly_limit"] - rate_status["hourly_remaining"]),
-            "daily_used": max(0, rate_status["daily_limit"] - rate_status["daily_remaining"]),
+            "hourly_used": 0 if is_super else max(0, rate_status["hourly_limit"] - rate_status["hourly_remaining"]),
+            "daily_used": 0 if is_super else max(0, rate_status["daily_limit"] - rate_status["daily_remaining"]),
             "reset_at": rate_status["reset_at"],
+            "is_super_admin": is_super,
         }
     except Exception as e:
         logger.error(f"Usage endpoint error: {e}")
@@ -1966,7 +2018,8 @@ async def chat_with_iesa_ai(
     # Account-linked rate limit check
     user_id = str(user["_id"])
     account_key = _resolve_ai_account_key(user)
-    rate_status = await _check_ai_rate_limit(account_key, db, legacy_user_id=user_id)
+    is_super = _is_super_admin(user)
+    rate_status = await _check_ai_rate_limit(account_key, db, legacy_user_id=user_id, is_super_admin=is_super)
     if not rate_status["allowed"]:
         hourly_r = rate_status["hourly_remaining"]
         daily_r = rate_status["daily_remaining"]
@@ -1980,36 +2033,39 @@ async def chat_with_iesa_ai(
         )
     
     # Increment usage BEFORE the call
-    await _increment_ai_usage(account_key, db, legacy_user_id=user_id)
+    await _increment_ai_usage(account_key, db, legacy_user_id=user_id, is_super_admin=is_super)
     
     try:
         # Get user context for personalization
         user_context = await get_user_context(str(user["_id"]), db)
         
-        # Build system prompt with context and language preference
-        system_prompt = build_system_prompt(user_context, chat_data.language or "en")
+        # Build system prompt with intent detection & language preference
+        system_prompt = build_system_prompt(user_context, chat_data.language or "en", user_query=chat_data.message)
         model_name = select_chat_model(chat_data.message, chat_data.conversationHistory)
         
-        # Build conversation history
+        # Build conversation history (keep last 6 and truncate long messages to 500 chars each)
         messages = [{"role": "system", "content": system_prompt}]
         
-        # Add previous messages (keep last 10 for context)
         if chat_data.conversationHistory:
-            for msg in chat_data.conversationHistory[-10:]:
+            for msg in chat_data.conversationHistory[-6:]:
+                content = str(msg.get("content", ""))
+                if len(content) > 500:
+                    content = content[:500] + "..."
                 messages.append({
                     "role": msg.get("role", "user"),
-                    "content": msg.get("content", "")
+                    "content": content
                 })
         
-        # Add current user message
-        messages.append({"role": "user", "content": chat_data.message})
+        # Add current user message (bounded to 2000 chars)
+        user_msg = chat_data.message[:2000] if chat_data.message else ""
+        messages.append({"role": "user", "content": user_msg})
         
         # Call Groq API (offload sync SDK call to executor)
         loop = asyncio.get_running_loop()
         completion = await loop.run_in_executor(None, lambda: groq_client.chat.completions.create(
             model=model_name,
             messages=messages,  # type: ignore
-            temperature=0.6,
+            temperature=0.15,
             max_tokens=800,
             top_p=0.85,
         ))
@@ -2038,6 +2094,41 @@ async def chat_with_iesa_ai(
             return ChatResponse(
                 reply="I've hit my thinking limit for now! 🧠 Groq's free tier has request limits. Please wait a minute and try again, or keep your questions concise to use fewer tokens.",
                 suggestions=["Try again in 1 minute", "Check the Events page", "View your Timetable"]
+            )
+        
+        # Handle 413 Payload Too Large / request_too_large specifically
+        if "413" in error_msg or "payload" in error_msg or "too large" in error_msg or "request_too_large" in error_msg:
+            try:
+                await _rollback_ai_usage(account_key, db, legacy_user_id=user_id)
+            except Exception:
+                pass
+            
+            # Auto-retry once with concise payload (full system prompt + user message only)
+            try:
+                truncated_prompt = system_prompt[:3000] if len(system_prompt) > 3000 else system_prompt
+                minimal_messages = [
+                    {"role": "system", "content": truncated_prompt},
+                    {"role": "user", "content": chat_data.message[:1000]}
+                ]
+                loop = asyncio.get_running_loop()
+                fallback_comp = await loop.run_in_executor(None, lambda: groq_client.chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=minimal_messages,  # type: ignore
+                    temperature=0.6,
+                    max_tokens=600,
+                ))
+                fb_reply = fallback_comp.choices[0].message.content
+                if fb_reply:
+                    return ChatResponse(
+                        reply=fb_reply,
+                        suggestions=generate_suggestions(chat_data.message, fb_reply),
+                    )
+            except Exception as fb_err:
+                logger.error(f"IESA AI fallback error: {fb_err}")
+
+            return ChatResponse(
+                reply="Your query or conversation context is a bit too large for me to process all at once. Please start a new chat thread or ask a shorter question!",
+                suggestions=["Start a new chat", "Check your Timetable", "View Payments"]
             )
         
         return ChatResponse(

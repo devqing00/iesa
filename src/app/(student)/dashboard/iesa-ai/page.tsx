@@ -227,17 +227,62 @@ export default function IESAAIPage() {
   const [usage, setUsage] = useState<AIUsage | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [conversationSearch, setConversationSearch] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [handsFreeMode, setHandsFreeMode] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
 
   const chatRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const speechSynthRef = useRef<SpeechSynthesisUtterance | null>(null);
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const conversationSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  // Tracks message count so scroll only fires when a new bubble is added,
-  // not on every 30ms typing tick.
   const messagesLengthRef = useRef(0);
-  // Ref so the save effect always reads current conversations without being in its deps
   const conversationsRef = useRef(conversations);
+
+  /* ── speech recognition setup ── */
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRec) {
+        setSpeechSupported(true);
+        const rec = new SpeechRec();
+        rec.continuous = false;
+        rec.interimResults = true;
+        rec.lang = responseLanguage === "pcm" ? "en-NG" : responseLanguage === "yo" ? "yo-NG" : "en-US";
+        rec.onstart = () => setIsListening(true);
+        rec.onresult = (e: any) => {
+          const text = Array.from(e.results)
+            .map((r: any) => r[0].transcript)
+            .join("");
+          setInput(text);
+        };
+        rec.onerror = () => setIsListening(false);
+        rec.onend = () => setIsListening(false);
+        recognitionRef.current = rec;
+      }
+    }
+  }, [responseLanguage]);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+      toast.error("Voice input is not supported in this browser");
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        setHandsFreeMode(true);
+        recognitionRef.current.start();
+      } catch {
+        setIsListening(false);
+      }
+    }
+  };
 
   /* ── scroll helper ── */
   const scrollToBottom = useCallback(() => {
@@ -587,6 +632,9 @@ export default function IESAAIPage() {
       } else {
         clearInterval(interval);
         setIsTyping(false);
+        if (handsFreeMode) {
+          speakMessage(fullText, messageId);
+        }
         // Add suggestions after typing completes
         if (suggestions) {
           setMessages((prev) =>
@@ -850,13 +898,13 @@ export default function IESAAIPage() {
               </div>
             </div>
 
-            {/* right: action buttons — desktop inline, mobile dropdown */}
-            {/* desktop buttons (md+) */}
+            {/* right: action buttons — desktop inline */}
             <div className="hidden md:flex items-center gap-2">
               <HelpButton onClick={openHelp} />
+
               {/* Token usage display */}
               <div
-                className={`flex items-center gap-1.5 px-2.5 py-1 border-[3px] border-navy rounded-xl ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 border-[3px] border-navy rounded-xl shadow-[2px_2px_0_0_#000] ${
                   requestCount >= (usage?.hourly_limit || 20)
                     ? "bg-coral-light"
                     : requestCount >= Math.max(1, Math.floor((usage?.hourly_limit || 20) * 0.75))
@@ -876,32 +924,34 @@ export default function IESAAIPage() {
                   {requestCount}/{usage?.hourly_limit || 20}
                 </span>
               </div>
+
+              {/* Chats button with clean bold message bubbles icon */}
               <button
                 onClick={() => setShowConversations(!showConversations)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-snow border-[3px] border-navy rounded-xl font-bold text-[10px] text-navy/60 uppercase tracking-[0.08em] hover:bg-cloud transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-snow border-[3px] border-navy rounded-xl font-bold text-[10px] text-navy uppercase tracking-[0.08em] shadow-[2px_2px_0_0_#000] press-2 press-black hover:bg-cloud transition-all"
               >
                 <svg
-                  className="w-4 h-4"
+                  className="w-4 h-4 text-navy"
                   fill="currentColor"
-                  viewBox="0 0 20 20"
+                  viewBox="0 0 24 24"
                 >
-                  <path d="M3.505 2.365A41.369 41.369 0 019 2c1.863 0 3.697.124 5.495.365 1.247.167 2.18 1.108 2.435 2.268a4.45 4.45 0 00-.577-.069 43.141 43.141 0 00-4.706 0C9.229 4.696 7.5 6.727 7.5 8.998v2.24c0 1.413.67 2.735 1.76 3.562l-2.98 2.98A.75.75 0 015 17.25v-3.443c-.501-.048-1-.106-1.495-.172C2.033 13.438 1 12.162 1 10.72V5.28c0-1.441 1.033-2.717 2.505-2.914z" />
-                  <path d="M14 6c.762 0 1.52.02 2.272.062 1.21.068 2.228 1.024 2.228 2.236v2.12c0 1.213-1.018 2.168-2.228 2.236a41.29 41.29 0 01-1.522.062l-2.97 2.97a.75.75 0 01-1.28-.53V14.5a41.075 41.075 0 01-1.005-.064c-1.21-.068-2.228-1.022-2.228-2.236V8.298c0-1.212 1.018-2.168 2.228-2.236A41.148 41.148 0 0114 6z" />
+                  <path fillRule="evenodd" d="M4.8 3h14.4A1.8 1.8 0 0121 4.8v10.4a1.8 1.8 0 01-1.8 1.8H12l-4.5 4.5V17H4.8A1.8 1.8 0 013 15.2V4.8A1.8 1.8 0 014.8 3z" clipRule="evenodd" />
                 </svg>
-                Chats
+                Chats ({conversations.length})
               </button>
+
               <button
                 onClick={clearChat}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-snow border-[3px] border-navy rounded-xl font-bold text-[10px] text-navy/60 uppercase tracking-[0.08em] hover:bg-cloud transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-snow border-[3px] border-navy rounded-xl font-bold text-[10px] text-navy uppercase tracking-[0.08em] shadow-[2px_2px_0_0_#000] press-2 press-black hover:bg-cloud transition-all"
               >
                 <svg
-                  className="w-4 h-4"
+                  className="w-4 h-4 text-navy"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
                   <path d="M10 5a.75.75 0 01.75.75v3.5h3.5a.75.75 0 010 1.5h-3.5v3.5a.75.75 0 01-1.5 0v-3.5h-3.5a.75.75 0 010-1.5h3.5v-3.5A.75.75 0 0110 5z" />
                 </svg>
-                New
+                New Chat
               </button>
               <div className="relative">
                 <button
@@ -1310,21 +1360,30 @@ export default function IESAAIPage() {
             ref={chatRef}
             className="flex-1 overflow-y-auto space-y-6 py-6 pb-44 md:pb-36 scroll-smooth"
           >
+            {/* Centered Date Separator */}
+            <div className="flex items-center gap-3 my-4">
+              <div className="flex-1 h-[1px] bg-cloud" />
+              <span className="text-[10px] font-bold text-slate uppercase tracking-widest px-3 py-1 rounded-full bg-snow border border-cloud">
+                {new Date().toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" })}
+              </span>
+              <div className="flex-1 h-[1px] bg-cloud" />
+            </div>
+
             {messages.filter((m) => m.text || m.sender === "user").map((message) => (
               <div
                 key={message.id}
-                className={`flex gap-3 ${message.sender === "user" ? "flex-row-reverse" : "flex-row"}`}
+                className={`flex gap-2.5 ${message.sender === "user" ? "flex-row-reverse" : "flex-row"}`}
               >
                 {/* Avatar */}
                 <div
-                  className={`w-9 h-9 flex items-center justify-center shrink-0 ${
+                  className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
                     message.sender === "user"
-                      ? "bg-navy border-[3px] border-teal rounded-xl"
-                      : "bg-lavender border-[3px] border-navy rounded-2xl shadow-[2px_2px_0_0_#000]"
+                      ? "bg-navy text-snow border border-navy/20"
+                      : "bg-lavender-light text-navy border border-lavender/40"
                   }`}
                 >
                   {message.sender === "user" ? (
-                    <span className="text-snow text-sm font-display font-black">
+                    <span className="text-xs font-bold">
                       {user?.firstName?.[0] || "U"}
                     </span>
                   ) : (
@@ -1340,27 +1399,48 @@ export default function IESAAIPage() {
 
                 {/* Message Bubble */}
                 <div
-                  className={`flex-1 max-w-[85%] md:max-w-[75%] space-y-2 ${message.sender === "user" ? "items-end" : "items-start"}`}
+                  className={`flex-1 max-w-[85%] md:max-w-[72%] space-y-1.5 ${message.sender === "user" ? "items-end" : "items-start"}`}
                 >
                   <div
-                    className={`px-4 py-3 ${
+                    className={`px-4 py-3.5 relative ${
                       message.sender === "user"
-                        ? "bg-navy border-[3px] border-teal text-ghost rounded-2xl rounded-tr-lg"
-                        : "bg-snow border-[3px] border-navy text-navy rounded-2xl rounded-tl-lg shadow-[3px_3px_0_0_#000]"
+                        ? "bg-lavender text-snow rounded-2xl rounded-tr-xs shadow-[3px_3px_0_0_#000] border-[3px] border-navy"
+                        : "bg-snow text-navy border-[3px] border-navy shadow-[3px_3px_0_0_#000] rounded-2xl rounded-tl-xs"
                     }`}
                   >
-                    <div className="text-body font-normal text-sm leading-relaxed">
+                    {/* Voice Note audio player box if voice message */}
+                    {(message as any).isVoice && (
+                      <div className="bg-white/20 backdrop-blur-sm rounded-xl p-2.5 flex items-center gap-3 mb-2 border border-white/20">
+                        <div className="w-9 h-9 rounded-xl bg-lime flex items-center justify-center text-navy shrink-0 shadow-sm">
+                          <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-0.5 mb-1 h-3">
+                            {[40, 60, 30, 80, 50, 90, 70, 40, 60, 30, 80, 50, 40, 70, 30, 50, 80].map((h, i) => (
+                              <div key={i} className="w-1 bg-snow/80 rounded-full" style={{ height: `${h / 6}px` }} />
+                            ))}
+                          </div>
+                          <div className="text-[10px] text-snow/90 font-mono truncate">
+                            voice-note.webm · 0:03
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className={`text-body font-medium text-sm leading-relaxed ${message.sender === "user" ? "text-snow" : "text-navy"}`}>
                       {message.sender === "ai"
                         ? formatAIResponse(message.text)
                         : message.text}
                     </div>
 
-                    {/* Suggestions */}
+                    {/* Suggestions inside AI bubble */}
                     {message.sender === "ai" &&
                       message.suggestions &&
                       message.suggestions.length > 0 && (
-                        <div className="mt-3 pt-3 border-t-[3px] border-navy/15 space-y-2">
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate">
+                        <div className="mt-3 pt-2.5 border-t border-cloud/60 space-y-2">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-slate">
                             <svg
                               className="w-3.5 h-3.5"
                               fill="currentColor"
@@ -1370,129 +1450,67 @@ export default function IESAAIPage() {
                             </svg>
                             Quick actions
                           </div>
-                          <div className="flex flex-wrap gap-2">
-                            {message.suggestions.map((suggestion, idx) => {
-                              const colors = [
-                                "bg-teal-light text-teal border-teal",
-                                "bg-coral-light text-coral border-coral",
-                                "bg-lavender-light text-lavender border-lavender",
-                                "bg-sunny-light text-sunny border-sunny",
-                              ];
-                              return (
-                                <button
-                                  key={idx}
-                                  onClick={() =>
-                                    handleSuggestionClick(suggestion)
-                                  }
-                                  className={`px-3 py-1.5 border-[2px] ${colors[idx % 4]} font-display font-bold text-[10px] uppercase tracking-[0.08em] hover:brightness-95 transition-all rounded-lg`}
-                                >
-                                  {suggestion}
-                                </button>
-                              );
-                            })}
+                          <div className="flex flex-wrap gap-1.5">
+                            {message.suggestions.map((suggestion, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() =>
+                                  handleSuggestionClick(suggestion)
+                                }
+                                className="px-3 py-1 bg-lavender-light text-navy border border-lavender/40 hover:bg-lavender/20 font-bold text-[10px] uppercase tracking-[0.05em] transition-all rounded-full"
+                              >
+                                {suggestion}
+                              </button>
+                            ))}
                           </div>
                         </div>
                       )}
-                  </div>
 
-                  {/* Metadata */}
-                  <div
-                    className={`flex items-center gap-2 px-1 ${message.sender === "user" ? "justify-end" : "justify-start"}`}
-                  >
-                    <span className="text-[10px] text-slate">
-                      {message.time}
-                    </span>
-
-                    {/* Copy */}
-                    <button
-                      onClick={() => handleCopy(message.text, message.id)}
-                      className="p-1 hover:bg-cloud transition-colors rounded"
-                      aria-label="Copy message"
-                    >
-                      {copiedId === message.id ? (
-                        <svg
-                          className="w-3 h-3 text-teal"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
-                            clipRule="evenodd"
-                          />
+                    {/* Inside bubble bottom timestamp & checkmarks */}
+                    {message.sender === "user" ? (
+                      <div className="flex items-center justify-end gap-1 mt-1.5 text-[10px] text-snow/90 font-medium">
+                        <span>{message.time}</span>
+                        <svg className="w-3.5 h-3.5 text-snow/90 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M2 12l5 5L18 6" />
+                          <path d="M7 12l5 5L22 6" />
                         </svg>
-                      ) : (
-                        <svg
-                          className="w-3 h-3 text-slate hover:text-navy"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M7 3.5A1.5 1.5 0 018.5 2h3.879a1.5 1.5 0 011.06.44l3.122 3.12A1.5 1.5 0 0117 6.622V12.5a1.5 1.5 0 01-1.5 1.5h-1v-3.379a3 3 0 00-.879-2.121L10.5 5.379A3 3 0 008.379 4.5H7v-1z" />
-                          <path d="M4.5 6A1.5 1.5 0 003 7.5v9A1.5 1.5 0 004.5 18h7a1.5 1.5 0 001.5-1.5v-5.879a1.5 1.5 0 00-.44-1.06L9.44 6.439A1.5 1.5 0 008.378 6H4.5z" />
-                        </svg>
-                      )}
-                    </button>
-
-                    {/* AI-only actions */}
-                    {message.sender === "ai" && (
-                      <div className="flex items-center gap-1">
-                        {/* speak */}
-                        <button
-                          onClick={() => speakMessage(message.text, message.id)}
-                          className="p-1 hover:bg-cloud transition-colors rounded"
-                          aria-label={
-                            isSpeaking && speakingMessageId === message.id
-                              ? "Stop speaking"
-                              : "Listen"
-                          }
-                        >
-                          {isSpeaking && speakingMessageId === message.id ? (
-                            <svg
-                              className="w-3 h-3 text-coral animate-pulse"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path d="M5.25 3A2.25 2.25 0 003 5.25v9.5A2.25 2.25 0 005.25 17h9.5A2.25 2.25 0 0017 14.75v-9.5A2.25 2.25 0 0014.75 3h-9.5z" />
-                            </svg>
-                          ) : (
-                            <svg
-                              className="w-3 h-3 text-slate hover:text-navy"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path d="M10 3.75a.75.75 0 00-1.264-.546L4.703 7H3.167a.75.75 0 00-.7.48A6.985 6.985 0 002 10c0 .887.165 1.737.468 2.52.111.29.39.48.7.48h1.535l4.033 3.796A.75.75 0 0010 16.25V3.75zM15.95 5.05a.75.75 0 00-1.06 1.061 5.5 5.5 0 010 7.778.75.75 0 001.06 1.06 7 7 0 000-9.899z" />
-                              <path d="M13.829 7.172a.75.75 0 00-1.061 1.06 2.5 2.5 0 010 3.536.75.75 0 001.06 1.06 4 4 0 000-5.656z" />
-                            </svg>
-                          )}
-                        </button>
-                        {/* thumbs up */}
-                        <button
-                          onClick={() => handleFeedback(message.id, "up")}
-                          className="p-1 hover:bg-cloud transition-colors rounded"
-                          aria-label="Helpful"
-                        >
-                          <svg
-                            className="w-3 h-3 text-slate hover:text-teal"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-cloud/50 text-[10px] text-slate">
+                        <span>{message.time}</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleCopy(message.text, message.id)}
+                            className="p-1 hover:bg-cloud transition-colors rounded"
+                            aria-label="Copy message"
                           >
-                            <path d="M1 8.25a1.25 1.25 0 112.5 0v7.5a1.25 1.25 0 11-2.5 0v-7.5zM7.25 3A.75.75 0 007 3.75v.763c0 .665-.24 1.308-.678 1.808l-.453.496A1.742 1.742 0 005 8.392V15.5A1.5 1.5 0 006.5 17h7.286a1.5 1.5 0 001.443-1.087l1.907-6.75A1.5 1.5 0 0015.693 7.5h-3.93a.75.75 0 01-.75-.809l.399-3.589A1.205 1.205 0 0010.226 2h-.081A1.894 1.894 0 008.25 3.895V4a.75.75 0 01-.75.75h-.25z" />
-                          </svg>
-                        </button>
-                        {/* thumbs down */}
-                        <button
-                          onClick={() => handleFeedback(message.id, "down")}
-                          className="p-1 hover:bg-cloud transition-colors rounded"
-                          aria-label="Not helpful"
-                        >
-                          <svg
-                            className="w-3 h-3 text-slate hover:text-coral"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
+                            {copiedId === message.id ? (
+                              <svg className="w-3 h-3 text-teal" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 011.43 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                              </svg>
+                            ) : (
+                              <svg className="w-3 h-3 text-slate hover:text-navy" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M7 3.5A1.5 1.5 0 018.5 2h3.879a1.5 1.5 0 011.06.44l3.122 3.12A1.5 1.5 0 0117 6.622V12.5a1.5 1.5 0 01-1.5 1.5h-1v-3.379a3 3 0 00-.879-2.121L10.5 5.379A3 3 0 008.379 4.5H7v-1z" />
+                                <path d="M4.5 6A1.5 1.5 0 003 7.5v9A1.5 1.5 0 004.5 18h7a1.5 1.5 0 001.5-1.5v-5.879a1.5 1.5 0 00-.44-1.06L9.44 6.439A1.5 1.5 0 008.378 6H4.5z" />
+                              </svg>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => speakMessage(message.text, message.id)}
+                            className="p-1 hover:bg-cloud transition-colors rounded"
+                            aria-label="Listen"
                           >
-                            <path d="M18.905 12.75a1.25 1.25 0 01-2.5 0v-7.5a1.25 1.25 0 112.5 0v7.5zM12.75 17a.75.75 0 00.75-.75v-.763c0-.665.24-1.308.678-1.808l.453-.496c.546-.6.872-1.367.872-2.184V4.5A1.5 1.5 0 0014 3H6.214a1.5 1.5 0 00-1.443 1.087l-1.907 6.75A1.5 1.5 0 004.307 12.5h3.93a.75.75 0 01.75.81l-.399 3.588A1.205 1.205 0 009.774 18h.081a1.894 1.894 0 001.895-1.895V16a.75.75 0 01.75-.75h.25z" />
-                          </svg>
-                        </button>
+                            {isSpeaking && speakingMessageId === message.id ? (
+                              <svg className="w-3 h-3 text-coral animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M5.25 3A2.25 2.25 0 003 5.25v9.5A2.25 2.25 0 0017 14.75v-9.5A2.25 2.25 0 0014.75 3h-9.5z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-3 h-3 text-slate hover:text-navy" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 3.75a.75.75 0 00-1.264-.546L4.703 7H3.167a.75.75 0 00-.7.48A6.985 6.985 0 002 10c0 .887.165 1.737.468 2.52.111.29.39.48.7.48h1.535l4.033 3.796A.75.75 0 0010 16.25V3.75zM15.95 5.05a.75.75 0 00-1.06 1.061 5.5 5.5 0 010 7.778.75.75 0 001.06 1.06 7 7 0 000-9.899z" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1563,14 +1581,14 @@ export default function IESAAIPage() {
           </div>
 
           {/* ════════════════════════════════════════
-              FIXED INPUT AREA
+              FIXED INPUT AREA (NEO-BRUTALIST DESIGN SYSTEM)
           ════════════════════════════════════════ */}
           <div
             className={`fixed bottom-16 md:bottom-0 left-0 right-0 bg-ghost/95 backdrop-blur-sm border-t-[3px] border-navy z-20 transition-all duration-300 ${
               isExpanded ? "md:left-[260px]" : "md:left-[72px]"
             }`}
           >
-            <div className="max-w-5xl mx-auto px-4 md:px-8 py-4 space-y-3">
+            <div className="max-w-5xl mx-auto px-4 md:px-8 py-3.5 space-y-3">
               {/* Quick Actions strip */}
               {showQuickActions && messages.length === 1 && (
                 <div className="flex flex-wrap gap-2">
@@ -1582,7 +1600,7 @@ export default function IESAAIPage() {
                         setShowQuickActions(false);
                         setTimeout(() => sendMessage(action.query), 100);
                       }}
-                      className="flex items-center gap-2 px-3 py-2 bg-snow border-[3px] border-navy rounded-xl font-display font-bold text-[10px] text-navy uppercase tracking-[0.08em] press-3 press-black transition-all"
+                      className="flex items-center gap-2 px-3 py-2 bg-snow border-[3px] border-navy rounded-xl font-display font-bold text-[10px] text-navy uppercase tracking-[0.08em] shadow-[3px_3px_0_0_#000] press-3 press-black transition-all"
                     >
                       <div className={`w-2 h-2 rounded-full ${action.color}`} />
                       <span>{action.label}</span>
@@ -1591,7 +1609,37 @@ export default function IESAAIPage() {
                 </div>
               )}
 
-              <div className="flex gap-2 items-start">
+              {isListening && (
+                <div className="flex items-center justify-between px-3.5 py-2 bg-coral-light border-[3px] border-navy rounded-xl text-navy font-bold text-xs shadow-[3px_3px_0_0_#000]">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-coral animate-ping" />
+                    <span>Listening... speak your question now</span>
+                  </div>
+                  <button onClick={toggleListening} className="text-[10px] uppercase tracking-wider underline hover:text-coral font-bold">
+                    Cancel
+                  </button>
+                </div>
+              )}
+
+              {/* Input Card Container */}
+              <div className="flex items-start gap-2">
+                {/* Voice Input Button */}
+                <button
+                  type="button"
+                  onClick={toggleListening}
+                  className={`p-3.5 border-[3px] border-navy rounded-xl transition-all shrink-0 press-2 shadow-[2px_2px_0_0_#000] ${
+                    isListening
+                      ? "bg-coral text-snow shadow-[3px_3px_0_0_#000] animate-pulse"
+                      : "bg-snow text-navy hover:bg-lime-light"
+                  }`}
+                  title={isListening ? "Stop voice listening" : "Hands-Free Voice Mode"}
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3z" />
+                    <path d="M19 11a1 1 0 0 0-2 0 5 5 0 0 1-10 0 1 1 0 0 0-2 0 7 7 0 0 0 6 6.92V20H9a1 1 0 0 0 0 2h6a1 1 0 0 0 0-2h-2v-2.08A7 7 0 0 0 19 11z" />
+                  </svg>
+                </button>
+
                 {/* Textarea */}
                 <div className="flex-1 relative">
                   <textarea
@@ -1603,21 +1651,21 @@ export default function IESAAIPage() {
                       autoResize();
                     }}
                     onKeyDown={handleKeyDown}
-                    placeholder="Ask me anything about IESA..."
-                    className="w-full px-4 py-3 bg-snow border-[3px] border-navy font-display font-normal text-sm text-navy placeholder:text-slate focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal/20 resize-none transition-all min-h-12 max-h-30 scrollbar-none rounded-xl"
+                    placeholder="Ask IESA AI anything about your courses, dues, or timetable..."
+                    className="w-full px-4 py-3 bg-snow border-[3px] border-navy font-display font-normal text-sm text-navy placeholder:text-slate focus:outline-none focus:border-teal focus:ring-1 focus:ring-teal/20 resize-none transition-all min-h-12 max-h-30 scrollbar-none rounded-xl shadow-[3px_3px_0_0_#000]"
                     disabled={loading}
                   />
                 </div>
 
-                {/* Send */}
+                {/* Send Button */}
                 <button
                   onClick={() => sendMessage()}
                   disabled={loading || !input.trim()}
-                  className="px-4 py-3.5 bg-navy border-[3px] border-lavender press-3 press-lime font-display font-black text-xs uppercase tracking-wider text-lavender disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 shrink-0 rounded-xl"
+                  className="px-4 py-3.5 bg-navy border-[3px] border-lavender press-3 press-lime font-display font-black text-xs uppercase tracking-wider text-lavender disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 shrink-0 rounded-xl shadow-[3px_3px_0_0_#000]"
                   aria-label="Send message"
                 >
                   <svg
-                    className="w-4 h-4"
+                    className="w-4 h-4 text-lavender"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                   >
@@ -1627,8 +1675,8 @@ export default function IESAAIPage() {
                 </button>
               </div>
 
-              <p className="text-[10px] text-slate text-center">
-                IESA AI can make mistakes. Verify important information.
+              <p className="text-[10px] text-slate text-center font-medium">
+                IESA AI integrates live department records · Always double-check official notices.
               </p>
             </div>
           </div>

@@ -79,12 +79,6 @@ export default function InstallAppCard() {
             >
               Remind me tomorrow
             </button>
-
-            <button onClick={dismissInstallPrompt}
-              className="bg-transparent border-2 border-navy px-4 py-2 rounded-xl text-body font-bold text-xs text-navy hover:bg-cloud transition-colors"
-            >
-              Don&apos;t show again
-            </button>
           </div>
         </div>
       </div>

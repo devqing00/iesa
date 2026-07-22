@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
+import { useSearchParams } from "next/navigation";
+import FullScreenLoader from "@/components/ui/FullScreenLoader";
 import { toast } from "sonner";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { ConfirmModal } from "@/components/ui/Modal";
@@ -37,11 +39,27 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }>
 };
 
 export default function PressDashboardPage() {
+  return (
+    <Suspense fallback={<FullScreenLoader size="md" label="Loading press dashboard..." />}>
+      <PressDashboardContent />
+    </Suspense>
+  );
+}
+
+function PressDashboardContent() {
   const { user, getAccessToken } = useAuth();
+  const searchParams = useSearchParams();
   const { showHelp, openHelp, closeHelp } = useToolHelp("press");
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>("all");
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam && ["all", "draft", "submitted", "revision_requested", "published"].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
   const [accessDenied, setAccessDenied] = useState(false);
   const [isHead, setIsHead] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: "" });

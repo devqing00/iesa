@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { useSearchParams } from "next/navigation";
+import FullScreenLoader from "@/components/ui/FullScreenLoader";
 import { toast } from "sonner";
 import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
 import Pagination from "@/components/ui/Pagination";
@@ -149,6 +151,7 @@ function formatBirthdayDate(month: number, day: number): string {
 
 function AdminUsersPage() {
   const { getAccessToken } = useAuth();
+  const searchParams = useSearchParams();
   const { showHelp, openHelp, closeHelp } = useToolHelp("admin-users");
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -192,6 +195,13 @@ function AdminUsersPage() {
 
   // ── Tab ──────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"users" | "birthdays">("users");
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam && ["users", "birthdays"].includes(tabParam)) {
+      setActiveTab(tabParam as any);
+    }
+  }, [searchParams]);
   const [usersFiltersOpen, setUsersFiltersOpen] = useState(false);
   const [birthdaysFiltersOpen, setBirthdaysFiltersOpen] = useState(false);
   const usersFiltersRef = useRef<HTMLDivElement>(null);
@@ -1649,6 +1659,14 @@ function AdminUsersPage() {
   );
 }
 
-export default withAuth(AdminUsersPage, {
+const ProtectedAdminUsersPage = withAuth(AdminUsersPage, {
   requiredPermission: "user:view_all",
 });
+
+export default function AdminUsersPageWrapper() {
+  return (
+    <Suspense fallback={<FullScreenLoader size="md" label="Loading user management..." />}>
+      <ProtectedAdminUsersPage />
+    </Suspense>
+  );
+}

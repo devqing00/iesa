@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { getApiUrl } from "@/lib/api";
+import { useSearchParams } from "next/navigation";
+import FullScreenLoader from "@/components/ui/FullScreenLoader";
 import { toast } from "sonner";
 import { ConfirmModal } from "@/components/ui/Modal";
 import AcademicCalendarTab from "@/components/admin/AcademicCalendarTab";
@@ -67,8 +69,16 @@ const examTypeColors: Record<string, { bg: string; text: string }> = {
 
 function AdminTimetablePage() {
   const { user, getAccessToken } = useAuth();
+  const searchParams = useSearchParams();
   const { showHelp, openHelp, closeHelp } = useToolHelp("admin-timetable");
   const [activeTab, setActiveTab] = useState<"classes" | "exams" | "calendar">("classes");
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam && ["classes", "exams", "calendar"].includes(tabParam)) {
+      setActiveTab(tabParam as any);
+    }
+  }, [searchParams]);
   const [classes, setClasses] = useState<ClassSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterLevel, setFilterLevel] = useState<number | "">("");
@@ -994,6 +1004,14 @@ function AdminTimetablePage() {
   );
 }
 
-export default withAuth(AdminTimetablePage, {
+const ProtectedAdminTimetablePage = withAuth(AdminTimetablePage, {
   anyPermission: ["timetable:create", "timetable:edit", "timetable:view"],
 });
+
+export default function AdminTimetablePageWrapper() {
+  return (
+    <Suspense fallback={<FullScreenLoader size="md" label="Loading admin timetable..." />}>
+      <ProtectedAdminTimetablePage />
+    </Suspense>
+  );
+}

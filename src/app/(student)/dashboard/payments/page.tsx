@@ -87,6 +87,13 @@ function PaymentsContent() {
   // Active Tab
   const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
 
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "pending" || tabParam === "history") {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
+
   /* ─── Reset on bfcache restore (user pressed browser back from Paystack) ─── */
   useEffect(() => {
     const handlePageShow = (e: PageTransitionEvent) => {

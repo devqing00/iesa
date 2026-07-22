@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { getApiUrl } from "@/lib/api";
+import { useSearchParams } from "next/navigation";
+import FullScreenLoader from "@/components/ui/FullScreenLoader";
 import { Modal } from "@/components/ui/Modal";
 import { Calendar, dateFnsLocalizer, View } from "react-big-calendar";
 import { format } from "date-fns/format";
@@ -134,11 +136,11 @@ const VIEW_OPTIONS: Array<{ key: View; label: string }> = [
 ];
 
 const VIEW_LABELS: Record<View, string> = {
-  day: "Daily View",
-  week: "Weekly View",
+  day: "Daily Schedule View",
+  week: "Weekly Overview",
   month: "Monthly View",
-  agenda: "Agenda View",
-  work_week: "Work Week",
+  agenda: "Agenda List",
+  work_week: "Work Week View",
 };
 
 const CLASS_STATUS_META: Record<ClassStatusUpdate["status"], { label: string; badge: string }> = {
@@ -158,7 +160,16 @@ function getDefaultViewByWidth(width: number): View {
 /* ─── Component ─────────────────────────────────────────────────── */
 
 export default function TimetablePage() {
+  return (
+    <Suspense fallback={<FullScreenLoader size="md" label="Loading timetable..." />}>
+      <TimetableContent />
+    </Suspense>
+  );
+}
+
+function TimetableContent() {
   const { userProfile, getAccessToken } = useAuth();
+  const searchParams = useSearchParams();
   const { hasPermission, loaded: permissionsLoaded } = usePermissions();
   const { showHelp, openHelp, closeHelp } = useToolHelp("timetable");
   const { data: dashboardData } = useStudentDashboard();

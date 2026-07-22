@@ -33,7 +33,7 @@ const BirthdayConfetti = dynamic(
   () => import("@/components/ui/BirthdayConfetti").then((m) => m.BirthdayConfetti),
   { ssr: false }
 );
-import { getQuoteOfTheDay } from "@/lib/quotes";
+import { getQuoteOfTheDay, getMinuteRotatingQuote, getRandomQuote, type Quote } from "@/lib/quotes";
 import { isExternalStudent } from "@/lib/studentAccess";
 import DeadlineWidget from "@/components/dashboard/DeadlineWidget";
 import InstallAppCard from "@/components/dashboard/InstallAppCard";
@@ -272,6 +272,18 @@ export default function StudentDashboardPage() {
   const currentLevelValue = parseInt(String(userProfile?.currentLevel || userProfile?.level || "0"), 10) || 0;
   const greeting = () => getTimeGreeting(isMyBirthday, data?.academicContext, currentLevelValue);
   const quoteOfTheDay = getQuoteOfTheDay();
+  const [activeQuote, setActiveQuote] = useState<Quote>(getMinuteRotatingQuote());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveQuote(getMinuteRotatingQuote());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleNextQuote = () => {
+    setActiveQuote(getRandomQuote());
+  };
 
   const is400LIT = currentLevelValue === 400 && (currentSession?.currentSemester || data?.academicContext?.currentSemester || 1) === 2;
 
@@ -831,18 +843,22 @@ export default function StudentDashboardPage() {
                 </span>
               ) : (
                 <>
-                  <span className="text-[10px] font-bold text-navy bg-teal rounded-md px-3 py-1 uppercase tracking-wider">
-                    {announcements.length} announcement{announcements.length !== 1 ? "s" : ""}
-                  </span>
-                  <span className="text-[10px] font-bold text-navy bg-coral rounded-md px-3 py-1 uppercase tracking-wider">
-                    {events.length} upcoming event{events.length !== 1 ? "s" : ""}
-                  </span>
-                  {openCohortPolls !== null && (
+                  {announcements.length > 0 && (
+                    <span className="text-[10px] font-bold text-navy bg-teal rounded-md px-3 py-1 uppercase tracking-wider">
+                      {announcements.length} announcement{announcements.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                  {events.length > 0 && (
+                    <span className="text-[10px] font-bold text-navy bg-coral rounded-md px-3 py-1 uppercase tracking-wider">
+                      {events.length} upcoming event{events.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                  {openCohortPolls !== null && openCohortPolls > 0 && (
                     <span className="text-[10px] font-bold text-navy bg-lavender rounded-md px-3 py-1 uppercase tracking-wider">
                       {openCohortPolls} open cohort poll{openCohortPolls !== 1 ? "s" : ""}
                     </span>
                   )}
-                  {!!teamOverview?.membershipCount && typeof teamOverview.activeTasks === "number" && (
+                  {!!teamOverview?.membershipCount && !!teamOverview?.activeTasks && teamOverview.activeTasks > 0 && (
                     <span className="text-[10px] font-bold text-navy bg-teal rounded-md px-3 py-1 uppercase tracking-wider">
                       {teamOverview.activeTasks} active team task{teamOverview.activeTasks !== 1 ? "s" : ""}
                     </span>
@@ -959,7 +975,7 @@ export default function StudentDashboardPage() {
                 <span className="flex items-center justify-center w-7 h-7 rounded-full bg-sunny text-navy font-black text-xs border-2 border-navy shrink-0">
                   {data.academicContext.daysToNextEvent}
                 </span>
-                <p className="text-xs font-bold text-navy uppercase tracking-wider truncate">
+                <p className="text-xs font-bold text-navy uppercase tracking-wider whitespace-normal break-words leading-snug">
                   Days until {data.academicContext.nextEventTitle}
                 </p>
               </div>
@@ -1102,8 +1118,26 @@ export default function StudentDashboardPage() {
                         <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
                       </svg>
                     </div>
-                    <p className="text-sm font-bold text-navy">No classes scheduled today</p>
-                    <p className="text-xs text-slate mt-1">Enjoy your free time!</p>
+                    <p className="text-sm font-bold text-navy">
+                      {is400LIT
+                        ? "400L Industrial Training (IT) Period"
+                        : !isLecturePeriod && currentLevelValue === 200
+                        ? "SWEP Training Period"
+                        : !isLecturePeriod && currentLevelValue === 300
+                        ? "SIWES Industrial Attachment"
+                        : "No classes scheduled today"}
+                    </p>
+                    <p className="text-xs text-slate mt-1">
+                      {is400LIT
+                        ? "You are on your 6-month industrial placement. No regular lecture classes today!"
+                        : !isLecturePeriod && currentLevelValue === 200
+                        ? "No lecture classes today. Focus on your hands-on SWEP workshop training!"
+                        : !isLecturePeriod && currentLevelValue === 300
+                        ? "No lecture classes today. Hope your 3-month SIWES placement is going well!"
+                        : !isLecturePeriod
+                        ? "Semester Break / Holiday — No classes scheduled today. Enjoy your break and free time!"
+                        : "Enjoy your free time!"}
+                    </p>
                   </div>
                 : <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {todayClasses.slice(0, 6).map((cls, i) => {
@@ -1223,21 +1257,20 @@ export default function StudentDashboardPage() {
             </div>
             )}
 
-            {/* CTA Cards — side by side on lg+ */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {/* First CTA: IESA AI (IPE) or IEPOD (External) */}
+            {/* CTA Cards — 2-column grid for perfect balance */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* First CTA: Fancy IESA AI Assistant (IPE) or IEPOD (External) */}
               {external ? (
-                <Link href={iepodHref} className="block bg-navy border-[3px] border-lime rounded-3xl p-6 relative overflow-hidden group">
+                <Link href={iepodHref} className="block bg-navy border-[3px] border-lime rounded-3xl p-6 relative overflow-hidden group shadow-[4px_4px_0_0_#000]">
                   <svg aria-hidden="true" className="absolute top-4 right-5 w-5 h-5 text-lime/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
                   </svg>
                   <div className="w-10 h-10 rounded-xl bg-lime/20 flex items-center justify-center mb-3">
                     <svg aria-hidden="true" className="w-5 h-5 text-lime" viewBox="0 0 24 24" fill="currentColor">
                       <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
-                      <path d="M5.082 14.254a8.287 8.287 0 0 0-1.308 5.135 9.687 9.687 0 0 1-1.764-.44l-.115-.04a.563.563 0 0 1-.373-.487l-.01-.121a3.75 3.75 0 0 1 3.57-4.047ZM20.226 19.389a8.287 8.287 0 0 0-1.308-5.135 3.75 3.75 0 0 1 3.57 4.047l-.01.121a.563.563 0 0 1-.373.486l-.115.04c-.567.2-1.156.349-1.764.441Z" />
                     </svg>
                   </div>
-                  <h3 className="font-display font-black text-lg text-ghost mb-1">IEPOD</h3>
+                  <h3 className="font-display font-black text-lg text-ghost mb-1">IEPOD Portal</h3>
                   <p className="text-ghost/40 text-xs font-medium mb-3">Orientation programme — quizzes, teams &amp; more</p>
                   <span className="inline-flex items-center gap-1.5 text-lime text-xs font-bold group-hover:gap-2.5 transition-all">
                     Go to IEPOD
@@ -1247,37 +1280,53 @@ export default function StudentDashboardPage() {
                   </span>
                 </Link>
               ) : (
-              /* IESA AI CTA */
-              <Link href="/dashboard/iesa-ai" className="block bg-navy border-[3px] border-lime rounded-3xl p-6 relative overflow-hidden group">
-                <svg aria-hidden="true" className="absolute top-4 right-5 w-5 h-5 text-lavender/20 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
-                </svg>
-                <div className="w-10 h-10 rounded-xl bg-lavender/20 flex items-center justify-center mb-3">
-                  <svg aria-hidden="true" className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
-                    <path fillRule="evenodd" d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5Z" clipRule="evenodd" />
-                  </svg>
+              /* IESA AI ASSISTANT CARD */
+              <div className="block bg-lavender text-snow border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000] relative overflow-hidden group">
+                <div className="flex items-center justify-between mb-3.5 gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-snow/20 border-2 border-snow/30 flex items-center justify-center shrink-0">
+                      <svg aria-hidden="true" className="w-5 h-5 text-snow" viewBox="0 0 24 24" fill="currentColor">
+                        <path fillRule="evenodd" d="M9 4.5a.75.75 0 0 1 .721.544l.813 2.846a3.75 3.75 0 0 0 2.576 2.576l2.846.813a.75.75 0 0 1 0 1.442l-2.846.813a3.75 3.75 0 0 0-2.576 2.576l-.813 2.846a.75.75 0 0 1-1.442 0l-.813-2.846a3.75 3.75 0 0 0-2.576-2.576l-2.846-.813a.75.75 0 0 1 0-1.442l2.846-.813A3.75 3.75 0 0 0 7.466 7.89l.813-2.846A.75.75 0 0 1 9 4.5Z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-display font-black text-lg text-snow leading-none">IESA AI</h3>
+                      <p className="text-[10px] text-snow/70 font-bold mt-1 uppercase tracking-wider">
+                        Assistant &amp; Navigation Guide
+                      </p>
+                    </div>
+                  </div>
+                  <Link href="/dashboard/iesa-ai" className="text-xs font-bold text-navy bg-snow hover:bg-cloud border-2 border-navy px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 press-2 press-black shrink-0">
+                    Launch AI
+                    <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                    </svg>
+                  </Link>
                 </div>
-                <h3 className="font-display font-black text-lg text-ghost mb-1">IESA AI</h3>
-                <p className="text-ghost/40 text-xs font-medium mb-3">Ask anything about the department</p>
-                <span className="inline-flex items-center gap-1.5 text-lavender text-xs font-bold group-hover:gap-2.5 transition-all">
-                  Open AI
-                  <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                    <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                  </svg>
-                </span>
-              </Link>
+                <p className="text-snow/90 text-xs font-medium mb-3.5">Ask about timetable, dues, CGPA calculator, or directions around the app.</p>
+                <div className="flex flex-wrap gap-1.5">
+                  <Link href="/dashboard/iesa-ai" className="text-[10px] font-bold text-navy bg-snow border-2 border-navy/20 hover:border-navy rounded-lg px-2.5 py-1 transition-colors">
+                    💳 Payment Status
+                  </Link>
+                  <Link href="/dashboard/iesa-ai" className="text-[10px] font-bold text-navy bg-snow border-2 border-navy/20 hover:border-navy rounded-lg px-2.5 py-1 transition-colors">
+                    📊 How to calc CGPA
+                  </Link>
+                </div>
+              </div>
               )}
 
               {/* Growth CTA */}
-              <Link href="/dashboard/growth" className="block bg-teal border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group shadow-[4px_4px_0_0_#000] rotate-[-0.5deg] hover:rotate-0 transition-transform">
+              <Link href="/dashboard/growth" className="block bg-teal border-[3px] border-navy rounded-3xl p-5 relative overflow-hidden group shadow-[4px_4px_0_0_#000]">
                 <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full bg-navy/10 pointer-events-none" />
-                <svg aria-hidden="true" className="absolute top-3 right-4 w-4 h-4 text-navy/15 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
-                </svg>
-                <h3 className="font-display font-black text-xl text-navy mb-1 relative z-10">Growth Tools</h3>
-                <p className="text-navy/60 text-xs font-medium relative z-10 mb-3">CGPA, planner, goals &amp; more</p>
-                <span className="inline-flex items-center gap-1.5 text-navy text-xs font-bold relative z-10 group-hover:gap-2.5 transition-all bg-snow/30 rounded-md px-3 py-1.5">
-                  Explore
+                <div className="w-9 h-9 rounded-xl bg-snow/20 flex items-center justify-center mb-3">
+                  <svg aria-hidden="true" className="w-5 h-5 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                    <path fillRule="evenodd" d="M15.22 6.268a.75.75 0 0 1 .968-.431l5.942 2.28a.75.75 0 0 1 .431.97l-2.28 5.94a.75.75 0 1 1-1.4-.537l1.63-4.251-1.086.484a11.2 11.2 0 0 0-5.45 5.174.75.75 0 0 1-1.199.19L9 12.312l-6.22 6.22a.75.75 0 0 1-1.06-1.061l6.75-6.75a.75.75 0 0 1 1.06 0l3.606 3.606a12.695 12.695 0 0 1 5.68-4.974l1.086-.483-4.251-1.632a.75.75 0 0 1-.432-.969Z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <h3 className="font-display font-black text-lg text-navy mb-1 relative z-10">Growth Tools</h3>
+                <p className="text-navy/60 text-xs font-medium relative z-10 mb-3">CGPA calculator, goal planner &amp; habit tracker</p>
+                <span className="inline-flex items-center gap-1.5 text-navy text-xs font-bold relative z-10 group-hover:gap-2.5 transition-all bg-snow/40 rounded-md px-3 py-1.5">
+                  Explore Hub
                   <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                     <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 0 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                   </svg>
@@ -1286,17 +1335,14 @@ export default function StudentDashboardPage() {
 
               {/* Cohort Portal CTA — IPE students only */}
               {!external && permissionsLoaded && !isClassRepOrAssistant && !(data?.academicContext?.isExamPeriod) && (
-                <Link href="/dashboard/cohort" className="block bg-lavender-light border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group press-4 press-black">
-                  <svg aria-hidden="true" className="absolute top-3 right-4 w-4 h-4 text-lavender/25 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
-                  </svg>
-                  <div className="w-10 h-10 rounded-xl bg-lavender/20 flex items-center justify-center mb-3">
+                <Link href="/dashboard/cohort" className="block bg-lavender-light border-[3px] border-navy rounded-3xl p-5 relative overflow-hidden group press-4 press-black shadow-[4px_4px_0_0_#000]">
+                  <div className="w-9 h-9 rounded-xl bg-lavender/20 flex items-center justify-center mb-3">
                     <svg aria-hidden="true" className="w-5 h-5 text-lavender" viewBox="0 0 24 24" fill="currentColor">
                       <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
                     </svg>
                   </div>
-                  <h3 className="font-display font-black text-xl text-navy mb-1">Cohort Portal</h3>
-                  <p className="text-slate text-xs font-medium mb-3">Deadlines, polls, and class updates in one place</p>
+                  <h3 className="font-display font-black text-lg text-navy mb-1">Cohort Portal</h3>
+                  <p className="text-slate text-xs font-medium mb-3">Deadlines, polls, and level updates</p>
                   <span className="inline-flex items-center gap-1.5 text-navy text-xs font-bold group-hover:gap-2.5 transition-all bg-snow/70 rounded-md px-3 py-1.5">
                     Open portal
                     <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
@@ -1307,26 +1353,18 @@ export default function StudentDashboardPage() {
               )}
 
               {!external && (
-                <Link href="/dashboard/teams" className="block bg-teal-light border-[3px] border-navy rounded-3xl p-6 relative overflow-hidden group press-4 press-black">
-                  <svg aria-hidden="true" className="absolute top-3 right-4 w-4 h-4 text-teal/30 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
-                  </svg>
-                  <div className="w-10 h-10 rounded-xl bg-teal/20 flex items-center justify-center mb-3">
+                <Link href="/dashboard/teams" className="block bg-teal-light border-[3px] border-navy rounded-3xl p-5 relative overflow-hidden group press-4 press-black shadow-[4px_4px_0_0_#000]">
+                  <div className="w-9 h-9 rounded-xl bg-teal/20 flex items-center justify-center mb-3">
                     <svg aria-hidden="true" className="w-5 h-5 text-teal" viewBox="0 0 24 24" fill="currentColor">
                       <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
                     </svg>
                   </div>
-                  <h3 className="font-display font-black text-xl text-navy mb-1">Teams Portal</h3>
+                  <h3 className="font-display font-black text-lg text-navy mb-1">Teams Portal</h3>
                   <p className="text-slate text-xs font-medium mb-3">
                     {teamOverview?.membershipCount
                       ? `${teamOverview.membershipCount} team${teamOverview.membershipCount !== 1 ? "s" : ""} · ${teamOverview.activeTasks ?? 0} active tasks`
-                      : "Tasks, notices, and team coordination in one place"}
+                      : "Tasks, notices, and team coordination"}
                   </p>
-                  {teamOverview?.pinnedNotices ? (
-                    <span className="inline-flex items-center gap-1.5 text-navy text-xs font-bold bg-snow/70 rounded-md px-3 py-1.5 mb-2">
-                      {teamOverview.pinnedNotices} pinned notice{teamOverview.pinnedNotices !== 1 ? "s" : ""}
-                    </span>
-                  ) : null}
                   <span className="inline-flex items-center gap-1.5 text-navy text-xs font-bold group-hover:gap-2.5 transition-all bg-snow/70 rounded-md px-3 py-1.5">
                     Open teams
                     <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
@@ -1337,26 +1375,18 @@ export default function StudentDashboardPage() {
               )}
 
               {!external && hasPermission("team_head:view_members") && (
-                <Link href="/dashboard/team-head" className="block bg-navy border-[3px] border-lime rounded-3xl p-6 relative overflow-hidden group press-4 press-lime">
-                  <svg aria-hidden="true" className="absolute top-3 right-4 w-4 h-4 text-lime/25 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
-                  </svg>
-                  <div className="w-10 h-10 rounded-xl bg-lime/20 flex items-center justify-center mb-3">
+                <Link href="/dashboard/team-head" className="block bg-navy border-[3px] border-lime rounded-3xl p-5 relative overflow-hidden group press-4 press-lime shadow-[4px_4px_0_0_#000]">
+                  <div className="w-9 h-9 rounded-xl bg-lime/20 flex items-center justify-center mb-3">
                     <svg aria-hidden="true" className="w-5 h-5 text-lime" viewBox="0 0 24 24" fill="currentColor">
                       <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z" clipRule="evenodd" />
                     </svg>
                   </div>
-                  <h3 className="font-display font-black text-xl text-snow mb-1">Team Head Portal</h3>
+                  <h3 className="font-display font-black text-lg text-snow mb-1">Team Head Portal</h3>
                   <p className="text-ghost/55 text-xs font-medium mb-3">
                     {typeof teamHeadOverview?.pendingAssignedTasks === "number"
                       ? `${teamHeadOverview.pendingAssignedTasks} pending assigned task${teamHeadOverview.pendingAssignedTasks !== 1 ? "s" : ""}`
-                      : "Manage members, notices, and tasks for your team"}
+                      : "Manage members, notices, and tasks"}
                   </p>
-                  {typeof teamHeadOverview?.headedTeamCount === "number" && teamHeadOverview.headedTeamCount > 0 && (
-                    <span className="inline-flex items-center gap-1.5 text-lime text-xs font-bold bg-lime/10 rounded-md px-3 py-1.5 mb-2">
-                      {teamHeadOverview.headedTeamCount} headed team{teamHeadOverview.headedTeamCount !== 1 ? "s" : ""}
-                    </span>
-                  )}
                   <span className="inline-flex items-center gap-1.5 text-lime text-xs font-bold group-hover:gap-2.5 transition-all bg-lime/10 rounded-md px-3 py-1.5">
                     Open lead portal
                     <svg aria-hidden="true" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
@@ -1606,15 +1636,25 @@ export default function StudentDashboardPage() {
         )}
 
         {/* ═══════════════════════════════════════════════════════════
-            QUOTE OF THE DAY
+            DYNAMIC QUOTE & DID YOU KNOW FACT TICKER (Rotates Per Minute)
             ═══════════════════════════════════════════════════════════ */}
-        <div className="mt-5 bg-ghost border-[3px] border-navy/10 rounded-3xl px-6 py-5 md:px-8 md:py-6 relative overflow-hidden">
-          <svg className="absolute top-3 left-4 w-4 h-4 text-lavender/20 pointer-events-none" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
-          </svg>
-          <svg className="absolute bottom-4 right-6 w-3 h-3 text-coral/15 pointer-events-none" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0l1.5 7.5L21 9l-7.5 1.5L12 18l-1.5-7.5L3 9l7.5-1.5z" />
-          </svg>
+        <div className="mt-5 bg-ghost border-[3px] border-navy/15 rounded-3xl px-6 py-5 md:px-8 md:py-6 relative overflow-hidden shadow-[3px_3px_0_0_#000]">
+          <div className="flex items-center justify-between mb-3">
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md bg-lavender/15 text-lavender border border-lavender/30">
+              {activeQuote.category || "DAILY WISDOM"}
+            </span>
+            <button
+              onClick={handleNextQuote}
+              type="button"
+              className="text-[10px] font-bold text-slate hover:text-navy transition-colors flex items-center gap-1 bg-snow/80 border border-navy/10 px-2.5 py-1 rounded-lg press-1"
+              title="Next quote or fact"
+            >
+              Shuffle
+              <svg aria-hidden="true" className="w-3 h-3 text-slate" viewBox="0 0 24 24" fill="currentColor">
+                <path fillRule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903-1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V.55a.75.75 0 0 0-1.5 0v3.182l-2.247-2.247a9 9 0 0 0-15.06 4.024.75.75 0 0 0 1.2.805Z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
           <div className="flex items-start gap-3 md:gap-4">
             <div className="shrink-0 w-8 h-8 rounded-xl bg-lavender/15 flex items-center justify-center mt-0.5">
               <svg aria-hidden="true" className="w-4 h-4 text-lavender" viewBox="0 0 24 24" fill="currentColor">
@@ -1622,8 +1662,8 @@ export default function StudentDashboardPage() {
               </svg>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm md:text-base text-navy font-medium leading-relaxed italic">&ldquo;{quoteOfTheDay.text}&rdquo;</p>
-              <p className="text-xs text-slate mt-2 font-medium">&mdash; {quoteOfTheDay.author}</p>
+              <p className="text-sm md:text-base text-navy font-medium leading-relaxed italic">&ldquo;{activeQuote.text}&rdquo;</p>
+              <p className="text-xs text-slate font-bold mt-2">&mdash; {activeQuote.author}</p>
             </div>
           </div>
         </div>
