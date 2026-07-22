@@ -928,21 +928,6 @@ function EventsPage() {
     );
   }
 
-  /* ── Loading ── */
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-ghost">
-        <DashboardHeader title="Events" />
-        <div className="flex-1 flex items-center justify-center min-h-[60vh]">
-          <div className="text-center space-y-3">
-            <div className="w-8 h-8 border-[3px] border-coral border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-xs font-bold text-slate uppercase tracking-wider">Loading events…</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-ghost">
       <DashboardHeader title="Events" />
@@ -1080,7 +1065,17 @@ function EventsPage() {
         {/* ═══════════════════════════════════════════════════════
             EVENT CARDS
             ═══════════════════════════════════════════════════════ */}
-        {filteredEvents.length === 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-snow border-[3px] border-navy/15 rounded-3xl p-6 animate-pulse space-y-4">
+                <div className="h-32 bg-cloud rounded-2xl" />
+                <div className="h-5 bg-cloud rounded-lg w-3/4" />
+                <div className="h-4 bg-cloud rounded-md w-1/2" />
+              </div>
+            ))}
+          </div>
+        ) : filteredEvents.length === 0 ? (
           <div className="bg-snow border-[3px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-sunny-light flex items-center justify-center">
               <svg aria-hidden="true" className="w-8 h-8 text-sunny" viewBox="0 0 24 24" fill="currentColor">

@@ -131,5 +131,27 @@ async def get_academic_context(db: AsyncIOMotorDatabase, session: dict) -> Dict[
             if (sem2_end - now).days == 0:
                 context["isLastDayOfSemester"] = True
                 context["isLastDayOfSession"] = True
-            
+
+    # Work Experience & Industrial Training Info (SWEP, SIWES, IT)
+    context["workExperienceDetails"] = {
+        "200L": {
+            "name": "SWEP (Student Work Experience Program)",
+            "timing": "After Second Semester (during holiday break)",
+            "duration": "6 to 8 weeks",
+            "description": "Practical engineering workshop experience for 200L students after S2."
+        },
+        "300L": {
+            "name": "SIWES (Students Industrial Work Experience Scheme)",
+            "timing": "After Second Semester (during holiday break)",
+            "duration": "3 months (9 to 12 weeks)",
+            "description": "Industrial placement in manufacturing & engineering firms for 300L students after S2."
+        },
+        "400L": {
+            "name": "6 Months Industrial Training (IT)",
+            "timing": "Second Semester (Full 6 Months)",
+            "duration": "6 months (minimum 24 weeks)",
+            "description": "Full 6-month industrial placement starting at the beginning of 400L S2. 400L students take no on-campus lectures during S2."
+        }
+    }
+
     return context

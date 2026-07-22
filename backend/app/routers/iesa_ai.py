@@ -326,6 +326,11 @@ IESA (Industrial Engineering Students' Association) is the official departmental
 400L: IOP 401 (Operations Research), IOP 402 (Systems Engineering), IOP 403 (Facilities Planning & Design), IOP 404 (Engineering Economy), IOP 405 (Human Factors Engineering)
 500L: IOP 501 (Project Management), IOP 502 (Final Year Project), IOP 503 (Automation & Robotics), IOP 504 (Supply Chain Management)
 
+## Work Experience & Industrial Training Programs (SWEP, SIWES, IT)
+- 200L Students — SWEP (Student Work Experience Program): Held AFTER Second Semester ends during the holiday break. Duration: 6 to 8 weeks. Focuses on practical workshop skills and basic engineering applications.
+- 300L Students — SIWES (Students Industrial Work Experience Scheme): Held AFTER Second Semester ends during the holiday break. Duration: 3 months (9 to 12 weeks). Focuses on real-world industrial placement in recognized manufacturing and engineering firms.
+- 400L Students — 6 Months Industrial Training (IT): Starts at the BEGINNING of Second Semester and lasts for a full 6 months (minimum 24 weeks). 400L students are on full-time industrial placement off-campus during Second Semester and take no on-campus lectures.
+
 ## IESA Structure & Leadership
 EXCO positions: President, Vice President, General Secretary, Assistant General Secretary, Financial Secretary, Treasurer, Public Relations Officer (PRO), Welfare Director, Academic Director, Sports Director, Social Director
 Class Representatives: Each level has class reps who manage timetables, liaise with lecturers, and represent students

@@ -174,8 +174,15 @@ function AnnouncementsContent() {
       });
       if (!response.ok) return;
       const data: BellNotice[] = await response.json();
+      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
       const notices = (Array.isArray(data) ? data : [])
-        .filter((n) => ["announcement", "payment", "event", "team_task", "team_application", "planner_reminder", "system", "timetable", "timetable_reminder"].includes((n.type || "").toLowerCase()))
+        .filter((n) => {
+          const type = (n.type || "").toLowerCase();
+          if (!["announcement", "payment", "event", "team_task", "team_application", "planner_reminder", "system", "timetable", "timetable_reminder"].includes(type)) return false;
+          const createdTime = new Date(n.createdAt).getTime();
+          return !isNaN(createdTime) && (now - createdTime) <= SEVEN_DAYS_MS;
+        })
         .slice(0, 8);
       setBellNotices(notices);
     } catch {
@@ -280,21 +287,6 @@ function AnnouncementsContent() {
   const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
   const paginatedAnnouncements = sorted.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
   const unreadCount = announcements.length - readAnnouncements.size;
-
-  /* ── Loading State ── */
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-ghost">
-        <DashboardHeader title="Announcements" />
-        <div className="flex-1 flex items-center justify-center min-h-[60vh]">
-          <div className="text-center space-y-3">
-            <div className="w-8 h-8 border-[3px] border-lavender border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-xs font-bold text-slate uppercase tracking-wider">Loading announcements…</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-ghost">
@@ -474,7 +466,19 @@ function AnnouncementsContent() {
         {/* ═══════════════════════════════════════════════════════
             ANNOUNCEMENTS LIST
             ═══════════════════════════════════════════════════════ */}
-        {sorted.length === 0 ? (
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="bg-snow border-[3px] border-navy/15 rounded-3xl p-6 animate-pulse space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="h-5 bg-cloud rounded-lg w-2/3" />
+                  <div className="h-4 bg-cloud rounded-md w-16" />
+                </div>
+                <div className="h-4 bg-cloud rounded-md w-1/3" />
+              </div>
+            ))}
+          </div>
+        ) : sorted.length === 0 ? (
           <div className="bg-snow border-[3px] border-navy rounded-3xl p-12 text-center shadow-[4px_4px_0_0_#000]">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-lavender-light flex items-center justify-center">
               <svg aria-hidden="true" className="w-8 h-8 text-lavender" viewBox="0 0 24 24" fill="currentColor">

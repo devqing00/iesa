@@ -679,15 +679,28 @@ export default function TimetablePage() {
             </button>
           </div>
           
-          <select
-            value={selectedSemester || ""}
-            onChange={(e) => setSelectedSemester(parseInt(e.target.value))}
-            className="bg-snow border-2 border-navy rounded-xl px-4 py-2 text-sm font-bold text-navy shadow-[2px_2px_0_0_#000] cursor-pointer"
-          >
-            <option value="1">1st Semester</option>
-            <option value="2">2nd Semester</option>
-          </select>
+          {activeTab !== "calendar" && (
+            <select
+              value={selectedSemester || ""}
+              onChange={(e) => setSelectedSemester(parseInt(e.target.value))}
+              className="bg-snow border-2 border-navy rounded-xl px-4 py-2 text-sm font-bold text-navy shadow-[2px_2px_0_0_#000] cursor-pointer"
+            >
+              <option value="1">1st Semester</option>
+              <option value="2">2nd Semester</option>
+            </select>
+          )}
         </div>
+
+        {loading ? (
+          <div className="space-y-4">
+            <div className="bg-snow border-4 border-navy rounded-3xl p-8 animate-pulse space-y-4">
+              <div className="h-6 bg-cloud rounded-lg w-1/3" />
+              <div className="h-4 bg-cloud rounded-lg w-1/2" />
+              <div className="h-48 bg-cloud rounded-2xl" />
+            </div>
+          </div>
+        ) : (
+          <>
 
         {activeTab === "classes" && !isLecturePeriod && (
           <div className="mb-4 bg-lavender border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000] flex items-center gap-3">
@@ -851,7 +864,7 @@ export default function TimetablePage() {
         </>
         ) : (
           <div className="mt-6">
-            <AcademicCalendarTab />
+            <AcademicCalendarTab selectedSemester={selectedSemester} />
           </div>
         )}
 
@@ -1033,6 +1046,8 @@ export default function TimetablePage() {
             ))}
           </div>
           </div>
+        </>
+        )}
         </>
         )}
 

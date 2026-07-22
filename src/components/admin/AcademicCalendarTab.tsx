@@ -37,17 +37,27 @@ const EMPTY_FORM: CreateAcademicEventData = {
 
 /* ─── Component ──────────────────────────── */
 
-export default function AcademicCalendarTab() {
+interface AcademicCalendarTabProps {
+  selectedSemester?: number | null;
+}
+
+export default function AcademicCalendarTab({ selectedSemester }: AcademicCalendarTabProps = {}) {
   const { user, getAccessToken } = useAuth();
   const [events, setEvents] = useState<AcademicEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterSemester, setFilterSemester] = useState<number | "">("");
+  const [filterSemester, setFilterSemester] = useState<number | "">(selectedSemester ?? "");
   const [filterType, setFilterType] = useState<string>("");
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<AcademicEvent | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<CreateAcademicEventData>({ ...EMPTY_FORM });
+
+  useEffect(() => {
+    if (selectedSemester !== undefined && selectedSemester !== null) {
+      setFilterSemester(selectedSemester);
+    }
+  }, [selectedSemester]);
 
   /* ── Fetch ── */
 
@@ -151,8 +161,8 @@ export default function AcademicCalendarTab() {
 
   /* ── Group events by semester ── */
 
-  const sem1 = events.filter((e) => e.semester === 1);
-  const sem2 = events.filter((e) => e.semester === 2);
+  const sem1 = events.filter((e) => Number(e.semester) === 1);
+  const sem2 = events.filter((e) => Number(e.semester) === 2);
 
   const displayEvents = filterSemester === 1 ? sem1 : filterSemester === 2 ? sem2 : events;
 
@@ -160,48 +170,106 @@ export default function AcademicCalendarTab() {
 
   return (
     <div className="space-y-6">
-      {/* Stats + Filters */}
+      {/* Stats + Filter Controls */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-snow border-4 border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]">
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Total Events</p>
           <p className="font-display font-black text-2xl text-navy">{events.length}</p>
         </div>
         <div className="bg-coral border-4 border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]">
-          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/60 mb-1">Semester 1</p>
-          <p className="font-display font-black text-2xl text-snow">{sem1.length}</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80 mb-1">
+            {filterSemester === 2 ? "Semester 2 Events" : filterSemester === 1 ? "Semester 1 Events" : "Semester 1 / 2"}
+          </p>
+          <p className="font-display font-black text-2xl text-snow">
+            {filterSemester === 2 ? sem2.length : filterSemester === 1 ? sem1.length : `${sem1.length} / ${sem2.length}`}
+          </p>
         </div>
 
-        {/* Filter: Semester */}
-        <div className="bg-ghost border-[3px] border-navy rounded-2xl p-4 flex flex-col justify-center">
-          <label className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Semester</label>
-          <select
-            value={filterSemester}
-            onChange={(e) => setFilterSemester(e.target.value ? Number(e.target.value) : "")}
-            title="Filter by semester"
-            className="bg-transparent text-navy font-bold text-sm appearance-none cursor-pointer outline-none"
-          >
-            <option value="">Both</option>
-            <option value={1}>First Semester</option>
-            <option value={2}>Second Semester</option>
-          </select>
+        {/* Interactive Filter Card: Semester */}
+        <div className="bg-sunny-light border-[3px] border-navy rounded-3xl p-4 shadow-[4px_4px_0_0_#000] flex flex-col justify-between transition-all hover:border-navy group">
+          <div className="flex items-center justify-between gap-1 mb-1">
+            <span className="text-[10px] font-black uppercase tracking-[0.12em] text-navy">Filter Semester</span>
+            <span className="text-[9px] font-black text-navy bg-sunny px-2 py-0.5 rounded-md border border-navy/20 uppercase tracking-wider">
+              {filterSemester === 1 ? "Sem 1" : filterSemester === 2 ? "Sem 2" : "All"}
+            </span>
+          </div>
+          <div className="relative">
+            <select
+              value={filterSemester}
+              onChange={(e) => setFilterSemester(e.target.value ? Number(e.target.value) : "")}
+              title="Filter by semester"
+              className="w-full bg-snow border-2 border-navy rounded-xl px-3 py-1.5 text-navy font-bold text-xs appearance-none cursor-pointer outline-none shadow-[2px_2px_0_0_#000] pr-7"
+            >
+              <option value="">Both Semesters</option>
+              <option value={1}>First Semester Only</option>
+              <option value={2}>Second Semester Only</option>
+            </select>
+            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-navy pointer-events-none">▼</span>
+          </div>
         </div>
 
-        {/* Filter: Type */}
-        <div className="bg-ghost border-[3px] border-navy rounded-2xl p-4 flex flex-col justify-center">
-          <label className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-1">Event Type</label>
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            title="Filter by event type"
-            className="bg-transparent text-navy font-bold text-sm appearance-none cursor-pointer outline-none"
-          >
-            <option value="">All Types</option>
-            {ALL_EVENT_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {EVENT_TYPE_LABELS[t]}
-              </option>
-            ))}
-          </select>
+        {/* Interactive Filter Card: Event Type */}
+        <div className="bg-teal-light border-[3px] border-navy rounded-3xl p-4 shadow-[4px_4px_0_0_#000] flex flex-col justify-between transition-all hover:border-navy group">
+          <div className="flex items-center justify-between gap-1 mb-1">
+            <span className="text-[10px] font-black uppercase tracking-[0.12em] text-navy">Event Category</span>
+            <span className="text-[9px] font-black text-snow bg-teal px-2 py-0.5 rounded-md border border-navy/20 uppercase tracking-wider">
+              {filterType ? EVENT_TYPE_LABELS[filterType as AcademicEventType] || filterType : "All"}
+            </span>
+          </div>
+          <div className="relative">
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              title="Filter by event type"
+              className="w-full bg-snow border-2 border-navy rounded-xl px-3 py-1.5 text-navy font-bold text-xs appearance-none cursor-pointer outline-none shadow-[2px_2px_0_0_#000] pr-7"
+            >
+              <option value="">All Event Types</option>
+              {ALL_EVENT_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {EVENT_TYPE_LABELS[t]}
+                </option>
+              ))}
+            </select>
+            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-navy pointer-events-none">▼</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Industrial Training & Work Experience Reference Banner */}
+      <div className="bg-lavender-light border-[3px] border-navy rounded-3xl p-5 shadow-[3px_3px_0_0_#000]">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="w-2.5 h-2.5 rounded-full bg-lavender animate-pulse" />
+          <h3 className="font-display font-black text-sm text-navy uppercase tracking-wider">
+            Industrial Training & Work Experience Schedule (IPE)
+          </h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="bg-snow border-2 border-navy/20 rounded-2xl p-3.5">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-black text-navy bg-lime rounded px-2 py-0.5">200L SWEP</span>
+              <span className="text-[9px] font-bold text-slate uppercase">6 – 8 Weeks</span>
+            </div>
+            <p className="text-xs font-bold text-navy">Student Work Experience Program</p>
+            <p className="text-[11px] text-slate mt-0.5">Holds immediately after 2nd semester ends during the break.</p>
+          </div>
+
+          <div className="bg-snow border-2 border-navy/20 rounded-2xl p-3.5">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-black text-navy bg-sunny rounded px-2 py-0.5">300L SIWES</span>
+              <span className="text-[9px] font-bold text-slate uppercase">3 Months</span>
+            </div>
+            <p className="text-xs font-bold text-navy">Industrial Training Scheme</p>
+            <p className="text-[11px] text-slate mt-0.5">Holds after 2nd semester ends (9 to 12 weeks during break).</p>
+          </div>
+
+          <div className="bg-snow border-2 border-navy/20 rounded-2xl p-3.5">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-black text-snow bg-coral rounded px-2 py-0.5">400L IT</span>
+              <span className="text-[9px] font-bold text-slate uppercase">6 Months</span>
+            </div>
+            <p className="text-xs font-bold text-navy">6-Month Industrial Training</p>
+            <p className="text-[11px] text-slate mt-0.5">Starts at beginning of 2nd semester (full off-campus placement).</p>
+          </div>
         </div>
       </div>
 
@@ -243,6 +311,7 @@ export default function AcademicCalendarTab() {
         <>
           {/* Semester groups */}
           {[1, 2].map((sem) => {
+            if (filterSemester && Number(filterSemester) !== sem) return null;
             const semEvents = displayEvents.filter((e) => e.semester === sem);
             if (semEvents.length === 0) return null;
             return (

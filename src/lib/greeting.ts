@@ -7,8 +7,10 @@
 
 import type { AcademicContext } from "@/hooks/useData";
 
-export function getTimeGreeting(isBirthday = false, context?: AcademicContext): string {
+export function getTimeGreeting(isBirthday = false, context?: AcademicContext, userLevel?: number | string): string {
   const hour = new Date().getHours();
+  const levelNum = userLevel ? parseInt(String(userLevel).replace(/\D/g, ""), 10) : 0;
+  const currentSem = context?.currentSemester || 1;
 
   if (isBirthday) {
     if (hour < 12) return "Happy Birthday! Good morning";
@@ -16,9 +18,15 @@ export function getTimeGreeting(isBirthday = false, context?: AcademicContext): 
     return "Happy Birthday! Hope your day's been great";
   }
 
+  // Level 400 2nd Semester 6 Months Industrial Training (IT) Override
+  if (levelNum === 400 && currentSem === 2) {
+    if (hour < 12) return "Good morning! Hope your 6 Months Industrial Training (IT) placement is off to a great start!";
+    return "Welcome back! Wishing you a productive 6 Months Industrial Training (IT) period!";
+  }
+
   // Academic Calendar Context Overrides
   if (context) {
-    const semStr = context.currentSemester === 1 ? "1st" : "2nd";
+    const semStr = currentSem === 1 ? "1st" : "2nd";
     const sessionStr = context.sessionName;
 
     if (context.isFirstDayOfSession) {
@@ -48,12 +56,16 @@ export function getTimeGreeting(isBirthday = false, context?: AcademicContext): 
     }
 
     if (context.isHoliday) {
+      if (levelNum === 200) return "Hope you're having a productive SWEP (Student Work Experience Program) period!";
+      if (levelNum === 300) return "Hope your 3-Month SIWES industrial placement is going well!";
       if (hour < 12) return "Good morning! Enjoy the break, you've earned it!";
       if (hour < 17) return "Hope you're having a relaxing and wonderful holiday!";
       return "Good evening! Have a relaxing night away from the books.";
     }
 
     if (context.isResumptionWeek) {
+      if (levelNum === 200) return `Welcome back! Hope your ${semStr} Semester resumption week is going well!`;
+      if (levelNum === 300) return `Welcome back! Hope your ${semStr} Semester resumption week is going well!`;
       if (hour < 12) return `Good morning! Still settling into the ${semStr} Semester?`;
       return `Welcome back! Hope your ${semStr} Semester resumption week is going well!`;
     }

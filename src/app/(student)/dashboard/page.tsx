@@ -185,6 +185,8 @@ export default function StudentDashboardPage() {
           return STREAK_KEYWORDS.some((kw) => text.includes(kw));
         };
 
+        const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+        const nowMs = Date.now();
         const notices = (Array.isArray(data) ? data : [])
           .filter((n) =>
             ["announcement", "payment", "event", "team_task", "team_application", "planner_reminder", "system", "timetable", "timetable_reminder", "class_status", "cohort_poll"].includes(
@@ -193,6 +195,11 @@ export default function StudentDashboardPage() {
           )
           // Remove any streak/momentum notifications regardless of type
           .filter((n) => !isStreakNotice(n))
+          // Filter by 7-day recency
+          .filter((n) => {
+            const createdTime = new Date(n.createdAt).getTime();
+            return !isNaN(createdTime) && (nowMs - createdTime) <= SEVEN_DAYS_MS;
+          })
           .slice(0, 4);
         setBellNotices(notices);
       } catch {
@@ -262,11 +269,33 @@ export default function StudentDashboardPage() {
     void fetchTeamHeadOverview();
   }, [external, getAccessToken, hasPermission, user]);
 
-  const greeting = () => getTimeGreeting(isMyBirthday, data?.academicContext);
+  const currentLevelValue = parseInt(String(userProfile?.currentLevel || userProfile?.level || "0"), 10) || 0;
+  const greeting = () => getTimeGreeting(isMyBirthday, data?.academicContext, currentLevelValue);
   const quoteOfTheDay = getQuoteOfTheDay();
+
+  const is400LIT = currentLevelValue === 400 && (currentSession?.currentSemester || data?.academicContext?.currentSemester || 1) === 2;
+
+  const dashboardPersona = (() => {
+    if (external) return "You’re in visitor mode — stay on top of announcements and IEPOD milestones.";
+    if (hasPermission("team_head:view_members")) return "Lead view active — check your pending assignments and team updates.";
+    if (hasPermission("class_rep:view_cohort")) return "Class representative mode — keep timetable and notices aligned for your level.";
+    if (is400LIT) return "400L Industrial Training active — 6 months full-time industrial placement (off-campus).";
+    if (currentLevelValue >= 400) return "Final stretch — prioritize dues, major deadlines, and revision sessions.";
+    if (currentLevelValue >= 300) return "Mid-level momentum — balance classes with growth and team consistency.";
+    return "Foundation phase — build strong routines with timetable and daily growth tools.";
+  })();
 
   const getContextTagline = () => {
     if (loading) return "";
+
+    const userLevelNum = userProfile?.level ? parseInt(String(userProfile.level)) : 0;
+    const currentSem = currentSession?.currentSemester || data?.academicContext?.currentSemester || 1;
+
+    // 400L Second Semester Industrial Training (IT)
+    if (userLevelNum === 400 && currentSem === 2) {
+      return "400L Industrial Training (IT) Period — You are on your 6-month industrial placement.";
+    }
+
     const day = new Date().getDay();
     const isWeekend = day === 0 || day === 6;
 
@@ -284,6 +313,8 @@ export default function StudentDashboardPage() {
 
     if (!isLecturePeriod) {
       if (data?.academicContext?.isExamPeriod) return "It's exam season. Stay focused and prepare well.";
+      if (userLevelNum === 200) return "Lectures concluded — 200L SWEP (Student Work Experience Program, 6-8 weeks) period.";
+      if (userLevelNum === 300) return "Lectures concluded — 300L SIWES (Students Industrial Work Experience Scheme, 3 months) period.";
       return "Lectures have concluded. Take some time to review or rest.";
     }
 
@@ -404,17 +435,7 @@ export default function StudentDashboardPage() {
     return notice.link;
   };
 
-  const currentLevelValue = parseInt(String(userProfile?.currentLevel || userProfile?.level || "0"), 10) || 0;
   const canUseCohort = !external && permissionsLoaded && !isClassRepOrAssistant;
-
-  const dashboardPersona = (() => {
-    if (external) return "You’re in visitor mode — stay on top of announcements and IEPOD milestones.";
-    if (hasPermission("team_head:view_members")) return "Lead view active — check your pending assignments and team updates.";
-    if (hasPermission("class_rep:view_cohort")) return "Class representative mode — keep timetable and notices aligned for your level.";
-    if (currentLevelValue >= 400) return "Final stretch — prioritize dues, major deadlines, and revision sessions.";
-    if (currentLevelValue >= 300) return "Mid-level momentum — balance classes with growth and team consistency.";
-    return "Foundation phase — build strong routines with timetable and daily growth tools.";
-  })();
 
   const getNoticeAction = (notice: BellNotice): { label: string; href: string } => {
     const text = `${notice.title || ""} ${notice.message || ""}`.toLowerCase();
@@ -449,7 +470,7 @@ export default function StudentDashboardPage() {
 
 
   const nextActions = (() => {
-    const actions: Array<{ title: string; detail: string; href: string; cta: string; tone: string }> = [];
+    const actions: Array<{ title: string; detail: string; href: string; cta: string; tone: string; isLive?: boolean }> = [];
 
     if (pendingPayments.length > 0) {
       actions.push({
@@ -461,13 +482,51 @@ export default function StudentDashboardPage() {
       });
     }
 
-    if (isLecturePeriod && todayClasses.length > 0) {
+    // Dynamic real-time live class detection
+    const now = new Date();
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+    const parseTimeToMins = (t: string) => {
+      if (!t) return 0;
+      const [h, m] = t.split(":").map(Number);
+      return (h || 0) * 60 + (m || 0);
+    };
+
+    const liveClass = isLecturePeriod
+      ? todayClasses.find((cls) => {
+          const s = parseTimeToMins(cls.startTime);
+          const e = parseTimeToMins(cls.endTime);
+          return currentMins >= s && currentMins < e;
+        })
+      : null;
+
+    const nextClassToday = isLecturePeriod && !liveClass
+      ? todayClasses.find((cls) => parseTimeToMins(cls.startTime) > currentMins)
+      : null;
+
+    if (liveClass) {
       actions.push({
-        title: "Review today’s class plan",
-        detail: `${todayClasses[0].courseCode} starts at ${todayClasses[0].startTime}`,
+        title: "Class is live now",
+        detail: `${liveClass.courseCode} is currently holding at ${liveClass.venue || "venue"} (until ${liveClass.endTime})`,
+        href: "/dashboard/timetable",
+        cta: "View update",
+        tone: "bg-lime-light",
+        isLive: true,
+      });
+    } else if (nextClassToday) {
+      actions.push({
+        title: "Next class today",
+        detail: `${nextClassToday.courseCode} starts at ${nextClassToday.startTime} at ${nextClassToday.venue || "venue TBD"}`,
         href: "/dashboard/timetable",
         cta: "Open timetable",
         tone: "bg-teal-light",
+      });
+    } else if (isLecturePeriod && todayClasses.length > 0) {
+      actions.push({
+        title: "Review today’s class plan",
+        detail: `All ${todayClasses.length} class${todayClasses.length > 1 ? "es" : ""} for today have concluded.`,
+        href: "/dashboard/timetable",
+        cta: "Open timetable",
+        tone: "bg-sunny-light",
       });
     } else if (!isLecturePeriod && data?.academicContext?.isExamPeriod) {
       actions.push({
@@ -487,11 +546,17 @@ export default function StudentDashboardPage() {
       });
     }
 
-    if (bellNotices.length > 0) {
-      const action = getNoticeAction(bellNotices[0]);
+    // Filter bellNotices to exclude any stale fake "Class is live now" notifications
+    const validNotices = bellNotices.filter((n) => {
+      const text = `${n.title ?? ""} ${n.message ?? ""}`.toLowerCase();
+      return !text.includes("class is live now");
+    });
+
+    if (validNotices.length > 0) {
+      const action = getNoticeAction(validNotices[0]);
       actions.push({
-        title: bellNotices[0].title || "Recent notice",
-        detail: bellNotices[0].message || "Take action from your latest notification",
+        title: validNotices[0].title || "Recent notice",
+        detail: validNotices[0].message || "Take action from your latest notification",
         href: action.href,
         cta: action.label,
         tone: "bg-lavender-light",
@@ -793,7 +858,33 @@ export default function StudentDashboardPage() {
           </div>
 
           {/* — Classes Today Counter or Alternative Widget — only for IPE students */}
-          {!external && isLecturePeriod && (
+          {!external && is400LIT && (
+            <div className="lg:col-span-4 bg-teal border-[3px] border-navy rounded-[2rem] p-8 relative overflow-hidden flex flex-col justify-between min-h-[230px] shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
+              <div className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full bg-navy/10 pointer-events-none" />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-snow/80 text-[10px] font-bold tracking-[0.15em] uppercase">Industrial Training</p>
+                  <span className="text-[9px] font-black tracking-wider text-navy bg-lime px-2 py-0.5 rounded-full border border-navy/20 uppercase">
+                    6 Months IT
+                  </span>
+                </div>
+                <p className="font-display font-black text-3xl md:text-4xl text-snow leading-tight mt-1">
+                  Active IT Placement
+                </p>
+                <p className="text-snow/80 text-xs font-medium mt-2 leading-relaxed">
+                  Off-campus 6-month industrial training placement for 400L Second Semester.
+                </p>
+              </div>
+              <Link href="/dashboard/timetable?tab=calendar" className="relative z-10 inline-flex items-center gap-2 text-snow font-bold text-xs hover:underline transition-colors group mt-4">
+                View Academic Calendar
+                <svg aria-hidden="true" className="w-4 h-4 group-hover:translate-x-1 transition-transform" viewBox="0 0 24 24" fill="currentColor">
+                  <path fillRule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                </svg>
+              </Link>
+            </div>
+          )}
+
+          {!external && !is400LIT && isLecturePeriod && (
           <div className="lg:col-span-4 bg-coral border-[3px] border-navy rounded-[2rem] p-8 relative overflow-hidden flex flex-col justify-between min-h-[230px] shadow-[3px_3px_0_0_#000] rotate-[0.5deg] hover:rotate-0 transition-transform">
             {/* Decorative shapes */}
             <div className="absolute -bottom-8 -right-8 w-32 h-32 rounded-full bg-navy/10 pointer-events-none" />
@@ -860,29 +951,47 @@ export default function StudentDashboardPage() {
           )}
         </div>
 
-        {/* ═══ EVENT COUNTDOWN CHIP ═══ */}
+        {/* ═══ EVENT COUNTDOWN BAR ═══ */}
         {typeof data?.academicContext?.daysToNextEvent === "number" && data.academicContext.daysToNextEvent <= 14 && data.academicContext.nextEventTitle && (
-          <div className="mb-5 flex justify-end">
-            <div className="inline-flex items-center gap-3 bg-sunny-light border-2 border-navy rounded-full px-5 py-2 shadow-[2px_2px_0_0_#000] rotate-[-1deg] hover:rotate-0 transition-transform">
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-sunny text-navy font-black text-xs border border-navy/20">
-                {data.academicContext.daysToNextEvent}
+          <div className="mb-5">
+            <div className="w-full flex items-center justify-between gap-3 bg-sunny-light border-[3px] border-navy rounded-2xl px-5 py-3 shadow-[3px_3px_0_0_#000]">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-sunny text-navy font-black text-xs border-2 border-navy shrink-0">
+                  {data.academicContext.daysToNextEvent}
+                </span>
+                <p className="text-xs font-bold text-navy uppercase tracking-wider truncate">
+                  Days until {data.academicContext.nextEventTitle}
+                </p>
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-navy/60 bg-snow/80 px-2.5 py-1 rounded-lg border border-navy/15 shrink-0 hidden sm:inline-block">
+                Academic Event
               </span>
-              <p className="text-[11px] font-bold text-navy uppercase tracking-widest">
-                Days until {data.academicContext.nextEventTitle}
-              </p>
             </div>
           </div>
         )}
 
         {!external && nextActions.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+          <div className="flex flex-wrap gap-4 mb-5">
             {nextActions.map((action) => (
-              <div key={`${action.title}-${action.href}`} className={`${action.tone} border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000]`}>
-                <p className="text-xs font-bold text-navy truncate">{action.title}</p>
-                <p className="text-[11px] text-slate mt-1 line-clamp-2 min-h-[2.5rem]">{action.detail}</p>
+              <div
+                key={`${action.title}-${action.href}`}
+                className={`flex-1 min-w-[260px] md:min-w-[300px] ${action.tone} border-[3px] border-navy rounded-2xl p-4 shadow-[3px_3px_0_0_#000] flex flex-col justify-between`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-bold text-navy truncate">{action.title}</p>
+                    {action.isLive && (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-coral text-snow text-[9px] font-black uppercase tracking-wider animate-pulse shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-snow animate-ping" />
+                        LIVE
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate mt-1 line-clamp-2 min-h-[2.25rem]">{action.detail}</p>
+                </div>
                 <Link
                   href={action.href}
-                  className="inline-flex mt-3 items-center gap-1.5 bg-navy border-2 border-lime px-3 py-1.5 rounded-lg text-[11px] font-bold text-lime press-2 press-lime"
+                  className="inline-flex mt-3 self-start items-center gap-1.5 bg-navy border-2 border-lime px-3 py-1.5 rounded-lg text-[11px] font-bold text-lime press-2 press-lime"
                 >
                   {action.cta}
                 </Link>
