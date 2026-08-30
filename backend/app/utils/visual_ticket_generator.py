@@ -59,9 +59,9 @@ def generate_visual_ticket(
                 return
             x = int(img_w * float(config.get("x", 0)) / 100.0)
             y = int(img_h * float(config.get("y", 0)) / 100.0)
-            # Reduce font size multiplier to fit better visually (70% of box height)
+            # Use a slightly smaller multiplier (0.95) to fit the monospace bold text nicely without being too small
             box_h_pct = float(config.get("h", 5)) / 100.0
-            font_size = int(img_h * box_h_pct * 0.7)
+            font_size = int(img_h * box_h_pct * 0.95)
             color = config.get("color", "#000000")
             
             try:
