@@ -5,8 +5,9 @@ CRITICAL: All payments are session-scoped.
 The session_id filter is automatically applied based on user's current session.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, HTTPException, Depends, status, Query, Request, BackgroundTasks, UploadFile, File
+from fastapi.responses import StreamingResponse, Response
+from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from bson import ObjectId
@@ -15,7 +16,7 @@ from slowapi.util import get_remote_address
 
 from app.models.payment import (
     Payment, PaymentCreate, PaymentUpdate, PaymentWithStatus,
-    Transaction, TransactionCreate
+    Transaction, TransactionCreate, TicketConfig
 )
 from app.db import get_database
 from app.core.security import get_current_user
@@ -238,8 +239,8 @@ async def export_payments_pdf(
         rows=rows,
     )
 
-    return StreamingResponse(
-        pdf_buffer,
+    return Response(
+        content=pdf_buffer.getvalue(),
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=iesa-payments-{now.strftime('%Y%m%d')}.pdf"},
     )
@@ -481,9 +482,12 @@ async def download_paid_students_pdf(
         rows=rows,
     )
 
-    safe_title = payment.get("title", "Payment").replace(" ", "_")[:30]
-    return StreamingResponse(
-        pdf_buffer,
+    # Sanitize title to prevent UnicodeEncodeError in HTTP headers
+    safe_title = "".join(c for c in payment.get("title", "Payment") if c.isalnum() or c in " _-").strip()
+    safe_title = safe_title.replace(" ", "_")[:30]
+    
+    return Response(
+        content=pdf_buffer.getvalue(),
         media_type="application/pdf",
         headers={
             "Content-Disposition": f"attachment; filename=PaidStudents_{safe_title}.pdf"
@@ -719,3 +723,343 @@ async def send_payment_reminder(
     )
 
     return {"sent": count, "unpaid": len(unpaid_ids)}
+
+
+# ── Ticket Generation ────────────────────────────────────────────
+
+@router.post("/{payment_id}/ticket-template")
+async def upload_ticket_template_endpoint(
+    payment_id: str,
+    file: UploadFile = File(...),
+    user: dict = Depends(require_permission("payment:edit"))
+):
+    """Upload a ticket template image to Cloudinary and return the URL."""
+    from app.utils.cloudinary_config import upload_ticket_template
+    
+    if not ObjectId.is_valid(payment_id):
+        raise HTTPException(400, "Invalid payment ID")
+        
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(400, "File must be an image")
+        
+    file_data = await file.read()
+    if len(file_data) > 5 * 1024 * 1024:
+        raise HTTPException(400, "File size must be under 5MB")
+        
+    url = await upload_ticket_template(file_data, payment_id)
+    if not url:
+        raise HTTPException(500, "Failed to upload image")
+        
+    return {"url": url}
+
+
+@router.post("/{payment_id}/ticket-config", response_model=Payment)
+async def update_ticket_config(
+    payment_id: str,
+    config: TicketConfig,
+    user: dict = Depends(require_permission("payment:edit"))
+):
+    """Save visual ticket configuration"""
+    db = get_database()
+    
+    if not ObjectId.is_valid(payment_id):
+        raise HTTPException(400, "Invalid payment ID")
+        
+    result = await db.payments.update_one(
+        {"_id": ObjectId(payment_id)},
+        {"$set": {"ticketConfig": config.model_dump(), "updatedAt": datetime.now(timezone.utc)}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(404, "Payment not found")
+        
+    payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+    payment["_id"] = str(payment["_id"])
+    return Payment(**payment)
+
+
+async def _process_ticket_dispatch(payment_id: str, admin_email: str):
+    import asyncio
+    import logging
+    from app.utils.visual_ticket_generator import generate_visual_ticket
+    from app.core.email import EmailService
+    
+    db = get_database()
+    payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+    if not payment or not payment.get("ticketConfig"):
+        return
+        
+    config = payment["ticketConfig"]
+    paid_uids = payment.get("paidBy", [])
+    if not paid_uids:
+        return
+        
+    oid_list = [ObjectId(uid) for uid in paid_uids if ObjectId.is_valid(uid)]
+    users = await db.users.find(
+        {"_id": {"$in": oid_list}},
+        {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1}
+    ).to_list(length=None)
+    
+    email_service = EmailService()
+    
+    for u in users:
+        student_name = f"{u.get('firstName', '')} {u.get('lastName', '')}".strip()
+        matric = u.get("matricNumber", "")
+        email = u.get("email")
+        if not email:
+            continue
+            
+        qr_data = f"IESA_EVENT:{payment_id}|STUDENT:{u['_id']}"
+        
+        try:
+            loop = asyncio.get_running_loop()
+            ticket_bytes = await loop.run_in_executor(None, lambda: generate_visual_ticket(
+                template_url=config.get("templateUrl"),
+                qr_config=config.get("qrCode", {}),
+                name_config=config.get("studentName", {}),
+                matric_config=config.get("matricNumber", {}),
+                font_family=config.get("fontFamily", "Helvetica"),
+                student_name=student_name,
+                matric_number=matric,
+                qr_data=qr_data
+            ))
+            
+            subject = f"Your Ticket: {payment.get('title')}"
+            html_content = f"""
+            <h3>Hello {student_name},</h3>
+            <p>Your ticket for <strong>{payment.get('title')}</strong> is attached to this email.</p>
+            <p>Please present the QR code at the entrance for verification.</p>
+            <br/>
+            <p>Best regards,<br/>IESA UI</p>
+            """
+            
+            await email_service.send_email(
+                to=email,
+                subject=subject,
+                html_content=html_content,
+                attachments=[{
+                    "filename": f"IESA_Ticket_{payment.get('title').replace(' ', '_')}.png",
+                    "content": ticket_bytes
+                }]
+            )
+            
+            await asyncio.sleep(0.2)
+            
+        except Exception as e:
+            logging.error(f"Error dispatching ticket for {email}: {str(e)}")
+
+
+@router.post("/{payment_id}/send-tickets")
+async def dispatch_tickets(
+    payment_id: str,
+    background_tasks: BackgroundTasks,
+    user: dict = Depends(require_permission("payment:edit"))
+):
+    """Trigger background job to send visual tickets to all paid students"""
+    db = get_database()
+    if not ObjectId.is_valid(payment_id):
+        raise HTTPException(400, "Invalid payment ID")
+        
+    payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+    if not payment:
+        raise HTTPException(404, "Payment not found")
+        
+    if not payment.get("ticketConfig"):
+        raise HTTPException(400, "Ticket configuration not set for this payment")
+        
+    if not payment.get("paidBy"):
+        raise HTTPException(400, "No paid students to send tickets to")
+        
+    background_tasks.add_task(_process_ticket_dispatch, payment_id, user.get("email"))
+    return {"message": "Ticket dispatch started", "count": len(payment.get("paidBy", []))}
+
+
+@router.get("/{payment_id}/tickets/pdf")
+async def download_printable_tickets_pdf(
+    payment_id: str,
+    student_id: Optional[str] = Query(None, description="Optional ID of a specific student to generate a ticket for"),
+    user: dict = Depends(require_permission("payment:view_all"))
+):
+    """Generates a tiled A4 PDF of all tickets for paid students"""
+    import asyncio
+    import logging
+    from app.utils.visual_ticket_generator import generate_visual_ticket, generate_printable_tickets_pdf
+    
+    db = get_database()
+    if not ObjectId.is_valid(payment_id):
+        raise HTTPException(400, "Invalid payment ID")
+        
+    payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+    if not payment:
+        raise HTTPException(404, "Payment not found")
+        
+    if not payment.get("ticketConfig"):
+        raise HTTPException(400, "Ticket configuration not set for this payment")
+        
+    paid_uids = payment.get("paidBy", [])
+    if not paid_uids:
+        raise HTTPException(400, "No paid students to generate tickets for")
+        
+    config = payment["ticketConfig"]
+    
+    # Filter for single student if requested
+    if student_id:
+        if student_id not in paid_uids:
+            raise HTTPException(400, "Requested student has not paid for this event")
+        oid_list = [ObjectId(student_id)]
+    else:
+        oid_list = [ObjectId(uid) for uid in paid_uids if ObjectId.is_valid(uid)]
+        
+    users = await db.users.find(
+        {"_id": {"$in": oid_list}},
+        {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1}
+    ).to_list(length=None)
+    
+    loop = asyncio.get_running_loop()
+    
+    def generate_all_tickets(users_list, config, p_id):
+        buffers = []
+        for u in users_list:
+            student_name = f"{u.get('firstName', '')} {u.get('lastName', '')}".strip()
+            matric = u.get("matricNumber", "")
+            qr_data = f"IESA_EVENT:{p_id}|STUDENT:{str(u['_id'])}"
+            try:
+                ticket_bytes = generate_visual_ticket(
+                    template_url=config.get("templateUrl"),
+                    qr_config=config.get("qrCode", {}),
+                    name_config=config.get("studentName", {}),
+                    matric_config=config.get("matricNumber", {}),
+                    font_family=config.get("fontFamily", "Helvetica"),
+                    student_name=student_name,
+                    matric_number=matric,
+                    qr_data=qr_data
+                )
+                buffers.append(ticket_bytes)
+            except Exception as e:
+                logging.error(f"Error generating ticket for {u.get('email')}: {str(e)}")
+        return buffers
+
+    ticket_buffers = await loop.run_in_executor(None, generate_all_tickets, users, config, payment_id)
+    
+    if not ticket_buffers:
+        raise HTTPException(500, "Failed to generate any tickets")
+        
+    pdf_bytes = await loop.run_in_executor(None, generate_printable_tickets_pdf, ticket_buffers)
+    
+    if not pdf_bytes:
+        raise HTTPException(500, "Failed to compile PDF")
+        
+    safe_title = "".join(c for c in payment.get("title", "Tickets") if c.isalnum() or c in (" ", "-", "_")).replace(" ", "_")
+    filename = f"Ticket_{student_id}_{safe_title}.pdf" if student_id else f"PrintableTickets_{safe_title}.pdf"
+    
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )
+
+class TicketCheckInRequest(BaseModel):
+    qrData: str
+
+@router.post("/{payment_id}/check-in")
+async def check_in_ticket(
+    payment_id: str,
+    payload: TicketCheckInRequest,
+    user: dict = Depends(get_current_user),
+    _perm: None = Depends(require_permission("payment:edit"))
+):
+    """Scan a ticket QR code for a specific payment."""
+    db = get_database()
+    
+    if not ObjectId.is_valid(payment_id):
+        raise HTTPException(status_code=400, detail="Invalid payment ID")
+        
+    payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+        
+    # parse qrData: IESA_EVENT:{payment_id}|STUDENT:{student_id}
+    data = payload.qrData
+    if not data.startswith("IESA_EVENT:"):
+        raise HTTPException(status_code=400, detail="Invalid QR code format")
+        
+    parts = data.split("|")
+    if len(parts) != 2:
+        raise HTTPException(status_code=400, detail="Invalid QR code format")
+        
+    qr_payment_id = parts[0].replace("IESA_EVENT:", "")
+    qr_student_id = parts[1].replace("STUDENT:", "")
+    
+    if qr_payment_id != payment_id:
+        raise HTTPException(status_code=400, detail="Ticket is for a different event/payment")
+        
+    if qr_student_id not in payment.get("paidBy", []):
+        raise HTTPException(status_code=400, detail="Student has not paid for this event")
+        
+    if qr_student_id in payment.get("checkIns", []):
+        return {"message": "Already checked in", "success": True}
+        
+    await db.payments.update_one(
+        {"_id": ObjectId(payment_id)},
+        {"$push": {"checkIns": qr_student_id}}
+    )
+    
+    student = await db.users.find_one({"_id": ObjectId(qr_student_id)})
+    student_name = f"{student.get('firstName', '')} {student.get('lastName', '')}".strip() if student else "Student"
+    
+    return {"message": f"Check-in successful for {student_name}", "success": True}
+
+class SyncEventRequest(BaseModel):
+    eventId: str
+
+@router.post("/{payment_id}/sync-event")
+async def sync_payment_to_event(
+    payment_id: str,
+    payload: SyncEventRequest,
+    user: dict = Depends(get_current_user),
+    _perm: None = Depends(require_permission("payment:edit"))
+):
+    """Auto-register all students who have paid this payment to the specified event."""
+    db = get_database()
+    
+    if not ObjectId.is_valid(payment_id):
+        raise HTTPException(status_code=400, detail="Invalid payment ID")
+    if not ObjectId.is_valid(payload.eventId):
+        raise HTTPException(status_code=400, detail="Invalid event ID")
+        
+    payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+        
+    event = await db.events.find_one({"_id": ObjectId(payload.eventId)})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+        
+    paid_students = payment.get("paidBy", [])
+    if not paid_students:
+        return {"message": "No paid students to sync", "synced": 0}
+        
+    # Get current registrations
+    current_regs = event.get("registrations", [])
+    
+    # Calculate new ones
+    new_regs = [sid for sid in paid_students if sid not in current_regs]
+    
+    if not new_regs:
+        return {"message": "All paid students are already registered for this event.", "synced": 0}
+        
+    # Update event
+    await db.events.update_one(
+        {"_id": ObjectId(payload.eventId)},
+        {"$push": {"registrations": {"$each": new_regs}}}
+    )
+    
+    # Save the link on the payment so future payers get auto-registered
+    await db.payments.update_one(
+        {"_id": ObjectId(payment_id)},
+        {"$set": {"linkedEventId": payload.eventId}}
+    )
+    
+    return {"message": f"Successfully registered {len(new_regs)} paid students to {event.get('title')}", "synced": len(new_regs)}

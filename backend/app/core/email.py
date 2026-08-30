@@ -420,20 +420,12 @@ class EmailService:
                     return await self._send_smtp(to, subject, html_content, text_content, attachments)
                 return success
             elif self.provider == EmailProvider.RESEND:
-                # Resend is primary, but keep SMTP fallback for attachments and outages.
-                if attachments and self.smtp_fallback_enabled:
-                    logger.info("📎 Attachments detected — using SMTP fallback for attachment-safe delivery")
-                    return await self._send_smtp(to, subject, html_content, text_content, attachments)
-
-                success = await self._send_resend(to, subject, html_content, text_content)
+                # Resend is primary, supports attachments.
+                success = await self._send_resend(to, subject, html_content, text_content, attachments)
 
                 if not success and self.smtp_fallback_enabled:
                     logger.warning("⚠️ Resend failed — retrying with SMTP fallback")
                     return await self._send_smtp(to, subject, html_content, text_content, attachments)
-
-                # If attachments exist but no SMTP fallback, send without attachment to avoid hard failure.
-                if attachments and not self.smtp_fallback_enabled and success:
-                    logger.warning("⚠️ Email sent via Resend without attachments (no SMTP fallback configured)")
 
                 return success
             elif self.provider == EmailProvider.SMTP:
@@ -489,7 +481,7 @@ class EmailService:
         
         return success
     
-    async def _send_resend(self, to, subject, html_content, text_content):
+    async def _send_resend(self, to, subject, html_content, text_content, attachments=None):
         """Send email via Resend"""
         allowed, quota = await self._reserve_send_slot("resend")
         if not allowed:
@@ -507,6 +499,14 @@ class EmailService:
         
         if text_content:
             params["text"] = text_content
+            
+        if attachments:
+            params["attachments"] = [
+                {
+                    "filename": att["filename"],
+                    "content": list(att["content"])
+                } for att in attachments
+            ]
         
         response = self.client.Emails.send(params)
         success = response.get("id") is not None

@@ -527,6 +527,14 @@ async def review_transfer(
                     "$set": {"updatedAt": datetime.now(timezone.utc)},
                 },
             )
+            
+            # Auto-register if linked to an event
+            pay_doc = await db.payments.find_one({"_id": ObjectId(payment_id)})
+            if pay_doc and pay_doc.get("linkedEventId"):
+                await db.events.update_one(
+                    {"_id": ObjectId(pay_doc["linkedEventId"])},
+                    {"$addToSet": {"registrations": student_id}}
+                )
         
         # Create a transaction record
         await db.transactions.insert_one({

@@ -148,15 +148,16 @@ class PaidStudentsReportGenerator:
 
             cells = [
                 str(i + 1),
-                row.get("name", "N/A"),
-                row.get("matricNumber", "N/A"),
-                row.get("level", "N/A"),
-                row.get("method", ""),
-                row.get("reference", "")[:20],
+                row.get("name") or "N/A",
+                row.get("matricNumber") or "N/A",
+                row.get("level") or "N/A",
+                row.get("method") or "",
+                (row.get("reference") or "")[:20],
                 self._format_date(row.get("paidAt")),
             ]
 
             for (_, col_w), cell_text in zip(columns, cells):
+                cell_text = str(cell_text) if cell_text is not None else ""
                 # Truncate if too wide
                 max_chars = int(col_w / 4.5)
                 display = cell_text[:max_chars] + "…" if len(cell_text) > max_chars else cell_text

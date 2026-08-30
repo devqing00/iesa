@@ -24,7 +24,8 @@ import Pagination from "@/components/ui/Pagination";
 import { ConfirmModal } from "@/components/ui/Modal";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
-
+import TicketConfigModal from "@/components/admin/TicketConfigModal";
+import { PaymentCheckInModal } from "@/components/payments/PaymentCheckInModal";
 /* ─── Types ──────────────────────────────── */
 
 interface Payment {
@@ -41,6 +42,7 @@ interface Payment {
   description?: string;
   paidBy?: string[];
   createdAt?: string;
+  ticketConfig?: any;
 }
 
 interface Session {
@@ -198,7 +200,12 @@ function AdminPaymentsPage() {
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [exportingPaymentsPdf, setExportingPaymentsPdf] = useState(false);
   const [exportingTransactionsPdf, setExportingTransactionsPdf] = useState(false);
-
+  const [showTicketConfig, setShowTicketConfig] = useState(false);
+  const [showCheckInModal, setShowCheckInModal] = useState(false);
+  const [showSyncModal, setShowSyncModal] = useState(false);
+  const [eventsList, setEventsList] = useState<any[]>([]);
+  const [syncEventId, setSyncEventId] = useState("");
+  const [syncingEvent, setSyncingEvent] = useState(false);
   const fetchAnalytics = useCallback(async () => {
     setAnalyticsLoading(true);
     try {
@@ -230,6 +237,38 @@ function AdminPaymentsPage() {
       fetchAnalytics();
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (showSyncModal) {
+      const fetchEvents = async () => {
+        try {
+          const token = await getAccessToken();
+          const res = await fetch(getApiUrl("/api/v1/events?upcoming_only=true&limit=50"), { headers: { Authorization: `Bearer ${token}` }});
+          if (res.ok) {
+            const data = await res.json();
+            setEventsList(data.items || []);
+          }
+        } catch {}
+      };
+      fetchEvents();
+    }
+  }, [showSyncModal, getAccessToken]);
+
+  // Close <details> dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const detailsElements = document.querySelectorAll('details[open]');
+      detailsElements.forEach((details) => {
+        if (!details.contains(event.target as Node)) {
+          details.removeAttribute('open');
+        }
+      });
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, []);
 
   /* ─── Platform Settings ──────────────────────── */
 
@@ -2336,32 +2375,127 @@ function AdminPaymentsPage() {
                   </h4>
                   {paidStudents.length > 0 && selectedPayment && (
                     <PermissionGate permission="payment:view_all">
+                    <div className="flex items-center gap-2">
+                    {/* Dropdown for Secondary Actions */}
+                    <details className="relative group">
+                      <summary className="px-3 py-1.5 bg-ghost border-[2px] border-navy rounded-xl text-navy text-xs font-bold flex items-center gap-1.5 hover:bg-navy hover:text-snow transition-all cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                        More Actions
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </summary>
+                      <div className="absolute right-0 top-full mt-2 flex flex-col w-48 bg-snow border-[3px] border-navy rounded-2xl shadow-[4px_4px_0_0_#000] z-50 overflow-hidden">
+                        <button
+                          onClick={async (e) => {
+                            e.currentTarget.closest('details')?.removeAttribute('open');
+                            try {
+                              const token = await getAccessToken();
+                              const res = await fetch(getApiUrl(`/api/v1/payments/${selectedPayment._id}/paid-students/pdf`), {
+                                headers: { Authorization: `Bearer ${token}` },
+                              });
+                              if (!res.ok) await throwApiError(res, "generate PDF report");
+                              const blob = await res.blob();
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement("a");
+                              a.href = url;
+                              a.download = `PaidStudents_${(selectedPayment.title ?? "Payment").replace(/\s+/g, "_").slice(0, 30)}.pdf`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            } catch (err) {
+                              toast.error(getErrorMessage(err, "Failed to download PDF report"));
+                            }
+                          }}
+                          className="px-4 py-3 text-left text-xs font-bold text-navy hover:bg-navy/5 border-b-[2px] border-navy/10 flex items-center gap-2 w-full transition-colors"
+                        >
+                          <svg aria-hidden="true" className="w-4 h-4 text-lime-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          Student List PDF
+                        </button>
+                        
+                        <button
+                          onClick={(e) => {
+                            e.currentTarget.closest('details')?.removeAttribute('open');
+                            setShowSyncModal(true);
+                          }}
+                          className="px-4 py-3 text-left text-xs font-bold text-navy hover:bg-navy/5 border-b-[2px] border-navy/10 flex items-center gap-2 w-full transition-colors"
+                        >
+                          <svg aria-hidden="true" className="w-4 h-4 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Sync to Event
+                        </button>
+                        
+                        <button
+                          onClick={(e) => {
+                            e.currentTarget.closest('details')?.removeAttribute('open');
+                            setShowCheckInModal(true);
+                          }}
+                          className="px-4 py-3 text-left text-xs font-bold text-navy hover:bg-navy/5 border-b-[2px] border-navy/10 flex items-center gap-2 w-full transition-colors"
+                        >
+                          <svg aria-hidden="true" className="w-4 h-4 text-coral" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                          </svg>
+                          Scan Tickets
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.currentTarget.closest('details')?.removeAttribute('open');
+                            setShowTicketConfig(true);
+                          }}
+                          className="px-4 py-3 text-left text-xs font-bold text-navy hover:bg-navy/5 flex items-center gap-2 w-full transition-colors"
+                        >
+                          <svg aria-hidden="true" className="w-4 h-4 text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                          </svg>
+                          Ticket Template
+                        </button>
+                      </div>
+                    </details>
+
+                    {/* Primary Action Button */}
                     <button
                       onClick={async () => {
+                        if (!selectedPayment.ticketConfig) {
+                          setShowTicketConfig(true);
+                          return;
+                        }
                         try {
                           const token = await getAccessToken();
-                          const res = await fetch(getApiUrl(`/api/v1/payments/${selectedPayment._id}/paid-students/pdf`), {
+                          toast.loading("Generating tickets...", { id: "pdf-gen" });
+                          const res = await fetch(getApiUrl(`/api/v1/payments/${selectedPayment._id}/tickets/pdf`), {
                             headers: { Authorization: `Bearer ${token}` },
                           });
-                          if (!res.ok) await throwApiError(res, "generate PDF report");
+                          if (!res.ok) await throwApiError(res, "generate Printable Tickets PDF");
                           const blob = await res.blob();
                           const url = URL.createObjectURL(blob);
                           const a = document.createElement("a");
                           a.href = url;
-                          a.download = `PaidStudents_${(selectedPayment.title ?? "Payment").replace(/\s+/g, "_").slice(0, 30)}.pdf`;
+                          a.download = `PrintableTickets_${(selectedPayment.title ?? "Payment").replace(/\s+/g, "_").slice(0, 30)}.pdf`;
                           a.click();
                           URL.revokeObjectURL(url);
+                          toast.success("PDF Generated successfully", { id: "pdf-gen" });
                         } catch (err) {
-                          toast.error(getErrorMessage(err, "Failed to download PDF report"));
+                          toast.error(getErrorMessage(err, "Failed to download Printable Tickets PDF"), { id: "pdf-gen" });
                         }
                       }}
-                      className="px-3 py-1.5 bg-navy border-[2px] border-lime rounded-xl text-snow text-xs font-bold flex items-center gap-1.5 press-2 press-lime transition-all"
+                      className={`px-4 py-1.5 border-[2px] border-navy rounded-xl text-snow text-xs font-bold flex items-center gap-1.5 transition-all shadow-[2px_2px_0_0_#000] active:shadow-none active:translate-y-[2px] active:translate-x-[2px] ${
+                        selectedPayment.ticketConfig 
+                          ? 'bg-lavender text-navy' 
+                          : 'bg-teal'
+                      }`}
                     >
-                      <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        {selectedPayment.ticketConfig ? (
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                        ) : (
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                        )}
                       </svg>
-                      PDF Report
+                      {selectedPayment.ticketConfig ? 'Print Tickets PDF' : 'Configure Tickets'}
                     </button>
+                    </div>
                     </PermissionGate>
                   )}
                 </div>
@@ -2385,6 +2519,7 @@ function AdminPaymentsPage() {
                             <th className="text-left p-3 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Level</th>
                             <th className="text-left p-3 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Method</th>
                             <th className="text-left p-3 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Paid At</th>
+                            <th className="text-right p-3 text-[10px] font-bold uppercase tracking-[0.12em] text-snow/80">Action</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -2404,6 +2539,41 @@ function AdminPaymentsPage() {
                                 </span>
                               </td>
                               <td className="p-3 text-xs text-navy/60">{s.paidAt ? new Date(s.paidAt).toLocaleDateString() : "—"}</td>
+                              <td className="p-3 text-right">
+                                <button
+                                  onClick={async () => {
+                                    if (!selectedPayment?.ticketConfig) {
+                                      toast.error("Please configure a ticket template first.");
+                                      return;
+                                    }
+                                    try {
+                                      const token = await getAccessToken();
+                                      toast.loading("Generating ticket...", { id: `pdf-gen-${s.uid}` });
+                                      const res = await fetch(getApiUrl(`/api/v1/payments/${selectedPayment._id}/tickets/pdf?student_id=${s.uid}`), {
+                                        headers: { Authorization: `Bearer ${token}` },
+                                      });
+                                      if (!res.ok) await throwApiError(res, "generate Printable Ticket PDF");
+                                      const blob = await res.blob();
+                                      const url = URL.createObjectURL(blob);
+                                      const a = document.createElement("a");
+                                      a.href = url;
+                                      const safeTitle = (selectedPayment.title ?? "Payment").replace(/\s+/g, "_").slice(0, 30);
+                                      a.download = `Ticket_${s.firstName}_${s.lastName}_${safeTitle}.pdf`.replace(/\s+/g, "_");
+                                      a.click();
+                                      URL.revokeObjectURL(url);
+                                      toast.success("PDF Generated successfully", { id: `pdf-gen-${s.uid}` });
+                                    } catch (err) {
+                                      toast.error(getErrorMessage(err, "Failed to download Printable Ticket PDF"), { id: `pdf-gen-${s.uid}` });
+                                    }
+                                  }}
+                                  title="Download Single Ticket"
+                                  className="inline-flex p-1.5 bg-ghost hover:bg-navy/10 text-navy rounded-lg transition-colors"
+                                >
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                </button>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -2629,6 +2799,93 @@ function AdminPaymentsPage() {
           </div>
         </div>
       )}
+
+      {showTicketConfig && selectedPayment && (
+        <TicketConfigModal
+          paymentId={selectedPayment._id}
+          paymentTitle={selectedPayment.title || "Payment"}
+          paidCount={paidStudents.length}
+          existingConfig={selectedPayment.ticketConfig}
+          onClose={() => setShowTicketConfig(false)}
+          onConfigSaved={() => {
+            mutate(getApiUrl("/api/v1/payments"));
+          }}
+        />
+      )}
+
+      {showSyncModal && selectedPayment && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-navy/60 backdrop-blur-sm" onClick={() => setShowSyncModal(false)} />
+          <div className="relative w-full max-w-md bg-snow rounded-3xl border-[3px] border-navy shadow-[8px_8px_0_0_#000] p-6">
+            <h2 className="font-display font-black text-xl text-navy mb-2">Sync to Event</h2>
+            <p className="text-sm text-navy/70 font-bold mb-4">
+              Auto-register all {paidStudents.length} students who paid this due to an Event.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-[0.12em] text-slate mb-2">Select Pending Event</label>
+                {eventsList.length === 0 ? (
+                  <div className="p-4 bg-ghost border-[2px] border-navy/10 rounded-xl text-center">
+                    <div className="inline-block w-5 h-5 border-[3px] border-navy border-t-transparent rounded-full animate-spin mb-2" />
+                    <p className="text-xs text-navy/60 font-bold">Loading upcoming events...</p>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <select
+                      value={syncEventId}
+                      onChange={(e) => setSyncEventId(e.target.value)}
+                      className="w-full bg-snow border-[3px] border-navy rounded-xl px-4 py-3 text-sm font-bold text-navy focus:outline-none focus:ring-[3px] focus:ring-lime appearance-none cursor-pointer hover:bg-ghost transition-colors"
+                    >
+                      <option value="" disabled>-- Select an Event --</option>
+                      {eventsList.map(e => (
+                        <option key={e._id} value={e._id}>{e.title}</option>
+                      ))}
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-navy">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button
+                disabled={!syncEventId || syncingEvent}
+                onClick={async () => {
+                  try {
+                    setSyncingEvent(true);
+                    const token = await getAccessToken();
+                    const res = await fetch(getApiUrl(`/api/v1/payments/${selectedPayment._id}/sync-event`), {
+                      method: "POST",
+                      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+                      body: JSON.stringify({ eventId: syncEventId })
+                    });
+                    if (!res.ok) await throwApiError(res, "sync event");
+                    const data = await res.json();
+                    toast.success(data.message);
+                    setShowSyncModal(false);
+                  } catch (err) {
+                    toast.error(getErrorMessage(err, "Failed to sync to event"));
+                  } finally {
+                    setSyncingEvent(false);
+                  }
+                }}
+                className="w-full px-5 py-2.5 bg-lime border-[3px] border-navy rounded-xl font-bold text-navy text-sm press-2 press-navy transition-all disabled:opacity-50"
+              >
+                {syncingEvent ? "Syncing..." : "Sync Now"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <PaymentCheckInModal
+        isOpen={showCheckInModal}
+        onClose={() => setShowCheckInModal(false)}
+        paymentId={selectedPayment?._id}
+        paymentTitle={selectedPayment?.title}
+        onCheckInSuccess={() => {}}
+      />
     </div>
   );
 }

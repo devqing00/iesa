@@ -11,6 +11,14 @@ from datetime import datetime
 from bson import ObjectId
 
 
+class TicketConfig(BaseModel):
+    templateUrl: str = Field(..., description="Cloudinary URL of the ticket template")
+    qrCode: dict = Field(default={"x": 50, "y": 50, "size": 100})
+    studentName: dict = Field(default={"x": 50, "y": 180, "fontSize": 24, "color": "#000000"})
+    matricNumber: dict = Field(default={"x": 50, "y": 220, "fontSize": 16, "color": "#000000"})
+    fontFamily: Optional[str] = Field(default="Helvetica")
+
+
 class PaymentBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     amount: float = Field(..., gt=0, description="Amount in Naira")
@@ -19,6 +27,7 @@ class PaymentBase(BaseModel):
     deadline: datetime
     description: Optional[str] = Field(None, max_length=1000)
     category: Optional[str] = Field(None, description="e.g., 'Dues', 'Event', 'Merchandise'")
+    ticketConfig: Optional[TicketConfig] = Field(None, description="Configuration for batch generating event tickets")
 
 
 class PaymentCreate(PaymentBase):
@@ -33,6 +42,7 @@ class PaymentUpdate(BaseModel):
     deadline: Optional[datetime] = None
     description: Optional[str] = Field(None, max_length=1000)
     mandatory: Optional[bool] = None
+    ticketConfig: Optional[TicketConfig] = None
 
 
 class Payment(PaymentBase):

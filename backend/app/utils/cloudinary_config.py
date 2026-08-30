@@ -158,3 +158,26 @@ async def upload_press_cover(file_data: bytes, article_id: str, file_extension: 
     except Exception as e:
         print(f"Error uploading press cover to Cloudinary: {str(e)}")
         return None
+
+
+async def upload_ticket_template(file_data: bytes, payment_id: str) -> Optional[str]:
+    """
+    Upload a ticket template image to Cloudinary (async, non-blocking).
+    """
+    try:
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(None, lambda: _sync_upload(
+            file_data,
+            folder="iesa/ticket_templates",
+            public_id=f"template_{payment_id}",
+            overwrite=True,
+            resource_type="image",
+            transformation=[
+                {"quality": "auto:good"},
+                {"fetch_format": "auto"}
+            ]
+        ))
+        return result.get("secure_url")
+    except Exception as e:
+        print(f"Error uploading ticket template to Cloudinary: {str(e)}")
+        return None

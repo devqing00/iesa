@@ -367,6 +367,14 @@ async def verify_payment(
                     }
                 )
                 
+                # Auto-register if linked to an event
+                pay_doc = await db.payments.find_one({"_id": ObjectId(payment_id)})
+                if pay_doc and pay_doc.get("linkedEventId"):
+                    await db.events.update_one(
+                        {"_id": ObjectId(pay_doc["linkedEventId"])},
+                        {"$addToSet": {"registrations": current_user["_id"]}}
+                    )
+                
                 # Idempotent upsert — prevents duplicate if webhook already created this
                 await db.transactions.update_one(
                     {"reference": reference},
@@ -514,6 +522,14 @@ async def paystack_webhook(
                         "$set": {"updatedAt": datetime.now(timezone.utc)}
                     }
                 )
+                
+                # Auto-register if linked to an event
+                pay_doc = await db.payments.find_one({"_id": ObjectId(payment_id)})
+                if pay_doc and pay_doc.get("linkedEventId"):
+                    await db.events.update_one(
+                        {"_id": ObjectId(pay_doc["linkedEventId"])},
+                        {"$addToSet": {"registrations": student_id}}
+                    )
                 
                 # Idempotent upsert — prevents duplicate if verify already ran
                 await db.transactions.update_one(
