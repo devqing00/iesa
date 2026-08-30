@@ -3,8 +3,24 @@ import requests
 import qrcode
 from PIL import Image, ImageDraw, ImageFont
 import logging
+import os
+import urllib.request
+import threading
 
 logger = logging.getLogger(__name__)
+
+FONT_PATH = os.path.join(os.path.dirname(__file__), "courbd.ttf")
+
+def get_ticket_font(font_size: int):
+    try:
+        if os.path.exists(FONT_PATH):
+            return ImageFont.truetype(FONT_PATH, font_size)
+        else:
+            logger.error("Local font courbd.ttf not found in utils folder.")
+            return ImageFont.load_default()
+    except Exception as e:
+        logger.error(f"Failed to load font: {e}")
+        return ImageFont.load_default()
 
 def generate_visual_ticket(
     template_url: str,
@@ -59,30 +75,12 @@ def generate_visual_ticket(
                 return
             x = int(img_w * float(config.get("x", 0)) / 100.0)
             y = int(img_h * float(config.get("y", 0)) / 100.0)
-            # Use a slightly smaller multiplier (0.95) to fit the monospace bold text nicely without being too small
+            # Reduce font size multiplier to fit better visually (70% of box height)
             box_h_pct = float(config.get("h", 5)) / 100.0
-            font_size = int(img_h * box_h_pct * 0.95)
+            font_size = int(img_h * box_h_pct * 0.7)
             color = config.get("color", "#000000")
             
-            try:
-                # Try Courier New Bold (Windows)
-                try:
-                    font = ImageFont.truetype("courbd.ttf", font_size)
-                except IOError:
-                    try:
-                        # Try DejaVu Sans Mono Bold (Linux)
-                        font = ImageFont.truetype("DejaVuSansMono-Bold.ttf", font_size)
-                    except IOError:
-                        try:
-                            # Try Consolas Bold (Windows alternative)
-                            font = ImageFont.truetype("consolab.ttf", font_size)
-                        except IOError:
-                            try:
-                                font = ImageFont.truetype("arialbd.ttf", font_size)
-                            except IOError:
-                                font = ImageFont.load_default()
-            except Exception:
-                font = ImageFont.load_default()
+            font = get_ticket_font(font_size)
             
             draw.text((x, y), text, font=font, fill=color)
 
