@@ -49,14 +49,14 @@ export default function MaintenanceModal() {
         {/* Content */}
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Pardon Our Dust!
+            We Are Back Live! 🎉
           </h2>
           <div className="space-y-4 text-gray-600 dark:text-gray-300 text-sm md:text-base leading-relaxed">
             <p>
-              Welcome to the live platform! As we are newly deployed, we are currently experiencing some technical issues and performing active maintenance.
+              We sincerely apologize for the recent downtime. The platform was offline for the past few days due to unexpected technical issues and necessary server maintenance.
             </p>
             <p>
-              Some features (like real-time chat, quizzes, and background notifications) might be unstable or temporarily unavailable as we optimize our new hosting environment.
+              Thank you so much for your patience during this time. We have resolved the hosting issues, and the platform is now fully restored and ready for you!
             </p>
           </div>
         </div>
