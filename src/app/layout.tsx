@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 import Script from "next/script";
+import MaintenanceModal from "@/components/MaintenanceModal";
 
 const bricolage = Bricolage_Grotesque({ subsets: ["latin"], variable: '--font-display' });
 
@@ -123,7 +124,10 @@ export default function RootLayout({
             });
           }
         `}</Script>
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <MaintenanceModal />
+        </Providers>
       </body>
     </html>
   );
