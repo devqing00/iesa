@@ -181,3 +181,53 @@ async def upload_ticket_template(file_data: bytes, payment_id: str) -> Optional[
     except Exception as e:
         print(f"Error uploading ticket template to Cloudinary: {str(e)}")
         return None
+
+
+async def upload_announcement_media(
+    file_data: bytes,
+    filename: str,
+    file_extension: str,
+) -> Optional[dict]:
+    """
+    Upload an announcement image or attachment to Cloudinary (async, non-blocking).
+    Supports images, PDFs, and office documents.
+    Returns dict: { url, name, type, size, publicId }
+    """
+    import uuid
+    try:
+        loop = asyncio.get_running_loop()
+        ext = file_extension.lower().lstrip(".")
+        unique_id = uuid.uuid4().hex[:12]
+        safe_name = "".join(c for c in filename if c.isalnum() or c in "._- ")[:60]
+        
+        is_image = ext in ("jpg", "jpeg", "png", "gif", "webp", "svg", "bmp")
+        is_pdf = ext == "pdf"
+        file_type = "image" if is_image else ("pdf" if is_pdf else "document")
+        resource_type = "image" if is_image else "raw"
+
+        upload_kwargs = {
+            "folder": "iesa/announcements",
+            "public_id": f"ann_{unique_id}_{safe_name}",
+            "overwrite": False,
+            "resource_type": resource_type,
+        }
+
+        if is_image:
+            upload_kwargs["transformation"] = [
+                {"width": 1600, "height": 1600, "crop": "limit"},
+                {"quality": "auto:good"},
+                {"fetch_format": "auto"},
+            ]
+
+        result = await loop.run_in_executor(None, lambda: _sync_upload(file_data, **upload_kwargs))
+        return {
+            "id": unique_id,
+            "url": result.get("secure_url"),
+            "name": filename,
+            "type": file_type,
+            "size": len(file_data),
+            "publicId": result.get("public_id"),
+        }
+    except Exception as e:
+        print(f"Error uploading announcement media to Cloudinary: {str(e)}")
+        return None

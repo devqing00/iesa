@@ -101,6 +101,26 @@ export interface SessionSummary {
 
 export type AnnouncementPriority = 'low' | 'normal' | 'high' | 'urgent';
 
+export interface AnnouncementAttachment {
+  id?: string;
+  name: string;
+  url: string;
+  type?: string;
+  fileType?: string;
+  size?: number;
+}
+
+export type AnnouncementTargetAudience =
+  | 'all'
+  | 'ipe'
+  | 'external'
+  | 'exco_only'
+  | 'team_leads_only'
+  | 'class_rep_and_assistant'
+  | 'specific_students'
+  | 'specific_levels'
+  | 'custom_emails';
+
 export interface Announcement {
   id: string;
   title: string;
@@ -108,11 +128,17 @@ export interface Announcement {
   sessionId: string;
   priority: AnnouncementPriority;
   targetLevels: string[];
+  targetAudience?: AnnouncementTargetAudience;
+  targetUserIds?: string[];
+  customEmails?: string[];
   isPinned: boolean;
   expiresAt?: string;
+  scheduledFor?: string | null;
+  sendEmail?: boolean;
   authorId: string;
   authorName: string;
   readBy: string[];
+  attachments?: AnnouncementAttachment[];
   createdAt: string;
   updatedAt: string;
 }
@@ -126,8 +152,14 @@ export interface AnnouncementCreate {
   content: string;
   priority?: AnnouncementPriority;
   targetLevels?: string[];
+  targetAudience?: AnnouncementTargetAudience;
+  targetUserIds?: string[];
+  customEmails?: string[];
   isPinned?: boolean;
   expiresAt?: string;
+  scheduledFor?: string | null;
+  sendEmail?: boolean;
+  attachments?: AnnouncementAttachment[];
 }
 
 // ============================================

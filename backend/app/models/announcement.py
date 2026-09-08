@@ -21,21 +21,32 @@ TargetAudience = Literal[
     "class_rep_and_assistant",
     "specific_students",
     "specific_levels",  # legacy class-rep value
+    "custom_emails",
 ]
 
 
+class Attachment(BaseModel):
+    id: Optional[str] = None
+    name: str
+    url: str
+    type: str = "document"  # "image" | "pdf" | "document" | "other"
+    size: Optional[int] = None
+
+
 class AnnouncementBase(BaseModel):
-    title: str = Field(..., min_length=1, max_length=200)
-    content: str = Field(..., min_length=1, max_length=5000)
+    title: str = Field(..., min_length=1, max_length=300)
+    content: str = Field(..., min_length=1, max_length=50000)
     sessionId: str = Field(..., description="REQUIRED: Links announcement to academic session")
     priority: PriorityLevel = Field(default="normal")
     targetLevels: Optional[List[str]] = Field(None, description="Specific levels to show to (null = all)")
     targetAudience: TargetAudience = Field(default="all", description="Who sees this: all, ipe (IPE only), external (external depts only)")
     targetUserIds: Optional[List[str]] = Field(None, description="Specific user IDs to target when targetAudience is specific_students")
+    customEmails: Optional[List[str]] = Field(default_factory=list, description="Custom recipient emails when targetAudience is custom_emails")
     isPinned: bool = Field(default=False, description="Pinned announcements appear at top")
     expiresAt: Optional[datetime] = Field(None, description="Auto-hide after this date")
     scheduledFor: Optional[datetime] = Field(None, description="Publish at this time (null = publish immediately)")
     sendEmail: bool = Field(default=True, description="Send email notification to targeted students")
+    attachments: Optional[List[Attachment]] = Field(default_factory=list, description="Media attachments")
 
     def __init__(self, **data):
         # Normalise targetLevels to canonical "NL" format (e.g. "100L", "200L")
@@ -60,16 +71,18 @@ class AnnouncementCreate(AnnouncementBase):
 
 class AnnouncementUpdate(BaseModel):
     """Model for updating announcement"""
-    title: Optional[str] = Field(None, min_length=1, max_length=200)
-    content: Optional[str] = Field(None, min_length=1, max_length=5000)
+    title: Optional[str] = Field(None, min_length=1, max_length=300)
+    content: Optional[str] = Field(None, min_length=1, max_length=50000)
     priority: Optional[PriorityLevel] = None
     targetLevels: Optional[List[str]] = None
     targetAudience: Optional[TargetAudience] = None
     targetUserIds: Optional[List[str]] = None
+    customEmails: Optional[List[str]] = None
     isPinned: Optional[bool] = None
     expiresAt: Optional[datetime] = None
     scheduledFor: Optional[datetime] = None
     sendEmail: Optional[bool] = None
+    attachments: Optional[List[Attachment]] = None
 
 
 class Announcement(AnnouncementBase):

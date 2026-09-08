@@ -316,15 +316,25 @@ class ChatResponse(BaseModel):
 
 
 class DraftRequest(BaseModel):
-    topic: str
+    topic: Optional[str] = None
     context: Optional[str] = None
     type: str = "announcement"  # announcement, event, press
-    tone: str = "professional"  # professional, exciting, formal
+    tone: str = "professional"  # professional, exciting, formal, friendly
     length: str = "medium"  # short, medium, long
+    # Enhanced Announcement drafting fields
+    initial_title: Optional[str] = None
+    initial_content: Optional[str] = None
+    target_audience: Optional[str] = None
+    target_levels: Optional[List[str]] = None
+    priority: Optional[str] = None
+    include_personalization: bool = True
+    refinement_instructions: Optional[str] = None
 
 
 class DraftResponse(BaseModel):
     content: str
+    title: Optional[str] = None
+    personalization_tags: Optional[List[str]] = None
 
 
 class ConversationSyncPayload(BaseModel):
@@ -2307,7 +2317,54 @@ async def generate_draft_content(
         if not roles and user.get("role") != "admin":
             raise HTTPException(status_code=403, detail="You do not have permission to use the admin AI drafting tool.")
 
-    system_prompt = f"""You are the official IESA AI writing assistant for the Industrial Engineering Students' Association at the University of Ibadan.
+    is_announcement = draft_data.type == "announcement"
+    
+    if is_announcement:
+        audience_label = draft_data.target_audience or "All Students"
+        levels_label = ", ".join(draft_data.target_levels) if draft_data.target_levels else "All Levels"
+        priority_label = draft_data.priority or "Normal"
+        
+        system_prompt = f"""You are the official IESA AI writing assistant for the Industrial Engineering Students' Association at the University of Ibadan.
+Your task is to draft a high-impact, professional Announcement for departmental broadcast and student email delivery.
+- Target Audience: {audience_label} (Levels: {levels_label})
+- Priority Level: {priority_label}
+- Tone: {draft_data.tone}
+- Length: {draft_data.length}
+
+PERSONALIZATION TAGS (CRITICAL):
+You MUST incorporate personalized student merge tags naturally into the announcement greeting, body, or title where helpful:
+- {{{{first_name}}}} -> Student's first name (e.g., "Hello {{{{first_name}}}},", "Take note, {{{{first_name}}}}")
+- {{{{student_name}}}} -> Student's full name
+- {{{{matric_no}}}} -> Student's matriculation number (e.g. for registration, fees, or compliance lists)
+- {{{{level}}}} -> Student's academic level (e.g., 100L, 400L)
+- {{{{department}}}} -> Department ("Industrial Engineering")
+
+FORMATTING REQUIREMENTS:
+- Draft the content in clean HTML tags suitable for TipTap editor and email clients (<p>, <h2>, <h3>, <strong>, <em>, <ul>, <ol>, <li>, <blockquote>).
+- Do NOT include <html>, <body>, or <head> wrapping tags.
+- Provide a strong, clear, attention-grabbing title (max 100 chars, no HTML in title except optionally a personalization tag if appropriate).
+
+OUTPUT FORMAT:
+You MUST respond with a single valid JSON object ONLY:
+{{
+  "title": "Clear and attention-grabbing announcement title",
+  "content": "<p>Hello {{{{first_name}}}}, ...</p>",
+  "personalization_tags": ["{{{{first_name}}}}", "{{{{level}}}}"]
+}}
+Do not include any other text outside the JSON object.
+"""
+        user_prompt = f"""Draft an announcement with the following context:
+Topic / Subject: {draft_data.topic or draft_data.initial_title or 'Important Departmental Update'}
+Current Draft / Context: {draft_data.context or draft_data.initial_content or 'None'}
+Initial Title (if any): {draft_data.initial_title or 'None'}
+Refinement Instructions (if any): {draft_data.refinement_instructions or 'None'}
+"""
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+    else:
+        system_prompt = f"""You are the official IESA AI writing assistant for the Industrial Engineering Students' Association at the University of Ibadan.
 Your task is to draft a high-quality {draft_data.type} based on the user's instructions.
 - Target Audience: Industrial Engineering students
 - Tone: {draft_data.tone}
@@ -2315,11 +2372,10 @@ Your task is to draft a high-quality {draft_data.type} based on the user's instr
 
 Format your output in clean Markdown. Provide ONLY the requested content, do not add conversational filler like "Here is the draft" or "Let me know if you need changes."
 """
-    
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"Topic: {draft_data.topic}\nAdditional Context: {draft_data.context or 'None'}"}
-    ]
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Topic: {draft_data.topic or draft_data.initial_title or 'General'}\nAdditional Context: {draft_data.context or draft_data.initial_content or 'None'}"}
+        ]
     
     # For content generation, use the primary model
     model_name = AI_MODEL_PRIMARY
@@ -2330,12 +2386,45 @@ Format your output in clean Markdown. Provide ONLY the requested content, do not
             model=model_name,
             messages=messages,  # type: ignore
             temperature=0.7,
-            max_tokens=1500,
+            max_tokens=2000,
             top_p=0.9,
         ))
         
-        content = completion.choices[0].message.content or ""
-        return DraftResponse(content=content.strip())
+        raw_output = (completion.choices[0].message.content or "").strip()
+        
+        if is_announcement:
+            # Clean possible markdown code fences
+            cleaned = raw_output
+            if cleaned.startswith("```"):
+                cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+                cleaned = re.sub(r"\s*```$", "", cleaned)
+            cleaned = cleaned.strip()
+
+            try:
+                parsed = json.loads(cleaned)
+                title = str(parsed.get("title", "")).strip() or "Announcement Update"
+                content = str(parsed.get("content", "")).strip()
+                tags = parsed.get("personalization_tags") or []
+                if not tags:
+                    tags = list(set(re.findall(r"\{\{\s*[\w]+\s*\}\}", f"{title} {content}")))
+                return DraftResponse(
+                    title=title,
+                    content=content,
+                    personalization_tags=tags,
+                )
+            except Exception as json_err:
+                logger.warning(f"Failed to parse announcement JSON from AI: {json_err}, fallback to text splitting")
+                lines = [l for l in raw_output.splitlines() if l.strip()]
+                fallback_title = lines[0].replace("#", "").strip() if lines else "Announcement"
+                fallback_content = "<br>".join(lines[1:]) if len(lines) > 1 else raw_output
+                tags = list(set(re.findall(r"\{\{\s*[\w]+\s*\}\}", raw_output)))
+                return DraftResponse(
+                    title=fallback_title,
+                    content=f"<p>{fallback_content}</p>",
+                    personalization_tags=tags,
+                )
+
+        return DraftResponse(content=raw_output)
         
     except Exception as e:
         logger.error(f"IESA AI draft error: {e}")

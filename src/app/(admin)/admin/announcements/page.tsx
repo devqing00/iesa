@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { mutate } from "swr";
 import { useAuth } from "@/context/AuthContext";
 import { useSession } from "@/context/SessionContext";
@@ -11,7 +11,13 @@ import { AnnouncementSchema, flattenZodErrors } from "@/lib/schemas";
 import { withAuth, PermissionGate } from "@/lib/withAuth";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import { throwApiError, getErrorMessage } from "@/lib/adminApiError";
-import AIDraftButton from "@/components/admin/AIDraftButton";
+import RichTitleEditor from "@/components/admin/RichTitleEditor";
+import RichTextEditor from "@/components/ui/RichTextEditor";
+import AnnouncementAIDraftModal from "@/components/admin/AnnouncementAIDraftModal";
+import AnnouncementAttachments from "@/components/admin/AnnouncementAttachments";
+import AnnouncementPreviewModal from "@/components/admin/AnnouncementPreviewModal";
+import { CustomEmailListManager } from "@/components/admin/CustomEmailListManager";
+import type { AnnouncementAttachment } from "@/lib/api/types";
 
 /* ─── Types ──────────────────────────────── */
 
@@ -23,7 +29,8 @@ type TargetAudience =
   | "team_leads_only"
   | "class_rep_and_assistant"
   | "specific_students"
-  | "specific_levels";
+  | "specific_levels"
+  | "custom_emails";
 
 interface RecipientOption {
   id: string;
@@ -44,6 +51,7 @@ interface Announcement {
   targetLevels: string[] | null;
   targetAudience?: TargetAudience;
   targetUserIds?: string[];
+  customEmails?: string[];
   priority: "low" | "normal" | "high" | "urgent";
   isPinned: boolean;
   isPublished?: boolean;
@@ -51,6 +59,7 @@ interface Announcement {
   sendEmail?: boolean;
   sessionId: string;
   authorName?: string;
+  attachments?: AnnouncementAttachment[];
   createdAt: string;
   updatedAt?: string;
   expiresAt?: string | null;
@@ -63,6 +72,8 @@ interface FormState {
   targetLevels: string[];
   targetAudience: TargetAudience;
   targetUserIds: string[];
+  customEmails: string[];
+  attachments: AnnouncementAttachment[];
   isPinned: boolean;
   expiresAt: string;
   scheduledFor: string;
@@ -76,11 +87,26 @@ const EMPTY_FORM: FormState = {
   targetLevels: [],
   targetAudience: "all",
   targetUserIds: [],
+  customEmails: [],
+  attachments: [],
   isPinned: false,
   expiresAt: "",
   scheduledFor: "",
   sendEmail: true,
 };
+
+const NEW_DRAFT_KEY = "iesa_draft_announcement_new";
+const getEditDraftKey = (id: string) => `iesa_draft_announcement_edit_${id}`;
+
+function isFormEmpty(f: FormState) {
+  return (
+    !f.title.trim() &&
+    !f.content.trim() &&
+    f.attachments.length === 0 &&
+    f.customEmails.length === 0 &&
+    f.targetUserIds.length === 0
+  );
+}
 
 const AUDIENCE_OPTIONS: { value: TargetAudience; label: string; desc: string }[] = [
   { value: "all", label: "All Students", desc: "Everyone sees this" },
@@ -90,6 +116,7 @@ const AUDIENCE_OPTIONS: { value: TargetAudience; label: string; desc: string }[]
   { value: "team_leads_only", label: "Team Leads Only", desc: "Send only to team leads" },
   { value: "class_rep_and_assistant", label: "Class Reps + Assistants", desc: "Send to class reps and assistant class reps" },
   { value: "specific_students", label: "Specific Students", desc: "Send only to selected students" },
+  { value: "custom_emails", label: "Custom Email List", desc: "Send to a custom list of emails (paste, format & deduplicate)" },
 ];
 
 const LEVEL_OPTIONS = ["100L", "200L", "300L", "400L", "500L"];
@@ -121,6 +148,11 @@ function relativeTime(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function stripHtml(html: string) {
+  if (!html) return "";
+  return html.replace(/<[^>]*>?/gm, " ").replace(/\s+/g, " ").trim();
+}
+
 function audienceBadge(targetAudience?: TargetAudience): { label: string; className: string } | null {
   if (!targetAudience || targetAudience === "all") return null;
   const map: Record<string, { label: string; className: string }> = {
@@ -131,6 +163,7 @@ function audienceBadge(targetAudience?: TargetAudience): { label: string; classN
     class_rep_and_assistant: { label: "Class Reps + Assist", className: "bg-sunny-light text-navy" },
     specific_students: { label: "Specific Students", className: "bg-ghost text-navy" },
     specific_levels: { label: "Specific Levels", className: "bg-cloud text-navy" },
+    custom_emails: { label: "Custom Email List", className: "bg-yellow-100 text-yellow-900 border border-yellow-300" },
   };
   return map[targetAudience] ?? { label: targetAudience, className: "bg-cloud text-navy" };
 }
@@ -161,6 +194,14 @@ function AdminAnnouncementsPage() {
   const [recipientOptions, setRecipientOptions] = useState<RecipientOption[]>([]);
   const [recipientLoading, setRecipientLoading] = useState(false);
   const [selectedRecipients, setSelectedRecipients] = useState<RecipientOption[]>([]);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+
+  // Auto-Save State
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+  const lastLoadedFormStrRef = useRef<string>("");
 
   /* ── Fetch ──────────────────────── */
 
@@ -234,37 +275,234 @@ function AdminAnnouncementsPage() {
     return () => clearTimeout(handle);
   }, [form.targetAudience, recipientQuery, getAccessToken]);
 
+  /* ── Auto-Save Logic ────────────── */
+
+  const saveDraft = useCallback(
+    (currentForm: FormState, currentEditingId: string | null, recipients: RecipientOption[]) => {
+      if (typeof window === "undefined") return;
+      if (isFormEmpty(currentForm)) return;
+
+      const draftKey = currentEditingId ? getEditDraftKey(currentEditingId) : NEW_DRAFT_KEY;
+      const payload = {
+        form: currentForm,
+        selectedRecipients: recipients,
+        savedAt: Date.now(),
+        savedAtFormatted: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+      try {
+        localStorage.setItem(draftKey, JSON.stringify(payload));
+        setAutoSaveStatus("saved");
+        setLastSavedAt(payload.savedAtFormatted);
+      } catch (e) {
+        console.warn("Failed to auto-save announcement draft:", e);
+      }
+    },
+    []
+  );
+
+  // Debounced auto-save on form change (keystroke / field edit)
+  useEffect(() => {
+    if (!modalOpen) return;
+    const currentStr = JSON.stringify(form);
+    if (currentStr === lastLoadedFormStrRef.current) return;
+    if (isFormEmpty(form)) return;
+
+    setAutoSaveStatus("saving");
+    const timer = setTimeout(() => {
+      saveDraft(form, editingId, selectedRecipients);
+      lastLoadedFormStrRef.current = currentStr;
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [form, editingId, selectedRecipients, modalOpen, saveDraft]);
+
+  // Periodic interval auto-save (every 15 seconds)
+  useEffect(() => {
+    if (!modalOpen) return;
+    const interval = setInterval(() => {
+      const currentStr = JSON.stringify(form);
+      if (currentStr !== lastLoadedFormStrRef.current && !isFormEmpty(form)) {
+        setAutoSaveStatus("saving");
+        saveDraft(form, editingId, selectedRecipients);
+        lastLoadedFormStrRef.current = currentStr;
+      }
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [form, editingId, selectedRecipients, modalOpen, saveDraft]);
+
+  // Save draft if user tries to close the tab or reload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (modalOpen && !isFormEmpty(form)) {
+        saveDraft(form, editingId, selectedRecipients);
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [modalOpen, form, editingId, selectedRecipients, saveDraft]);
+
   /* ── Create / Update ────────────── */
 
   const openCreate = () => {
     setEditingId(null);
-    setForm(EMPTY_FORM);
     setFormErrors({});
     setRecipientQuery("");
     setRecipientOptions([]);
-    setSelectedRecipients([]);
+
+    let restored = false;
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem(NEW_DRAFT_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.form && !isFormEmpty(parsed.form)) {
+            setForm(parsed.form);
+            if (parsed.selectedRecipients) {
+              setSelectedRecipients(parsed.selectedRecipients);
+            }
+            setHasRestoredDraft(true);
+            setLastSavedAt(parsed.savedAtFormatted || "earlier");
+            setAutoSaveStatus("saved");
+            lastLoadedFormStrRef.current = JSON.stringify(parsed.form);
+            restored = true;
+          }
+        }
+      } catch (e) {
+        console.warn("Could not restore draft:", e);
+      }
+    }
+
+    if (!restored) {
+      setForm(EMPTY_FORM);
+      setSelectedRecipients([]);
+      setHasRestoredDraft(false);
+      setLastSavedAt(null);
+      setAutoSaveStatus("idle");
+      lastLoadedFormStrRef.current = JSON.stringify(EMPTY_FORM);
+    }
     setModalOpen(true);
   };
 
   const openEdit = (a: Announcement) => {
-    setEditingId(a.id || a._id);
-    setForm({
+    const annId = a.id || a._id;
+    setEditingId(annId);
+    setFormErrors({});
+    setRecipientQuery("");
+    setRecipientOptions([]);
+
+    const baseForm: FormState = {
       title: a.title,
       content: a.content,
       priority: a.priority,
       targetLevels: a.targetLevels ?? [],
       targetAudience: a.targetAudience ?? "all",
       targetUserIds: a.targetUserIds ?? [],
+      customEmails: a.customEmails ?? [],
+      attachments: a.attachments ?? [],
       isPinned: a.isPinned,
       expiresAt: a.expiresAt ? a.expiresAt.slice(0, 16) : "",
       scheduledFor: a.scheduledFor ? a.scheduledFor.slice(0, 16) : "",
       sendEmail: a.sendEmail !== false,
-    });
+    };
+
+    let restored = false;
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem(getEditDraftKey(annId));
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const draftTime = parsed.savedAt || 0;
+          const serverUpdateTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+          if (parsed?.form && draftTime >= serverUpdateTime && !isFormEmpty(parsed.form)) {
+            const isDifferent =
+              parsed.form.title !== a.title ||
+              parsed.form.content !== a.content ||
+              JSON.stringify(parsed.form) !== JSON.stringify(baseForm);
+            if (isDifferent) {
+              setForm(parsed.form);
+              if (parsed.selectedRecipients) {
+                setSelectedRecipients(parsed.selectedRecipients);
+              }
+              setHasRestoredDraft(true);
+              setLastSavedAt(parsed.savedAtFormatted || "earlier");
+              setAutoSaveStatus("saved");
+              lastLoadedFormStrRef.current = JSON.stringify(parsed.form);
+              restored = true;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Could not restore announcement edit draft:", e);
+      }
+    }
+
+    if (!restored) {
+      setForm(baseForm);
+      setSelectedRecipients([]);
+      setHasRestoredDraft(false);
+      setLastSavedAt(null);
+      setAutoSaveStatus("idle");
+      lastLoadedFormStrRef.current = JSON.stringify(baseForm);
+    }
+    setModalOpen(true);
+  };
+
+  const handleDiscardDraft = () => {
+    if (typeof window !== "undefined") {
+      const draftKey = editingId ? getEditDraftKey(editingId) : NEW_DRAFT_KEY;
+      localStorage.removeItem(draftKey);
+    }
+    if (editingId) {
+      const original = announcements.find((a) => (a.id || a._id) === editingId);
+      if (original) {
+        const restoredForm: FormState = {
+          title: original.title,
+          content: original.content,
+          priority: original.priority,
+          targetLevels: original.targetLevels ?? [],
+          targetAudience: original.targetAudience ?? "all",
+          targetUserIds: original.targetUserIds ?? [],
+          customEmails: original.customEmails ?? [],
+          attachments: original.attachments ?? [],
+          isPinned: original.isPinned,
+          expiresAt: original.expiresAt ? original.expiresAt.slice(0, 16) : "",
+          scheduledFor: original.scheduledFor ? original.scheduledFor.slice(0, 16) : "",
+          sendEmail: original.sendEmail !== false,
+        };
+        setForm(restoredForm);
+        lastLoadedFormStrRef.current = JSON.stringify(restoredForm);
+      } else {
+        setForm(EMPTY_FORM);
+        lastLoadedFormStrRef.current = JSON.stringify(EMPTY_FORM);
+      }
+    } else {
+      setForm(EMPTY_FORM);
+      setSelectedRecipients([]);
+      lastLoadedFormStrRef.current = JSON.stringify(EMPTY_FORM);
+    }
+    setHasRestoredDraft(false);
+    setAutoSaveStatus("idle");
+    setLastSavedAt(null);
+    toast.info("Draft discarded");
+  };
+
+  const handleCloseModal = () => {
+    if (!isFormEmpty(form)) {
+      saveDraft(form, editingId, selectedRecipients);
+      toast.info("Draft saved automatically. You can resume editing anytime.", { duration: 3500 });
+    }
+    setModalOpen(false);
+    setEditingId(null);
+    setForm(EMPTY_FORM);
     setFormErrors({});
     setRecipientQuery("");
     setRecipientOptions([]);
     setSelectedRecipients([]);
-    setModalOpen(true);
+    setHasRestoredDraft(false);
+    setAutoSaveStatus("idle");
+    setLastSavedAt(null);
+    lastLoadedFormStrRef.current = "";
   };
 
   const addRecipient = (recipient: RecipientOption) => {
@@ -285,6 +523,10 @@ function AdminAnnouncementsPage() {
       setFormErrors((prev) => ({ ...prev, targetUserIds: "Select at least one student" }));
       return;
     }
+    if (form.targetAudience === "custom_emails" && form.customEmails.length === 0) {
+      toast.error("Please add at least one recipient email address to the custom list");
+      return;
+    }
     const parsed = AnnouncementSchema.safeParse(form);
     if (!parsed.success) {
       setFormErrors(flattenZodErrors(parsed.error));
@@ -294,10 +536,13 @@ function AdminAnnouncementsPage() {
     setSubmitting(true);
 
     try {
-      const token = await getAccessToken();
+      let token = await getAccessToken();
+      if (!token) {
+        token = await getAccessToken(true);
+      }
       const headers: HeadersInit = {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
       if (editingId) {
@@ -308,6 +553,8 @@ function AdminAnnouncementsPage() {
           targetLevels: form.targetLevels.length > 0 ? form.targetLevels : null,
           targetAudience: form.targetAudience,
           targetUserIds: form.targetAudience === "specific_students" ? form.targetUserIds : [],
+          customEmails: form.targetAudience === "custom_emails" ? form.customEmails : [],
+          attachments: form.attachments,
           isPinned: form.isPinned,
           expiresAt: form.expiresAt || null,
           scheduledFor: form.scheduledFor || null,
@@ -328,6 +575,8 @@ function AdminAnnouncementsPage() {
           targetLevels: form.targetLevels.length > 0 ? form.targetLevels : null,
           targetAudience: form.targetAudience,
           targetUserIds: form.targetAudience === "specific_students" ? form.targetUserIds : [],
+          customEmails: form.targetAudience === "custom_emails" ? form.customEmails : [],
+          attachments: form.attachments,
           isPinned: form.isPinned,
           expiresAt: form.expiresAt || null,
           scheduledFor: form.scheduledFor || null,
@@ -337,13 +586,25 @@ function AdminAnnouncementsPage() {
         const res = await fetch(getApiUrl("/api/v1/announcements/"), { method: "POST", headers, body: JSON.stringify(body) });
         if (!res.ok) await throwApiError(res, "create announcement");
         toast.success(
-          form.targetAudience === "specific_students"
-            ? `Announcement created for ${form.targetUserIds.length} selected student(s)`
-            : form.targetLevels.length > 0
-              ? `Announcement created for ${form.targetLevels.join(", ")}`
-              : "Announcement created"
+          form.targetAudience === "custom_emails"
+            ? `Announcement created for ${form.customEmails.length} custom recipient(s)`
+            : form.targetAudience === "specific_students"
+              ? `Announcement created for ${form.targetUserIds.length} selected student(s)`
+              : form.targetLevels.length > 0
+                ? `Announcement created for ${form.targetLevels.join(", ")}`
+                : "Announcement created"
         );
       }
+
+      // Clear draft on successful save
+      if (typeof window !== "undefined") {
+        const draftKey = editingId ? getEditDraftKey(editingId) : NEW_DRAFT_KEY;
+        localStorage.removeItem(draftKey);
+      }
+      setHasRestoredDraft(false);
+      setAutoSaveStatus("idle");
+      setLastSavedAt(null);
+      lastLoadedFormStrRef.current = "";
 
       await fetchAnnouncements();
       mutate("/api/v1/admin/stats");
@@ -558,6 +819,14 @@ function AdminAnnouncementsPage() {
                           Scheduled{a.scheduledFor ? ` · ${new Date(a.scheduledFor).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : ""}
                         </span>
                       )}
+                      {a.attachments && a.attachments.length > 0 && (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-md text-xs font-bold bg-teal-light text-teal" title={`${a.attachments.length} attachment(s)`}>
+                          <svg aria-hidden="true" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                          </svg>
+                          {a.attachments.length} {a.attachments.length === 1 ? "file" : "files"}
+                        </span>
+                      )}
 
                       {/* Actions — visible on hover */}
                       <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -598,7 +867,7 @@ function AdminAnnouncementsPage() {
                     <h3 className="font-display font-black text-lg text-navy leading-snug">{a.title}</h3>
 
                     {/* Content */}
-                    <p className="text-sm text-navy/60 leading-relaxed line-clamp-3">{a.content}</p>
+                    <p className="text-sm text-navy/60 leading-relaxed line-clamp-3">{stripHtml(a.content)}</p>
 
                     {/* Footer */}
                     <div className="mt-auto flex flex-wrap items-center gap-2 pt-4 border-t-[3px] border-navy/10">
@@ -610,6 +879,11 @@ function AdminAnnouncementsPage() {
                       {a.targetAudience === "specific_students" && (a.targetUserIds?.length ?? 0) > 0 && (
                         <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-cloud text-navy/60">
                           {a.targetUserIds?.length} selected
+                        </span>
+                      )}
+                      {a.targetAudience === "custom_emails" && (a.customEmails?.length ?? 0) > 0 && (
+                        <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-yellow-100 text-yellow-900 border border-yellow-300">
+                          {a.customEmails?.length} custom recipient{(a.customEmails?.length ?? 0) === 1 ? "" : "s"}
                         </span>
                       )}
                       {a.targetLevels && a.targetLevels.length > 0 ? (
@@ -635,17 +909,36 @@ function AdminAnnouncementsPage() {
       {/* ── Create / Edit Modal ───────── */}
       {modalOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-navy/50" onClick={() => { setModalOpen(false); setEditingId(null); setForm(EMPTY_FORM); setFormErrors({}); setRecipientQuery(""); setRecipientOptions([]); setSelectedRecipients([]); }} />
+          <div className="absolute inset-0 bg-navy/50" onClick={handleCloseModal} />
 
-          <div className="relative w-full max-w-lg max-h-[calc(100vh-2rem)] sm:max-h-[85vh] overflow-y-auto bg-snow rounded-3xl border-[3px] border-navy shadow-[4px_4px_0_0_#000] p-6 sm:p-8 space-y-6 flex flex-col">
+          <div className="relative w-full max-w-3xl max-h-[calc(100vh-2rem)] sm:max-h-[90vh] overflow-y-auto bg-snow rounded-3xl border-[3px] border-navy shadow-[6px_6px_0_0_#000] p-6 sm:p-8 space-y-6 flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between">
-              <h2 className="font-display font-black text-xl text-navy">
-                {editingId ? "Edit Announcement" : "New Announcement"}
-              </h2>
+              <div>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h2 className="font-display font-black text-xl md:text-2xl text-navy">
+                    {editingId ? "Edit Announcement" : "New Announcement"}
+                  </h2>
+                  {autoSaveStatus === "saving" && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sunny-light text-navy/80 border border-sunny/40 shadow-xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-sunny animate-pulse" />
+                      Saving draft...
+                    </span>
+                  )}
+                  {autoSaveStatus === "saved" && lastSavedAt && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs">
+                      <svg className="w-2.5 h-2.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Draft saved {lastSavedAt}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate mt-0.5">Craft dynamic, personalized updates with rich formatting and media</p>
+              </div>
               <button
-                onClick={() => { setModalOpen(false); setEditingId(null); setForm(EMPTY_FORM); setFormErrors({}); setRecipientQuery(""); setRecipientOptions([]); setSelectedRecipients([]); }}
-                className="p-2 rounded-xl hover:bg-cloud transition-colors"
+                onClick={handleCloseModal}
+                className="p-2 rounded-xl hover:bg-cloud transition-colors cursor-pointer"
                 aria-label="Close modal"
               >
                 <svg aria-hidden="true" className="w-5 h-5 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
@@ -654,39 +947,77 @@ function AdminAnnouncementsPage() {
               </button>
             </div>
 
-            {/* Title */}
-            <div className="space-y-1.5">
-              <label htmlFor="ann-title" className="text-sm font-bold text-navy">Title</label>
-              <input
-                id="ann-title"
-                type="text"
-                value={form.title}
-                onChange={(e) => { setForm((f) => ({ ...f, title: e.target.value })); setFormErrors((p) => ({ ...p, title: undefined })); }}
-                placeholder="Announcement title"
-                className={`w-full px-4 py-3 rounded-2xl bg-ghost border-[3px] text-navy text-sm placeholder:text-slate transition-all ${formErrors.title ? "border-coral" : "border-navy"}`}
-              />
-              {formErrors.title && <p className="text-xs text-coral font-bold">{formErrors.title}</p>}
-            </div>
-
-            {/* Content */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label htmlFor="ann-content" className="text-sm font-bold text-navy">Content</label>
-                <AIDraftButton 
-                  type="announcement"
-                  onDraftGenerated={(content) => {
-                    setForm((f) => ({ ...f, content }));
-                    setFormErrors((p) => ({ ...p, content: undefined }));
-                  }}
-                />
+            {/* Restored Draft Banner */}
+            {hasRestoredDraft && (
+              <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl bg-sunny-light/60 border-2 border-sunny/40 text-xs text-navy">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-sunny shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v4.59L7.3 9.24a.75.75 0 00-1.1 1.02l3.25 3.5a.75.75 0 001.1 0l3.25-3.5a.75.75 0 10-1.1-1.02l-1.95 2.1V6.75z" clipRule="evenodd" />
+                  </svg>
+                  <span>
+                    Auto-saved draft restored from <strong>{lastSavedAt || "earlier"}</strong>.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDiscardDraft}
+                  className="text-xs font-bold text-coral hover:underline shrink-0 cursor-pointer"
+                >
+                  Discard draft
+                </button>
               </div>
-              <textarea
-                id="ann-content"
-                rows={5}
+            )}
+
+            {/* Title (Rich Title Editor with Variable Tags) */}
+            <RichTitleEditor
+              value={form.title}
+              onChange={(title) => {
+                setForm((f) => ({ ...f, title }));
+                setFormErrors((p) => ({ ...p, title: undefined }));
+              }}
+              error={formErrors.title}
+              availableVariables={[
+                { label: "First Name", value: "{{first_name}}", description: "Student's first name (e.g. Alex)" },
+                { label: "Full Name", value: "{{student_name}}", description: "Full student name (e.g. Alex Adeyemi)" },
+                { label: "Matric No", value: "{{matric_no}}", description: "Matriculation number" },
+                { label: "Level", value: "{{level}}", description: "Academic level (e.g. 300L)" },
+              ]}
+            />
+
+            {/* Content (Rich Text Editor + AI Draft Studio Trigger) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <label className="text-sm font-bold text-navy flex items-center gap-2">
+                  Content
+                  <span className="text-xs text-slate font-normal">(Rich Text &amp; Personalization)</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setAiModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-lime/40 hover:bg-lime border-[2px] border-navy text-xs font-bold text-navy transition-all shadow-[2px_2px_0_0_#000] active:translate-x-0.5 active:translate-y-0.5 cursor-pointer"
+                >
+                  <svg className="w-3.5 h-3.5 text-navy" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                  </svg>
+                  Draft with AI Studio
+                </button>
+              </div>
+              <RichTextEditor
                 value={form.content}
-                onChange={(e) => { setForm((f) => ({ ...f, content: e.target.value })); setFormErrors((p) => ({ ...p, content: undefined })); }}
-                placeholder="Write the announcement content..."
-                className={`w-full px-4 py-3 rounded-2xl bg-ghost border-[3px] text-navy text-sm placeholder:text-slate resize-none transition-all ${formErrors.content ? "border-coral" : "border-navy"}`}
+                onChange={(content) => {
+                  setForm((f) => ({ ...f, content }));
+                  setFormErrors((p) => ({ ...p, content: undefined }));
+                }}
+                error={formErrors.content}
+                minHeight="min-h-[380px]"
+                availableVariables={[
+                  { label: "First Name", value: "{{first_name}}", description: "Student's first name (e.g. Alex)" },
+                  { label: "Full Name", value: "{{student_name}}", description: "Full student name (e.g. Alex Adeyemi)" },
+                  { label: "Matric No", value: "{{matric_no}}", description: "Matriculation number" },
+                  { label: "Level", value: "{{level}}", description: "Academic level (e.g. 300L)" },
+                  { label: "Department", value: "{{department}}", description: "Department name" },
+                  { label: "Email", value: "{{email}}", description: "Student email address" },
+                ]}
               />
               {formErrors.content && <p className="text-xs text-coral font-bold">{formErrors.content}</p>}
             </div>
@@ -818,6 +1149,20 @@ function AdminAnnouncementsPage() {
               </div>
             )}
 
+            {form.targetAudience === "custom_emails" && (
+              <CustomEmailListManager
+                emails={form.customEmails}
+                onChange={(emails) => setForm((prev) => ({ ...prev, customEmails: emails }))}
+                disabled={submitting}
+              />
+            )}
+
+            {/* Attachments Section */}
+            <AnnouncementAttachments
+              attachments={form.attachments}
+              onChange={(attachments) => setForm((f) => ({ ...f, attachments }))}
+            />
+
             {/* Options Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <label className="flex items-center gap-3 cursor-pointer">
@@ -860,7 +1205,7 @@ function AdminAnnouncementsPage() {
                   onChange={(e) => setForm((f) => ({ ...f, scheduledFor: e.target.value }))}
                   className="w-full px-3 py-2.5 rounded-xl bg-ghost border-[3px] border-navy text-navy text-sm transition-all"
                 />
-                {form.scheduledFor && (
+              {form.scheduledFor && (
                   <p className="text-[10px] text-sunny font-bold flex items-center gap-1">
                     <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
                       <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" />
@@ -883,24 +1228,70 @@ function AdminAnnouncementsPage() {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex items-center justify-between gap-3 pt-4 border-t-[3px] border-navy/10">
               <button
-                onClick={() => { setModalOpen(false); setEditingId(null); setForm(EMPTY_FORM); setFormErrors({}); setRecipientQuery(""); setRecipientOptions([]); setSelectedRecipients([]); }}
-                className="px-5 py-2.5 rounded-2xl border-[3px] border-navy text-sm font-bold text-navy hover:bg-cloud transition-colors"
+                type="button"
+                onClick={() => setPreviewModalOpen(true)}
+                className="px-4 py-2.5 rounded-2xl border-[3px] border-navy/30 bg-snow text-navy text-sm font-bold hover:border-navy hover:bg-cloud transition-colors flex items-center gap-2 cursor-pointer shadow-[2px_2px_0_0_#000] active:translate-x-0.5 active:translate-y-0.5"
               >
-                Cancel
+                <svg className="w-4 h-4 text-navy/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Preview &amp; Test
               </button>
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
- className="px-6 py-2.5 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-4 press-lime disabled:opacity-40 transition-all"
-              >
-                {submitting ? "Saving..." : editingId ? "Save Changes" : form.scheduledFor ? "Schedule" : "Publish"}
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="px-5 py-2.5 rounded-2xl border-[3px] border-navy text-sm font-bold text-navy hover:bg-cloud transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="px-6 py-2.5 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-4 press-lime disabled:opacity-40 transition-all cursor-pointer"
+                >
+                  {submitting ? "Saving..." : editingId ? "Save Changes" : form.scheduledFor ? "Schedule" : "Publish"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* ── AI Draft Studio Modal ───────── */}
+      <AnnouncementAIDraftModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        currentTitle={form.title}
+        currentContent={form.content}
+        audience={form.targetAudience}
+        targetLevels={form.targetLevels}
+        priority={form.priority}
+        onApply={({ title, content }) => {
+          setForm((prev) => ({
+            ...prev,
+            title: title ?? prev.title,
+            content: content ?? prev.content,
+          }));
+          setFormErrors({});
+        }}
+      />
+
+      {/* ── Preview & Test Modal ───────── */}
+      <AnnouncementPreviewModal
+        isOpen={previewModalOpen}
+        onClose={() => setPreviewModalOpen(false)}
+        title={form.title}
+        content={form.content}
+        attachments={form.attachments}
+        priority={form.priority}
+        audience={form.targetAudience}
+        scheduledFor={form.scheduledFor}
+      />
     </>
   );
 }

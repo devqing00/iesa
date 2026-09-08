@@ -38,6 +38,7 @@ import { isExternalStudent } from "@/lib/studentAccess";
 import DeadlineWidget from "@/components/dashboard/DeadlineWidget";
 import InstallAppCard from "@/components/dashboard/InstallAppCard";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import { interpolatePersonalization } from "@/lib/personalization";
 import { buildMessagesHref } from "@/lib/messaging";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useSession } from "@/context/SessionContext";
@@ -1206,7 +1207,7 @@ export default function StudentDashboardPage() {
                           </span>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-navy group-hover:text-navy transition-colors truncate">
-                              {ann.title}
+                              {interpolatePersonalization(ann.title, user)}
                             </p>
                             <p className="text-[10px] text-slate mt-0.5">
                               {new Date(ann.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} &middot; {ann.category}
@@ -1238,8 +1239,8 @@ export default function StudentDashboardPage() {
                             className="rounded-xl border-2 border-cloud bg-ghost p-2.5"
                           >
                             <Link href={getNoticeHref(notice)} className="block hover:opacity-85 transition-opacity">
-                              <p className="text-xs font-bold text-navy truncate">{notice.title || "Notice"}</p>
-                              <p className="text-[10px] text-slate truncate mt-0.5">{notice.message}</p>
+                              <p className="text-xs font-bold text-navy truncate">{interpolatePersonalization(notice.title || "Notice", user)}</p>
+                              <p className="text-[10px] text-slate truncate mt-0.5">{interpolatePersonalization(notice.message, user)}</p>
                             </Link>
                             <Link
                               href={getNoticeAction(notice).href}

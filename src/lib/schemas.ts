@@ -36,8 +36,8 @@ export type SessionFormData = z.infer<typeof SessionSchema>;
 /* ─── Announcement ───────────────────────────── */
 
 export const AnnouncementSchema = z.object({
-  title: z.string().min(3, "Title must be at least 3 characters").max(200),
-  content: z.string().min(10, "Content must be at least 10 characters").max(5000),
+  title: z.string().min(2, "Title must be at least 2 characters").max(300),
+  content: z.string().min(5, "Content must be at least 5 characters").max(50000),
   priority: z.enum(["low", "normal", "high", "urgent"] as const),
   isPinned: z.boolean().optional(),
   targetLevels: z.array(z.string()).optional(),
@@ -50,9 +50,20 @@ export const AnnouncementSchema = z.object({
     "class_rep_and_assistant",
     "specific_students",
     "specific_levels",
+    "custom_emails",
   ] as const).optional(),
   targetUserIds: z.array(z.string()).optional(),
+  customEmails: z.array(z.string()).optional(),
   expiresAt: z.string().optional(),
+  scheduledFor: z.string().optional(),
+  sendEmail: z.boolean().optional(),
+  attachments: z.array(z.object({
+    id: z.string().optional(),
+    name: z.string(),
+    url: z.string(),
+    type: z.string().default("document"),
+    size: z.number().optional(),
+  })).optional(),
 });
 
 export type AnnouncementFormData = z.infer<typeof AnnouncementSchema>;

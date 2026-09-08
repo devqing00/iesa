@@ -153,7 +153,7 @@ async def make_super_admin(email: str) -> None:
     print("   ✓ Omnipotent privileges")
     print()
     print("🌐 Login at:")
-    print("   http://localhost:3000/admin/login")
+    print("   http://localhost:3000/login")
     print(f"   Email: {email}")
     print("   (Authenticate via Firebase)")
     print()

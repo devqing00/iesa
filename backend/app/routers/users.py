@@ -1584,7 +1584,7 @@ async def batch_send_onboarding_emails(
             
         try:
             await email_service.send_template_email(
-                to_email=email,
+                to=email,
                 template=EmailTemplate.ONBOARDING_REMINDER,
                 context={
                     "name": u.get("firstName", "Student")

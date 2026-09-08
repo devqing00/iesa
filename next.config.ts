@@ -53,9 +53,18 @@ const nextConfig: NextConfig = {
           destination: `${apiUrl}/api/v1/:path*`,
         },
       ],
-
       fallback: [],
     };
+  },
+
+  async redirects() {
+    return [
+      {
+        source: '/admin/login',
+        destination: '/login',
+        permanent: true,
+      },
+    ];
   },
 };
 

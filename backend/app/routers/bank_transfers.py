@@ -15,6 +15,7 @@ from typing import Optional, List, Literal
 from datetime import datetime, timezone
 import logging
 import os
+from html import escape
 
 from app.core.email import get_email_service, EmailTemplate
 from app.core.notification_utils import get_notification_emails, should_send_email, should_send_in_app
@@ -568,36 +569,88 @@ async def review_transfer(
             frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
             
             if data.status == "approved":
-                subject = f"✅ Bank Transfer Approved - {transfer.get('paymentTitle', 'Payment')}"
-                html = f"""
-                <html><body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h2 style="color: #1E4528;">Transfer Approved!</h2>
-                    <p>Dear {student_name},</p>
-                    <p>Your bank transfer for <strong>{transfer.get('paymentTitle', 'Payment')}</strong> has been approved.</p>
-                    <div style="background: #E8F5E9; padding: 16px; border-radius: 8px; margin: 16px 0;">
-                        <p><strong>Amount:</strong> ₦{transfer['amount']:,.2f}</p>
-                        <p><strong>Reference:</strong> {transfer.get('transactionReference', 'N/A')}</p>
-                        <p><strong>Status:</strong> ✅ Approved</p>
+                subject = f"Bank Transfer Approved — {transfer.get('paymentTitle', 'Payment')}"
+                html = f"""<!DOCTYPE html>
+                <html lang="en">
+                <head>
+                  <meta charset="utf-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <style>
+                    body {{ margin: 0; padding: 0; background-color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #334155; }}
+                    a {{ color: #0F172A; }}
+                  </style>
+                </head>
+                <body style="margin:0;padding:32px 16px;background-color:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;color:#334155;">
+                  <div style="max-width:580px;margin:0 auto;text-align:left;">
+                    <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#334155;">Hello {escape(student_name)},</p>
+                    <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#334155;">Your bank transfer for <strong>{escape(transfer.get('paymentTitle', 'Payment'))}</strong> has been reviewed and approved.</p>
+
+                    <div style="margin:20px 0 24px;padding:16px 0;border-top:1px solid #E2E8F0;border-bottom:1px solid #E2E8F0;">
+                      <div style="font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#64748B;font-weight:600;margin-bottom:4px;">Amount Confirmed</div>
+                      <div style="font-size:26px;font-weight:800;color:#0F172A;">₦{transfer['amount']:,.2f}</div>
                     </div>
-                    {note_html}
-                    <p>You can download your receipt from the <a href="{frontend_url}/dashboard/payments">Payments page</a>.</p>
-                </body></html>
+
+                    <div style="margin:0 0 24px;font-size:14px;color:#334155;line-height:1.8;">
+                      <p style="margin:0 0 6px;"><strong>Reference:</strong> <span style="font-family:monospace;color:#0F172A;">{escape(transfer.get('transactionReference', 'N/A'))}</span></p>
+                      <p style="margin:0;"><strong>Status:</strong> Approved</p>
+                    </div>
+
+                    {f'<p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#334155;"><strong>Note:</strong> {escape(data.adminNote)}</p>' if data.adminNote else ''}
+
+                    <div style="margin-top:24px;">
+                      <a href="{frontend_url}/dashboard/payments" style="display:inline-block;background:#0F172A;color:#FFFFFF;font-size:13px;font-weight:600;text-decoration:none;padding:10px 18px;border-radius:6px;">View in Payments &rarr;</a>
+                    </div>
+
+                    <div style="margin-top:40px;padding-top:20px;border-top:1px solid #E2E8F0;">
+                      <p style="margin:0;font-size:12px;line-height:1.6;color:#94A3B8;">
+                        Industrial Engineering Students&apos; Association · University of Ibadan<br>
+                        Department of Industrial &amp; Production Engineering
+                      </p>
+                    </div>
+                  </div>
+                </body>
+                </html>
                 """
             else:
-                subject = f"❌ Bank Transfer Rejected - {transfer.get('paymentTitle', 'Payment')}"
-                html = f"""
-                <html><body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                    <h2 style="color: #D32F2F;">Transfer Rejected</h2>
-                    <p>Dear {student_name},</p>
-                    <p>Your bank transfer for <strong>{transfer.get('paymentTitle', 'Payment')}</strong> has been rejected.</p>
-                    <div style="background: #FFEBEE; padding: 16px; border-radius: 8px; margin: 16px 0;">
-                        <p><strong>Amount:</strong> ₦{transfer['amount']:,.2f}</p>
-                        <p><strong>Reference:</strong> {transfer.get('transactionReference', 'N/A')}</p>
-                        <p><strong>Status:</strong> ❌ Rejected</p>
+                subject = f"Bank Transfer Update — {transfer.get('paymentTitle', 'Payment')}"
+                html = f"""<!DOCTYPE html>
+                <html lang="en">
+                <head>
+                  <meta charset="utf-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <style>
+                    body {{ margin: 0; padding: 0; background-color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #334155; }}
+                    a {{ color: #0F172A; }}
+                  </style>
+                </head>
+                <body style="margin:0;padding:32px 16px;background-color:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;color:#334155;">
+                  <div style="max-width:580px;margin:0 auto;text-align:left;">
+                    <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#334155;">Hello {escape(student_name)},</p>
+                    <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#334155;">Your bank transfer for <strong>{escape(transfer.get('paymentTitle', 'Payment'))}</strong> could not be approved at this time.</p>
+
+                    <div style="margin:20px 0 24px;padding:16px 0;border-top:1px solid #E2E8F0;border-bottom:1px solid #E2E8F0;">
+                      <div style="font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#64748B;font-weight:600;margin-bottom:4px;">Transfer Details</div>
+                      <p style="margin:0 0 6px;font-size:14px;color:#334155;"><strong>Amount:</strong> ₦{transfer['amount']:,.2f}</p>
+                      <p style="margin:0;font-size:14px;color:#334155;"><strong>Reference:</strong> <span style="font-family:monospace;color:#0F172A;">{escape(transfer.get('transactionReference', 'N/A'))}</span></p>
                     </div>
-                    {note_html}
-                    <p>Please review the admin's note and resubmit if needed from the <a href="{frontend_url}/dashboard/payments">Payments page</a>.</p>
-                </body></html>
+
+                    {f'<div style="margin:0 0 20px;padding:14px 16px;background:#FFFBEB;border-left:3px solid #D97706;font-size:14px;line-height:1.6;color:#92400E;"><strong>Reason / Note:</strong> {escape(data.adminNote)}</div>' if data.adminNote else ''}
+
+                    <p style="margin:0 0 20px;font-size:14px;line-height:1.65;color:#64748B;">Please review the note above and resubmit your transfer receipt from the Payments page if needed.</p>
+
+                    <div style="margin-top:24px;">
+                      <a href="{frontend_url}/dashboard/payments" style="display:inline-block;background:#0F172A;color:#FFFFFF;font-size:13px;font-weight:600;text-decoration:none;padding:10px 18px;border-radius:6px;">Go to Payments &rarr;</a>
+                    </div>
+
+                    <div style="margin-top:40px;padding-top:20px;border-top:1px solid #E2E8F0;">
+                      <p style="margin:0;font-size:12px;line-height:1.6;color:#94A3B8;">
+                        Industrial Engineering Students&apos; Association · University of Ibadan<br>
+                        Department of Industrial &amp; Production Engineering
+                      </p>
+                    </div>
+                  </div>
+                </body>
+                </html>
                 """
             
             email_service = get_email_service()

@@ -5,26 +5,28 @@ CRITICAL: All announcements are session-scoped.
 Announcements are specific to an academic session and can be targeted to specific levels.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status, Query
-from typing import List, Optional
+from fastapi import APIRouter, HTTPException, Depends, status, Query, UploadFile, File
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 from bson import ObjectId
 import asyncio
 import logging
 import re
+from pydantic import BaseModel
 from app.core.error_handling import fire_and_forget
 
 from app.models.announcement import (
-    Announcement, AnnouncementCreate, AnnouncementUpdate, AnnouncementWithStatus
+    Announcement, AnnouncementCreate, AnnouncementUpdate, AnnouncementWithStatus, Attachment
 )
 from app.db import get_database
 from app.core.security import get_current_user
-from app.core.permissions import require_permission
+from app.core.permissions import require_permission, require_any_permission
 from app.core.sanitization import sanitize_html, validate_no_scripts
 from app.core.audit import AuditLogger
 from app.core.email import send_announcement_email
 from app.core.notification_utils import get_notification_emails, should_send_email, should_send_in_app
 from app.models.team_application import TEAM_TO_HEAD_POSITION
+from app.utils.cloudinary_config import upload_announcement_media
 
 logger = logging.getLogger(__name__)
 
@@ -69,10 +71,28 @@ async def _resolve_target_user_ids(
     target_levels: list[str],
     target_audience: str,
     target_user_ids: list[str],
+    custom_emails: list[str] | None = None,
 ) -> list[str]:
     users_col = db["users"]
     enrollments_col = db["enrollments"]
     roles_col = db["roles"]
+
+    if target_audience == "custom_emails":
+        if not custom_emails:
+            return []
+        cleaned_emails = [e.strip().lower() for e in custom_emails if e and "@" in e]
+        if not cleaned_emails:
+            return []
+        docs = await users_col.find(
+            {
+                "$or": [
+                    {"email": {"$in": cleaned_emails}},
+                    {"secondaryEmail": {"$in": cleaned_emails}},
+                ]
+            },
+            {"_id": 1}
+        ).to_list(length=None)
+        return [str(doc["_id"]) for doc in docs]
 
     if target_audience == "specific_students":
         valid_ids = [uid for uid in target_user_ids if ObjectId.is_valid(uid)]
@@ -142,9 +162,26 @@ async def _user_matches_target_audience(
     target_audience: str,
     target_user_ids: list[str],
     user_positions: list[str] | None = None,
+    custom_emails: list[str] | None = None,
+    user_email: str | None = None,
 ) -> bool:
     if target_audience in {"all", "specific_levels"}:
         return True
+    if target_audience == "custom_emails":
+        if not custom_emails:
+            return False
+        cleaned_custom = {e.lower().strip() for e in custom_emails if e and "@" in e}
+        if user_email and user_email.lower().strip() in cleaned_custom:
+            return True
+        user_doc = await db["users"].find_one(
+            {"_id": ObjectId(user_id) if ObjectId.is_valid(user_id) else user_id},
+            {"email": 1, "secondaryEmail": 1}
+        )
+        if user_doc:
+            u_email = (user_doc.get("email") or "").lower().strip()
+            u_sec = (user_doc.get("secondaryEmail") or "").lower().strip()
+            return (u_email in cleaned_custom) or (u_sec in cleaned_custom)
+        return False
     if target_audience == "ipe":
         return user_department == "Industrial Engineering"
     if target_audience == "external":
@@ -190,21 +227,27 @@ async def _fire_announcement_notifications(ann_doc: dict, db) -> None:
             ann_doc.get("title"), session_id, target_levels or "ALL", notif_audience,
         )
 
+        custom_emails = [str(e) for e in (ann_doc.get("customEmails") or [])]
         recipient_ids = await _resolve_target_user_ids(
             db,
             session_id=session_id,
             target_levels=target_levels,
             target_audience=notif_audience,
             target_user_ids=target_user_ids,
+            custom_emails=custom_emails,
         )
 
         logger.info("[NOTIF] Recipients: %d", len(recipient_ids))
         if recipient_ids:
+            raw_msg = ann_doc.get("content") or ""
+            plain_msg = re.sub(r'<[^>]+>', ' ', raw_msg)
+            plain_msg = re.sub(r'\s+([.,!?;:])', r'\1', plain_msg)
+            plain_msg = re.sub(r'\s+', ' ', plain_msg).strip()
             await create_bulk_notifications(
                 user_ids=recipient_ids,
                 type="announcement",
                 title=f"📢 {ann_doc['title']}",
-                message=(ann_doc.get("content") or "")[:200],
+                message=plain_msg[:200] or "New announcement published",
                 link=f"/dashboard/announcements?highlight={ann_id}",
                 related_id=ann_id,
                 category="announcements",
@@ -222,8 +265,10 @@ async def _notify_students_of_announcement(
     db,
     target_audience: str = "all",
     target_user_ids: Optional[List[str]] = None,
+    custom_emails: Optional[List[str]] = None,
+    attachments: Optional[List[dict]] = None,
 ):
-    """Fire-and-forget: email all targeted users matching audience/level/specific rules."""
+    """Fire-and-forget: email all targeted users matching audience/level/specific rules with personalization tags."""
     try:
         users_col = db["users"]
 
@@ -237,10 +282,10 @@ async def _notify_students_of_announcement(
             "class_rep_and_assistant": "Class Reps & Assistants",
             "specific_students": "Selected Students",
             "specific_levels": "Specific Levels",
+            "custom_emails": "Custom Email List",
         }
         target_levels = _normalize_levels(target_levels or [])
         if target_levels:
-            target_levels = _normalize_levels(target_levels)
             level_map = {
                 "100L": "100 Level", "200L": "200 Level", "300L": "300 Level",
                 "400L": "400 Level", "500L": "500 Level", "PG": "Postgraduate",
@@ -250,6 +295,105 @@ async def _notify_students_of_announcement(
                 target_label += f" ({audience_labels.get(target_audience, '')})"
         else:
             target_label = audience_labels.get(target_audience, "All Students")
+
+        def _interpolate(template_str: str, student_dict: dict) -> str:
+            if not template_str:
+                return ""
+            first_name = str(student_dict.get("firstName") or "").strip()
+            last_name = str(student_dict.get("lastName") or "").strip()
+            full_name = f"{first_name} {last_name}".strip() or "Student"
+            matric_no = str(student_dict.get("matricNumber") or "").strip()
+            level = str(student_dict.get("currentLevel") or "").strip()
+            department = str(student_dict.get("department") or "Industrial Engineering").strip()
+            email_val = str(student_dict.get("email") or "").strip()
+
+            def _repl(m):
+                k = m.group(1).lower().strip()
+                if k in ("first_name", "firstname"):
+                    return first_name or "Student"
+                if k in ("last_name", "lastname"):
+                    return last_name or ""
+                if k in ("student_name", "studentname", "name", "full_name", "fullname"):
+                    return full_name
+                if k in ("matric_no", "matricno", "matric_number", "matricnumber"):
+                    return matric_no or "N/A"
+                if k in ("level", "current_level", "currentlevel"):
+                    return level or "IPE"
+                if k in ("department", "dept"):
+                    return department
+                if k == "email":
+                    return email_val
+                return m.group(0)
+
+            return re.sub(r'\{\{\s*([\w]+)\s*\}\}', _repl, template_str)
+
+        if target_audience == "custom_emails":
+            clean_emails = list(dict.fromkeys(e.strip().lower() for e in (custom_emails or []) if e and "@" in e))
+            if not clean_emails:
+                logger.warning("[EMAIL] target_audience is custom_emails but no valid custom_emails provided")
+                return
+
+            matched_users = await users_col.find(
+                {
+                    "$or": [
+                        {"email": {"$in": clean_emails}},
+                        {"secondaryEmail": {"$in": clean_emails}},
+                    ]
+                },
+                {
+                    "email": 1, "firstName": 1, "lastName": 1,
+                    "matricNumber": 1, "currentLevel": 1, "department": 1,
+                    "secondaryEmail": 1, "secondaryEmailVerified": 1,
+                    "notificationEmailPreference": 1, "notificationChannelPreference": 1
+                }
+            ).to_list(length=None)
+
+            email_to_student = {}
+            for st in matched_users:
+                if st.get("email"):
+                    email_to_student[st["email"].lower().strip()] = st
+                if st.get("secondaryEmail"):
+                    email_to_student[st["secondaryEmail"].lower().strip()] = st
+
+            sent = 0
+            for email_addr in clean_emails:
+                student_doc = email_to_student.get(email_addr)
+                if student_doc:
+                    name = f"{student_doc.get('firstName', '')} {student_doc.get('lastName', '')}".strip() or "Student"
+                    p_title = _interpolate(title, student_doc)
+                    p_content = _interpolate(content, student_doc)
+                else:
+                    local_part = email_addr.split("@")[0]
+                    parts = re.split(r'[._+\-]+', local_part)
+                    synth_name = " ".join(p.capitalize() for p in parts if p).strip() or "Recipient"
+                    synthetic_student = {
+                        "firstName": synth_name.split()[0] if synth_name else "Recipient",
+                        "lastName": " ".join(synth_name.split()[1:]) if len(synth_name.split()) > 1 else "",
+                        "email": email_addr,
+                        "matricNumber": "N/A",
+                        "currentLevel": "N/A",
+                        "department": "External",
+                    }
+                    name = synth_name
+                    p_title = _interpolate(title, synthetic_student)
+                    p_content = _interpolate(content, synthetic_student)
+
+                try:
+                    await send_announcement_email(
+                        to=email_addr,
+                        student_name=name,
+                        title=p_title,
+                        content=p_content,
+                        priority=priority,
+                        target_label="Custom Email List",
+                        attachments=attachments or [],
+                    )
+                    sent += 1
+                except Exception as e:
+                    logger.warning(f"Failed to send announcement email to custom email {email_addr}: {e}")
+
+            logger.info(f"Custom announcement email sent to {sent}/{len(clean_emails)} recipient(s) — '{title}'")
+            return
 
         recipient_ids = await _resolve_target_user_ids(
             db,
@@ -264,9 +408,12 @@ async def _notify_students_of_announcement(
 
         students = await users_col.find(
             {"_id": {"$in": [ObjectId(uid) for uid in recipient_ids if ObjectId.is_valid(uid)]}},
-            {"email": 1, "firstName": 1, "lastName": 1,
-             "secondaryEmail": 1, "secondaryEmailVerified": 1,
-             "notificationEmailPreference": 1, "notificationChannelPreference": 1}
+            {
+                "email": 1, "firstName": 1, "lastName": 1,
+                "matricNumber": 1, "currentLevel": 1, "department": 1,
+                "secondaryEmail": 1, "secondaryEmailVerified": 1,
+                "notificationEmailPreference": 1, "notificationChannelPreference": 1
+            }
         ).to_list(length=None)
 
         sent = 0
@@ -279,15 +426,19 @@ async def _notify_students_of_announcement(
             if not emails:
                 continue
             name = f"{student.get('firstName', '')} {student.get('lastName', '')}".strip() or "Student"
+            personalized_title = _interpolate(title, student)
+            personalized_content = _interpolate(content, student)
+
             for email_addr in emails:
                 try:
                     await send_announcement_email(
                         to=email_addr,
                         student_name=name,
-                        title=title,
-                        content=content,
+                        title=personalized_title,
+                        content=personalized_content,
                         priority=priority,
                         target_label=target_label,
+                        attachments=attachments or [],
                     )
                     sent += 1
                 except Exception as e:
@@ -297,6 +448,194 @@ async def _notify_students_of_announcement(
 
     except Exception as e:
         logger.error(f"Announcement email dispatch error: {e}")
+
+
+class TestEmailRequest(BaseModel):
+    title: str
+    content: str
+    priority: str = "normal"
+    targetAudience: str = "all"
+    targetLevels: Optional[List[str]] = None
+    attachments: Optional[List[dict]] = None
+    sampleStudent: Optional[dict] = None
+
+
+@router.post("/upload-media")
+async def upload_announcement_media_endpoint(
+    file: UploadFile = File(...),
+    user: dict = Depends(require_any_permission(["announcement:create", "announcement:edit"])),
+):
+    """
+    Upload media or attachments for announcements (images, PDFs, documents up to 15MB).
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    file_bytes = await file.read()
+    if len(file_bytes) > 15 * 1024 * 1024:  # 15MB
+        raise HTTPException(status_code=413, detail="File size must be under 15MB")
+
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    allowed_exts = {
+        "jpg", "jpeg", "png", "webp", "gif", "svg",
+        "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "txt", "zip"
+    }
+    if ext not in allowed_exts:
+        raise HTTPException(status_code=400, detail=f"File extension .{ext} is not allowed")
+
+    result = await upload_announcement_media(
+        file_data=file_bytes,
+        filename=file.filename,
+        file_extension=ext,
+    )
+    if not result:
+        raise HTTPException(status_code=500, detail="Failed to upload file to Cloudinary")
+
+    return result
+
+
+@router.post("/send-test-email")
+async def send_test_email(
+    payload: TestEmailRequest,
+    user: dict = Depends(require_any_permission(["announcement:create", "announcement:edit"])),
+):
+    """
+    Send a test preview email of the draft announcement to the current admin's email address.
+    """
+    admin_email = user.get("email")
+    if not admin_email:
+        raise HTTPException(status_code=400, detail="Admin account has no email address configured")
+
+    sample = payload.sampleStudent or {}
+    first_name = str(sample.get("firstName") or user.get("firstName") or "Alex").strip()
+    last_name = str(sample.get("lastName") or user.get("lastName") or "Student").strip()
+    full_name = f"{first_name} {last_name}".strip() or "Student"
+    matric_no = str(sample.get("matricNumber") or user.get("matricNumber") or "219800").strip()
+    level = str(sample.get("currentLevel") or user.get("currentLevel") or "400L").strip()
+    department = str(sample.get("department") or user.get("department") or "Industrial Engineering").strip()
+
+    def _repl(m):
+        k = m.group(1).lower().strip()
+        if k in ("first_name", "firstname"):
+            return first_name
+        if k in ("last_name", "lastname"):
+            return last_name
+        if k in ("student_name", "studentname", "name", "full_name", "fullname"):
+            return full_name
+        if k in ("matric_no", "matricno", "matric_number", "matricnumber"):
+            return matric_no
+        if k in ("level", "current_level", "currentlevel"):
+            return level
+        if k in ("department", "dept"):
+            return department
+        if k == "email":
+            return admin_email
+        return m.group(0)
+
+    test_title = f"[TEST PREVIEW] " + re.sub(r'\{\{\s*([\w]+)\s*\}\}', _repl, payload.title)
+    test_content = re.sub(r'\{\{\s*([\w]+)\s*\}\}', _repl, payload.content)
+
+    success = await send_announcement_email(
+        to=admin_email,
+        student_name=full_name,
+        title=test_title,
+        content=test_content,
+        priority=payload.priority,
+        target_label=payload.targetAudience.replace("_", " ").title(),
+        attachments=payload.attachments or [],
+    )
+
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to dispatch test email.")
+
+    return {"success": True, "message": f"Test preview email sent to {admin_email}"}
+
+class ParseCustomEmailsRequest(BaseModel):
+    rawText: Optional[str] = None
+    emails: Optional[List[str]] = None
+
+
+@router.post("/parse-custom-emails")
+async def parse_custom_emails_endpoint(
+    payload: ParseCustomEmailsRequest,
+    user: dict = Depends(require_any_permission(["announcement:create", "announcement:edit"])),
+    db=Depends(get_database),
+):
+    """
+    Parse, sanitize, deduplicate, and analyze a raw messy text blob or list of emails.
+    Identifies which emails correspond to registered students and breaks down domains.
+    """
+    raw = payload.rawText or ""
+    if payload.emails:
+        raw += "\n" + "\n".join(payload.emails)
+
+    EMAIL_REGEX = r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'
+    found = re.findall(EMAIL_REGEX, raw)
+    
+    unique_ordered = []
+    seen = set()
+    total_found = len(found)
+    for e in found:
+        cleaned = e.strip().lower()
+        if cleaned and cleaned not in seen:
+            seen.add(cleaned)
+            unique_ordered.append(cleaned)
+            
+    duplicates_removed = total_found - len(unique_ordered)
+
+    registered_students = []
+    external_emails = []
+    domains = {}
+
+    if unique_ordered:
+        users_col = db["users"]
+        matched_users = await users_col.find(
+            {
+                "$or": [
+                    {"email": {"$in": unique_ordered}},
+                    {"secondaryEmail": {"$in": unique_ordered}},
+                ]
+            },
+            {
+                "email": 1, "firstName": 1, "lastName": 1,
+                "matricNumber": 1, "currentLevel": 1, "department": 1,
+                "secondaryEmail": 1
+            }
+        ).to_list(length=None)
+
+        email_to_user = {}
+        for u in matched_users:
+            if u.get("email"):
+                email_to_user[u["email"].lower().strip()] = u
+            if u.get("secondaryEmail"):
+                email_to_user[u["secondaryEmail"].lower().strip()] = u
+
+        for em in unique_ordered:
+            domain = em.split("@")[-1]
+            domains[domain] = domains.get(domain, 0) + 1
+            if em in email_to_user:
+                u = email_to_user[em]
+                name = f"{u.get('firstName', '')} {u.get('lastName', '')}".strip() or "Student"
+                registered_students.append({
+                    "email": em,
+                    "name": name,
+                    "matricNumber": u.get("matricNumber", "N/A"),
+                    "level": u.get("currentLevel", "N/A"),
+                    "department": u.get("department", "Industrial Engineering"),
+                })
+            else:
+                external_emails.append(em)
+
+    return {
+        "emails": unique_ordered,
+        "totalValid": len(unique_ordered),
+        "duplicatesRemoved": duplicates_removed,
+        "registeredCount": len(registered_students),
+        "externalCount": len(external_emails),
+        "registeredStudents": registered_students,
+        "externalEmails": external_emails,
+        "domains": domains,
+    }
 
 
 @router.post("/", response_model=Announcement, status_code=status.HTTP_201_CREATED)
@@ -351,6 +690,14 @@ async def create_announcement(
         )
     announcement_dict["targetUserIds"] = valid_target_user_ids if target_audience == "specific_students" else []
 
+    raw_custom_emails = [str(e).strip().lower() for e in (announcement_dict.get("customEmails") or []) if str(e).strip()]
+    if target_audience == "custom_emails" and not raw_custom_emails:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please provide at least one valid recipient email for custom email targeting",
+        )
+    announcement_dict["customEmails"] = raw_custom_emails if target_audience == "custom_emails" else []
+
     announcement_dict["authorName"] = author_name
     announcement_dict["readBy"] = []
     announcement_dict["createdAt"] = datetime.now(timezone.utc)
@@ -388,6 +735,10 @@ async def create_announcement(
 
     # Fire-and-forget: email enrolled students — only for immediately published announcements with sendEmail=True
     if not is_scheduled and announcement_data.sendEmail:
+        raw_atts = [
+            att.model_dump() if hasattr(att, "model_dump") else att
+            for att in (announcement_data.attachments or [])
+        ]
         fire_and_forget(_notify_students_of_announcement(
             session_id=announcement_data.sessionId,
             target_levels=announcement_data.targetLevels,
@@ -397,6 +748,8 @@ async def create_announcement(
             db=db,
             target_audience=announcement_data.targetAudience or "all",
             target_user_ids=announcement_data.targetUserIds or [],
+            custom_emails=announcement_data.customEmails or [],
+            attachments=raw_atts,
         ))
 
     if not is_scheduled:
@@ -544,9 +897,11 @@ async def list_announcements(
             if not user_level or user_level not in target_levels:
                 continue  # Skip — student's level doesn't match
 
-        # Check audience targeting (ipe-only vs external-only vs all)
+        # Check audience targeting (ipe-only vs external-only vs all vs custom_emails)
         target_audience = announcement.get("targetAudience", "all")
         target_user_ids = [str(uid) for uid in (announcement.get("targetUserIds") or [])]
+        custom_emails = [str(e) for e in (announcement.get("customEmails") or [])]
+        user_email = user.get("email", "")
         if not is_admin_user:
             allowed = await _user_matches_target_audience(
                 db,
@@ -557,6 +912,8 @@ async def list_announcements(
                 target_audience=target_audience,
                 target_user_ids=target_user_ids,
                 user_positions=user_positions,
+                custom_emails=custom_emails,
+                user_email=user_email,
             )
             if not allowed:
                 continue
@@ -727,7 +1084,7 @@ async def update_announcement(
             detail="No fields to update"
         )
     
-    if "targetAudience" in update_data or "targetUserIds" in update_data:
+    if "targetAudience" in update_data or "targetUserIds" in update_data or "customEmails" in update_data:
         existing = await announcements.find_one({"_id": ObjectId(announcement_id)})
         if not existing:
             raise HTTPException(
@@ -743,6 +1100,14 @@ async def update_announcement(
                 detail="Select at least one valid student for specific student targeting",
             )
         update_data["targetUserIds"] = valid_target_user_ids if effective_audience == "specific_students" else []
+
+        raw_custom_emails = [str(e).strip().lower() for e in update_data.get("customEmails", existing.get("customEmails") or []) if str(e).strip()]
+        if effective_audience == "custom_emails" and not raw_custom_emails:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Please provide at least one valid recipient email for custom email targeting",
+            )
+        update_data["customEmails"] = raw_custom_emails if effective_audience == "custom_emails" else []
 
     update_data["updatedAt"] = datetime.now(timezone.utc)
 
@@ -771,6 +1136,19 @@ async def update_announcement(
     # Fire notifications when an announcement is published for the first time via PATCH
     if update_data.get("isPublished") is True and not was_published:
         fire_and_forget(_fire_announcement_notifications(updated_announcement, db))
+        if updated_announcement.get("sendEmail") is not False:
+            fire_and_forget(_notify_students_of_announcement(
+                session_id=str(updated_announcement.get("sessionId")),
+                target_levels=updated_announcement.get("targetLevels"),
+                title=updated_announcement.get("title", ""),
+                content=updated_announcement.get("content", ""),
+                priority=updated_announcement.get("priority", "normal"),
+                db=db,
+                target_audience=updated_announcement.get("targetAudience") or "all",
+                target_user_ids=updated_announcement.get("targetUserIds") or [],
+                custom_emails=updated_announcement.get("customEmails") or [],
+                attachments=updated_announcement.get("attachments") or [],
+            ))
 
     await AuditLogger.log(
         action=AuditLogger.ANNOUNCEMENT_UPDATED,
@@ -796,7 +1174,9 @@ async def update_announcement(
         if "title" in update_data:
             notif_patch["title"] = f"📢 {update_data['title']}"
         if "content" in update_data:
-            notif_patch["message"] = (update_data["content"] or "")[:200]
+            plain_c = re.sub(r'<[^>]+>', '', update_data["content"] or "")
+            plain_c = re.sub(r'\s+', ' ', plain_c).strip()
+            notif_patch["message"] = plain_c[:200]
         if notif_patch:
             notif_patch["updatedAt"] = datetime.now(timezone.utc)
             await db.notifications.update_many(
@@ -909,6 +1289,8 @@ async def publish_scheduled_announcements(
                 db=db,
                 target_audience=ann.get("targetAudience", "all"),
                 target_user_ids=ann.get("targetUserIds") or [],
+                custom_emails=ann.get("customEmails") or [],
+                attachments=ann.get("attachments") or [],
             ))
 
         # SSE + cache

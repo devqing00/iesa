@@ -37,10 +37,11 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
     token = credentials.credentials
     try:
         decoded = await verify_firebase_token(token)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"[AUTH] Firebase token verification failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
+            detail=f"Invalid or expired authentication credentials: {e}",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

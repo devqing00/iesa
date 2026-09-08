@@ -9,6 +9,9 @@ import { usePermissions } from "@/context/PermissionsContext";
 import { getApiUrl } from "@/lib/api";
 import { useSearchParams } from "next/navigation";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
+import DOMPurify from "isomorphic-dompurify";
+import type { AnnouncementAttachment } from "@/lib/api/types";
+import { interpolatePersonalization } from "@/lib/personalization";
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -33,6 +36,7 @@ interface Announcement {
     lastName: string;
     role: string;
   };
+  attachments?: AnnouncementAttachment[];
   createdAt: string;
   updatedAt: string;
   viewCount: number;
@@ -64,6 +68,8 @@ const categoryColors: Record<string, string> = {
   financial: "bg-coral",
   social: "bg-sunny",
 };
+
+
 
 /* ─── Component ─────────────────────────────────────────────────── */
 
@@ -366,8 +372,8 @@ function AnnouncementsContent() {
                   <a href={getNoticeHref(notice)} className="block hover:opacity-90 transition-opacity">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="font-bold text-sm text-navy truncate">{notice.title}</p>
-                        <p className="text-xs text-slate line-clamp-2 mt-0.5">{notice.message}</p>
+                        <p className="font-bold text-sm text-navy truncate">{interpolatePersonalization(notice.title, user)}</p>
+                        <p className="text-xs text-slate line-clamp-2 mt-0.5">{interpolatePersonalization(notice.message, user)}</p>
                       </div>
                       <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate shrink-0">
                         {new Date(notice.createdAt).toLocaleDateString()}
@@ -499,24 +505,27 @@ function AnnouncementsContent() {
               const isRead = readAnnouncements.has(announcement.id);
               const pConfig = priorityConfig[announcement.priority?.toLowerCase()] || priorityConfig.normal;
               const catColor = categoryColors[announcement.category?.toLowerCase()] || "bg-navy/30";
+              const interpolatedTitle = interpolatePersonalization(announcement.title, user);
+              const interpolatedContent = interpolatePersonalization(announcement.content, user);
+              const isHtml = /<[a-z][\s\S]*>/i.test(interpolatedContent);
 
               return (
                 <article
                   key={announcement.id}
                   id={`announcement-${announcement.id}`}
                   className={`rounded-3xl overflow-hidden transition-all ${
- highlightId === announcement.id && highlightApplied
- ?"ring-4 ring-lime ring-offset-2"
- :""
- }${
- isRead
- ?"bg-cloud border-[3px] border-navy/15"
- :"bg-snow border-[3px] border-navy press-3 press-black"
- }`}
+                    highlightId === announcement.id && highlightApplied
+                      ? "ring-4 ring-lime ring-offset-2"
+                      : ""
+                  }${
+                    isRead
+                      ? "bg-cloud border-[3px] border-navy/15"
+                      : "bg-snow border-[3px] border-navy press-3 press-black"
+                  }`}
                 >
                   <button
                     onClick={() => handleToggle(announcement.id)}
-                    className="w-full px-5 md:px-7 py-5 md:py-6 text-left flex items-start gap-4"
+                    className="w-full px-5 md:px-7 py-5 md:py-6 text-left flex items-start gap-4 cursor-pointer"
                   >
                     {/* Number */}
                     <span className={`font-display font-black text-lg mt-0.5 w-8 text-center shrink-0 ${isRead ? "text-navy/15" : "text-navy/25"}`}>
@@ -527,7 +536,7 @@ function AnnouncementsContent() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <h3 className={`font-display font-black text-base md:text-lg leading-snug ${isRead ? "text-navy/45" : "text-navy"}`}>
-                          {announcement.title}
+                          {interpolatedTitle}
                         </h3>
                         <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md shrink-0 ${pConfig.tag}`}>
                           {announcement.priority?.toUpperCase()}
@@ -592,6 +601,19 @@ function AnnouncementsContent() {
                         <span className="text-[10px] font-bold text-slate uppercase tracking-[0.1em]">
                           {new Date(announcement.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                         </span>
+
+                        {/* Attachments count */}
+                        {announcement.attachments && announcement.attachments.length > 0 && (
+                          <>
+                            <span className="text-navy/15">|</span>
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-teal uppercase tracking-[0.1em]">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                              </svg>
+                              {announcement.attachments.length} {announcement.attachments.length === 1 ? "Attachment" : "Attachments"}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -607,10 +629,64 @@ function AnnouncementsContent() {
                   {/* Expanded Content */}
                   {isOpen && (
                     <div className="px-5 md:px-7 pb-6 pt-0 ml-12">
-                      <div className="bg-ghost border-[3px] border-navy/10 rounded-2xl p-5 md:p-6">
-                        <p className="text-sm text-navy/70 leading-relaxed whitespace-pre-wrap">
-                          {announcement.content}
-                        </p>
+                      <div className="bg-ghost border-[3px] border-navy/10 rounded-2xl p-5 md:p-6 space-y-4">
+                        {isHtml ? (
+                          <div
+                            className="prose prose-sm max-w-none text-navy/80 [&_h1]:text-lg [&_h1]:font-black [&_h1]:text-navy [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-navy [&_p]:mb-4 [&_p]:min-h-[1.5rem] [&_p:empty]:min-h-[1.5rem] [&_p]:leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2 [&_blockquote]:border-l-4 [&_blockquote]:border-lime [&_blockquote]:pl-3 [&_blockquote]:italic [&_img]:rounded-xl [&_img]:border-2 [&_img]:border-navy/20 [&_img]:my-3 [&_img]:max-h-96 [&_a]:text-lavender [&_a]:underline [&_hr]:border-0 [&_hr]:border-t-2 [&_hr]:border-navy/10 [&_hr]:my-5"
+                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(interpolatedContent) }}
+                          />
+                        ) : (
+                          <p className="text-sm text-navy/70 leading-relaxed whitespace-pre-wrap">
+                            {interpolatedContent}
+                          </p>
+                        )}
+
+                        {/* Attachments section */}
+                        {announcement.attachments && announcement.attachments.length > 0 && (
+                          <div className="pt-4 border-t-2 border-navy/10 space-y-2">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate flex items-center gap-1.5">
+                              <svg className="w-3.5 h-3.5 text-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                              </svg>
+                              Attachments ({announcement.attachments.length})
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {announcement.attachments.map((file, i) => (
+                                <a
+                                  key={i}
+                                  href={file.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  download
+                                  className="flex items-center justify-between gap-3 p-3 rounded-xl border-2 border-navy/20 bg-snow hover:border-navy hover:bg-lime-light transition-all group/att"
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <span className="text-lg">
+                                      {(file.fileType || file.type) === "image" ? "🖼️" : (file.fileType || file.type) === "pdf" ? "📄" : "📎"}
+                                    </span>
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-bold text-navy truncate group-hover/att:underline">
+                                        {file.name}
+                                      </p>
+                                      {file.size !== undefined && file.size > 0 && (
+                                        <p className="text-[10px] text-slate font-mono">
+                                          {file.size > 1024 * 1024 ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(file.size / 1024)} KB`}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0 px-2 py-1 rounded-lg bg-ghost border border-navy/10 text-[10px] font-bold text-navy group-hover/att:bg-lime">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                    <span>Download</span>
+                                  </div>
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         <div className="mt-4 pt-4 border-t border-navy/10 flex items-center gap-3">
                           <span className="text-[10px] font-bold text-slate uppercase tracking-wider flex items-center gap-1.5">
                             <svg aria-hidden="true" className="w-3 h-3 text-teal" viewBox="0 0 24 24" fill="currentColor">

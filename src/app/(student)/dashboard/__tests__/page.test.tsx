@@ -121,6 +121,7 @@ vi.mock("@/lib/greeting", () => ({
 
 vi.mock("@/lib/quotes", () => ({
   getQuoteOfTheDay: () => ({ text: "Consistency wins", author: "IESA" }),
+  getMinuteRotatingQuote: () => ({ text: "Consistency wins", author: "IESA" }),
 }));
 
 vi.mock("@/lib/studentAccess", () => ({

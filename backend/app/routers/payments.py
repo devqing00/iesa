@@ -13,6 +13,7 @@ from datetime import datetime, timezone, timedelta
 from bson import ObjectId
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from html import escape
 
 from app.models.payment import (
     Payment, PaymentCreate, PaymentUpdate, PaymentWithStatus,
@@ -824,13 +825,32 @@ async def _process_ticket_dispatch(payment_id: str, admin_email: str):
                 qr_data=qr_data
             ))
             
-            subject = f"Your Ticket: {payment.get('title')}"
-            html_content = f"""
-            <h3>Hello {student_name},</h3>
-            <p>Your ticket for <strong>{payment.get('title')}</strong> is attached to this email.</p>
-            <p>Please present the QR code at the entrance for verification.</p>
-            <br/>
-            <p>Best regards,<br/>IESA UI</p>
+            subject = f"Your Ticket: {payment.get('title', 'Event Ticket')}"
+            html_content = f"""<!DOCTYPE html>
+            <html lang="en">
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <style>
+                body {{ margin: 0; padding: 0; background-color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #334155; }}
+                a {{ color: #0F172A; }}
+              </style>
+            </head>
+            <body style="margin:0;padding:32px 16px;background-color:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;color:#334155;">
+              <div style="max-width:580px;margin:0 auto;text-align:left;">
+                <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#334155;">Hello {escape(student_name)},</p>
+                <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#334155;">Your ticket for <strong>{escape(payment.get('title', 'Event'))}</strong> is attached to this email as an image.</p>
+                <p style="margin:0 0 20px;font-size:14px;line-height:1.65;color:#64748B;">Please present the QR code at the entrance for verification.</p>
+
+                <div style="margin-top:40px;padding-top:20px;border-top:1px solid #E2E8F0;">
+                  <p style="margin:0;font-size:12px;line-height:1.6;color:#94A3B8;">
+                    Industrial Engineering Students&apos; Association · University of Ibadan<br>
+                    Department of Industrial &amp; Production Engineering
+                  </p>
+                </div>
+              </div>
+            </body>
+            </html>
             """
             
             await email_service.send_email(

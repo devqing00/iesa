@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getApiUrl } from "@/lib/api";
 import Link from "next/link";
 import { buildMessagesHref } from "@/lib/messaging";
+import { interpolatePersonalization } from "@/lib/personalization";
 
 interface Notification {
   _id: string;
@@ -204,6 +205,8 @@ export default function NotificationBell() {
       return null;
     })();
     const actionLabel = TYPE_ACTION_LABEL[n.type] || "Open";
+    const displayTitle = interpolatePersonalization(n.title, user);
+    const displayMessage = interpolatePersonalization(n.message, user);
 
     const inner = (
       <div className="flex gap-3 px-4 py-3">
@@ -213,13 +216,13 @@ export default function NotificationBell() {
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <p className={`text-sm leading-snug ${!n.isRead ? "font-display font-black text-navy" : "font-normal text-navy/80"}`}>
-              {n.title}
+              {displayTitle}
             </p>
             {!n.isRead && (
               <span className="shrink-0 w-2 h-2 rounded-full bg-coral mt-1.5" />
             )}
           </div>
-          <p className="text-slate text-xs mt-0.5 line-clamp-1 font-normal">{n.message}</p>
+          <p className="text-slate text-xs mt-0.5 line-clamp-1 font-normal">{displayMessage}</p>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className="text-[10px] text-slate font-normal">{timeAgo(n.createdAt)}</span>
             <span className="text-[10px] text-slate font-normal">· {TYPE_LABEL[n.type] ?? n.type}</span>

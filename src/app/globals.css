@@ -1015,3 +1015,16 @@ select.input-field {
   font-weight: 700;
   color: oklch(72% 0.12 295);
 }
+
+/* ============================================
+   HORIZONTAL RULE / DIVIDER
+   Subtle, less opaque dividers matching design system
+   ============================================ */
+
+hr,
+.prose hr {
+  border: 0 !important;
+  border-top: 1.5px solid oklch(15% 0.02 280 / 0.1) !important;
+  margin-top: 1.25rem !important;
+  margin-bottom: 1.25rem !important;
+}

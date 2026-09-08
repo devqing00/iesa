@@ -55,7 +55,7 @@ function AdminLayoutInner({
 
     if (!user) {
       const targetPath = pathWithQuery(pathname, searchParams?.toString());
-      router.replace(buildAuthRedirect("/admin/login", targetPath));
+      router.replace(buildAuthRedirect("/login", targetPath));
       return;
     }
     // Redirect users with no admin access

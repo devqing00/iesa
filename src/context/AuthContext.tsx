@@ -80,7 +80,7 @@ interface AuthContextType {
   ) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
-  getAccessToken: () => Promise<string | null>;
+  getAccessToken: (forceRefresh?: boolean) => Promise<string | null>;
   sendPasswordReset: (email: string) => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
 }
@@ -95,7 +95,7 @@ const AuthContext = createContext<AuthContextType>({
   signUpWithEmail: async () => {},
   signOut: async () => {},
   refreshProfile: async () => {},
-  getAccessToken: async () => null,
+  getAccessToken: async (_forceRefresh?: boolean) => null,
   sendPasswordReset: async () => {},
   sendVerificationEmail: async () => {},
 });
@@ -165,13 +165,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const fbUserRef = useRef<FirebaseUser | null>(null);
 
   /**
-   * Get Firebase ID token (auto-refreshes if expired).
+   * Get Firebase ID token (auto-refreshes if expired, supports forceRefresh).
    */
-  const getAccessToken = useCallback(async (): Promise<string | null> => {
-    const currentUser = fbUserRef.current;
+  const getAccessToken = useCallback(async (forceRefresh = false): Promise<string | null> => {
+    const currentUser = fbUserRef.current || auth.currentUser;
     if (!currentUser) return null;
     try {
-      return await currentUser.getIdToken();
+      return await currentUser.getIdToken(forceRefresh);
     } catch {
       return null;
     }

@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from bson import ObjectId
 import logging
+import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from app.core.security import get_current_user
@@ -268,9 +269,52 @@ async def list_notifications(
 
     cursor = db.notifications.find(query).sort("createdAt", -1).limit(limit)
     notifications = []
+    has_tags = False
     async for n in cursor:
         n["_id"] = str(n["_id"])
+        if "{{" in str(n.get("title", "")) or "{{" in str(n.get("message", "")):
+            has_tags = True
         notifications.append(n)
+
+    if has_tags and notifications:
+        user_query_id = ObjectId(str(user_id)) if ObjectId.is_valid(str(user_id)) else str(user_id)
+        user_doc = await db.users.find_one(
+            {"_id": user_query_id},
+            {"firstName": 1, "lastName": 1, "matricNumber": 1, "currentLevel": 1, "department": 1, "email": 1}
+        )
+        if user_doc:
+            first_name = str(user_doc.get("firstName") or "").strip()
+            last_name = str(user_doc.get("lastName") or "").strip()
+            full_name = f"{first_name} {last_name}".strip() or "Student"
+            matric_no = str(user_doc.get("matricNumber") or "").strip()
+            level = str(user_doc.get("currentLevel") or "").strip()
+            dept = str(user_doc.get("department") or "Industrial and Production Engineering").strip()
+            email_val = str(user_doc.get("email") or current_user.get("email") or "").strip()
+
+            def _repl(m):
+                k = m.group(1).lower().strip()
+                if k in ("first_name", "firstname"):
+                    return first_name or "Student"
+                if k in ("last_name", "lastname"):
+                    return last_name or ""
+                if k in ("student_name", "studentname", "name", "full_name", "fullname"):
+                    return full_name
+                if k in ("matric_no", "matricno", "matric_number", "matricnumber"):
+                    return matric_no or "N/A"
+                if k in ("level", "current_level", "currentlevel"):
+                    return level or "IPE"
+                if k in ("department", "dept"):
+                    return dept
+                if k == "email":
+                    return email_val
+                return m.group(0)
+
+            for n in notifications:
+                if "{{" in str(n.get("title", "")):
+                    n["title"] = re.sub(r'\{\{\s*([\w]+)\s*\}\}', _repl, str(n["title"]))
+                if "{{" in str(n.get("message", "")):
+                    n["message"] = re.sub(r'\{\{\s*([\w]+)\s*\}\}', _repl, str(n["message"]))
+
     return notifications
 
 

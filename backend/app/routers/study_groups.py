@@ -1099,21 +1099,33 @@ async def send_group_invites(
         invite_url = f"{frontend_url}{invite_link}"
         join_instruction = "request access" if visibility == "private" else "join"
         subject = f"IESA Study Group Invite — {doc.get('name', 'Study Group')}"
-        html = f"""
-        <html>
-          <body style=\"margin:0;padding:24px;background:#FAFAFE;font-family:Inter,Arial,sans-serif;color:#0F0F2D;\">
-            <div style=\"max-width:620px;margin:0 auto;background:#FFFFFF;border:3px solid #0F0F2D;border-radius:18px;overflow:hidden;box-shadow:6px 6px 0 #000;\">
-              <div style=\"background:#C8F31D;padding:16px 20px;border-bottom:3px solid #0F0F2D;\">
-                <p style=\"margin:0;font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:900;color:#0F0F2D;\">Study Group Invite</p>
-              </div>
-              <div style=\"padding:22px 20px;\">
-                <p style=\"margin:0 0 10px;font-size:14px;line-height:1.7;color:#334155;\">Hi {escape(display_name)},</p>
-                <p style=\"margin:0 0 10px;font-size:14px;line-height:1.7;color:#334155;\">You have been invited to {join_instruction} <strong>{group_name}</strong>.</p>
-                <p style=\"margin:0 0 14px;font-size:13px;line-height:1.7;color:#64748B;\">Click below to continue in your dashboard.</p>
-                <a href=\"{invite_url}\" style=\"display:inline-block;background:#0F0F2D;color:#FFFFFF;font-size:13px;font-weight:800;text-decoration:none;padding:10px 14px;border:3px solid #0F0F2D;border-radius:10px;\">Open Invite</a>
-              </div>
+        html = f"""<!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body {{ margin: 0; padding: 0; background-color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #334155; }}
+            a {{ color: #0F172A; }}
+          </style>
+        </head>
+        <body style="margin:0;padding:32px 16px;background-color:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;color:#334155;">
+          <div style="max-width:580px;margin:0 auto;text-align:left;">
+            <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#334155;">Hi {escape(display_name)},</p>
+            <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#334155;">You have been invited to {join_instruction} the study group <strong>{group_name}</strong> on the IESA student portal.</p>
+
+            <div style="margin-top:24px;">
+              <a href="{invite_url}" style="display:inline-block;background:#0F172A;color:#FFFFFF;font-size:13px;font-weight:600;text-decoration:none;padding:10px 18px;border-radius:6px;">Accept &amp; Open Invite &rarr;</a>
             </div>
-          </body>
+
+            <div style="margin-top:40px;padding-top:20px;border-top:1px solid #E2E8F0;">
+              <p style="margin:0;font-size:12px;line-height:1.6;color:#94A3B8;">
+                Industrial Engineering Students&apos; Association · University of Ibadan<br>
+                Department of Industrial &amp; Production Engineering
+              </p>
+            </div>
+          </div>
+        </body>
         </html>
         """
 

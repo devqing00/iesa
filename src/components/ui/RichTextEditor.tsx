@@ -7,7 +7,10 @@ import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
+import { getApiUrl } from "@/lib/api";
 
 /* ─── Toolbar Button ─── */
 function ToolbarButton({
@@ -45,18 +48,55 @@ function Sep() {
   return <div className="w-px h-5 bg-navy/10 mx-0.5" />;
 }
 
+/* ─── HTML Paragraph Helper ─── */
+function ensureHtmlParagraphs(raw: string): string {
+  if (!raw) return "";
+  if (/<(p|div|h[1-6]|ul|ol|li|blockquote|table|hr)\b/i.test(raw)) {
+    return raw;
+  }
+  return raw
+    .split(/\r?\n\r?\n/)
+    .map((block) => `<p>${block.replace(/\r?\n/g, "<br>")}</p>`)
+    .join("");
+}
+
 /* ─── Main Component ─── */
+export interface PersonalizationTag {
+  tag?: string;
+  value?: string;
+  label: string;
+  desc?: string;
+  description?: string;
+}
+
 interface RichTextEditorProps {
-  content: string;
+  content?: string;
+  value?: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  minHeight?: string;
+  availableVariables?: PersonalizationTag[];
+  uploadEndpoint?: string;
+  error?: string;
 }
 
 export default function RichTextEditor({
   content,
+  value,
   onChange,
-  placeholder = "Start writing your article...",
+  placeholder = "Start writing...",
+  minHeight = "min-h-[380px]",
+  availableVariables,
+  uploadEndpoint = "/api/v1/announcements/upload-media",
 }: RichTextEditorProps) {
+  const { getAccessToken } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showVarMenu, setShowVarMenu] = useState(false);
+
+  const initialContent = ensureHtmlParagraphs(content ?? value ?? "");
+  const normalizedMinHeight = minHeight.startsWith("min-h-") ? minHeight : `min-h-[${minHeight}]`;
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -66,27 +106,30 @@ export default function RichTextEditor({
       Image.configure({ inline: false, allowBase64: true }),
       Link.configure({
         openOnClick: false,
-        HTMLAttributes: { class: "text-lavender font-bold underline" },
+        HTMLAttributes: {
+          class: "text-lavender font-bold underline",
+          style: "color: #9B72CF; font-weight: 700; text-decoration: underline;",
+        },
       }),
       Placeholder.configure({ placeholder }),
       Underline,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
     ],
-    content,
+    content: initialContent,
     onUpdate: ({ editor: e }) => {
       onChange(e.getHTML());
     },
     editorProps: {
       attributes: {
         class:
-          "prose max-w-none min-h-[320px] px-5 py-4 text-sm text-navy/90 leading-relaxed focus:outline-none " +
+          `prose max-w-none ${normalizedMinHeight} px-5 py-4 text-sm text-navy/90 leading-relaxed focus:outline-none ` +
           "[&_h2]:font-display [&_h2]:font-black [&_h2]:text-navy [&_h2]:text-xl [&_h2]:mt-6 [&_h2]:mb-2 " +
           "[&_h3]:font-display [&_h3]:font-bold [&_h3]:text-navy [&_h3]:text-lg " +
-          "[&_p]:mb-2 [&_a]:text-lavender [&_a]:font-bold " +
+          "[&_p]:mb-4 [&_p]:min-h-[1.5rem] [&_p:empty]:min-h-[1.5rem] [&_p]:leading-relaxed [&_a]:text-lavender [&_a]:font-bold " +
           "[&_blockquote]:border-l-[3px] [&_blockquote]:border-ghost/20 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-navy/70 " +
           "[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 " +
           "[&_img]:rounded-xl [&_img]:my-4 [&_img]:max-w-full " +
-          "[&_hr]:border-cloud [&_hr]:my-6 " +
+          "[&_hr]:border-0 [&_hr]:border-t-2 [&_hr]:border-navy/10 [&_hr]:my-5 " +
           "[&_code]:bg-ghost [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_code]:text-xs [&_code]:font-mono " +
           "[&_p.is-editor-empty:first-child::before]:text-slate/40 [&_p.is-editor-empty:first-child::before]:float-left [&_p.is-editor-empty:first-child::before]:pointer-events-none",
       },
@@ -94,21 +137,82 @@ export default function RichTextEditor({
     immediatelyRender: false,
   });
 
-  // Sync external content changes (e.g. loading article for edit)
+  // Sync external content changes
+  const activeContent = ensureHtmlParagraphs(content ?? value ?? "");
   useEffect(() => {
-    if (editor && content && editor.getHTML() !== content) {
-      editor.commands.setContent(content, { emitUpdate: false });
+    if (editor && activeContent && !editor.isFocused && editor.getHTML() !== activeContent) {
+      editor.commands.setContent(activeContent, { emitUpdate: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content, editor]);
+  }, [activeContent, editor]);
 
-  const addImage = useCallback(() => {
+  const addImageByUrl = useCallback(() => {
     if (!editor) return;
     const url = window.prompt("Image URL:");
     if (url) {
       editor.chain().focus().setImage({ src: url }).run();
     }
   }, [editor]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editor) return;
+
+    // Reset input
+    e.target.value = "";
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only image files can be embedded in content");
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      let token = await getAccessToken();
+      if (!token) {
+        token = await getAccessToken(true);
+      }
+      const formData = new FormData();
+      formData.append("file", file);
+
+      let res = await fetch(getApiUrl(uploadEndpoint), {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+
+      if (res.status === 401) {
+        const freshToken = await getAccessToken(true);
+        if (freshToken) {
+          res = await fetch(getApiUrl(uploadEndpoint), {
+            method: "POST",
+            headers: { Authorization: `Bearer ${freshToken}` },
+            body: formData,
+          });
+        }
+      }
+
+      if (!res.ok) {
+        throw new Error("Failed to upload image");
+      }
+
+      const data = await res.json();
+      if (data.url) {
+        editor.chain().focus().setImage({ src: data.url, alt: file.name }).run();
+        toast.success("Image embedded");
+      }
+    } catch {
+      toast.error("Failed to upload image");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const insertVariable = (tag: string) => {
+    if (!editor) return;
+    editor.chain().focus().insertContent(tag).run();
+    setShowVarMenu(false);
+  };
 
   const setLink = useCallback(() => {
     if (!editor) return;
@@ -130,9 +234,16 @@ export default function RichTextEditor({
   if (!editor) return null;
 
   return (
-    <div className="bg-snow border-[3px] border-navy rounded-2xl shadow-[3px_3px_0_0_#000] overflow-hidden">
-      {/* ── Toolbar ── */}
-      <div className="flex flex-wrap items-center gap-0.5 px-3 py-2 border-b-[2px] border-navy/10 bg-ghost/50">
+    <div className="bg-snow border-[3px] border-navy rounded-2xl shadow-[3px_3px_0_0_#000] relative">
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileUpload}
+        accept="image/*"
+        className="hidden"
+      />
+      {/* ── Toolbar (Sticky) ── */}
+      <div className="sticky -top-10 z-30 flex flex-wrap items-center gap-0.5 px-3 py-2 border-b-[2px] border-navy/10 bg-snow/95 backdrop-blur-sm rounded-t-[13px] shadow-sm">
         {/* Text type */}
         <ToolbarButton
           onClick={() => editor.chain().focus().setParagraph().run()}
@@ -279,13 +390,86 @@ export default function RichTextEditor({
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
           </svg>
         </ToolbarButton>
-        <ToolbarButton onClick={addImage} title="Insert Image">
+
+        {/* Upload Image from Device */}
+        <ToolbarButton
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+          title="Upload Image"
+        >
+          {isUploading ? (
+            <div className="w-4 h-4 border-2 border-navy/30 border-t-navy rounded-full animate-spin" />
+          ) : (
+            <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+            </svg>
+          )}
+        </ToolbarButton>
+
+        {/* Insert Image by URL */}
+        <ToolbarButton onClick={addImageByUrl} title="Image via URL">
           <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
             <circle cx="8.5" cy="8.5" r="1.5" />
             <polyline points="21 15 16 10 5 21" />
           </svg>
         </ToolbarButton>
+
+        <Sep />
+
+        {/* Personalization Variables Inserter */}
+        {availableVariables && availableVariables.length > 0 && (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowVarMenu((prev) => !prev)}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold text-navy bg-lime/30 border border-navy/20 hover:bg-lime/50 transition-colors"
+              title="Insert student personalization variable"
+            >
+              <svg aria-hidden="true" className="w-3.5 h-3.5 text-navy" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+              </svg>
+              <span>{"{ Variable }"}</span>
+              <svg aria-hidden="true" className="w-3 h-3 text-navy/60" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+              </svg>
+            </button>
+
+            {showVarMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowVarMenu(false)} />
+                <div className="absolute right-0 top-full mt-1.5 z-50 w-72 max-w-[calc(100vw-3rem)] bg-snow rounded-xl border-[2.5px] border-navy shadow-[4px_4px_0_0_#000] py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-right">
+                  <div className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-navy/70 border-b border-navy/10 bg-ghost/40 flex items-center justify-between">
+                    <span>Insert Student Detail</span>
+                    <span className="text-[9px] font-mono text-slate">Tag</span>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto p-1 space-y-0.5 scrollbar-thin">
+                    {availableVariables.map((v, idx) => {
+                      const tagValue = v.tag || v.value || "";
+                      const description = v.desc || v.description || "";
+                      return (
+                        <button
+                          key={tagValue || idx}
+                          type="button"
+                          onClick={() => insertVariable(tagValue)}
+                          className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-lime/30 flex flex-col transition-colors group cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-navy">{v.label}</span>
+                            <code className="text-[10px] font-mono font-bold bg-ghost px-1.5 py-0.5 rounded text-navy/70 border border-navy/10 group-hover:border-navy/30">
+                              {tagValue}
+                            </code>
+                          </div>
+                          {description && <span className="text-[10px] text-slate/80 mt-0.5">{description}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         <Sep />
 
@@ -339,7 +523,9 @@ export default function RichTextEditor({
       </div>
 
       {/* ── Editor Content ── */}
-      <EditorContent editor={editor} />
+      <div className="rounded-b-2xl overflow-hidden relative z-0">
+        <EditorContent editor={editor} />
+      </div>
     </div>
   );
 }

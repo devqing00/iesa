@@ -310,6 +310,8 @@ export const api = {
     apiRequest<T>(endpoint, { ...options, method: 'DELETE' }),
 };
 
+export const apiClient = api;
+
 // ============================================
 // Utility Functions
 // ============================================
