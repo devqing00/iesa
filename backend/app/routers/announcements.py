@@ -1111,6 +1111,10 @@ async def update_announcement(
 
     update_data["updatedAt"] = datetime.now(timezone.utc)
 
+    resend_notification = bool(update_data.pop("resendNotification", False))
+    if resend_notification:
+        update_data["lastResentAt"] = datetime.now(timezone.utc)
+
     # Snapshot isPublished BEFORE updating so we can detect first-publish
     was_published: bool = False
     if update_data.get("isPublished") is True:
@@ -1133,8 +1137,13 @@ async def update_announcement(
     updated_announcement = await announcements.find_one({"_id": ObjectId(announcement_id)})
     updated_announcement["_id"] = str(updated_announcement["_id"])
 
-    # Fire notifications when an announcement is published for the first time via PATCH
-    if update_data.get("isPublished") is True and not was_published:
+    # Fire notifications when an announcement is published for the first time via PATCH, OR when explicitly requested to resend
+    should_dispatch_notifications = (
+        (update_data.get("isPublished") is True and not was_published) or
+        (resend_notification and updated_announcement.get("isPublished") is not False)
+    )
+
+    if should_dispatch_notifications:
         fire_and_forget(_fire_announcement_notifications(updated_announcement, db))
         if updated_announcement.get("sendEmail") is not False:
             fire_and_forget(_notify_students_of_announcement(
@@ -1156,7 +1165,7 @@ async def update_announcement(
         actor_email=user.get("email", ""),
         resource_type="announcement",
         resource_id=announcement_id,
-        details={"updated_fields": list(update_data.keys())}
+        details={"updated_fields": list(update_data.keys()), "resent": resend_notification}
     )
 
     # For already-published announcements: emit SSE, invalidate cache, sync notification content
@@ -1185,6 +1194,68 @@ async def update_announcement(
             )
 
     return Announcement(**updated_announcement)
+
+
+@router.post("/{announcement_id}/resend")
+async def resend_announcement(
+    announcement_id: str,
+    user: dict = Depends(require_permission("announcement:edit"))
+):
+    """
+    Re-dispatch in-app notifications and email for an existing announcement.
+    Requires announcement:edit permission.
+    """
+    db = get_database()
+    announcements = db["announcements"]
+
+    if not ObjectId.is_valid(announcement_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid announcement ID format"
+        )
+
+    announcement = await announcements.find_one({"_id": ObjectId(announcement_id)})
+    if not announcement:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Announcement {announcement_id} not found"
+        )
+
+    announcement["_id"] = str(announcement["_id"])
+
+    # Update resentAt timestamp
+    now = datetime.now(timezone.utc)
+    await announcements.update_one(
+        {"_id": ObjectId(announcement_id)},
+        {"$set": {"lastResentAt": now, "updatedAt": now}}
+    )
+
+    # Fire notifications
+    fire_and_forget(_fire_announcement_notifications(announcement, db))
+    if announcement.get("sendEmail") is not False:
+        fire_and_forget(_notify_students_of_announcement(
+            session_id=str(announcement.get("sessionId")),
+            target_levels=announcement.get("targetLevels"),
+            title=announcement.get("title", ""),
+            content=announcement.get("content", ""),
+            priority=announcement.get("priority", "normal"),
+            db=db,
+            target_audience=announcement.get("targetAudience") or "all",
+            target_user_ids=announcement.get("targetUserIds") or [],
+            custom_emails=announcement.get("customEmails") or [],
+            attachments=announcement.get("attachments") or [],
+        ))
+
+    await AuditLogger.log(
+        action="announcement:resent",
+        actor_id=user["_id"],
+        actor_email=user.get("email", ""),
+        resource_type="announcement",
+        resource_id=announcement_id,
+        details={"title": announcement.get("title", ""), "targetAudience": announcement.get("targetAudience", "all")}
+    )
+
+    return {"success": True, "message": f"Broadcast for '{announcement.get('title', '')}' resent successfully."}
 
 
 @router.delete("/{announcement_id}", status_code=status.HTTP_204_NO_CONTENT)

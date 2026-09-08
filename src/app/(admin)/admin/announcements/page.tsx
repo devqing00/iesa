@@ -189,6 +189,8 @@ function AdminAnnouncementsPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [resendConfirmId, setResendConfirmId] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [recipientQuery, setRecipientQuery] = useState("");
   const [recipientOptions, setRecipientOptions] = useState<RecipientOption[]>([]);
@@ -518,7 +520,31 @@ function AdminAnnouncementsPage() {
     setSelectedRecipients((prev) => prev.filter((u) => u.id !== userId));
   };
 
-  const handleSubmit = async () => {
+  const handleQuickResend = async (announcementId: string) => {
+    setResendingId(announcementId);
+    try {
+      let token = await getAccessToken();
+      if (!token) token = await getAccessToken(true);
+      const res = await fetch(getApiUrl(`/api/v1/announcements/${announcementId}/resend`), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (!res.ok) await throwApiError(res, "resend announcement");
+      const data = await res.json();
+      toast.success(data.message || "Announcement broadcast resent successfully!");
+      fetchAnnouncements();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to resend broadcast");
+    } finally {
+      setResendingId(null);
+      setResendConfirmId(null);
+    }
+  };
+
+  const handleSubmit = async (resend = false) => {
     if (form.targetAudience === "specific_students" && form.targetUserIds.length === 0) {
       setFormErrors((prev) => ({ ...prev, targetUserIds: "Select at least one student" }));
       return;
@@ -559,10 +585,15 @@ function AdminAnnouncementsPage() {
           expiresAt: form.expiresAt || null,
           scheduledFor: form.scheduledFor || null,
           sendEmail: form.sendEmail,
+          resendNotification: resend,
         };
         const res = await fetch(getApiUrl(`/api/v1/announcements/${editingId}`), { method: "PATCH", headers, body: JSON.stringify(body) });
         if (!res.ok) await throwApiError(res, "update announcement");
-        toast.success("Announcement updated");
+        toast.success(
+          resend
+            ? "Announcement updated & broadcast resent to recipients"
+            : "Announcement updated"
+        );
       } else {
         if (!currentSession?.id) {
           throw new Error("No active academic session found. Please activate a session first.");
@@ -831,10 +862,41 @@ function AdminAnnouncementsPage() {
                       {/* Actions — visible on hover */}
                       <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <PermissionGate permission="announcement:edit">
+                          {resendConfirmId === id ? (
+                            <div className="flex items-center gap-1 bg-snow border-2 border-navy rounded-xl px-2 py-1 shadow-sm">
+                              <span className="text-[10px] font-black uppercase text-navy">Resend?</span>
+                              <button
+                                onClick={() => handleQuickResend(id)}
+                                disabled={resendingId === id}
+                                className="px-2 py-0.5 rounded-lg bg-navy text-lime text-xs font-black hover:bg-navy/90"
+                              >
+                                {resendingId === id ? "..." : "Yes"}
+                              </button>
+                              <button
+                                onClick={() => setResendConfirmId(null)}
+                                className="px-2 py-0.5 rounded-lg bg-ghost text-navy/70 text-xs font-bold"
+                              >
+                                No
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setResendConfirmId(id)}
+                              aria-label="Resend broadcast"
+                              title="Resend email & notifications to recipients"
+                              className="p-2 rounded-xl hover:bg-cloud transition-colors text-navy/60 hover:text-navy"
+                            >
+                              <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                              </svg>
+                            </button>
+                          )}
+                        </PermissionGate>
+                        <PermissionGate permission="announcement:edit">
                           <button
                             onClick={() => openEdit(a)}
                             aria-label="Edit announcement"
-                            className="p-2 rounded-xl hover:bg-cloud transition-colors"
+                            className="p-2 rounded-xl hover:bg-cloud transition-colors text-navy/60 hover:text-navy"
                           >
                             <svg aria-hidden="true" className="w-4 h-4 text-navy/60" viewBox="0 0 24 24" fill="currentColor">
                               <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32l8.4-8.4Z" />
@@ -1240,7 +1302,7 @@ function AdminAnnouncementsPage() {
                 </svg>
                 Preview &amp; Test
               </button>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
                   onClick={handleCloseModal}
@@ -1248,14 +1310,41 @@ function AdminAnnouncementsPage() {
                 >
                   Cancel
                 </button>
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                  className="px-6 py-2.5 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-4 press-lime disabled:opacity-40 transition-all cursor-pointer"
-                >
-                  {submitting ? "Saving..." : editingId ? "Save Changes" : form.scheduledFor ? "Schedule" : "Publish"}
-                </button>
+
+                {editingId ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleSubmit(false)}
+                      disabled={submitting}
+                      className="px-5 py-2.5 rounded-2xl border-[3px] border-navy bg-snow text-navy text-sm font-bold hover:bg-cloud disabled:opacity-40 transition-all cursor-pointer shadow-[2px_2px_0_0_#000] active:translate-x-0.5 active:translate-y-0.5"
+                      title="Update announcement quietly without re-sending emails or notifications"
+                    >
+                      {submitting ? "Saving..." : "Save Changes"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSubmit(true)}
+                      disabled={submitting}
+                      className="px-6 py-2.5 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-4 press-lime disabled:opacity-40 transition-all cursor-pointer flex items-center gap-2"
+                      title="Save changes and re-dispatch emails & in-app notifications to recipients"
+                    >
+                      <svg className="w-4 h-4 text-lime" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                      </svg>
+                      {submitting ? "Resending..." : "Save & Resend"}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleSubmit(false)}
+                    disabled={submitting}
+                    className="px-6 py-2.5 rounded-2xl bg-navy border-[3px] border-lime text-snow text-sm font-bold press-4 press-lime disabled:opacity-40 transition-all cursor-pointer"
+                  >
+                    {submitting ? "Publishing..." : form.scheduledFor ? "Schedule" : "Publish"}
+                  </button>
+                )}
               </div>
             </div>
           </div>

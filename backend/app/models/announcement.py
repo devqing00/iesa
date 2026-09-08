@@ -83,6 +83,7 @@ class AnnouncementUpdate(BaseModel):
     scheduledFor: Optional[datetime] = None
     sendEmail: Optional[bool] = None
     attachments: Optional[List[Attachment]] = None
+    resendNotification: Optional[bool] = Field(False, description="Whether to re-dispatch notifications and email upon update")
 
 
 class Announcement(AnnouncementBase):
