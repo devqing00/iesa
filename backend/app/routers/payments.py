@@ -151,18 +151,24 @@ async def list_payments(
     payment_list = await cursor.to_list(length=limit)
     
     # Enrich with user's payment status
+    user_id = str(user.get("_id", ""))
     result = []
     for payment in payment_list:
         payment["_id"] = str(payment["_id"])
         
+        # Ensure paidBy is a list of clean string IDs
+        raw_paid_by = payment.get("paidBy") or []
+        paid_by_clean = [str(uid) for uid in raw_paid_by if uid is not None]
+        payment["paidBy"] = paid_by_clean
+        
         # Check if current user has paid
-        has_paid = user["_id"] in payment.get("paidBy", [])
+        has_paid = user_id in paid_by_clean
         
         # Get transaction if exists
         transaction_id = None
         if has_paid:
             transaction = await transactions.find_one({
-                "studentId": user["_id"],
+                "studentId": user_id,
                 "paymentId": str(payment["_id"])
             })
             if transaction:
@@ -274,19 +280,24 @@ async def get_payment(
     payment["_id"] = str(payment["_id"])
     
     # Check payment status
-    has_paid = user["_id"] in payment.get("paidBy", [])
+    user_id = str(user.get("_id", ""))
+    raw_paid_by = payment.get("paidBy") or []
+    paid_by_clean = [str(uid) for uid in raw_paid_by if uid is not None]
+    payment["paidBy"] = paid_by_clean
+    has_paid = user_id in paid_by_clean
     transaction_id = None
     
     if has_paid:
         transaction = await transactions.find_one({
-            "studentId": user["_id"],
+            "studentId": user_id,
             "paymentId": payment_id
         })
         if transaction:
             transaction_id = str(transaction["_id"])
     
+    payment_data = {k: v for k, v in payment.items() if k not in ["hasPaid", "transactionId"]}
     return PaymentWithStatus(
-        **payment,
+        **payment_data,
         hasPaid=has_paid,
         transactionId=transaction_id
     )
@@ -779,11 +790,23 @@ async def update_ticket_config(
     return Payment(**payment)
 
 
-async def _process_ticket_dispatch(payment_id: str, admin_email: str):
+class TicketDispatchPayload(BaseModel):
+    subject: Optional[str] = None
+    content: Optional[str] = None
+    testEmail: Optional[str] = None
+
+
+async def _process_ticket_dispatch(
+    payment_id: str,
+    admin_email: str,
+    custom_subject: Optional[str] = None,
+    custom_content: Optional[str] = None,
+    test_email: Optional[str] = None,
+):
     import asyncio
     import logging
     from app.utils.visual_ticket_generator import generate_visual_ticket
-    from app.core.email import EmailService
+    from app.core.email import EmailService, EmailTemplate
     
     db = get_database()
     payment = await db.payments.find_one({"_id": ObjectId(payment_id)})
@@ -800,16 +823,27 @@ async def _process_ticket_dispatch(payment_id: str, admin_email: str):
         {"_id": {"$in": oid_list}},
         {"firstName": 1, "lastName": 1, "email": 1, "matricNumber": 1}
     ).to_list(length=None)
-    
+
+    if not users:
+        return
+
+    is_test = bool(test_email)
+    if is_test:
+        sample_user = next((u for u in users if "toriola" in f"{u.get('firstName', '')} {u.get('lastName', '')}".lower()), users[0])
+        recipients = [(sample_user, test_email)]
+    else:
+        recipients = [(u, u.get("email")) for u in users if u.get("email")]
+
     email_service = EmailService()
-    
-    for u in users:
+    raw_subject = custom_subject or config.get("emailSubject") or f"Your Ticket: {payment.get('title', 'Event Ticket')}"
+    raw_content = custom_content or config.get("emailContent")
+
+    for u, target_email in recipients:
         student_name = f"{u.get('firstName', '')} {u.get('lastName', '')}".strip()
+        first_name = u.get("firstName", "Attendee").strip()
+        first_token = first_name.split()[0].title() if first_name else "Attendee"
         matric = u.get("matricNumber", "")
-        email = u.get("email")
-        if not email:
-            continue
-            
+        
         qr_data = f"IESA_EVENT:{payment_id}|STUDENT:{u['_id']}"
         
         try:
@@ -824,58 +858,81 @@ async def _process_ticket_dispatch(payment_id: str, admin_email: str):
                 matric_number=matric,
                 qr_data=qr_data
             ))
-            
-            subject = f"Your Ticket: {payment.get('title', 'Event Ticket')}"
-            html_content = f"""<!DOCTYPE html>
-            <html lang="en">
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <style>
-                body {{ margin: 0; padding: 0; background-color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #334155; }}
-                a {{ color: #0F172A; }}
-              </style>
-            </head>
-            <body style="margin:0;padding:32px 16px;background-color:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;color:#334155;">
-              <div style="max-width:580px;margin:0 auto;text-align:left;">
-                <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#334155;">Hello {escape(student_name)},</p>
-                <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#334155;">Your ticket for <strong>{escape(payment.get('title', 'Event'))}</strong> is attached to this email as an image.</p>
-                <p style="margin:0 0 20px;font-size:14px;line-height:1.65;color:#64748B;">Please present the QR code at the entrance for verification.</p>
 
-                <div style="margin-top:40px;padding-top:20px;border-top:1px solid #E2E8F0;">
-                  <p style="margin:0;font-size:12px;line-height:1.6;color:#94A3B8;">
-                    Industrial Engineering Students&apos; Association · University of Ibadan<br>
-                    Department of Industrial &amp; Production Engineering
-                  </p>
-                </div>
-              </div>
-            </body>
-            </html>
-            """
-            
+            subject = raw_subject.replace("{{first_name}}", first_token)
+            subject = subject.replace("{{student_name}}", student_name)
+            subject = subject.replace("{{full_name}}", student_name)
+            subject = subject.replace("{{matric_number}}", matric)
+
+            if raw_content:
+                content = raw_content.replace("{{first_name}}", first_token)
+                content = content.replace("{{student_name}}", student_name)
+                content = content.replace("{{full_name}}", student_name)
+                content = content.replace("{{matric_number}}", matric)
+
+                context = {
+                    "title": subject,
+                    "content": content,
+                    "student_name": student_name,
+                    "priority": "normal",
+                    "target_label": "Paid Attendees",
+                    "dashboard_url": "https://iesaui.org/dashboard/payments",
+                }
+                _, html_content = email_service._render_template(EmailTemplate.ANNOUNCEMENT, context)
+            else:
+                html_content = f"""<!DOCTYPE html>
+                <html lang="en">
+                <head>
+                  <meta charset="utf-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <style>
+                    body {{ margin: 0; padding: 0; background-color: #FFFFFF; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; color: #334155; }}
+                    a {{ color: #0F172A; }}
+                  </style>
+                </head>
+                <body style="margin:0;padding:32px 16px;background-color:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;color:#334155;">
+                  <div style="max-width:580px;margin:0 auto;text-align:left;">
+                    <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#334155;">Hello {escape(student_name)},</p>
+                    <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#334155;">Your ticket for <strong>{escape(payment.get('title', 'Event'))}</strong> is attached to this email as an image.</p>
+                    <p style="margin:0 0 20px;font-size:14px;line-height:1.65;color:#64748B;">Please present the QR code at the entrance for verification.</p>
+
+                    <div style="margin-top:40px;padding-top:20px;border-top:1px solid #E2E8F0;">
+                      <p style="margin:0;font-size:12px;line-height:1.6;color:#94A3B8;">
+                        Industrial Engineering Students&apos; Association · University of Ibadan<br>
+                        Department of Industrial &amp; Production Engineering
+                      </p>
+                    </div>
+                  </div>
+                </body>
+                </html>
+                """
+
+            safe_title = payment.get('title', 'Ticket').replace(' ', '_')
             await email_service.send_email(
-                to=email,
+                to=target_email,
                 subject=subject,
                 html_content=html_content,
                 attachments=[{
-                    "filename": f"IESA_Ticket_{payment.get('title').replace(' ', '_')}.png",
+                    "filename": f"IESA_Ticket_{safe_title}.png",
                     "content": ticket_bytes
                 }]
             )
             
-            await asyncio.sleep(0.2)
+            if not is_test:
+                await asyncio.sleep(0.2)
             
         except Exception as e:
-            logging.error(f"Error dispatching ticket for {email}: {str(e)}")
+            logging.error(f"Error dispatching ticket for {target_email}: {str(e)}")
 
 
 @router.post("/{payment_id}/send-tickets")
 async def dispatch_tickets(
     payment_id: str,
     background_tasks: BackgroundTasks,
+    payload: Optional[TicketDispatchPayload] = None,
     user: dict = Depends(require_permission("payment:edit"))
 ):
-    """Trigger background job to send visual tickets to all paid students"""
+    """Trigger background job or test email to send visual tickets to paid students"""
     db = get_database()
     if not ObjectId.is_valid(payment_id):
         raise HTTPException(400, "Invalid payment ID")
@@ -889,9 +946,42 @@ async def dispatch_tickets(
         
     if not payment.get("paidBy"):
         raise HTTPException(400, "No paid students to send tickets to")
+
+    subject = payload.subject if payload else None
+    content = payload.content if payload else None
+    test_email = payload.testEmail.strip() if (payload and payload.testEmail) else None
+
+    # Persist custom subject and content to ticketConfig if provided
+    if subject or content:
+        update_fields = {}
+        if subject:
+            update_fields["ticketConfig.emailSubject"] = subject
+        if content:
+            update_fields["ticketConfig.emailContent"] = content
+        await db.payments.update_one(
+            {"_id": ObjectId(payment_id)},
+            {"$set": update_fields}
+        )
+
+    if test_email:
+        await _process_ticket_dispatch(
+            payment_id=payment_id,
+            admin_email=user.get("email"),
+            custom_subject=subject,
+            custom_content=content,
+            test_email=test_email,
+        )
+        return {"message": f"Test ticket email sent to {test_email}", "count": 1, "isTest": True}
         
-    background_tasks.add_task(_process_ticket_dispatch, payment_id, user.get("email"))
+    background_tasks.add_task(
+        _process_ticket_dispatch,
+        payment_id=payment_id,
+        admin_email=user.get("email"),
+        custom_subject=subject,
+        custom_content=content,
+    )
     return {"message": "Ticket dispatch started", "count": len(payment.get("paidBy", []))}
+
 
 
 @router.get("/{payment_id}/tickets/pdf")

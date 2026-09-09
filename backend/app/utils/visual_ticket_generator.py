@@ -22,6 +22,28 @@ def get_ticket_font(font_size: int):
         logger.error(f"Failed to load font: {e}")
         return ImageFont.load_default()
 
+
+def format_ticket_name(name: str) -> str:
+    """
+    Format student name to at most two words to prevent visual text overflow on ticket templates.
+    If an attendee has 3+ names (e.g. 'Samuel oluwafemi Toriola'), keeps First and Last name ('Samuel Toriola').
+    """
+    if not name:
+        return ""
+    tokens = [t.strip() for t in name.split() if t.strip()]
+    if not tokens:
+        return ""
+
+    def _clean(token: str) -> str:
+        return token.title() if (token.islower() or token.isupper()) else token
+
+    if len(tokens) <= 2:
+        return " ".join(_clean(t) for t in tokens)
+
+    # 3 or more names: take first and last
+    return f"{_clean(tokens[0])} {_clean(tokens[-1])}"
+
+
 def generate_visual_ticket(
     template_url: str,
     qr_config: dict,
@@ -44,11 +66,13 @@ def generate_visual_ticket(
         base_image = Image.open(io.BytesIO(response.content)).convert("RGBA")
         
         # 2. Generate QR Code
+        # Use ERROR_CORRECT_M (15% redundancy) - optimal for event tickets, produces 37x37 grid instead of 49x49
+        # border=3 provides clean Quiet Zone contrast so cameras acquire lock in <100ms
         qr = qrcode.QRCode(
             version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
             box_size=10,
-            border=2,
+            border=3,
         )
         qr.add_data(qr_data)
         qr.make(fit=True)
@@ -56,10 +80,12 @@ def generate_visual_ticket(
         
         img_w, img_h = base_image.size
 
-        # Resize QR code according to config percentage
-        qr_w_pct = float(qr_config.get("w", 20)) / 100.0
-        qr_size_px = int(img_w * qr_w_pct)
-        qr_img = qr_img.resize((qr_size_px, qr_size_px), Image.Resampling.LANCZOS)
+        # Resize QR code according to config dimensions (fill available box height/width cleanly)
+        qr_box_h = int(img_h * float(qr_config.get("h", 18.78)) / 100.0)
+        qr_box_w = int(img_w * float(qr_config.get("w", 9.93)) / 100.0)
+        qr_size_px = max(qr_box_w, qr_box_h)
+        # Use NEAREST resampling for pixel-perfect binary sharpness (prevents anti-aliasing blur on modules)
+        qr_img = qr_img.resize((qr_size_px, qr_size_px), Image.Resampling.NEAREST)
         
         # Paste QR code onto base image using percentage coordinates
         qr_x = int(img_w * float(qr_config.get("x", 0)) / 100.0)
@@ -69,7 +95,7 @@ def generate_visual_ticket(
         # 3. Draw Text
         draw = ImageDraw.Draw(base_image)
         
-        # Helper to draw text
+        # Helper to draw text with automatic overflow prevention
         def draw_text(text: str, config: dict):
             if not text:
                 return
@@ -82,10 +108,23 @@ def generate_visual_ticket(
             
             font = get_ticket_font(font_size)
             
+            # Dynamic auto-shrink if text exceeds allocated box width
+            box_w_pct = float(config.get("w", 25)) / 100.0
+            max_w = int(img_w * box_w_pct)
+            bbox = font.getbbox(text)
+            text_w = bbox[2] - bbox[0]
+            if text_w > max_w and text_w > 0:
+                scale_factor = max_w / text_w
+                font_size = max(int(font_size * scale_factor * 0.95), 14)
+                font = get_ticket_font(font_size)
+            
             draw.text((x, y), text, font=font, fill=color)
 
-        draw_text(student_name, name_config)
-        draw_text(matric_number, matric_config)
+        # Enforce max 2 words for student name on visual ticket to prevent overflow
+        display_name = format_ticket_name(student_name)
+        draw_text(display_name, name_config)
+        draw_text(str(matric_number or ""), matric_config)
+
         
         # 4. Save to buffer (compositing over white background to fix transparency issues)
         white_bg = Image.new("RGBA", base_image.size, (255, 255, 255, 255))

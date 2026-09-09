@@ -5,6 +5,41 @@ import { toast } from "sonner";
 import { getApiUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import Image from "next/image";
+import RichTextEditor from "@/components/ui/RichTextEditor";
+
+const DEFAULT_CONFERENCE_HTML = `<p>Dear <strong>{{first_name}}</strong>,</p>
+
+<p>Thank you for choosing to be part of this year’s experience and for securing the <strong>Paid Attendee ticket</strong>.</p>
+
+<p>Your <strong>Personalized Conference Ticket</strong> is attached to this email. 🎟️</p>
+
+<p>Kindly take a moment to confirm the details on your ticket and if there is an error on it, send a WhatsApp message to Alex <a href="https://wa.link/1bdrt1" target="_blank" rel="noopener noreferrer" style="color:#9B72CF !important;font-weight:700;text-decoration:underline;"><strong><u>here</u></strong></a>.</p>
+
+<p>This ticket contains your registered identity and serves as your confirmation for the Paid attendee package.</p>
+
+<p><strong>Important:</strong> This ticket is assigned specifically to you. Please do not share or transfer it without contacting the conference organizers.</p>
+
+<p>Remember, as a paid attendee, you get more. Your decision to register as a paid attendee comes with additional benefits beyond the regular conference experience.</p>
+
+<h2>📍 <strong>Conference Details</strong></h2>
+<p>Date: <strong><em>SEPTEMBER 10TH, 2026</em></strong></p>
+<p>Venue: <strong><em>KAAF AUDITORIUM, HUMAN NUTRITION &amp; DIETETICS</em></strong></p>
+<p>Time: <strong><em>9AM</em></strong></p>
+
+<p>Want Your Own <strong><em>‘I will be attending’</em></strong> Personalized Conference Flyer to let everyone know you're coming?, We can design one for you!</p>
+<p>If you're interested, send a message to <strong>Samuel</strong> here:<br>
+👉 <a href="https://wa.link/gu2156" target="_blank" rel="noopener noreferrer" style="color:#9B72CF !important;font-weight:700;text-decoration:underline;"><strong><u>https://wa.link/gu2156</u></strong></a></p>
+
+<p>Join the conference group for more updates <a href="https://chat.whatsapp.com/G2p8sAbGUxWIas4caTZWdY?s=cl&amp;p=a&amp;ilr=1" target="_blank" rel="noopener noreferrer" style="color:#9B72CF !important;font-weight:700;text-decoration:underline;"><strong><u>here</u></strong></a>.</p>
+
+<p>Once again, thank you for registering as a paid attendee.</p>
+
+<p><strong>See you at the conference!</strong> 🔥</p>
+
+<p><em>Warm regards,</em><br>
+<strong>Conference Team</strong><br>
+Forge the Future Conference<br>
+IESA Process Day 2026</p>`;
 
 interface DraggableBoxProps {
   id: string;
@@ -105,7 +140,7 @@ interface TicketConfigModalProps {
 }
 
 export default function TicketConfigModal({ paymentId, paymentTitle, paidCount, existingConfig, onClose, onConfigSaved }: TicketConfigModalProps) {
-  const { getAccessToken } = useAuth();
+  const { user, getAccessToken } = useAuth();
   const [step, setStep] = useState<1 | 2 | 3>(existingConfig?.templateUrl ? 2 : 1);
   const [templateUrl, setTemplateUrl] = useState(existingConfig?.templateUrl || "");
   const [uploading, setUploading] = useState(false);
@@ -115,6 +150,26 @@ export default function TicketConfigModal({ paymentId, paymentTitle, paidCount, 
   const [studentName, setStudentName] = useState(existingConfig?.studentName || { x: 10, y: 70, w: 50, h: 10 });
   const [matricNumber, setMatricNumber] = useState(existingConfig?.matricNumber || { x: 10, y: 85, w: 40, h: 5 });
   
+  // Custom Message & Subject states
+  const [emailSubject, setEmailSubject] = useState(
+    existingConfig?.emailSubject || (
+      paymentTitle.toLowerCase().includes("conference") 
+        ? "Your IESA Process Day 2026 Paid Ticket is here 🎟️" 
+        : `Your Ticket: ${paymentTitle}`
+    )
+  );
+
+  const [emailContent, setEmailContent] = useState(
+    existingConfig?.emailContent || (
+      paymentTitle.toLowerCase().includes("conference")
+        ? DEFAULT_CONFERENCE_HTML
+        : `<p>Dear <strong>{{first_name}}</strong>,</p><p>Your personalized ticket for <strong>${paymentTitle}</strong> is attached to this email.</p><p>Please present the QR code on your ticket at the entrance for verification.</p>`
+    )
+  );
+
+  const [testEmail, setTestEmail] = useState(user?.email || "adetayoalexander12@gmail.com");
+  const [sendingTest, setSendingTest] = useState(false);
+
   const [imageBounds, setImageBounds] = useState({ width: 0, height: 0 });
   const imgRef = useRef<HTMLImageElement>(null);
 
@@ -190,7 +245,9 @@ export default function TicketConfigModal({ paymentId, paymentTitle, paidCount, 
         qrCode,
         studentName,
         matricNumber,
-        fontFamily: "Helvetica" // Default for now
+        fontFamily: "Helvetica",
+        emailSubject,
+        emailContent,
       };
 
       const res = await fetch(getApiUrl(`/api/v1/payments/${paymentId}/ticket-config`), {
@@ -204,7 +261,7 @@ export default function TicketConfigModal({ paymentId, paymentTitle, paidCount, 
 
       if (!res.ok) throw new Error("Failed to save configuration");
       
-      toast.success("Ticket design saved!");
+      toast.success("Ticket design & message saved!");
       onConfigSaved();
       setStep(3);
     } catch (err: any) {
@@ -214,16 +271,63 @@ export default function TicketConfigModal({ paymentId, paymentTitle, paidCount, 
     }
   };
 
+  const sendTestEmail = async () => {
+    if (!testEmail || !testEmail.includes("@")) {
+      toast.error("Please enter a valid test email address");
+      return;
+    }
+    setSendingTest(true);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(getApiUrl(`/api/v1/payments/${paymentId}/send-tickets`), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          subject: emailSubject,
+          content: emailContent,
+          testEmail: testEmail.trim(),
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || err.message || "Failed to send test email");
+      }
+
+      toast.success(`Test ticket email sent to ${testEmail}! Check your inbox.`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send test email");
+    } finally {
+      setSendingTest(false);
+    }
+  };
+
   const dispatchTickets = async () => {
+    if (!window.confirm(`Are you sure you want to dispatch tickets to all ${paidCount} paid students?`)) {
+      return;
+    }
     setDispatching(true);
     try {
       const token = await getAccessToken();
       const res = await fetch(getApiUrl(`/api/v1/payments/${paymentId}/send-tickets`), {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          subject: emailSubject,
+          content: emailContent,
+        }),
       });
 
-      if (!res.ok) throw new Error("Failed to dispatch tickets");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || err.message || "Failed to dispatch tickets");
+      }
       
       const data = await res.json();
       toast.success(`Started dispatching tickets to ${data.count} students!`);
@@ -234,6 +338,7 @@ export default function TicketConfigModal({ paymentId, paymentTitle, paidCount, 
       setDispatching(false);
     }
   };
+
 
   return (
     <div className="fixed inset-0 bg-navy/80 backdrop-blur-sm flex items-center justify-center p-4 z-[90]">
@@ -295,59 +400,96 @@ export default function TicketConfigModal({ paymentId, paymentTitle, paidCount, 
           )}
 
           {step === 2 && (
-            <div className="w-full h-full flex flex-col xl:flex-row gap-6 items-start">
-              <div className="flex-1 w-full bg-snow border-[3px] border-navy rounded-3xl shadow-[6px_6px_0_0_#000] p-4 flex flex-col">
-                <div className="mb-4 flex items-center justify-between">
-                  <h4 className="font-bold text-navy text-sm">Visual Mapper</h4>
-                  <p className="text-xs text-slate">Drag and resize the boxes to position them</p>
-                </div>
-                <div className="relative w-full rounded-xl overflow-hidden bg-cloud flex items-center justify-center" style={{ minHeight: "400px" }}>
-                  <img
-                    ref={imgRef}
-                    src={templateUrl}
-                    alt="Template"
-                    onLoad={handleImageLoad}
-                    className="max-w-full max-h-[60vh] object-contain pointer-events-none"
-                  />
-                  {imageBounds.width > 0 && (
-                    <div className="absolute inset-0 m-auto" style={{ width: imageBounds.width, height: imageBounds.height }}>
-                      <DraggableBox id="qrCode" label="QR Code" color="#14b8a6" {...qrCode} imageBounds={imageBounds} onChange={handleBoxChange} />
-                      <DraggableBox id="studentName" label="Student Name" color="#f43f5e" {...studentName} imageBounds={imageBounds} onChange={handleBoxChange} />
-                      <DraggableBox id="matricNumber" label="Matric Number" color="#8b5cf6" {...matricNumber} imageBounds={imageBounds} onChange={handleBoxChange} />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="w-full xl:w-80 space-y-4 shrink-0">
-                <div className="bg-snow border-[3px] border-navy rounded-3xl p-5 shadow-[4px_4px_0_0_#000]">
-                  <h4 className="font-display font-black text-lg text-navy mb-3">Controls</h4>
-                  <p className="text-xs text-navy/70 mb-5">
-                    Map the placeholders visually on the template. The system will auto-scale the QR code and text to fit within your designated boxes.
-                  </p>
-                  
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4 rounded bg-[#14b8a6]"></div>
-                      <span className="text-sm font-bold text-navy">QR Code Space</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4 rounded bg-[#f43f5e]"></div>
-                      <span className="text-sm font-bold text-navy">Student Name</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4 rounded bg-[#8b5cf6]"></div>
-                      <span className="text-sm font-bold text-navy">Matric Number</span>
-                    </div>
+            <div className="w-full flex flex-col items-center">
+              <div className="w-full max-w-4xl bg-snow border-[3px] border-navy rounded-2xl p-4 mb-4 flex items-center justify-between shadow-[4px_4px_0_0_#000]">
+                <div className="flex items-center gap-4">
+                  <span className="text-xs font-bold uppercase tracking-wider text-navy/60">Positioning Mode:</span>
+                  <div className="flex gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-[#14b8a6]/20 text-[#0d9488] border border-[#14b8a6]">
+                      <span className="w-2 h-2 rounded-full bg-[#14b8a6]" /> QR Code
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-[#8b5cf6]/20 text-[#7c3aed] border border-[#8b5cf6]">
+                      <span className="w-2 h-2 rounded-full bg-[#8b5cf6]" /> Student Name
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-[#f59e0b]/20 text-[#d97706] border border-[#f59e0b]">
+                      <span className="w-2 h-2 rounded-full bg-[#f59e0b]" /> Matric Number
+                    </span>
                   </div>
                 </div>
+                <button
+                  onClick={() => setStep(1)}
+                  className="text-xs font-bold text-navy hover:underline flex items-center gap-1"
+                >
+                  Change Image
+                </button>
+              </div>
 
+              {/* Canvas Preview Area */}
+              <div className="relative border-[4px] border-navy rounded-2xl overflow-hidden shadow-[8px_8px_0_0_#000] bg-black max-w-4xl w-full select-none">
+                <img
+                  ref={imgRef}
+                  src={templateUrl}
+                  alt="Ticket Template"
+                  onLoad={handleImageLoad}
+                  className="w-full h-auto block pointer-events-none"
+                />
+
+                {imageBounds.width > 0 && (
+                  <>
+                    <DraggableBox
+                      id="qrCode"
+                      label="QR Code"
+                      x={qrCode.x}
+                      y={qrCode.y}
+                      w={qrCode.w}
+                      h={qrCode.h}
+                      color="#14b8a6"
+                      imageBounds={imageBounds}
+                      onChange={handleBoxChange}
+                    />
+                    <DraggableBox
+                      id="studentName"
+                      label="Student Name"
+                      x={studentName.x}
+                      y={studentName.y}
+                      w={studentName.w}
+                      h={studentName.h}
+                      color="#8b5cf6"
+                      imageBounds={imageBounds}
+                      onChange={handleBoxChange}
+                    />
+                    <DraggableBox
+                      id="matricNumber"
+                      label="Matric Number"
+                      x={matricNumber.x}
+                      y={matricNumber.y}
+                      w={matricNumber.w}
+                      h={matricNumber.h}
+                      color="#f59e0b"
+                      imageBounds={imageBounds}
+                      onChange={handleBoxChange}
+                    />
+                  </>
+                )}
+              </div>
+
+              <div className="w-full max-w-4xl flex items-center justify-between mt-6">
+                <p className="text-xs text-navy/60 font-medium">
+                  Drag boxes to position. Drag bottom-right handles to resize bounds.
+                </p>
                 <div className="flex gap-3">
-                  <button onClick={() => setStep(1)} className="flex-1 py-3 bg-cloud border-[3px] border-navy rounded-2xl font-bold text-navy hover:bg-snow press-2 press-navy">
+                  <button onClick={() => setStep(1)} className="py-3 px-5 bg-cloud border-[3px] border-navy rounded-2xl font-bold text-navy hover:bg-snow press-2 press-navy text-sm">
                     Back
                   </button>
-                  <button onClick={saveConfig} disabled={saving} className="flex-1 py-3 bg-lime border-[3px] border-navy rounded-2xl font-black text-navy press-2 press-navy disabled:opacity-50">
-                    {saving ? "Saving..." : "Save Design"}
+                  <button onClick={saveConfig} disabled={saving} className="py-3 px-6 bg-lime border-[3px] border-navy rounded-2xl font-black text-navy press-2 press-navy disabled:opacity-50 text-sm flex items-center gap-2">
+                    {saving ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-navy border-t-transparent rounded-full animate-spin" />
+                        <span>Saving Design...</span>
+                      </>
+                    ) : (
+                      <span>Save &amp; Continue to Message &rarr;</span>
+                    )}
                   </button>
                 </div>
               </div>
@@ -355,37 +497,130 @@ export default function TicketConfigModal({ paymentId, paymentTitle, paidCount, 
           )}
 
           {step === 3 && (
-            <div className="max-w-md w-full text-center space-y-6 pt-10">
-              <div className="w-24 h-24 mx-auto bg-teal border-[4px] border-navy rounded-full shadow-[6px_6px_0_0_#000] flex items-center justify-center mb-4">
-                <svg className="w-10 h-10 text-snow" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
+            <div className="w-full max-w-4xl space-y-6 py-2">
+              {/* Summary Header */}
+              <div className="bg-sunny-light border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-teal animate-pulse" />
+                    <p className="text-xs font-bold uppercase tracking-wider text-navy/70">Personalized Ticket Dispatch</p>
+                  </div>
+                  <p className="font-display font-black text-2xl text-navy">
+                    {paidCount} Paid Attendee{paidCount === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 bg-snow border-[2px] border-navy px-3.5 py-1.5 rounded-xl text-xs font-bold text-navy shadow-[2px_2px_0_0_#000]">
+                  <span>🎟️ Personalized Visual Ticket attached as PNG</span>
+                </div>
               </div>
-              
-              <h4 className="font-display font-black text-3xl text-navy">Design Saved!</h4>
-              <p className="text-navy/70">
-                Your ticket template and mappings have been securely saved. You can now dispatch the tickets.
-              </p>
 
-              <div className="bg-sunny-light border-[3px] border-navy rounded-2xl p-5 my-6 text-left shadow-[4px_4px_0_0_#000]">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate mb-1">Recipients</p>
-                <p className="font-display font-black text-2xl text-navy">{paidCount} <span className="text-lg">Students</span></p>
-                <p className="text-xs text-navy/60 mt-2">Only students who have fully paid this due will receive the generated ticket via email.</p>
+              {/* Subject Line Input */}
+              <div className="space-y-1.5 text-left">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black uppercase tracking-wider text-navy">
+                    Email Subject Line
+                  </label>
+                  <span className="text-[11px] text-navy/60 font-medium">Supports placeholders</span>
+                </div>
+                <input
+                  type="text"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder="e.g. Your IESA Process Day 2026 Paid Ticket is here 🎟️"
+                  className="w-full px-4 py-2.5 bg-snow border-[3px] border-navy rounded-xl font-bold text-navy placeholder:text-navy/30 focus:outline-none focus:ring-2 focus:ring-teal text-sm shadow-[2px_2px_0_0_#000]"
+                />
               </div>
 
-              <div className="flex gap-4">
-                <button onClick={() => setStep(2)} className="flex-1 py-3.5 bg-cloud border-[3px] border-navy rounded-2xl font-bold text-navy hover:bg-snow press-2 press-navy">
-                  Edit Design
-                </button>
-                <button 
-                  onClick={dispatchTickets} 
-                  disabled={dispatching || paidCount === 0} 
-                  className="flex-[2] py-3.5 bg-navy border-[3px] border-navy rounded-2xl font-black text-snow press-2 press-black hover:bg-navy/90 disabled:opacity-50 flex items-center justify-center gap-2"
+              {/* Rich Text Editor with Placeholders */}
+              <div className="space-y-1.5 text-left">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black uppercase tracking-wider text-navy">
+                    Email Body Message
+                  </label>
+                  <span className="text-[11px] text-navy/60 font-medium">Click variable chip to insert</span>
+                </div>
+                <div className="border-[3px] border-navy rounded-2xl overflow-hidden shadow-[4px_4px_0_0_#000] bg-snow">
+                  <RichTextEditor
+                    value={emailContent}
+                    onChange={(val) => setEmailContent(val)}
+                    minHeight="min-h-[300px]"
+                    availableVariables={[
+                      { label: "First Name", value: "{{first_name}}", description: "Student's first name (e.g. Samuel)" },
+                      { label: "Full Name", value: "{{student_name}}", description: "Full student name (e.g. Samuel Oluwafemi Toriola)" },
+                      { label: "Matric No", value: "{{matric_number}}", description: "Matriculation number (e.g. 258451)" },
+                    ]}
+                  />
+                </div>
+              </div>
+
+              {/* Test Email Section */}
+              <div className="bg-lavender/30 border-[3px] border-navy rounded-2xl p-4 shadow-[4px_4px_0_0_#000] text-left space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🧪</span>
+                  <div>
+                    <h5 className="font-display font-black text-sm text-navy">Send A Test Email First</h5>
+                    <p className="text-xs text-navy/70">
+                      Verify the personalized formatting and generated visual ticket attachment in your inbox before blasting to all students.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="email"
+                    value={testEmail}
+                    onChange={(e) => setTestEmail(e.target.value)}
+                    placeholder="your-email@example.com"
+                    className="flex-1 px-3 py-2 bg-snow border-[2px] border-navy rounded-xl text-xs font-bold text-navy focus:outline-none focus:ring-2 focus:ring-teal shadow-[2px_2px_0_0_#000]"
+                  />
+                  <button
+                    type="button"
+                    onClick={sendTestEmail}
+                    disabled={sendingTest}
+                    className="px-5 py-2.5 bg-sunny border-[2px] border-navy rounded-xl text-xs font-black text-navy press-2 press-navy hover:bg-sunny/80 disabled:opacity-50 flex items-center justify-center gap-2 whitespace-nowrap shadow-[2px_2px_0_0_#000]"
+                  >
+                    {sendingTest ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-navy border-t-transparent rounded-full animate-spin" />
+                        <span>Sending Test...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Send Test Email</span>
+                        <span>🚀</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setStep(2)}
+                  className="py-3 px-5 bg-cloud border-[3px] border-navy rounded-2xl font-bold text-navy hover:bg-snow press-2 press-navy text-sm"
                 >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                  </svg>
-                  {dispatching ? "Dispatching..." : "Send Tickets"}
+                  &larr; Back to Ticket Layout
+                </button>
+                <button
+                  type="button"
+                  onClick={dispatchTickets}
+                  disabled={dispatching || paidCount === 0}
+                  className="flex-1 py-3.5 px-6 bg-navy border-[3px] border-navy rounded-2xl font-black text-snow press-2 press-black hover:bg-navy/90 disabled:opacity-50 flex items-center justify-center gap-2 text-sm shadow-[4px_4px_0_0_#000]"
+                >
+                  {dispatching ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-snow border-t-transparent rounded-full animate-spin" />
+                      <span>Dispatching Tickets...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                      <span>Send Tickets to All ({paidCount} Students)</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>

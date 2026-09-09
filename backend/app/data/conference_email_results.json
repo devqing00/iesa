@@ -1,0 +1,1893 @@
+{
+  "completed_at": "2026-09-08T19:00:30.901381+00:00",
+  "total": 188,
+  "success": 188,
+  "failed": 0,
+  "records": [
+    {
+      "index": 1,
+      "email": "olayemimusharof4@gmail.com",
+      "first_name": "Musharof",
+      "full_name": "Olayemi Musharof Olamide",
+      "subject": "You\u2019re Confirmed Musharof! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "13a80743-163d-43bb-ba0c-e9de4b101a46",
+      "timestamp": "2026-09-08T18:49:13.086236+00:00"
+    },
+    {
+      "index": 2,
+      "email": "ayomideolaniyi33@gmail.com",
+      "first_name": "Ayomide",
+      "full_name": "Olaniyi Ayomide",
+      "subject": "You\u2019re Confirmed Ayomide! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "2b23dc1b-af8d-4bf4-85c7-687f9d82dd38",
+      "timestamp": "2026-09-08T18:49:17.894366+00:00"
+    },
+    {
+      "index": 3,
+      "email": "mojolataiwo2909@gmail.com",
+      "first_name": "Taiwo",
+      "full_name": "Adetoro Taiwo Monjolaoluwa",
+      "subject": "You\u2019re Confirmed Taiwo! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "16cf2749-3c04-45dc-9816-9219cb5c08a5",
+      "timestamp": "2026-09-08T18:49:23.042030+00:00"
+    },
+    {
+      "index": 4,
+      "email": "babalolafolashade158@gmail.com",
+      "first_name": "Folashade",
+      "full_name": "Babalola Folashade",
+      "subject": "You\u2019re Confirmed Folashade! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "03b59ec0-2908-4b4b-ba2b-51a343186e0d",
+      "timestamp": "2026-09-08T18:49:27.392468+00:00"
+    },
+    {
+      "index": 5,
+      "email": "ogunjobifaithful5@gmail.com",
+      "first_name": "Faithful",
+      "full_name": "Ogunjobi Faithful",
+      "subject": "You\u2019re Confirmed Faithful! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "13f0d3da-e34c-4f04-8576-73a50276da73",
+      "timestamp": "2026-09-08T18:49:31.217235+00:00"
+    },
+    {
+      "index": 6,
+      "email": "samuel999eze@gmail.com",
+      "first_name": "Samuel",
+      "full_name": "Eze Samuel",
+      "subject": "You\u2019re Confirmed Samuel! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "41eace3a-89db-497d-9f59-8fa05091d0f6",
+      "timestamp": "2026-09-08T18:49:45.716572+00:00"
+    },
+    {
+      "index": 7,
+      "email": "oluwaseunakindilureni@gmail.com",
+      "first_name": "Oluwaseun",
+      "full_name": "Akindilureni Oluwaseun",
+      "subject": "You\u2019re Confirmed Oluwaseun! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "7b3eeb75-3cb0-4ea8-b3a5-b08cee92e69a",
+      "timestamp": "2026-09-08T18:50:03.385661+00:00"
+    },
+    {
+      "index": 8,
+      "email": "preciousbusayo39@gmail.com",
+      "first_name": "Precious",
+      "full_name": "Oluremi Precious",
+      "subject": "You\u2019re Confirmed Precious! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "67fc64d3-008d-48f1-878d-5f1fd17a7b3b",
+      "timestamp": "2026-09-08T18:50:12.544973+00:00"
+    },
+    {
+      "index": 9,
+      "email": "boluoladimeji366@gmail.com",
+      "first_name": "Boluwatife",
+      "full_name": "Oladimeji Boluwatife",
+      "subject": "You\u2019re Confirmed Boluwatife! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "defad97f-b360-44b2-82b4-b319e1a5858d",
+      "timestamp": "2026-09-08T18:50:15.688971+00:00"
+    },
+    {
+      "index": 10,
+      "email": "adedokunmutmaina@gmail.com",
+      "first_name": "Mutmaina",
+      "full_name": "Adedokun Mutmaina",
+      "subject": "You\u2019re Confirmed Mutmaina! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "a524f7a9-871a-4043-8d1d-8aa1a76a109a",
+      "timestamp": "2026-09-08T18:50:18.006657+00:00"
+    },
+    {
+      "index": 11,
+      "email": "ayorindegideon2@gmail.com",
+      "first_name": "Opeyemi",
+      "full_name": "Ayorinde Opeyemi Gideon",
+      "subject": "You\u2019re Confirmed Opeyemi! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "072ae5fd-2678-461a-ba89-3522d5724cb3",
+      "timestamp": "2026-09-08T18:50:20.703668+00:00"
+    },
+    {
+      "index": 12,
+      "email": "ikemfavour06@gmail.com",
+      "first_name": "Favour",
+      "full_name": "Ikem Favour Chiamaka",
+      "subject": "You\u2019re Confirmed Favour! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "e58b56cc-06a2-4376-93af-ee1e9b490b73",
+      "timestamp": "2026-09-08T18:50:24.018342+00:00"
+    },
+    {
+      "index": 13,
+      "email": "victorogundijo11@gmail.com",
+      "first_name": "Victor",
+      "full_name": "Ogundijo Victor",
+      "subject": "You\u2019re Confirmed Victor! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "78cbb067-832a-40a8-a25c-bc6f75f9fcb3",
+      "timestamp": "2026-09-08T18:50:28.485368+00:00"
+    },
+    {
+      "index": 14,
+      "email": "akintolataiwo777@gmail.com",
+      "first_name": "Taiwo",
+      "full_name": "Akintola Taiwo James",
+      "subject": "You\u2019re Confirmed Taiwo! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "86d4e3bc-8f17-40d5-8291-cee10f2f3ea2",
+      "timestamp": "2026-09-08T18:50:40.273828+00:00"
+    },
+    {
+      "index": 15,
+      "email": "ioyebade258447@stu.ui.edu.ng",
+      "first_name": "Iyanuoluwa",
+      "full_name": "Oyebade Iyanuoluwa Paul",
+      "subject": "You\u2019re Confirmed Iyanuoluwa! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "f3319858-eda8-4a3d-b5c1-423c5869b804",
+      "timestamp": "2026-09-08T18:50:47.932041+00:00"
+    },
+    {
+      "index": 16,
+      "email": "onikehindee62@gmail.com",
+      "first_name": "Kehinde",
+      "full_name": "Oni Kehinde",
+      "subject": "You\u2019re Confirmed Kehinde! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "0e980013-6a95-43cd-92c6-5cfadf5922b4",
+      "timestamp": "2026-09-08T18:50:54.316184+00:00"
+    },
+    {
+      "index": 17,
+      "email": "akinkuadeakintomide2007@gmail.com",
+      "first_name": "Akintomide",
+      "full_name": "Akinkuade Akintomide",
+      "subject": "You\u2019re Confirmed Akintomide! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "30cd16fd-c25e-4450-9a52-269a403c4b32",
+      "timestamp": "2026-09-08T18:51:00.975292+00:00"
+    },
+    {
+      "index": 18,
+      "email": "ochajoshua8@gmail.com",
+      "first_name": "Joshua",
+      "full_name": "Ocha Joshua Okanga",
+      "subject": "You\u2019re Confirmed Joshua! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "23554d4e-bf1b-4fff-8eb6-367ac6b1c440",
+      "timestamp": "2026-09-08T18:51:07.037628+00:00"
+    },
+    {
+      "index": 19,
+      "email": "abdlateefbasheeroh6@gmail.com",
+      "first_name": "Bashiroh",
+      "full_name": "Abd'Lateef Bashiroh Folashade",
+      "subject": "You\u2019re Confirmed Bashiroh! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "c2a03c16-a43b-4aca-8a9d-bf8c97fa78fb",
+      "timestamp": "2026-09-08T18:51:11.573770+00:00"
+    },
+    {
+      "index": 20,
+      "email": "ajiboyeopemipo45@gmail.com",
+      "first_name": "Opemipo",
+      "full_name": "Ajiboye Opemipo Oluwadamilare",
+      "subject": "You\u2019re Confirmed Opemipo! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "419b26c7-b7ef-4426-970a-dd78db3cf8db",
+      "timestamp": "2026-09-08T18:51:16.598960+00:00"
+    },
+    {
+      "index": 21,
+      "email": "boluw4146@gmail.com",
+      "first_name": "Boluwatife",
+      "full_name": "Bello Boluwatife",
+      "subject": "You\u2019re Confirmed Boluwatife! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "7bad3ede-092d-47a8-b958-618b8120883e",
+      "timestamp": "2026-09-08T18:51:21.098679+00:00"
+    },
+    {
+      "index": 22,
+      "email": "hamzathafeez542@gmail.com",
+      "first_name": "Taiwo",
+      "full_name": "Hazat Taiwo Hafeez",
+      "subject": "You\u2019re Confirmed Taiwo! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "3a2d1859-f1a4-47ba-98da-801d37a61e2f",
+      "timestamp": "2026-09-08T18:51:26.414142+00:00"
+    },
+    {
+      "index": 23,
+      "email": "okunomosamuel@gmail.com",
+      "first_name": "Samuel",
+      "full_name": "Okunomo Samuel",
+      "subject": "You\u2019re Confirmed Samuel! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "b5ef0aa2-ea14-48ef-9217-4d55a86640c5",
+      "timestamp": "2026-09-08T18:51:29.060110+00:00"
+    },
+    {
+      "index": 24,
+      "email": "tadeyemo258416@stu.ui.edu.ng",
+      "first_name": "Tobi",
+      "full_name": "Adeyemo Tobi Timothy",
+      "subject": "You\u2019re Confirmed Tobi! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "399fe895-1e6a-4d36-8359-af4260e98570",
+      "timestamp": "2026-09-08T18:51:32.956542+00:00"
+    },
+    {
+      "index": 25,
+      "email": "alakamabel09@gmail.com",
+      "first_name": "Mabel",
+      "full_name": "Alaka Mabel",
+      "subject": "You\u2019re Confirmed Mabel! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "55f3f4bf-7bf3-4aeb-9af3-ac5c66b50a1e",
+      "timestamp": "2026-09-08T18:51:39.094956+00:00"
+    },
+    {
+      "index": 26,
+      "email": "ojopeace200@gmail.com",
+      "first_name": "Peace",
+      "full_name": "Ojo Peace Toluwani",
+      "subject": "You\u2019re Confirmed Peace! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "c19c6686-8d76-416e-b1ac-31ba379f83b5",
+      "timestamp": "2026-09-08T18:51:43.070983+00:00"
+    },
+    {
+      "index": 27,
+      "email": "ikpeafavour6@gmail.com",
+      "first_name": "Onoseta",
+      "full_name": "Ikpea Onoseta Favour",
+      "subject": "You\u2019re Confirmed Onoseta! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "9a816ab4-147b-4576-bb1b-43034b855301",
+      "timestamp": "2026-09-08T18:51:50.407114+00:00"
+    },
+    {
+      "index": 28,
+      "email": "divinedouglas74@gmail.com",
+      "first_name": "Divine",
+      "full_name": "Douglas Divine Favour Efemena",
+      "subject": "You\u2019re Confirmed Divine! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "edab2188-0ecf-4601-8731-ea15c0cc13b4",
+      "timestamp": "2026-09-08T18:51:55.068703+00:00"
+    },
+    {
+      "index": 29,
+      "email": "olayinkaobaloluwa04@gmail.com",
+      "first_name": "Olayinka",
+      "full_name": "Obaloluwa Olayinka",
+      "subject": "You\u2019re Confirmed Olayinka! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "f5c55fe1-6fdc-4de9-8a63-5e4abf83911e",
+      "timestamp": "2026-09-08T18:51:59.187581+00:00"
+    },
+    {
+      "index": 30,
+      "email": "corneliusaliu38@gmail.com",
+      "first_name": "Cornelius",
+      "full_name": "Mutairu Cornelius Aliu",
+      "subject": "You\u2019re Confirmed Cornelius! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "a55f898e-54bd-44b8-8b11-bdf66eb2cf15",
+      "timestamp": "2026-09-08T18:52:03.097058+00:00"
+    },
+    {
+      "index": 31,
+      "email": "obamesogbenga001@gmail.com",
+      "first_name": "Gbenga",
+      "full_name": "Obameso Gbenga Onaolapo",
+      "subject": "You\u2019re Confirmed Gbenga! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "9aa2c083-bbd3-4ce4-9423-b72101c24cef",
+      "timestamp": "2026-09-08T18:52:08.816181+00:00"
+    },
+    {
+      "index": 32,
+      "email": "briandigitals821@gmail.com",
+      "first_name": "Ademola",
+      "full_name": "Ayinde Ademola",
+      "subject": "You\u2019re Confirmed Ademola! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "4979a829-6031-43b7-906c-f47407e8f780",
+      "timestamp": "2026-09-08T18:52:18.049447+00:00"
+    },
+    {
+      "index": 33,
+      "email": "maryakinsanmi2@gmail.com",
+      "first_name": "Mary",
+      "full_name": "Akinsanmi Mary",
+      "subject": "You\u2019re Confirmed Mary! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "07e4af4c-3c2f-4631-8623-1c069fe8ddf2",
+      "timestamp": "2026-09-08T18:52:21.529868+00:00"
+    },
+    {
+      "index": 34,
+      "email": "xpaxels@gmail.com",
+      "first_name": "Samuel",
+      "full_name": "Toriola Samuel Oluwafemi",
+      "subject": "You\u2019re Confirmed Samuel! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "54e30651-40b1-47d6-a1cf-bc843e8bcd22",
+      "timestamp": "2026-09-08T18:52:25.117413+00:00"
+    },
+    {
+      "index": 35,
+      "email": "adeboluyusuff2009@gmail.com",
+      "first_name": "Aminat",
+      "full_name": "Yusuff Aminat Adebolu",
+      "subject": "You\u2019re Confirmed Aminat! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "d79c8410-c43a-426d-ad93-e09395c33d74",
+      "timestamp": "2026-09-08T18:52:29.779075+00:00"
+    },
+    {
+      "index": 36,
+      "email": "adegokezainabadesola@gmail.com",
+      "first_name": "Zainab",
+      "full_name": "Adegoke Zainab",
+      "subject": "You\u2019re Confirmed Zainab! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "59a00fef-e4fd-441e-9054-80d9537f6203",
+      "timestamp": "2026-09-08T18:52:32.071478+00:00"
+    },
+    {
+      "index": 37,
+      "email": "praiseihechimere@gmail.com",
+      "first_name": "Praise",
+      "full_name": "Ihechimere Praise Onyinyechi",
+      "subject": "You\u2019re Confirmed Praise! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "a04c3bfd-f289-4c8a-b738-ef29c6f1bfd6",
+      "timestamp": "2026-09-08T18:52:34.334922+00:00"
+    },
+    {
+      "index": 38,
+      "email": "ajayioluwanifemi166@gmail.com",
+      "first_name": "Oluwanifemi",
+      "full_name": "Ajayi Oluwanifemi",
+      "subject": "You\u2019re Confirmed Oluwanifemi! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "4cd56ffb-3619-4798-bf36-5e7120e53aca",
+      "timestamp": "2026-09-08T18:52:36.387375+00:00"
+    },
+    {
+      "index": 39,
+      "email": "beautyoluwatoba1@gmail.com",
+      "first_name": "Beauty",
+      "full_name": "Oluwatoba Beauty",
+      "subject": "You\u2019re Confirmed Beauty! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "f370984f-13b9-4578-a681-1ee3e538956e",
+      "timestamp": "2026-09-08T18:52:40.111323+00:00"
+    },
+    {
+      "index": 40,
+      "email": "iresotunde@gmail.com",
+      "first_name": "Ireoluwa",
+      "full_name": "Sotunde Ireoluwa",
+      "subject": "You\u2019re Confirmed Ireoluwa! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "e1d9b7bb-af7e-4e01-a328-532c5cc75d96",
+      "timestamp": "2026-09-08T18:52:43.785688+00:00"
+    },
+    {
+      "index": 41,
+      "email": "oselumenosenokpewo@gmail.com",
+      "first_name": "Nosen",
+      "full_name": "Okpewo Nosen Florence",
+      "subject": "You\u2019re Confirmed Nosen! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "bbd131e8-027f-4c06-b6df-fa66ae4535fa",
+      "timestamp": "2026-09-08T18:52:47.521331+00:00"
+    },
+    {
+      "index": 42,
+      "email": "ibukunoniseitan@gmail.com",
+      "first_name": "Jesuseun",
+      "full_name": "Oniseitan Jesuseun Mercy",
+      "subject": "You\u2019re Confirmed Jesuseun! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "75b83f81-f11e-4740-a53d-1b69e51c7121",
+      "timestamp": "2026-09-08T18:52:49.483239+00:00"
+    },
+    {
+      "index": 43,
+      "email": "delahazeez23@gmail.com",
+      "first_name": "Fadeelat",
+      "full_name": "Abdul-Azeez Fadeelat Omotoyosi",
+      "subject": "You\u2019re Confirmed Fadeelat! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "243f2d75-d6f4-40a9-99e6-38ef732a7071",
+      "timestamp": "2026-09-08T18:52:51.346665+00:00"
+    },
+    {
+      "index": 44,
+      "email": "zainabamiola@gmail.com",
+      "first_name": "Zainab",
+      "full_name": "Amiola Zainab",
+      "subject": "You\u2019re Confirmed Zainab! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "e5e54b9e-7849-4743-9235-f54f17738d7c",
+      "timestamp": "2026-09-08T18:52:53.316682+00:00"
+    },
+    {
+      "index": 45,
+      "email": "ahmedolatunji2007@gmail.com",
+      "first_name": "Mubarak",
+      "full_name": "Ahmed Mubarak Olatunji",
+      "subject": "You\u2019re Confirmed Mubarak! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "4c41bb1d-f551-417a-acad-2905284c584a",
+      "timestamp": "2026-09-08T18:52:55.213175+00:00"
+    },
+    {
+      "index": 46,
+      "email": "inioluwaogundipe2@gmail.com",
+      "first_name": "Inioluwa",
+      "full_name": "Inioluwa Ogundipe",
+      "subject": "You\u2019re Confirmed Inioluwa! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "aa9d10ee-5cde-4ca9-9f5c-62365727d73c",
+      "timestamp": "2026-09-08T18:52:57.123002+00:00"
+    },
+    {
+      "index": 47,
+      "email": "olaoluwaoladiran57@gmail.com",
+      "first_name": "Olaoluwa",
+      "full_name": "Oladiran Olaoluwa",
+      "subject": "You\u2019re Confirmed Olaoluwa! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "7d4309ce-6d5c-4403-847c-611a31e824d2",
+      "timestamp": "2026-09-08T18:52:59.099038+00:00"
+    },
+    {
+      "index": 48,
+      "email": "aaliyahdokpesi@gmail.com",
+      "first_name": "Aaliyah",
+      "full_name": "Dokpesi Aaliyah",
+      "subject": "You\u2019re Confirmed Aaliyah! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "35e02370-6e60-40b8-8d17-561a9ad79edf",
+      "timestamp": "2026-09-08T18:53:01.804923+00:00"
+    },
+    {
+      "index": 49,
+      "email": "emmafowlerire@gmail.com",
+      "first_name": "Emmanuel",
+      "full_name": "Fowler Emmanuel Ireoluwa",
+      "subject": "You\u2019re Confirmed Emmanuel! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "3ec7178e-5c72-46b7-8ae3-392c78832bd8",
+      "timestamp": "2026-09-08T18:53:03.762909+00:00"
+    },
+    {
+      "index": 50,
+      "email": "doyennehalima@gmail.com",
+      "first_name": "Halima",
+      "full_name": "Abdulrasheed Halima",
+      "subject": "You\u2019re Confirmed Halima! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "b3a50858-9bff-4f2b-b653-020b8ee64891",
+      "timestamp": "2026-09-08T18:53:05.705472+00:00"
+    },
+    {
+      "index": 51,
+      "email": "osunbunmipaul@gmail.com",
+      "first_name": "Paul",
+      "full_name": "Osunbunmi Paul Favour",
+      "subject": "You\u2019re Confirmed Paul! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "7eab8ada-93c5-4c7d-b701-03c5800e10c9",
+      "timestamp": "2026-09-08T18:53:07.621198+00:00"
+    },
+    {
+      "index": 52,
+      "email": "emmanuelogunde86@gmail.com",
+      "first_name": "Emmanuel",
+      "full_name": "Ogunde Emmanuel",
+      "subject": "You\u2019re Confirmed Emmanuel! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "4bdcfcbc-d443-4b15-9c5c-3b8fdef29472",
+      "timestamp": "2026-09-08T18:53:09.646370+00:00"
+    },
+    {
+      "index": 53,
+      "email": "umoruabdulkabir@gmail.com",
+      "first_name": "Abdulkabir",
+      "full_name": "Umoru Abdulkabir",
+      "subject": "You\u2019re Confirmed Abdulkabir! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "edc75889-d8c2-491d-bb88-fdf7d5cc9845",
+      "timestamp": "2026-09-08T18:53:11.808759+00:00"
+    },
+    {
+      "index": 54,
+      "email": "chukwumaodega@gmail.com",
+      "first_name": "Chukwuma",
+      "full_name": "Odega Chukwuma",
+      "subject": "You\u2019re Confirmed Chukwuma! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "b7953126-54b7-4ad8-a6b0-e58b97a59799",
+      "timestamp": "2026-09-08T18:53:14.065144+00:00"
+    },
+    {
+      "index": 55,
+      "email": "pamilerin566@gmail.com",
+      "first_name": "Samuel",
+      "full_name": "Ayodele Samuel",
+      "subject": "You\u2019re Confirmed Samuel! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "b1e6b592-24ab-4f89-84a2-655ebe057c66",
+      "timestamp": "2026-09-08T18:53:16.436176+00:00"
+    },
+    {
+      "index": 56,
+      "email": "ayantoshoolayinka03@gmail.com",
+      "first_name": "Olayinka",
+      "full_name": "Olayinka Ayantosho",
+      "subject": "You\u2019re Confirmed Olayinka! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "73de3333-335a-4796-964c-16d3f7fcb1b5",
+      "timestamp": "2026-09-08T18:53:18.636663+00:00"
+    },
+    {
+      "index": 57,
+      "email": "toluwakayode888@stu.ui.edu.ng",
+      "first_name": "Toluwani",
+      "full_name": "Oluwakayode Toluwani",
+      "subject": "You\u2019re Confirmed Toluwani! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "d05689ac-4218-4bc1-90a5-fc50ec0432ab",
+      "timestamp": "2026-09-08T18:53:20.696470+00:00"
+    },
+    {
+      "index": 58,
+      "email": "davesoluwabukunmi@gmail.com",
+      "first_name": "David",
+      "full_name": "Akanbi David Oluwabukunmi",
+      "subject": "You\u2019re Confirmed David! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "d9731bec-5c65-46b6-b1dd-36458a93cfbd",
+      "timestamp": "2026-09-08T18:53:22.629688+00:00"
+    },
+    {
+      "index": 59,
+      "email": "ziont9271@gmail.com",
+      "first_name": "Oluwatimileyin",
+      "full_name": "Olawumi Oluwatimileyin Peter",
+      "subject": "You\u2019re Confirmed Oluwatimileyin! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "246dbff3-0078-455f-a517-a8e16a88ff23",
+      "timestamp": "2026-09-08T18:53:25.122492+00:00"
+    },
+    {
+      "index": 60,
+      "email": "omoemiisrael@gmail.com",
+      "first_name": "Israel",
+      "full_name": "Omoemi Israel",
+      "subject": "You\u2019re Confirmed Israel! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "c7fe19af-adcf-46d2-ac7c-57e6c4f2f6ae",
+      "timestamp": "2026-09-08T18:53:27.751005+00:00"
+    },
+    {
+      "index": 61,
+      "email": "somtobilo@gmail.com",
+      "first_name": "Somto",
+      "full_name": "Somto Onwe",
+      "subject": "You\u2019re Confirmed Somto! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "fdc3b7b9-839e-42ed-bdc3-3240a0e0a678",
+      "timestamp": "2026-09-08T18:53:29.861038+00:00"
+    },
+    {
+      "index": 62,
+      "email": "boluwatifetolulope7@gmail.com",
+      "first_name": "Boluwatife",
+      "full_name": "Abina Boluwatife Tolulope",
+      "subject": "You\u2019re Confirmed Boluwatife! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "59bd4f5b-e621-4c50-b7bf-0a51f242a014",
+      "timestamp": "2026-09-08T18:53:31.756171+00:00"
+    },
+    {
+      "index": 63,
+      "email": "joseph.creativedesigns@gmail.com",
+      "first_name": "Joseph",
+      "full_name": "Olasunkanmi Joseph",
+      "subject": "You\u2019re Confirmed Joseph! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "a2b152f7-655d-4c00-96de-c41dc1e5f75d",
+      "timestamp": "2026-09-08T18:53:33.669512+00:00"
+    },
+    {
+      "index": 64,
+      "email": "jimoh9645@gmail.com",
+      "first_name": "Ibrahim",
+      "full_name": "Jimoh Ibrahim",
+      "subject": "You\u2019re Confirmed Ibrahim! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "5b02a920-ca4c-43be-8995-6ff8811edc3c",
+      "timestamp": "2026-09-08T18:53:35.657753+00:00"
+    },
+    {
+      "index": 65,
+      "email": "aadebisi251708@stu.ui.edu.ng",
+      "first_name": "Ayomide",
+      "full_name": "Adebisi Ayomide Demilade",
+      "subject": "You\u2019re Confirmed Ayomide! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "d38652f8-c3c0-4ac9-a9f6-dd8685b99902",
+      "timestamp": "2026-09-08T18:53:37.544817+00:00"
+    },
+    {
+      "index": 66,
+      "email": "olawaosepinabisola05@gmail.com",
+      "first_name": "Abisola",
+      "full_name": "Lasisi Abisola",
+      "subject": "You\u2019re Confirmed Abisola! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "71786edb-2bc8-4409-8ce6-3feaef2f0101",
+      "timestamp": "2026-09-08T18:53:39.431221+00:00"
+    },
+    {
+      "index": 67,
+      "email": "abundanceosuolale@gmail.com",
+      "first_name": "Osuolale",
+      "full_name": "Osuolale",
+      "subject": "You\u2019re Confirmed Osuolale! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "78ee26da-2736-44c8-a8ad-7b14f44a62ff",
+      "timestamp": "2026-09-08T18:53:42.822682+00:00"
+    },
+    {
+      "index": 68,
+      "email": "ferrybeebello@gmail.com",
+      "first_name": "Oluwaferanmi",
+      "full_name": "Bello Oluwaferanmi",
+      "subject": "You\u2019re Confirmed Oluwaferanmi! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "7d8c0fe4-0794-4659-b3ba-f73b34da6928",
+      "timestamp": "2026-09-08T18:53:45.637629+00:00"
+    },
+    {
+      "index": 69,
+      "email": "oylujosh6419@gmail.com",
+      "first_name": "Joshua",
+      "full_name": "Oyetunde Joshua",
+      "subject": "You\u2019re Confirmed Joshua! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "6a39580c-91cf-4078-bab0-fccbe555376a",
+      "timestamp": "2026-09-08T18:53:49.035421+00:00"
+    },
+    {
+      "index": 70,
+      "email": "eshitakpe@gmail.com",
+      "first_name": "Eshikogie",
+      "full_name": "James-Takpe Eshikogie Jesse",
+      "subject": "You\u2019re Confirmed Eshikogie! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "4e22f4b4-38e5-4b5d-a607-f802a289b0c4",
+      "timestamp": "2026-09-08T18:53:52.232643+00:00"
+    },
+    {
+      "index": 71,
+      "email": "wisdomsimeon674@gmail.com",
+      "first_name": "Wisdom",
+      "full_name": "Simeon Wisdom",
+      "subject": "You\u2019re Confirmed Wisdom! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "91fc4b10-3151-4533-9ff1-f2f2934bf206",
+      "timestamp": "2026-09-08T18:53:56.144251+00:00"
+    },
+    {
+      "index": 72,
+      "email": "adidiisaac08@gmail.com",
+      "first_name": "Isaac",
+      "full_name": "Adidi Isaac Tobiloba",
+      "subject": "You\u2019re Confirmed Isaac! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "73487aee-c148-4fca-9a84-536221ef50d5",
+      "timestamp": "2026-09-08T18:53:59.498364+00:00"
+    },
+    {
+      "index": 73,
+      "email": "domingobabs2000@gmail.com",
+      "first_name": "Domingo",
+      "full_name": "Babatunde Domingo",
+      "subject": "You\u2019re Confirmed Domingo! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "d823e597-83af-4ca9-a159-8ec3311ed4f2",
+      "timestamp": "2026-09-08T18:54:03.046882+00:00"
+    },
+    {
+      "index": 74,
+      "email": "falohunjoshua@gmail.com",
+      "first_name": "Joshua",
+      "full_name": "Falohun Joshua",
+      "subject": "You\u2019re Confirmed Joshua! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "f4007c5c-54bc-476a-9bc3-bc3ab7d13240",
+      "timestamp": "2026-09-08T18:54:05.141559+00:00"
+    },
+    {
+      "index": 75,
+      "email": "pikugbonmire@gmail.com",
+      "first_name": "Ikugbonmire",
+      "full_name": "Ikugbonmire",
+      "subject": "You\u2019re Confirmed Ikugbonmire! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "2a64a6df-c0ab-42d4-b714-2edb2938e022",
+      "timestamp": "2026-09-08T18:54:07.458907+00:00"
+    },
+    {
+      "index": 76,
+      "email": "adefisankorede@gmail.com",
+      "first_name": "Oluwakorede",
+      "full_name": "Adefisan Oluwakorede",
+      "subject": "You\u2019re Confirmed Oluwakorede! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "cb1b77ed-1b9d-453b-ab41-8c27e993a9be",
+      "timestamp": "2026-09-08T18:54:10.843350+00:00"
+    },
+    {
+      "index": 77,
+      "email": "olatunjioluwateniaraa@gmail.com",
+      "first_name": "Oluwateniara",
+      "full_name": "Alli Oluwateniara Aishat",
+      "subject": "You\u2019re Confirmed Oluwateniara! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "c15bef6c-1134-4be1-b2c3-b90eefaad65f",
+      "timestamp": "2026-09-08T18:54:13.025952+00:00"
+    },
+    {
+      "index": 78,
+      "email": "oboluwatifeprogress@gmail.com",
+      "first_name": "Boluwatife",
+      "full_name": "Owoyomi Boluwatife Progress",
+      "subject": "You\u2019re Confirmed Boluwatife! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "91785d62-1d15-435b-b805-a5c35164d3ea",
+      "timestamp": "2026-09-08T18:54:15.340123+00:00"
+    },
+    {
+      "index": 79,
+      "email": "proper4reallife@gmail.com",
+      "first_name": "Prosper",
+      "full_name": "Oluwaniyi Prosper O.",
+      "subject": "You\u2019re Confirmed Prosper! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "36aed4f3-454a-4551-b76d-487254fa33b5",
+      "timestamp": "2026-09-08T18:54:18.056347+00:00"
+    },
+    {
+      "index": 80,
+      "email": "promiseoluseyi@gmail.com",
+      "first_name": "Promise",
+      "full_name": "Fagoroye Promise Oluseyi",
+      "subject": "You\u2019re Confirmed Promise! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "766c1584-0358-4b3c-b3ff-d43561dc5a7d",
+      "timestamp": "2026-09-08T18:54:20.465968+00:00"
+    },
+    {
+      "index": 81,
+      "email": "echuwisdom4@gmail.com",
+      "first_name": "Wisdom",
+      "full_name": "Echu Wisdom",
+      "subject": "You\u2019re Confirmed Wisdom! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "6d5b0ef2-c1bb-4e2e-b762-1762ec676601",
+      "timestamp": "2026-09-08T18:54:22.560324+00:00"
+    },
+    {
+      "index": 82,
+      "email": "olorunwaoluwagbemiga21@gmail.com",
+      "first_name": "Oluwagbemiga",
+      "full_name": "Olorunwa Oluwagbemiga Elijah",
+      "subject": "You\u2019re Confirmed Oluwagbemiga! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "dae46259-1c99-4c32-be42-d12c93be0787",
+      "timestamp": "2026-09-08T18:54:24.844151+00:00"
+    },
+    {
+      "index": 83,
+      "email": "kehinde.areo@tech-u.edu.ng",
+      "first_name": "Kehinde",
+      "full_name": "Areo Kehinde Ebenezer",
+      "subject": "You\u2019re Confirmed Kehinde! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "0602a311-adad-41e0-803f-a043e47edb9f",
+      "timestamp": "2026-09-08T18:54:28.128867+00:00"
+    },
+    {
+      "index": 84,
+      "email": "abdulwahabfasina@gmail.com",
+      "first_name": "Abdulwahab",
+      "full_name": "Fasina Abdulwahab",
+      "subject": "You\u2019re Confirmed Abdulwahab! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "1c850037-8919-4927-afb4-b0b23cee6a7a",
+      "timestamp": "2026-09-08T18:54:30.759951+00:00"
+    },
+    {
+      "index": 85,
+      "email": "ugochukwudavid321@gmail.com",
+      "first_name": "Chimeremuma",
+      "full_name": "Ugochukwu Chimeremuma David",
+      "subject": "You\u2019re Confirmed Chimeremuma! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "6c876329-7297-456e-91b3-58e814bf4a14",
+      "timestamp": "2026-09-08T18:54:37.046527+00:00"
+    },
+    {
+      "index": 86,
+      "email": "ahuruezenman@gmail.com",
+      "first_name": "Nicholas",
+      "full_name": "Nicholas",
+      "subject": "You\u2019re Confirmed Nicholas! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "81083830-4ce7-44da-b67f-c252d4c90c0f",
+      "timestamp": "2026-09-08T18:55:00.667387+00:00",
+      "retried_at": "2026-09-09T00:11:22.455373+00:00"
+    },
+    {
+      "index": 87,
+      "email": "roboticssharon6@gmail.com",
+      "first_name": "Chinonso",
+      "full_name": "Uzoma Chinonso",
+      "subject": "You\u2019re Confirmed Chinonso! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "e32edbab-4ba8-4d5f-84a3-0c22bbb91235",
+      "timestamp": "2026-09-08T18:55:19.237642+00:00",
+      "retried_at": "2026-09-09T00:11:24.345641+00:00"
+    },
+    {
+      "index": 88,
+      "email": "seunarasonubii@gmail.com",
+      "first_name": "Oluwaseunara",
+      "full_name": "Sonubi Oluwaseunara",
+      "subject": "You\u2019re Confirmed Oluwaseunara! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "6ef0a772-ad05-4f2a-a950-e5d8f0e73c37",
+      "timestamp": "2026-09-08T18:55:25.435628+00:00"
+    },
+    {
+      "index": 89,
+      "email": "olaniyidaniel900@gmail.com",
+      "first_name": "Olaniyi",
+      "full_name": "Afolabi Olaniyi Daniel",
+      "subject": "You\u2019re Confirmed Olaniyi! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "eb8ddaf1-bd7a-430c-974d-a1769d7a8707",
+      "timestamp": "2026-09-08T18:55:31.036302+00:00"
+    },
+    {
+      "index": 90,
+      "email": "chukwufunayamowah@gmail.com",
+      "first_name": "Chukwufunaya",
+      "full_name": "Mowah Chukwufunaya",
+      "subject": "You\u2019re Confirmed Chukwufunaya! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "0eb74764-568e-406f-a311-bbed1423c2e9",
+      "timestamp": "2026-09-08T18:55:34.470231+00:00"
+    },
+    {
+      "index": 91,
+      "email": "adeayoaderinkomi@gmail.com",
+      "first_name": "Adeayo",
+      "full_name": "Aderinkomi Adeayo",
+      "subject": "You\u2019re Confirmed Adeayo! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "a5b3da1f-a8cc-42f1-a5e8-5833784354df",
+      "timestamp": "2026-09-08T18:55:40.196949+00:00"
+    },
+    {
+      "index": 92,
+      "email": "moyerinde251050@stu.ui.edu.ng",
+      "first_name": "Muyiwa",
+      "full_name": "Oyerinde Muyiwa",
+      "subject": "You\u2019re Confirmed Muyiwa! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "519ce5f0-453d-4557-b173-d799bc454170",
+      "timestamp": "2026-09-08T18:56:40.836628+00:00",
+      "retried_at": "2026-09-09T00:11:26.908951+00:00"
+    },
+    {
+      "index": 93,
+      "email": "oluwaferanmigoodness09@gmail.com",
+      "first_name": "Oluwaferanmi",
+      "full_name": "Adejumo Oluwaferanmi Goodness",
+      "subject": "You\u2019re Confirmed Oluwaferanmi! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "5bf5d852-799f-4a61-925f-d4d562b7bb32",
+      "timestamp": "2026-09-08T18:56:45.063066+00:00"
+    },
+    {
+      "index": 94,
+      "email": "ogunjobikodija@gmail.com",
+      "first_name": "Khodijah",
+      "full_name": "Ogunjobi Khodijah",
+      "subject": "You\u2019re Confirmed Khodijah! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "73c5176f-aabe-4ae8-8ec7-6c271014869d",
+      "timestamp": "2026-09-08T18:56:47.634171+00:00"
+    },
+    {
+      "index": 95,
+      "email": "mubarakare4@gmail.com",
+      "first_name": "Mubarak",
+      "full_name": "Are Mubarak",
+      "subject": "You\u2019re Confirmed Mubarak! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "dc5c55f8-44a9-4e5d-8df1-44c1f269624e",
+      "timestamp": "2026-09-08T18:56:49.507492+00:00"
+    },
+    {
+      "index": 96,
+      "email": "tobibolu65@gmail.com",
+      "first_name": "Oloruntobiloba",
+      "full_name": "Famoriyo Oloruntobiloba Boluwatife",
+      "subject": "You\u2019re Confirmed Oloruntobiloba! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "46a25753-4133-4f5f-9da8-caf9b3345941",
+      "timestamp": "2026-09-08T18:56:53.424332+00:00"
+    },
+    {
+      "index": 97,
+      "email": "taiwo.areo@tech-u.edu.ng",
+      "first_name": "Taiwo",
+      "full_name": "Areo Taiwo",
+      "subject": "You\u2019re Confirmed Taiwo! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "98c331e8-ecfc-4156-85ff-5c07e32d43ce",
+      "timestamp": "2026-09-08T18:56:56.843733+00:00"
+    },
+    {
+      "index": 98,
+      "email": "lazarusadura@gmail.com",
+      "first_name": "Aduramigba",
+      "full_name": "Lazarus Aduramigba",
+      "subject": "You\u2019re Confirmed Aduramigba! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "1b05046d-5d4c-4861-a6ed-2df2ac12b4be",
+      "timestamp": "2026-09-08T18:56:58.777789+00:00"
+    },
+    {
+      "index": 99,
+      "email": "amarachiejikemealua@gmail.com",
+      "first_name": "Chidiebube",
+      "full_name": "Ejikeme-Alua Chidiebube",
+      "subject": "You\u2019re Confirmed Chidiebube! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "a1571029-9384-40fe-acf3-8d67fe1446ad",
+      "timestamp": "2026-09-08T18:57:00.721282+00:00"
+    },
+    {
+      "index": 100,
+      "email": "moyosoreolojede@gmail.com",
+      "first_name": "Moyosore",
+      "full_name": "Olojede Moyosore",
+      "subject": "You\u2019re Confirmed Moyosore! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "dfb8aedc-8531-4ae9-84a0-a1c16066e176",
+      "timestamp": "2026-09-08T18:57:02.702621+00:00"
+    },
+    {
+      "index": 101,
+      "email": "afolam1999@gmail.com",
+      "first_name": "Ibrahim",
+      "full_name": "Abdulkareem Ibrahim Afolami",
+      "subject": "You\u2019re Confirmed Ibrahim! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "b22a3b7d-5148-4f47-a67b-23c821b05e7a",
+      "timestamp": "2026-09-08T18:57:04.878326+00:00"
+    },
+    {
+      "index": 102,
+      "email": "shokunbidayo3@gmail.com",
+      "first_name": "Dayo",
+      "full_name": "Shokunbi Dayo James",
+      "subject": "You\u2019re Confirmed Dayo! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "d750ea2d-c982-425b-a161-1512aa96cc8c",
+      "timestamp": "2026-09-08T18:57:07.310423+00:00"
+    },
+    {
+      "index": 103,
+      "email": "baruwapreciousitunuoluwa@gmail.com",
+      "first_name": "Precious",
+      "full_name": "Baruwa Precious Itunuoluwa",
+      "subject": "You\u2019re Confirmed Precious! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "0ac1f489-ae49-4ee6-ae92-ae3a4b04cf36",
+      "timestamp": "2026-09-08T18:57:09.300329+00:00"
+    },
+    {
+      "index": 104,
+      "email": "iadelakun77@gmail.com",
+      "first_name": "Israel",
+      "full_name": "Adelakun Israel",
+      "subject": "You\u2019re Confirmed Israel! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "344625db-1556-4135-aefa-8382df99f4a7",
+      "timestamp": "2026-09-08T18:57:11.408115+00:00"
+    },
+    {
+      "index": 105,
+      "email": "saheedazeem4@gmail.com",
+      "first_name": "Abdul",
+      "full_name": "Saheed Abdul Azeem",
+      "subject": "You\u2019re Confirmed Abdul! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "8ce28c41-b075-4029-b96e-928680a0efa7",
+      "timestamp": "2026-09-08T18:57:13.450334+00:00"
+    },
+    {
+      "index": 106,
+      "email": "okhaioisevai44@gmail.com",
+      "first_name": "Okhaioisevai",
+      "full_name": "Adeoye Okhaioisevai",
+      "subject": "You\u2019re Confirmed Okhaioisevai! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "9e7d3b84-ca73-48c6-80da-0e92d41d18d7",
+      "timestamp": "2026-09-08T18:57:15.585780+00:00"
+    },
+    {
+      "index": 107,
+      "email": "ebubeezeokafor@gmail.com",
+      "first_name": "Ebube",
+      "full_name": "Ezeokafor Ebube",
+      "subject": "You\u2019re Confirmed Ebube! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "d83e465d-3af5-40f5-92da-4bc00429adbe",
+      "timestamp": "2026-09-08T18:57:17.565020+00:00"
+    },
+    {
+      "index": 108,
+      "email": "chimaobindubuisi64@gmail.com",
+      "first_name": "God'Swill",
+      "full_name": "God'Swill Ndubuisi",
+      "subject": "You\u2019re Confirmed God'Swill! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "c8c063e1-4838-4aaa-9ac1-32fbb6896a5e",
+      "timestamp": "2026-09-08T18:57:19.550139+00:00"
+    },
+    {
+      "index": 109,
+      "email": "gabdul257129@stu.ui.edu.ng",
+      "first_name": "Faruq",
+      "full_name": "Abdulgafar Faruq",
+      "subject": "You\u2019re Confirmed Faruq! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "46ac8e1d-f5ac-42e7-87b6-fd52f8d81229",
+      "timestamp": "2026-09-08T18:57:21.478735+00:00"
+    },
+    {
+      "index": 110,
+      "email": "praisekelvin076@gmail.com",
+      "first_name": "Praise",
+      "full_name": "Kelvin Praise Adimchinaobi",
+      "subject": "You\u2019re Confirmed Praise! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "4955e9e4-9269-4d5c-a612-6fa13a1e41ea",
+      "timestamp": "2026-09-08T18:57:23.391929+00:00"
+    },
+    {
+      "index": 111,
+      "email": "fredrickadelaja@gmail.com",
+      "first_name": "Fredrick",
+      "full_name": "Adelaja Fredrick",
+      "subject": "You\u2019re Confirmed Fredrick! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "43dba7ec-7df9-4a59-8cee-aab7c9919cf9",
+      "timestamp": "2026-09-08T18:57:26.771897+00:00"
+    },
+    {
+      "index": 112,
+      "email": "idowuesther611@gmail.com",
+      "first_name": "Esther",
+      "full_name": "Idowu Esther",
+      "subject": "You\u2019re Confirmed Esther! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "b26101be-e345-48d8-8dda-c7edd497808b",
+      "timestamp": "2026-09-08T18:57:35.040696+00:00"
+    },
+    {
+      "index": 113,
+      "email": "basseyutme23@gmail.com",
+      "first_name": "Samuel",
+      "full_name": "Bassey Samuel",
+      "subject": "You\u2019re Confirmed Samuel! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "63f7cd67-e38b-42c9-9dd8-3407b39357a2",
+      "timestamp": "2026-09-08T18:57:39.209616+00:00"
+    },
+    {
+      "index": 114,
+      "email": "ejikoayom@gmail.com",
+      "first_name": "Isaac",
+      "full_name": "Ejiko Isaac",
+      "subject": "You\u2019re Confirmed Isaac! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "77267933-7928-41d7-b58f-100392ef2df8",
+      "timestamp": "2026-09-08T18:57:43.227460+00:00"
+    },
+    {
+      "index": 115,
+      "email": "ovieokandeji21@gmail.com",
+      "first_name": "Ovie",
+      "full_name": "Okandeji Ovie",
+      "subject": "You\u2019re Confirmed Ovie! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "82a8c0c2-1eb0-4b42-b10e-f92f9e669205",
+      "timestamp": "2026-09-08T18:57:46.441927+00:00"
+    },
+    {
+      "index": 116,
+      "email": "tijaniajibola33@gmail.com",
+      "first_name": "Ajibola",
+      "full_name": "Tijani Ajibola Ireti-Ayo",
+      "subject": "You\u2019re Confirmed Ajibola! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "b226438f-e4bd-4e5d-a0e8-3dda606614a9",
+      "timestamp": "2026-09-08T18:57:49.810354+00:00"
+    },
+    {
+      "index": 117,
+      "email": "emmanuelhappy564@gmail.com",
+      "first_name": "Emmanuel",
+      "full_name": "Happy Emmanuel Opeyemi",
+      "subject": "You\u2019re Confirmed Emmanuel! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "731c1aa5-b2a3-4eed-bcfa-e3f78672cf34",
+      "timestamp": "2026-09-08T18:57:52.468188+00:00"
+    },
+    {
+      "index": 118,
+      "email": "adepejudavid01@gmail.com",
+      "first_name": "David",
+      "full_name": "Adepeju David Oluwadamilare",
+      "subject": "You\u2019re Confirmed David! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "680a74fb-ade9-4867-804f-7c4116bf6206",
+      "timestamp": "2026-09-08T18:57:54.983947+00:00"
+    },
+    {
+      "index": 119,
+      "email": "johnnobis71@gmail.com",
+      "first_name": "Chisom",
+      "full_name": "Nobis Chisom Rita",
+      "subject": "You\u2019re Confirmed Chisom! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "7399f2f2-b82e-46b2-997f-0a83848457b3",
+      "timestamp": "2026-09-08T18:57:57.270422+00:00"
+    },
+    {
+      "index": 120,
+      "email": "bewajiola506@gmail.com",
+      "first_name": "Precious",
+      "full_name": "Ogunyingbo Precious",
+      "subject": "You\u2019re Confirmed Precious! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "b8c86bb7-ce64-400a-b10f-72c616611760",
+      "timestamp": "2026-09-08T18:57:59.783222+00:00"
+    },
+    {
+      "index": 121,
+      "email": "shakirattijani98@gmail.com",
+      "first_name": "Aishat",
+      "full_name": "Tijani Aishat Bolanle",
+      "subject": "You\u2019re Confirmed Aishat! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "04cff1d6-e8b1-45c1-8f82-0f1cfe3bbddb",
+      "timestamp": "2026-09-08T18:58:02.664817+00:00"
+    },
+    {
+      "index": 122,
+      "email": "adegboyegaemmanuel33@gmail.com",
+      "first_name": "Oyekola",
+      "full_name": "Adegboyega Oyekola",
+      "subject": "You\u2019re Confirmed Oyekola! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "fcafe8ef-1f5e-4d36-b8f0-51872467a929",
+      "timestamp": "2026-09-08T18:58:05.068303+00:00"
+    },
+    {
+      "index": 123,
+      "email": "ade090demolami@gmail.com",
+      "first_name": "Aderomola",
+      "full_name": "Adeyemi Aderomola",
+      "subject": "You\u2019re Confirmed Aderomola! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "ec8ac2e4-805d-47d4-a6af-1cc19f351e7d",
+      "timestamp": "2026-09-08T18:58:07.465375+00:00"
+    },
+    {
+      "index": 124,
+      "email": "onigbindejesulayomi@gmail.com",
+      "first_name": "John",
+      "full_name": "Onigbinde John",
+      "subject": "You\u2019re Confirmed John! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "be062fb2-ef7f-4452-847e-dc312abff508",
+      "timestamp": "2026-09-08T18:58:10.653639+00:00"
+    },
+    {
+      "index": 125,
+      "email": "okojiewisdom2022@gmail.com",
+      "first_name": "Wisdom",
+      "full_name": "Okojie Wisdom",
+      "subject": "You\u2019re Confirmed Wisdom! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "48a35eb7-74e6-4dc9-9be0-61c64f4047be",
+      "timestamp": "2026-09-08T18:58:14.333448+00:00"
+    },
+    {
+      "index": 126,
+      "email": "olinmahfaithful57@gmail.com",
+      "first_name": "Faithful",
+      "full_name": "Olinmah Faithful",
+      "subject": "You\u2019re Confirmed Faithful! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "3c00c6cd-0321-4183-ae80-86cce5b08d37",
+      "timestamp": "2026-09-08T18:58:17.320572+00:00"
+    },
+    {
+      "index": 127,
+      "email": "chuksgeorgenwachukwu@gmail.com",
+      "first_name": "Chukwunyere",
+      "full_name": "Nwachukwu Chukwunyere",
+      "subject": "You\u2019re Confirmed Chukwunyere! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "a7ac1a4d-96a6-458f-b79c-9494413540d2",
+      "timestamp": "2026-09-08T18:58:19.363083+00:00"
+    },
+    {
+      "index": 128,
+      "email": "olunugaenoch@gmail.com",
+      "first_name": "Mofiyinfoluwa",
+      "full_name": "Olunuga Mofiyinfoluwa",
+      "subject": "You\u2019re Confirmed Mofiyinfoluwa! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "74c96008-7921-4f2f-91cb-9567059fec7b",
+      "timestamp": "2026-09-08T18:58:21.282585+00:00"
+    },
+    {
+      "index": 129,
+      "email": "alagbomiracle7@gmail.com",
+      "first_name": "Miracle",
+      "full_name": "Alagbo Miracle",
+      "subject": "You\u2019re Confirmed Miracle! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "e9a0bad5-da19-43f9-be22-843cb83119d4",
+      "timestamp": "2026-09-08T18:58:23.355660+00:00"
+    },
+    {
+      "index": 130,
+      "email": "olamiderodiat825@gmail.com",
+      "first_name": "Rodiat",
+      "full_name": "Abdulganiyu Rodiat Olamide",
+      "subject": "You\u2019re Confirmed Rodiat! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "c4dcdf5c-dca8-4ee7-89f4-f260df4af7c8",
+      "timestamp": "2026-09-08T18:58:25.346825+00:00"
+    },
+    {
+      "index": 131,
+      "email": "gbolahantunmiseralph@gmail.com",
+      "first_name": "Tunmise",
+      "full_name": "Gbolahan Tunmise",
+      "subject": "You\u2019re Confirmed Tunmise! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "33f0b4ce-4610-4da6-9d83-8c8719c16e65",
+      "timestamp": "2026-09-08T18:58:27.299333+00:00"
+    },
+    {
+      "index": 132,
+      "email": "shittabeyabdallah@gmail.com",
+      "first_name": "Shittabey",
+      "full_name": "Shittabey",
+      "subject": "You\u2019re Confirmed Shittabey! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "431fe043-d951-4de3-a75c-3f91065fd8bd",
+      "timestamp": "2026-09-08T18:58:29.207322+00:00"
+    },
+    {
+      "index": 133,
+      "email": "ademolamonarch1001@gmail.com",
+      "first_name": "Abdullateef",
+      "full_name": "Abdulsalam Abdullateef",
+      "subject": "You\u2019re Confirmed Abdullateef! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "607c4b40-cc5b-434d-86d6-d331b85ba3a3",
+      "timestamp": "2026-09-08T18:58:31.144545+00:00"
+    },
+    {
+      "index": 134,
+      "email": "inumidunmoses6@gmail.com",
+      "first_name": "Moses",
+      "full_name": "Oyewo Moses",
+      "subject": "You\u2019re Confirmed Moses! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "aac9e222-e6c1-4b9f-b85b-664e07389a74",
+      "timestamp": "2026-09-08T18:58:33.114491+00:00"
+    },
+    {
+      "index": 135,
+      "email": "stephieaj1234@gmail.com",
+      "first_name": "Obiajulum",
+      "full_name": "Ndubuisi Obiajulum",
+      "subject": "You\u2019re Confirmed Obiajulum! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "c76adf06-1069-4b7b-bc52-22d0c4bfd6ab",
+      "timestamp": "2026-09-08T18:58:35.026272+00:00"
+    },
+    {
+      "index": 136,
+      "email": "tfaleye259087@stu.ui.edu.ng",
+      "first_name": "Toluwalase",
+      "full_name": "Faleye Toluwalase",
+      "subject": "You\u2019re Confirmed Toluwalase! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "7649aaf9-9a4c-4ca1-b624-aea82d0e08b8",
+      "timestamp": "2026-09-08T18:58:36.992870+00:00"
+    },
+    {
+      "index": 137,
+      "email": "dalmeidamatilda16@gmail.com",
+      "first_name": "Roseline",
+      "full_name": "Dalmeida Roseline Sesi",
+      "subject": "You\u2019re Confirmed Roseline! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "3419f761-4902-4259-8c77-a15bdfa2332d",
+      "timestamp": "2026-09-08T18:58:38.969638+00:00"
+    },
+    {
+      "index": 138,
+      "email": "moyeyimika@gmail.com",
+      "first_name": "Mary",
+      "full_name": "Mary Oyeyimika",
+      "subject": "You\u2019re Confirmed Mary! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "b1627e6b-3a0c-499c-88b3-6f0c6ffefb23",
+      "timestamp": "2026-09-08T18:58:41.487002+00:00"
+    },
+    {
+      "index": 139,
+      "email": "ukohnsikakabasiunex@gmail.com",
+      "first_name": "Nsikakabasi",
+      "full_name": "Ukoh Nsikakabasi",
+      "subject": "You\u2019re Confirmed Nsikakabasi! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "054f7c2b-dde6-4248-b90c-c6c7906ced52",
+      "timestamp": "2026-09-08T18:58:43.770334+00:00"
+    },
+    {
+      "index": 140,
+      "email": "davidaderibigbe002@gmail.com",
+      "first_name": "David",
+      "full_name": "Aderibigbe David",
+      "subject": "You\u2019re Confirmed David! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "f2edbb16-a17e-4c61-8bf7-b960a4066585",
+      "timestamp": "2026-09-08T18:58:46.051287+00:00"
+    },
+    {
+      "index": 141,
+      "email": "orecomfort04@gmail.com",
+      "first_name": "Comfort",
+      "full_name": "Akinwale Comfort",
+      "subject": "You\u2019re Confirmed Comfort! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "22678392-32a1-4828-beb8-52d1a2e09e10",
+      "timestamp": "2026-09-08T18:58:48.272107+00:00"
+    },
+    {
+      "index": 142,
+      "email": "phoebeogundeji@gmail.com",
+      "first_name": "Phoebe",
+      "full_name": "Phoebe Ogundeji",
+      "subject": "You\u2019re Confirmed Phoebe! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "b38e2167-96af-4c3c-b27c-32f1fb5487c9",
+      "timestamp": "2026-09-08T18:58:50.490465+00:00"
+    },
+    {
+      "index": 143,
+      "email": "kolawoleaanuoluwa525@gmail.com",
+      "first_name": "Aanuoluwa",
+      "full_name": "Kolawole Aanuoluwa",
+      "subject": "You\u2019re Confirmed Aanuoluwa! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "a0ddd8db-3173-4520-8881-15e74e04f8ec",
+      "timestamp": "2026-09-08T18:58:52.436468+00:00"
+    },
+    {
+      "index": 144,
+      "email": "intellict.ai@gmail.com",
+      "first_name": "Gabriel",
+      "full_name": "Akoleaje Gabriel Ayodeji",
+      "subject": "You\u2019re Confirmed Gabriel! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "64e0ecbf-2ad1-43c2-b997-4c8ec8b28f78",
+      "timestamp": "2026-09-08T18:58:54.620345+00:00"
+    },
+    {
+      "index": 145,
+      "email": "emmanueloluwadamilare96@gmail.com",
+      "first_name": "Emmanuel",
+      "full_name": "Adesile Emmanuel Oluwadamilare",
+      "subject": "You\u2019re Confirmed Emmanuel! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "b125d1b0-1024-42ee-9aa7-9dd1d84b36e7",
+      "timestamp": "2026-09-08T18:58:56.676165+00:00"
+    },
+    {
+      "index": 146,
+      "email": "danielgrace369@gmail.com",
+      "first_name": "Grace",
+      "full_name": "Daniel Grace Omolayo",
+      "subject": "You\u2019re Confirmed Grace! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "e45b8923-6002-4d83-8a2e-ce29fe77a692",
+      "timestamp": "2026-09-08T18:58:58.774924+00:00"
+    },
+    {
+      "index": 147,
+      "email": "aladetaiwo19@gmail.com",
+      "first_name": "Alade",
+      "full_name": "Taiwo Alade",
+      "subject": "You\u2019re Confirmed Alade! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "db70c935-63ba-4cbc-93bc-eada8c489172",
+      "timestamp": "2026-09-08T18:59:00.707777+00:00"
+    },
+    {
+      "index": 148,
+      "email": "afiajoshua85@gmail.com",
+      "first_name": "Joshua",
+      "full_name": "Afia Joshua Aniekan",
+      "subject": "You\u2019re Confirmed Joshua! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "75f268db-c4f0-42c9-afb7-3a36abd8b6d4",
+      "timestamp": "2026-09-08T18:59:02.684114+00:00"
+    },
+    {
+      "index": 149,
+      "email": "mojereolaibrahim52@gmail.com",
+      "first_name": "Ibrahim",
+      "full_name": "Mojereola Ibrahim",
+      "subject": "You\u2019re Confirmed Ibrahim! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "2fe93db7-5734-4a1c-ad7c-46d7338fc952",
+      "timestamp": "2026-09-08T18:59:04.608585+00:00"
+    },
+    {
+      "index": 150,
+      "email": "oyelakinoluseun@gmail.com",
+      "first_name": "Oluwaseun",
+      "full_name": "Oyelakin Oluwaseun",
+      "subject": "You\u2019re Confirmed Oluwaseun! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "c92213db-2094-4cc9-80e8-3f16d0c7512c",
+      "timestamp": "2026-09-08T18:59:06.571301+00:00"
+    },
+    {
+      "index": 151,
+      "email": "treasureadedeji74@gmail.com",
+      "first_name": "Treasure",
+      "full_name": "Adedeji Treasure",
+      "subject": "You\u2019re Confirmed Treasure! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "b7818570-c208-4912-aeeb-cae7fc58c0ee",
+      "timestamp": "2026-09-08T18:59:08.523647+00:00"
+    },
+    {
+      "index": 152,
+      "email": "ellafaive@gmail.com",
+      "first_name": "Favour",
+      "full_name": "Godfrey Favour Okwukwe",
+      "subject": "You\u2019re Confirmed Favour! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "0358ac3c-d829-4180-a70b-c83436e19c40",
+      "timestamp": "2026-09-08T18:59:11.600959+00:00"
+    },
+    {
+      "index": 153,
+      "email": "emekaofforleon@gmail.com",
+      "first_name": "Chukwuemeka",
+      "full_name": "Chukwuemeka Offor",
+      "subject": "You\u2019re Confirmed Chukwuemeka! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "ad4c2809-9aac-4576-adfd-b0bf2092c33d",
+      "timestamp": "2026-09-08T18:59:13.504267+00:00"
+    },
+    {
+      "index": 154,
+      "email": "olanrewajuhamilot@gmail.com",
+      "first_name": "Abdulmuiz",
+      "full_name": "Olanrewaju Abdulmuiz",
+      "subject": "You\u2019re Confirmed Abdulmuiz! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "d089717b-4dd6-43ce-ac9f-c4d69daf2f90",
+      "timestamp": "2026-09-08T18:59:15.170591+00:00",
+      "retried_at": "2026-09-09T00:11:28.899817+00:00"
+    },
+    {
+      "index": 155,
+      "email": "jibrilmaemunah@gmail.com",
+      "first_name": "Maemunah",
+      "full_name": "Jibril Maemunah",
+      "subject": "You\u2019re Confirmed Maemunah! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "0610fd44-0cbb-4a13-b114-f4fe07841cda",
+      "timestamp": "2026-09-08T18:59:18.853540+00:00"
+    },
+    {
+      "index": 156,
+      "email": "emmanuelijaduola@gmail.com",
+      "first_name": "Emmanuel",
+      "full_name": "Ijaduola Emmanuel",
+      "subject": "You\u2019re Confirmed Emmanuel! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "5bbc864b-f291-4954-9859-c52a81442c44",
+      "timestamp": "2026-09-08T18:59:21.647368+00:00"
+    },
+    {
+      "index": 157,
+      "email": "ogunbambis6@gmail.com",
+      "first_name": "Samuel",
+      "full_name": "Ogunbambi Samuel",
+      "subject": "You\u2019re Confirmed Samuel! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "959da349-e15b-4e3d-8967-21ac8b91e678",
+      "timestamp": "2026-09-08T18:59:23.567715+00:00"
+    },
+    {
+      "index": 158,
+      "email": "oladokunpromise288@gmail.com",
+      "first_name": "Promise",
+      "full_name": "Oladokun Promise",
+      "subject": "You\u2019re Confirmed Promise! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "a4b2a43b-2f9c-40f9-b001-51f40696797c",
+      "timestamp": "2026-09-08T18:59:26.007279+00:00"
+    },
+    {
+      "index": 159,
+      "email": "hikmatkuforiji@gmail.com",
+      "first_name": "Hikmat",
+      "full_name": "Kuforiji Hikmat",
+      "subject": "You\u2019re Confirmed Hikmat! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "c3ffe58a-c0ad-4804-a244-ad8216555ef4",
+      "timestamp": "2026-09-08T18:59:28.168518+00:00"
+    },
+    {
+      "index": 160,
+      "email": "jideol3dipupo@gmail.com",
+      "first_name": "Oladipupo",
+      "full_name": "Olajide Oladipupo",
+      "subject": "You\u2019re Confirmed Oladipupo! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "eeccb43f-8bda-4b3f-83df-2153ca31bcb6",
+      "timestamp": "2026-09-08T18:59:30.179166+00:00"
+    },
+    {
+      "index": 161,
+      "email": "seyiadeleyept07@gmail.com",
+      "first_name": "Seyi",
+      "full_name": "Adeleye Seyi",
+      "subject": "You\u2019re Confirmed Seyi! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "84af2ded-913f-4803-adcb-50e3605d073a",
+      "timestamp": "2026-09-08T18:59:32.130649+00:00"
+    },
+    {
+      "index": 162,
+      "email": "omolayodanny@gmail.com",
+      "first_name": "Daniel",
+      "full_name": "Omolayo Daniel Oluwanifemi",
+      "subject": "You\u2019re Confirmed Daniel! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "94ba8817-9c10-4923-96cd-ae22016286da",
+      "timestamp": "2026-09-08T18:59:34.095417+00:00"
+    },
+    {
+      "index": 163,
+      "email": "slontones@gmail.com",
+      "first_name": "Solomon",
+      "full_name": "Solomon Abioye",
+      "subject": "You\u2019re Confirmed Solomon! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "0d2fd97f-eebe-4cc2-b59d-588a5031937c",
+      "timestamp": "2026-09-08T18:59:36.051334+00:00"
+    },
+    {
+      "index": 164,
+      "email": "aremumaryoluwatunmise@gmail.com",
+      "first_name": "Mary",
+      "full_name": "Mary Aremu",
+      "subject": "You\u2019re Confirmed Mary! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "b41d25d4-6392-4808-b22c-744891fbb657",
+      "timestamp": "2026-09-08T18:59:38.253457+00:00"
+    },
+    {
+      "index": 165,
+      "email": "tommydaniel071@gmail.com",
+      "first_name": "Daniel",
+      "full_name": "Daniel Olakanmi",
+      "subject": "You\u2019re Confirmed Daniel! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "21f1e971-e700-4dbd-a97c-2b4070a45b42",
+      "timestamp": "2026-09-08T18:59:40.978481+00:00"
+    },
+    {
+      "index": 166,
+      "email": "tolavaughan003@gmail.com",
+      "first_name": "Omotola",
+      "full_name": "Ayo-Vaughan Omotola",
+      "subject": "You\u2019re Confirmed Omotola! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "2d9ac4cd-4ea1-4310-9fb9-b7f2f10500c7",
+      "timestamp": "2026-09-08T18:59:43.129562+00:00"
+    },
+    {
+      "index": 167,
+      "email": "enomark191@gmail.com",
+      "first_name": "Enoch",
+      "full_name": "Mark Enoch",
+      "subject": "You\u2019re Confirmed Enoch! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "5a3eb2d6-2171-4781-a43b-9892486114ac",
+      "timestamp": "2026-09-08T18:59:47.393248+00:00"
+    },
+    {
+      "index": 168,
+      "email": "kingsleydaprime@gmail.com",
+      "first_name": "Kingsley",
+      "full_name": "Ihemelandu Kingsley",
+      "subject": "You\u2019re Confirmed Kingsley! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "64af054e-8146-4e71-b089-fd4720b24701",
+      "timestamp": "2026-09-08T18:59:50.359321+00:00"
+    },
+    {
+      "index": 169,
+      "email": "abubakaradesokanjr@gmail.com",
+      "first_name": "Abubakar",
+      "full_name": "Adesokan Abubakar",
+      "subject": "You\u2019re Confirmed Abubakar! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "87d071cc-1d8f-4849-a2c3-80a0d45caaad",
+      "timestamp": "2026-09-08T18:59:52.363984+00:00"
+    },
+    {
+      "index": 170,
+      "email": "jesutofunmisoyibo24@gmail.com",
+      "first_name": "Jesutofunmi",
+      "full_name": "Soyibo Jesutofunmi",
+      "subject": "You\u2019re Confirmed Jesutofunmi! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "780ac61b-fd5a-4d6d-be3a-f5630502b6e7",
+      "timestamp": "2026-09-08T18:59:54.252148+00:00"
+    },
+    {
+      "index": 171,
+      "email": "bolarinwaayorinde97@gmail.com",
+      "first_name": "Bolarinwa",
+      "full_name": "Bolarinwa Ayorinde",
+      "subject": "You\u2019re Confirmed Bolarinwa! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "9e243674-fd94-4a35-843d-f4c56c4140be",
+      "timestamp": "2026-09-08T18:59:56.151964+00:00"
+    },
+    {
+      "index": 172,
+      "email": "chikezieaguero10@gmail.com",
+      "first_name": "Chikezie",
+      "full_name": "Chukwuebuka Chikezie",
+      "subject": "You\u2019re Confirmed Chikezie! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "973091d5-e8cd-4d2b-b257-fc10e5f6a8d9",
+      "timestamp": "2026-09-08T18:59:58.170369+00:00"
+    },
+    {
+      "index": 173,
+      "email": "olayinkaemma27@gmail.com",
+      "first_name": "Emmanuel",
+      "full_name": "Olayinka Emmanuel",
+      "subject": "You\u2019re Confirmed Emmanuel! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "f20a2946-3296-478d-aeb3-867834ec6a20",
+      "timestamp": "2026-09-08T19:00:00.116085+00:00"
+    },
+    {
+      "index": 174,
+      "email": "hadeezah919@gmail.com",
+      "first_name": "Hadizah",
+      "full_name": "Munirudeen Hadizah",
+      "subject": "You\u2019re Confirmed Hadizah! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "e0cd2eed-b7a4-4baa-8b86-15dcb7196a49",
+      "timestamp": "2026-09-08T19:00:02.229381+00:00"
+    },
+    {
+      "index": 175,
+      "email": "zainabbello213@gmail.com",
+      "first_name": "Oluwabusayo",
+      "full_name": "Zainab Oluwabusayo Bello",
+      "subject": "You\u2019re Confirmed Oluwabusayo! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "2f8918b0-2a8f-4431-973c-c3ef56cadeb4",
+      "timestamp": "2026-09-08T19:00:04.153399+00:00"
+    },
+    {
+      "index": 176,
+      "email": "ifolarin21@gmail.com",
+      "first_name": "Inioluwa",
+      "full_name": "Folarin Inioluwa",
+      "subject": "You\u2019re Confirmed Inioluwa! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "472e5bb9-2f4f-4f0e-b040-40b7d55b623b",
+      "timestamp": "2026-09-08T19:00:06.164878+00:00"
+    },
+    {
+      "index": 177,
+      "email": "tamiloreakano2006@gmail.com",
+      "first_name": "Ezra",
+      "full_name": "Akano Ezra Tamilore",
+      "subject": "You\u2019re Confirmed Ezra! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "af7b4293-98c4-4a0f-8d3a-649348e81341",
+      "timestamp": "2026-09-08T19:00:08.182981+00:00"
+    },
+    {
+      "index": 178,
+      "email": "onimisiadewunmi2003@gmail.com",
+      "first_name": "Onimisi",
+      "full_name": "Adeoye Onimisi",
+      "subject": "You\u2019re Confirmed Onimisi! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "0f87b77c-68fe-42e7-95e9-41ff1f0ab31c",
+      "timestamp": "2026-09-08T19:00:10.229283+00:00"
+    },
+    {
+      "index": 179,
+      "email": "solapeace086@gmail.com",
+      "first_name": "Abdulrahman",
+      "full_name": "Tajudeen Abdulrahman Olorunnisola",
+      "subject": "You\u2019re Confirmed Abdulrahman! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "19df5620-03f2-4164-bd56-43e843e24675",
+      "timestamp": "2026-09-08T19:00:12.540862+00:00"
+    },
+    {
+      "index": 180,
+      "email": "abdulmalikhamzat24@gmail.com",
+      "first_name": "Abdul-Malik",
+      "full_name": "Abdul-Malik Hamzat",
+      "subject": "You\u2019re Confirmed Abdul-Malik! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "e35ad853-308b-4d4d-9642-40d4bd6c9542",
+      "timestamp": "2026-09-08T19:00:14.566541+00:00"
+    },
+    {
+      "index": 181,
+      "email": "sekonidairor@gmail.com",
+      "first_name": "Raehanah",
+      "full_name": "Sekoni-Dairo Raehanah",
+      "subject": "You\u2019re Confirmed Raehanah! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "6e1fd92b-bbc9-4df0-b93b-8a88446c8327",
+      "timestamp": "2026-09-08T19:00:16.463658+00:00"
+    },
+    {
+      "index": 182,
+      "email": "zoechidinebo144@gmail.com",
+      "first_name": "Zoe",
+      "full_name": "Chidi-Nebo Zoe",
+      "subject": "You\u2019re Confirmed Zoe! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "c5015dc8-48d6-411c-b38c-217b8f79bf22",
+      "timestamp": "2026-09-08T19:00:18.363294+00:00"
+    },
+    {
+      "index": 183,
+      "email": "daranijoajibolaerinola@gmail.com",
+      "first_name": "Erinola",
+      "full_name": "Erinola Daranijo",
+      "subject": "You\u2019re Confirmed Erinola! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "69873162-aee9-42e9-ab08-e67d89aa106f",
+      "timestamp": "2026-09-08T19:00:20.389849+00:00"
+    },
+    {
+      "index": 184,
+      "email": "enochojerinde@gmail.com",
+      "first_name": "Enoch",
+      "full_name": "Ojerinde Enoch",
+      "subject": "You\u2019re Confirmed Enoch! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "a3079976-9d86-4806-b022-38d053dde7fe",
+      "timestamp": "2026-09-08T19:00:22.396264+00:00"
+    },
+    {
+      "index": 185,
+      "email": "marcusmatt911@gmail.com",
+      "first_name": "Marcus",
+      "full_name": "Mudia Marcus",
+      "subject": "You\u2019re Confirmed Marcus! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "ac977ff1-d699-4824-a8c0-6738291efd11",
+      "timestamp": "2026-09-08T19:00:24.335932+00:00"
+    },
+    {
+      "index": 186,
+      "email": "nwabunkaa@gmail.com",
+      "first_name": "Ifeanyichukwu",
+      "full_name": "Nwabunka Ifeanyichukwu",
+      "subject": "You\u2019re Confirmed Ifeanyichukwu! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "4bade689-d0e4-4454-bd8a-3649ad77f8eb",
+      "timestamp": "2026-09-08T19:00:26.330362+00:00"
+    },
+    {
+      "index": 187,
+      "email": "pecks390@gmail.com",
+      "first_name": "Peculiar",
+      "full_name": "Olonade Peculiar Olabanji",
+      "subject": "You\u2019re Confirmed Peculiar! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "3b5fe84a-caca-43fd-85ed-57b57ff67a70",
+      "timestamp": "2026-09-08T19:00:28.291254+00:00"
+    },
+    {
+      "index": 188,
+      "email": "vickyoboh660@gmail.com",
+      "first_name": "Victory",
+      "full_name": "Oboh Victory",
+      "subject": "You\u2019re Confirmed Victory! \ud83d\udd25 \u2014 IESA",
+      "success": true,
+      "detail": "559db617-cc44-4385-94a1-86b788a2dac2",
+      "timestamp": "2026-09-08T19:00:30.300182+00:00"
+    }
+  ],
+  "last_retry_at": "2026-09-09T00:11:29.500331+00:00"
+}

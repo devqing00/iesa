@@ -1,0 +1,403 @@
+{
+  "delivered": {
+    "umoruabdulkabir@gmail.com": {
+      "name": "Abdulkabir Umoru",
+      "matric": "244079",
+      "student_id": "69b972f3e4912623123a1045",
+      "message_id": "9abc3c20-11c7-474a-b013-aeea2b911d2e",
+      "sent_at": "2026-09-09T15:36:23.942110+00:00",
+      "source": "website"
+    },
+    "olawaosepinabisola05@gmail.com": {
+      "name": "Abisola Lasisi",
+      "matric": "251141",
+      "student_id": "69b3d3573c072ea0b383c23d",
+      "message_id": "b87be0bf-8637-4fdb-b4d1-3b5d1af86d8f",
+      "sent_at": "2026-09-09T15:36:44.021110+00:00",
+      "source": "form_receipt"
+    },
+    "adeayoaderinkomi@gmail.com": {
+      "name": "Adeayo Aderinkomi",
+      "matric": "259088",
+      "student_id": "69c7e2e0c610d1c6ed79e95d",
+      "message_id": "c885da47-ee5d-44be-bfb4-2103c4aefb84",
+      "sent_at": "2026-09-09T15:37:21.287948+00:00",
+      "source": "form_receipt"
+    },
+    "kehinde.adeyemi976@gmail.com": {
+      "name": "Adeyemi Aderomola",
+      "matric": "IPE",
+      "student_id": "FORM_123",
+      "message_id": "238fb554-f26d-45d7-9da6-419be0dc1c56",
+      "sent_at": "2026-09-09T15:37:31.822613+00:00",
+      "source": "form_receipt"
+    },
+    "aladetaiwo19@gmail.com": {
+      "name": "Alade Taiwo",
+      "matric": "231537",
+      "student_id": "69b3caa9800ee1a6182f91c6",
+      "message_id": "94114e13-a1d6-469b-af3a-675a3286d64a",
+      "sent_at": "2026-09-09T15:37:44.694728+00:00",
+      "source": "form_receipt"
+    },
+    "aadebisi251708@stu.ui.edu.ng": {
+      "name": "Ayomide Adebisi",
+      "matric": "251708",
+      "student_id": "69c2598bd260b5263121f8d1",
+      "message_id": "9c70ac48-633c-4d0c-9395-12a7dbf9f730",
+      "sent_at": "2026-09-09T15:37:58.344741+00:00",
+      "source": "website"
+    },
+    "bolarinwaayorinde97@gmail.com": {
+      "name": "Bolarinwa Ayorinde",
+      "matric": "Systems Eng",
+      "student_id": "FORM_171",
+      "message_id": "ef450431-f404-4d95-9463-dc20151a70b1",
+      "sent_at": "2026-09-09T15:38:11.006461+00:00",
+      "source": "form_receipt"
+    },
+    "boluoladimeji366@gmail.com": {
+      "name": "Boluwatife Oladimeji",
+      "matric": "236883",
+      "student_id": "69b9124536394f5da5f3e26f",
+      "message_id": "d06ed390-6e87-4074-8482-74eb00465094",
+      "sent_at": "2026-09-09T15:38:21.371890+00:00",
+      "source": "website"
+    },
+    "charlesadebiyi15@gmail.com": {
+      "name": "Charles Adebiyi",
+      "matric": "258410",
+      "student_id": "69b8340c376298834e19f3a2",
+      "message_id": "f509c4f7-a416-461f-b768-5cd62fc4db63",
+      "sent_at": "2026-09-09T15:38:37.846456+00:00",
+      "source": "website"
+    },
+    "chukwuebukachikezie409@gmail.com": {
+      "name": "Chikezie Chukwuebuka",
+      "matric": "231543",
+      "student_id": "69bc443a77cf91a204c53990",
+      "message_id": "3f15bb15-79dc-416d-a117-82d074a38e8e",
+      "sent_at": "2026-09-09T15:38:47.944311+00:00",
+      "source": "form_receipt"
+    },
+    "ugochukwudavid321@gmail.com": {
+      "name": "Chimeremuma Ugochukwu",
+      "matric": "258452",
+      "student_id": "69cea5415f0f6ea72aa4a4cf",
+      "message_id": "f23cfe83-f92a-44bd-b07e-e3d09c8d2259",
+      "sent_at": "2026-09-09T15:38:58.404846+00:00",
+      "source": "form_receipt"
+    },
+    "emekaofforleon@gmail.com": {
+      "name": "Chukwuemeka Offor",
+      "matric": "236880",
+      "student_id": "69b82073376298834e19f372",
+      "message_id": "17ab65e6-50f4-46e5-8dbc-bcdbea4d85f2",
+      "sent_at": "2026-09-09T15:39:12.701483+00:00",
+      "source": "website"
+    },
+    "dalmeidaroseline16@gmail.com": {
+      "name": "Dalmeida Roseline",
+      "matric": "IPE",
+      "student_id": "69c57a3c2cc7ca2abdb35738",
+      "message_id": "fe1ad6cf-226b-42f1-8f7a-6b3802688840",
+      "sent_at": "2026-09-09T15:39:23.027086+00:00",
+      "source": "website"
+    },
+    "divinedouglas74@gmail.com": {
+      "name": "DivineFavour Douglas",
+      "matric": "244041",
+      "student_id": "69c26c2fd260b5263121f96e",
+      "message_id": "260fae9f-43fe-472e-94d3-162f0d0e08af",
+      "sent_at": "2026-09-09T15:39:35.497547+00:00",
+      "source": "website"
+    },
+    "echuwisdom4@gmail.com": {
+      "name": "Echu Wisdom",
+      "matric": "Petroleum Eng",
+      "student_id": "FORM_81",
+      "message_id": "b66240b9-c654-42d2-b16a-5be4d38a9f73",
+      "sent_at": "2026-09-09T15:39:45.825540+00:00",
+      "source": "form_receipt"
+    },
+    "olinmahfaithful57@gmail.com": {
+      "name": "Faithful Olinmah",
+      "matric": "231561",
+      "student_id": "69b5cf0cf5e02c6de5ccb6c9",
+      "message_id": "962b6cb9-f83f-4ee1-ae58-35cde5b5537f",
+      "sent_at": "2026-09-09T15:39:56.843277+00:00",
+      "source": "website"
+    },
+    "ikpeafavour6@gmail.com": {
+      "name": "Favour Ikpea",
+      "matric": "244052",
+      "student_id": "69b3d4d03c072ea0b383c242",
+      "message_id": "c15b2eb0-ce3a-41d3-9c63-2f365d9a8e9c",
+      "sent_at": "2026-09-09T15:40:10.647956+00:00",
+      "source": "website"
+    },
+    "fredrickadelaja@gmail.com": {
+      "name": "Fredrick Adelaja",
+      "matric": "231525",
+      "student_id": "69b59c4f4cae90053c9b5a40",
+      "message_id": "cbdb7f26-4349-4140-8b5a-5363a6aeb9f4",
+      "sent_at": "2026-09-09T15:40:20.843476+00:00",
+      "source": "website"
+    },
+    "kingsleydaprime@gmail.com": {
+      "name": "Ihemelandu Kingsley",
+      "matric": "Systems Eng",
+      "student_id": "FORM_168",
+      "message_id": "63f493e1-42c6-4413-b1bc-a7fed1690c8e",
+      "sent_at": "2026-09-09T15:40:34.555213+00:00",
+      "source": "form_receipt"
+    },
+    "iobabiyi258435@stu.ui.edu.ng": {
+      "name": "Iyeoluwa Obabiyi",
+      "matric": "258435",
+      "student_id": "69b81fcf376298834e19f367",
+      "message_id": "f7a04689-9648-410b-af13-67d0681af51c",
+      "sent_at": "2026-09-09T15:40:46.481129+00:00",
+      "source": "website"
+    },
+    "jesutofunmisoyibo24@gmail.com": {
+      "name": "Jesutofunmi Soyibo",
+      "matric": "231574",
+      "student_id": "69b3d739239e3fc1d2781602",
+      "message_id": "b68b7a89-c5f9-43d0-8898-547fd4c499b8",
+      "sent_at": "2026-09-09T15:40:56.794331+00:00",
+      "source": "form_receipt"
+    },
+    "jokerentugba558@stu.ui.edu.ng": {
+      "name": "Joseph Okerentugba",
+      "matric": "231558",
+      "student_id": "69b81e19376298834e19f360",
+      "message_id": "fc9ded78-ad37-4884-a8c4-b6f7063159d1",
+      "sent_at": "2026-09-09T15:41:07.634867+00:00",
+      "source": "website"
+    },
+    "afiajoshua85@gmail.com": {
+      "name": "Joshua Afia",
+      "matric": "231530",
+      "student_id": "69c12b7ad260b5263121f371",
+      "message_id": "9f5bc478-dcf5-48ca-b373-e21a3df8794a",
+      "sent_at": "2026-09-09T15:41:17.183476+00:00",
+      "source": "website"
+    },
+    "hikmatkuforiji@gmail.com": {
+      "name": "Kuforiji Hikmat",
+      "matric": "231552",
+      "student_id": "69b45c7d9d7f6bdabc2e4419",
+      "message_id": "9bbee929-83a0-4b9a-b433-aaa1d194655c",
+      "sent_at": "2026-09-09T15:41:30.695007+00:00",
+      "source": "form_receipt"
+    },
+    "maemunahjibril@gmail.com": {
+      "name": "Maemunah Jibril",
+      "matric": "231550",
+      "student_id": "69c2146dd260b5263121f74d",
+      "message_id": "8fc4984c-f1fd-4a54-8687-0f2f525766ed",
+      "sent_at": "2026-09-09T15:41:40.920435+00:00",
+      "source": "website"
+    },
+    "enomark191@gmail.com": {
+      "name": "Mark Enoch",
+      "matric": "258433",
+      "student_id": "69c67dde2cc7ca2abdb3586f",
+      "message_id": "c7edc3a2-f9e7-4a25-b5fa-3560c741cc66",
+      "sent_at": "2026-09-09T15:41:50.683232+00:00",
+      "source": "website"
+    },
+    "maryakinsanmi2@gmail.com": {
+      "name": "Mary Akinsanmi",
+      "matric": "258420",
+      "student_id": "69c67d8e2cc7ca2abdb35869",
+      "message_id": "22e1b4f2-e56e-4d91-8a9e-e2f847f46255",
+      "sent_at": "2026-09-09T15:42:02.291358+00:00",
+      "source": "website"
+    },
+    "moyeyimika22@gmail.com": {
+      "name": "Mary Oyeyimika",
+      "matric": "236892",
+      "student_id": "69b823fd376298834e19f382",
+      "message_id": "ceec8796-d3a4-4038-bbfa-6add063703a5",
+      "sent_at": "2026-09-09T15:42:13.151938+00:00",
+      "source": "form_receipt"
+    },
+    "ahmedlatifat100@gmail.com": {
+      "name": "Mubarak Ahmed",
+      "matric": "251114",
+      "student_id": "69b90b2b65c87105f1e2816f",
+      "message_id": "9fbdbaa3-fa98-492c-89b9-ce8a12041dd7",
+      "sent_at": "2026-09-09T15:42:30.223310+00:00",
+      "source": "form_receipt"
+    },
+    "adedokunmutmaina@gmail.com": {
+      "name": "Mutmaina Adedokun",
+      "matric": "251107",
+      "student_id": "69b82708376298834e19f38b",
+      "message_id": "e544c132-5c6e-4437-971d-487862dc8f7e",
+      "sent_at": "2026-09-09T15:42:43.100083+00:00",
+      "source": "form_receipt"
+    },
+    "ukohnsikakabasiunex@gmail.com": {
+      "name": "Nsikakabasi Ukoh",
+      "matric": "231579",
+      "student_id": "69b3de405acb66357527ab75",
+      "message_id": "97cde621-6a65-4c34-8745-772fb06f55e4",
+      "sent_at": "2026-09-09T15:42:58.680676+00:00",
+      "source": "website"
+    },
+    "nwabunkaa@gmail.com": {
+      "name": "Nwabunka Anthony",
+      "matric": "244061",
+      "student_id": "69b53d2fc62bb5e156ffc1e1",
+      "message_id": "dfbb2bd1-41f9-41fd-b0e0-cf6a8b09cde0",
+      "sent_at": "2026-09-09T15:43:16.814641+00:00",
+      "source": "website"
+    },
+    "olayinkaobaloluwa04@gmail.com": {
+      "name": "Obaloluwa Olayinka",
+      "matric": "251154",
+      "student_id": "69b9ac5c15a945f168724a53",
+      "message_id": "6a83401d-55ca-467b-b629-e283ccee01fe",
+      "sent_at": "2026-09-09T15:43:32.737920+00:00",
+      "source": "website"
+    },
+    "ogundipeoluwayomi@gmail.com": {
+      "name": "Ogundipe David",
+      "matric": "231557",
+      "student_id": "69bbfb129de7e09ebd0fda6d",
+      "message_id": "1286a979-e06b-45fa-a194-1c38cce327a9",
+      "sent_at": "2026-09-09T15:43:49.158627+00:00",
+      "source": "website"
+    },
+    "okhaioisevai44@gmail.com": {
+      "name": "Okhaioisevai Adeoye",
+      "matric": "231526",
+      "student_id": "69b3cba8800ee1a6182f91cd",
+      "message_id": "d88da248-103a-4a0c-b936-8fd094160a07",
+      "sent_at": "2026-09-09T15:44:07.376198+00:00",
+      "source": "admin_requested (Form Row 106)"
+    },
+    "oayantosho541@stu.ui.edu.ng": {
+      "name": "Olayinka Ayantosho",
+      "matric": "231541",
+      "student_id": "69bbfd479de7e09ebd0fda7d",
+      "message_id": "f064a7c0-b082-459a-a9b9-443c9c583472",
+      "sent_at": "2026-09-09T15:44:18.175177+00:00",
+      "source": "website"
+    },
+    "oalli258422@stu.ui.edu.ng": {
+      "name": "Oluwateniara Alli",
+      "matric": "258422",
+      "student_id": "69bef1a78bc03a459d6b7fe4",
+      "message_id": "d06582f1-ee37-4820-a3a9-be02099fd59d",
+      "sent_at": "2026-09-09T15:45:02.863109+00:00",
+      "source": "website"
+    },
+    "omoemiisrael@gmail.com": {
+      "name": "Omoemi Israel",
+      "matric": "244074",
+      "student_id": "69b85fa0376298834e19f3c2",
+      "message_id": "48348da2-7a8c-4cae-83c8-e29d39d8406d",
+      "sent_at": "2026-09-09T15:45:26.283363+00:00",
+      "source": "website"
+    },
+    "pojo258436@stu.ui.edu.ng": {
+      "name": "Peace Ojo",
+      "matric": "258436",
+      "student_id": "69b82ac3376298834e19f394",
+      "message_id": "5ca43d78-638f-4625-bb21-b6b726e3dc27",
+      "sent_at": "2026-09-09T15:45:53.245236+00:00",
+      "source": "website"
+    },
+    "padetipe527@stu.ui.edu.ng": {
+      "name": "Precious Adetipe",
+      "matric": "231527",
+      "student_id": "69b3d4fb3c072ea0b383c243",
+      "message_id": "428f2cb6-3f27-4f9a-9c1a-8c1eb82b9974",
+      "sent_at": "2026-09-09T15:46:11.250364+00:00",
+      "source": "admin_requested (500L DB)"
+    },
+    "ajaoprecious11@gmail.com": {
+      "name": "Precious Ajao",
+      "matric": "231531",
+      "student_id": "69b3cb3a800ee1a6182f91cb",
+      "message_id": "922ab06b-54e9-47c4-bbcd-edbbd4e055cb",
+      "sent_at": "2026-09-09T15:46:21.550800+00:00",
+      "source": "admin_requested (500L DB)"
+    },
+    "menekporhema@gmail.com": {
+      "name": "Rhema Victor-Menekpo",
+      "matric": "244080",
+      "student_id": "69d67bbc4d0695fc14cbf392",
+      "message_id": "d270e3ea-2d49-4be0-b9f7-7ae6eb70eb75",
+      "sent_at": "2026-09-09T15:46:34.157922+00:00",
+      "source": "admin_requested (300L DB)"
+    },
+    "ogunbambis6@gmail.com": {
+      "name": "Samuel Ogunbambi",
+      "matric": "231555",
+      "student_id": "69b39da3800ee1a6182f91b8",
+      "message_id": "15d9fdb7-760d-4005-92aa-1e0068ae23d2",
+      "sent_at": "2026-09-09T15:46:49.632056+00:00",
+      "source": "form_receipt"
+    },
+    "samuelttoriola97@gmail.com": {
+      "name": "Samuel Toriola",
+      "matric": "258451",
+      "student_id": "69b82bfc376298834e19f397",
+      "message_id": "55b12328-976c-451a-abae-b9fa2299f81a",
+      "sent_at": "2026-09-09T15:47:00.223306+00:00",
+      "source": "website"
+    },
+    "somtobilo@gmail.com": {
+      "name": "Somtochukwu Onwe",
+      "matric": "231570",
+      "student_id": "69b3a760800ee1a6182f91bd",
+      "message_id": "5d48b35a-ef3a-4f27-ac96-c28a05c870ca",
+      "sent_at": "2026-09-09T15:47:15.974389+00:00",
+      "source": "website"
+    },
+    "iresotunde@gmail.com": {
+      "name": "Sotunde Ireoluwa",
+      "matric": "250867",
+      "student_id": "FORM_40",
+      "message_id": "70727296-566a-4531-ba9c-3036aaf4cde7",
+      "sent_at": "2026-09-09T15:47:38.141847+00:00",
+      "source": "form_receipt",
+      "notes": "Matric updated from Agric. Eng to 250867 per user request"
+    },
+    "volawunmi258439@stu.ui.edu.ng": {
+      "name": "Victoria Olawunmi",
+      "matric": "258439",
+      "student_id": "69beea488bc03a459d6b7fd5",
+      "message_id": "204e91e4-3432-480b-83f5-a9f8ee2868d1",
+      "sent_at": "2026-09-09T15:47:52.938374+00:00",
+      "source": "website"
+    },
+    "zamiola566@stu.ui.edu.ng": {
+      "name": "Zainab Amiola",
+      "matric": "237566",
+      "student_id": "69b86cee376298834e19f3d4",
+      "message_id": "9b844e76-3a6a-42a8-b046-11611c5e9b92",
+      "sent_at": "2026-09-09T15:48:05.737907+00:00",
+      "source": "website"
+    },
+    "solapeace086@gmail.com": {
+      "name": "Tajudeen Olorunnisola",
+      "matric": "251295",
+      "student_id": "FORM_180",
+      "message_id": "ecb3e3b0-90f3-43ca-848c-b02363d2f414",
+      "sent_at": "2026-09-09T20:01:05.793548+00:00",
+      "source": "form_unconfirmed_approved"
+    }
+  },
+  "failed": {},
+  "stats": {
+    "total_attendees": 48,
+    "total_delivered": 49,
+    "last_run": "2026-09-09T20:01:05.793548+00:00"
+  }
+}

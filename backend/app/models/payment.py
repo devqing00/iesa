@@ -5,7 +5,7 @@ CRITICAL: All payments MUST have session_id.
 A payment due in 2024/2025 is separate from 2025/2026.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Literal, Optional
 from datetime import datetime
 from bson import ObjectId
@@ -17,6 +17,8 @@ class TicketConfig(BaseModel):
     studentName: dict = Field(default={"x": 50, "y": 180, "fontSize": 24, "color": "#000000"})
     matricNumber: dict = Field(default={"x": 50, "y": 220, "fontSize": 16, "color": "#000000"})
     fontFamily: Optional[str] = Field(default="Helvetica")
+    emailSubject: Optional[str] = Field(default=None, description="Custom email subject line")
+    emailContent: Optional[str] = Field(default=None, description="Custom HTML/rich-text email body with placeholder support")
 
 
 class PaymentBase(BaseModel):
@@ -28,6 +30,13 @@ class PaymentBase(BaseModel):
     description: Optional[str] = Field(None, max_length=1000)
     category: Optional[str] = Field(None, description="e.g., 'Dues', 'Event', 'Merchandise'")
     ticketConfig: Optional[TicketConfig] = Field(None, description="Configuration for batch generating event tickets")
+
+    @field_validator("sessionId", mode="before")
+    @classmethod
+    def convert_session_id(cls, v):
+        if isinstance(v, ObjectId):
+            return str(v)
+        return str(v) if v is not None else v
 
 
 class PaymentCreate(PaymentBase):
@@ -52,6 +61,22 @@ class Payment(PaymentBase):
     createdAt: datetime
     updatedAt: datetime
 
+    @field_validator("id", mode="before")
+    @classmethod
+    def convert_id(cls, v):
+        if isinstance(v, ObjectId):
+            return str(v)
+        return str(v) if v is not None else v
+
+    @field_validator("paidBy", mode="before")
+    @classmethod
+    def convert_paid_by(cls, v):
+        if not v:
+            return []
+        if isinstance(v, list):
+            return list(dict.fromkeys(str(item) for item in v if item is not None))
+        return v
+
     class Config:
         populate_by_name = True
         json_encoders = {ObjectId: str}
@@ -74,6 +99,13 @@ class TransactionBase(BaseModel):
     status: Literal["pending", "confirmed", "failed"] = Field(default="confirmed")
     notes: Optional[str] = None
 
+    @field_validator("studentId", "paymentId", "sessionId", mode="before")
+    @classmethod
+    def convert_ids(cls, v):
+        if isinstance(v, ObjectId):
+            return str(v)
+        return str(v) if v is not None else v
+
 
 class TransactionCreate(TransactionBase):
     """Model for recording a payment transaction"""
@@ -87,6 +119,14 @@ class Transaction(TransactionBase):
     verifiedBy: Optional[str] = Field(None, description="Admin who verified payment")
     verifiedAt: Optional[datetime] = None
 
+    @field_validator("id", mode="before")
+    @classmethod
+    def convert_id(cls, v):
+        if isinstance(v, ObjectId):
+            return str(v)
+        return str(v) if v is not None else v
+
     class Config:
         populate_by_name = True
         json_encoders = {ObjectId: str}
+

@@ -71,6 +71,30 @@ def fire_and_forget(coro):
     return task
 
 
+def _cors_headers(request: Request) -> dict:
+    """Return CORS headers matching allowed origins so error responses never fail CORS in browsers."""
+    origin = request.headers.get("origin")
+    if not origin:
+        return {}
+    
+    import re
+    if origin in [
+        "https://www.iesaui.org",
+        "https://iesaui.org",
+        "https://iesa-seven.vercel.app",
+        "https://iesa-ui-zzyme.ondigitalocean.app",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ] or re.match(r"^https://([a-z0-9-]+\.)*iesaui\.org$", origin):
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        }
+    return {}
+
+
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     """Handle FastAPI HTTP exceptions"""
     return JSONResponse(
@@ -81,7 +105,8 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
                 "status_code": exc.status_code,
                 "type": "http_error"
             }
-        }
+        },
+        headers=_cors_headers(request),
     )
 
 
@@ -109,7 +134,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
                 "type": "validation_error",
                 "details": errors
             }
-        }
+        },
+        headers=_cors_headers(request),
     )
 
 
@@ -139,7 +165,8 @@ async def mongodb_exception_handler(request: Request, exc: PyMongoError):
                     "type": "duplicate_error",
                     "field": field
                 }
-            }
+            },
+            headers=_cors_headers(request),
         )
     
     else:
@@ -154,7 +181,8 @@ async def mongodb_exception_handler(request: Request, exc: PyMongoError):
                     "status_code": 500,
                     "type": "database_error"
                 }
-            }
+            },
+            headers=_cors_headers(request),
         )
 
 
@@ -171,7 +199,8 @@ async def invalid_id_exception_handler(request: Request, exc: InvalidId):
                 "status_code": 400,
                 "type": "invalid_id_error"
             }
-        }
+        },
+        headers=_cors_headers(request),
     )
 
 
@@ -189,7 +218,8 @@ async def iesa_exception_handler(request: Request, exc: IESAException):
                 "type": "application_error",
                 **exc.details
             }
-        }
+        },
+        headers=_cors_headers(request),
     )
 
 
@@ -222,7 +252,8 @@ async def generic_exception_handler(request: Request, exc: Exception):
                 "type": "internal_error",
                 **details
             }
-        }
+        },
+        headers=_cors_headers(request),
     )
 
 
