@@ -71,22 +71,28 @@ async def delete_profile_picture(user_id: str) -> bool:
 
 async def upload_transfer_receipt(file_data: bytes, transfer_id: str, file_extension: str = "jpg") -> Optional[str]:
     """
-    Upload a bank transfer receipt image to Cloudinary (async, non-blocking).
+    Upload a bank transfer receipt (image or PDF) to Cloudinary (async, non-blocking).
     """
     try:
         loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(None, lambda: _sync_upload(
-            file_data,
-            folder="iesa/transfer_receipts",
-            public_id=f"transfer_{transfer_id}",
-            overwrite=True,
-            resource_type="image",
-            transformation=[
-                {"width": 1200, "height": 1600, "crop": "limit"},
+        ext = file_extension.lower().lstrip(".")
+        is_pdf = ext == "pdf"
+        resource_type = "raw" if is_pdf else "image"
+
+        upload_kwargs = {
+            "folder": "iesa/transfer_receipts",
+            "public_id": f"transfer_{transfer_id}",
+            "overwrite": True,
+            "resource_type": resource_type,
+        }
+        if not is_pdf:
+            upload_kwargs["transformation"] = [
+                {"width": 1600, "height": 1600, "crop": "limit"},
                 {"quality": "auto:good"},
                 {"fetch_format": "auto"}
             ]
-        ))
+
+        result = await loop.run_in_executor(None, lambda: _sync_upload(file_data, **upload_kwargs))
         return result.get("secure_url")
     except Exception as e:
         print(f"Error uploading transfer receipt to Cloudinary: {str(e)}")

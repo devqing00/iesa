@@ -350,22 +350,30 @@ async def upload_receipt_image(
             raise HTTPException(status_code=403, detail="Not authorized")
 
         stage = "validate_type"
-        allowed_types = ["image/jpeg", "image/png", "image/webp", "image/jpg"]
-        if file.content_type not in allowed_types:
-            raise HTTPException(status_code=400, detail="Only JPEG, PNG, and WebP images are allowed")
+        ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else ""
+        allowed_types = {
+            "image/jpeg", "image/png", "image/webp", "image/jpg",
+            "image/heic", "image/heif", "application/pdf"
+        }
+        allowed_extensions = {"jpg", "jpeg", "png", "webp", "heic", "heif", "pdf"}
+        if file.content_type not in allowed_types and ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=400,
+                detail="Only JPEG, PNG, WebP, HEIC images and PDF documents are allowed"
+            )
 
         stage = "read_file"
         file_data = await file.read()
         file_size = len(file_data)
 
         stage = "validate_size"
-        if file_size > 5 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="File too large. Maximum size is 5MB.")
+        if file_size > 10 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB.")
 
         stage = "upload"
         from app.utils.cloudinary_config import upload_transfer_receipt
-        ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "jpg"
-        image_url = await upload_transfer_receipt(file_data, transfer_id, ext)
+        file_ext = ext if ext in allowed_extensions else ("pdf" if file.content_type == "application/pdf" else "jpg")
+        image_url = await upload_transfer_receipt(file_data, transfer_id, file_ext)
 
         if not image_url:
             raise HTTPException(status_code=500, detail="Failed to upload image")
@@ -383,6 +391,41 @@ async def upload_receipt_image(
     except Exception as exc:
         await _log_receipt_upload_issue(500, str(exc))
         raise HTTPException(status_code=500, detail="Failed to upload image")
+
+
+@router.delete("/{transfer_id}")
+async def cancel_pending_transfer(
+    transfer_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Cancel or rollback a pending bank transfer proof submission.
+    Allowed only if the transfer belongs to the current student and status is 'pending'.
+    """
+    db = get_database()
+    user_id = current_user.get("uid") or current_user.get("_id")
+
+    if not ObjectId.is_valid(transfer_id):
+        raise HTTPException(status_code=400, detail="Invalid transfer ID format")
+
+    transfer = await db.bankTransfers.find_one({"_id": ObjectId(transfer_id)})
+    if not transfer:
+        raise HTTPException(status_code=404, detail="Transfer not found")
+
+    user_role = current_user.get("role", "")
+    is_owner = transfer.get("studentId") == user_id
+    if not is_owner and user_role not in ("admin", "superadmin"):
+        raise HTTPException(status_code=403, detail="Not authorized to cancel this transfer")
+
+    if transfer.get("status") != "pending":
+        raise HTTPException(
+            status_code=400,
+            detail="Only pending transfers can be cancelled"
+        )
+
+    await db.bankTransfers.delete_one({"_id": ObjectId(transfer_id)})
+    return {"message": "Transfer submission cancelled successfully"}
+
 
 
 @router.get("/my")

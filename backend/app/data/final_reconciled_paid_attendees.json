@@ -207,6 +207,19 @@
     "phone": "09134387706"
   },
   {
+    "source": "paid_direct_db",
+    "_id": "6a0b6ed04439b436e3b53f43",
+    "raw_name": "Fadeelat Abdul-Azeez",
+    "display_name": "Fadeelat Abdul-Azeez",
+    "salutation": "Fadeelat",
+    "email": "delahazeez23@gmail.com",
+    "matric_display": "251106",
+    "department": "Industrial Engineering",
+    "has_receipt": true,
+    "receipt_url": "Direct Payment Verified",
+    "in_db": true
+  },
+  {
     "source": "website",
     "_id": "69b5cf0cf5e02c6de5ccb6c9",
     "raw_name": "Faithful Olinmah",
@@ -464,6 +477,19 @@
     "department": "IPE",
     "has_receipt": true,
     "receipt_url": "Website Payment (Verified)",
+    "in_db": true
+  },
+  {
+    "source": "paid_direct_db",
+    "_id": "69b93e9efcc560f66403c265",
+    "raw_name": "Afolabi Olaniyi Daniel",
+    "display_name": "Olaniyi Afolabi",
+    "salutation": "Olaniyi",
+    "email": "oafolabi244024@stu.ui.edu.ng",
+    "matric_display": "244024",
+    "department": "Industrial Engineering",
+    "has_receipt": true,
+    "receipt_url": "Direct Payment Verified",
     "in_db": true
   },
   {

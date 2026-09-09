@@ -392,12 +392,28 @@
       "message_id": "ecb3e3b0-90f3-43ca-848c-b02363d2f414",
       "sent_at": "2026-09-09T20:01:05.793548+00:00",
       "source": "form_unconfirmed_approved"
+    },
+    "delahazeez23@gmail.com": {
+      "name": "Fadeelat Abdul-Azeez",
+      "matric": "251106",
+      "student_id": "6a0b6ed04439b436e3b53f43",
+      "message_id": "08b26d7a-d0be-451c-8fba-ea1858e5d295",
+      "sent_at": "2026-09-09T22:18:36.653770+00:00",
+      "source": "paid_direct_db"
+    },
+    "oafolabi244024@stu.ui.edu.ng": {
+      "name": "Olaniyi Afolabi",
+      "matric": "244024",
+      "student_id": "69b93e9efcc560f66403c265",
+      "message_id": "4bf010df-2c6e-4012-9b54-0072380f4a4c",
+      "sent_at": "2026-09-09T22:18:47.524443+00:00",
+      "source": "paid_direct_db"
     }
   },
   "failed": {},
   "stats": {
     "total_attendees": 48,
-    "total_delivered": 49,
-    "last_run": "2026-09-09T20:01:05.793548+00:00"
+    "total_delivered": 51,
+    "last_run": "2026-09-09T22:18:49.620758+00:00"
   }
 }

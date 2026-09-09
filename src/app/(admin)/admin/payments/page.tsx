@@ -101,6 +101,11 @@ function transactionStatusBadge(status: string) {
   }
 }
 
+function isPdfUrl(url?: string | null): boolean {
+  if (!url) return false;
+  return url.toLowerCase().includes(".pdf") || url.toLowerCase().includes("/raw/upload/");
+}
+
 /* ─── Component ──────────────────────────── */
 
 function AdminPaymentsPage() {
@@ -1519,9 +1524,22 @@ function AdminPaymentsPage() {
                             <div className="flex items-center gap-2">
                               <span className="font-mono text-xs px-2 py-1 rounded-lg bg-cloud border-[2px] border-navy/20 text-navy">{transfer.transactionReference}</span>
                               {transfer.receiptImageUrl && (
-                                <button onClick={(e) => { e.stopPropagation(); setPreviewImage(transfer.receiptImageUrl!); }} title="View receipt image" className="hover:opacity-70 transition-opacity">
-                                  <svg aria-hidden="true" className="w-4 h-4 text-teal" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
-                                </button>
+                                isPdfUrl(transfer.receiptImageUrl) ? (
+                                  <a
+                                    href={transfer.receiptImageUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    title="Open PDF receipt"
+                                    className="p-1 rounded-lg bg-coral/10 hover:bg-coral/20 text-coral transition-colors flex items-center justify-center"
+                                  >
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 9V3.5L18.5 8H14v1z"/></svg>
+                                  </a>
+                                ) : (
+                                  <button onClick={(e) => { e.stopPropagation(); setPreviewImage(transfer.receiptImageUrl!); }} title="View receipt image" className="hover:opacity-70 transition-opacity">
+                                    <svg aria-hidden="true" className="w-4 h-4 text-teal" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+                                  </button>
+                                )
                               )}
                             </div>
                           </td>
@@ -1901,14 +1919,34 @@ function AdminPaymentsPage() {
               )}
               {reviewingTransfer.receiptImageUrl && (
                 <div className="pt-2 border-t-2 border-navy/10 mt-2">
-                  <span className="text-xs text-navy/50 uppercase font-bold tracking-wider block mb-2">Receipt Image</span>
-                  <button onClick={() => setPreviewImage(reviewingTransfer.receiptImageUrl!)} className="block w-full">
-                    <img
-                      src={reviewingTransfer.receiptImageUrl}
-                      alt="Transfer receipt"
-                      className="w-full max-h-64 object-contain border-[3px] border-navy/10 rounded-xl bg-ghost cursor-pointer hover:border-navy/30 transition-colors"
-                    />
-                  </button>
+                  <span className="text-xs text-navy/50 uppercase font-bold tracking-wider block mb-2">Receipt Document</span>
+                  {isPdfUrl(reviewingTransfer.receiptImageUrl) ? (
+                    <a
+                      href={reviewingTransfer.receiptImageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between gap-3 p-4 bg-coral/10 border-[3px] border-coral/30 rounded-xl hover:bg-coral/20 transition-colors group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-coral/20 flex items-center justify-center text-coral">
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 9V3.5L18.5 8H14v1z"/></svg>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-navy">PDF Bank Receipt</p>
+                          <p className="text-xs text-navy/50">Click to open document in new tab</p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold text-coral group-hover:underline">Open PDF →</span>
+                    </a>
+                  ) : (
+                    <button onClick={() => setPreviewImage(reviewingTransfer.receiptImageUrl!)} className="block w-full">
+                      <img
+                        src={reviewingTransfer.receiptImageUrl}
+                        alt="Transfer receipt"
+                        className="w-full max-h-64 object-contain border-[3px] border-navy/10 rounded-xl bg-ghost cursor-pointer hover:border-navy/30 transition-colors"
+                      />
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -2118,14 +2156,34 @@ function AdminPaymentsPage() {
               )}
               {selectedTransfer.receiptImageUrl && (
                 <div className="pt-2 border-t-2 border-navy/10 mt-2">
-                  <span className="text-xs text-navy/50 uppercase font-bold tracking-wider block mb-2">Receipt Image</span>
-                  <button onClick={() => setPreviewImage(selectedTransfer.receiptImageUrl!)} className="block w-full">
-                    <img
-                      src={selectedTransfer.receiptImageUrl}
-                      alt="Transfer receipt"
-                      className="w-full max-h-64 object-contain border-[3px] border-navy/10 rounded-xl bg-snow cursor-pointer hover:border-navy/30 transition-colors"
-                    />
-                  </button>
+                  <span className="text-xs text-navy/50 uppercase font-bold tracking-wider block mb-2">Receipt Document</span>
+                  {isPdfUrl(selectedTransfer.receiptImageUrl) ? (
+                    <a
+                      href={selectedTransfer.receiptImageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between gap-3 p-4 bg-coral/10 border-[3px] border-coral/30 rounded-xl hover:bg-coral/20 transition-colors group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-coral/20 flex items-center justify-center text-coral">
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 9V3.5L18.5 8H14v1z"/></svg>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-navy">PDF Bank Receipt</p>
+                          <p className="text-xs text-navy/50">Click to open document in new tab</p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold text-coral group-hover:underline">Open PDF →</span>
+                    </a>
+                  ) : (
+                    <button onClick={() => setPreviewImage(selectedTransfer.receiptImageUrl!)} className="block w-full">
+                      <img
+                        src={selectedTransfer.receiptImageUrl}
+                        alt="Transfer receipt"
+                        className="w-full max-h-64 object-contain border-[3px] border-navy/10 rounded-xl bg-snow cursor-pointer hover:border-navy/30 transition-colors"
+                      />
+                    </button>
+                  )}
                 </div>
               )}
             </div>

@@ -12,6 +12,7 @@ import {
   NIGERIAN_BANKS,
   BankAccount,
 } from "@/lib/api";
+import { processReceiptFile } from "@/lib/utils/receipt-processor";
 import { toast } from "sonner";
 import { HelpButton, ToolHelpModal, useToolHelp } from "@/components/ui/ToolHelpModal";
 import FullScreenLoader from "@/components/ui/FullScreenLoader";
@@ -230,6 +231,10 @@ function EventsPage() {
   const [unregisterConfirmEventId, setUnregisterConfirmEventId] = useState<string | null>(null);
   const [receiptImage, setReceiptImage] = useState<File | null>(null);
   const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
+  const [receiptIsPdf, setReceiptIsPdf] = useState(false);
+  const [receiptFileSize, setReceiptFileSize] = useState<string | null>(null);
+  const [receiptProcessing, setReceiptProcessing] = useState(false);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
   const [ticketModalEvent, setTicketModalEvent] = useState<Event | null>(null);
   // Platform settings
   const [onlinePaymentEnabled, setOnlinePaymentEnabled] = useState(true);
@@ -256,14 +261,53 @@ function EventsPage() {
   }, []);
 
   useEffect(() => {
-    if (!receiptImage) {
+    return () => {
+      if (receiptPreviewUrl) {
+        URL.revokeObjectURL(receiptPreviewUrl);
+      }
+    };
+  }, [receiptPreviewUrl]);
+
+  const handleReceiptSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    if (receiptPreviewUrl) {
+      URL.revokeObjectURL(receiptPreviewUrl);
       setReceiptPreviewUrl(null);
-      return;
     }
-    const url = URL.createObjectURL(receiptImage);
-    setReceiptPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [receiptImage]);
+    setReceiptError(null);
+    setReceiptProcessing(true);
+
+    try {
+      const processed = await processReceiptFile(file);
+      setReceiptImage(processed.file);
+      setReceiptPreviewUrl(processed.previewUrl);
+      setReceiptIsPdf(processed.isPdf);
+      setReceiptFileSize(processed.sizeFormatted);
+      toast.success(processed.isPdf ? "PDF Receipt Attached" : "Receipt Image Processed", {
+        description: `${processed.name} (${processed.sizeFormatted})`,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to process receipt file";
+      setReceiptError(msg);
+      toast.error("File Error", { description: msg });
+    } finally {
+      setReceiptProcessing(false);
+    }
+  };
+
+  const handleRemoveReceipt = () => {
+    if (receiptPreviewUrl) {
+      URL.revokeObjectURL(receiptPreviewUrl);
+    }
+    setReceiptImage(null);
+    setReceiptPreviewUrl(null);
+    setReceiptIsPdf(false);
+    setReceiptFileSize(null);
+    setReceiptError(null);
+  };
 
   // Download receipt PDF
   const downloadReceipt = async (reference: string) => {
@@ -654,18 +698,27 @@ function EventsPage() {
         body: formData,
       });
       if (!uploadRes.ok) {
-        let uploadMessage = "Failed to upload receipt screenshot";
+        let uploadMessage = "Failed to upload receipt";
         try {
           const uploadError = await uploadRes.json();
           uploadMessage = uploadError?.detail || uploadMessage;
         } catch {
           // Keep default message
         }
+        // Rollback orphaned transfer so user is not stuck in pending
+        try {
+          await fetch(getApiUrl(`/api/v1/bank-transfers/${result._id}`), {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        } catch {
+          // Ignore rollback error
+        }
         throw new Error(uploadMessage);
       }
 
       toast.success("Transfer Submitted", { description: "Your bank transfer proof has been submitted for admin review." });
-      setReceiptImage(null);
+      handleRemoveReceipt();
       setBankTransferEvent(null);
       setPendingTransfers(prev => new Set([...prev, bankTransferEvent.id]));
       await fetchEvents();
@@ -1837,59 +1890,82 @@ function EventsPage() {
                 )}
               </div>
 
-              {/* Receipt Image (Required) */}
+              {/* Receipt Upload (Required) */}
               <div>
-                <label className="text-label text-navy/60 mb-2 block">Receipt Screenshot <span className="text-coral">(required)</span></label>
-                {receiptImage ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 bg-teal-light border-[3px] border-teal/30 rounded-xl px-4 py-3">
-                      <svg aria-hidden="true" className="w-5 h-5 text-teal shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
-                      <span className="text-body font-medium text-sm text-navy truncate flex-1">{receiptImage.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => setReceiptImage(null)}
-                        aria-label="Remove receipt image"
-                        className="w-6 h-6 rounded-lg bg-coral/20 hover:bg-coral/40 flex items-center justify-center transition-colors shrink-0"
-                      >
-                        <svg aria-hidden="true" className="w-3.5 h-3.5 text-coral" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    </div>
-                    {receiptPreviewUrl && (
-                      <div className="bg-ghost border-[2px] border-cloud rounded-xl p-2">
-                        <img
-                          src={receiptPreviewUrl}
-                          alt="Receipt preview"
-                          className="w-full max-h-48 object-contain rounded-lg bg-snow"
-                        />
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <label className="flex items-center gap-3 bg-ghost border-[3px] border-dashed border-navy/20 rounded-xl px-4 py-4 cursor-pointer hover:border-navy/40 hover:bg-cloud transition-colors">
-                    <svg aria-hidden="true" className="w-6 h-6 text-navy/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                    <div>
-                      <span className="text-body font-bold text-sm text-navy/60">Upload receipt screenshot</span>
-                      <span className="block text-body text-xs text-navy/30 mt-0.5">JPEG, PNG or WebP — max 5MB</span>
-                    </div>
-                    <input
-                      type="file"
-                      title="Upload receipt screenshot"
-                      aria-label="Upload receipt screenshot"
-                      accept="image/jpeg,image/png,image/webp"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          if (file.size > 5 * 1024 * 1024) {
-                            toast.error("File Too Large", { description: "Receipt image must be under 5MB" });
-                            return;
-                          }
-                          setReceiptImage(file);
-                        }
-                      }}
-                    />
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-label text-navy/60">
+                    Transfer Receipt <span className="text-coral">(required)</span>
                   </label>
-                )}
+                  <span className="text-body text-xs text-navy/40">Images & PDF supported</span>
+                </div>
+
+                <div className="relative">
+                  {receiptProcessing ? (
+                    <div className="flex items-center justify-center gap-3 bg-ghost border-[3px] border-navy/20 rounded-xl px-4 py-8">
+                      <div className="w-5 h-5 border-[3px] border-navy border-t-transparent rounded-full animate-spin" />
+                      <span className="text-body font-bold text-sm text-navy/70">Processing receipt...</span>
+                    </div>
+                  ) : receiptImage ? (
+                    <div className="space-y-3">
+                      <div className={`flex items-center gap-3 border-[3px] rounded-xl px-4 py-3 ${receiptIsPdf ? "bg-coral/10 border-coral/30" : "bg-teal-light border-teal/30"}`}>
+                        {receiptIsPdf ? (
+                          <svg aria-hidden="true" className="w-5 h-5 text-coral shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 9V3.5L18.5 8H14v1z"/></svg>
+                        ) : (
+                          <svg aria-hidden="true" className="w-5 h-5 text-teal shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 2h14v9.586l-3.293-3.293a1 1 0 00-1.414 0L11 14.586l-2.293-2.293a1 1 0 00-1.414 0L5 14.586V5zm4 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-body font-bold text-sm text-navy truncate">{receiptImage.name}</p>
+                          <p className="text-body text-xs text-navy/40 font-mono">{receiptFileSize || (receiptIsPdf ? "PDF Document" : "Image")}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleRemoveReceipt}
+                          aria-label="Remove receipt"
+                          className="w-7 h-7 rounded-lg bg-coral/20 hover:bg-coral/40 flex items-center justify-center transition-colors shrink-0"
+                        >
+                          <svg aria-hidden="true" className="w-3.5 h-3.5 text-coral" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                      {receiptPreviewUrl && !receiptIsPdf && (
+                        <div className="bg-ghost border-[2px] border-cloud rounded-xl p-2">
+                          <img
+                            src={receiptPreviewUrl}
+                            alt="Receipt preview"
+                            className="w-full max-h-48 object-contain rounded-lg bg-snow"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="relative flex items-center gap-3 bg-ghost border-[3px] border-dashed border-navy/20 rounded-xl px-4 py-4 hover:border-navy/40 hover:bg-cloud transition-colors cursor-pointer group">
+                      <input
+                        type="file"
+                        title="Upload receipt proof"
+                        aria-label="Upload receipt proof"
+                        accept="image/*,.heic,.heif,application/pdf,.pdf"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        onClick={(e) => {
+                          (e.target as HTMLInputElement).value = "";
+                        }}
+                        onChange={handleReceiptSelect}
+                      />
+                      <div className="w-10 h-10 rounded-xl bg-navy/5 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <svg aria-hidden="true" className="w-5 h-5 text-navy/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-body font-bold text-sm text-navy/70 block">Upload receipt proof</span>
+                        <span className="block text-body text-xs text-navy/40 mt-0.5">JPG, PNG, HEIC, or PDF from bank app</span>
+                      </div>
+                      <span className="text-body text-xs font-bold text-navy/50 px-2.5 py-1 bg-navy/5 rounded-lg shrink-0">Browse</span>
+                    </div>
+                  )}
+                  {receiptError && (
+                    <p className="text-body text-xs text-coral font-medium mt-1.5 flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/></svg>
+                      {receiptError}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Transfer Date */}
@@ -1919,13 +1995,13 @@ function EventsPage() {
               {/* Actions */}
               <div className="flex gap-3 pt-2">
                 <button
-                  onClick={() => { setBankTransferEvent(null); setReceiptImage(null); }}
+                  onClick={() => { setBankTransferEvent(null); handleRemoveReceipt(); }}
                   className="flex-1 py-3 border-[3px] border-navy text-navy rounded-2xl font-display font-bold text-sm hover:bg-cloud transition-colors"
                 >
                   Cancel
                 </button>
                 <button onClick={handleBankTransferSubmit}
-                  disabled={transferSubmitting || bankAccounts.length === 0 || !!refExistsError || !receiptImage}
+                  disabled={transferSubmitting || receiptProcessing || bankAccounts.length === 0 || !!refExistsError || !receiptImage}
                   className="flex-1 py-3 bg-lime border-[3px] border-navy rounded-2xl text-body font-bold text-sm text-navy press-3 press-navy disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {transferSubmitting ? (
@@ -1933,6 +2009,8 @@ function EventsPage() {
                       <div className="w-4 h-4 border-[2px] border-navy border-t-transparent rounded-full animate-spin" />
                       Submitting…
                     </>
+                  ) : receiptProcessing ? (
+                    "Processing..."
                   ) : (
                     "Review & Submit"
                   )}
@@ -1974,7 +2052,7 @@ function EventsPage() {
                   <span className="text-body font-medium text-sm text-navy text-right">{value}</span>
                 </div>
               ))}
-              {receiptPreviewUrl && (
+              {receiptPreviewUrl && !receiptIsPdf && (
                 <div className="pt-3">
                   <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-navy-muted mb-2">Receipt Preview</p>
                   <div className="bg-ghost border-[2px] border-cloud rounded-2xl p-2">
@@ -1983,6 +2061,20 @@ function EventsPage() {
                       alt="Receipt preview"
                       className="w-full max-h-56 object-contain rounded-xl bg-snow"
                     />
+                  </div>
+                </div>
+              )}
+              {receiptIsPdf && (
+                <div className="pt-3">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-navy-muted mb-2">Attached Receipt</p>
+                  <div className="flex items-center gap-3 bg-coral/10 border-[2px] border-coral/30 rounded-2xl p-3">
+                    <div className="w-10 h-10 rounded-xl bg-coral/20 flex items-center justify-center shrink-0">
+                      <svg className="w-5 h-5 text-coral" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zM14 9V3.5L18.5 8H14v1z"/></svg>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-body font-bold text-sm text-navy truncate">{receiptImage?.name}</p>
+                      <p className="text-body text-xs text-navy/50 font-mono">{receiptFileSize || "PDF Document"}</p>
+                    </div>
                   </div>
                 </div>
               )}
